@@ -105,6 +105,23 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
         expect(nested_server['capabilities']).to eq('allow_network' => true)
       end
 
+      # IMP-bf72723ef161 — same reasoning as allow_network above:
+      # egress_allowlist is read from server['capabilities']['egress_allowlist']
+      # by Mcp::McpTransportClient#execute_stdio_tool (via this SAME nested
+      # server payload), so without egress_allowlist here too, the worker
+      # can never learn which destinations a server's allowlist actually
+      # names.
+      it "also exposes egress_allowlist on the nested server's capabilities" do
+        mcp_server.update!(capabilities: { 'egress_allowlist' => [ '10.0.0.0/8' ] })
+
+        get "/api/v1/internal/mcp_tool_executions/#{mcp_tool_execution.id}",
+            headers: internal_headers,
+            as: :json
+
+        nested_server = json_response_data['mcp_tool_execution']['mcp_tool']['mcp_server']
+        expect(nested_server['capabilities']).to eq('egress_allowlist' => [ '10.0.0.0/8' ])
+      end
+
       it 'includes execution parameters and result' do
         get "/api/v1/internal/mcp_tool_executions/#{mcp_tool_execution.id}",
             headers: internal_headers,

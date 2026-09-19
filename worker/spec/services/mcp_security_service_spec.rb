@@ -1199,12 +1199,68 @@ RSpec.describe McpSecurityService do
         expect(spawn_env).to eq('PATH' => ENV['PATH'].to_s)
       end
 
-      it 'omits IPAddressDeny entirely when allow_network is true' do
+      it 'omits the full-deny IPAddressDeny=any when allow_network is true' do
+        allow(described_class).to receive(:resolver_stub_addresses).and_return([])
+        allow(described_class).to receive(:host_own_addresses).and_return([])
+
         _, _, spawn_args = described_class.send(
           :sandboxed_spawn_argv, 'node', [], env: {}, unit_name: 'u',
           env_file_path: env_file_path, timeout: 30, allow_network: true
         )
         expect(spawn_args).not_to include('IPAddressDeny=any')
+      end
+
+      # IMP-bf72723ef161 review — the ORIGINAL allow_network=true path
+      # omitted ALL IP filtering, leaving every loopback service on the
+      # host (and the cloud metadata address) reachable. Stubs
+      # #resolver_stub_addresses for determinism (the real method reads
+      # this machine's own /etc/resolv.conf).
+      it 'denies loopback/link-local/metadata/host addresses but allows the resolver stub when allow_network is true' do
+        allow(described_class).to receive(:resolver_stub_addresses).and_return([ '127.0.0.53' ])
+        allow(described_class).to receive(:host_own_addresses).and_return([ '10.0.0.5', '::1' ])
+
+        _, _, spawn_args = described_class.send(
+          :sandboxed_spawn_argv, 'node', [], env: {}, unit_name: 'u',
+          env_file_path: env_file_path, timeout: 30, allow_network: true
+        )
+
+        expect(spawn_args).to include(
+          'RestrictAddressFamilies=AF_INET AF_INET6', 'IPAddressDeny=localhost', 'IPAddressDeny=link-local',
+          "IPAddressDeny=#{described_class::EGRESS_METADATA_ADDRESS}/32", 'IPAddressAllow=127.0.0.53'
+        )
+        # IMP-bf72723ef161 review round 2 fix 4 — every host_own_addresses
+        # entry gets its own IPAddressDeny, same as the generic tokens.
+        expect(spawn_args).to include('IPAddressDeny=10.0.0.5', 'IPAddressDeny=::1')
+      end
+
+      # IMP-bf72723ef161 — the deny-except-allowlist branch: PrivateNetwork
+      # must NEVER be set here (confirmed empirically it isolates DNS
+      # entirely), RestrictAddressFamilies closes the AF_UNIX gap that
+      # leaves, and IPAddressAllow carries the resolver stub PLUS every
+      # resolved, non-forbidden entry from egress_allowlist.
+      it 'builds a deny-except-allowlist policy, never PrivateNetwork, when egress_allowlist is present' do
+        allow(described_class).to receive(:resolver_stub_addresses).and_return([ '127.0.0.53' ])
+
+        _, _, spawn_args = described_class.send(
+          :sandboxed_spawn_argv, 'node', [], env: {}, unit_name: 'u',
+          env_file_path: env_file_path, timeout: 30, allow_network: false,
+          egress_allowlist: [ '10.0.0.0/8' ]
+        )
+
+        expect(spawn_args).to include(
+          'RestrictAddressFamilies=AF_INET AF_INET6', 'IPAddressAllow=127.0.0.53',
+          'IPAddressAllow=10.0.0.0/8', 'IPAddressDeny=any'
+        )
+        expect(spawn_args).not_to include('PrivateNetwork=yes')
+      end
+
+      it 'still sets PrivateNetwork=yes for the plain full-deny path (no allow_network, no allowlist)' do
+        _, _, spawn_args = described_class.send(
+          :sandboxed_spawn_argv, 'node', [], env: {}, unit_name: 'u',
+          env_file_path: env_file_path, timeout: 30, allow_network: false
+        )
+        expect(spawn_args).to include('IPAddressDeny=any', 'PrivateNetwork=yes')
+        expect(spawn_args).not_to include('RestrictAddressFamilies=AF_INET AF_INET6')
       end
 
       it 'never puts server-supplied env (e.g. an API key) on --setenv — only this process\'s own passthrough keys' do
@@ -1225,6 +1281,239 @@ RSpec.describe McpSecurityService do
         )
         expect(spawn_args).to include("--setenv=HOME=/var/cache/#{described_class::SANDBOX_CACHE_DIR_NAME}")
         expect(spawn_args.join(' ')).not_to include('--setenv=HOME=/home/worker')
+      end
+    end
+
+    # IMP-bf72723ef161
+    describe '#resolver_stub_addresses' do
+      it 'extracts nameserver IPs from /etc/resolv.conf' do
+        resolv_conf = <<~RESOLV
+          # comment line, ignored
+          nameserver 127.0.0.53
+          options edns0 trust-ad
+          search example.com
+        RESOLV
+        allow(File).to receive(:readlines).with('/etc/resolv.conf').and_return(resolv_conf.lines)
+
+        expect(described_class.send(:resolver_stub_addresses)).to eq([ '127.0.0.53' ])
+      end
+
+      it 'returns every nameserver line, not just the first' do
+        resolv_conf = "nameserver 127.0.0.53\nnameserver 192.0.2.10\n"
+        allow(File).to receive(:readlines).with('/etc/resolv.conf').and_return(resolv_conf.lines)
+
+        expect(described_class.send(:resolver_stub_addresses)).to eq([ '127.0.0.53', '192.0.2.10' ])
+      end
+
+      it 'returns an empty array when /etc/resolv.conf does not exist' do
+        allow(File).to receive(:readlines).with('/etc/resolv.conf').and_raise(Errno::ENOENT)
+
+        expect(described_class.send(:resolver_stub_addresses)).to eq([])
+      end
+
+      # IMP-bf72723ef161 review round 2 fix 1 — a zone-scoped address
+      # ("fe80::1%eth0") passed straight to `-p IPAddressAllow=` fails the
+      # WHOLE unit to start (confirmed empirically), so every zone suffix
+      # must be stripped before it ever reaches argv construction.
+      it 'strips a %zone suffix from a link-local nameserver' do
+        resolv_conf = "nameserver fe80::1%eth0\n"
+        allow(File).to receive(:readlines).with('/etc/resolv.conf').and_return(resolv_conf.lines)
+
+        expect(described_class.send(:resolver_stub_addresses)).to eq([ 'fe80::1' ])
+      end
+
+      it 'drops (with a WARN) a nameserver value that does not parse as an IP even after stripping a zone' do
+        resolv_conf = "nameserver not-an-ip\n"
+        allow(File).to receive(:readlines).with('/etc/resolv.conf').and_return(resolv_conf.lines)
+        logger_double = instance_double(Logger, warn: nil)
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        expect(described_class.send(:resolver_stub_addresses)).to eq([])
+        expect(logger_double).to have_received(:warn).with(/not-an-ip.*dropped/)
+      end
+    end
+
+    # IMP-bf72723ef161 review round 2 fix 4
+    describe '#host_own_addresses' do
+      it "returns every address from Socket.ip_address_list, every family, nothing excluded" do
+        addr1 = instance_double(Addrinfo, ip_address: '10.0.0.5')
+        addr2 = instance_double(Addrinfo, ip_address: '::1')
+        allow(Socket).to receive(:ip_address_list).and_return([ addr1, addr2 ])
+
+        expect(described_class.send(:host_own_addresses)).to eq([ '10.0.0.5', '::1' ])
+      end
+
+      it 'strips a %zone suffix from a link-local interface address' do
+        addr = instance_double(Addrinfo, ip_address: 'fe80::1%eth0')
+        allow(Socket).to receive(:ip_address_list).and_return([ addr ])
+
+        expect(described_class.send(:host_own_addresses)).to eq([ 'fe80::1' ])
+      end
+
+      it 'logs a WARN and returns an empty array if enumeration itself fails' do
+        allow(Socket).to receive(:ip_address_list).and_raise(StandardError, 'boom')
+        logger_double = instance_double(Logger, warn: nil)
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        expect(described_class.send(:host_own_addresses)).to eq([])
+        expect(logger_double).to have_received(:warn).with(/boom/)
+      end
+    end
+
+    # IMP-bf72723ef161 review amendment 2 (DNS rebinding / SSRF)
+    describe '#resolve_egress_allowlist' do
+      it 'keeps a literal IP/CIDR entry that is not forbidden' do
+        expect(described_class.send(:resolve_egress_allowlist, [ '10.0.0.0/8', '93.184.216.34' ]))
+          .to match_array([ '10.0.0.0/8', '93.184.216.34' ])
+      end
+
+      it 'drops a literal entry inside a forbidden range and logs a WARN' do
+        logger_double = instance_double(Logger, warn: nil)
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        expect(described_class.send(:resolve_egress_allowlist, [ '169.254.169.254' ])).to eq([])
+        expect(logger_double).to have_received(:warn).with(/169\.254\.169\.254.*forbidden range/)
+      end
+
+      it 'resolves a hostname entry (fresh, via Resolv) and keeps its non-forbidden IPs' do
+        allow(Resolv).to receive(:getaddresses).with('api.example.com').and_return([ '93.184.216.34' ])
+
+        expect(described_class.send(:resolve_egress_allowlist, [ 'api.example.com' ])).to eq([ '93.184.216.34' ])
+      end
+
+      it "drops a resolved IP that falls in a forbidden range (DNS rebinding) and logs a WARN — never adds it" do
+        allow(Resolv).to receive(:getaddresses).with('rebound.example.com').and_return([ '169.254.169.254' ])
+        logger_double = instance_double(Logger, warn: nil)
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        expect(described_class.send(:resolve_egress_allowlist, [ 'rebound.example.com' ])).to eq([])
+        expect(logger_double).to have_received(:warn).with(/rebound\.example\.com.*resolved to forbidden IP/)
+      end
+
+      it 'keeps the safe IPs and drops only the forbidden ones when a hostname resolves to a mix' do
+        allow(Resolv).to receive(:getaddresses).with('mixed.example.com')
+                                                .and_return([ '93.184.216.34', '127.0.0.1' ])
+
+        expect(described_class.send(:resolve_egress_allowlist, [ 'mixed.example.com' ])).to eq([ '93.184.216.34' ])
+      end
+
+      it 'logs a WARN when a hostname resolves to no addresses at all, without raising' do
+        allow(Resolv).to receive(:getaddresses).with('nowhere.example.com').and_return([])
+        logger_double = instance_double(Logger, warn: nil)
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        expect { described_class.send(:resolve_egress_allowlist, [ 'nowhere.example.com' ]) }.not_to raise_error
+        expect(logger_double).to have_received(:warn).with(/nowhere\.example\.com.*resolved to no addresses/)
+      end
+
+      it 'swallows a Resolv error, logs a WARN, and treats it as zero addresses' do
+        allow(Resolv).to receive(:getaddresses).with('errors.example.com').and_raise(Resolv::ResolvTimeout)
+        logger_double = instance_double(Logger, warn: nil)
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        expect { described_class.send(:resolve_egress_allowlist, [ 'errors.example.com' ]) }.not_to raise_error
+        expect(logger_double).to have_received(:warn).with(/errors\.example\.com.*failed to resolve/)
+      end
+
+      it 'deduplicates the final resolved set' do
+        allow(Resolv).to receive(:getaddresses).with('dup.example.com').and_return([ '93.184.216.34' ])
+
+        expect(described_class.send(:resolve_egress_allowlist, [ '93.184.216.34', 'dup.example.com' ]))
+          .to eq([ '93.184.216.34' ])
+      end
+
+      # IMP-bf72723ef161 review round 2 fix 3 — a numeric/hex pseudo-IP
+      # entry is dropped OUTRIGHT, never attempted as a hostname
+      # resolution at all — Resolv.getaddresses must not even be called.
+      it 'drops a numeric/hex pseudo-IP entry without attempting to resolve it, and logs a WARN' do
+        expect(Resolv).not_to receive(:getaddresses)
+        logger_double = instance_double(Logger, warn: nil)
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        expect(described_class.send(:resolve_egress_allowlist, [ '2130706433' ])).to eq([])
+        expect(logger_double).to have_received(:warn).with(/2130706433.*pseudo-IP/)
+      end
+
+      it 'keeps an IPv4-mapped IPv6 literal of an ordinary public IP but drops one naming loopback' do
+        expect(described_class.send(:resolve_egress_allowlist, [ '::ffff:93.184.216.34' ]))
+          .to eq([ '::ffff:93.184.216.34' ])
+        expect(described_class.send(:resolve_egress_allowlist, [ '::ffff:127.0.0.1' ])).to eq([])
+      end
+    end
+
+    # IMP-bf72723ef161
+    describe '#egress_ip_forbidden?' do
+      it 'is true for loopback, link-local and the metadata address' do
+        %w[127.0.0.1 169.254.1.1 169.254.169.254 ::1 fe80::1].each do |ip|
+          expect(described_class.send(:egress_ip_forbidden?, IPAddr.new(ip))).to be(true), "expected #{ip} forbidden"
+        end
+      end
+
+      it 'is false for an ordinary public IP' do
+        expect(described_class.send(:egress_ip_forbidden?, IPAddr.new('93.184.216.34'))).to be(false)
+      end
+
+      # IMP-bf72723ef161 review round 2 fix 2 — an IPv4-mapped IPv6
+      # literal is a real, working way to NAME an IPv4 address; without
+      # normalizing to its native form first, ::ffff:127.0.0.1 and
+      # ::ffff:169.254.169.254 never match the plain IPv4 CIDRs in
+      # EGRESS_FORBIDDEN_RANGES (cross-family #include? is always false).
+      it 'is true for an IPv4-mapped IPv6 loopback or metadata address' do
+        %w[::ffff:127.0.0.1 ::ffff:169.254.169.254].each do |ip|
+          expect(described_class.send(:egress_ip_forbidden?, IPAddr.new(ip))).to be(true),
+                                                                                  "expected #{ip} forbidden"
+        end
+      end
+
+      it 'is false for an IPv4-mapped IPv6 form of an ordinary public IP' do
+        expect(described_class.send(:egress_ip_forbidden?, IPAddr.new('::ffff:93.184.216.34'))).to be(false)
+      end
+    end
+
+    # IMP-bf72723ef161 review round 2 fix 3
+    describe '#egress_entry_looks_like_pseudo_ip?' do
+      it 'is true for numeric/octal/hex pseudo-IP forms' do
+        %w[2130706433 127.1 0177.0.0.1 0x7f.0.0.1 0x7f000001].each do |entry|
+          expect(described_class.send(:egress_entry_looks_like_pseudo_ip?, entry)).to be(true),
+                                                                                       "expected #{entry} to look like a pseudo-IP"
+        end
+      end
+
+      it 'is false for a real-looking hostname' do
+        expect(described_class.send(:egress_entry_looks_like_pseudo_ip?, 'api.example.com')).to be(false)
+      end
+
+      it 'is false for a hostname with a leading numeric label (e.g. NTP pool style)' do
+        expect(described_class.send(:egress_entry_looks_like_pseudo_ip?, '1.pool.example.com')).to be(false)
+      end
+    end
+
+    # IMP-bf72723ef161 review — the effective allow set is logged at INFO;
+    # server id and resolved IPs only, never env.
+    describe '#network_policy_argv logging' do
+      it 'logs the server id and effective allow ips at INFO for the allowlist mode' do
+        allow(described_class).to receive(:resolver_stub_addresses).and_return([ '127.0.0.53' ])
+        logger_double = instance_double(Logger, info: nil)
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        described_class.send(:network_policy_argv, allow_network: false, egress_allowlist: [ '10.0.0.0/8' ],
+                                                     mcp_server_id: 'server-123')
+
+        expect(logger_double).to have_received(:info)
+          .with(/server="server-123".*mode=deny_except_allowlist.*127\.0\.0\.53.*10\.0\.0\.0\/8/)
+      end
+
+      it 'never includes env values in the logged line' do
+        allow(described_class).to receive(:resolver_stub_addresses).and_return([ '127.0.0.53' ])
+        logged_lines = []
+        logger_double = instance_double(Logger, info: nil)
+        allow(logger_double).to receive(:info) { |msg| logged_lines << msg }
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        described_class.send(:network_policy_argv, allow_network: false, egress_allowlist: [ '10.0.0.0/8' ],
+                                                     mcp_server_id: 'server-123')
+
+        expect(logged_lines.join).not_to match(/env|secret|token/i)
       end
     end
 
@@ -1533,54 +1822,90 @@ RSpec.describe McpSecurityService do
         File.delete(script_path) if script_path && File.exist?(script_path)
       end
 
-      it 'blocks network by default and allows it when allow_network: true' do
+      it 'blocks network by default, denies loopback/link-local/metadata/host addresses, and allows a non-host LAN address when allow_network: true' do
         require 'socket'
-        # A raw TCPServer, not a web-framework dependency: accepts exactly
-        # one connection per #accept call and writes a minimal literal
-        # HTTP response — enough to prove reachability, nothing more.
-        tcp_server = TCPServer.new('127.0.0.1', 0)
-        port = tcp_server.addr[1]
-        server_thread = Thread.new do
-          loop do
-            client = tcp_server.accept
-            client.write("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
-            client.close
-          rescue IOError, Errno::EBADF
-            break
-          end
+        # IMP-bf72723ef161 review round 2 fix 4 — the target for the
+        # "denied while sandboxed" side is THIS HOST'S OWN LAN address:
+        # #host_own_addresses now denies every address Socket.ip_address_list
+        # reports for this host (so a service bound to 0.0.0.0, e.g.
+        # worker-web/Puma, isn't reachable via the host's own LAN IP even
+        # under allow_network: true) — a plain full-deny probe against
+        # 127.0.0.1 alone would no longer distinguish "denied by default"
+        # from "denied because it's a host address", so this targets the
+        # host's own NON-loopback address specifically.
+        own_lan_ip = Socket.ip_address_list.find { |addr| addr.ipv4? && !addr.ipv4_loopback? }&.ip_address
+        skip 'no non-loopback IPv4 address on this host to target' unless own_lan_ip
+
+        own_lan_server = TCPServer.new(own_lan_ip, 0)
+        own_lan_port = own_lan_server.addr[1]
+        own_lan_thread = Thread.new do
+          client = own_lan_server.accept
+          client.write('SHOULD-NOT-BE-REACHABLE')
+          client.close
+        rescue IOError, Errno::EBADF
+          nil
         end
 
-        # IPAddressDeny=any DROPS packets at the kernel level rather than
-        # refusing the connection outright (confirmed empirically: a bare
-        # `curl --max-time Ns` against it burns the FULL Ns, not an
-        # instant ECONNREFUSED) — Node's http.get has no default connect
-        # timeout, so an explicit one is required or the denied case
-        # would hang until the OS's own SYN-retry exhaustion (60s+),
-        # blowing #spawn_stdio's own deadline first.
-        script_path = write_probe_script(<<~JS)
-          const req = require('http').get('http://127.0.0.1:#{port}/', res => {
-            console.log('REACHED status=' + res.statusCode);
-            res.resume(); // drain the body — otherwise the socket stays
-                          // half-open and the process never exits on its own.
-          });
-          req.on('error', e => console.log('BLOCKED ' + e.message));
-          req.setTimeout(2000, () => { console.log('BLOCKED timeout'); req.destroy(); });
-        JS
+        other_loopback = TCPServer.new('127.0.0.1', 0)
+        loopback_port = other_loopback.addr[1]
+
+        # A REAL, already-running, non-host LAN service (this dev cell's
+        # own upstream DNS forwarder) — discovered at runtime, never
+        # hardcoded (deployment-local fact), from systemd-resolved's own
+        # dynamic upstream config (NOT /etc/resolv.conf, which points at
+        # the local 127.0.0.53 stub). Used so this test doesn't need to
+        # spin up its own listener to prove "a non-host LAN address stays
+        # reachable" — binding one would necessarily BE a host address,
+        # which fix 4 now denies regardless.
+        upstream_line = File.readlines('/run/systemd/resolve/resolv.conf')
+                             .find { |l| l.start_with?('nameserver') }
+        upstream_ip = upstream_line&.split&.last
+        skip 'no upstream nameserver discoverable to use as a non-host reachable target' unless upstream_ip
+        skip 'discovered upstream nameserver is this host itself' if upstream_ip == own_lan_ip
+
+        script_path = write_probe_script(<<~PY)
+          import socket, subprocess
+
+          def try_connect(host, port, label, timeout=2):
+              s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+              s.settimeout(timeout)
+              try:
+                  s.connect((host, port))
+                  print(label + ': REACHED')
+              except Exception as e:
+                  print(label + ': BLOCKED ' + repr(e))
+
+          try_connect(#{own_lan_ip.inspect}, #{own_lan_port}, 'FULL_DENY')
+          try_connect(#{own_lan_ip.inspect}, #{own_lan_port}, 'HOST_OWN_ADDRESS')
+          try_connect('127.0.0.1', #{loopback_port}, 'OTHER_LOOPBACK')
+          try_connect(#{upstream_ip.inspect}, 53, 'NON_HOST_LAN')
+          r = subprocess.run(['getent', 'hosts', 'example.com'], capture_output=True, text=True, timeout=3)
+          print('DNS: ' + ('OK' if r.returncode == 0 else 'FAILED'))
+        PY
 
         with_sandbox_mode('required') do
-          command, env, args = described_class.validate_stdio_server!('command' => 'node', 'args' => [ script_path ])
+          command, env, args = described_class.validate_stdio_server!('command' => 'python3', 'args' => [ script_path ])
 
+          # allow_network: false (the default) — full deny, unrelated to
+          # this test's OWN address specifically.
           denied_stdout, = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15,
                                                                              allow_network: false)
-          expect(denied_stdout).to include('BLOCKED')
+          expect(denied_stdout).to include('FULL_DENY: BLOCKED')
 
+          # allow_network: true — loopback, this host's OWN address, and
+          # the metadata range are denied; a genuinely non-host LAN
+          # address and DNS both keep working.
           allowed_stdout, = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15,
                                                                               allow_network: true)
-          expect(allowed_stdout).to include('REACHED status=200')
+          expect(allowed_stdout).to include('HOST_OWN_ADDRESS: BLOCKED')
+          expect(allowed_stdout).to include('OTHER_LOOPBACK: BLOCKED')
+          expect(allowed_stdout).to include('NON_HOST_LAN: REACHED')
+          expect(allowed_stdout).to include('DNS: OK')
         end
       ensure
-        tcp_server&.close
-        server_thread&.join(2)
+        own_lan_server&.close
+        other_loopback&.close
+        own_lan_thread&.join(2)
         File.delete(script_path) if script_path && File.exist?(script_path)
       end
 
@@ -1600,6 +1925,87 @@ RSpec.describe McpSecurityService do
       ensure
         File.delete(script_path) if script_path && File.exist?(script_path)
         FileUtils.rm_f(File.join(sandbox_probe_dir, 'probe-write.txt'))
+      end
+
+      # IMP-bf72723ef161 — proves the whole deny-except-allowlist path end
+      # to end against a REAL systemd-run sandbox: a hostname entry
+      # resolves (Resolv is stubbed here, not systemd — resolution happens
+      # in THIS worker process, before the spawn, not inside the sandbox)
+      # to this host's own LAN-reachable address and stays reachable, a
+      # DIFFERENT non-allowlisted address stays blocked, AF_UNIX is
+      # blocked once RestrictAddressFamilies applies (the gap
+      # PrivateNetwork=yes would otherwise close but can't be used here —
+      # it isolates DNS entirely), and DNS itself keeps working (the
+      # resolver stub is always implicitly allowed).
+      it 'allows a resolved hostname entry, blocks a non-listed address, blocks AF_UNIX, and keeps DNS working' do
+        require 'socket'
+
+        lan_ip = Socket.ip_address_list.find { |addr| addr.ipv4? && !addr.ipv4_loopback? }&.ip_address
+        skip 'no non-loopback IPv4 address on this host to use as an allowlisted stand-in destination' unless lan_ip
+
+        allowed_server = TCPServer.new(lan_ip, 0)
+        allowed_port = allowed_server.addr[1]
+        allowed_thread = Thread.new do
+          client = allowed_server.accept
+          client.write('ALLOWED-OK')
+          client.close
+        rescue IOError, Errno::EBADF
+          nil
+        end
+
+        denied_server = TCPServer.new('127.0.0.1', 0)
+        denied_port = denied_server.addr[1]
+
+        # Python, not Node, for this probe: synchronous socket calls make
+        # the AF_UNIX check unambiguous (a raw socket.socket(AF_UNIX, ...)
+        # either succeeds or raises immediately — no async error-event
+        # plumbing to get wrong). python3 is on ALLOWED_COMMANDS the same
+        # as node.
+        script_path = write_probe_script(<<~PY)
+          import socket, subprocess
+
+          r = subprocess.run(['getent', 'hosts', 'example.com'], capture_output=True, text=True, timeout=3)
+          print('DNS: ' + ('OK' if r.returncode == 0 else 'FAILED'))
+
+          def try_connect(host, port, label):
+              s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+              s.settimeout(2)
+              try:
+                  s.connect((host, port))
+                  print(label + ': REACHED ' + s.recv(100).decode())
+              except Exception as e:
+                  print(label + ': BLOCKED ' + repr(e))
+
+          try_connect(#{lan_ip.inspect}, #{allowed_port}, 'ALLOWED')
+          try_connect('127.0.0.1', #{denied_port}, 'DENIED')
+
+          try:
+              socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+              print('AF_UNIX: REACHED')
+          except OSError as e:
+              print('AF_UNIX: BLOCKED ' + repr(e))
+        PY
+
+        allow(Resolv).to receive(:getaddresses).with('allowed.example.test').and_return([ lan_ip ])
+
+        with_sandbox_mode('required') do
+          command, env, args = described_class.validate_stdio_server!('command' => 'python3', 'args' => [ script_path ])
+          stdout, stderr, status = described_class.spawn_stdio(
+            command, env, args, stdin_data: '', timeout: 15,
+                                 egress_allowlist: [ 'allowed.example.test' ]
+          )
+
+          expect(status).to be_success, "python3 child failed: #{stderr}"
+          expect(stdout).to include('DNS: OK')
+          expect(stdout).to include('ALLOWED: REACHED')
+          expect(stdout).to include('DENIED: BLOCKED')
+          expect(stdout).to include('AF_UNIX: BLOCKED')
+        end
+      ensure
+        allowed_server&.close
+        denied_server&.close
+        allowed_thread&.join(2)
+        File.delete(script_path) if script_path && File.exist?(script_path)
       end
 
       # IMP-a50680fd53d8 review blocker 2 — proves the double-quote +

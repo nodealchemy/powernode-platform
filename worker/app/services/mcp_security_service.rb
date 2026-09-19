@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 require 'shellwords'
+require 'ipaddr'
+require 'resolv'
+require 'socket'
 
 # Service for MCP security hardening in worker
 # Provides command whitelist validation and environment sanitization
@@ -287,6 +290,48 @@ class McpSecurityService
   # protects against a value that itself contains a newline. See
   # #write_sandbox_env_file / #format_sandbox_env_file_line.
   SANDBOX_ENV_FILE_KEY_PATTERN = /\A[A-Za-z_][A-Za-z0-9_]*\z/
+
+  # IMP-bf72723ef161 — ranges an egress_allowlist entry, or a hostname
+  # entry's RESOLVED IP, must never be allowed to name. Same list as
+  # McpServer::FORBIDDEN_EGRESS_RANGES (server/app/models/mcp_server.rb) —
+  # duplicated deliberately (defense in depth, not a shared gem): the
+  # SERVER validates literal entries at save time, but a hostname's
+  # resolved IP can only be checked HERE, at spawn time, because DNS
+  # rebinding means a hostname validated safe when it was saved can
+  # resolve to something forbidden by the time it's actually used. Both
+  # literal entries AND resolved hostname IPs are re-checked here
+  # uniformly — never trust the server-side check alone for something
+  # this security-relevant (see #resolve_egress_allowlist).
+  EGRESS_FORBIDDEN_RANGES = %w[
+    0.0.0.0/8
+    127.0.0.0/8
+    169.254.0.0/16
+    169.254.169.254/32
+    ::/128
+    ::1/128
+    fe80::/10
+  ].freeze
+
+  # IMP-bf72723ef161 review amendment 3 — the well-known cloud-metadata
+  # SSRF target (AWS/GCP/Azure instance metadata service), explicitly
+  # denied on the allow_network=true path even though it's already
+  # covered by the broader 169.254.0.0/16 EGRESS_FORBIDDEN_RANGES entry —
+  # named separately here because #network_policy_argv's allow_network=true
+  # branch builds its IPAddressDeny list from systemd's own "link-local"
+  # TOKEN (verified empirically to expand to 169.254.0.0/16 + fe80::/64,
+  # NOT the full fe80::/10), not from EGRESS_FORBIDDEN_RANGES, so this
+  # address needs its own explicit deny entry in that specific path.
+  EGRESS_METADATA_ADDRESS = '169.254.169.254'
+
+  # IMP-bf72723ef161 review round 2 fix 3 — matches numeric/octal/hex
+  # "pseudo-IP" forms IPAddr itself refuses to parse strictly (e.g.
+  # "2130706433", "127.1", "0177.0.0.1", "0x7f.0.0.1", "0x7f000001"), but
+  # that a vulnerable getaddrinfo/URL-parsing implementation downstream
+  # may still accept and resolve as a real IP — a well-known SSRF bypass
+  # for evading a naive string-based IP check. Same list/logic as
+  # McpServer::EGRESS_NUMERIC_PSEUDO_IP_FORMAT (server/app/models/mcp_server.rb)
+  # — duplicated deliberately, same reasoning as EGRESS_FORBIDDEN_RANGES.
+  EGRESS_NUMERIC_PSEUDO_IP_FORMAT = /\A(0x[0-9a-fA-F]+|[0-9]+)(\.(0x[0-9a-fA-F]+|[0-9]+)){0,3}\z/
 
   # IMP-97b6b1185748: validate_command! only ever checked the *command*
   # string. server['args'] reached Open3.capture3 completely unchecked, so
@@ -865,7 +910,8 @@ class McpSecurityService
     # @return [Array(String, String, Process::Status)] [stdout, stderr, status]
     # @raise [StdioTimeoutError] if the child doesn't finish within `timeout`
     # @raise [SandboxUnavailableError] if mode is "required" and sandboxing isn't possible
-    def spawn_stdio(command, env, args, stdin_data:, timeout: stdio_timeout_seconds, allow_network: false)
+    def spawn_stdio(command, env, args, stdin_data:, timeout: stdio_timeout_seconds, allow_network: false,
+                     egress_allowlist: [], mcp_server_id: nil)
       require 'open3'
 
       sandboxed = sandbox_for_this_call?
@@ -897,7 +943,8 @@ class McpSecurityService
         spawn_env, spawn_command, spawn_args =
           if sandboxed
             sandboxed_spawn_argv(command, args, env: env, unit_name: unit_name, env_file_path: env_file_path,
-                                                timeout: timeout, allow_network: allow_network)
+                                                timeout: timeout, allow_network: allow_network,
+                                                egress_allowlist: egress_allowlist, mcp_server_id: mcp_server_id)
           else
             [ env, command, Array(args) ]
           end
@@ -1085,7 +1132,8 @@ class McpSecurityService
     # sent via the EnvironmentFile at env_file_path, written by the
     # caller) because ONLY the split matters for where each half is
     # allowed to go — see #spawn_stdio's own comment for why.
-    def sandboxed_spawn_argv(command, args, env:, unit_name:, env_file_path:, timeout:, allow_network:)
+    def sandboxed_spawn_argv(command, args, env:, unit_name:, env_file_path:, timeout:, allow_network:,
+                              egress_allowlist: [], mcp_server_id: nil)
       passthrough = env.slice(*STDIO_ENV_PASSTHROUGH_KEYS).except('HOME')
 
       argv = [
@@ -1112,18 +1160,8 @@ class McpSecurityService
         '-p', "CacheDirectory=#{SANDBOX_CACHE_DIR_NAME}",
         '-p', "EnvironmentFile=#{env_file_path}"
       ]
-      # IMP-a50680fd53d8 review blocker 5 — IPAddressDeny=any only filters
-      # AF_INET/AF_INET6; it does NOT block AF_UNIX (verified against
-      # systemd's own docs for IPAddressDeny/IPAddressAllow, which are
-      # scoped to sockaddr_in/in6 families only). PrivateNetwork=yes gives
-      # the unit its own network namespace (loopback only, no external
-      # interface reachable) as a second, independent layer — kept
-      # alongside IPAddressDeny rather than replacing it, since the two
-      # cover different attack surfaces. Neither is set when allow_network
-      # is true.
-      unless allow_network
-        argv += [ '-p', 'IPAddressDeny=any', '-p', 'PrivateNetwork=yes' ]
-      end
+      argv += network_policy_argv(allow_network: allow_network, egress_allowlist: egress_allowlist,
+                                   mcp_server_id: mcp_server_id)
       passthrough.each { |key, value| argv += [ "--setenv=#{key}=#{value}" ] }
       argv += [ "--setenv=HOME=/var/cache/#{SANDBOX_CACHE_DIR_NAME}" ]
       argv += [ '--', command, *Array(args) ]
@@ -1135,6 +1173,287 @@ class McpSecurityService
       # root), for no benefit: the client only needs enough PATH to
       # exist; systemd-run's argv0 here is already an absolute path.
       [ { 'PATH' => ENV['PATH'].to_s }, argv.first, argv.drop(1) ]
+    end
+
+    # IMP-bf72723ef161 — the property set that governs a sandboxed spawn's
+    # network reach. THREE mutually exclusive modes (allow_network=true +
+    # a non-empty egress_allowlist together is refused server-side at save
+    # time — see McpServer's own validation — so if both somehow reached
+    # here anyway, the narrower allowlist branch wins, since it's checked
+    # first):
+    #
+    # 1. egress_allowlist present: PrivateNetwork is NEVER set for this
+    #    mode — confirmed empirically that it isolates the unit into its
+    #    OWN network namespace with only a disconnected loopback, no route
+    #    to the host's DNS resolver at all (a real `getent hosts` inside
+    #    it failed outright). RestrictAddressFamilies=AF_INET AF_INET6
+    #    closes the AF_UNIX gap that leaves open (confirmed: without it, a
+    #    plain AF_UNIX socket() call succeeds; with it, EAFNOSUPPORT).
+    #    IPAddressAllow = the resolver stub address(es) (see
+    #    #resolver_stub_addresses — NOT all of "localhost": that would
+    #    expose every OTHER loopback service on the host) plus every
+    #    resolved, non-forbidden IP from the allowlist itself (see
+    #    #resolve_egress_allowlist). IPAddressDeny=any last.
+    #
+    # 2. allow_network true (IMP-bf72723ef161 review — closes a gap in the
+    #    ORIGINAL IMP-a50680fd53d8 allow_network=true path, which omitted
+    #    ALL IP filtering: the child could reach every loopback service on
+    #    the host and the cloud metadata IP). Confirmed empirically:
+    #    IPAddressDeny=localhost + link-local + the metadata /32, PLUS
+    #    IPAddressAllow=<resolver stub>, lets DNS through (systemd's
+    #    ALLOW-WINS-OVER-DENY precedence) while a DIFFERENT loopback
+    #    listener stays blocked, the metadata address stays blocked, and a
+    #    non-loopback, non-link-local address (standing in for "the rest
+    #    of the internet" — this dev cell has no real egress to test
+    #    against) stays reachable. `link-local` is systemd's own TOKEN
+    #    (confirmed to expand to 169.254.0.0/16 + fe80::/64) — narrower
+    #    than EGRESS_FORBIDDEN_RANGES' fe80::/10, which is why
+    #    EGRESS_METADATA_ADDRESS is still named explicitly here rather
+    #    than assumed covered. Review round 2 fix 4 additionally denies
+    #    every address THIS HOST ITSELF has (#host_own_addresses) — a
+    #    service bound to 0.0.0.0 (worker-web/Puma, a local Ollama or
+    #    Postgres, ...) is reachable via the host's own LAN IP
+    #    specifically, which none of the generic ranges above name.
+    #
+    # 3. Neither: unchanged full deny (PrivateNetwork=yes + IPAddressDeny=any).
+    #
+    # SYSTEMD ARGV QUIRK, verified empirically and load-bearing for the
+    # shape below: a systemd-run transient property SPECIAL TOKEN
+    # (localhost/link-local/any/multicast) fails to parse ("Failed to
+    # parse IP address prefix: localhost") the moment it shares a single
+    # space-separated `-p Prop=...` VALUE with anything else — even a
+    # SECOND special token. Plain literal IPs/CIDRs CAN be space-joined in
+    # one value, but to sidestep this bug uniformly (rather than special-
+    # casing tokens vs literals), every entry below — token or literal —
+    # gets its OWN `-p` flag; repeated `-p IPAddressAllow=`/`IPAddressDeny=`
+    # flags ACCUMULATE (confirmed via `systemctl show`), they don't
+    # overwrite each other.
+    def network_policy_argv(allow_network:, egress_allowlist:, mcp_server_id:)
+      if egress_allowlist.present?
+        effective_ips = (resolver_stub_addresses + resolve_egress_allowlist(egress_allowlist)).uniq
+        log_egress_network_policy(mcp_server_id, 'deny_except_allowlist', effective_ips)
+
+        [
+          '-p', 'RestrictAddressFamilies=AF_INET AF_INET6',
+          *effective_ips.flat_map { |ip| [ '-p', "IPAddressAllow=#{ip}" ] },
+          '-p', 'IPAddressDeny=any'
+        ]
+      elsif allow_network
+        effective_ips = resolver_stub_addresses
+        # IMP-bf72723ef161 review round 2 fix 4 — the generic
+        # localhost/link-local/metadata deny above does NOT cover a
+        # service bound to 0.0.0.0 (worker-web, Puma, a local Ollama or
+        # Postgres, ...): those are ALSO reachable via THIS HOST'S OWN
+        # LAN/other interface addresses specifically, which no generic
+        # range names. Every address this host actually has
+        # (Socket.ip_address_list, every family, nothing excluded — a
+        # loopback/link-local entry here is a harmless duplicate of the
+        # tokens above) is denied too. #host_own_addresses strips any
+        # %zone suffix the same way #resolver_stub_addresses does (same
+        # parse-failure risk — see that method's own comment).
+        host_addresses = host_own_addresses
+        log_egress_network_policy(mcp_server_id, 'allow_network_with_loopback_deny', effective_ips)
+
+        [
+          '-p', 'RestrictAddressFamilies=AF_INET AF_INET6',
+          '-p', 'IPAddressDeny=localhost',
+          '-p', 'IPAddressDeny=link-local',
+          '-p', "IPAddressDeny=#{EGRESS_METADATA_ADDRESS}/32",
+          *host_addresses.flat_map { |ip| [ '-p', "IPAddressDeny=#{ip}" ] },
+          *effective_ips.flat_map { |ip| [ '-p', "IPAddressAllow=#{ip}" ] }
+        ]
+      else
+        log_egress_network_policy(mcp_server_id, 'full_deny', [])
+
+        [ '-p', 'IPAddressDeny=any', '-p', 'PrivateNetwork=yes' ]
+      end
+    end
+
+    # IMP-bf72723ef161 review — logged at spawn time so an operator can
+    # diagnose "this server can't reach X" without systemd itself being
+    # able to say WHICH destination was blocked (IPAddressDeny/Allow are
+    # unlogged eBPF packet drops by design — confirmed empirically that
+    # not even IPAccounting=yes reliably surfaces per-unit traffic counts
+    # for a short-lived transient unit, and even a working counter
+    # wouldn't be per-destination). Server id and the resolved IPs only —
+    # never the env (which may carry secrets).
+    def log_egress_network_policy(mcp_server_id, mode, effective_ips)
+      logger.info(
+        "[McpSecurityService] stdio spawn network policy server=#{mcp_server_id.inspect} " \
+        "mode=#{mode} effective_allow_ips=#{effective_ips.inspect}"
+      )
+    end
+
+    # IMP-bf72723ef161 amendment 1 — deliberately NOT "localhost"
+    # (127.0.0.0/8): that would expose every OTHER loopback service on
+    # this host (Redis, Postgres, worker-web, Rails, the local MCP proxy)
+    # to a sandboxed child whose only legitimate need is to reach the DNS
+    # resolver. Read fresh from /etc/resolv.conf at spawn time (never
+    # cached) — confirmed empirically that only the STUB hop
+    # (127.0.0.53 on this host) needs to cross the sandbox boundary at
+    # all: the stub resolver does the real upstream query itself as an
+    # unsandboxed HOST process, so a real hostname resolved fine inside a
+    # sandbox that allowed ONLY the stub IP, with no upstream nameserver
+    # IP in the allow set at all. If resolv.conf ever points at a
+    # non-loopback upstream directly, this allows THAT address instead —
+    # nothing here is loopback-specific, only "whatever this host's
+    # resolver actually is".
+    #
+    # IMP-bf72723ef161 review round 2 fix 1 — a nameserver line CAN carry
+    # a link-local address with a zone suffix (e.g. "fe80::1%eth0"); a
+    # bare zone strip alone isn't enough, so each candidate is also
+    # re-parsed with IPAddr and dropped (with a WARN) if it doesn't parse
+    # at all — a malformed resolv.conf line must never propagate into a
+    # `-p IPAddressAllow=` value (see #parse_ip_for_deny_allow for why a
+    # parse failure there fails the WHOLE unit, not just this one entry).
+    # A link-local nameserver needs NO handling beyond the zone strip:
+    # IPAddressAllow/Deny match on address BYTES only (confirmed
+    # empirically — it is not a routing decision), so a scope-less
+    # link-local address is an unambiguous, correct match rule here even
+    # though it would be an ambiguous ROUTE on a multi-interface host.
+    def resolver_stub_addresses
+      File.readlines('/etc/resolv.conf').filter_map do |line|
+        match = line.match(/\Anameserver\s+(\S+)/)
+        match && parse_ip_for_deny_allow(match[1])
+      end
+    rescue Errno::ENOENT
+      []
+    end
+
+    # IMP-bf72723ef161 review round 2 fix 4 — every address THIS HOST
+    # itself has, across every family, nothing excluded (a loopback/
+    # link-local entry here is a harmless duplicate of the generic tokens
+    # #network_policy_argv already denies). Read fresh at spawn time,
+    # never cached, same reasoning as #resolver_stub_addresses. Zone
+    # suffixes stripped the same way (a real interface address, e.g.
+    # "fe80::1%eth0", would otherwise fail the WHOLE unit to start — see
+    # #parse_ip_for_deny_allow).
+    def host_own_addresses
+      Socket.ip_address_list.filter_map { |addr| parse_ip_for_deny_allow(addr.ip_address) }
+    rescue StandardError => e
+      logger.warn("[McpSecurityService] failed to enumerate host addresses for IPAddressDeny: #{e.class}: #{e.message}")
+      []
+    end
+
+    # IMP-bf72723ef161 review round 2 fix 1 — confirmed empirically that
+    # systemd-run's IPAddressAllow/Deny properties REJECT a zone-scoped
+    # address outright ("Failed to parse IP address prefix:
+    # fe80::...%eth0") — not a silently-ignored value, a hard parse error
+    # that fails the ENTIRE unit, meaning every sandboxed spawn on that
+    # host would fail closed the moment an unstripped zone reached here
+    # (from either #resolver_stub_addresses or #host_own_addresses).
+    # Stripped, never rejected outright for carrying one — re-confirmed
+    # via the same probe that a zone-stripped link-local address still
+    # parses and matches correctly. Anything that still doesn't parse as
+    # an IPAddr after stripping is dropped (WARN), never passed through.
+    def parse_ip_for_deny_allow(raw)
+      candidate = raw.to_s.split('%').first
+      IPAddr.new(candidate)
+      candidate
+    rescue IPAddr::Error
+      logger.warn("[McpSecurityService] #{raw} does not parse as an IP — dropped from IPAddressAllow/Deny")
+      nil
+    end
+
+    # IMP-bf72723ef161 review amendment 2 (DNS rebinding / SSRF) — resolves
+    # every egress_allowlist entry to the concrete IPs #network_policy_argv
+    # actually passes to IPAddressAllow, filtering out anything in
+    # EGRESS_FORBIDDEN_RANGES along the way. This re-checks LITERAL
+    # IP/CIDR entries too, not just resolved hostnames, even though the
+    # server already validates literal entries at save time — never trust
+    # a single validation layer for something this security-relevant (the
+    # same reasoning IMP-abda86fb39be established for the worker-side
+    # stdio validator being mandatory regardless of the server's own
+    # checks). Each dropped entry/IP is logged at WARN; never raises — a
+    # bad or now-forbidden entry is dropped from the effective set, not a
+    # spawn failure.
+    def resolve_egress_allowlist(entries)
+      Array(entries).each_with_object([]) do |entry, resolved|
+        entry_s = entry.to_s
+
+        begin
+          ipaddr = IPAddr.new(entry_s)
+          if egress_ip_forbidden?(ipaddr)
+            logger.warn("[McpSecurityService] egress_allowlist entry #{entry_s} is within a forbidden range — dropped")
+          else
+            resolved << entry_s
+          end
+        rescue IPAddr::Error
+          # IMP-bf72723ef161 review round 2 fix 3 — a numeric/hex
+          # pseudo-IP form (IPAddr just refused to parse it strictly
+          # above) is dropped outright, NEVER attempted as a hostname
+          # resolution — the server already refuses these at save time
+          # (see McpServer's own validation), but the worker never trusts
+          # that alone (same reasoning as EGRESS_FORBIDDEN_RANGES).
+          if egress_entry_looks_like_pseudo_ip?(entry_s)
+            logger.warn("[McpSecurityService] egress_allowlist entry #{entry_s} looks like a numeric/hex " \
+                        'pseudo-IP form, not a real hostname — dropped, not resolved')
+          else
+            resolve_egress_hostname(entry_s, resolved)
+          end
+        end
+      end.uniq
+    end
+
+    # See McpServer::EGRESS_NUMERIC_PSEUDO_IP_FORMAT's own comment for the
+    # full reasoning — duplicated here, not shared, same as
+    # EGRESS_FORBIDDEN_RANGES. No real DNS TLD is ever purely numeric, so
+    # an all-numeric FINAL LABEL alone is already a safe, general reject;
+    # EGRESS_NUMERIC_PSEUDO_IP_FORMAT additionally catches a single-label
+    # all-hex/all-octal form whose final "label" isn't purely decimal
+    # digits (e.g. "0x7f000001").
+    def egress_entry_looks_like_pseudo_ip?(entry_s)
+      return true if entry_s.split('.').last&.match?(/\A[0-9]+\z/)
+
+      entry_s.match?(EGRESS_NUMERIC_PSEUDO_IP_FORMAT)
+    end
+
+    # Hostnames are resolved FRESH on every spawn, never cached — this
+    # bounds staleness to a single run, and is the ONLY way DNS REBINDING
+    # is caught at all: a hostname the server validated as safe when it
+    # was SAVED can resolve to something forbidden by the time it's
+    # actually used here.
+    def resolve_egress_hostname(hostname, resolved)
+      ips = begin
+        Resolv.getaddresses(hostname)
+      rescue StandardError => e
+        logger.warn("[McpSecurityService] egress_allowlist hostname #{hostname} failed to resolve: #{e.class}: #{e.message}")
+        []
+      end
+
+      logger.warn("[McpSecurityService] egress_allowlist hostname #{hostname} resolved to no addresses") if ips.empty?
+
+      ips.each do |ip_s|
+        ip = IPAddr.new(ip_s)
+        if egress_ip_forbidden?(ip)
+          logger.warn("[McpSecurityService] egress_allowlist hostname #{hostname} resolved to forbidden IP #{ip_s} — dropped")
+        else
+          resolved << ip_s
+        end
+      end
+    end
+
+    # Bidirectional #include? check: catches both a NARROW ip landing
+    # inside a broad forbidden range (the common case, e.g. 169.254.169.254
+    # inside 169.254.0.0/16) and a broad CIDR that would swallow a
+    # forbidden range whole. Cross-family comparisons (v4 vs v6) return
+    # false rather than raising — verified empirically.
+    #
+    # IMP-bf72723ef161 review round 2 fix 2 — normalized to its native
+    # IPv4 form FIRST when the address is IPv4-mapped IPv6
+    # (::ffff:127.0.0.1, ::ffff:169.254.169.254, ...): EGRESS_FORBIDDEN_RANGES
+    # lists 127.0.0.0/8 and 169.254.0.0/16 as plain IPv4 CIDRs, which
+    # never match an IPv6-family address directly (cross-family #include?
+    # is always false — confirmed empirically) regardless of the address
+    # the mapped form actually represents. Without this, an IPv4-mapped
+    # form was a working bypass around every IPv4 entry in this list.
+    def egress_ip_forbidden?(ipaddr)
+      ipaddr = ipaddr.ipv4_mapped? ? ipaddr.native : ipaddr
+
+      EGRESS_FORBIDDEN_RANGES.any? do |cidr|
+        forbidden = IPAddr.new(cidr)
+        forbidden.include?(ipaddr) || ipaddr.include?(forbidden)
+      end
     end
 
     def sandbox_memory_max

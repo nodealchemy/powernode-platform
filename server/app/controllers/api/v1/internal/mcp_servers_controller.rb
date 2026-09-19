@@ -17,7 +17,7 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
   # normal reconnect (which only ever reports the handshake's own
   # tools/resources/prompts/logging/serverInfo) can never silently erase
   # them either. See #update.
-  OPERATOR_ONLY_CAPABILITY_KEYS = %w[allow_network allow_extended_commands strict_environment config].freeze
+  OPERATOR_ONLY_CAPABILITY_KEYS = %w[allow_network egress_allowlist allow_extended_commands strict_environment config].freeze
 
   # GET /api/v1/internal/mcp_servers
   def index

@@ -100,6 +100,119 @@ RSpec.describe McpServer, type: :model do
         expect(server).to be_valid
       end
     end
+
+    # IMP-bf72723ef161
+    context 'egress_allowlist validation' do
+      it 'accepts a mix of valid IPs, CIDRs and hostnames' do
+        server = build(:mcp_server, capabilities: {
+                         'egress_allowlist' => [ '93.184.216.34', '10.0.0.0/8', 'api.example.com' ]
+                       })
+        expect(server).to be_valid
+      end
+
+      it 'rejects a non-array value' do
+        server = build(:mcp_server, capabilities: { 'egress_allowlist' => 'not-an-array' })
+        expect(server).not_to be_valid
+        expect(server.errors[:capabilities]).to include('egress_allowlist must be an array')
+      end
+
+      it "rejects more than #{McpServer::MAX_EGRESS_ALLOWLIST_ENTRIES} entries" do
+        too_many = Array.new(McpServer::MAX_EGRESS_ALLOWLIST_ENTRIES + 1) { |i| "host-#{i}.example.com" }
+        server = build(:mcp_server, capabilities: { 'egress_allowlist' => too_many })
+        expect(server).not_to be_valid
+        expect(server.errors[:capabilities])
+          .to include("egress_allowlist may have at most #{McpServer::MAX_EGRESS_ALLOWLIST_ENTRIES} entries")
+      end
+
+      it 'rejects an entry that is not a valid IP, CIDR, or hostname' do
+        server = build(:mcp_server, capabilities: { 'egress_allowlist' => [ 'not a hostname!' ] })
+        expect(server).not_to be_valid
+        expect(server.errors[:capabilities].join).to include('is not a valid IP, CIDR, or hostname')
+      end
+
+      it 'rejects 0.0.0.0/0 and ::/0 as full-open-equivalent entries' do
+        server = build(:mcp_server, capabilities: { 'egress_allowlist' => [ '0.0.0.0/0' ] })
+        expect(server).not_to be_valid
+        expect(server.errors[:capabilities].join).to include('full-open range')
+
+        server6 = build(:mcp_server, capabilities: { 'egress_allowlist' => [ '::/0' ] })
+        expect(server6).not_to be_valid
+        expect(server6.errors[:capabilities].join).to include('full-open range')
+      end
+
+      it 'rejects loopback, link-local and the cloud metadata address' do
+        %w[127.0.0.1 127.0.0.0/8 169.254.1.1 169.254.169.254 ::1 fe80::1].each do |entry|
+          server = build(:mcp_server, capabilities: { 'egress_allowlist' => [ entry ] })
+          expect(server).not_to be_valid, "expected #{entry.inspect} to be rejected"
+          expect(server.errors[:capabilities].join).to include('forbidden range')
+        end
+      end
+
+      it 'rejects a broad CIDR that swallows a forbidden range whole' do
+        server = build(:mcp_server, capabilities: { 'egress_allowlist' => [ '100.0.0.0/1' ] })
+        expect(server).not_to be_valid
+        expect(server.errors[:capabilities].join).to include('forbidden range')
+      end
+
+      # IMP-bf72723ef161 review round 2 fix 2 — an IPv4-mapped IPv6
+      # literal is a real, working way to NAME an IPv4 address; without
+      # normalizing to its native form first, these never match the
+      # plain IPv4 CIDRs in FORBIDDEN_EGRESS_RANGES.
+      it 'rejects an IPv4-mapped IPv6 loopback or metadata address' do
+        %w[::ffff:127.0.0.1 ::ffff:169.254.169.254].each do |entry|
+          server = build(:mcp_server, capabilities: { 'egress_allowlist' => [ entry ] })
+          expect(server).not_to be_valid, "expected #{entry.inspect} to be rejected"
+          expect(server.errors[:capabilities].join).to include('forbidden range')
+        end
+      end
+
+      it 'accepts an IPv4-mapped IPv6 form of an ordinary public IP' do
+        server = build(:mcp_server, capabilities: { 'egress_allowlist' => [ '::ffff:93.184.216.34' ] })
+        expect(server).to be_valid
+      end
+
+      # IMP-bf72723ef161 review round 2 fix 3 — numeric/octal/hex
+      # "pseudo-IP" forms IPAddr itself refuses to parse strictly, but a
+      # vulnerable getaddrinfo/URL-parsing implementation downstream may
+      # still accept and resolve as a real IP (a well-known SSRF bypass) —
+      # these must never be accepted as "just a hostname" merely because
+      # they happen to be alphanumeric-plus-dots.
+      it 'rejects numeric/octal/hex pseudo-IP forms' do
+        %w[2130706433 127.1 0177.0.0.1 0x7f.0.0.1 0x7f000001].each do |entry|
+          server = build(:mcp_server, capabilities: { 'egress_allowlist' => [ entry ] })
+          expect(server).not_to be_valid, "expected #{entry.inspect} to be rejected"
+          expect(server.errors[:capabilities].join).to include('pseudo-IP')
+        end
+      end
+
+      it 'still accepts a hostname with a leading numeric label (e.g. NTP pool style)' do
+        server = build(:mcp_server, capabilities: { 'egress_allowlist' => [ '1.pool.example.com' ] })
+        expect(server).to be_valid
+      end
+    end
+
+    # IMP-bf72723ef161
+    context 'allow_network / egress_allowlist mutual exclusion' do
+      it 'rejects allow_network=true together with a non-empty egress_allowlist' do
+        server = build(:mcp_server, capabilities: {
+                         'allow_network' => true, 'egress_allowlist' => [ '10.0.0.0/8' ]
+                       })
+        expect(server).not_to be_valid
+        expect(server.errors[:capabilities].join).to include('cannot both be set')
+      end
+
+      it 'allows allow_network=true with no egress_allowlist' do
+        server = build(:mcp_server, capabilities: { 'allow_network' => true })
+        expect(server).to be_valid
+      end
+
+      it 'allows allow_network=false with an egress_allowlist' do
+        server = build(:mcp_server, capabilities: {
+                         'allow_network' => false, 'egress_allowlist' => [ '10.0.0.0/8' ]
+                       })
+        expect(server).to be_valid
+      end
+    end
   end
 
   describe 'scopes' do

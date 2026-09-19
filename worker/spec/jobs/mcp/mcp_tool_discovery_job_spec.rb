@@ -250,7 +250,7 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
               'command' => 'node', 'capabilities' => { 'allow_network' => true }
             ) })
 
-          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:|
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:, **_kwargs|
             expect(allow_network).to be true
             ['{"jsonrpc":"2.0","id":"1","result":{"tools":[]}}', '', instance_double(Process::Status, success?: true)]
           end
@@ -262,6 +262,23 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
           # {success: false, error: ...} result (logged via 'Tool discovery
           # failed') rather than surfacing as a spec failure — a test with
           # no assertion on this would pass either way.
+          expect(job).not_to receive(:log_error)
+
+          job.execute(server_id)
+        end
+
+        # IMP-bf72723ef161 — same reasoning as allow_network above.
+        it "passes egress_allowlist through to spawn_stdio when the server's capabilities carry one" do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/mcp_servers/#{server_id}")
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge(
+              'command' => 'node', 'capabilities' => { 'egress_allowlist' => [ '10.0.0.0/8' ] }
+            ) })
+
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, egress_allowlist:, **_kwargs|
+            expect(egress_allowlist).to eq([ '10.0.0.0/8' ])
+            ['{"jsonrpc":"2.0","id":"1","result":{"tools":[]}}', '', instance_double(Process::Status, success?: true)]
+          end
           expect(job).not_to receive(:log_error)
 
           job.execute(server_id)

@@ -44,13 +44,24 @@ module Api
       # allow_extended_commands, and the worker cannot apply it at all if
       # this endpoint never carries it through — exactly the bug this
       # concern was originally written to fix for allow_extended_commands.
+      #
+      # egress_allowlist (IMP-bf72723ef161) added the same way: it is
+      # ALSO a #spawn_stdio-time sandbox policy (which IPs/hostnames the
+      # worker resolves and passes to IPAddressAllow), operator-only (see
+      # McpServersController::OPERATOR_ONLY_CAPABILITY_KEYS), and useless
+      # to the worker unless this endpoint carries it through. Per
+      # operator direction: this serializer is the ONLY path
+      # egress_allowlist may ever reach the worker through — no other
+      # endpoint/serializer may add it.
       module McpServerCapabilitiesSerialization
         extend ActiveSupport::Concern
 
         private
 
         def serialize_mcp_server_capabilities(server)
-          (server.capabilities || {}).slice('allow_extended_commands', 'strict_environment', 'allow_network')
+          (server.capabilities || {}).slice(
+            'allow_extended_commands', 'strict_environment', 'allow_network', 'egress_allowlist'
+          )
         end
       end
     end

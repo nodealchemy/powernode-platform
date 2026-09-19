@@ -238,7 +238,7 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
           allow(api_client).to receive(:patch).and_return(success: true)
           allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
 
-          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:|
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:, **_kwargs|
             expect(allow_network).to be true
             ['{}', '', instance_double(Process::Status, success?: true)]
           end
@@ -253,6 +253,29 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
           # {success: false, error: ...} result rather than surfacing as a
           # spec failure — a test with no post-call assertion would pass
           # either way.
+          expect(api_client).to have_received(:patch)
+            .with(
+              "/api/v1/internal/mcp_servers/#{server_id}",
+              hash_including(status: 'connected')
+            )
+        end
+
+        # IMP-bf72723ef161 — same reasoning as allow_network above.
+        it "passes egress_allowlist through to spawn_stdio when the server's capabilities carry one" do
+          allow(api_client).to receive(:get)
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge(
+              'command' => 'node', 'capabilities' => { 'egress_allowlist' => [ '10.0.0.0/8' ] }
+            ) })
+          allow(api_client).to receive(:patch).and_return(success: true)
+          allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
+
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, egress_allowlist:, **_kwargs|
+            expect(egress_allowlist).to eq([ '10.0.0.0/8' ])
+            ['{}', '', instance_double(Process::Status, success?: true)]
+          end
+
+          job.execute(server_id, { 'action' => 'connect' })
+
           expect(api_client).to have_received(:patch)
             .with(
               "/api/v1/internal/mcp_servers/#{server_id}",

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "ipaddr"
+
 # McpServer represents a Model Context Protocol server connection
 class McpServer < ApplicationRecord
   # ==========================================
@@ -16,6 +18,62 @@ class McpServer < ApplicationRecord
   # Associations
   # ==========================================
   has_many :mcp_tools, dependent: :destroy
+
+  # IMP-bf72723ef161 — a per-server egress allowlist (capabilities['egress_allowlist'],
+  # an array of IP/CIDR/hostname strings) narrows what a sandboxed stdio MCP
+  # child may reach when capabilities['allow_network'] is false. Kept small
+  # and named rather than hardcoded inline: an unbounded list both balloons
+  # the systemd-run argv (see worker/app/services/mcp_security_service.rb)
+  # and the per-spawn hostname-resolution cost (worker resolves fresh on
+  # every spawn — see that file's own comment for why).
+  MAX_EGRESS_ALLOWLIST_ENTRIES = 20
+
+  # IMP-bf72723ef161 — ranges a LITERAL egress_allowlist entry (validated
+  # here) or a hostname entry's RESOLVED IP (filtered at spawn time by the
+  # worker — same list, defense in depth, since DNS rebinding means a
+  # hostname validated safe here can resolve to something else by the time
+  # it's actually used) must never be allowed to name: loopback (every
+  # local service — Redis, Postgres, the Rails app itself, the local MCP
+  # proxy — becomes reachable from the sandboxed child if this is missed),
+  # link-local (broader than systemd's own "link-local" IPAddressDeny
+  # token, which expands narrower to fe80::/64 — this is the canonical
+  # IANA-reserved fe80::/10), and the cloud metadata address (a classic
+  # SSRF pivot into instance credentials on every major cloud). Named
+  # explicitly even though 169.254.169.254/32 is already covered by the
+  # broader 169.254.0.0/16 entry — documents the specific, well-known
+  # target this list exists to stop, not just "link-local in general".
+  FORBIDDEN_EGRESS_RANGES = %w[
+    0.0.0.0/8
+    127.0.0.0/8
+    169.254.0.0/16
+    169.254.169.254/32
+    ::/128
+    ::1/128
+    fe80::/10
+  ].freeze
+
+  # A hostname entry can't be format-checked against FORBIDDEN_EGRESS_RANGES
+  # at save time (it isn't an IP yet — resolution happens per spawn, in the
+  # worker), so this only constrains SHAPE: DNS label rules (1-63 chars per
+  # label, alnum plus internal hyphens, no leading/trailing hyphen), 1-253
+  # chars overall. Deliberately permissive on the TLD (or lack of one) — an
+  # internal/on-prem MCP target may be a bare, single-label hostname with
+  # no public TLD at all.
+  EGRESS_ALLOWLIST_HOSTNAME_FORMAT = /\A(?=.{1,253}\z)[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?
+                                       (?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\z/x
+
+  # IMP-bf72723ef161 review round 2 fix 3 — matches numeric/octal/hex
+  # "pseudo-IP" forms IPAddr itself refuses to parse strictly (e.g.
+  # "2130706433", "127.1", "0177.0.0.1", "0x7f.0.0.1", "0x7f000001"), but
+  # that a vulnerable getaddrinfo/URL-parsing implementation downstream
+  # may still accept and resolve as a real IP — a well-known SSRF bypass
+  # for evading a naive string-based IP check. EGRESS_ALLOWLIST_HOSTNAME_FORMAT
+  # above happily matches every one of these (they're all plain
+  # alphanumeric-plus-dots), so this must be checked FIRST, before that
+  # format is trusted to mean "a real hostname". Same pattern as the
+  # worker's own McpSecurityService::EGRESS_NUMERIC_PSEUDO_IP_FORMAT —
+  # duplicated deliberately, same reasoning as FORBIDDEN_EGRESS_RANGES.
+  EGRESS_NUMERIC_PSEUDO_IP_FORMAT = /\A(0x[0-9a-fA-F]+|[0-9]+)(\.(0x[0-9a-fA-F]+|[0-9]+)){0,3}\z/
 
   # ==========================================
   # Validations
@@ -39,6 +97,8 @@ class McpServer < ApplicationRecord
   validate :validate_args_format
   validate :validate_env_format
   validate :validate_capabilities_format
+  validate :validate_egress_allowlist_format
+  validate :validate_allow_network_and_egress_allowlist_are_not_both_set
   validate :validate_oauth_configuration, if: -> { auth_type == "oauth2" }
 
   # ==========================================
@@ -379,6 +439,92 @@ class McpServer < ApplicationRecord
     unless capabilities.is_a?(Hash)
       errors.add(:capabilities, "must be a hash")
     end
+  end
+
+  # IMP-bf72723ef161 — validates capabilities['egress_allowlist'] entries.
+  # See MAX_EGRESS_ALLOWLIST_ENTRIES / FORBIDDEN_EGRESS_RANGES / the
+  # hostname format regex above for why each check exists.
+  def validate_egress_allowlist_format
+    return if capabilities.blank? || !capabilities.is_a?(Hash)
+
+    entries = capabilities["egress_allowlist"]
+    return if entries.blank?
+
+    unless entries.is_a?(Array)
+      errors.add(:capabilities, "egress_allowlist must be an array")
+      return
+    end
+
+    if entries.size > MAX_EGRESS_ALLOWLIST_ENTRIES
+      errors.add(:capabilities, "egress_allowlist may have at most #{MAX_EGRESS_ALLOWLIST_ENTRIES} entries")
+    end
+
+    entries.each { |entry| validate_egress_allowlist_entry(entry) }
+  end
+
+  def validate_egress_allowlist_entry(entry)
+    entry_s = entry.to_s
+
+    ipaddr = IPAddr.new(entry_s)
+
+    if ipaddr.prefix.zero?
+      errors.add(:capabilities,
+                  "egress_allowlist entry #{entry_s.inspect} is a full-open range (0.0.0.0/0 or ::/0) — " \
+                  "use allow_network instead of an allowlist for unrestricted access")
+    elsif egress_allowlist_entry_forbidden?(ipaddr)
+      errors.add(:capabilities,
+                  "egress_allowlist entry #{entry_s.inspect} falls within a forbidden range " \
+                  "(loopback, link-local, or the cloud metadata address)")
+    end
+  rescue IPAddr::Error
+    if entry_s.match?(EGRESS_NUMERIC_PSEUDO_IP_FORMAT) || entry_s.split(".").last&.match?(/\A[0-9]+\z/)
+      errors.add(:capabilities,
+                  "egress_allowlist entry #{entry_s.inspect} looks like a numeric/hex pseudo-IP form, " \
+                  "not a real hostname")
+    elsif !entry_s.match?(EGRESS_ALLOWLIST_HOSTNAME_FORMAT)
+      errors.add(:capabilities, "egress_allowlist entry #{entry_s.inspect} is not a valid IP, CIDR, or hostname")
+    end
+  end
+
+  # Bidirectional #include? check: catches both a NARROW entry landing
+  # inside a broad forbidden range (the common case, e.g. 169.254.169.254
+  # inside 169.254.0.0/16) and a BROAD entry that would swallow a forbidden
+  # range whole (e.g. an operator entering 10.0.0.0/0 by mistake — caught
+  # here rather than only by the separate prefix-zero check above, which
+  # only catches the fully-open /0 case). Cross-family comparisons
+  # (v4 entry vs v6 forbidden range or vice versa) return false rather than
+  # raising — verified empirically (IPAddr#include? across families is a
+  # plain false, not an exception).
+  #
+  # IMP-bf72723ef161 review round 2 fix 2 — normalized to its native IPv4
+  # form FIRST when IPv4-mapped IPv6 (::ffff:127.0.0.1, ::ffff:169.254.169.254,
+  # ...): FORBIDDEN_EGRESS_RANGES lists 127.0.0.0/8 and 169.254.0.0/16 as
+  # plain IPv4 CIDRs, which never match an IPv6-family address directly
+  # (cross-family #include? is always false), regardless of what the
+  # mapped form actually represents — without this, an IPv4-mapped literal
+  # was an accepted way to name a loopback/metadata address this
+  # validation exists specifically to refuse.
+  def egress_allowlist_entry_forbidden?(ipaddr)
+    ipaddr = ipaddr.ipv4_mapped? ? ipaddr.native : ipaddr
+
+    FORBIDDEN_EGRESS_RANGES.any? do |cidr|
+      forbidden = IPAddr.new(cidr)
+      forbidden.include?(ipaddr) || ipaddr.include?(forbidden)
+    end
+  end
+
+  # IMP-bf72723ef161 — allow_network=true already means unrestricted
+  # network; a simultaneous egress_allowlist would either be silently
+  # ignored (a policy surprise for whoever set it, believing it took
+  # effect) or would need its own ambiguous precedence rule. Refusing the
+  # combination at save time surfaces the mistake immediately instead.
+  def validate_allow_network_and_egress_allowlist_are_not_both_set
+    return if capabilities.blank? || !capabilities.is_a?(Hash)
+
+    return unless capabilities["allow_network"] == true && capabilities["egress_allowlist"].present?
+
+    errors.add(:capabilities, "allow_network and egress_allowlist cannot both be set — allow_network already " \
+                               "permits unrestricted network access, making an allowlist meaningless")
   end
 
   def validate_oauth_configuration

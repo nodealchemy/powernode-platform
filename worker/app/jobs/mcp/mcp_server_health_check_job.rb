@@ -127,6 +127,8 @@ module Mcp
       # allow_extended_commands (carried by the IMP-427e98cae0be
       # capabilities serialization allowlist).
       allow_network = server.dig('capabilities', 'allow_network') == true
+      # IMP-bf72723ef161 — same reasoning/gating as allow_network above.
+      egress_allowlist = server.dig('capabilities', 'egress_allowlist')
 
       begin
         # Send MCP ping request
@@ -142,7 +144,8 @@ module Mcp
         # exec form + unsetenv_others: true — IMP-97b6b1185748 item 1,
         # IMP-e2cba83ee39f) — never call Open3.capture3 directly here.
         stdout, _stderr, status = McpSecurityService.spawn_stdio(
-          command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network
+          command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network,
+                                         egress_allowlist: egress_allowlist, mcp_server_id: server['id']
         )
 
         # Consider it healthy if we get any valid JSON response

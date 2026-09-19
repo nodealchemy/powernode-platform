@@ -401,7 +401,7 @@ RSpec.describe Mcp::McpTransportClient do
       network_server = server.merge(capabilities: { 'allow_network' => true })
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
-      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:|
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:, **_kwargs|
         expect(allow_network).to be true
         ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
       end
@@ -420,12 +420,58 @@ RSpec.describe Mcp::McpTransportClient do
     it 'passes allow_network: false through to spawn_stdio when capabilities omit it' do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
-      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:|
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:, **_kwargs|
         expect(allow_network).to be false
         ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
       end
 
       result = client.execute_stdio_request(server, mcp_request)
+      expect(result).to eq(success: true, output: {})
+    end
+
+    # IMP-bf72723ef161 — same reasoning as allow_network above: this
+    # method is the ONLY place that reads
+    # server['capabilities']['egress_allowlist'] and threads it through.
+    it "passes egress_allowlist through to spawn_stdio when the server's capabilities carry one" do
+      allowlisted_server = server.merge(capabilities: { 'egress_allowlist' => [ '10.0.0.0/8' ] })
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, egress_allowlist:, **_kwargs|
+        expect(egress_allowlist).to eq([ '10.0.0.0/8' ])
+        ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
+      end
+
+      # Post-call assertion matters here too — see the allow_network test
+      # above for why (execute_stdio_request's own rescue StandardError
+      # would otherwise swallow a missing-keyword ArgumentError silently).
+      result = client.execute_stdio_request(allowlisted_server, mcp_request)
+      expect(result).to eq(success: true, output: {})
+    end
+
+    it 'passes a nil egress_allowlist through to spawn_stdio when capabilities omit it' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, egress_allowlist:, **_kwargs|
+        expect(egress_allowlist).to be_nil
+        ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
+      end
+
+      result = client.execute_stdio_request(server, mcp_request)
+      expect(result).to eq(success: true, output: {})
+    end
+
+    # IMP-bf72723ef161 review — logging the effective allow set needs the
+    # server id; this is the only place that has it to pass along.
+    it 'passes the server id through to spawn_stdio as mcp_server_id' do
+      identified_server = server.merge(id: 'server-abc')
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, mcp_server_id:, **_kwargs|
+        expect(mcp_server_id).to eq('server-abc')
+        ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
+      end
+
+      result = client.execute_stdio_request(identified_server, mcp_request)
       expect(result).to eq(success: true, output: {})
     end
 

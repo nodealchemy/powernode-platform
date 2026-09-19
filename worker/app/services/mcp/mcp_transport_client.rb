@@ -82,6 +82,12 @@ module Mcp
       # return it (it's a spawn-time sandbox policy, not something
       # validation refuses on).
       allow_network = indifferent_server.dig('capabilities', 'allow_network') == true
+      # IMP-bf72723ef161 — same reasoning/gating as allow_network above;
+      # McpSecurityService.spawn_stdio resolves each entry (IP/CIDR
+      # straight through, hostname resolved fresh) and filters the result
+      # against its own forbidden-range list before ever reaching
+      # IPAddressAllow.
+      egress_allowlist = indifferent_server.dig('capabilities', 'egress_allowlist')
 
       begin
         # IMP-abda86fb39be review — JSON-RPC over stdio is
@@ -98,7 +104,9 @@ module Mcp
         # exec form + unsetenv_others: true — IMP-97b6b1185748 item 1,
         # IMP-e2cba83ee39f) — never call Open3.capture3 directly here.
         stdout, stderr, status = McpSecurityService.spawn_stdio(
-          command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network
+          command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network,
+                                         egress_allowlist: egress_allowlist,
+                                         mcp_server_id: indifferent_server['id']
         )
 
         if status.success?

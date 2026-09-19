@@ -95,6 +95,20 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
         served = json_response_data['mcp_servers'].find { |s| s['id'] == network_server.id }
         expect(served['capabilities']).to eq('allow_network' => true)
       end
+
+      # IMP-bf72723ef161 — egress_allowlist is ALSO a #spawn_stdio-time
+      # sandbox policy (which IPs/hostnames the worker resolves and passes
+      # to IPAddressAllow), same trust tier as allow_network; the worker
+      # can't apply it at all without this endpoint carrying it through.
+      it "also exposes egress_allowlist in capabilities" do
+        allowlisted_server = create(:mcp_server, account: account,
+                                                  capabilities: { 'egress_allowlist' => [ '10.0.0.0/8' ] })
+
+        get '/api/v1/internal/mcp_servers', headers: internal_headers, as: :json
+
+        served = json_response_data['mcp_servers'].find { |s| s['id'] == allowlisted_server.id }
+        expect(served['capabilities']).to eq('egress_allowlist' => [ '10.0.0.0/8' ])
+      end
     end
 
     context 'without authentication' do
@@ -252,6 +266,53 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
         expect(plain_server.capabilities['allow_extended_commands']).not_to eq(true)
         expect(plain_server.capabilities['strict_environment']).not_to eq(true)
         expect(plain_server.capabilities['config']).not_to eq('api_key' => 'smuggled-secret')
+        expect(plain_server.capabilities['tools']).to be true
+      end
+
+      # IMP-bf72723ef161 — egress_allowlist joined OPERATOR_ONLY_CAPABILITY_KEYS
+      # for the same reason allow_network did: it must survive the worker's
+      # own reconnect PATCH, and a worker payload must never be able to set
+      # it. allow_network is deliberately false here (not true, unlike the
+      # let above) since allow_network=true + a non-empty egress_allowlist
+      # is refused at the model level (mutual exclusion — see mcp_server.rb).
+      let(:egress_allowlisted_server) do
+        create(:mcp_server, account: account, capabilities: {
+                 'allow_network' => false,
+                 'egress_allowlist' => [ '10.0.0.0/8', 'api.example.com' ]
+               })
+      end
+
+      it "preserves an operator-set egress_allowlist across a connect-style PATCH" do
+        patch "/api/v1/internal/mcp_servers/#{egress_allowlisted_server.id}",
+              headers: internal_headers,
+              params: {
+                status: 'connected',
+                capabilities: { 'tools' => true }
+              },
+              as: :json
+
+        expect_success_response
+
+        egress_allowlisted_server.reload
+        expect(egress_allowlisted_server.capabilities['egress_allowlist']).to eq([ '10.0.0.0/8', 'api.example.com' ])
+        expect(egress_allowlisted_server.capabilities['tools']).to be true
+      end
+
+      it "cannot set egress_allowlist through this worker-facing PATCH" do
+        plain_server = create(:mcp_server, account: account, capabilities: {})
+
+        patch "/api/v1/internal/mcp_servers/#{plain_server.id}",
+              headers: internal_headers,
+              params: {
+                status: 'connected',
+                capabilities: { 'egress_allowlist' => [ '10.0.0.0/8' ], 'tools' => true }
+              },
+              as: :json
+
+        expect_success_response
+
+        plain_server.reload
+        expect(plain_server.capabilities['egress_allowlist']).to be_nil
         expect(plain_server.capabilities['tools']).to be true
       end
     end

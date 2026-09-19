@@ -240,6 +240,24 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
     end
   end
 
+  # IMP-bf72723ef161 review round 2 fix 5 — the egress-forbidden-range
+  # lists are deliberately DUPLICATED (never shared), the same defense-in-
+  # depth reasoning as every other list this file's PARITY_CONSTANTS loop
+  # already guards — but they live on DIFFERENT classes under DIFFERENT
+  # names: worker/app/services/mcp_security_service.rb's
+  # McpSecurityService::EGRESS_FORBIDDEN_RANGES (a spawn-time filter) vs
+  # server/app/models/mcp_server.rb's McpServer::FORBIDDEN_EGRESS_RANGES
+  # (a save-time validation, on the MODEL, not Mcp::SecurityService — this
+  # is not a #validate_stdio_server! concern, so it doesn't belong in
+  # PARITY_CONSTANTS above, which assumes one shared name on both
+  # worker_klass and server_klass). Checked here explicitly, by VALUE, so
+  # the two lists can never silently drift apart.
+  describe 'egress forbidden-range parity (worker vs server model)' do
+    it 'McpSecurityService::EGRESS_FORBIDDEN_RANGES matches McpServer::FORBIDDEN_EGRESS_RANGES' do
+      expect(::McpServer::FORBIDDEN_EGRESS_RANGES).to eq(worker_klass::EGRESS_FORBIDDEN_RANGES)
+    end
+  end
+
   # Each fixture: { name:, command:, args:, env:, capabilities: }. Built
   # from the reviewer's real-spawn-adversarial probes (probe97b.rb,
   # probe97c.rb, probe97d.rb — every `t(...)` call across all three,
