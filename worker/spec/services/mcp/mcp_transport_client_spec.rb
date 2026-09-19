@@ -154,6 +154,25 @@ RSpec.describe Mcp::McpTransportClient do
       expect(client.execute_stdio_tool(server, tool, parameters)).to eq(success: false, error: 'boom')
     end
 
+    # IMP-abda86fb39be review — JSON-RPC over stdio is newline-delimited;
+    # a line-buffered MCP server needs the trailing "\n" to know the
+    # request is complete. A prior version here (and, before it existed,
+    # the server's own send_stdio_request) wrote a bare `to_json` with no
+    # newline.
+    it 'newline-delimits the JSON-RPC request written to stdin' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+      captured_stdin = nil
+
+      allow(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:|
+        captured_stdin = stdin_data
+        ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
+      end
+
+      client.execute_stdio_tool(server, tool, parameters)
+
+      expect(captured_stdin).to end_with("\n")
+    end
+
     it 'reports a non-zero process exit' do
       failed_status = instance_double(Process::Status, success?: false, exitstatus: 3)
       allow(McpSecurityService).to receive(:spawn_stdio).and_return(['', 'stderr text', failed_status])
@@ -161,6 +180,23 @@ RSpec.describe Mcp::McpTransportClient do
       expect(client.execute_stdio_tool(server, tool, parameters)).to eq(
         success: false, error: 'Process exited with code 3: stderr text'
       )
+    end
+
+    # IMP-abda86fb39be review — a misbehaving/verbose MCP child's stderr
+    # is bounded before it's returned to the caller (and, via the
+    # server's Mcp::WorkerStdioClient, potentially rendered to an end
+    # user) — matches the server's own (now-removed) send_stdio_request,
+    # which always truncated at the same length.
+    it 'truncates a long stderr in the process-exit error message' do
+      failed_status = instance_double(Process::Status, success?: false, exitstatus: 1)
+      long_stderr = 'x' * 1000
+      allow(McpSecurityService).to receive(:spawn_stdio).and_return(['', long_stderr, failed_status])
+
+      result = client.execute_stdio_tool(server, tool, parameters)
+
+      expect(result[:success]).to be false
+      expect(result[:error].length).to be < long_stderr.length
+      expect(result[:error]).to start_with('Process exited with code 1: ')
     end
 
     it 'reports a missing command' do
@@ -314,6 +350,73 @@ RSpec.describe Mcp::McpTransportClient do
       end
 
       client.execute_stdio_tool(non_strict_server, tool, parameters)
+    end
+  end
+
+  # IMP-abda86fb39be (MCP isolation Phase 0 T1): #execute_stdio_tool
+  # extracted its own validate/spawn/parse body into this new, JSON-RPC-
+  # method-agnostic entry point, so the worker's synchronous
+  # /api/v1/mcp/execute_stdio endpoint (JobsController, called by the
+  # server's Mcp::WorkerStdioClient for prompts/get, prompts/list,
+  # resources/read, resources/list — none of which are `tools/call`) can
+  # share it instead of a second hand-rolled copy. #execute_stdio_tool's
+  # own describe block above already exercises every branch of the shared
+  # body (real end-to-end validation refusals, env sanitization, timeout
+  # mapping, ...) via its `tools/call`-framed wrapper — these tests only
+  # cover what's NEW: that the method-agnostic entry point itself works
+  # with a non-tools/call request, and the mandatory-validator contract
+  # the endpoint depends on.
+  describe '#execute_stdio_request' do
+    let(:server) { { connection_type: 'stdio', command: '/usr/bin/node', args: ['--flag'], env: { 'MCP_X' => '1' } } }
+    let(:mcp_request) { { jsonrpc: '2.0', id: 'req-1', method: 'prompts/get', params: { name: 'greeting' } } }
+
+    it 'frames the given (non-tools/call) request to stdin and parses a successful response' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+      captured_stdin = nil
+
+      allow(McpSecurityService).to receive(:spawn_stdio) do |command, _env, args, stdin_data:|
+        expect(command).to eq('/usr/bin/node')
+        expect(args).to eq(['--flag'])
+        captured_stdin = stdin_data
+        ['{"jsonrpc":"2.0","id":"req-1","result":{"messages":[]}}', '', success_status]
+      end
+
+      result = client.execute_stdio_request(server, mcp_request)
+
+      framed = JSON.parse(captured_stdin)
+      expect(framed['method']).to eq('prompts/get')
+      expect(framed['params']).to eq('name' => 'greeting')
+      expect(result).to eq(success: true, output: { messages: [] })
+    end
+
+    # IMP-abda86fb39be review — the worker-side validator is MANDATORY,
+    # not defense-in-depth: this endpoint executes a command supplied in
+    # the request body under a shared system worker JWT, so
+    # McpSecurityService.validate_stdio_server! is the REAL gate, not an
+    # extra check behind the server's own (separate-process) early
+    # refusal. Stubs spawn_stdio to FAIL THE TEST if it's ever called, so
+    # a future change that accidentally skips validation is caught here
+    # even if every other assertion happens to still pass.
+    it 'refuses a disallowed command and never spawns it' do
+      blocked_server = server.merge(command: '/usr/bin/mcp-server')
+      allow(McpSecurityService).to receive(:spawn_stdio) { raise 'spawn_stdio must not be called for a refused command' }
+
+      result = client.execute_stdio_request(blocked_server, mcp_request)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Security error:.*not in the allowed list/)
+      expect(McpSecurityService).not_to have_received(:spawn_stdio)
+    end
+
+    it 'refuses a forbidden environment variable and never spawns it' do
+      forbidden_env_server = server.merge(env: { 'LD_PRELOAD' => '/tmp/evil.so' })
+      allow(McpSecurityService).to receive(:spawn_stdio) { raise 'spawn_stdio must not be called for a forbidden env var' }
+
+      result = client.execute_stdio_request(forbidden_env_server, mcp_request)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Security error:.*Forbidden environment variables/)
+      expect(McpSecurityService).not_to have_received(:spawn_stdio)
     end
   end
 

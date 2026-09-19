@@ -123,11 +123,28 @@ module Mcp
   # with NO validation at all (no command whitelist, no argv inline-code
   # check, no env sanitization) and spawn @server.command as a bare STRING
   # (shell-injection risk when args is empty), inheriting this Rails
-  # process's full environment. Now routes through the same hardened,
-  # argv-only, clean-env path Mcp::SyncExecutionService/Mcp::ResourceService
-  # use (Mcp::SecurityService.validate_stdio_server!/#spawn_stdio). Refusal
-  # returns this method's EXISTING error shape (`{ error: { message: ... } }`)
-  # rather than raising.
+  # process's full environment. Routed through
+  # Mcp::SecurityService.validate_stdio_server! for early, no-network-hop
+  # refusal of an obviously bad config (unchanged since then).
+  #
+  # IMP-abda86fb39be (MCP isolation Phase 0 T1): actual EXECUTION no
+  # longer happens here. Once validated, the request goes to
+  # Mcp::WorkerStdioClient, which POSTs it to the worker's own hardened
+  # spawn_stdio (see that file's comment for the full data flow and the
+  # tenancy/error-mapping reasoning). Mcp::WorkerStdioClient.execute's
+  # return contract is DELIBERATELY identical to what this method used to
+  # build by hand below (a symbolized `{result:}`/`{error:{message:}}`
+  # Hash) — so it's returned as-is, unchanged shape for this method's own
+  # callers (#execute_prompt/#list_prompts). A worker-side timeout now
+  # arrives as `{error:{message: "...exceeded Ns..."}}` here (handled by
+  # the `if response[:error]` branch in #execute_prompt/#list_prompts)
+  # rather than a raised Mcp::SecurityService::StdioTimeoutError caught by
+  # their outer rescue — same final {success:false, error: <same text>}
+  # result, one branch earlier. A worker-unreachable/5xx failure is a
+  # genuinely NEW failure mode (execution used to be in-process) and is
+  # NOT translated here: WorkerTransport::HttpError/TimeoutError/
+  # ConnectionError (all StandardError) propagate to those methods'
+  # existing outer `rescue StandardError` unchanged.
   def send_stdio_request(request)
     server_hash = {
       "command" => @server.command,
@@ -137,33 +154,13 @@ module Mcp
     }
 
     begin
-      command, sanitized_env, args = Mcp::SecurityService.validate_stdio_server!(server_hash)
+      Mcp::SecurityService.validate_stdio_server!(server_hash)
     rescue Mcp::SecurityService::CommandNotAllowedError, Mcp::SecurityService::EnvironmentViolationError => e
       @logger.error "[McpPromptService] Security violation: #{e.message}"
       return { error: { message: "Security error: #{e.message}" } }
     end
 
-    stdout, stderr, status = Mcp::SecurityService.spawn_stdio(
-      command, sanitized_env, args, stdin_data: "#{request.to_json}\n"
-    )
-
-    unless status.success?
-      return { error: { message: "MCP process failed: #{stderr.truncate(500)}" } }
-    end
-
-    # Parse the last valid JSON response
-    stdout.strip.split("\n").reverse_each do |line|
-      next if line.strip.empty?
-
-      begin
-        parsed = JSON.parse(line)
-        return parsed.deep_symbolize_keys if parsed.key?("result") || parsed.key?("error")
-      rescue JSON::ParserError
-        next
-      end
-    end
-
-    { error: { message: "No valid response from MCP server" } }
+    Mcp::WorkerStdioClient.execute(account_id: @account.id, server: server_hash, mcp_request: request)
   end
 
   def send_websocket_request(request)

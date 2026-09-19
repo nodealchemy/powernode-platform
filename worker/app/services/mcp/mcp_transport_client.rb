@@ -18,6 +18,13 @@ module Mcp
   # All public execute_* methods return a uniform result hash:
   #   { success: true, output: <result> } | { success: false, error: <message> }
   class McpTransportClient
+    # IMP-abda86fb39be review — a misbehaving/verbose MCP child can write
+    # an unbounded amount to stderr; this message is returned to the
+    # caller (and, via the server's Mcp::WorkerStdioClient, potentially
+    # rendered to an end user), so it's bounded the same way the server's
+    # own (now-removed) send_stdio_request always bounded it.
+    STDERR_TRUNCATE_LENGTH = 500
+
     # Dispatch to the right transport based on the server's connection_type.
     def execute(server, tool, parameters)
       case server[:connection_type]
@@ -33,12 +40,24 @@ module Mcp
     end
 
     def execute_stdio_tool(server, tool, parameters)
-      # Build the MCP tools/call request
       mcp_request = build_mcp_request('tools/call', {
         name: tool[:name],
         arguments: parameters
       })
 
+      execute_stdio_request(server, mcp_request)
+    end
+
+    # IMP-abda86fb39be (MCP isolation Phase 0 T1) — extracted from
+    # #execute_stdio_tool so the worker's new synchronous
+    # /api/v1/mcp/execute_stdio endpoint (JobsController, called by the
+    # server's Mcp::WorkerStdioClient for prompts/get, prompts/list,
+    # resources/read, resources/list — none of which are `tools/call`)
+    # can share the SAME validate/spawn/parse path an async tool execution
+    # already used, instead of a second hand-rolled copy. `mcp_request` is
+    # the full, already-framed JSON-RPC envelope — this method is
+    # deliberately agnostic to which MCP method it carries.
+    def execute_stdio_request(server, mcp_request)
       # Security validation - command whitelist, environment sanitization
       # and argument validation, shared with McpServerConnectionJob,
       # McpServerHealthCheckJob and McpToolDiscoveryJob via
@@ -55,7 +74,16 @@ module Mcp
       end
 
       begin
-        stdin_data = mcp_request.to_json
+        # IMP-abda86fb39be review — JSON-RPC over stdio is
+        # newline-delimited; the trailing "\n" is what tells a
+        # line-buffered MCP server the request is complete. The server's
+        # own (now-removed) send_stdio_request always wrote
+        # "#{json}\n" — this method previously wrote a bare to_json with
+        # no newline for BOTH the async tools/call path and the new
+        # synchronous prompts/resources path, a pre-existing gap this
+        # extraction surfaced rather than introduced. Fixed here once,
+        # for both.
+        stdin_data = "#{mcp_request.to_json}\n"
         # McpSecurityService.spawn_stdio is the shared spawn point (argv0
         # exec form + unsetenv_others: true — IMP-97b6b1185748 item 1,
         # IMP-e2cba83ee39f) — never call Open3.capture3 directly here.
@@ -69,7 +97,7 @@ module Mcp
             { success: true, output: response[:result] }
           end
         else
-          { success: false, error: "Process exited with code #{status.exitstatus}: #{stderr}" }
+          { success: false, error: "Process exited with code #{status.exitstatus}: #{stderr.to_s.truncate(STDERR_TRUNCATE_LENGTH)}" }
         end
       rescue Errno::ENOENT
         { success: false, error: "Command not found: #{command}" }

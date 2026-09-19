@@ -9,6 +9,22 @@ require 'ripper'
 # one shared adversarial fixture table. A future change to either side
 # that isn't mirrored to the other fails this spec, not silently drifts.
 #
+# NARROWED SCOPE (IMP-abda86fb39be, MCP isolation Phase 0 T1): the server
+# no longer spawns anything — #spawn_stdio and its private helpers
+# (#raise_stdio_timeout!/#terminate_process_group!) and the
+# StdioTimeoutError class now exist ONLY on the worker (see
+# Mcp::SecurityService's own class comment). There is nothing on the
+# server side for those to drift FROM any more, so this file compares only
+# what both classes still actually share: #validate_stdio_server! and
+# every private helper it calls (SHARED_METHOD_NAMES below), plus the two
+# timeout constants Mcp::WorkerStdioClient still needs
+# (DEFAULT_STDIO_TIMEOUT_SECONDS/STDIO_TERM_GRACE_SECONDS, checked via
+# PARITY_CONSTANTS below like any other shared constant). This is a
+# NARROWING, not a weakening: every method it used to implicitly compare
+# via the whole-body diff is still compared, just individually by name
+# instead of as one contiguous blob — the only methods dropped from
+# comparison are the three that no longer exist on both sides.
+#
 # SPEC-ONLY REQUIRE, NEVER RUNTIME: the server and worker apps deploy
 # separately (see server/CLAUDE.md / worker/CLAUDE.md) — production code
 # in app/ must NEVER require anything from worker/. This `require_relative`
@@ -34,12 +50,15 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
   WORKER_SOURCE_PATH = "#{worker_security_service_path}.rb"
   SERVER_SOURCE_PATH = File.expand_path('../../../app/services/mcp/security_service.rb', __dir__)
 
-  # IMP-9cde5262cb8f — the fixture-table parity above (and the constants
-  # parity below) only ever calls #validate_stdio_server!, so drift inside
-  # a method neither of those exercises — #spawn_stdio chief among them,
-  # since nothing in this spec ever actually spawns a process — passes
-  # silently. This block adds a structural, whole-body source check that
-  # doesn't depend on any spec exercising the drifted code path at all.
+  # IMP-9cde5262cb8f, narrowed by IMP-abda86fb39be — the fixture-table
+  # parity above (and the constants parity below) only ever calls
+  # #validate_stdio_server!, so drift inside a private helper neither of
+  # those exercises passes silently. This block adds a structural,
+  # per-method source check that doesn't depend on any spec exercising the
+  # drifted code path at all — scoped to SHARED_METHOD_NAMES (every method
+  # that still exists on BOTH classes) rather than the whole file, since
+  # the whole file no longer matches structurally (the worker still has
+  # #spawn_stdio and its own private helpers; the server does not).
   describe 'source parity (normalized)' do
     # Ripper-based, not a regex: a regex comment-stripper (e.g. `/#.*$/`)
     # would also eat a `#` that legitimately appears inside a string
@@ -53,10 +72,9 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
     # would silently splice a comment-only line into the NEXT line instead
     # of blanking it. Every other token's text is kept byte-for-byte,
     # including all whitespace/indentation — the blank-line reject below
-    # is the only other normalization, so token order and indentation
-    # (bar the two module-wrapper lines handled explicitly further down)
-    # stay exactly as written, and a real semantic edit cannot hide inside
-    # what looks like "just a comment change".
+    # is the only other normalization, so token order and indentation stay
+    # exactly as written, and a real semantic edit cannot hide inside what
+    # looks like "just a comment change".
     def self.strip_comments_and_blank_lines(source)
       buf = +''
       Ripper.lex(source).each do |(_line, _col), type, tok, _state|
@@ -65,77 +83,96 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
       buf.lines.map(&:chomp).reject { |line| line.strip.empty? }
     end
 
-    # Asserts exactly one line (after stripping) equals `text` verbatim and
-    # returns its index — not the first match — so a FUTURE second
-    # occurrence (e.g. a reopened class) fails loudly here rather than
-    # having only the first one silently normalized.
-    def self.sole_index_of(lines, text)
-      matches = lines.each_index.select { |i| lines[i].strip == text }
-      raise "expected exactly one line equal to #{text.inspect}, found #{matches.size} (at #{matches.inspect})" \
-        unless matches.size == 1
+    # Every method BOTH classes still define, in the order they appear in
+    # the worker file — everything #validate_stdio_server! calls,
+    # directly or transitively, PLUS #validate_command!/#command_allowed?
+    # (the other two public entry points sharing the same private argv
+    # helpers) and #stdio_timeout_seconds (kept server-side purely for
+    # Mcp::WorkerStdioClient's read_timeout sizing — see
+    # Mcp::SecurityService's own class comment). Deliberately EXCLUDES
+    # #spawn_stdio, #raise_stdio_timeout!, #terminate_process_group! —
+    # worker-only now, nothing to compare them against.
+    SHARED_METHOD_NAMES = %w[
+      validate_command!
+      command_allowed?
+      sanitize_environment
+      env_allowed?
+      env_forbidden?
+      validate_environment!
+      validate_stdio_args!
+      validate_stdio_server!
+      stdio_timeout_seconds
+      build_stdio_env
+      tokenize_command
+      extract_base_command
+      env_wrapper?
+      raise_if_env_wrapper!
+      allowed_commands
+      validate_exact_base_command!
+      base_command_in_allowed_list?
+      validate_command_arguments!
+      raise_on_shell_metacharacters!
+      raise_on_stdin_source_arg!
+      stdin_device_path?
+      interpreter_key_for
+      raise_on_deno_subcommand!
+      deno_subcommand!
+      deno_global_flag_tokens
+      scan_interpreter_flags!
+      raise_on_bun_shell_script!
+      raise_if_inline_code_flag!
+      scan_short_flag_cluster!
+      ruby_warning_flag_next_index
+      raise_on_long_flag!
+      blocked_long_prefix_match?
+      raise_unless_path_like!
+      raise_unless_mcp_module!
+      stdio_arg_looks_like_path?
+      stdio_arg_looks_like_mcp_module?
+    ].freeze
 
-      matches.first
-    end
+    # Finds `def <method_name> ... end` by name and returns its
+    # comment/blank-line-normalized body (the `def`/`end` lines
+    # themselves included, so a signature change — e.g. a renamed
+    # parameter — is caught too, not just the body). The closing `end` is
+    # found by INDENTATION, not "the next line that says end": several of
+    # these methods (validate_stdio_server!, scan_interpreter_flags!, ...)
+    # nest their own `begin`/`case`/`each` blocks, each with their own
+    # `end`. This codebase indents consistently (2 spaces/level), so the
+    # def's OWN `end` is the first line at the SAME indentation as the
+    # `def` line itself; every nested block's `end` is indented further
+    # in. Matches `def name`, `def name(...)`, and `def name arg` alike —
+    # never a longer name that merely starts with this one.
+    def self.extract_method_body(source_path, method_name)
+      lines = File.readlines(source_path)
+      pattern = /^\s*def #{Regexp.escape(method_name)}(\(|\s|$)/
+      def_idx = lines.index { |l| l =~ pattern }
+      raise "def #{method_name} not found in #{source_path}" unless def_idx
 
-    # The server file wraps the exact same class body in `module Mcp
-    # ... end` and names the class `SecurityService` instead of
-    # `McpSecurityService`. Confirmed by hand (IMP-9cde5262cb8f) that
-    # NEITHER the module open/close NOR the class rename touches any OTHER
-    # line's indentation — the class's own opening and closing lines are
-    # the only two that carry the module's extra 2-space nesting; every
-    # line of the body IN BETWEEN is a byte-for-byte copy of the worker
-    # file, unindented. Stripping is therefore narrow and named, not a
-    # blanket dedent that could mask real indentation drift elsewhere:
-    #   1. delete the sole `module Mcp` line,
-    #   2. pop the new last line, asserting it is a bare `end` (the
-    #      module's close) before removing it,
-    #   3. rename the sole `class SecurityService` line to
-    #      `class McpSecurityService` AND strip its now-stray leading
-    #      module-nesting indent,
-    #   4. the class's own closing `end` is now the last line — assert it
-    #      really is one, then strip that same stray indent from it too.
-    # Any assumption here failing to hold raises, rather than silently
-    # comparing the wrong thing.
-    def self.normalize_server_body(lines)
-      lines = lines.dup
-
-      lines.delete_at(sole_index_of(lines, 'module Mcp'))
-
-      raise "expected the module's closing `end` as the last line, got #{lines.last.inspect}" \
-        unless lines.last&.strip == 'end'
-      lines.pop
-
-      class_idx = sole_index_of(lines, 'class SecurityService')
-      lines[class_idx] = lines[class_idx].strip.sub('SecurityService', 'McpSecurityService')
-
-      raise "expected the class's own closing `end` as the new last line, got #{lines.last.inspect}" \
-        unless lines.last&.strip == 'end'
-      lines[-1] = lines[-1].strip
-
-      lines
-    end
-
-    it 'the worker and server class bodies are identical once comments, blank lines, and the module Mcp wrapper are normalized away' do
-      worker_lines = self.class.strip_comments_and_blank_lines(File.read(WORKER_SOURCE_PATH))
-      server_lines = self.class.normalize_server_body(self.class.strip_comments_and_blank_lines(File.read(SERVER_SOURCE_PATH)))
-
-      diff = worker_lines.zip(server_lines).each_with_index.filter_map do |(w, s), i|
-        next if w == s
-
-        "  line #{i}:\n    worker: #{w.inspect}\n    server: #{s.inspect}"
+      def_indent = lines[def_idx][/\A */]
+      body_end = ((def_idx + 1)...lines.size).find do |i|
+        lines[i][/\A */] == def_indent && lines[i].strip == 'end'
       end
-      # Capped at 10 so one structural drift (e.g. a shifted line from an
-      # earlier insertion) doesn't dump the whole remaining file into the
-      # failure message. The line-count note is unconditional, not only
-      # printed on a mismatch — a truncated diff can otherwise look like a
-      # small, contained divergence when the real cause is the two files
-      # having drifted to different lengths entirely.
-      truncated_note = diff.size > 10 ? "\n  ... and #{diff.size - 10} more differing line(s)" : ''
-      size_note = "line counts — worker: #{worker_lines.size}, server: #{server_lines.size}\n"
+      raise "#{method_name}'s closing `end` not found in #{source_path}" unless body_end
 
-      expect(worker_lines).to eq(server_lines),
-                               "#{size_note}source diverged beyond comments/blank-lines/the module wrapper:\n" \
-                               "#{diff.first(10).join("\n")}#{truncated_note}"
+      strip_comments_and_blank_lines(lines[def_idx..body_end].join)
+    end
+
+    SHARED_METHOD_NAMES.each do |method_name|
+      it "##{method_name} is identical (normalized) on both classes" do
+        worker_body = self.class.extract_method_body(WORKER_SOURCE_PATH, method_name)
+        server_body = self.class.extract_method_body(SERVER_SOURCE_PATH, method_name)
+
+        diff = worker_body.zip(server_body).each_with_index.filter_map do |(w, s), i|
+          next if w == s
+
+          "  line #{i}:\n    worker: #{w.inspect}\n    server: #{s.inspect}"
+        end
+        size_note = "line counts — worker: #{worker_body.size}, server: #{server_body.size}\n"
+
+        expect(worker_body).to eq(server_body),
+                                "#{size_note}##{method_name} diverged beyond comments/blank lines:\n#{diff.join("\n")}"
+      end
     end
 
     # The comment-stripper above treats a magic comment (frozen_string_literal,
@@ -149,76 +186,6 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
 
       expect(server_magic).to eq(worker_magic),
                               "leading magic comments diverged — worker: #{worker_magic.inspect}, server: #{server_magic.inspect}"
-    end
-  end
-
-  # IMP-9cde5262cb8f — belt-and-suspenders on top of the whole-body check
-  # above: names the ONE call site that matters most (a dropped
-  # unsetenv_others: true leaks this Rails process's full environment,
-  # including secrets, into every spawned stdio MCP server — see
-  # #spawn_stdio's own doc comment) so a failure here is unambiguous about
-  # WHAT diverged, without needing to read a whole-body diff to find it.
-  #
-  # IMP-4689ce5a4acb: spawn_stdio moved from Open3.capture3 (no deadline)
-  # to Open3.popen3 + pgroup: true (own process group, so a timeout can
-  # kill the whole group, not just the direct child) — this check moved
-  # with it, and now also pins pgroup: true, the OTHER option a dropped
-  # flag would silently break (no deadline enforcement across a
-  # grandchild) without any spec noticing.
-  describe "spawn_stdio's Open3.popen3 call" do
-    # Scoped to the `def spawn_stdio ... end` body specifically — both
-    # files' surrounding COMMENTS also mention "Open3" in prose (describing
-    # what the method below does), so a bare source-wide grep for the
-    # string would risk matching a comment instead of the actual call, or
-    # matching the wrong one if a second call is ever added elsewhere.
-    #
-    # The body's closing `end` is found by INDENTATION, not "the next line
-    # that says end" — spawn_stdio's body now nests a `begin/ensure`, a
-    # `loop do`, and per-fd `each` blocks, each with their own `end`. This
-    # codebase indents consistently (2 spaces/level), so the def's OWN
-    # `end` is the first line at the SAME indentation as the `def` line
-    # itself; every nested block's `end` is indented further in.
-    def self.spawn_stdio_popen3_call(source_path)
-      lines = File.readlines(source_path)
-      def_idx = lines.index { |l| l =~ /^\s*def spawn_stdio\(/ }
-      raise "def spawn_stdio(...) not found in #{source_path}" unless def_idx
-
-      def_indent = lines[def_idx][/\A */]
-      body_end = ((def_idx + 1)...lines.size).find do |i|
-        lines[i][/\A */] == def_indent && lines[i].strip == 'end'
-      end
-      raise "spawn_stdio's closing `end` not found in #{source_path}" unless body_end
-
-      body = lines[def_idx..body_end]
-      start_i = body.index { |l| l.include?('Open3.popen3(') }
-      raise "no Open3.popen3(...) call found inside spawn_stdio in #{source_path}" unless start_i
-
-      # The call spans multiple physical lines (long argument list) —
-      # collect from the Open3.popen3( line through the line that finally
-      # balances its parentheses back to zero, then join into ONE logical
-      # string so line-wrapping differences don't matter, only the actual
-      # arguments do.
-      depth = 0
-      call_lines = []
-      body[start_i..].each do |line|
-        call_lines << line
-        depth += line.count('(') - line.count(')')
-        break if depth <= 0
-      end
-
-      call_lines.map(&:strip).join(' ')
-    end
-
-    it 'both classes pass IDENTICAL Open3.popen3 options, including unsetenv_others: true and pgroup: true' do
-      worker_call = self.class.spawn_stdio_popen3_call(WORKER_SOURCE_PATH)
-      server_call = self.class.spawn_stdio_popen3_call(SERVER_SOURCE_PATH)
-
-      [ [ 'worker', worker_call ], [ 'server', server_call ] ].each do |label, call|
-        expect(call).to include('unsetenv_others: true'), "#{label}'s spawn_stdio is missing unsetenv_others: true — #{call.inspect}"
-        expect(call).to include('pgroup: true'), "#{label}'s spawn_stdio is missing pgroup: true — #{call.inspect}"
-      end
-      expect(server_call).to eq(worker_call),
-                             "spawn_stdio's Open3.popen3 call diverged —\n  worker: #{worker_call.inspect}\n  server: #{server_call.inspect}"
     end
   end
 
@@ -248,8 +215,20 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
     STOP_AT_FIRST_POSITIONAL_INTERPRETERS
   ].freeze
 
+  # IMP-abda86fb39be — kept server-side ONLY so Mcp::WorkerStdioClient can
+  # size its HTTP read_timeout around the SAME numbers the worker's own
+  # spawn_stdio actually enforces (see that file's comment). A value drift
+  # here would silently break the "server outlasts worker" timeout
+  # ordering that class depends on, without touching a single fixture
+  # verdict above — checked as plain values, not source text, since both
+  # are simple Integer literals.
+  TIMEOUT_PARITY_CONSTANTS = %w[
+    DEFAULT_STDIO_TIMEOUT_SECONDS
+    STDIO_TERM_GRACE_SECONDS
+  ].freeze
+
   describe 'constants' do
-    PARITY_CONSTANTS.each do |const_name|
+    (PARITY_CONSTANTS + TIMEOUT_PARITY_CONSTANTS).each do |const_name|
       it "#{const_name} is identical on both classes" do
         worker_value = worker_klass.const_get(const_name)
         server_value = server_klass.const_get(const_name)

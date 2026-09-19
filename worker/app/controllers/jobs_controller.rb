@@ -32,6 +32,8 @@ class JobsController
       llm_complete_structured(request)
     when ['POST', '/llm/execute_tool_loop'], ['POST', '/api/v1/llm/execute_tool_loop']
       llm_execute_tool_loop(request)
+    when ['POST', '/mcp/execute_stdio'], ['POST', '/api/v1/mcp/execute_stdio']
+      execute_stdio_mcp(request)
     else
       not_found_response
     end
@@ -312,10 +314,78 @@ class JobsController
     end
   end
 
+  # POST /api/v1/mcp/execute_stdio
+  # Synchronous stdio MCP execution -- called by the server's
+  # Mcp::WorkerStdioClient (IMP-abda86fb39be, MCP isolation Phase 0 T1:
+  # the server no longer spawns stdio MCP children itself).
+  #
+  # account_id is INFORMATIONAL ONLY, not an authorization check: this
+  # endpoint never looks up an McpServer row (no ID crosses this boundary,
+  # only the already-resolved raw command/args/env in `server`), so there
+  # is nothing to verify it against. Tenancy is enforced upstream, by the
+  # server's own account-scoped lookup of the config being forwarded here
+  # -- exactly as before this endpoint existed, since spawning locally
+  # never checked tenancy either. account_id is passed through purely for
+  # worker-side observability, matching its existing non-authoritative
+  # role in generate_embedding/generate_batch_embeddings above.
+  #
+  # McpSecurityService.validate_stdio_server! (invoked inside
+  # #execute_stdio_request below) is the REAL security gate here, not
+  # defense-in-depth: this action runs a command supplied in the request
+  # body under a shared system worker JWT, so the server's own early
+  # refusal (which happens first, but only inside the SERVER process)
+  # cannot be assumed to have already run -- this request reaching us at
+  # all must be treated as unvalidated input.
+  #
+  # NEVER logs `data`/`server`/`mcp_request` -- `server['env']` carries
+  # the MCP server's own secrets (API tokens, credentials). Only
+  # exception class/message are logged on an unhandled failure, same
+  # discipline as every other action in this controller.
+  def execute_stdio_mcp(request)
+    unless authenticated?(request)
+      return error_response(401, 'Unauthorized')
+    end
+
+    begin
+      body = request.body.read
+      data = JSON.parse(body)
+    rescue JSON::ParserError
+      return error_response(400, 'Invalid JSON')
+    end
+
+    server = data['server']
+    mcp_request = data['mcp_request']
+    account_id = data['account_id']
+
+    unless server.is_a?(Hash) && mcp_request.is_a?(Hash) && account_id.present?
+      return error_response(422, 'Missing server, mcp_request, or account_id parameter')
+    end
+
+    begin
+      result = mcp_transport_client.execute_stdio_request(server, mcp_request)
+
+      if result[:success]
+        success_response({ result: result[:output] })
+      else
+        success_response({ error: { message: result[:error] } })
+      end
+    rescue StandardError => e
+      PowernodeWorker.application.logger.error "stdio MCP execution failed: #{e.class}: #{e.message}"
+      error_response(500, "stdio MCP execution failed: #{e.class}: #{e.message}")
+    end
+  end
+
   # Build a LlmProxyClient for direct LLM provider calls.
   # Uses BackendApiClient for server communication (credential resolution, tool dispatch).
   def build_llm_proxy_client
     @llm_proxy_client ||= LlmProxyClient.new(BackendApiClient.new.method(:post))
+  end
+
+  # Shared validate/spawn/parse path for stdio MCP execution -- the same
+  # object McpToolExecutionJob already uses for its async `tools/call`
+  # path (Mcp::McpTransportClient#execute_stdio_request).
+  def mcp_transport_client
+    @mcp_transport_client ||= Mcp::McpTransportClient.new
   end
 
   # Build provider config inline from request data, bypassing the provider_config

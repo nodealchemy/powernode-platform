@@ -14,44 +14,49 @@ require 'shellwords'
 # rather than the [cmd, cmd] argv-only exec form, inheriting the full Rails
 # process environment. This file is now a deliberate PORT of the worker's
 # rules at worker HEAD 2965b98c5 (dev-loop/dev-improve) — same constants,
-# same validation logic, same error messages/verdicts, so a server-side
-# stdio spawn is exactly as hardened as a worker-side one.
+# same validation logic, same error messages/verdicts, so a server-refused
+# stdio config is exactly as hardened as a worker-refused one.
 #
-# KEPT IN SYNC BY A PARITY SPEC: spec/services/mcp/security_service_spec.rb
+# IMP-abda86fb39be (MCP isolation Phase 0 T1) — this file NO LONGER SPAWNS
+# anything. #spawn_stdio (and its process-group-kill machinery) moved to
+# the worker's McpSecurityService exclusively: the server now only
+# VALIDATES (#validate_stdio_server!, for early, no-network-hop refusal of
+# an obviously bad config) and hands the validated request to
+# Mcp::WorkerStdioClient, which POSTs it to the worker for actual
+# execution via the worker's own hardened spawn_stdio. Every one of the 3
+# server-side stdio call sites (Mcp::SyncExecutionService#execute_stdio,
+# Mcp::PromptService/Mcp::ResourceService#send_stdio_request) now follows:
+# validate here (unchanged) -> Mcp::WorkerStdioClient.execute -> map the
+# worker's {result:}/{error:{message:}} response into this call site's
+# existing return shape (see each file's own comment for that mapping).
+# The worker independently re-validates via its OWN validate_stdio_server!
+# before it ever spawns anything — this file's validation is a fast local
+# refusal, never the only gate.
+#
+# stdio_timeout_seconds/DEFAULT_STDIO_TIMEOUT_SECONDS/
+# STDIO_TERM_GRACE_SECONDS are KEPT here (even though nothing spawns
+# server-side anymore) because Mcp::WorkerStdioClient needs the SAME
+# numbers to size its own HTTP read_timeout so the server never gives up
+# on the worker before the worker's own deadline+grace would have — see
+# that file's comment.
+#
+# KEPT IN SYNC BY A PARITY SPEC: spec/services/mcp/security_service_parity_spec.rb
 # `require`s the worker class by relative path (spec-only — the two apps
 # deploy separately; this file does NOT runtime-require anything from
-# worker/) and asserts identical constants and identical verdicts (allow/
-# refuse, plus returned argv/env) for both classes over one shared
-# adversarial fixture table. A future change to either side that isn't
-# mirrored to the other will fail that spec.
-#
-# WHY HARDEN IN PLACE RATHER THAN MOVE SPAWNING TO THE WORKER: the server
-# and worker are two separately-deployed apps (see server/CLAUDE.md /
-# worker/CLAUDE.md) — Mcp::PromptService/Mcp::ResourceService/
-# Mcp::SyncExecutionService run synchronously in the Rails request cycle
-# (prompts/resources controllers, in-process tool execution), which the
-# worker's async job queue cannot serve.
+# worker/) and asserts identical constants, identical verdicts (allow/
+# refuse, plus returned argv/env) over one shared adversarial fixture
+# table, AND identical normalized source for every method/constant this
+# file still shares with the worker (validate_stdio_server! and its
+# private helpers, plus the three timeout constants/stdio_timeout_seconds
+# above). It does NOT compare #spawn_stdio or its own private helpers
+# (raise_stdio_timeout!/terminate_process_group!) or StdioTimeoutError —
+# those exist ONLY on the worker now; there is nothing here to diverge
+# from them any more.
 module Mcp
   class SecurityService
   class SecurityError < StandardError; end
   class CommandNotAllowedError < SecurityError; end
   class EnvironmentViolationError < SecurityError; end
-  # IMP-4689ce5a4acb — raised by #spawn_stdio when a stdio MCP child
-  # exceeds its deadline. A StandardError, NOT a SecurityError, subclass:
-  # a deadline expiry is not a security violation, and nothing rescues
-  # SecurityError generically (confirmed by grep), so there is no
-  # behavioral reason to nest it there. Review round 1 correction: the
-  # original comment here claimed PromptService/ResourceService "gained
-  # an explicit rescue" for this error — false, neither file changed at
-  # all. Every one of the 7 stdio call sites (3 server, 4 worker) already
-  # has its OWN `rescue StandardError` — either directly around
-  # #spawn_stdio, or in the public method that calls it (e.g.
-  # PromptService#execute_prompt wraps send_mcp_request →
-  # send_stdio_request → spawn_stdio in one outer rescue) — and that
-  # PRE-EXISTING catch-all is what maps this into each call site's own
-  # error shape, with zero call-site code changes. See each call site's
-  # own spec for the proof.
-  class StdioTimeoutError < StandardError; end
 
   # Allowed commands for stdio MCP servers — bare NAMES only (IMP-b6be9d979e13:
   # this used to also list a partial, inconsistent set of hardcoded absolute
@@ -258,7 +263,8 @@ module Mcp
   # IMP-e2cba83ee39f: the ONLY variables passed through from the WORKER's
   # own process environment into a spawned stdio MCP server — everything
   # else (DATABASE_URL, REDIS_URL, WORKER_ID, JWT_SECRET_KEY, ...) must
-  # NEVER reach the child. See #build_stdio_env and #spawn_stdio. TMPDIR is
+  # NEVER reach the child. See #build_stdio_env here and the worker's own
+  # #spawn_stdio, which actually applies this list. TMPDIR is
   # deliberately server-overridable (unlike PATH/HOME) — a server pointing
   # its own child-scoped scratch dir elsewhere is accepted, not a security
   # boundary the way a binary-resolution or config-file path is.
@@ -506,24 +512,25 @@ module Mcp
   STOP_AT_FIRST_POSITIONAL_INTERPRETERS = %w[node bun ruby python python3].freeze
 
   # IMP-4689ce5a4acb — deadline for a stdio MCP child's full round trip
-  # (write stdin, read stdout+stderr to EOF, exit). Mcp::PromptService/
-  # Mcp::ResourceService spawn through #spawn_stdio on the Puma REQUEST
-  # thread, and Mcp::SyncExecutionService from agent tool loops — without
-  # a deadline, a hung MCP child pins that thread forever. Configurable
-  # via MCP_STDIO_TIMEOUT_SECONDS (see .stdio_timeout_seconds below) —
-  # this is only the fallback when unset.
+  # (write stdin, read stdout+stderr to EOF, exit), enforced by the
+  # WORKER's own #spawn_stdio (IMP-abda86fb39be moved execution there).
+  # Kept here, identically to the worker's copy (see the class comment
+  # above), purely so Mcp::WorkerStdioClient can size its own HTTP
+  # read_timeout around the SAME number the worker will actually enforce,
+  # without a network round trip just to ask. Configurable via
+  # MCP_STDIO_TIMEOUT_SECONDS (see .stdio_timeout_seconds below) — this is
+  # only the fallback when unset.
   DEFAULT_STDIO_TIMEOUT_SECONDS = 30
 
-  # Grace period between SIGTERM and SIGKILL when a deadline expires —
-  # gives a well-behaved child a chance to exit cleanly before the harder
-  # signal.
+  # Grace period between SIGTERM and SIGKILL when the worker's own
+  # deadline expires — gives a well-behaved child a chance to exit cleanly
+  # before the harder signal. Kept here for the same reason as
+  # DEFAULT_STDIO_TIMEOUT_SECONDS above: Mcp::WorkerStdioClient's
+  # read_timeout must outlast stdio_timeout_seconds + this grace (+ a
+  # margin) or the SERVER gives up on the worker before the worker gives
+  # up on the child, and the operator sees "worker timeout" instead of the
+  # real error.
   STDIO_TERM_GRACE_SECONDS = 2
-
-  # Upper bound on a single IO.select call inside #spawn_stdio's read/
-  # write loop, so the loop re-checks the overall deadline (and re-scans
-  # which fds still need attention) at least this often rather than
-  # blocking for the full remaining timeout in one select() call.
-  STDIO_SELECT_SLICE_SECONDS = 0.2
 
   class << self
     # Validate a command against the whitelist. `command` may be a single
@@ -668,133 +675,15 @@ module Mcp
       [base_command, final_env, combined_args]
     end
 
-    # IMP-176a386fef98 (ported from the worker's IMP-e2cba83ee39f): the
-    # shared spawn point for every server-side stdio MCP call site
-    # (Mcp::SyncExecutionService#execute_stdio, Mcp::PromptService
-    # #send_stdio_request, Mcp::ResourceService#send_stdio_request) — the
-    # ONLY place Open3 is invoked for a stdio MCP server here, so
-    # `unsetenv_others: true` can never be forgotten at a call site.
-    # Without it, Process.spawn/Open3 MERGE the given `env` Hash ON TOP of
-    # this RAILS PROCESS's own FULL environment rather than replacing it —
-    # every Rails secret (DATABASE_URL, secret_key_base, SMTP credentials,
-    # ...) would otherwise leak into the spawned server's environment,
-    # even though `env` here is deliberately built to contain
-    # only the small passthrough plus the validated server env (see
-    # #build_stdio_env). `command`/`env`/`args` are exactly the 3-tuple
-    # `validate_stdio_server!` returns; callers must not construct these
-    # themselves.
-    #
-    # IMP-4689ce5a4acb — Open3.capture3 had no deadline: a hung/misbehaving
-    # MCP child pinned whatever thread called this forever — the Puma
-    # REQUEST thread for PromptService/ResourceService, or an agent tool
-    # loop for SyncExecutionService. Ported to Open3.popen3 with
-    # pgroup: true (the child becomes its own process group leader) plus a
-    # manual read/write loop against a monotonic deadline, so:
-    #   - stdin is written and stdout/stderr are read in the SAME
-    #     IO.select loop, never sequentially — writing all of stdin first
-    #     would deadlock if the child produces enough stdout to fill ITS
-    #     pipe buffer before draining stdin (the exact "large stdin +
-    #     large stdout" case the specs cover).
-    #   - stdin is closed the moment it's fully written (or immediately,
-    #     if empty), so the child sees EOF on its own stdin.
-    #   - on deadline expiry, or if the reap itself would block past the
-    #     deadline, #terminate_process_group! signals the WHOLE process
-    #     group (TERM, grace, then KILL) — reaping any grandchild the
-    #     child forked too, not just the direct child — and this raises
-    #     StdioTimeoutError rather than returning.
-    # No Timeout.timeout: it runs the block on a SEPARATE thread and
-    # raises into it asynchronously, which is unsafe for code doing raw
-    # fd I/O (a raise mid-syscall can leave the child process/pipes in an
-    # unknown state) — irrelevant here anyway, since the whole point is to
-    # interrupt I/O we're doing ourselves, synchronously, via IO.select's
-    # own bounded wait.
-    #
-    # @return [Array(String, String, Process::Status)] [stdout, stderr, status]
-    # @raise [StdioTimeoutError] if the child doesn't finish within `timeout`
-    def spawn_stdio(command, env, args, stdin_data:, timeout: stdio_timeout_seconds)
-      require 'open3'
-
-      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
-      stdin_io, stdout_io, stderr_io, wait_thr = Open3.popen3(
-        env, [ command, command ], *Array(args), unsetenv_others: true, pgroup: true
-      )
-      pid = wait_thr.pid
-      pending_stdin = stdin_data.to_s
-      stdout_buf = +''
-      stderr_buf = +''
-      stdin_io.close if pending_stdin.empty?
-
-      begin
-        loop do
-          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          raise_stdio_timeout!(pid, wait_thr, command, timeout) if remaining <= 0
-
-          read_fds = [ stdout_io, stderr_io ].reject(&:closed?)
-          write_fds = stdin_io.closed? ? [] : [ stdin_io ]
-          break if read_fds.empty? && write_fds.empty?
-
-          ready = IO.select(read_fds, write_fds, nil, [ remaining, STDIO_SELECT_SLICE_SECONDS ].min)
-          next unless ready
-
-          readable, writable, = ready
-
-          writable&.each do
-            begin
-              written = stdin_io.write_nonblock(pending_stdin, exception: false)
-              pending_stdin = pending_stdin.byteslice(written..) if written.is_a?(Integer)
-            rescue Errno::EPIPE
-              # Child closed its stdin (or already exited) before we
-              # finished writing — not our error to raise; stop trying.
-              pending_stdin = ''
-            end
-            stdin_io.close if pending_stdin.empty?
-          end
-
-          readable&.each do |io|
-            chunk = io.read_nonblock(65_536, exception: false)
-            case chunk
-            when String
-              (io.equal?(stdout_io) ? stdout_buf : stderr_buf) << chunk
-            when nil
-              io.close
-            end
-            # :wait_readable → spurious wakeup, nothing to append yet.
-          end
-        end
-
-        remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        raise_stdio_timeout!(pid, wait_thr, command, timeout) unless remaining.positive? && wait_thr.join(remaining)
-
-        [ stdout_buf, stderr_buf, wait_thr.value ]
-      rescue StdioTimeoutError
-        # raise_stdio_timeout! already ran #terminate_process_group! before
-        # raising this — re-raise as-is rather than killing the (already
-        # dead) group a second time via the broader rescue below.
-        raise
-      rescue Exception => e # rubocop:disable Lint/RescueException
-        # IMP-4689ce5a4acb review round 1 — an Interrupt, a Thread#raise
-        # injected from elsewhere, or an unexpected IOError inside the
-        # select loop used to just unwind through the `ensure` below,
-        # which only closes OUR pipe fds — the CHILD (and anything in its
-        # process group) kept running with no deadline left to catch it,
-        # since the deadline check only fires from inside the loop's own
-        # normal iteration. Kill it here too, on ANY exception, before
-        # propagating.
-        terminate_process_group!(pid, wait_thr)
-        raise e
-      ensure
-        stdin_io.close unless stdin_io.closed?
-        stdout_io.close unless stdout_io.closed?
-        stderr_io.close unless stderr_io.closed?
-      end
-    end
-
     # Resolves the deadline from config — MCP_STDIO_TIMEOUT_SECONDS if set
-    # to a valid positive integer, else DEFAULT_STDIO_TIMEOUT_SECONDS. This
-    # is #spawn_stdio's own default `timeout:` value, evaluated fresh on
-    # every call rather than memoized — one source of truth instead of
-    # each call site (three here, four on the worker) resolving and
-    # hardcoding its own number.
+    # to a valid positive integer, else DEFAULT_STDIO_TIMEOUT_SECONDS.
+    # IMP-abda86fb39be: this file no longer spawns anything itself — the
+    # WORKER's own McpSecurityService.spawn_stdio is what actually applies
+    # this as its `timeout:` default. This copy exists so
+    # Mcp::WorkerStdioClient can compute its HTTP read_timeout around the
+    # SAME number the worker will enforce, evaluated fresh on every call
+    # (never memoized) so an ENV change takes effect without a restart on
+    # either side, same as before.
     def stdio_timeout_seconds
       value = Integer(ENV['MCP_STDIO_TIMEOUT_SECONDS'], exception: false)
       value&.positive? ? value : DEFAULT_STDIO_TIMEOUT_SECONDS
@@ -802,39 +691,9 @@ module Mcp
 
     private
 
-    # Kills the WHOLE process group #spawn_stdio's child started as leader
-    # of (pgroup: true) — a negative pid signals every process in that
-    # group, including any grandchild the child forked, not just the
-    # direct child — then reaps it (wait_thr.value blocks until the OS
-    # confirms it's gone) and raises StdioTimeoutError. Reap happens via
-    # wait_thr (Open3.popen3's own reaper thread), never a manual
-    # Process.waitpid on the same pid — that would race wait_thr's own
-    # internal wait and risk Errno::ECHILD on whichever call loses.
-    def raise_stdio_timeout!(pid, wait_thr, command, timeout)
-      terminate_process_group!(pid, wait_thr)
-      raise StdioTimeoutError, "stdio MCP server '#{command}' exceeded #{timeout}s and was killed"
-    end
-
-    # TERM, a bounded grace period, then KILL if still alive — SIGKILL
-    # cannot be caught or ignored, so the final wait_thr.join (no
-    # timeout) is guaranteed to return once the OS finishes tearing the
-    # group down. Errno::ESRCH (the process already exited on its own,
-    # e.g. between the deadline check and this call) is swallowed at
-    # EITHER kill — there is nothing left to signal, not a failure.
-    def terminate_process_group!(pid, wait_thr)
-      Process.kill('TERM', -pid)
-      return if wait_thr.join(STDIO_TERM_GRACE_SECONDS)
-
-      Process.kill('KILL', -pid)
-      wait_thr.join
-    rescue Errno::ESRCH
-      nil
-    ensure
-      wait_thr.value
-    end
-
-    # IMP-e2cba83ee39f: the ONLY env the spawned stdio MCP server process
-    # ever sees (paired with #spawn_stdio's unsetenv_others: true) — a
+    # IMP-e2cba83ee39f: the ONLY env a spawned stdio MCP server process
+    # ever sees (paired with the worker's own spawn_stdio's
+    # unsetenv_others: true) — a
     # small, fixed passthrough from THIS RAILS PROCESS's own environment
     # (STDIO_ENV_PASSTHROUGH_KEYS: PATH, HOME, LANG, LC_ALL, TZ, TMPDIR —
     # whichever are actually set), with the validated/sanitized SERVER env

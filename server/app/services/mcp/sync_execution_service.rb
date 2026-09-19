@@ -47,11 +47,31 @@ module Mcp
   # `args` would have let the command string alone execute arbitrary
   # shell syntax. It also inherited this RAILS PROCESS's full environment
   # (DATABASE_URL, secret_key_base, ...) since `unsetenv_others` was never
-  # set. Now routes through Mcp::SecurityService.validate_stdio_server!/
-  # #spawn_stdio, the same hardened, argv-only, clean-env path the worker
-  # uses (see that file's header for the parity spec that keeps them in
-  # sync). The returned error SHAPE is unchanged (`{success: false, error:
-  # "Security error: ..."}`), never raised out of this service.
+  # set. Routed through Mcp::SecurityService.validate_stdio_server! for
+  # early, no-network-hop refusal of an obviously bad config (unchanged
+  # since then). The returned error SHAPE is unchanged (`{success: false,
+  # error: "Security error: ..."}`), never raised out of this service.
+  #
+  # IMP-abda86fb39be (MCP isolation Phase 0 T1): actual EXECUTION no
+  # longer happens here. Once validated, the request goes to
+  # Mcp::WorkerStdioClient, which POSTs it to the worker's own hardened
+  # spawn_stdio (see that file's comment for the full data flow and the
+  # tenancy/error-mapping reasoning). The response is a symbolized
+  # `{result:}`/`{error:{message:}}` Hash — mapped through the SAME
+  # `if response[:error] ... else {success:true, output: response[:result]}`
+  # branch this method already used for its local `#parse_mcp_response`
+  # result (that now-unused private method is removed below — nothing
+  # else in this file called it). A worker-side timeout now arrives as
+  # `{error:{message: "...exceeded Ns..."}}` here (handled by that same
+  # branch) rather than a raised Mcp::SecurityService::StdioTimeoutError
+  # caught by #execute's outer rescue — same final
+  # `{success:false, error: <same text>, execution_time_ms: ...}` result
+  # (#execute still appends execution_time_ms), one branch earlier. A
+  # worker-unreachable/5xx failure is a genuinely NEW failure mode
+  # (execution used to be in-process) and is NOT translated here:
+  # WorkerTransport::HttpError/TimeoutError/ConnectionError (all
+  # StandardError) propagate to #execute's existing outer
+  # `rescue StandardError` unchanged.
   def execute_stdio
     server_hash = {
       "command" => @server.command,
@@ -61,7 +81,7 @@ module Mcp
     }
 
     begin
-      command, sanitized_env, args = Mcp::SecurityService.validate_stdio_server!(server_hash)
+      Mcp::SecurityService.validate_stdio_server!(server_hash)
     rescue Mcp::SecurityService::CommandNotAllowedError => e
       @logger.error "[McpSyncExecutionService] Security violation - command blocked: #{e.message}"
       return { success: false, error: "Security error: #{e.message}" }
@@ -71,22 +91,15 @@ module Mcp
     end
 
     mcp_request = build_mcp_request
-    stdin_data = "#{mcp_request.to_json}\n"
 
     @logger.debug "[McpSyncExecutionService] Executing stdio command: #{@server.command}"
 
-    stdout, stderr, status = Mcp::SecurityService.spawn_stdio(command, sanitized_env, args, stdin_data: stdin_data)
+    response = Mcp::WorkerStdioClient.execute(account_id: @account.id, server: server_hash, mcp_request: mcp_request)
 
-    if status.success?
-      response = parse_mcp_response(stdout)
-      if response[:error]
-        { success: false, error: response[:error][:message] || response[:error]["message"] }
-      else
-        { success: true, output: response[:result] || response["result"] }
-      end
+    if response[:error]
+      { success: false, error: response[:error][:message] || response[:error]["message"] }
     else
-      @logger.error "[McpSyncExecutionService] Process failed: #{stderr}"
-      { success: false, error: "Process exited with code #{status.exitstatus}: #{stderr.truncate(500)}" }
+      { success: true, output: response[:result] || response["result"] }
     end
   end
 
@@ -213,28 +226,6 @@ module Mcp
         arguments: @parameters
       }
     }
-  end
-
-  def parse_mcp_response(json_string)
-    # MCP responses may contain multiple JSON objects (ndjson)
-    # We want the last valid response that contains a result or error
-    lines = json_string.strip.split("\n")
-
-    lines.reverse_each do |line|
-      next if line.strip.empty?
-
-      begin
-        parsed = JSON.parse(line)
-        # Check if this is a valid MCP response
-        if parsed.key?("result") || parsed.key?("error")
-          return parsed.deep_symbolize_keys
-        end
-      rescue JSON::ParserError
-        next
-      end
-    end
-
-    { error: { message: "No valid MCP response received" } }
   end
 
   # Inject the appropriate authorization header based on auth_type
