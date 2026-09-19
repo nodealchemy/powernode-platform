@@ -109,7 +109,7 @@ RSpec.describe Mcp::McpTransportClient do
 
       allow(Open3).to receive(:capture3) do |env, command, *cmd_args, **opts|
         expect(env).to eq('MCP_X' => '1')
-        expect(command).to eq('/usr/bin/node')
+        expect(command).to eq(['/usr/bin/node', '/usr/bin/node'])
         expect(cmd_args).to eq(['--flag'])
         captured_stdin = opts[:stdin_data]
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
@@ -123,6 +123,20 @@ RSpec.describe Mcp::McpTransportClient do
       expect(framed['params']).to eq('name' => 'search', 'arguments' => { 'query' => 'hello world' })
 
       expect(result).to eq(success: true, output: { ok: true })
+    end
+
+    it 'writes only the built JSON-RPC tools/call request to stdin, nothing else (IMP-97b6b1185748 item 5)' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(Open3).to receive(:capture3) do |_env, _command, *_args, **opts|
+        parsed = JSON.parse(opts[:stdin_data])
+        expect(parsed['jsonrpc']).to eq('2.0')
+        expect(parsed['method']).to eq('tools/call')
+        expect(parsed.keys).to match_array(%w[jsonrpc id method params])
+        ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
+      end
+
+      client.execute_stdio_tool(server, tool, parameters)
     end
 
     it 'surfaces an MCP error message from the response' do
@@ -180,6 +194,38 @@ RSpec.describe Mcp::McpTransportClient do
       end
 
       client.execute_stdio_tool(server, tool, parameters)
+    end
+
+    # IMP-97b6b1185748: validate_command! only ever checked the `command`
+    # string — server[:args]/server['args'] reached Open3.capture3
+    # completely unchecked, so a whitelisted command like "node" plus args
+    # ["-e", "<code>"] ran arbitrary code. End-to-end coverage (one spawn
+    # site, not just the McpSecurityService unit specs) that the shared
+    # validate_stdio_server! helper this class already calls now also
+    # refuses that.
+    it 'refuses node -e inline code via args, without ever spawning it (end-to-end)' do
+      malicious_server = server.merge(command: 'node', args: ['-e', 'require("child_process").exec("rm -rf /")'])
+      expect(Open3).not_to receive(:capture3)
+
+      result = client.execute_stdio_tool(malicious_server, tool, parameters)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Inline-code flag '-e'/)
+    end
+
+    it 'still accepts a normal node invocation with ordinary args (end-to-end)' do
+      normal_server = server.merge(command: 'node', args: ['server.js', '--port', '3000'])
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(Open3).to receive(:capture3) do |_env, command, *cmd_args, **_opts|
+        expect(command).to eq(['node', 'node'])
+        expect(cmd_args).to eq(['server.js', '--port', '3000'])
+        ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
+      end
+
+      result = client.execute_stdio_tool(normal_server, tool, parameters)
+
+      expect(result).to eq(success: true, output: { ok: true })
     end
   end
 

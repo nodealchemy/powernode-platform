@@ -112,13 +112,13 @@ module Mcp
     end
 
     def ping_stdio_server(server)
-      args = Array(server['args'])
-
-      # Security validation - command whitelist and environment sanitization,
-      # shared with McpServerConnectionJob, McpToolDiscoveryJob and
-      # Mcp::McpTransportClient via McpSecurityService.validate_stdio_server!.
+      # Security validation - command whitelist, environment sanitization
+      # and argument validation, shared with McpServerConnectionJob,
+      # McpToolDiscoveryJob and Mcp::McpTransportClient via
+      # McpSecurityService.validate_stdio_server!. `args` is the fully
+      # resolved argv — never re-derive it from server['args'] alone.
       begin
-        command, sanitized_env = McpSecurityService.validate_stdio_server!(server)
+        command, sanitized_env, args = McpSecurityService.validate_stdio_server!(server)
       rescue McpSecurityService::CommandNotAllowedError, McpSecurityService::EnvironmentViolationError => e
         return { healthy: false, error: "Security error: #{e.message}" }
       end
@@ -135,9 +135,11 @@ module Mcp
         }
 
         stdin_data = ping_request.to_json
+        # [command, command] (argv0 form) forces a direct exec — never a
+        # shell — even when `args` is empty (IMP-97b6b1185748 item 1).
         stdout, _stderr, status = Open3.capture3(
           sanitized_env,
-          command,
+          [command, command],
           *args,
           stdin_data: stdin_data
         )

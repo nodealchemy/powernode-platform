@@ -198,7 +198,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
           expect(job).to receive(:execute_mcp_tool).and_call_original
           success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
           expect(Open3).to receive(:capture3) do |_env, command, *_args, **_opts|
-            expect(command).to eq('/usr/bin/node')
+            expect(command).to eq(['/usr/bin/node', '/usr/bin/node'])
             ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
           end
           expect(api_client).to receive(:patch)

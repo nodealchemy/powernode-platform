@@ -42,8 +42,13 @@ RSpec.describe Mcp::McpToolExecutionJob, 'WebSocket execution' do
     allow(PowernodeWorker).to receive(:logger).and_return(Logger.new(nil))
     allow_any_instance_of(described_class).to receive(:api_client).and_return(mock_api_client)
 
-    # Default API responses
-    allow(mock_api_client).to receive(:get).and_return({ success: true, data: execution_data })
+    # Default API responses. BackendApiClient#handle_response returns the
+    # parsed JSON body verbatim with STRING keys on 2xx — Mcp::McpToolExecutionJob#execute
+    # reads response['success'] / response['data'] (IMP-7046f6e448d6), so a
+    # symbol-keyed double here made every "integration with job execution"
+    # example below fail closed (response['success'] reads nil on a
+    # symbol-keyed hash) rather than exercising the real dispatch path.
+    allow(mock_api_client).to receive(:get).and_return('success' => true, 'data' => execution_data.deep_stringify_keys)
     allow(mock_api_client).to receive(:patch)
   end
 
@@ -175,7 +180,7 @@ RSpec.describe Mcp::McpToolExecutionJob, 'WebSocket execution' do
 
   describe 'integration with job execution' do
     it 'updates status to running before execution' do
-      allow(mock_api_client).to receive(:get).and_return({ success: true, data: execution_data })
+      allow(mock_api_client).to receive(:get).and_return('success' => true, 'data' => execution_data.deep_stringify_keys)
 
       expect(mock_api_client).to receive(:patch).with(
         "/api/v1/internal/mcp_tool_executions/#{execution_id}",

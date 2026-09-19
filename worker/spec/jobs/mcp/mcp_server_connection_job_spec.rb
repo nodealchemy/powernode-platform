@@ -215,8 +215,25 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
           allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
 
           expect(Open3).to receive(:capture3) do |env, command, *args, **_opts|
-            expect(command).to eq('node')
+            expect(command).to eq(['node', 'node'])
             expect(env.keys).to all(be_a(String))
+            ['{}', '', instance_double(Process::Status, success?: true)]
+          end
+
+          job.execute(server_id, { 'action' => 'connect' })
+        end
+
+        it 'writes only the built JSON-RPC initialize request to stdin, nothing else (IMP-97b6b1185748 item 5)' do
+          allow(api_client).to receive(:get)
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
+          allow(api_client).to receive(:patch).and_return(success: true)
+          allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
+
+          expect(Open3).to receive(:capture3) do |_env, _command, *_args, **opts|
+            parsed = JSON.parse(opts[:stdin_data])
+            expect(parsed['jsonrpc']).to eq('2.0')
+            expect(parsed['method']).to eq('initialize')
+            expect(parsed.keys).to match_array(%w[jsonrpc id method params])
             ['{}', '', instance_double(Process::Status, success?: true)]
           end
 

@@ -110,14 +110,14 @@ module Mcp
     end
 
     def establish_stdio_connection(server)
-      # For stdio connections, we verify the command exists and can respond to initialize
-      args = Array(server['args'])
-
-      # Security validation - command whitelist and environment sanitization,
-      # shared with McpServerHealthCheckJob, McpToolDiscoveryJob and
-      # Mcp::McpTransportClient via McpSecurityService.validate_stdio_server!.
+      # Security validation - command whitelist, environment sanitization
+      # and argument validation, shared with McpServerHealthCheckJob,
+      # McpToolDiscoveryJob and Mcp::McpTransportClient via
+      # McpSecurityService.validate_stdio_server!. `args` here is the fully
+      # resolved argv (server['command']'s own tokens after the first, plus
+      # server['args']) — never re-derive it from server['args'] alone.
       begin
-        command, sanitized_env = McpSecurityService.validate_stdio_server!(server)
+        command, sanitized_env, args = McpSecurityService.validate_stdio_server!(server)
       rescue McpSecurityService::CommandNotAllowedError => e
         log_error('Security violation - command blocked', nil, server_id: server['id'], error: e.message)
         return { success: false, error: "Security error: #{e.message}" }
@@ -148,9 +148,14 @@ module Mcp
 
         stdin_data = init_request.to_json
 
+        # [command, command] (argv0 form) forces a direct exec — never a
+        # shell — even when `args` is empty, which a bare string command
+        # would NOT: Process.spawn/Open3 run a lone string through
+        # `/bin/sh -c` when given no additional args (IMP-97b6b1185748
+        # item 1).
         stdout, stderr, status = Open3.capture3(
           sanitized_env,
-          command,
+          [command, command],
           *args,
           stdin_data: stdin_data
         )

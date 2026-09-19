@@ -39,17 +39,17 @@ module Mcp
         arguments: parameters
       })
 
-      args = Array(server[:args])
-
-      # Security validation - command whitelist and environment sanitization,
-      # shared with McpServerConnectionJob, McpServerHealthCheckJob and
-      # McpToolDiscoveryJob via McpSecurityService.validate_stdio_server!.
-      # validate_stdio_server! reads string keys ('command'/'env'/...); a
-      # plain symbol-keyed server (as used directly by this class's own
-      # specs, and possible via any caller that hasn't been through the
-      # with_indifferent_access job boundary) needs normalizing first.
+      # Security validation - command whitelist, environment sanitization
+      # and argument validation, shared with McpServerConnectionJob,
+      # McpServerHealthCheckJob and McpToolDiscoveryJob via
+      # McpSecurityService.validate_stdio_server!. validate_stdio_server!
+      # reads string keys ('command'/'env'/...); a plain symbol-keyed
+      # server (as used directly by this class's own specs, and possible
+      # via any caller that hasn't been through the with_indifferent_access
+      # job boundary) needs normalizing first. `args` is the fully resolved
+      # argv — never re-derive it from server[:args] alone.
       begin
-        command, sanitized_env = McpSecurityService.validate_stdio_server!(server.with_indifferent_access)
+        command, sanitized_env, args = McpSecurityService.validate_stdio_server!(server.with_indifferent_access)
       rescue McpSecurityService::CommandNotAllowedError, McpSecurityService::EnvironmentViolationError => e
         return { success: false, error: "Security error: #{e.message}" }
       end
@@ -58,9 +58,11 @@ module Mcp
         require 'open3'
 
         stdin_data = mcp_request.to_json
+        # [command, command] (argv0 form) forces a direct exec — never a
+        # shell — even when `args` is empty (IMP-97b6b1185748 item 1).
         stdout, stderr, status = Open3.capture3(
           sanitized_env,
-          command,
+          [command, command],
           *args,
           stdin_data: stdin_data
         )
