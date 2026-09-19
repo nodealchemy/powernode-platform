@@ -39,17 +39,29 @@ module Mcp
 
   private
 
+  # IMP-176a386fef98: this used to validate only the bare command STRING
+  # (never args), sanitize env with plain string-key filtering (no
+  # unsetenv_others), and spawn @server.command as a bare STRING with
+  # `*Array(@server.args)` — Process.spawn/Open3 runs a lone command
+  # STRING through `/bin/sh -c` when given no additional args, so an empty
+  # `args` would have let the command string alone execute arbitrary
+  # shell syntax. It also inherited this RAILS PROCESS's full environment
+  # (DATABASE_URL, secret_key_base, ...) since `unsetenv_others` was never
+  # set. Now routes through Mcp::SecurityService.validate_stdio_server!/
+  # #spawn_stdio, the same hardened, argv-only, clean-env path the worker
+  # uses (see that file's header for the parity spec that keeps them in
+  # sync). The returned error SHAPE is unchanged (`{success: false, error:
+  # "Security error: ..."}`), never raised out of this service.
   def execute_stdio
-    require "open3"
+    server_hash = {
+      "command" => @server.command,
+      "args" => @server.args,
+      "env" => @server.env,
+      "capabilities" => @server.capabilities
+    }
 
-    # Security validation - command whitelist and environment sanitization
     begin
-      validated = Mcp::SecurityService.validate_stdio_execution!(
-        command: @server.command,
-        env: @server.env,
-        allow_extended: @server.capabilities&.dig("allow_extended_commands") == true,
-        strict_env: @server.capabilities&.dig("strict_environment") == true
-      )
+      command, sanitized_env, args = Mcp::SecurityService.validate_stdio_server!(server_hash)
     rescue Mcp::SecurityService::CommandNotAllowedError => e
       @logger.error "[McpSyncExecutionService] Security violation - command blocked: #{e.message}"
       return { success: false, error: "Security error: #{e.message}" }
@@ -63,16 +75,7 @@ module Mcp
 
     @logger.debug "[McpSyncExecutionService] Executing stdio command: #{@server.command}"
 
-    # Build environment with sanitized values
-    env = validated[:env].transform_keys(&:to_s)
-
-    # Execute the command
-    stdout, stderr, status = Open3.capture3(
-      env,
-      @server.command,
-      *Array(@server.args),
-      stdin_data: stdin_data
-    )
+    stdout, stderr, status = Mcp::SecurityService.spawn_stdio(command, sanitized_env, args, stdin_data: stdin_data)
 
     if status.success?
       response = parse_mcp_response(stdout)

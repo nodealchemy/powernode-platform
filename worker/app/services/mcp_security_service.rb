@@ -4,7 +4,16 @@ require 'shellwords'
 
 # Service for MCP security hardening in worker
 # Provides command whitelist validation and environment sanitization
-# Mirror of server/app/services/mcp/security_service.rb (Mcp::SecurityService)
+#
+# MIRRORED BY server/app/services/mcp/security_service.rb (Mcp::SecurityService)
+# — IMP-176a386fef98 ported this file's rules there (server-side
+# Mcp::PromptService/Mcp::ResourceService/Mcp::SyncExecutionService spawn
+# stdio MCP servers synchronously in the Rails request cycle and can't use
+# this worker file directly — the two apps deploy separately). Kept in sync
+# by server/spec/services/mcp/security_service_spec.rb's parity spec, which
+# `require`s this file by relative path (spec-only) and asserts identical
+# constants/verdicts against a shared adversarial fixture table — a change
+# here that isn't ported there will fail that spec, not this file's own.
 #
 # SCOPE (IMP-97b6b1185748 review item 7): this stops CASUAL inline-code
 # smuggling through a command/args pair that's supposed to be "just run an

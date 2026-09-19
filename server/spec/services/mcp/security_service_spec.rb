@@ -45,9 +45,12 @@ RSpec.describe Mcp::SecurityService do
           .not_to raise_error
       end
 
-      it 'allows /usr/bin/env with allowed command' do
+      # IMP-176a386fef98 (ported from the worker's IMP-97b6b1185748 item 2):
+      # `env` is now refused as the command entirely, never unwrapped to
+      # find a "real" interpreter inside it.
+      it "refuses /usr/bin/env entirely (the env wrapper is never unwrapped)" do
         expect { described_class.validate_command!('/usr/bin/env node server.js') }
-          .not_to raise_error
+          .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /'env' wrapper is not allowed/)
       end
 
       it 'allows blank commands without error' do
@@ -169,18 +172,15 @@ RSpec.describe Mcp::SecurityService do
 
   describe '.sanitize_environment' do
     context 'with allowed variables' do
-      it 'allows PATH' do
-        env = { 'PATH' => '/usr/bin:/usr/local/bin' }
+      # IMP-176a386fef98 (ported from the worker's IMP-e2cba83ee39f): PATH
+      # and HOME are now FORBIDDEN in server-supplied env — a server env is
+      # never the source of truth for either; see #build_stdio_env's
+      # worker-own-process passthrough instead.
+      it 'allows USER (PATH/HOME moved to forbidden — see the .validate_environment! block below)' do
+        env = { 'USER' => 'mcp-runner' }
         result = described_class.sanitize_environment(env)
 
-        expect(result).to include('PATH' => '/usr/bin:/usr/local/bin')
-      end
-
-      it 'allows HOME' do
-        env = { 'HOME' => '/home/user' }
-        result = described_class.sanitize_environment(env)
-
-        expect(result).to include('HOME' => '/home/user')
+        expect(result).to include('USER' => 'mcp-runner')
       end
 
       it 'allows MCP_ prefixed variables' do
@@ -215,11 +215,18 @@ RSpec.describe Mcp::SecurityService do
 
     context 'with forbidden variables' do
       it 'removes LD_PRELOAD' do
-        env = { 'LD_PRELOAD' => '/tmp/evil.so', 'PATH' => '/usr/bin' }
+        env = { 'LD_PRELOAD' => '/tmp/evil.so', 'MCP_API_KEY' => 'secret' }
         result = described_class.sanitize_environment(env)
 
         expect(result).not_to include('LD_PRELOAD')
-        expect(result).to include('PATH' => '/usr/bin')
+        expect(result).to include('MCP_API_KEY' => 'secret')
+      end
+
+      it 'removes PATH and HOME (server env is never the source of truth for either)' do
+        env = { 'PATH' => '/tmp/evil-bin', 'HOME' => '/tmp/evil-home' }
+        result = described_class.sanitize_environment(env)
+
+        expect(result).not_to include('PATH', 'HOME')
       end
 
       it 'removes LD_LIBRARY_PATH' do
@@ -254,13 +261,13 @@ RSpec.describe Mcp::SecurityService do
     context 'with strict mode' do
       it 'only allows explicitly allowed variables in strict mode' do
         env = {
-          'PATH' => '/usr/bin',
+          'USER' => 'mcp-runner',
           'CUSTOM_VAR' => 'value',
           'MCP_API_KEY' => 'secret'
         }
         result = described_class.sanitize_environment(env, strict: true)
 
-        expect(result).to include('PATH' => '/usr/bin')
+        expect(result).to include('USER' => 'mcp-runner')
         expect(result).to include('MCP_API_KEY' => 'secret')
         expect(result).not_to include('CUSTOM_VAR')
       end
@@ -279,27 +286,28 @@ RSpec.describe Mcp::SecurityService do
     end
 
     it 'converts symbol keys to strings' do
-      env = { PATH: '/usr/bin' }
+      env = { USER: 'mcp-runner' }
       result = described_class.sanitize_environment(env)
 
-      expect(result).to include('PATH' => '/usr/bin')
+      expect(result).to include('USER' => 'mcp-runner')
     end
   end
 
   describe '.env_allowed?' do
     it 'returns true for allowed variables' do
-      expect(described_class.env_allowed?('PATH')).to be true
-      expect(described_class.env_allowed?('HOME')).to be true
+      expect(described_class.env_allowed?('USER')).to be true
       expect(described_class.env_allowed?('MCP_API_KEY')).to be true
     end
 
     it 'returns false for forbidden variables' do
       expect(described_class.env_allowed?('LD_PRELOAD')).to be false
       expect(described_class.env_allowed?('NODE_OPTIONS')).to be false
+      expect(described_class.env_allowed?('PATH')).to be false
+      expect(described_class.env_allowed?('HOME')).to be false
     end
 
     it 'is case insensitive' do
-      expect(described_class.env_allowed?('path')).to be true
+      expect(described_class.env_allowed?('user')).to be true
       expect(described_class.env_allowed?('ld_preload')).to be false
     end
 
@@ -311,9 +319,16 @@ RSpec.describe Mcp::SecurityService do
 
   describe '.validate_environment!' do
     it 'does not raise for allowed variables' do
-      env = { 'PATH' => '/usr/bin', 'MCP_API_KEY' => 'secret' }
+      env = { 'USER' => 'mcp-runner', 'MCP_API_KEY' => 'secret' }
 
       expect { described_class.validate_environment!(env) }.not_to raise_error
+    end
+
+    it 'raises for a server-supplied PATH or HOME' do
+      expect { described_class.validate_environment!({ 'PATH' => '/tmp/evil-bin' }) }
+        .to raise_error(Mcp::SecurityService::EnvironmentViolationError, /PATH/)
+      expect { described_class.validate_environment!({ 'HOME' => '/tmp/evil-home' }) }
+        .to raise_error(Mcp::SecurityService::EnvironmentViolationError, /HOME/)
     end
 
     it 'raises for forbidden variables' do
@@ -336,78 +351,115 @@ RSpec.describe Mcp::SecurityService do
     end
   end
 
-  describe '.validate_stdio_execution!' do
-    it 'returns validated command and sanitized environment' do
-      result = described_class.validate_stdio_execution!(
-        command: 'npx @modelcontextprotocol/server-filesystem',
-        env: { 'PATH' => '/usr/bin', 'MCP_API_KEY' => 'secret' }
+  # IMP-176a386fef98: `validate_stdio_execution!` (command:/env: keyword API,
+  # returning {command:, env:}) is REMOVED — ported from the worker, which
+  # made the identical decision for the identical reason (IMP-97b6b1185748
+  # item 9): `command grep`-ing server/app for callers besides
+  # Mcp::SyncExecutionService (already migrated to #validate_stdio_server!
+  # as part of this task) and this spec found none. Every real stdio spawn
+  # site now goes through #validate_stdio_server!, which takes the `server`
+  # hash directly and returns the additional resolved `argv`.
+  describe '.validate_stdio_server!' do
+    it 'returns [command, string-keyed env, argv] for a whitelisted command' do
+      command, env, argv = described_class.validate_stdio_server!(
+        'command' => 'npx', 'args' => ['@modelcontextprotocol/server-filesystem'],
+        'env' => { 'MCP_API_KEY' => 'secret' }
       )
 
-      expect(result[:command]).to eq('npx @modelcontextprotocol/server-filesystem')
-      expect(result[:env]).to include('PATH' => '/usr/bin')
-      expect(result[:env]).to include('MCP_API_KEY' => 'secret')
+      expect(command).to eq('npx')
+      expect(argv).to eq(['@modelcontextprotocol/server-filesystem'])
+      expect(env).to include('MCP_API_KEY' => 'secret', 'PATH' => ENV['PATH'])
     end
 
-    it 'sanitizes env vars while raising for forbidden ones (validates before sanitizing)' do
-      # validate_stdio_execution! validates first, then sanitizes
-      # Forbidden vars trigger validation error before sanitization
-      expect do
-        described_class.validate_stdio_execution!(
-          command: 'node server.js',
-          env: { 'PATH' => '/usr/bin', 'LD_PRELOAD' => '/tmp/evil.so' }
-        )
-      end.to raise_error(Mcp::SecurityService::EnvironmentViolationError)
-    end
-
-    it 'returns sanitized env without unknown vars' do
-      result = described_class.validate_stdio_execution!(
-        command: 'node server.js',
-        env: { 'PATH' => '/usr/bin', 'CUSTOM_VAR' => 'value', 'MCP_KEY' => 'test' },
-        strict_env: true
-      )
-
-      expect(result[:env]).to include('PATH')
-      expect(result[:env]).to include('MCP_KEY')
-      expect(result[:env]).not_to include('CUSTOM_VAR')
-    end
-
-    it 'raises CommandNotAllowedError for blocked commands' do
-      expect do
-        described_class.validate_stdio_execution!(
-          command: 'bash -c "evil"',
-          env: {}
-        )
-      end.to raise_error(Mcp::SecurityService::CommandNotAllowedError)
+    it 'raises CommandNotAllowedError for blocked commands, before ever building an env' do
+      expect { described_class.validate_stdio_server!('command' => 'bash', 'args' => ['-c', 'evil']) }
+        .to raise_error(Mcp::SecurityService::CommandNotAllowedError)
     end
 
     it 'raises EnvironmentViolationError for forbidden env vars' do
+      expect { described_class.validate_stdio_server!('command' => 'node', 'env' => { 'LD_PRELOAD' => '/tmp/evil.so' }) }
+        .to raise_error(Mcp::SecurityService::EnvironmentViolationError)
+    end
+
+    it 'raises for a node -e inline-code argument (args are validated too, not just the command)' do
+      expect { described_class.validate_stdio_server!('command' => 'node', 'args' => ['-e', 'evil']) }
+        .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /Inline-code flag '-e'/)
+    end
+
+    it 'respects allow_extended_commands via capabilities' do
       expect do
-        described_class.validate_stdio_execution!(
-          command: 'node server.js',
-          env: { 'LD_PRELOAD' => '/tmp/evil.so' }
+        described_class.validate_stdio_server!(
+          'command' => 'uvx', 'args' => ['mcp-server-git'], 'capabilities' => { 'allow_extended_commands' => true }
         )
-      end.to raise_error(Mcp::SecurityService::EnvironmentViolationError)
+      end.not_to raise_error
     end
 
-    it 'respects allow_extended flag' do
-      result = described_class.validate_stdio_execution!(
-        command: 'uvx mcp-server-git',
-        env: {},
-        allow_extended: true
+    it 'respects strict_environment via capabilities' do
+      _command, env, = described_class.validate_stdio_server!(
+        'command' => 'node', 'env' => { 'CUSTOM_VAR' => 'value' }, 'capabilities' => { 'strict_environment' => true }
       )
 
-      expect(result[:command]).to eq('uvx mcp-server-git')
+      expect(env).not_to include('CUSTOM_VAR')
     end
 
-    it 'respects strict_env flag' do
-      result = described_class.validate_stdio_execution!(
-        command: 'node server.js',
-        env: { 'PATH' => '/usr/bin', 'CUSTOM' => 'value' },
-        strict_env: true
-      )
+    # IMP-176a386fef98 BLOCKER: this used to spawn @server.command as a
+    # bare STRING with `*Array(@server.args)` — Process.spawn/Open3 runs a
+    # lone command STRING through `/bin/sh -c` when given no additional
+    # args, so `args: []` would have let the command string alone execute
+    # arbitrary shell syntax even though the command itself passed the
+    # whitelist.
+    it 'refuses shell metacharacters in an arg (defense the old bare-string spawn had none of)' do
+      expect { described_class.validate_stdio_server!('command' => 'node', 'args' => ['s.js; rm -rf /']) }
+        .to raise_error(Mcp::SecurityService::CommandNotAllowedError, /forbidden shell metacharacter/)
+    end
+  end
 
-      expect(result[:env]).to include('PATH')
-      expect(result[:env]).not_to include('CUSTOM')
+  describe '.spawn_stdio' do
+    it 'always passes unsetenv_others: true' do
+      success_status = instance_double(Process::Status, success?: true)
+      expect(Open3).to receive(:capture3) do |_env, command, *_args, **opts|
+        expect(command).to eq(['node', 'node'])
+        expect(opts[:unsetenv_others]).to be true
+        ['{}', '', success_status]
+      end
+
+      described_class.spawn_stdio('node', { 'PATH' => ENV['PATH'] }, ['s.js'], stdin_data: '')
+    end
+
+    # IMP-176a386fef98 BLOCKER, real-child-spawn proof (mirrors the
+    # worker's IMP-e2cba83ee39f spec): a real, unstubbed child process is
+    # spawned through the actual Rails process's ENV, with a sentinel
+    # standing in for a real Rails secret — proving unsetenv_others: true
+    # actually keeps the whole Rails process environment (DATABASE_URL,
+    # secret_key_base, ...) out of the child, not just that the Hash this
+    # class BUILDS looks clean.
+    it 'spawns a real child whose observed env excludes Rails process secrets, sentinel absent' do
+      original = ENV.to_hash
+      ENV['MCP_RAILS_SECRET_SENTINEL'] = 'do-not-leak-me'
+
+      begin
+        require 'tempfile'
+        script = Tempfile.new(['mcp_env_probe', '.rb'])
+        begin
+          script.write('puts ENV.keys.sort.join(",")')
+          script.close
+
+          command, env, args = described_class.validate_stdio_server!(
+            'command' => 'ruby', 'args' => [script.path], 'env' => { 'MCP_API_KEY' => 'secret' }
+          )
+          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '')
+
+          expect(status).to be_success, "ruby child failed: #{stderr}"
+          child_keys = stdout.strip.split(',')
+
+          expect(child_keys).not_to include('MCP_RAILS_SECRET_SENTINEL')
+          expect(child_keys.sort).to eq(env.keys.sort)
+        ensure
+          script.unlink
+        end
+      ensure
+        ENV.replace(original)
+      end
     end
   end
 

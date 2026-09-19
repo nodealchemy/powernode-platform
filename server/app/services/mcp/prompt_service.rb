@@ -119,16 +119,32 @@ module Mcp
     { error: { message: "Invalid JSON response: #{e.message}" } }
   end
 
+  # IMP-176a386fef98: this used to Open3 @server.command/args/env directly
+  # with NO validation at all (no command whitelist, no argv inline-code
+  # check, no env sanitization) and spawn @server.command as a bare STRING
+  # (shell-injection risk when args is empty), inheriting this Rails
+  # process's full environment. Now routes through the same hardened,
+  # argv-only, clean-env path Mcp::SyncExecutionService/Mcp::ResourceService
+  # use (Mcp::SecurityService.validate_stdio_server!/#spawn_stdio). Refusal
+  # returns this method's EXISTING error shape (`{ error: { message: ... } }`)
+  # rather than raising.
   def send_stdio_request(request)
-    require "open3"
+    server_hash = {
+      "command" => @server.command,
+      "args" => @server.args,
+      "env" => @server.env,
+      "capabilities" => @server.capabilities
+    }
 
-    env = (@server.env || {}).transform_keys(&:to_s)
+    begin
+      command, sanitized_env, args = Mcp::SecurityService.validate_stdio_server!(server_hash)
+    rescue Mcp::SecurityService::CommandNotAllowedError, Mcp::SecurityService::EnvironmentViolationError => e
+      @logger.error "[McpPromptService] Security violation: #{e.message}"
+      return { error: { message: "Security error: #{e.message}" } }
+    end
 
-    stdout, stderr, status = Open3.capture3(
-      env,
-      @server.command,
-      *Array(@server.args),
-      stdin_data: "#{request.to_json}\n"
+    stdout, stderr, status = Mcp::SecurityService.spawn_stdio(
+      command, sanitized_env, args, stdin_data: "#{request.to_json}\n"
     )
 
     unless status.success?
