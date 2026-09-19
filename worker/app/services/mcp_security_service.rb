@@ -27,8 +27,13 @@ class McpSecurityService
   class CommandNotAllowedError < SecurityError; end
   class EnvironmentViolationError < SecurityError; end
 
-  # Allowed commands for stdio MCP servers. NOTE: "/usr/bin/env" and bare
-  # "env" are deliberately NOT here — see #raise_if_env_wrapper!.
+  # Allowed commands for stdio MCP servers — bare NAMES only (IMP-b6be9d979e13:
+  # this used to also list a partial, inconsistent set of hardcoded absolute
+  # paths, e.g. "/usr/bin/node" but not "/usr/bin/npx" or any "/bin/*" path
+  # at all — see ALLOWED_ABSOLUTE_COMMAND_DIRS below for how an absolute path
+  # is now validated instead: derived from these names, not hand-listed).
+  # NOTE: "/usr/bin/env" and bare "env" are deliberately NOT here — see
+  # #raise_if_env_wrapper!.
   ALLOWED_COMMANDS = %w[
     npx
     node
@@ -37,20 +42,10 @@ class McpSecurityService
     ruby
     deno
     bun
-    /usr/bin/node
-    /usr/bin/python
-    /usr/bin/python3
-    /usr/bin/ruby
-    /usr/local/bin/node
-    /usr/local/bin/npx
-    /usr/local/bin/python
-    /usr/local/bin/python3
-    /usr/local/bin/ruby
-    /usr/local/bin/deno
-    /usr/local/bin/bun
   ].freeze
 
-  # Extended commands enabled by configuration
+  # Extended commands enabled by configuration — bare NAMES only, same as
+  # ALLOWED_COMMANDS (IMP-b6be9d979e13).
   EXTENDED_COMMANDS = %w[
     uvx
     uv
@@ -61,6 +56,19 @@ class McpSecurityService
     dotnet
     go
   ].freeze
+
+  # IMP-b6be9d979e13 BLOCKER: #base_command_in_allowed_list? used to accept
+  # ANY path whose basename or trailing "/#{name}" matched an allowed name —
+  # "/tmp/evil/node" and "./node" both passed as "node". A command is now
+  # allowed in exactly two shapes: a bare whitelisted name (no "/" at all —
+  # resolved through the WORKER's own PATH at spawn time, which the server
+  # can never override, see FORBIDDEN_ENV_VARS/#build_stdio_env), or an
+  # EXACT, full match against one of these directories joined with a
+  # whitelisted name (e.g. "/usr/bin/node", never "/usr/bin/node2" or
+  # "/usr/bin/node/../node"). Every other absolute path, every relative path
+  # ("./node", "../x/node", "bin/node"), and any path containing whitespace
+  # is refused outright — there is no per-server path configuration.
+  ALLOWED_ABSOLUTE_COMMAND_DIRS = %w[/usr/bin /usr/local/bin /bin].freeze
 
   # Allowed environment variable prefixes
   ALLOWED_ENV_PREFIXES = %w[
@@ -488,13 +496,7 @@ class McpSecurityService
       base_command = extract_base_command(command)
       return false if env_wrapper?(base_command)
 
-      allowed = allow_extended ? (ALLOWED_COMMANDS + EXTENDED_COMMANDS) : ALLOWED_COMMANDS
-
-      allowed.any? do |allowed_cmd|
-        base_command == allowed_cmd ||
-          base_command.end_with?("/#{allowed_cmd}") ||
-          File.basename(base_command) == allowed_cmd
-      end
+      base_command_in_allowed_list?(base_command, allowed_commands(allow_extended))
     end
 
     # Sanitize environment variables
@@ -728,12 +730,31 @@ class McpSecurityService
             "Allowed commands: #{allowed.join(', ')}"
     end
 
-    # Check if base command is in the allowed list
+    # IMP-b6be9d979e13: exact-match only — see ALLOWED_ABSOLUTE_COMMAND_DIRS'
+    # comment for the full rationale. No File.basename/end_with? matching:
+    # those accepted ANY directory a command happened to sit in
+    # ("/tmp/evil/node" read as "node"). Decision: plain string equality,
+    # not File.expand_path — expand_path would resolve "/usr/bin/../../tmp/
+    # node" down to "/tmp/node" and reject it that way too, but silently
+    # normalizing a path before checking it is unnecessary complexity here
+    # (this never touches the filesystem either way) and invites a future
+    # normalization mismatch with whatever exec/Open3 actually resolves at
+    # spawn time. Rejecting any ".." segment explicitly, before the exact
+    # match, is simplest and makes the refusal reason unambiguous — a
+    # traversal segment is refused on sight, not because the resulting
+    # string merely fails to match (belt-and-suspenders: it would fail the
+    # exact match anyway, since expand_path is never applied). Whitespace is
+    # rejected the same way, for the same reason ("/usr/bin/node " differs
+    # from "/usr/bin/node" as a string already, but reject it explicitly so
+    # the refusal reason is legible, not an incidental match failure).
     def base_command_in_allowed_list?(base_command, allowed)
-      allowed.any? do |allowed_cmd|
-        base_command == allowed_cmd ||
-          base_command.end_with?("/#{allowed_cmd}") ||
-          File.basename(base_command) == allowed_cmd
+      return false if base_command.match?(/\s/)
+      return false if base_command.split('/').include?('..')
+
+      return allowed.include?(base_command) unless base_command.start_with?('/')
+
+      ALLOWED_ABSOLUTE_COMMAND_DIRS.any? do |dir|
+        allowed.any? { |name| base_command == "#{dir}/#{name}" }
       end
     end
 

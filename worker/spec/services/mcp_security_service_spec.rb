@@ -142,6 +142,106 @@ RSpec.describe McpSecurityService do
     end
   end
 
+  # IMP-b6be9d979e13 BLOCKER: the whitelist used to match on File.basename
+  # or a trailing "/#{name}" — "/tmp/evil/node" and "./node" both passed as
+  # "node". A command is now allowed ONLY as a bare whitelisted name
+  # (resolved through the worker's own PATH at spawn — the server can't
+  # override PATH, see FORBIDDEN_ENV_VARS) or an EXACT match against
+  # ALLOWED_ABSOLUTE_COMMAND_DIRS joined with a whitelisted name. Exercised
+  # via .validate_command! (raises) and .command_allowed? (bool) — both
+  # delegate to the same #base_command_in_allowed_list? this targets.
+  describe 'command whitelist exact-path matching (IMP-b6be9d979e13)' do
+    context 'refused — never reaches Open3.capture3' do
+      it 'refuses an arbitrary directory whose basename happens to match a whitelisted name' do
+        expect(Open3).not_to receive(:capture3)
+        expect { described_class.validate_command!('/tmp/evil/node server.js') }
+          .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+        expect(described_class.command_allowed?('/tmp/evil/node')).to be false
+      end
+
+      it 'refuses a same-directory relative path (./node)' do
+        expect(Open3).not_to receive(:capture3)
+        expect { described_class.validate_command!('./node server.js') }
+          .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+        expect(described_class.command_allowed?('./node')).to be false
+      end
+
+      it 'refuses a parent-relative path (../x/node)' do
+        expect(Open3).not_to receive(:capture3)
+        expect { described_class.validate_command!('../x/node server.js') }
+          .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+        expect(described_class.command_allowed?('../x/node')).to be false
+      end
+
+      it 'refuses a bare relative path with no leading dot (bin/node)' do
+        expect(Open3).not_to receive(:capture3)
+        expect { described_class.validate_command!('bin/node server.js') }
+          .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+        expect(described_class.command_allowed?('bin/node')).to be false
+      end
+
+      it 'refuses an absolute path in a directory outside ALLOWED_ABSOLUTE_COMMAND_DIRS (/opt/x/python3)' do
+        expect(Open3).not_to receive(:capture3)
+        expect { described_class.validate_command!('/opt/x/python3 server.py') }
+          .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+        expect(described_class.command_allowed?('/opt/x/python3')).to be false
+      end
+
+      it 'refuses a whitelisted absolute path with trailing whitespace ("/usr/bin/node ")' do
+        # Quoted so Shellwords preserves the trailing space as part of the
+        # FIRST token instead of trimming it as ordinary whitespace between
+        # words — an unquoted trailing space in the raw command string is
+        # never actually part of the resolved base_command token at all.
+        expect(Open3).not_to receive(:capture3)
+        expect { described_class.validate_command!('"/usr/bin/node " server.js') }
+          .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+        expect(described_class.command_allowed?('"/usr/bin/node "')).to be false
+      end
+
+      it 'refuses a directory-traversal path that would normalize to a whitelisted one (/usr/bin/../../tmp/node)' do
+        expect(Open3).not_to receive(:capture3)
+        expect { described_class.validate_command!('/usr/bin/../../tmp/node server.js') }
+          .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+        expect(described_class.command_allowed?('/usr/bin/../../tmp/node')).to be false
+      end
+
+      it 'refuses /usr/bin/docker unless allow_extended is set' do
+        expect(Open3).not_to receive(:capture3)
+        expect { described_class.validate_command!('/usr/bin/docker run mcp-server') }
+          .to raise_error(McpSecurityService::CommandNotAllowedError, /not in the allowed list/)
+        expect(described_class.command_allowed?('/usr/bin/docker')).to be false
+      end
+    end
+
+    context 'allowed' do
+      it 'allows a bare whitelisted name' do
+        expect { described_class.validate_command!('node server.js') }.not_to raise_error
+        expect(described_class.command_allowed?('node')).to be true
+      end
+
+      it 'allows an exact /usr/bin match' do
+        expect { described_class.validate_command!('/usr/bin/node server.js') }.not_to raise_error
+        expect(described_class.command_allowed?('/usr/bin/node')).to be true
+      end
+
+      it 'allows an exact /usr/local/bin match' do
+        expect { described_class.validate_command!('/usr/local/bin/python3 server.py') }.not_to raise_error
+        expect(described_class.command_allowed?('/usr/local/bin/python3')).to be true
+      end
+
+      it 'allows an exact /bin match' do
+        expect { described_class.validate_command!('/bin/ruby mcp_server.rb') }.not_to raise_error
+        expect(described_class.command_allowed?('/bin/ruby')).to be true
+      end
+
+      it 'allows /usr/bin/docker when allow_extended is set' do
+        expect { described_class.validate_command!('/usr/bin/docker run mcp-server', allow_extended: true) }
+          .not_to raise_error
+        expect(described_class.command_allowed?('/usr/bin/docker', allow_extended: true)).to be true
+      end
+    end
+  end
+
   describe '.sanitize_environment' do
     context 'with allowed variables' do
       it 'allows USER' do
