@@ -489,7 +489,7 @@ module AuditActions
   # resource context. NEVER the material that was handed out.
   MCP_ACTIONS = %w[
     mcp.servers.read mcp.servers.create mcp.servers.update mcp.servers.delete
-    mcp.servers.connect mcp.servers.disconnect mcp.servers.health_check mcp.servers.discover_tools mcp.servers.workflow_builder_read
+    mcp.servers.connect mcp.servers.disconnect mcp.servers.health_check mcp.servers.discover_tools
     mcp.tools.read mcp.tools.execute mcp.tools.undeclared_action mcp.tools.canonical_principal_refused
     mcp.tools.sensitive_access
     mcp.executions.read mcp.executions.cancel

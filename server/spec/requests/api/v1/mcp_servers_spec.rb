@@ -3,6 +3,44 @@
 require 'rails_helper'
 
 RSpec.describe 'Api::V1::McpServers', type: :request do
+  # IMP-80e613fb9c43: for_workflow_builder (and its serializer,
+  # serialize_for_workflow_builder) returned the raw McpServer#capabilities
+  # hash — config secrets, last_error, allow_network,
+  # allow_extended_commands, strict_environment, egress_allowlist — to any
+  # account user with mcp.servers.read. It was never routed (confirmed via
+  # `rails routes`, a repo-wide grep across server/worker/frontend/
+  # extensions, and no dynamic dispatch by name), so nothing could reach it
+  # over HTTP. NO LEGACY: deleted on discovery rather than fixed in place —
+  # mirrors git/providers_spec.rb's own "the deleted ... endpoint" pattern
+  # for the same class of dead, unroutable action.
+  describe 'the deleted for_workflow_builder endpoint' do
+    let(:workflow_builder_path) { '/api/v1/mcp_servers/for_workflow_builder' }
+
+    # NOT a RoutingError: `resources :mcp_servers` already declares the
+    # implicit `GET /:id` (show) route, so this path resolves — just to
+    # `show` with id: "for_workflow_builder" (a 404-via-RecordNotFound at
+    # request time, never the dead action) — since for_workflow_builder was
+    # never added to a `collection do` block. The real guarantee is that
+    # this path was NEVER dispatched to the for_workflow_builder action.
+    it 'resolves to #show (id: "for_workflow_builder"), never to the for_workflow_builder action' do
+      recognized = Rails.application.routes.recognize_path(workflow_builder_path, method: :get)
+      expect(recognized).to eq(controller: 'api/v1/mcp_servers', action: 'show', id: 'for_workflow_builder')
+    end
+
+    it 'returns not-found at request time, confirming no server ever named "for_workflow_builder" leaks anything' do
+      get workflow_builder_path, headers: auth_headers_for(create(:user, :manager, account: create(:account))), as: :json
+
+      expect_error_response('MCP server not found', 404)
+    end
+
+    it 'has no controller action or serializer behind it' do
+      expect(Api::V1::McpServersController.action_methods).not_to include('for_workflow_builder')
+      expect(Api::V1::McpServersController.private_instance_methods).not_to include(
+        :serialize_for_workflow_builder, :extract_resources_from_capabilities, :extract_prompts_from_capabilities
+      )
+    end
+  end
+
   let(:account) { create(:account) }
   let(:user) { create(:user, :manager, account: account) }
   let(:other_account) { create(:account) }
@@ -122,7 +160,7 @@ RSpec.describe 'Api::V1::McpServers', type: :request do
           connection_type: 'stdio',
           command: 'npx',
           args: [ '-y', '@modelcontextprotocol/server-test' ],
-          config: { timeout: 30 }
+          config: { version: '1.0' }
         }
       }
     end
@@ -159,6 +197,143 @@ RSpec.describe 'Api::V1::McpServers', type: :request do
         post '/api/v1/mcp_servers', params: valid_params, headers: limited_headers, as: :json
 
         expect_error_response('Insufficient permissions to manage MCP servers', 403)
+      end
+    end
+
+    # IMP-80e613fb9c43: config is an unstructured jsonb hash with no schema
+    # of its own (permit(config: {})), so it is exactly where a caller could
+    # smuggle secret-shaped content that then round-trips in full via
+    # serialize_mcp_server. Reject anything outside the allowlist at write
+    # time so the serializer never has hidden content to filter.
+    context 'with an unsupported config key' do
+      it 'rejects the request with 422 naming the key and creates nothing' do
+        malicious_params = valid_params.deep_merge(mcp_server: { config: { secret_token: 'shh' } })
+
+        expect {
+          post '/api/v1/mcp_servers', params: malicious_params, headers: headers, as: :json
+        }.not_to change { account.mcp_servers.count }
+
+        expect_error_response('secret_token', 422)
+      end
+    end
+
+    # IMP-80e613fb9c43 review round 2 (BLOCKER): validate_config_keys must
+    # not assume `config` or `mcp_server` are objects — malformed shapes
+    # 422, never 500.
+    context 'with a malformed payload' do
+      it 'returns 422, not 500, when config is a string' do
+        malformed = valid_params.deep_merge(mcp_server: { config: 'oops' })
+
+        post '/api/v1/mcp_servers', params: malformed, headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it 'returns 422, not 500, when config is an array' do
+        malformed = valid_params.deep_merge(mcp_server: { config: [ 'oops' ] })
+
+        post '/api/v1/mcp_servers', params: malformed, headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it 'returns 422, not 500, when mcp_server itself is a scalar' do
+        post '/api/v1/mcp_servers', params: { mcp_server: 'oops' }, headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+    end
+
+    # IMP-80e613fb9c43 review round 2: config.capabilities/config.metadata
+    # are nested unstructured hashes too — allowlist their keys AND value
+    # types (capabilities: booleans only; metadata: strings only), the same
+    # way the top-level allowlist covers config itself.
+    context 'with an unsupported nested capabilities/metadata key or type' do
+      it 'rejects an unknown capabilities key' do
+        malicious_params = valid_params.deep_merge(
+          mcp_server: { config: { capabilities: { tools: true, admin_override: true } } }
+        )
+
+        post '/api/v1/mcp_servers', params: malicious_params, headers: headers, as: :json
+
+        expect_error_response('capabilities.admin_override', 422)
+      end
+
+      it 'rejects a non-boolean value on an otherwise-allowed capabilities key' do
+        malicious_params = valid_params.deep_merge(
+          mcp_server: { config: { capabilities: { tools: 'not-a-boolean' } } }
+        )
+
+        post '/api/v1/mcp_servers', params: malicious_params, headers: headers, as: :json
+
+        expect_error_response('capabilities.tools', 422)
+      end
+
+      it 'rejects an unknown metadata key' do
+        malicious_params = valid_params.deep_merge(
+          mcp_server: { config: { metadata: { author: 'Acme', api_token: 'shh' } } }
+        )
+
+        post '/api/v1/mcp_servers', params: malicious_params, headers: headers, as: :json
+
+        expect_error_response('metadata.api_token', 422)
+      end
+
+      it 'rejects a non-string value on an otherwise-allowed metadata key, e.g. a nested object smuggling extra content' do
+        malicious_params = valid_params.deep_merge(
+          mcp_server: { config: { metadata: { author: { name: 'Acme', token: 'shh' } } } }
+        )
+
+        post '/api/v1/mcp_servers', params: malicious_params, headers: headers, as: :json
+
+        expect_error_response('metadata.author', 422)
+      end
+    end
+
+    # IMP-80e613fb9c43 review round 4: version/protocol_version/
+    # resources_count/prompts_count accepted ANY value — only their KEY
+    # NAME was checked, never their type — so `config: { version: {
+    # "api_key" => "..." } }` passed the allowlist, was stored, and
+    # round-tripped back out in full.
+    context 'with a wrong-typed value on an otherwise-allowed scalar config key' do
+      it 'rejects a nested hash under version' do
+        malicious_params = valid_params.deep_merge(
+          mcp_server: { config: { version: { api_key: 'shh' } } }
+        )
+
+        post '/api/v1/mcp_servers', params: malicious_params, headers: headers, as: :json
+
+        expect_error_response('version', 422)
+      end
+
+      it 'rejects a non-string protocol_version' do
+        malicious_params = valid_params.deep_merge(
+          mcp_server: { config: { protocol_version: 12 } }
+        )
+
+        post '/api/v1/mcp_servers', params: malicious_params, headers: headers, as: :json
+
+        expect_error_response('protocol_version', 422)
+      end
+
+      it 'rejects a non-integer resources_count, including an integer-looking string (strict, no coercion)' do
+        malicious_params = valid_params.deep_merge(
+          mcp_server: { config: { resources_count: '3' } }
+        )
+
+        post '/api/v1/mcp_servers', params: malicious_params, headers: headers, as: :json
+
+        expect_error_response('resources_count', 422)
+      end
+
+      it 'rejects a non-integer prompts_count' do
+        malicious_params = valid_params.deep_merge(
+          mcp_server: { config: { prompts_count: [ 1 ] } }
+        )
+
+        post '/api/v1/mcp_servers', params: malicious_params, headers: headers, as: :json
+
+        expect_error_response('prompts_count', 422)
       end
     end
   end
@@ -201,6 +376,142 @@ RSpec.describe 'Api::V1::McpServers', type: :request do
 
         expect_error_response('Insufficient permissions to manage MCP servers', 403)
       end
+    end
+
+    # IMP-80e613fb9c43
+    context 'with an unsupported config key' do
+      before { server.update_column(:capabilities, server.capabilities.merge('config' => { 'version' => '1.0' })) }
+
+      it 'rejects the request with 422 naming the key and leaves stored config untouched' do
+        malicious_params = { mcp_server: { config: { api_secret: 'shh' } } }
+
+        patch "/api/v1/mcp_servers/#{server.id}", params: malicious_params, headers: headers, as: :json
+
+        expect_error_response('api_secret', 422)
+        expect(server.reload.config).to eq('version' => '1.0')
+      end
+    end
+
+    # IMP-80e613fb9c43 review round 2 (BLOCKER)
+    context 'with a malformed payload' do
+      it 'returns 422, not 500, when config is a string' do
+        patch "/api/v1/mcp_servers/#{server.id}", params: { mcp_server: { config: 'oops' } }, headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it 'returns 422, not 500, when config is an array' do
+        patch "/api/v1/mcp_servers/#{server.id}", params: { mcp_server: { config: [ 'oops' ] } }, headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      it 'returns 422, not 500, when mcp_server itself is a scalar' do
+        patch "/api/v1/mcp_servers/#{server.id}", params: { mcp_server: 'oops' }, headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+    end
+  end
+
+  # IMP-80e613fb9c43: config is allowlisted on BOTH sides — nothing outside
+  # the allowlist can be stored through this controller (see the "unsupported
+  # config key" contexts above), and the serializer defensively slices too,
+  # in case a row was seeded directly in the DB (e.g. by a worker/internal
+  # path, or pre-existing data from before this fix).
+  describe 'config allowlisting' do
+    let(:server) { create(:mcp_server, :disconnected, account: account) }
+
+    it 'round-trips allowlisted config keys on create' do
+      params = {
+        mcp_server: {
+          name: 'Allowlist Test Server',
+          connection_type: 'stdio',
+          command: 'node',
+          config: {
+            version: '1.0.0',
+            protocol_version: '2024-11-05',
+            capabilities: { tools: true, resources: true, prompts: false, logging: false },
+            resources_count: 3,
+            prompts_count: 1,
+            metadata: { author: 'Acme', url: 'https://example.com' }
+          }
+        }
+      }
+
+      post '/api/v1/mcp_servers', params: params, headers: headers, as: :json
+
+      expect(response).to have_http_status(:created)
+      config = json_response_data['mcp_server']['config']
+      expect(config).to include(
+        'version' => '1.0.0',
+        'protocol_version' => '2024-11-05',
+        'resources_count' => 3,
+        'prompts_count' => 1
+      )
+      expect(config['metadata']).to eq('author' => 'Acme', 'url' => 'https://example.com')
+    end
+
+    it 'never exposes a non-allowlisted key on show/index, even if seeded directly in the DB' do
+      server.update_column(
+        :capabilities,
+        server.capabilities.merge('config' => { 'version' => '1.0', 'oauth_client_secret' => 'topsecret' })
+      )
+
+      get "/api/v1/mcp_servers/#{server.id}", headers: headers, as: :json
+
+      expect_success_response
+      config = json_response_data['mcp_server']['config']
+      expect(config).to eq('version' => '1.0')
+      expect(config).not_to have_key('oauth_client_secret')
+
+      get '/api/v1/mcp_servers', headers: headers, as: :json
+
+      expect_success_response
+      index_config = json_response_data['mcp_servers'].find { |s| s['id'] == server.id }['config']
+      expect(index_config).to eq('version' => '1.0')
+    end
+
+    it 'strips non-allowlisted nested capabilities/metadata content seeded directly in the DB' do
+      server.update_column(
+        :capabilities,
+        server.capabilities.merge(
+          'config' => {
+            'version' => '1.0',
+            'capabilities' => { 'tools' => true, 'admin_override' => true },
+            'metadata' => { 'author' => 'Acme', 'internal_note' => 'shh', 'url' => { 'nested' => 'object' } }
+          }
+        )
+      )
+
+      get "/api/v1/mcp_servers/#{server.id}", headers: headers, as: :json
+
+      expect_success_response
+      config = json_response_data['mcp_server']['config']
+      expect(config['capabilities']).to eq('tools' => true)
+      expect(config['metadata']).to eq('author' => 'Acme')
+    end
+
+    it 'never returns a wrong-typed scalar config value seeded directly in the DB' do
+      server.update_column(
+        :capabilities,
+        server.capabilities.merge(
+          'config' => {
+            'version' => { 'api_key' => 'shh' },
+            'protocol_version' => '2024-11-05',
+            'resources_count' => '3',
+            'prompts_count' => 1
+          }
+        )
+      )
+
+      get "/api/v1/mcp_servers/#{server.id}", headers: headers, as: :json
+
+      expect_success_response
+      config = json_response_data['mcp_server']['config']
+      expect(config).not_to have_key('version')
+      expect(config).not_to have_key('resources_count')
+      expect(config).to include('protocol_version' => '2024-11-05', 'prompts_count' => 1)
     end
   end
 
