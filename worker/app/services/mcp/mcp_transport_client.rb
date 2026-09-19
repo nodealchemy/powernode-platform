@@ -67,11 +67,21 @@ module Mcp
       # via any caller that hasn't been through the with_indifferent_access
       # job boundary) needs normalizing first. `args` is the fully resolved
       # argv — never re-derive it from server[:args] alone.
+      indifferent_server = server.with_indifferent_access
+
       begin
-        command, sanitized_env, args = McpSecurityService.validate_stdio_server!(server.with_indifferent_access)
+        command, sanitized_env, args = McpSecurityService.validate_stdio_server!(indifferent_server)
       rescue McpSecurityService::CommandNotAllowedError, McpSecurityService::EnvironmentViolationError => e
         return { success: false, error: "Security error: #{e.message}" }
       end
+
+      # IMP-a50680fd53d8 — admin-gated, same trust tier and gating as
+      # allow_extended_commands (carried here by the same IMP-427e98cae0be
+      # capabilities serialization allowlist). Read straight from the
+      # server hash, not re-derived: #validate_stdio_server! doesn't
+      # return it (it's a spawn-time sandbox policy, not something
+      # validation refuses on).
+      allow_network = indifferent_server.dig('capabilities', 'allow_network') == true
 
       begin
         # IMP-abda86fb39be review — JSON-RPC over stdio is
@@ -87,7 +97,9 @@ module Mcp
         # McpSecurityService.spawn_stdio is the shared spawn point (argv0
         # exec form + unsetenv_others: true — IMP-97b6b1185748 item 1,
         # IMP-e2cba83ee39f) — never call Open3.capture3 directly here.
-        stdout, stderr, status = McpSecurityService.spawn_stdio(command, sanitized_env, args, stdin_data: stdin_data)
+        stdout, stderr, status = McpSecurityService.spawn_stdio(
+          command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network
+        )
 
         if status.success?
           response = parse_mcp_response(stdout)

@@ -113,7 +113,7 @@ RSpec.describe Mcp::McpTransportClient do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
       captured_stdin = nil
 
-      allow(McpSecurityService).to receive(:spawn_stdio) do |command, env, args, stdin_data:|
+      allow(McpSecurityService).to receive(:spawn_stdio) do |command, env, args, stdin_data:, **_kwargs|
         expect(env).to include('MCP_X' => '1', 'PATH' => ENV['PATH'])
         expect(command).to eq('/usr/bin/node')
         expect(args).to eq(['--flag'])
@@ -134,7 +134,7 @@ RSpec.describe Mcp::McpTransportClient do
     it 'writes only the built JSON-RPC tools/call request to stdin, nothing else (IMP-97b6b1185748 item 5)' do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
-      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:|
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, **_kwargs|
         parsed = JSON.parse(stdin_data)
         expect(parsed['jsonrpc']).to eq('2.0')
         expect(parsed['method']).to eq('tools/call')
@@ -163,7 +163,7 @@ RSpec.describe Mcp::McpTransportClient do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
       captured_stdin = nil
 
-      allow(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:|
+      allow(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, **_kwargs|
         captured_stdin = stdin_data
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
       end
@@ -374,7 +374,7 @@ RSpec.describe Mcp::McpTransportClient do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
       captured_stdin = nil
 
-      allow(McpSecurityService).to receive(:spawn_stdio) do |command, _env, args, stdin_data:|
+      allow(McpSecurityService).to receive(:spawn_stdio) do |command, _env, args, stdin_data:, **_kwargs|
         expect(command).to eq('/usr/bin/node')
         expect(args).to eq(['--flag'])
         captured_stdin = stdin_data
@@ -387,6 +387,46 @@ RSpec.describe Mcp::McpTransportClient do
       expect(framed['method']).to eq('prompts/get')
       expect(framed['params']).to eq('name' => 'greeting')
       expect(result).to eq(success: true, output: { messages: [] })
+    end
+
+    # IMP-a50680fd53d8 — admin-gated, same trust tier and gating as
+    # allow_extended_commands (carried by the IMP-427e98cae0be
+    # capabilities serialization allowlist); the SANDBOX itself lives in
+    # McpSecurityService.spawn_stdio, not here, but this method is the
+    # ONLY place that reads server['capabilities']['allow_network'] and
+    # threads it through — a regression here would silently make every
+    # server's network policy default to false (fully sandboxed) or
+    # true (unintentionally open), whichever way the bug points.
+    it "passes allow_network: true through to spawn_stdio when the server's capabilities say so" do
+      network_server = server.merge(capabilities: { 'allow_network' => true })
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:|
+        expect(allow_network).to be true
+        ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
+      end
+
+      # Asserting the RETURN VALUE, not just assertions inside the mock
+      # block, matters here: execute_stdio_request wraps the spawn_stdio
+      # call in its own `rescue StandardError => e`, so if the real call
+      # omits the allow_network: keyword the block requires, the resulting
+      # ArgumentError is swallowed into an {success: false, error: ...}
+      # result rather than surfacing as a spec failure — a test with no
+      # post-call assertion would pass either way.
+      result = client.execute_stdio_request(network_server, mcp_request)
+      expect(result).to eq(success: true, output: {})
+    end
+
+    it 'passes allow_network: false through to spawn_stdio when capabilities omit it' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:|
+        expect(allow_network).to be false
+        ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
+      end
+
+      result = client.execute_stdio_request(server, mcp_request)
+      expect(result).to eq(success: true, output: {})
     end
 
     # IMP-abda86fb39be review — the worker-side validator is MANDATORY,

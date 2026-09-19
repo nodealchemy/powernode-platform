@@ -88,6 +88,23 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
         expect(nested_server['capabilities']).to eq(mcp_servers_endpoint_capabilities)
       end
 
+      # IMP-a50680fd53d8 — this IS the payload the worker's
+      # McpToolExecutionJob actually reads (via
+      # Mcp::McpTransportClient#execute_stdio_tool ->
+      # McpSecurityService.spawn_stdio's allow_network: kwarg); without it
+      # here, the worker can never learn a server opted into network
+      # access.
+      it "also exposes allow_network on the nested server's capabilities" do
+        mcp_server.update!(capabilities: { 'allow_network' => true })
+
+        get "/api/v1/internal/mcp_tool_executions/#{mcp_tool_execution.id}",
+            headers: internal_headers,
+            as: :json
+
+        nested_server = json_response_data['mcp_tool_execution']['mcp_tool']['mcp_server']
+        expect(nested_server['capabilities']).to eq('allow_network' => true)
+      end
+
       it 'includes execution parameters and result' do
         get "/api/v1/internal/mcp_tool_executions/#{mcp_tool_execution.id}",
             headers: internal_headers,

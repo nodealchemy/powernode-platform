@@ -1077,6 +1077,582 @@ RSpec.describe McpSecurityService do
     end
   end
 
+  # IMP-a50680fd53d8 (MCP isolation Phase 1 T2) — every stdio MCP child
+  # runs inside a transient systemd-run sandbox unless
+  # MCP_STDIO_SANDBOX_MODE=off. spec_helper.rb sets that globally for the
+  # WHOLE suite (not by changing the production default) so every OTHER
+  # spec in this file — including the pre-existing IMP-4689ce5a4acb
+  # real-spawn deadline/pgroup/large-stdin specs above — keeps passing
+  # unprivileged, unchanged. This block covers the sandbox machinery
+  # itself: everything that can be verified WITHOUT real root/systemd-run
+  # (argv construction, the env file, mode resolution, fail-closed) plus
+  # a root-gated block of REAL sandboxed spawns, skipped with a clear
+  # message unless #real_sandbox_available? (Process.uid == 0 && a real
+  # systemd-run on PATH).
+  describe '#spawn_stdio sandboxing' do
+    describe '.sandbox_mode' do
+      it 'defaults to required when unset' do
+        with_sandbox_mode(nil) { expect(described_class.sandbox_mode).to eq('required') }
+      end
+
+      it 'accepts available and off' do
+        with_sandbox_mode('available') { expect(described_class.sandbox_mode).to eq('available') }
+        with_sandbox_mode('off') { expect(described_class.sandbox_mode).to eq('off') }
+      end
+
+      it 'is case/whitespace-insensitive' do
+        with_sandbox_mode(' Available ') { expect(described_class.sandbox_mode).to eq('available') }
+      end
+
+      it 'falls back to required on an unrecognized value — a fail-closed setting must not silently read as off' do
+        with_sandbox_mode('bogus') { expect(described_class.sandbox_mode).to eq('required') }
+      end
+    end
+
+    describe '#sandbox_for_this_call? (fail-closed / available-fallback)' do
+      it 'returns false without calling #sandbox_available? at all when mode is off' do
+        expect(described_class).not_to receive(:sandbox_available?)
+        with_sandbox_mode('off') { expect(described_class.send(:sandbox_for_this_call?)).to be false }
+      end
+
+      it 'returns true when required and sandboxing is available' do
+        allow(described_class).to receive(:sandbox_available?).and_return(true)
+        with_sandbox_mode('required') { expect(described_class.send(:sandbox_for_this_call?)).to be true }
+      end
+
+      it 'raises SandboxUnavailableError when required and sandboxing is NOT available (fail closed)' do
+        allow(described_class).to receive(:sandbox_available?).and_return(false)
+        with_sandbox_mode('required') do
+          expect { described_class.send(:sandbox_for_this_call?) }.to raise_error(described_class::SandboxUnavailableError)
+        end
+      end
+
+      it "the required-mode error names the polkit grant when the cause is not being root (IMP-94977647c24c)" do
+        allow(described_class).to receive(:sandbox_available?).and_return(false)
+        allow(described_class).to receive(:systemd_run_path).and_return('/usr/bin/systemd-run')
+        allow(Process).to receive(:uid).and_return(1000)
+        with_sandbox_mode('required') do
+          expect { described_class.send(:sandbox_for_this_call?) }
+            .to raise_error(described_class::SandboxUnavailableError, /polkit/i)
+        end
+      end
+
+      it 'the required-mode error names the missing binary when systemd-run is absent' do
+        allow(described_class).to receive(:sandbox_available?).and_return(false)
+        allow(described_class).to receive(:systemd_run_path).and_return(nil)
+        with_sandbox_mode('required') do
+          expect { described_class.send(:sandbox_for_this_call?) }
+            .to raise_error(described_class::SandboxUnavailableError, /systemd-run/i)
+        end
+      end
+
+      it 'falls back to UNSANDBOXED with a WARN log when available and sandboxing is NOT available — never silent' do
+        allow(described_class).to receive(:sandbox_available?).and_return(false)
+        logger_double = described_class.send(:logger)
+        expect(logger_double).to receive(:warn).with(/UNSANDBOXED/)
+        with_sandbox_mode('available') { expect(described_class.send(:sandbox_for_this_call?)).to be false }
+      end
+    end
+
+    describe '#sandbox_available?' do
+      it 'is false when not root, even with systemd-run present' do
+        allow(Process).to receive(:uid).and_return(1000)
+        allow(described_class).to receive(:systemd_run_path).and_return('/usr/bin/systemd-run')
+        expect(described_class.send(:sandbox_available?)).to be false
+      end
+
+      it 'is false when root but systemd-run is missing' do
+        allow(Process).to receive(:uid).and_return(0)
+        allow(described_class).to receive(:systemd_run_path).and_return(nil)
+        expect(described_class.send(:sandbox_available?)).to be false
+      end
+
+      it 'is true when root AND systemd-run is present' do
+        allow(Process).to receive(:uid).and_return(0)
+        allow(described_class).to receive(:systemd_run_path).and_return('/usr/bin/systemd-run')
+        expect(described_class.send(:sandbox_available?)).to be true
+      end
+    end
+
+    describe '#sandboxed_spawn_argv (unit — argv construction, no real spawn)' do
+      let(:env_file_path) { described_class.send(:write_sandbox_env_file, {}) }
+
+      after { described_class.send(:cleanup_sandbox_env_file, env_file_path) }
+
+      it 'wraps the command in systemd-run with the expected hardening properties' do
+        spawn_env, spawn_command, spawn_args = described_class.send(
+          :sandboxed_spawn_argv, 'node', [ 'server.js' ],
+          env: { 'PATH' => '/usr/bin' }, unit_name: 'mcp-stdio-test-unit',
+          env_file_path: env_file_path, timeout: 30, allow_network: false
+        )
+
+        expect(spawn_command).to eq(described_class.send(:systemd_run_path))
+        expect(spawn_args).to include(
+          '--unit=mcp-stdio-test-unit', 'DynamicUser=yes', "User=#{described_class::SANDBOX_USER_NAME}",
+          'ProtectSystem=strict', 'ProtectHome=yes', 'PrivateTmp=yes', 'NoNewPrivileges=yes',
+          'RuntimeMaxSec=30', 'IPAddressDeny=any', "EnvironmentFile=#{env_file_path}",
+          "CacheDirectory=#{described_class::SANDBOX_CACHE_DIR_NAME}"
+        )
+        expect(spawn_args.last(3)).to eq([ '--', 'node', 'server.js' ])
+        # The systemd-run CLIENT's own env is NOT the sandboxed child's
+        # env — deliberately minimal (see #spawn_stdio's own comment).
+        expect(spawn_env).to eq('PATH' => ENV['PATH'].to_s)
+      end
+
+      it 'omits IPAddressDeny entirely when allow_network is true' do
+        _, _, spawn_args = described_class.send(
+          :sandboxed_spawn_argv, 'node', [], env: {}, unit_name: 'u',
+          env_file_path: env_file_path, timeout: 30, allow_network: true
+        )
+        expect(spawn_args).not_to include('IPAddressDeny=any')
+      end
+
+      it 'never puts server-supplied env (e.g. an API key) on --setenv — only this process\'s own passthrough keys' do
+        _, _, spawn_args = described_class.send(
+          :sandboxed_spawn_argv, 'node', [],
+          env: { 'PATH' => '/usr/bin', 'API_KEY' => 'super-secret-value' },
+          unit_name: 'u', env_file_path: env_file_path, timeout: 30, allow_network: false
+        )
+        joined = spawn_args.join(' ')
+        expect(joined).not_to include('super-secret-value')
+        expect(joined).to include('--setenv=PATH=/usr/bin')
+      end
+
+      it 'overrides HOME to the sandbox cache directory, never a passthrough HOME value' do
+        _, _, spawn_args = described_class.send(
+          :sandboxed_spawn_argv, 'node', [], env: { 'HOME' => '/home/worker' },
+          unit_name: 'u', env_file_path: env_file_path, timeout: 30, allow_network: false
+        )
+        expect(spawn_args).to include("--setenv=HOME=/var/cache/#{described_class::SANDBOX_CACHE_DIR_NAME}")
+        expect(spawn_args.join(' ')).not_to include('--setenv=HOME=/home/worker')
+      end
+    end
+
+    describe '#write_sandbox_env_file / #cleanup_sandbox_env_file' do
+      it 'writes double-quoted KEY="value" lines to a mode-0600 file and cleanup removes it' do
+        path = described_class.send(:write_sandbox_env_file, { 'FOO' => 'bar', 'BAZ' => 'qux' })
+
+        # IMP-a50680fd53d8 review blocker 2 — every value is written
+        # double-quoted (systemd's own EnvironmentFile quoting rule), not
+        # bare KEY=value, so a value containing whitespace/quotes/
+        # backslashes round-trips unambiguously. See the injection specs
+        # below for the cases this format specifically defeats.
+        expect(File.read(path)).to eq("FOO=\"bar\"\nBAZ=\"qux\"")
+        expect(File.stat(path).mode & 0o777).to eq(0o600)
+
+        described_class.send(:cleanup_sandbox_env_file, path)
+        expect(File.exist?(path)).to be false
+      end
+
+      it 'cleanup does not raise when the file is already gone' do
+        missing = File.join(described_class.send(:sandbox_env_file_dir), 'already-gone.env')
+        expect { described_class.send(:cleanup_sandbox_env_file, missing) }.not_to raise_error
+      end
+
+      it 'creates the file atomically at 0600 — never a readable-then-tightened window' do
+        # O_EXCL means a SECOND write to the same (deliberately re-used)
+        # path must fail rather than silently follow/overwrite whatever is
+        # already there.
+        path = File.join(described_class.send(:sandbox_env_file_dir), "#{SecureRandom.uuid}.env")
+        FileUtils.mkdir_p(described_class.send(:sandbox_env_file_dir), mode: 0o700)
+        File.write(path, 'PRE_EXISTING=1')
+
+        expect do
+          fd = IO.sysopen(path, File::WRONLY | File::CREAT | File::EXCL, 0o600)
+          IO.new(fd).close
+        end.to raise_error(Errno::EEXIST)
+      ensure
+        FileUtils.rm_f(path)
+      end
+
+      # IMP-a50680fd53d8 review round 2 — a write failure AFTER the O_EXCL
+      # create (e.g. Errno::ENOSPC) previously left a PARTIAL, 0600 file
+      # on disk forever: the create succeeded, so O_EXCL's own protection
+      # doesn't help, and #spawn_stdio's own `ensure` never learns this
+      # path since the exception unwinds past the point it captures
+      # env_file_path. #write_sandbox_env_file must delete its own
+      # partial file before re-raising.
+      it 'deletes the partial file if writing fails after the O_EXCL create (e.g. Errno::ENOSPC)' do
+        allow(SecureRandom).to receive(:uuid).and_return('fixed-uuid-for-partial-write-test')
+        expected_path = File.join(described_class.send(:sandbox_env_file_dir), 'fixed-uuid-for-partial-write-test.env')
+        FileUtils.rm_f(expected_path)
+
+        allow(IO).to receive(:new).and_wrap_original do |original, fd|
+          io = original.call(fd)
+          allow(io).to receive(:write).and_raise(Errno::ENOSPC, 'No space left on device')
+          io
+        end
+
+        expect do
+          described_class.send(:write_sandbox_env_file, { 'A' => 'b' })
+        end.to raise_error(Errno::ENOSPC)
+
+        expect(File.exist?(expected_path)).to be false
+      ensure
+        FileUtils.rm_f(expected_path)
+      end
+
+      # IMP-a50680fd53d8 review blocker 2 — a raw newline inside a VALUE
+      # would otherwise start an entirely new KEY=VALUE line the systemd
+      # EnvironmentFile parser reads as ANOTHER environment variable,
+      # bypassing whatever key the value was actually written under (e.g.
+      # smuggling in a fabricated LD_PRELOAD=... entry via a value that
+      # never mentions LD_PRELOAD in its own key at all) — this must be
+      # refused outright, not sanitized/stripped silently.
+      it 'refuses a value containing a newline (EnvironmentFile line-injection)' do
+        expect do
+          described_class.send(:write_sandbox_env_file, { 'MCP_TOKEN' => "safe\nLD_PRELOAD=/tmp/evil.so" })
+        end.to raise_error(McpSecurityService::EnvironmentViolationError, /newline/)
+      end
+
+      it 'refuses a value containing a carriage return or NUL byte' do
+        expect do
+          described_class.send(:write_sandbox_env_file, { 'A' => "x\ry" })
+        end.to raise_error(McpSecurityService::EnvironmentViolationError, /carriage return/)
+
+        expect do
+          described_class.send(:write_sandbox_env_file, { 'A' => "x\0y" })
+        end.to raise_error(McpSecurityService::EnvironmentViolationError, /NUL/)
+      end
+
+      it 'refuses a key that is not a safe systemd EnvironmentFile identifier' do
+        expect do
+          described_class.send(:write_sandbox_env_file, { 'NOT A KEY' => 'value' })
+        end.to raise_error(McpSecurityService::EnvironmentViolationError, /not a safe systemd EnvironmentFile key/)
+
+        expect do
+          described_class.send(:write_sandbox_env_file, { 'FOO=BAR' => 'value' })
+        end.to raise_error(McpSecurityService::EnvironmentViolationError)
+      end
+
+      it 'double-quotes and escapes a backslash and a double-quote in a value' do
+        path = described_class.send(:write_sandbox_env_file, { 'X' => 'a\\b"c' })
+
+        expect(File.read(path)).to eq('X="a\\\\b\\"c"')
+      ensure
+        described_class.send(:cleanup_sandbox_env_file, path)
+      end
+
+      it "fails closed when the env file directory is a symlink" do
+        real_dir = described_class.send(:sandbox_env_file_dir)
+        FileUtils.rm_rf(real_dir)
+        elsewhere = Dir.mktmpdir
+        FileUtils.ln_s(elsewhere, real_dir)
+
+        expect do
+          described_class.send(:write_sandbox_env_file, { 'A' => 'b' })
+        end.to raise_error(McpSecurityService::EnvironmentViolationError, /symlink/)
+      ensure
+        File.delete(real_dir) if real_dir && File.symlink?(real_dir)
+        FileUtils.rm_rf(elsewhere) if elsewhere
+      end
+
+      it "fails closed when the env file directory has unsafe permissions" do
+        real_dir = described_class.send(:sandbox_env_file_dir)
+        FileUtils.mkdir_p(real_dir, mode: 0o700)
+        File.chmod(0o755, real_dir)
+
+        expect do
+          described_class.send(:write_sandbox_env_file, { 'A' => 'b' })
+        end.to raise_error(McpSecurityService::EnvironmentViolationError, /unsafe permissions/)
+      ensure
+        File.chmod(0o700, real_dir) if real_dir && File.directory?(real_dir)
+      end
+    end
+
+    describe '#terminate_process_group! with a sandboxed unit_name' do
+      it 'stops the generated unit (best-effort, bounded) before the local kill' do
+        require 'open3'
+        # A real, already-exited child (never a live pid we might
+        # accidentally signal) — Process.kill('TERM', -pid) on it below
+        # raises Errno::ESRCH, which the method already rescues.
+        _stdin, _stdout, _stderr, wait_thr = Open3.popen3('true')
+        wait_thr.join
+        pid = wait_thr.pid
+
+        expect(described_class).to receive(:stop_sandboxed_unit!).with('mcp-stdio-test-unit')
+
+        described_class.send(:terminate_process_group!, pid, wait_thr, unit_name: 'mcp-stdio-test-unit')
+      end
+
+      it 'does not stop any unit when unit_name is nil (unsandboxed path, unchanged)' do
+        require 'open3'
+        _stdin, _stdout, _stderr, wait_thr = Open3.popen3('true')
+        wait_thr.join
+        pid = wait_thr.pid
+
+        expect(described_class).not_to receive(:stop_sandboxed_unit!)
+
+        described_class.send(:terminate_process_group!, pid, wait_thr, unit_name: nil)
+      end
+    end
+
+    # IMP-a50680fd53d8 review blocker 4 — #stop_sandboxed_unit! must itself
+    # be bounded: a bare `system('systemctl', 'stop', ...)` had no timeout
+    # at all, so a wedged `systemctl stop` (stuck D-Bus call, stuck cgroup
+    # teardown) could block #terminate_process_group! — and therefore
+    # #spawn_stdio's own deadline enforcement — indefinitely.
+    describe '#stop_sandboxed_unit! (bounded systemctl stop)' do
+      it 'spawns systemctl stop with the given unit name, in its own process group, and joins bounded' do
+        fake_pid = 999_999
+        fake_thread = instance_double(Thread, join: true)
+        allow(Process).to receive(:spawn)
+          .with('systemctl', 'stop', 'mcp-stdio-test-unit', out: File::NULL, err: File::NULL, pgroup: true)
+          .and_return(fake_pid)
+        allow(Process).to receive(:detach).with(fake_pid).and_return(fake_thread)
+
+        described_class.send(:stop_sandboxed_unit!, 'mcp-stdio-test-unit')
+
+        expect(fake_thread).to have_received(:join).with(described_class::STDIO_TERM_GRACE_SECONDS)
+      end
+
+      it "kills the systemctl process's own process group when it does not finish within the grace period" do
+        # Real process, real Process.detach, real kill-on-timeout path —
+        # only the ARGV `systemctl stop` would have run is substituted
+        # (via the exact-args-matched stub below) for a long-sleeping real
+        # child, so this proves the actual bound rather than a mocked one.
+        hung_pid = Process.spawn('sleep', '10', pgroup: true)
+        allow(Process).to receive(:spawn)
+          .with('systemctl', 'stop', 'mcp-stdio-test-unit', out: File::NULL, err: File::NULL, pgroup: true)
+          .and_return(hung_pid)
+
+        started_at = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        described_class.send(:stop_sandboxed_unit!, 'mcp-stdio-test-unit')
+        elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started_at
+
+        expect(elapsed).to be < (described_class::STDIO_TERM_GRACE_SECONDS + 2)
+        expect { Process.kill(0, hung_pid) }.to raise_error(Errno::ESRCH)
+      ensure
+        begin
+          Process.kill('KILL', -hung_pid)
+          Process.wait(hung_pid)
+        rescue Errno::ESRCH, Errno::ECHILD
+          nil
+        end
+      end
+
+      # IMP-a50680fd53d8 review round 2 — a rescue scoped to ONLY
+      # Errno::ESRCH left #terminate_process_group!'s own local TERM/KILL
+      # sequence never reached at all whenever Process.spawn('systemctl',
+      # ...) raised something else (Errno::ENOENT if systemctl isn't on
+      # PATH, Errno::EAGAIN under fork pressure, ...) — this is
+      # best-effort, so ANY StandardError here must be swallowed (logged,
+      # not raised) so the caller's local kill always still runs.
+      it 'swallows a StandardError from Process.spawn (e.g. Errno::ENOENT) and logs it, without raising' do
+        allow(Process).to receive(:spawn)
+          .with('systemctl', 'stop', 'mcp-stdio-test-unit', out: File::NULL, err: File::NULL, pgroup: true)
+          .and_raise(Errno::ENOENT, 'No such file or directory - systemctl')
+        logger_double = instance_double(Logger, warn: nil)
+        allow(described_class).to receive(:logger).and_return(logger_double)
+
+        expect do
+          described_class.send(:stop_sandboxed_unit!, 'mcp-stdio-test-unit')
+        end.not_to raise_error
+
+        expect(logger_double).to have_received(:warn).with(/stop_sandboxed_unit!.*mcp-stdio-test-unit.*Errno::ENOENT/)
+      end
+    end
+
+    # IMP-a50680fd53d8 review blocker 3 — a crash BETWEEN writing the env
+    # file and Open3.popen3 returning (e.g. Open3.popen3 itself raising
+    # Errno::ENOENT when `command` doesn't exist, or Errno::EMFILE under
+    # fd exhaustion) used to skip cleanup entirely: the OLD inner
+    # begin/ensure only started AFTER popen3 returned successfully. No
+    # root/real systemd-run needed here — #sandbox_for_this_call? is
+    # stubbed directly so this exercises the Ruby-level exception path,
+    # not the sandboxing mechanism itself.
+    describe '#spawn_stdio deletes its env file even when the popen3 spawn itself fails' do
+      it 'cleans up the env file when Open3.popen3 raises (e.g. Errno::ENOENT)' do
+        require 'open3'
+        allow(described_class).to receive(:sandbox_for_this_call?).and_return(true)
+        written_path = nil
+        allow(described_class).to receive(:write_sandbox_env_file).and_wrap_original do |original, env|
+          written_path = original.call(env)
+        end
+        allow(Open3).to receive(:popen3).and_raise(Errno::ENOENT, 'no such file or directory - nonexistent-command')
+
+        expect do
+          described_class.spawn_stdio('nonexistent-command', {}, [], stdin_data: '')
+        end.to raise_error(Errno::ENOENT)
+
+        expect(written_path).not_to be_nil
+        expect(File.exist?(written_path)).to be false
+      end
+    end
+
+    # ROOT-GATED: exercises the REAL systemd-run sandbox. Skipped with a
+    # clear message unless #real_sandbox_available? — never a hard
+    # failure just because this run isn't root. Proven once by hand on
+    # this dev cell via `sudo bundle exec rspec ...` (see the task's
+    # report) — sudo is never part of the product or this harness itself.
+    #
+    # `-e <inline code>` is refused outright by #validate_stdio_args!
+    # (deliberately — see that method's own comment) REGARDLESS of
+    # sandboxing, so every probe here is a real SCRIPT FILE, exactly like
+    # the pre-existing IMP-4689ce5a4acb real-spawn specs above. That file
+    # (and any pidfile a script writes) must live under the SAME
+    # CacheDirectory the sandbox itself uses (SANDBOX_CACHE_DIR_NAME,
+    # i.e. $HOME inside the sandbox) — verified empirically that
+    # PrivateTmp=yes isolates BOTH /tmp AND /var/tmp from a HOST path
+    # written there, so a Tempfile under either would be invisible to
+    # the sandboxed child; #{CacheDirectory} is the one real, shared,
+    # host-visible path both sides can see.
+    describe '#spawn_stdio real sandboxed spawn (root-gated)' do
+      before do
+        skip 'requires real root + a real systemd-run on PATH (not available in this run)' unless real_sandbox_available?
+      end
+
+      # Absolute host path to the SAME directory systemd's
+      # CacheDirective= creates/points HOME at inside the sandbox —
+      # visible to both this (root) test process and the sandboxed
+      # child. Created directly (no sandbox involved) so a script can be
+      # written there before the spawn.
+      def sandbox_probe_dir
+        dir = "/var/cache/#{described_class::SANDBOX_CACHE_DIR_NAME}"
+        FileUtils.mkdir_p(dir)
+        dir
+      end
+
+      def write_probe_script(body)
+        path = File.join(sandbox_probe_dir, "probe-#{SecureRandom.uuid}.js")
+        File.write(path, body)
+        path
+      end
+
+      it 'spawns the child under a DIFFERENT (DynamicUser) uid than this process' do
+        script_path = write_probe_script('console.log(process.getuid())')
+
+        with_sandbox_mode('required') do
+          command, env, args = described_class.validate_stdio_server!('command' => 'node', 'args' => [ script_path ])
+          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15)
+
+          expect(status).to be_success, "node child failed: #{stderr}"
+          expect(stdout.strip.to_i).not_to eq(Process.uid)
+        end
+      ensure
+        File.delete(script_path) if script_path && File.exist?(script_path)
+      end
+
+      it 'blocks network by default and allows it when allow_network: true' do
+        require 'socket'
+        # A raw TCPServer, not a web-framework dependency: accepts exactly
+        # one connection per #accept call and writes a minimal literal
+        # HTTP response — enough to prove reachability, nothing more.
+        tcp_server = TCPServer.new('127.0.0.1', 0)
+        port = tcp_server.addr[1]
+        server_thread = Thread.new do
+          loop do
+            client = tcp_server.accept
+            client.write("HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
+            client.close
+          rescue IOError, Errno::EBADF
+            break
+          end
+        end
+
+        # IPAddressDeny=any DROPS packets at the kernel level rather than
+        # refusing the connection outright (confirmed empirically: a bare
+        # `curl --max-time Ns` against it burns the FULL Ns, not an
+        # instant ECONNREFUSED) — Node's http.get has no default connect
+        # timeout, so an explicit one is required or the denied case
+        # would hang until the OS's own SYN-retry exhaustion (60s+),
+        # blowing #spawn_stdio's own deadline first.
+        script_path = write_probe_script(<<~JS)
+          const req = require('http').get('http://127.0.0.1:#{port}/', res => {
+            console.log('REACHED status=' + res.statusCode);
+            res.resume(); // drain the body — otherwise the socket stays
+                          // half-open and the process never exits on its own.
+          });
+          req.on('error', e => console.log('BLOCKED ' + e.message));
+          req.setTimeout(2000, () => { console.log('BLOCKED timeout'); req.destroy(); });
+        JS
+
+        with_sandbox_mode('required') do
+          command, env, args = described_class.validate_stdio_server!('command' => 'node', 'args' => [ script_path ])
+
+          denied_stdout, = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15,
+                                                                             allow_network: false)
+          expect(denied_stdout).to include('BLOCKED')
+
+          allowed_stdout, = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15,
+                                                                              allow_network: true)
+          expect(allowed_stdout).to include('REACHED status=200')
+        end
+      ensure
+        tcp_server&.close
+        server_thread&.join(2)
+        File.delete(script_path) if script_path && File.exist?(script_path)
+      end
+
+      it 'gives the sandboxed child a writable $HOME (npx/uvx cache) despite ProtectHome' do
+        script_path = write_probe_script(
+          'require("fs").writeFileSync(require("path").join(process.env.HOME, "probe-write.txt"), "ok"); ' \
+          'console.log("WROTE")'
+        )
+
+        with_sandbox_mode('required') do
+          command, env, args = described_class.validate_stdio_server!('command' => 'node', 'args' => [ script_path ])
+          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15)
+
+          expect(status).to be_success, "node child failed: #{stderr}"
+          expect(stdout).to include('WROTE')
+        end
+      ensure
+        File.delete(script_path) if script_path && File.exist?(script_path)
+        FileUtils.rm_f(File.join(sandbox_probe_dir, 'probe-write.txt'))
+      end
+
+      # IMP-a50680fd53d8 review blocker 2 — proves the double-quote +
+      # backslash-escaping EnvironmentFile format (#format_sandbox_env_file_line)
+      # actually round-trips through the REAL systemd EnvironmentFile
+      # parser, not just this codebase's own escaping logic in isolation.
+      it 'delivers a value containing a backslash and a double-quote byte-exact to the child' do
+        tricky_value = 'a\\b"c' # a backslash and a double-quote, both in one value
+        script_path = write_probe_script('process.stdout.write(process.env.MCP_TOKEN)')
+
+        with_sandbox_mode('required') do
+          command, env, args = described_class.validate_stdio_server!(
+            'command' => 'node', 'args' => [ script_path ], 'env' => { 'MCP_TOKEN' => tricky_value }
+          )
+          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15)
+
+          expect(status).to be_success, "node child failed: #{stderr}"
+          expect(stdout).to eq(tricky_value)
+        end
+      ensure
+        File.delete(script_path) if script_path && File.exist?(script_path)
+      end
+
+      it 'kills the sandboxed unit on deadline expiry, leaving no running process behind' do
+        pidfile_path = File.join(sandbox_probe_dir, "probe-pid-#{SecureRandom.uuid}.txt")
+        script_path = write_probe_script(<<~JS)
+          require('fs').writeFileSync(#{pidfile_path.inspect}, String(process.pid));
+          setTimeout(() => {}, 60000);
+        JS
+
+        with_sandbox_mode('required') do
+          command, env, args = described_class.validate_stdio_server!('command' => 'node', 'args' => [ script_path ])
+
+          expect do
+            described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 3)
+          end.to raise_error(described_class::StdioTimeoutError, /exceeded 3s/)
+
+          sandboxed_pid = File.read(pidfile_path).to_i
+          expect(sandboxed_pid).to be_positive
+          # Root can signal(0) any pid regardless of the DynamicUser
+          # owning it — ESRCH proves it's actually gone, not just that
+          # OUR local client process was killed (see #spawn_stdio's own
+          # comment on why killing the client alone doesn't do this).
+          sleep 0.5
+          expect { Process.kill(0, sandboxed_pid) }.to raise_error(Errno::ESRCH)
+        end
+      ensure
+        File.delete(script_path) if script_path && File.exist?(script_path)
+        FileUtils.rm_f(pidfile_path) if pidfile_path
+      end
+    end
+  end
+
   describe '.validate_stdio_args!' do
     it 'accepts a normal node invocation' do
       expect { described_class.validate_stdio_args!('node', ['server.js', '--port', '3000']) }

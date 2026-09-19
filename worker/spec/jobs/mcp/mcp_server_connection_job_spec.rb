@@ -227,13 +227,46 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
           job.execute(server_id, { 'action' => 'connect' })
         end
 
+        # IMP-a50680fd53d8 — admin-gated, same trust tier and gating as
+        # allow_extended_commands (carried by the IMP-427e98cae0be
+        # capabilities serialization allowlist).
+        it "passes allow_network: true through to spawn_stdio when the server's capabilities say so" do
+          allow(api_client).to receive(:get)
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge(
+              'command' => 'node', 'capabilities' => { 'allow_network' => true }
+            ) })
+          allow(api_client).to receive(:patch).and_return(success: true)
+          allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
+
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:|
+            expect(allow_network).to be true
+            ['{}', '', instance_double(Process::Status, success?: true)]
+          end
+
+          job.execute(server_id, { 'action' => 'connect' })
+
+          # Asserting the actual outcome, not just assertions inside the
+          # mock block, matters here: establish_stdio_connection wraps the
+          # spawn_stdio call in its own `rescue StandardError => e`, so if
+          # the real call omits the allow_network: keyword the block
+          # requires, the resulting ArgumentError is swallowed into a
+          # {success: false, error: ...} result rather than surfacing as a
+          # spec failure — a test with no post-call assertion would pass
+          # either way.
+          expect(api_client).to have_received(:patch)
+            .with(
+              "/api/v1/internal/mcp_servers/#{server_id}",
+              hash_including(status: 'connected')
+            )
+        end
+
         it 'writes only the built JSON-RPC initialize request to stdin, nothing else (IMP-97b6b1185748 item 5)' do
           allow(api_client).to receive(:get)
             .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
           allow(api_client).to receive(:patch).and_return(success: true)
           allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
 
-          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:|
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, **_kwargs|
             parsed = JSON.parse(stdin_data)
             expect(parsed['jsonrpc']).to eq('2.0')
             expect(parsed['method']).to eq('initialize')

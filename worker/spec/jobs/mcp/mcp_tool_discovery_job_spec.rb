@@ -240,12 +240,39 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
           job.execute(server_id)
         end
 
+        # IMP-a50680fd53d8 — admin-gated, same trust tier and gating as
+        # allow_extended_commands (carried by the IMP-427e98cae0be
+        # capabilities serialization allowlist).
+        it "passes allow_network: true through to spawn_stdio when the server's capabilities say so" do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/mcp_servers/#{server_id}")
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge(
+              'command' => 'node', 'capabilities' => { 'allow_network' => true }
+            ) })
+
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, allow_network:|
+            expect(allow_network).to be true
+            ['{"jsonrpc":"2.0","id":"1","result":{"tools":[]}}', '', instance_double(Process::Status, success?: true)]
+          end
+          # Asserting the actual outcome, not just assertions inside the
+          # mock block, matters here: discover_stdio_tools wraps the
+          # spawn_stdio call in its own `rescue StandardError => e`, so if
+          # the real call omits the allow_network: keyword the block
+          # requires, the resulting ArgumentError is swallowed into a
+          # {success: false, error: ...} result (logged via 'Tool discovery
+          # failed') rather than surfacing as a spec failure — a test with
+          # no assertion on this would pass either way.
+          expect(job).not_to receive(:log_error)
+
+          job.execute(server_id)
+        end
+
         it 'writes only the built JSON-RPC tools/list request to stdin, nothing else (IMP-97b6b1185748 item 5)' do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_servers/#{server_id}")
             .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
 
-          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:|
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, **_kwargs|
             parsed = JSON.parse(stdin_data)
             expect(parsed).to eq('jsonrpc' => '2.0', 'id' => parsed['id'], 'method' => 'tools/list', 'params' => {})
             ['{}', '', instance_double(Process::Status, success?: true)]

@@ -7,6 +7,18 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
   # Internal API endpoints for MCP server management
   # These endpoints are called by background workers only
 
+  # IMP-a50680fd53d8 review — capabilities keys this WORKER-facing #update
+  # must never be allowed to set, even accidentally via a wholesale-replace
+  # bug: they are operator/admin-gated (allow_network, allow_extended_commands,
+  # strict_environment — same trust tier as the pre-existing two) or hold
+  # user-supplied secrets (config, see McpServer#config). Stripped from the
+  # incoming payload before it is merged into the existing capabilities, so
+  # a compromised or buggy worker cannot grant itself network access, and a
+  # normal reconnect (which only ever reports the handshake's own
+  # tools/resources/prompts/logging/serverInfo) can never silently erase
+  # them either. See #update.
+  OPERATOR_ONLY_CAPABILITY_KEYS = %w[allow_network allow_extended_commands strict_environment config].freeze
+
   # GET /api/v1/internal/mcp_servers
   def index
     servers = mcp_server_scope
@@ -39,7 +51,23 @@ class Api::V1::Internal::McpServersController < Api::V1::Internal::InternalBaseC
   # PATCH /api/v1/internal/mcp_servers/:id
   def update
     server = mcp_server_scope.find(params[:id])
-    server.update!(server_params)
+
+    attrs = server_params.to_h.with_indifferent_access
+    incoming_capabilities = attrs.delete(:capabilities)
+
+    server.assign_attributes(attrs)
+
+    if incoming_capabilities
+      # MERGE onto the existing column, never replace it wholesale — see
+      # OPERATOR_ONLY_CAPABILITY_KEYS. Read AFTER assign_attributes so an
+      # in-memory mutation from another permitted param this same request
+      # also carries (e.g. last_error=, which itself writes into
+      # capabilities) is not clobbered by this merge running first.
+      sanitized_incoming = incoming_capabilities.to_h.except(*OPERATOR_ONLY_CAPABILITY_KEYS)
+      server.capabilities = (server.capabilities || {}).merge(sanitized_incoming)
+    end
+
+    server.save!
 
     # Broadcast status change if status was updated
     if server.saved_change_to_status?

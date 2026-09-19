@@ -82,6 +82,19 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
         expect(served['capabilities']).not_to have_key('last_error')
         expect(served['capabilities']).not_to have_key('tools')
       end
+
+      # IMP-a50680fd53d8 — allow_network is a #spawn_stdio-time sandbox
+      # policy (worker's own stdio sandbox, same admin-gated trust tier as
+      # allow_extended_commands) added to the same allowlist; the worker
+      # can't apply it without this endpoint carrying it through.
+      it "also exposes allow_network in capabilities" do
+        network_server = create(:mcp_server, account: account, capabilities: { 'allow_network' => true })
+
+        get '/api/v1/internal/mcp_servers', headers: internal_headers, as: :json
+
+        served = json_response_data['mcp_servers'].find { |s| s['id'] == network_server.id }
+        expect(served['capabilities']).to eq('allow_network' => true)
+      end
     end
 
     context 'without authentication' do
@@ -178,6 +191,68 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
 
         mcp_server.reload
         expect(mcp_server.last_health_check).to be_within(1.second).of(new_time)
+      end
+
+      # IMP-a50680fd53d8 review blocker 1 — the connection job's own
+      # reconnect PATCH (worker/app/jobs/mcp/mcp_server_connection_job.rb)
+      # only ever carries the handshake's own capabilities keys
+      # (tools/resources/prompts/logging/serverInfo). Before this fix,
+      # #update replaced the WHOLE capabilities jsonb column with
+      # `server_params[:capabilities]`, silently erasing allow_network (and
+      # allow_extended_commands/strict_environment/config) on the very next
+      # reconnect after the IMP-a50680fd53d8 backfill set it.
+      let(:operator_configured_server) do
+        create(:mcp_server, account: account, capabilities: {
+                 'allow_network' => true,
+                 'allow_extended_commands' => true,
+                 'strict_environment' => false
+               })
+      end
+
+      it "preserves operator-set capabilities across a connect-style PATCH that only reports handshake capabilities" do
+        patch "/api/v1/internal/mcp_servers/#{operator_configured_server.id}",
+              headers: internal_headers,
+              params: {
+                status: 'connected',
+                capabilities: { 'tools' => true, 'resources' => false }
+              },
+              as: :json
+
+        expect_success_response
+
+        operator_configured_server.reload
+        expect(operator_configured_server.capabilities['allow_network']).to be true
+        expect(operator_configured_server.capabilities['allow_extended_commands']).to be true
+        expect(operator_configured_server.capabilities['strict_environment']).to be false
+        expect(operator_configured_server.capabilities['tools']).to be true
+        expect(operator_configured_server.capabilities['resources']).to be false
+      end
+
+      it "cannot set allow_network (or the other operator-only keys) through this worker-facing PATCH" do
+        plain_server = create(:mcp_server, account: account, capabilities: {})
+
+        patch "/api/v1/internal/mcp_servers/#{plain_server.id}",
+              headers: internal_headers,
+              params: {
+                status: 'connected',
+                capabilities: {
+                  'allow_network' => true,
+                  'allow_extended_commands' => true,
+                  'strict_environment' => true,
+                  'config' => { 'api_key' => 'smuggled-secret' },
+                  'tools' => true
+                }
+              },
+              as: :json
+
+        expect_success_response
+
+        plain_server.reload
+        expect(plain_server.capabilities['allow_network']).not_to eq(true)
+        expect(plain_server.capabilities['allow_extended_commands']).not_to eq(true)
+        expect(plain_server.capabilities['strict_environment']).not_to eq(true)
+        expect(plain_server.capabilities['config']).not_to eq('api_key' => 'smuggled-secret')
+        expect(plain_server.capabilities['tools']).to be true
       end
     end
 

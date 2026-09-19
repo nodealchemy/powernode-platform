@@ -28,22 +28,29 @@ module Api
       # `include_config`/`include_server_config` secrecy gates at both call
       # sites — `McpServersController#index` was ALREADY leaking `config`
       # this way before this fix, since #index never opts into
-      # `include_config` at all. Only the two flags
-      # McpSecurityService.validate_stdio_server! actually reads (see
-      # app/services/mcp_security_service.rb in worker/) are returned;
+      # `include_config` at all. Only the flags
+      # McpSecurityService.validate_stdio_server!/#spawn_stdio actually read
+      # (see app/services/mcp_security_service.rb in worker/) are returned;
       # confirmed via `command grep -rn "capabilities" worker/app` that no
       # other consumer of these two internal endpoints' payloads reads any
       # other capabilities key (config/last_error/tools/...) — the
       # discovery-scan job's `server['capabilities']['tools']` read comes
       # from a DIFFERENT endpoint (`/api/v1/internal/ai/discovery/mcp_servers`),
       # not either endpoint this concern serves.
+      #
+      # allow_network (IMP-a50680fd53d8) added to the allowlist: it's a
+      # #spawn_stdio-time sandbox policy (whether to omit IPAddressDeny=any
+      # for this server), same admin-gated trust tier as
+      # allow_extended_commands, and the worker cannot apply it at all if
+      # this endpoint never carries it through — exactly the bug this
+      # concern was originally written to fix for allow_extended_commands.
       module McpServerCapabilitiesSerialization
         extend ActiveSupport::Concern
 
         private
 
         def serialize_mcp_server_capabilities(server)
-          (server.capabilities || {}).slice('allow_extended_commands', 'strict_environment')
+          (server.capabilities || {}).slice('allow_extended_commands', 'strict_environment', 'allow_network')
         end
       end
     end

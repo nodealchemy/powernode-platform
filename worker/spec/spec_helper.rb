@@ -1,7 +1,26 @@
 # frozen_string_literal: true
 
+require 'tmpdir'
+
 ENV['WORKER_ENV'] ||= 'test'
 ENV['RAILS_ENV'] = 'test'
+
+# IMP-a50680fd53d8 — the test suite runs non-root (this dev cell has no
+# non-root path to DynamicUser at all — see McpSecurityService's own
+# sandbox comment). MCP_STDIO_SANDBOX_MODE's PRODUCTION default is
+# "required" (fail closed); setting it here, not there, keeps that
+# default honest while still letting the whole suite run unprivileged.
+# Individual specs that want to exercise the REAL sandboxed path
+# override this ENV var for just their own example (see
+# mcp_security_service_spec.rb's root-gated describe block) and must be
+# skipped when not actually root with systemd-run present — never make
+# this suite depend on real root/systemd-run to pass by default.
+ENV['MCP_STDIO_SANDBOX_MODE'] = 'off'
+# /run/powernode (the production default) is root-owned 0755 — a non-root
+# test process can't create a subdirectory under it. Point any spec that
+# writes a real sandbox env file (root-gated or not) at a tmp dir this
+# process actually owns.
+ENV['MCP_STDIO_SANDBOX_ENV_DIR'] = File.join(Dir.tmpdir, 'mcp-stdio-env-spec')
 
 require 'bundler/setup'
 require 'rspec'

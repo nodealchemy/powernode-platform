@@ -98,6 +98,11 @@ module Mcp
         return { success: false, error: "Security error: #{e.message}" }
       end
 
+      # IMP-a50680fd53d8 — admin-gated, same trust tier and gating as
+      # allow_extended_commands (carried by the IMP-427e98cae0be
+      # capabilities serialization allowlist).
+      allow_network = server.dig('capabilities', 'allow_network') == true
+
       begin
         # Build MCP tools/list request
         list_request = {
@@ -111,7 +116,9 @@ module Mcp
         # McpSecurityService.spawn_stdio is the shared spawn point (argv0
         # exec form + unsetenv_others: true — IMP-97b6b1185748 item 1,
         # IMP-e2cba83ee39f) — never call Open3.capture3 directly here.
-        stdout, stderr, status = McpSecurityService.spawn_stdio(command, sanitized_env, args, stdin_data: stdin_data)
+        stdout, stderr, status = McpSecurityService.spawn_stdio(
+          command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network
+        )
 
         if status.success? || stdout.present?
           response = parse_tools_response(stdout)

@@ -15,16 +15,20 @@ require 'shellwords'
 # constants/verdicts against a shared adversarial fixture table — a change
 # here that isn't ported there will fail that spec, not this file's own.
 #
-# SCOPE (IMP-97b6b1185748 review item 7): this stops CASUAL inline-code
-# smuggling through a command/args pair that's supposed to be "just run an
-# interpreter against a script file" — it is NOT a sandbox. Launchers like
-# `npx -y <pkg>`, `uvx <pkg>`, `deno run -A <url>`, `bun x <pkg>`, and
+# SCOPE (IMP-97b6b1185748 review item 7): #validate_stdio_server! and its
+# argv/env checks stop CASUAL inline-code smuggling through a command/args
+# pair that's supposed to be "just run an interpreter against a script
+# file" — they are NOT a sandbox on their own. Launchers like `npx -y
+# <pkg>`, `uvx <pkg>`, `deno run -A <url>`, `bun x <pkg>`, and
 # `pip install`-then-run all execute arbitrary code BY DESIGN — that's the
 # entire point of a package launcher, and no argument-shape check can (or
 # should try to) distinguish a legitimate package from a malicious one. The
 # real security boundary is who is allowed to write server['command'] /
-# server['args'] in the first place, plus whatever child-process isolation
-# wraps the spawned interpreter — not this validator.
+# server['args'] in the first place, plus the child-process isolation
+# #spawn_stdio itself now wraps the spawned interpreter in (IMP-a50680fd53d8,
+# MCP isolation Phase 1 T2: a transient systemd-run sandbox — DynamicUser,
+# ProtectSystem=strict, ProtectHome, network deny-by-default, resource
+# limits — see #spawn_stdio's own comment).
 # NOTE (IMP-97b6b1185748 item 9): a `validate_stdio_execution!` variant used
 # to live here (command:/env:/args: keyword API, returning {command:, env:}).
 # `command grep`-ing worker/app turned up no caller besides its own spec —
@@ -51,6 +55,16 @@ class McpSecurityService
   # error shape, with zero call-site code changes. See each call site's
   # own spec for the proof.
   class StdioTimeoutError < StandardError; end
+
+  # IMP-a50680fd53d8 — raised by #spawn_stdio when MCP_STDIO_SANDBOX_MODE
+  # is "required" (the default) and sandboxing cannot actually happen —
+  # either this process isn't root (DynamicUser needs the system manager;
+  # a non-root caller gets "Access denied" from systemd, see
+  # #sandbox_unavailable_message) or systemd-run isn't on PATH. A
+  # StandardError, not a SecurityError: refusing to run UNSANDBOXED is a
+  # fail-CLOSED availability decision, not evidence the request itself was
+  # malicious.
+  class SandboxUnavailableError < StandardError; end
 
   # Allowed commands for stdio MCP servers — bare NAMES only (IMP-b6be9d979e13:
   # this used to also list a partial, inconsistent set of hardcoded absolute
@@ -262,6 +276,17 @@ class McpSecurityService
   # its own child-scoped scratch dir elsewhere is accepted, not a security
   # boundary the way a binary-resolution or config-file path is.
   STDIO_ENV_PASSTHROUGH_KEYS = %w[PATH HOME LANG LC_ALL TZ TMPDIR].freeze
+
+  # IMP-a50680fd53d8 review blocker 2 — a systemd EnvironmentFile is a tiny
+  # KEY=VALUE parser, not shell/JSON: a key containing anything other than
+  # this pattern (e.g. embedded whitespace or an '=') is ambiguous to it,
+  # and a raw newline inside a VALUE injects an entire extra "line" the
+  # parser reads as its own KEY=VALUE pair (e.g. smuggling in a bogus
+  # LD_PRELOAD=... entry despite that name never appearing in the actual
+  # key this env var was written under) — a validated env HASH KEY never
+  # protects against a value that itself contains a newline. See
+  # #write_sandbox_env_file / #format_sandbox_env_file_line.
+  SANDBOX_ENV_FILE_KEY_PATTERN = /\A[A-Za-z_][A-Za-z0-9_]*\z/
 
   # IMP-97b6b1185748: validate_command! only ever checked the *command*
   # string. server['args'] reached Open3.capture3 completely unchecked, so
@@ -523,6 +548,74 @@ class McpSecurityService
   # blocking for the full remaining timeout in one select() call.
   STDIO_SELECT_SLICE_SECONDS = 0.2
 
+  # IMP-a50680fd53d8 (MCP isolation Phase 1 T2) — every stdio MCP child
+  # runs inside a transient `systemd-run` sandbox by default. Empirically
+  # verified on a noble/systemd 255 host before this was written (real
+  # systemd-run invocations, not documentation alone) — see the task's
+  # probe notes for the exact commands.
+  #
+  # required: refuse to spawn UNSANDBOXED at all — fail closed
+  #   (#SandboxUnavailableError) if sandboxing can't actually happen. This
+  #   is the default: a silently-unsandboxed spawn is a worse outcome than
+  #   a loud refusal.
+  # available: sandbox when possible; if not (non-root, or systemd-run
+  #   missing), fall back to an UNSANDBOXED spawn — but only after a WARN
+  #   log naming exactly why, never silently.
+  # off: never sandbox. This app's own specs run with this (set once by
+  #   the spec helper, never by changing this constant) so the existing
+  #   IMP-4689ce5a4acb real-spawn specs (deadline, pgroup, large stdin)
+  #   keep working unprivileged/non-root, unchanged.
+  SANDBOX_MODES = %w[required available off].freeze
+  DEFAULT_SANDBOX_MODE = 'required'
+
+  # DynamicUser requires the SYSTEM manager — confirmed empirically
+  # (systemd-run against the system bus as a plain non-root user returns
+  # "Access denied"; `--user` mode has no bus at all in a container
+  # without a lingering session, and DynamicUser is documented as a
+  # system-service-only feature regardless). There is no non-root default
+  # path today; see #sandbox_unavailable_message and IMP-94977647c24c (hub
+  # root drop), which must land a polkit grant (or equivalent) authorizing
+  # this worker to manage transient systemd units BEFORE it can run
+  # non-root under MCP_STDIO_SANDBOX_MODE=required.
+  SANDBOX_REQUIRES_ROOT = true
+
+  # A FIXED, shared systemd "dynamic user" NAME (not a real Unix account —
+  # NSS-only, exists only while at least one unit using it is active) —
+  # deliberately the SAME name across every sandboxed stdio spawn, not a
+  # fresh one per invocation. Confirmed empirically why this matters: two
+  # CONCURRENT sandboxed spawns each given a plain `DynamicUser=yes` (no
+  # `User=`) get two DIFFERENT dynamically-allocated UIDs, and the second
+  # one to touch the shared #SANDBOX_CACHE_DIR_NAME then fails with
+  # "Permission denied" — the first invocation's dynamic UID already owns
+  # it. Pinning `User=` to this one name makes systemd hand out the SAME
+  # UID to every invocation using it (verified: two concurrent runs both
+  # `id` as the identical uid/gid), which is exactly how a normal
+  # (non-transient) DynamicUser service already behaves across its own
+  # restarts — this just does it deliberately for our transient units too.
+  SANDBOX_USER_NAME = 'mcp-stdio-sandbox'
+
+  # Name for `-p CacheDirectory=`, which systemd creates as
+  # /var/cache/<name> (owned by #SANDBOX_USER_NAME, isolated from the real
+  # /var/cache via a private bind mount) and is what makes ProtectHome's
+  # otherwise-removed $HOME survive for npx/uvx's own package cache.
+  # #spawn_stdio points `HOME` at this directory when sandboxing.
+  SANDBOX_CACHE_DIR_NAME = 'mcp-stdio-sandbox'
+
+  # Resource limits applied to every sandboxed stdio MCP child — ENV-
+  # overridable, each with a documented default (see worker/.env.example),
+  # evaluated fresh (not memoized) like .stdio_timeout_seconds, so a
+  # config change takes effect without a restart.
+  DEFAULT_SANDBOX_MEMORY_MAX = '512M'
+  DEFAULT_SANDBOX_TASKS_MAX = '64'
+  DEFAULT_SANDBOX_CPU_QUOTA = '200%'
+
+  # Default for .sandbox_env_file_dir below — root-owned, mode-0700,
+  # holding the per-spawn EnvironmentFile (see #write_sandbox_env_file).
+  # Deliberately under /run (tmpfs-backed on every target host): a
+  # secret's on-disk lifetime should be bounded by the boot, never by a
+  # forgotten cleanup surviving a crash into persistent storage.
+  DEFAULT_SANDBOX_ENV_FILE_DIR = '/run/powernode/mcp-stdio-env'
+
   class << self
     # Validate a command against the whitelist. `command` may be a single
     # token ("node") or a full command line ("node server.js") — only the
@@ -683,8 +776,9 @@ class McpSecurityService
     # IMP-4689ce5a4acb — Open3.capture3 had no deadline: a hung/misbehaving
     # MCP child pinned whatever thread called this forever (the worker's
     # job thread here; the server's Puma REQUEST thread for
-    # PromptService/ResourceService). Ported to Open3.popen3 with
-    # pgroup: true (the child becomes its own process group leader) plus a
+    # PromptService/ResourceService, before IMP-abda86fb39be moved
+    # execution here entirely). Ported to Open3.popen3 with pgroup: true
+    # (the spawned process becomes its own process group leader) plus a
     # manual read/write loop against a monotonic deadline, so:
     #   - stdin is written and stdout/stderr are read in the SAME
     #     IO.select loop, never sequentially — writing all of stdin first
@@ -705,83 +799,192 @@ class McpSecurityService
     # interrupt I/O we're doing ourselves, synchronously, via IO.select's
     # own bounded wait.
     #
+    # IMP-a50680fd53d8 (MCP isolation Phase 1 T2) — SANDBOXING. Unless
+    # MCP_STDIO_SANDBOX_MODE is "off", `command`/`args` are no longer
+    # spawned directly: they're wrapped as the trailing argv of a
+    # `systemd-run --pipe --wait --collect --unit=mcp-stdio-<uuid> -p ...`
+    # invocation, and OPEN3 SPAWNS THAT WRAPPER instead — the read/write/
+    # deadline loop above is unchanged, since it only ever cared about
+    # pipes and a pid, not what's on the other end of them.
+    #   - DynamicUser=yes + ProtectSystem=strict + ProtectHome=yes +
+    #     PrivateTmp=yes + NoNewPrivileges=yes, pinned to the SAME
+    #     symbolic User= every time (#SANDBOX_USER_NAME) — empirically
+    #     required: two CONCURRENT spawns each given a bare
+    #     `DynamicUser=yes` get two DIFFERENT dynamic UIDs, and whichever
+    #     one didn't create #SANDBOX_CACHE_DIR_NAME first gets
+    #     "Permission denied" on it. Pinning User= gives every invocation
+    #     the SAME uid, verified empirically (two concurrent runs `id`
+    #     identically) — the same behavior a normal (non-transient)
+    #     DynamicUser service already gets across its own restarts.
+    #   - IPAddressDeny=any by DEFAULT — omitted entirely when the
+    #     server's capabilities['allow_network'] (`allow_network:` below)
+    #     is true, an admin-gated opt-in at the SAME trust tier as
+    #     allow_extended_commands (IMP-427e98cae0be's serialization
+    #     allowlist carries it to this process). NOT a per-host/CIDR
+    #     allowlist: verified empirically that IPAddressAllow accepts a
+    #     hostname, but systemd resolves it ONCE at unit start (a
+    #     snapshot), which would silently go stale against a CDN-backed
+    #     target — deliberately not built.
+    #   - CacheDirectory=#{SANDBOX_CACHE_DIR_NAME} + Environment=HOME=
+    #     pointed at it, since ProtectHome removes $HOME entirely
+    #     (verified: `/home` and `/root` become mode 0700, unreadable, and
+    #     the root filesystem itself goes read-only under
+    #     ProtectSystem=strict) — npx/uvx need a writable HOME for their
+    #     own package cache.
+    #   - RuntimeMaxSec=<timeout> as a systemd-ENFORCED backstop to the
+    #     same deadline this method already tracks in Ruby, independent
+    #     of whether our own kill path ever runs.
+    #   - MemoryMax/TasksMax/CPUQuota resource limits (ENV-overridable,
+    #     see the DEFAULT_SANDBOX_* constants).
+    #   - EnvironmentFile=<0600 root-owned file, deleted in this method's
+    #     `ensure`> for EVERY server-supplied env var, never `--setenv`/
+    #     `Environment=` — verified empirically that `--setenv` value IS
+    #     readable by ANY local user via a plain `systemctl show -p
+    #     Environment`, even though the unit itself was started by root;
+    #     an EnvironmentFile's path shows there but its CONTENT never
+    #     does, and the child still receives it correctly. Only this
+    #     process's OWN passthrough keys (STDIO_ENV_PASSTHROUGH_KEYS —
+    #     PATH/HOME/LANG/etc., never server-supplied secrets, and HOME
+    #     always overridden to the CacheDirectory above) go via
+    #     `--setenv`, since those were never secret. Classifying which
+    #     server-supplied vars "look" secret was rejected as fragile —
+    #     ALL of them go through the file, uniformly.
+    #   - #terminate_process_group! additionally runs `systemctl stop
+    #     <unit>` — verified empirically that killing the systemd-run
+    #     CLIENT process (even its whole local process group) does NOT
+    #     stop the actual sandboxed unit, which keeps running as an orphan
+    #     under systemd's own cgroup, entirely decoupled from the
+    #     client's process group. Only `systemctl stop <the same
+    #     generated --unit= name>` reaches it.
+    #
+    # required (default) vs available vs off: see SANDBOX_MODES above.
+    # `allow_network:` and `timeout:` are the only sandbox-relevant
+    # arguments a caller passes in — the unit name, resource limits and
+    # env-file path are generated fresh, internally, every call.
+    #
     # @return [Array(String, String, Process::Status)] [stdout, stderr, status]
     # @raise [StdioTimeoutError] if the child doesn't finish within `timeout`
-    def spawn_stdio(command, env, args, stdin_data:, timeout: stdio_timeout_seconds)
+    # @raise [SandboxUnavailableError] if mode is "required" and sandboxing isn't possible
+    def spawn_stdio(command, env, args, stdin_data:, timeout: stdio_timeout_seconds, allow_network: false)
       require 'open3'
 
-      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
-      stdin_io, stdout_io, stderr_io, wait_thr = Open3.popen3(
-        env, [ command, command ], *Array(args), unsetenv_others: true, pgroup: true
-      )
-      pid = wait_thr.pid
-      pending_stdin = stdin_data.to_s
-      stdout_buf = +''
-      stderr_buf = +''
-      stdin_io.close if pending_stdin.empty?
+      sandboxed = sandbox_for_this_call?
+      unit_name = sandboxed ? "mcp-stdio-#{SecureRandom.uuid}" : nil
+      # Only the SERVER-supplied portion goes in the file — this
+      # process's own passthrough keys (PATH/HOME/LANG/...) go via
+      # --setenv inside #sandboxed_spawn_argv instead. This split isn't
+      # just "where secrets are safer" — it's REQUIRED for HOME's own
+      # override to take effect at all: systemd applies EnvironmentFile=
+      # AFTER Environment=/--setenv=, so if this file's own HOME entry
+      # (the worker's real $HOME, part of the passthrough) survived here
+      # too, it would silently win over the CacheDirectory HOME
+      # #sandboxed_spawn_argv sets — verified empirically (a real
+      # sandboxed child saw the worker's own $HOME, not the sandbox's,
+      # until this exclusion was added).
+      env_file_path = sandboxed ? write_sandbox_env_file(env.except(*STDIO_ENV_PASSTHROUGH_KEYS)) : nil
 
+      # IMP-a50680fd53d8 review blocker 3 — this outer begin/ensure wraps
+      # BOTH #sandboxed_spawn_argv (formats/validates the env file's own
+      # content — see #format_sandbox_env_file_line — and can raise) AND
+      # the Open3.popen3 call itself (can raise Errno::ENOENT if `command`
+      # doesn't exist, or Errno::EMFILE under fd exhaustion). The PREVIOUS
+      # inner begin/ensure (still below, for the read/select loop) only
+      # started AFTER popen3 returned successfully, so a popen3 failure
+      # skipped its cleanup entirely and left the 0600 env file on /run
+      # forever — a real leak, not a hypothetical one. `cleanup_sandbox_env_file`
+      # now lives in THIS ensure so every raise path from here on is covered.
       begin
-        loop do
+        spawn_env, spawn_command, spawn_args =
+          if sandboxed
+            sandboxed_spawn_argv(command, args, env: env, unit_name: unit_name, env_file_path: env_file_path,
+                                                timeout: timeout, allow_network: allow_network)
+          else
+            [ env, command, Array(args) ]
+          end
+
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + timeout
+        stdin_io, stdout_io, stderr_io, wait_thr = Open3.popen3(
+          spawn_env, [ spawn_command, spawn_command ], *spawn_args, unsetenv_others: true, pgroup: true
+        )
+        pid = wait_thr.pid
+        pending_stdin = stdin_data.to_s
+        stdout_buf = +''
+        stderr_buf = +''
+        stdin_io.close if pending_stdin.empty?
+
+        begin
+          loop do
+            remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+            raise_stdio_timeout!(pid, wait_thr, command, timeout, unit_name: unit_name) if remaining <= 0
+
+            read_fds = [ stdout_io, stderr_io ].reject(&:closed?)
+            write_fds = stdin_io.closed? ? [] : [ stdin_io ]
+            break if read_fds.empty? && write_fds.empty?
+
+            ready = IO.select(read_fds, write_fds, nil, [ remaining, STDIO_SELECT_SLICE_SECONDS ].min)
+            next unless ready
+
+            readable, writable, = ready
+
+            writable&.each do
+              begin
+                written = stdin_io.write_nonblock(pending_stdin, exception: false)
+                pending_stdin = pending_stdin.byteslice(written..) if written.is_a?(Integer)
+              rescue Errno::EPIPE
+                # Child closed its stdin (or already exited) before we
+                # finished writing — not our error to raise; stop trying.
+                pending_stdin = ''
+              end
+              stdin_io.close if pending_stdin.empty?
+            end
+
+            readable&.each do |io|
+              chunk = io.read_nonblock(65_536, exception: false)
+              case chunk
+              when String
+                (io.equal?(stdout_io) ? stdout_buf : stderr_buf) << chunk
+              when nil
+                io.close
+              end
+              # :wait_readable → spurious wakeup, nothing to append yet.
+            end
+          end
+
           remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
-          raise_stdio_timeout!(pid, wait_thr, command, timeout) if remaining <= 0
-
-          read_fds = [ stdout_io, stderr_io ].reject(&:closed?)
-          write_fds = stdin_io.closed? ? [] : [ stdin_io ]
-          break if read_fds.empty? && write_fds.empty?
-
-          ready = IO.select(read_fds, write_fds, nil, [ remaining, STDIO_SELECT_SLICE_SECONDS ].min)
-          next unless ready
-
-          readable, writable, = ready
-
-          writable&.each do
-            begin
-              written = stdin_io.write_nonblock(pending_stdin, exception: false)
-              pending_stdin = pending_stdin.byteslice(written..) if written.is_a?(Integer)
-            rescue Errno::EPIPE
-              # Child closed its stdin (or already exited) before we
-              # finished writing — not our error to raise; stop trying.
-              pending_stdin = ''
-            end
-            stdin_io.close if pending_stdin.empty?
+          unless remaining.positive? && wait_thr.join(remaining)
+            raise_stdio_timeout!(pid, wait_thr, command, timeout, unit_name: unit_name)
           end
 
-          readable&.each do |io|
-            chunk = io.read_nonblock(65_536, exception: false)
-            case chunk
-            when String
-              (io.equal?(stdout_io) ? stdout_buf : stderr_buf) << chunk
-            when nil
-              io.close
-            end
-            # :wait_readable → spurious wakeup, nothing to append yet.
-          end
+          [ stdout_buf, stderr_buf, wait_thr.value ]
+        rescue StdioTimeoutError
+          # raise_stdio_timeout! already ran #terminate_process_group! before
+          # raising this — re-raise as-is rather than killing the (already
+          # dead) group a second time via the broader rescue below.
+          raise
+        rescue Exception => e # rubocop:disable Lint/RescueException
+          # IMP-4689ce5a4acb review round 1 — an Interrupt, a Thread#raise
+          # injected from elsewhere, or an unexpected IOError inside the
+          # select loop used to just unwind through the `ensure` below,
+          # which only closes OUR pipe fds — the CHILD (and anything in its
+          # process group) kept running with no deadline left to catch it,
+          # since the deadline check only fires from inside the loop's own
+          # normal iteration. Kill it here too, on ANY exception, before
+          # propagating.
+          terminate_process_group!(pid, wait_thr, unit_name: unit_name)
+          raise e
+        ensure
+          stdin_io.close unless stdin_io.closed?
+          stdout_io.close unless stdout_io.closed?
+          stderr_io.close unless stderr_io.closed?
         end
-
-        remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
-        raise_stdio_timeout!(pid, wait_thr, command, timeout) unless remaining.positive? && wait_thr.join(remaining)
-
-        [ stdout_buf, stderr_buf, wait_thr.value ]
-      rescue StdioTimeoutError
-        # raise_stdio_timeout! already ran #terminate_process_group! before
-        # raising this — re-raise as-is rather than killing the (already
-        # dead) group a second time via the broader rescue below.
-        raise
-      rescue Exception => e # rubocop:disable Lint/RescueException
-        # IMP-4689ce5a4acb review round 1 — an Interrupt, a Thread#raise
-        # injected from elsewhere, or an unexpected IOError inside the
-        # select loop used to just unwind through the `ensure` below,
-        # which only closes OUR pipe fds — the CHILD (and anything in its
-        # process group) kept running with no deadline left to catch it,
-        # since the deadline check only fires from inside the loop's own
-        # normal iteration. Kill it here too, on ANY exception, before
-        # propagating.
-        terminate_process_group!(pid, wait_thr)
-        raise e
       ensure
-        stdin_io.close unless stdin_io.closed?
-        stdout_io.close unless stdout_io.closed?
-        stderr_io.close unless stderr_io.closed?
+        # IMP-a50680fd53d8 review blocker 3 — this OUTER ensure (see the
+        # matching comment above the outer `begin`) covers a crash in
+        # #sandboxed_spawn_argv or Open3.popen3 itself, not just the
+        # read/select loop above it; a 0600 root-owned secret must not
+        # survive ANY exit path from here on (success, StdioTimeoutError,
+        # any other exception, or a popen3-level Errno::ENOENT/EMFILE).
+        cleanup_sandbox_env_file(env_file_path) if env_file_path
       end
     end
 
@@ -796,7 +999,283 @@ class McpSecurityService
       value&.positive? ? value : DEFAULT_STDIO_TIMEOUT_SECONDS
     end
 
+    # Resolves MCP_STDIO_SANDBOX_MODE — "required" (default), "available"
+    # or "off" (see SANDBOX_MODES above). Evaluated fresh on every call,
+    # never memoized, same reasoning as #stdio_timeout_seconds. An unknown
+    # value (typo, unset-but-non-blank) falls back to DEFAULT_SANDBOX_MODE
+    # rather than silently matching neither branch below — this is a
+    # fail-closed setting, so an unrecognized value must not be treated as
+    # "off".
+    def sandbox_mode
+      value = ENV['MCP_STDIO_SANDBOX_MODE'].to_s.strip.downcase
+      SANDBOX_MODES.include?(value) ? value : DEFAULT_SANDBOX_MODE
+    end
+
     private
+
+    # Decides, for THIS #spawn_stdio call, whether to actually wrap the
+    # spawn in a sandbox — the single place #spawn_stdio's mode dispatch
+    # lives, so its own body only ever asks "sandboxed or not", never
+    # "which mode". Raises SandboxUnavailableError for "required" when
+    # unavailable (fail closed); logs a WARN and returns false for
+    # "available" (never a silent unsandboxed fallback).
+    def sandbox_for_this_call?
+      mode = sandbox_mode
+      return false if mode == 'off'
+      return true if sandbox_available?
+
+      raise SandboxUnavailableError, sandbox_unavailable_message if mode == 'required'
+
+      logger.warn(
+        "[McpSecurityService] MCP_STDIO_SANDBOX_MODE=available but sandboxing is unavailable " \
+        "(#{sandbox_unavailable_message}) — running this stdio MCP child UNSANDBOXED."
+      )
+      false
+    end
+
+    # Mirrors Mcp::McpTransportClient#logger: uses the worker's own
+    # application logger when available (this is a plain Ruby class, not
+    # a Rails app — `Rails.logger` doesn't exist here), falling back to
+    # STDOUT so this never raises in a context (e.g. a bare script) where
+    # PowernodeWorker isn't loaded.
+    def logger
+      @logger ||= if defined?(PowernodeWorker) && PowernodeWorker.application.respond_to?(:logger)
+                    PowernodeWorker.application.logger
+                  else
+                    require 'logger'
+                    Logger.new($stdout)
+                  end
+    end
+
+    # DynamicUser needs the SYSTEM manager (empirically confirmed: a
+    # non-root `systemd-run` against the system bus returns "Access
+    # denied"; `--user` mode has no bus in a container without a
+    # lingering session, and is documented as unsupported for
+    # DynamicUser regardless of that). There is no non-root path today —
+    # see SANDBOX_REQUIRES_ROOT's own comment and IMP-94977647c24c.
+    def sandbox_available?
+      (!SANDBOX_REQUIRES_ROOT || Process.uid.zero?) && !systemd_run_path.nil?
+    end
+
+    # Resolves systemd-run via THIS process's own PATH (never a
+    # hardcoded, distro-specific absolute path) — reused both to decide
+    # #sandbox_available? and, when sandboxing, as the actual argv[0] so
+    # the exec form is unambiguous.
+    def systemd_run_path
+      ENV['PATH'].to_s.split(File::PATH_SEPARATOR).map { |dir| File.join(dir, 'systemd-run') }
+                 .find { |path| File.executable?(path) }
+    end
+
+    def sandbox_unavailable_message
+      return 'systemd-run was not found on PATH' if systemd_run_path.nil?
+
+      "this worker is not running as root (uid=#{Process.uid}) — DynamicUser requires the system " \
+        'manager, which refuses a non-root caller with "Access denied"; a non-root worker needs a ' \
+        'polkit grant (or equivalent) authorizing it to manage transient systemd units before ' \
+        'MCP_STDIO_SANDBOX_MODE=required can work here (see IMP-94977647c24c)'
+    end
+
+    # Builds the systemd-run-wrapped [env, command, args] #spawn_stdio
+    # actually spawns via Open3.popen3, once sandboxing is confirmed
+    # active for this call. `env` here is the FULL resolved env
+    # #validate_stdio_server! produced (this process's own passthrough
+    # keys merged with the sanitized server env, per #build_stdio_env) —
+    # split back apart here into "ours" (STDIO_ENV_PASSTHROUGH_KEYS, sent
+    # via --setenv, never secret) and "the server's" (everything else,
+    # sent via the EnvironmentFile at env_file_path, written by the
+    # caller) because ONLY the split matters for where each half is
+    # allowed to go — see #spawn_stdio's own comment for why.
+    def sandboxed_spawn_argv(command, args, env:, unit_name:, env_file_path:, timeout:, allow_network:)
+      passthrough = env.slice(*STDIO_ENV_PASSTHROUGH_KEYS).except('HOME')
+
+      argv = [
+        systemd_run_path,
+        '--pipe', '--wait', '--collect', '--quiet',
+        "--unit=#{unit_name}",
+        '-p', 'DynamicUser=yes',
+        '-p', "User=#{SANDBOX_USER_NAME}",
+        '-p', 'ProtectSystem=strict',
+        '-p', 'ProtectHome=yes',
+        '-p', 'PrivateTmp=yes',
+        '-p', 'NoNewPrivileges=yes',
+        '-p', "RuntimeMaxSec=#{timeout}",
+        # IMP-a50680fd53d8 review blocker 4 — bounds systemd's OWN stop job
+        # (triggered by our `systemctl stop <unit>` in
+        # #terminate_process_group!, or by RuntimeMaxSec above) to the same
+        # grace period the local TERM/KILL sequence already uses, so the
+        # unit's processes are force-killed on that bound even if nothing
+        # local is left around to observe it (see #stop_sandboxed_unit!).
+        '-p', "TimeoutStopSec=#{STDIO_TERM_GRACE_SECONDS}",
+        '-p', "MemoryMax=#{sandbox_memory_max}",
+        '-p', "TasksMax=#{sandbox_tasks_max}",
+        '-p', "CPUQuota=#{sandbox_cpu_quota}",
+        '-p', "CacheDirectory=#{SANDBOX_CACHE_DIR_NAME}",
+        '-p', "EnvironmentFile=#{env_file_path}"
+      ]
+      # IMP-a50680fd53d8 review blocker 5 — IPAddressDeny=any only filters
+      # AF_INET/AF_INET6; it does NOT block AF_UNIX (verified against
+      # systemd's own docs for IPAddressDeny/IPAddressAllow, which are
+      # scoped to sockaddr_in/in6 families only). PrivateNetwork=yes gives
+      # the unit its own network namespace (loopback only, no external
+      # interface reachable) as a second, independent layer — kept
+      # alongside IPAddressDeny rather than replacing it, since the two
+      # cover different attack surfaces. Neither is set when allow_network
+      # is true.
+      unless allow_network
+        argv += [ '-p', 'IPAddressDeny=any', '-p', 'PrivateNetwork=yes' ]
+      end
+      passthrough.each { |key, value| argv += [ "--setenv=#{key}=#{value}" ] }
+      argv += [ "--setenv=HOME=/var/cache/#{SANDBOX_CACHE_DIR_NAME}" ]
+      argv += [ '--', command, *Array(args) ]
+
+      # The systemd-run CLIENT's OWN environment is deliberately NOT the
+      # sandboxed child's env (`env` above) — that would put every
+      # server-supplied var, secrets included, into the CLIENT process's
+      # own environment too (readable via /proc/<client-pid>/environ by
+      # root), for no benefit: the client only needs enough PATH to
+      # exist; systemd-run's argv0 here is already an absolute path.
+      [ { 'PATH' => ENV['PATH'].to_s }, argv.first, argv.drop(1) ]
+    end
+
+    def sandbox_memory_max
+      value = ENV['MCP_STDIO_SANDBOX_MEMORY_MAX']
+      value.present? ? value : DEFAULT_SANDBOX_MEMORY_MAX
+    end
+
+    def sandbox_tasks_max
+      value = Integer(ENV['MCP_STDIO_SANDBOX_TASKS_MAX'], exception: false)
+      value&.positive? ? value.to_s : DEFAULT_SANDBOX_TASKS_MAX
+    end
+
+    def sandbox_cpu_quota
+      value = ENV['MCP_STDIO_SANDBOX_CPU_QUOTA']
+      value.present? ? value : DEFAULT_SANDBOX_CPU_QUOTA
+    end
+
+    # ENV-overridable like the other sandbox settings — MCP_STDIO_SANDBOX_ENV_DIR
+    # is not meant for operators to routinely change (the production
+    # default is fine on every target host), but /run/powernode is
+    # root-owned 0755, so a non-root TEST process cannot create a
+    # subdirectory under it at all; this is what lets specs point
+    # #write_sandbox_env_file at a tmp dir they actually own, without
+    # weakening the production default or needing root just to unit-test
+    # argv/file-content construction.
+    def sandbox_env_file_dir
+      value = ENV['MCP_STDIO_SANDBOX_ENV_DIR']
+      value.present? ? value : DEFAULT_SANDBOX_ENV_FILE_DIR
+    end
+
+    # Writes the sandboxed child's FULL env (server-supplied vars
+    # included) to a fresh, root-owned, mode-0600 file under a mode-0700
+    # private directory — never `--setenv`/`Environment=`, which a plain
+    # local user can read back via `systemctl show -p Environment` even
+    # for a unit started by root (verified empirically). systemd reads
+    # this file itself when the unit starts; the caller (#spawn_stdio)
+    # deletes it in its own OUTER `ensure` (wrapping this call, argv
+    # construction AND the popen3 spawn itself), via
+    # #cleanup_sandbox_env_file — see review blocker 3.
+    def write_sandbox_env_file(env)
+      dir = sandbox_env_file_dir
+      ensure_sandbox_env_file_dir!(dir)
+      path = File.join(dir, "#{SecureRandom.uuid}.env")
+      body = env.map { |key, value| format_sandbox_env_file_line(key, value) }.join("\n")
+
+      # IMP-a50680fd53d8 review blocker 3 (atomic creation) — the previous
+      # File.write + File.chmod(0o600) two-step left a window where the
+      # file existed at the process's DEFAULT umask-derived mode (commonly
+      # 0644, world-readable BY CONTENT, not just by path) before the
+      # chmod landed. O_EXCL|O_CREAT with the target mode passed to
+      # sysopen means the file is created ALREADY at 0600 or not at all —
+      # no readable-then-tightened window, and no risk of silently
+      # following/overwriting a pre-existing file at this (UUID) path.
+      fd = IO.sysopen(path, File::WRONLY | File::CREAT | File::EXCL, 0o600)
+      io = IO.new(fd)
+      begin
+        io.write(body)
+      rescue StandardError
+        # IMP-a50680fd53d8 review round 2 — a write failure AFTER the
+        # O_EXCL create (e.g. Errno::ENOSPC) would otherwise leave a
+        # PARTIAL, 0600 file sitting on disk that #spawn_stdio's own
+        # ensure never learns the path of (it re-raises past the point
+        # #spawn_stdio captures env_file_path) — cleaned up here, at the
+        # point of failure, then re-raised unchanged.
+        io.close unless io.closed?
+        begin
+          File.delete(path)
+        rescue Errno::ENOENT
+          nil
+        end
+        raise
+      ensure
+        io.close unless io.closed?
+      end
+      path
+    end
+
+    # IMP-a50680fd53d8 review blocker 3 (directory check) — fail closed
+    # rather than write a secrets file through a directory this process
+    # doesn't actually control. `FileUtils.mkdir_p` is a no-op on an
+    # ALREADY-existing path regardless of its ownership/mode/type, so
+    # "we called mkdir_p" is not itself evidence the directory is safe —
+    # this must be verified on every call, not just the first one that
+    # happens to create it. `File.lstat` (never `File.stat`, which
+    # follows symlinks) so a directory swapped for a symlink to, say,
+    # another user's writable directory is caught instead of silently
+    # traversed.
+    def ensure_sandbox_env_file_dir!(dir)
+      FileUtils.mkdir_p(dir, mode: 0o700) unless File.exist?(dir)
+      stat = File.lstat(dir)
+
+      if stat.symlink?
+        raise EnvironmentViolationError, "sandbox env file directory #{dir} is a symlink, refusing to write secrets through it"
+      end
+      unless stat.directory?
+        raise EnvironmentViolationError, "sandbox env file directory #{dir} is not a directory"
+      end
+      unless stat.uid == Process.euid
+        raise EnvironmentViolationError,
+              "sandbox env file directory #{dir} is owned by uid=#{stat.uid}, not this process's uid=#{Process.euid} — refusing to write secrets through it"
+      end
+      unless (stat.mode & 0o777) == 0o700
+        raise EnvironmentViolationError,
+              format('sandbox env file directory %s has unsafe permissions %o (expected 0700)', dir, stat.mode & 0o777)
+      end
+    end
+
+    # IMP-a50680fd53d8 review blocker 2 — a systemd EnvironmentFile is a
+    # tiny KEY=VALUE parser, not shell: a bare, unquoted value is split on
+    # its own rules for whitespace/backslash/quote characters, and a raw
+    # newline inside a value starts an entirely new KEY=VALUE line the
+    # parser reads as ANOTHER environment variable, entirely bypassing
+    # whatever key that value was actually written under (e.g. smuggling
+    # in a fabricated `LD_PRELOAD=...` entry via a value, not a key, that
+    # never mentions LD_PRELOAD at all). Every value is written
+    # double-quoted with `\` and `"` escaped, matching systemd's own
+    # quoting rules for EnvironmentFile (see systemd.exec(5) "Environment
+    # variables ... may be quoted ... which follow the shell/quoting
+    # rules for the file"), and both the key and value are rejected
+    # outright — never sanitized/silently rewritten — if they can't be
+    # made safe this way.
+    def format_sandbox_env_file_line(key, value)
+      key_s = key.to_s
+      value_s = value.to_s
+
+      unless key_s.match?(SANDBOX_ENV_FILE_KEY_PATTERN)
+        raise EnvironmentViolationError, "sandbox env var name #{key_s.inspect} is not a safe systemd EnvironmentFile key"
+      end
+      if value_s.match?(/[\n\r\0]/)
+        raise EnvironmentViolationError, "sandbox env var #{key_s} contains a newline, carriage return or NUL byte, unsafe in a systemd EnvironmentFile"
+      end
+
+      escaped = value_s.gsub('\\', '\\\\\\\\').gsub('"', '\\"')
+      "#{key_s}=\"#{escaped}\""
+    end
+
+    def cleanup_sandbox_env_file(path)
+      File.delete(path)
+    rescue Errno::ENOENT
+      nil
+    end
 
     # Kills the WHOLE process group #spawn_stdio's child started as leader
     # of (pgroup: true) — a negative pid signals every process in that
@@ -806,18 +1285,33 @@ class McpSecurityService
     # wait_thr (Open3.popen3's own reaper thread), never a manual
     # Process.waitpid on the same pid — that would race wait_thr's own
     # internal wait and risk Errno::ECHILD on whichever call loses.
-    def raise_stdio_timeout!(pid, wait_thr, command, timeout)
-      terminate_process_group!(pid, wait_thr)
+    def raise_stdio_timeout!(pid, wait_thr, command, timeout, unit_name: nil)
+      terminate_process_group!(pid, wait_thr, unit_name: unit_name)
       raise StdioTimeoutError, "stdio MCP server '#{command}' exceeded #{timeout}s and was killed"
     end
 
-    # TERM, a bounded grace period, then KILL if still alive — SIGKILL
-    # cannot be caught or ignored, so the final wait_thr.join (no
-    # timeout) is guaranteed to return once the OS finishes tearing the
-    # group down. Errno::ESRCH (the process already exited on its own,
-    # e.g. between the deadline check and this call) is swallowed at
-    # EITHER kill — there is nothing left to signal, not a failure.
-    def terminate_process_group!(pid, wait_thr)
+    # TERM, a bounded grace period, then KILL if still alive on the LOCAL
+    # process (the systemd-run client, when sandboxed) — SIGKILL cannot
+    # be caught or ignored, so the final wait_thr.join (no timeout) is
+    # guaranteed to return once the OS finishes tearing the group down.
+    # Errno::ESRCH (the process already exited on its own, e.g. between
+    # the deadline check and this call) is swallowed at EITHER kill —
+    # there is nothing left to signal, not a failure.
+    #
+    # IMP-a50680fd53d8 — when `unit_name` is present, ALSO runs
+    # `systemctl stop <unit_name>` first (via #stop_sandboxed_unit!, bounded
+    # — see review blocker 4). Verified empirically that this is not
+    # redundant with the kill below: killing the systemd-run CLIENT's
+    # local process (even its whole process group) does NOT stop the
+    # actual sandboxed unit — it runs under systemd's own cgroup via
+    # D-Bus, decoupled from the client's process group entirely, and was
+    # observed still `active (running)` after the client was SIGKILLed.
+    # `systemctl stop` is a best-effort call (its own exit status is
+    # ignored) run BEFORE the local kill, not instead of it: the local
+    # kill still matters for reclaiming the client's own pipes/pid.
+    def terminate_process_group!(pid, wait_thr, unit_name: nil)
+      stop_sandboxed_unit!(unit_name) if unit_name
+
       Process.kill('TERM', -pid)
       return if wait_thr.join(STDIO_TERM_GRACE_SECONDS)
 
@@ -827,6 +1321,43 @@ class McpSecurityService
       nil
     ensure
       wait_thr.value
+    end
+
+    # IMP-a50680fd53d8 review blocker 4 — `systemctl stop` itself can hang
+    # (a wedged D-Bus call, a stuck cgroup teardown, ...); the previous
+    # bare `system(...)` call had no bound at all, so a wedged stop could
+    # block #terminate_process_group! — and therefore #spawn_stdio's own
+    # deadline enforcement — indefinitely, defeating the very bound this
+    # whole method exists to guarantee. Spawned as its own process group
+    # (pgroup: true) so a hung `systemctl stop` that has itself forked
+    # (e.g. a helper) is fully reclaimed on timeout, not just its direct
+    # pid. Bounded to STDIO_TERM_GRACE_SECONDS, the same grace period the
+    # local TERM/KILL sequence above uses. Best-effort throughout: this
+    # never raises past its own rescue, and its exit status is ignored —
+    # `-p TimeoutStopSec=STDIO_TERM_GRACE_SECONDS` on the unit itself (see
+    # #sandboxed_spawn_argv) means systemd was already told to force-kill
+    # the unit's own processes on that same bound regardless of whether
+    # this client is still around to observe the result.
+    def stop_sandboxed_unit!(unit_name)
+      pid = Process.spawn('systemctl', 'stop', unit_name, out: File::NULL, err: File::NULL, pgroup: true)
+      thr = Process.detach(pid)
+      return if thr.join(STDIO_TERM_GRACE_SECONDS)
+
+      Process.kill('KILL', -pid)
+      thr.join
+    rescue Errno::ESRCH
+      nil
+    rescue StandardError => e
+      # IMP-a50680fd53d8 review round 2 — Process.spawn('systemctl', ...)
+      # itself can raise (Errno::ENOENT if systemctl isn't on PATH,
+      # Errno::EAGAIN under fork pressure, ...), not just the ESRCH this
+      # method already tolerates. A narrower rescue here left the caller's
+      # local TERM/KILL sequence (#terminate_process_group!) never running
+      # at all — this call is best-effort exactly like the ESRCH case
+      # above; only the class and message are logged, never full
+      # backtraces that could carry command-line detail.
+      logger.warn("[McpSecurityService] stop_sandboxed_unit! failed for #{unit_name}: #{e.class}: #{e.message}")
+      nil
     end
 
     # IMP-e2cba83ee39f: the ONLY env the spawned stdio MCP server process
