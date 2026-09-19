@@ -194,11 +194,16 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
         it 'dispatches to the real stdio transport and completes (regression: string-keyed server must resolve connection_type)' do
           # Against the pre-fix code (symbol-key reads on a string-keyed
           # server/tool), dispatch always fell through to "Unknown
-          # connection type: " and Open3.capture3 was never called.
+          # connection type: " and spawn_stdio was never called.
+          #
+          # IMP-4689ce5a4acb: mocks .spawn_stdio itself, not the Open3 call
+          # inside it — that internal contract (Open3.popen3/
+          # unsetenv_others/pgroup) is exercised for real by
+          # mcp_security_service_spec.rb's real-spawn specs.
           expect(job).to receive(:execute_mcp_tool).and_call_original
           success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
-          expect(Open3).to receive(:capture3) do |_env, command, *_args, **_opts|
-            expect(command).to eq(['/usr/bin/node', '/usr/bin/node'])
+          expect(McpSecurityService).to receive(:spawn_stdio) do |command, *_rest, **_kwargs|
+            expect(command).to eq('/usr/bin/node')
             ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
           end
           expect(api_client).to receive(:patch)
@@ -235,10 +240,10 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
               .and_return('success' => true, 'data' => { 'mcp_tool_execution' => extended_execution_data })
           end
 
-          it 'reaches Open3.capture3 for uvx because allow_extended_commands is true' do
+          it 'reaches spawn_stdio for uvx because allow_extended_commands is true' do
             success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
-            expect(Open3).to receive(:capture3) do |_env, command, *_args, **_opts|
-              expect(command).to eq(['uvx', 'uvx'])
+            expect(McpSecurityService).to receive(:spawn_stdio) do |command, *_rest, **_kwargs|
+              expect(command).to eq('uvx')
               ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
             end
 
@@ -260,8 +265,8 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
               .and_return('success' => true, 'data' => { 'mcp_tool_execution' => extended_execution_data })
           end
 
-          it 'refuses uvx and never reaches Open3.capture3' do
-            expect(Open3).not_to receive(:capture3)
+          it 'refuses uvx and never reaches spawn_stdio' do
+            expect(McpSecurityService).not_to receive(:spawn_stdio)
             expect(api_client).to receive(:patch)
               .with(
                 "/api/v1/internal/mcp_tool_executions/#{execution_id}",

@@ -158,38 +158,67 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
   # including secrets, into every spawned stdio MCP server — see
   # #spawn_stdio's own doc comment) so a failure here is unambiguous about
   # WHAT diverged, without needing to read a whole-body diff to find it.
-  describe "spawn_stdio's Open3.capture3 call" do
+  #
+  # IMP-4689ce5a4acb: spawn_stdio moved from Open3.capture3 (no deadline)
+  # to Open3.popen3 + pgroup: true (own process group, so a timeout can
+  # kill the whole group, not just the direct child) — this check moved
+  # with it, and now also pins pgroup: true, the OTHER option a dropped
+  # flag would silently break (no deadline enforcement across a
+  # grandchild) without any spec noticing.
+  describe "spawn_stdio's Open3.popen3 call" do
     # Scoped to the `def spawn_stdio ... end` body specifically — both
-    # files' surrounding COMMENTS also mention "Open3.capture3" in prose
-    # (describing what the method below does), so a bare source-wide grep
-    # for the string would risk matching a comment instead of the actual
-    # call, or matching the wrong one if a second call is ever added
-    # elsewhere.
-    def self.spawn_stdio_capture3_call(source_path)
+    # files' surrounding COMMENTS also mention "Open3" in prose (describing
+    # what the method below does), so a bare source-wide grep for the
+    # string would risk matching a comment instead of the actual call, or
+    # matching the wrong one if a second call is ever added elsewhere.
+    #
+    # The body's closing `end` is found by INDENTATION, not "the next line
+    # that says end" — spawn_stdio's body now nests a `begin/ensure`, a
+    # `loop do`, and per-fd `each` blocks, each with their own `end`. This
+    # codebase indents consistently (2 spaces/level), so the def's OWN
+    # `end` is the first line at the SAME indentation as the `def` line
+    # itself; every nested block's `end` is indented further in.
+    def self.spawn_stdio_popen3_call(source_path)
       lines = File.readlines(source_path)
       def_idx = lines.index { |l| l =~ /^\s*def spawn_stdio\(/ }
       raise "def spawn_stdio(...) not found in #{source_path}" unless def_idx
 
-      body_end = lines[def_idx..].index { |l| l.strip == 'end' }
+      def_indent = lines[def_idx][/\A */]
+      body_end = ((def_idx + 1)...lines.size).find do |i|
+        lines[i][/\A */] == def_indent && lines[i].strip == 'end'
+      end
       raise "spawn_stdio's closing `end` not found in #{source_path}" unless body_end
 
-      body = lines[def_idx, body_end + 1]
-      call_line = body.find { |l| l.strip.start_with?('Open3.capture3(') }
-      raise "no Open3.capture3(...) call found inside spawn_stdio in #{source_path}" unless call_line
+      body = lines[def_idx..body_end]
+      start_i = body.index { |l| l.include?('Open3.popen3(') }
+      raise "no Open3.popen3(...) call found inside spawn_stdio in #{source_path}" unless start_i
 
-      call_line.strip
+      # The call spans multiple physical lines (long argument list) —
+      # collect from the Open3.popen3( line through the line that finally
+      # balances its parentheses back to zero, then join into ONE logical
+      # string so line-wrapping differences don't matter, only the actual
+      # arguments do.
+      depth = 0
+      call_lines = []
+      body[start_i..].each do |line|
+        call_lines << line
+        depth += line.count('(') - line.count(')')
+        break if depth <= 0
+      end
+
+      call_lines.map(&:strip).join(' ')
     end
 
-    it 'both classes pass IDENTICAL Open3.capture3 options, including unsetenv_others: true' do
-      worker_call = self.class.spawn_stdio_capture3_call(WORKER_SOURCE_PATH)
-      server_call = self.class.spawn_stdio_capture3_call(SERVER_SOURCE_PATH)
+    it 'both classes pass IDENTICAL Open3.popen3 options, including unsetenv_others: true and pgroup: true' do
+      worker_call = self.class.spawn_stdio_popen3_call(WORKER_SOURCE_PATH)
+      server_call = self.class.spawn_stdio_popen3_call(SERVER_SOURCE_PATH)
 
-      expect(worker_call).to include('unsetenv_others: true'),
-                              "worker's spawn_stdio is missing unsetenv_others: true — #{worker_call.inspect}"
-      expect(server_call).to include('unsetenv_others: true'),
-                              "server's spawn_stdio is missing unsetenv_others: true — #{server_call.inspect}"
+      [ [ 'worker', worker_call ], [ 'server', server_call ] ].each do |label, call|
+        expect(call).to include('unsetenv_others: true'), "#{label}'s spawn_stdio is missing unsetenv_others: true — #{call.inspect}"
+        expect(call).to include('pgroup: true'), "#{label}'s spawn_stdio is missing pgroup: true — #{call.inspect}"
+      end
       expect(server_call).to eq(worker_call),
-                             "spawn_stdio's Open3.capture3 call diverged —\n  worker: #{worker_call.inspect}\n  server: #{server_call.inspect}"
+                             "spawn_stdio's Open3.popen3 call diverged —\n  worker: #{worker_call.inspect}\n  server: #{server_call.inspect}"
     end
   end
 

@@ -214,23 +214,26 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
         it 'refuses a non-whitelisted stdio command via the real McpSecurityService' do
           # server_data's command (/usr/bin/mcp-server) is not on
           # McpSecurityService::ALLOWED_COMMANDS, so this must be blocked
-          # before Open3.capture3 is ever reached (IMP-7046f6e448d6 review
-          # item 2).
-          expect(Open3).not_to receive(:capture3)
+          # before McpSecurityService.spawn_stdio is ever reached
+          # (IMP-7046f6e448d6 review item 2).
+          expect(McpSecurityService).not_to receive(:spawn_stdio)
           expect(job).to receive(:log_error).with(/Tool discovery failed/, nil, hash_including(error: /Security error/))
 
           job.execute(server_id)
         end
 
+        # IMP-4689ce5a4acb: these mock .spawn_stdio itself, not the Open3
+        # call inside it — that internal contract (Open3.popen3/
+        # unsetenv_others/pgroup) is exercised for real by
+        # mcp_security_service_spec.rb's real-spawn specs.
         it 'spawns a whitelisted stdio command with a string-keyed sanitized env' do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/mcp_servers/#{server_id}")
             .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
 
-          expect(Open3).to receive(:capture3) do |env, command, *_args, **opts|
-            expect(command).to eq(['node', 'node'])
+          expect(McpSecurityService).to receive(:spawn_stdio) do |command, env, *_rest, **_kwargs|
+            expect(command).to eq('node')
             expect(env.keys).to all(be_a(String))
-            expect(opts[:unsetenv_others]).to be true
             ['{}', '', instance_double(Process::Status, success?: true)]
           end
 
@@ -242,11 +245,28 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
             .with("/api/v1/internal/mcp_servers/#{server_id}")
             .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
 
-          expect(Open3).to receive(:capture3) do |_env, _command, *_args, **opts|
-            parsed = JSON.parse(opts[:stdin_data])
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:|
+            parsed = JSON.parse(stdin_data)
             expect(parsed).to eq('jsonrpc' => '2.0', 'id' => parsed['id'], 'method' => 'tools/list', 'params' => {})
             ['{}', '', instance_double(Process::Status, success?: true)]
           end
+
+          job.execute(server_id)
+        end
+
+        # IMP-4689ce5a4acb: spawn_stdio now raises StdioTimeoutError (a
+        # SecurityError, hence StandardError, subclass) on a deadline
+        # expiry instead of hanging forever. #discover_stdio_tools' OWN
+        # `rescue StandardError => e` around this call already maps it
+        # into this method's existing error shape — no code change
+        # needed, only this spec proving it.
+        it "maps a stdio deadline expiry into this job's existing error shape" do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/mcp_servers/#{server_id}")
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node') })
+          allow(McpSecurityService).to receive(:spawn_stdio)
+            .and_raise(McpSecurityService::StdioTimeoutError, "stdio MCP server 'node' exceeded 30s and was killed")
+          expect(job).to receive(:log_error).with(/Tool discovery failed/, nil, hash_including(error: /Discovery error:.*exceeded 30s/))
 
           job.execute(server_id)
         end

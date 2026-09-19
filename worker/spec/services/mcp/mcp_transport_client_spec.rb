@@ -100,19 +100,24 @@ RSpec.describe Mcp::McpTransportClient do
     # /usr/bin/node is on McpSecurityService::ALLOWED_COMMANDS — these tests
     # exercise the real security validation path (IMP-7046f6e448d6 review
     # item 3), not a stub, so the command must actually be whitelisted for
-    # them to reach Open3.capture3 at all.
+    # them to reach McpSecurityService.spawn_stdio at all.
+    #
+    # IMP-4689ce5a4acb: these mock .spawn_stdio itself now, not the Open3
+    # call inside it — spawn_stdio's own Open3.popen3/unsetenv_others/
+    # pgroup contract is exercised for real by
+    # mcp_security_service_spec.rb's real-spawn specs; these tests only
+    # care what THIS call site passes in and does with what comes back.
     let(:server) { { connection_type: 'stdio', command: '/usr/bin/node', args: ['--flag'], env: { 'MCP_X' => '1' } } }
 
     it 'frames the request to stdin and parses a successful response' do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
       captured_stdin = nil
 
-      allow(Open3).to receive(:capture3) do |env, command, *cmd_args, **opts|
+      allow(McpSecurityService).to receive(:spawn_stdio) do |command, env, args, stdin_data:|
         expect(env).to include('MCP_X' => '1', 'PATH' => ENV['PATH'])
-        expect(command).to eq(['/usr/bin/node', '/usr/bin/node'])
-        expect(cmd_args).to eq(['--flag'])
-        expect(opts[:unsetenv_others]).to be true
-        captured_stdin = opts[:stdin_data]
+        expect(command).to eq('/usr/bin/node')
+        expect(args).to eq(['--flag'])
+        captured_stdin = stdin_data
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
       end
 
@@ -129,8 +134,8 @@ RSpec.describe Mcp::McpTransportClient do
     it 'writes only the built JSON-RPC tools/call request to stdin, nothing else (IMP-97b6b1185748 item 5)' do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
-      expect(Open3).to receive(:capture3) do |_env, _command, *_args, **opts|
-        parsed = JSON.parse(opts[:stdin_data])
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:|
+        parsed = JSON.parse(stdin_data)
         expect(parsed['jsonrpc']).to eq('2.0')
         expect(parsed['method']).to eq('tools/call')
         expect(parsed.keys).to match_array(%w[jsonrpc id method params])
@@ -142,7 +147,7 @@ RSpec.describe Mcp::McpTransportClient do
 
     it 'surfaces an MCP error message from the response' do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
-      allow(Open3).to receive(:capture3).and_return(
+      allow(McpSecurityService).to receive(:spawn_stdio).and_return(
         ['{"jsonrpc":"2.0","id":"1","error":{"message":"boom"}}', '', success_status]
       )
 
@@ -151,7 +156,7 @@ RSpec.describe Mcp::McpTransportClient do
 
     it 'reports a non-zero process exit' do
       failed_status = instance_double(Process::Status, success?: false, exitstatus: 3)
-      allow(Open3).to receive(:capture3).and_return(['', 'stderr text', failed_status])
+      allow(McpSecurityService).to receive(:spawn_stdio).and_return(['', 'stderr text', failed_status])
 
       expect(client.execute_stdio_tool(server, tool, parameters)).to eq(
         success: false, error: 'Process exited with code 3: stderr text'
@@ -159,16 +164,32 @@ RSpec.describe Mcp::McpTransportClient do
     end
 
     it 'reports a missing command' do
-      allow(Open3).to receive(:capture3).and_raise(Errno::ENOENT)
+      allow(McpSecurityService).to receive(:spawn_stdio).and_raise(Errno::ENOENT)
 
       expect(client.execute_stdio_tool(server, tool, parameters)).to eq(
         success: false, error: 'Command not found: /usr/bin/node'
       )
     end
 
+    # IMP-4689ce5a4acb: spawn_stdio now raises StdioTimeoutError (a
+    # SecurityError, hence StandardError, subclass) on a deadline expiry
+    # instead of hanging forever. #execute_stdio_tool's OWN
+    # `rescue StandardError => e` around this call already maps it into
+    # this method's existing error shape — no code change needed, only
+    # this spec proving it.
+    it "maps a stdio deadline expiry into this method's existing error shape" do
+      allow(McpSecurityService).to receive(:spawn_stdio)
+        .and_raise(McpSecurityService::StdioTimeoutError, "stdio MCP server '/usr/bin/node' exceeded 30s and was killed")
+
+      result = client.execute_stdio_tool(server, tool, parameters)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/Execution error:.*exceeded 30s/)
+    end
+
     it 'refuses a non-whitelisted command via the real McpSecurityService, without ever spawning it' do
       blocked_server = server.merge(command: '/usr/bin/mcp-server')
-      expect(Open3).not_to receive(:capture3)
+      expect(McpSecurityService).not_to receive(:spawn_stdio)
 
       result = client.execute_stdio_tool(blocked_server, tool, parameters)
 
@@ -179,17 +200,17 @@ RSpec.describe Mcp::McpTransportClient do
     it 'accepts a string-keyed (indifferent-access) server, not just symbol-keyed' do
       indifferent_server = server.with_indifferent_access
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
-      allow(Open3).to receive(:capture3).and_return(
+      allow(McpSecurityService).to receive(:spawn_stdio).and_return(
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
       )
 
       expect(client.execute_stdio_tool(indifferent_server, tool, parameters)).to eq(success: true, output: { ok: true })
     end
 
-    it 'passes a string-keyed env to Open3.capture3, never symbol-keyed (would raise TypeError)' do
+    it 'passes a string-keyed env to spawn_stdio, never symbol-keyed (would raise TypeError)' do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
-      expect(Open3).to receive(:capture3) do |env, *_rest|
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, env, *_rest, **_kwargs|
         expect(env.keys).to all(be_a(String))
         ['{"jsonrpc":"2.0","id":"1","result":{}}', '', success_status]
       end
@@ -198,7 +219,7 @@ RSpec.describe Mcp::McpTransportClient do
     end
 
     # IMP-97b6b1185748: validate_command! only ever checked the `command`
-    # string — server[:args]/server['args'] reached Open3.capture3
+    # string — server[:args]/server['args'] reached the spawn point
     # completely unchecked, so a whitelisted command like "node" plus args
     # ["-e", "<code>"] ran arbitrary code. End-to-end coverage (one spawn
     # site, not just the McpSecurityService unit specs) that the shared
@@ -206,7 +227,7 @@ RSpec.describe Mcp::McpTransportClient do
     # refuses that.
     it 'refuses node -e inline code via args, without ever spawning it (end-to-end)' do
       malicious_server = server.merge(command: 'node', args: ['-e', 'require("child_process").exec("rm -rf /")'])
-      expect(Open3).not_to receive(:capture3)
+      expect(McpSecurityService).not_to receive(:spawn_stdio)
 
       result = client.execute_stdio_tool(malicious_server, tool, parameters)
 
@@ -218,9 +239,9 @@ RSpec.describe Mcp::McpTransportClient do
       normal_server = server.merge(command: 'node', args: ['server.js', '--port', '3000'])
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
-      expect(Open3).to receive(:capture3) do |_env, command, *cmd_args, **_opts|
-        expect(command).to eq(['node', 'node'])
-        expect(cmd_args).to eq(['server.js', '--port', '3000'])
+      expect(McpSecurityService).to receive(:spawn_stdio) do |command, _env, args, **_kwargs|
+        expect(command).to eq('node')
+        expect(args).to eq(['server.js', '--port', '3000'])
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
       end
 
@@ -237,7 +258,7 @@ RSpec.describe Mcp::McpTransportClient do
     # exercises exactly the server-hash shape the backend now sends.
     it "refuses an extended-only command (uvx) when the server hash carries no capabilities at all" do
       extended_server = server.merge(command: 'uvx', args: ['mcp-server-git'])
-      expect(Open3).not_to receive(:capture3)
+      expect(McpSecurityService).not_to receive(:spawn_stdio)
 
       result = client.execute_stdio_tool(extended_server, tool, parameters)
 
@@ -245,14 +266,14 @@ RSpec.describe Mcp::McpTransportClient do
       expect(result[:error]).to match(/Security error:.*not in the allowed list/)
     end
 
-    it "honors capabilities.allow_extended_commands: true and allows uvx/docker through to Open3" do
+    it "honors capabilities.allow_extended_commands: true and allows uvx/docker through to spawn_stdio" do
       extended_server = server.merge(
         command: 'uvx', args: ['mcp-server-git'], capabilities: { 'allow_extended_commands' => true }
       )
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
-      expect(Open3).to receive(:capture3) do |_env, command, *_cmd_args, **_opts|
-        expect(command).to eq(['uvx', 'uvx'])
+      expect(McpSecurityService).to receive(:spawn_stdio) do |command, _env, _args, **_kwargs|
+        expect(command).to eq('uvx')
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
       end
 
@@ -263,7 +284,7 @@ RSpec.describe Mcp::McpTransportClient do
 
     it "still refuses uvx when capabilities is present but allow_extended_commands is absent/false" do
       extended_server = server.merge(command: 'uvx', args: ['mcp-server-git'], capabilities: { 'tools' => true })
-      expect(Open3).not_to receive(:capture3)
+      expect(McpSecurityService).not_to receive(:spawn_stdio)
 
       result = client.execute_stdio_tool(extended_server, tool, parameters)
 
@@ -275,7 +296,7 @@ RSpec.describe Mcp::McpTransportClient do
       strict_server = server.merge(env: { 'CUSTOM_VAR' => 'value' }, capabilities: { 'strict_environment' => true })
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
-      expect(Open3).to receive(:capture3) do |env, *_rest|
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, env, *_rest, **_kwargs|
         expect(env).not_to include('CUSTOM_VAR')
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
       end
@@ -287,7 +308,7 @@ RSpec.describe Mcp::McpTransportClient do
       non_strict_server = server.merge(env: { 'CUSTOM_VAR' => 'value' })
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
-      expect(Open3).to receive(:capture3) do |env, *_rest|
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, env, *_rest, **_kwargs|
         expect(env).to include('CUSTOM_VAR' => 'value')
         ['{"jsonrpc":"2.0","id":"1","result":{"ok":true}}', '', success_status]
       end
