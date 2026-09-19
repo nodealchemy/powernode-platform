@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rails_helper'
+require 'ripper'
 
 # PARITY ORACLE (IMP-176a386fef98): proves Mcp::SecurityService (this
 # process's Rails class) produces IDENTICAL verdicts to the worker's
@@ -25,6 +26,172 @@ require_relative worker_security_service_path unless defined?(::McpSecurityServi
 RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService" do
   worker_klass = ::McpSecurityService
   server_klass = ::Mcp::SecurityService
+
+  # Raw (unrequired) source paths — separate from worker_security_service_path
+  # above, which is deliberately extension-less for require_relative. These
+  # two are read as plain text/tokenized, never loaded, so File.read needs
+  # the real .rb suffix.
+  WORKER_SOURCE_PATH = "#{worker_security_service_path}.rb"
+  SERVER_SOURCE_PATH = File.expand_path('../../../app/services/mcp/security_service.rb', __dir__)
+
+  # IMP-9cde5262cb8f — the fixture-table parity above (and the constants
+  # parity below) only ever calls #validate_stdio_server!, so drift inside
+  # a method neither of those exercises — #spawn_stdio chief among them,
+  # since nothing in this spec ever actually spawns a process — passes
+  # silently. This block adds a structural, whole-body source check that
+  # doesn't depend on any spec exercising the drifted code path at all.
+  describe 'source parity (normalized)' do
+    # Ripper-based, not a regex: a regex comment-stripper (e.g. `/#.*$/`)
+    # would also eat a `#` that legitimately appears inside a string
+    # literal, or misparse a `#{...}` interpolation's own `#`. Ripper.lex
+    # tokenizes the ACTUAL Ruby grammar, so on_comment is only ever a real
+    # comment, never a string's contents or an interpolation's opening `#`.
+    #
+    # Each on_comment token's text already includes the line's trailing
+    # newline (Ripper quirk — a line comment consumes it), so it is
+    # replaced with a bare "\n" rather than dropped outright: dropping it
+    # would silently splice a comment-only line into the NEXT line instead
+    # of blanking it. Every other token's text is kept byte-for-byte,
+    # including all whitespace/indentation — the blank-line reject below
+    # is the only other normalization, so token order and indentation
+    # (bar the two module-wrapper lines handled explicitly further down)
+    # stay exactly as written, and a real semantic edit cannot hide inside
+    # what looks like "just a comment change".
+    def self.strip_comments_and_blank_lines(source)
+      buf = +''
+      Ripper.lex(source).each do |(_line, _col), type, tok, _state|
+        buf << (type == :on_comment ? "\n" : tok)
+      end
+      buf.lines.map(&:chomp).reject { |line| line.strip.empty? }
+    end
+
+    # Asserts exactly one line (after stripping) equals `text` verbatim and
+    # returns its index — not the first match — so a FUTURE second
+    # occurrence (e.g. a reopened class) fails loudly here rather than
+    # having only the first one silently normalized.
+    def self.sole_index_of(lines, text)
+      matches = lines.each_index.select { |i| lines[i].strip == text }
+      raise "expected exactly one line equal to #{text.inspect}, found #{matches.size} (at #{matches.inspect})" \
+        unless matches.size == 1
+
+      matches.first
+    end
+
+    # The server file wraps the exact same class body in `module Mcp
+    # ... end` and names the class `SecurityService` instead of
+    # `McpSecurityService`. Confirmed by hand (IMP-9cde5262cb8f) that
+    # NEITHER the module open/close NOR the class rename touches any OTHER
+    # line's indentation — the class's own opening and closing lines are
+    # the only two that carry the module's extra 2-space nesting; every
+    # line of the body IN BETWEEN is a byte-for-byte copy of the worker
+    # file, unindented. Stripping is therefore narrow and named, not a
+    # blanket dedent that could mask real indentation drift elsewhere:
+    #   1. delete the sole `module Mcp` line,
+    #   2. pop the new last line, asserting it is a bare `end` (the
+    #      module's close) before removing it,
+    #   3. rename the sole `class SecurityService` line to
+    #      `class McpSecurityService` AND strip its now-stray leading
+    #      module-nesting indent,
+    #   4. the class's own closing `end` is now the last line — assert it
+    #      really is one, then strip that same stray indent from it too.
+    # Any assumption here failing to hold raises, rather than silently
+    # comparing the wrong thing.
+    def self.normalize_server_body(lines)
+      lines = lines.dup
+
+      lines.delete_at(sole_index_of(lines, 'module Mcp'))
+
+      raise "expected the module's closing `end` as the last line, got #{lines.last.inspect}" \
+        unless lines.last&.strip == 'end'
+      lines.pop
+
+      class_idx = sole_index_of(lines, 'class SecurityService')
+      lines[class_idx] = lines[class_idx].strip.sub('SecurityService', 'McpSecurityService')
+
+      raise "expected the class's own closing `end` as the new last line, got #{lines.last.inspect}" \
+        unless lines.last&.strip == 'end'
+      lines[-1] = lines[-1].strip
+
+      lines
+    end
+
+    it 'the worker and server class bodies are identical once comments, blank lines, and the module Mcp wrapper are normalized away' do
+      worker_lines = self.class.strip_comments_and_blank_lines(File.read(WORKER_SOURCE_PATH))
+      server_lines = self.class.normalize_server_body(self.class.strip_comments_and_blank_lines(File.read(SERVER_SOURCE_PATH)))
+
+      diff = worker_lines.zip(server_lines).each_with_index.filter_map do |(w, s), i|
+        next if w == s
+
+        "  line #{i}:\n    worker: #{w.inspect}\n    server: #{s.inspect}"
+      end
+      # Capped at 10 so one structural drift (e.g. a shifted line from an
+      # earlier insertion) doesn't dump the whole remaining file into the
+      # failure message. The line-count note is unconditional, not only
+      # printed on a mismatch — a truncated diff can otherwise look like a
+      # small, contained divergence when the real cause is the two files
+      # having drifted to different lengths entirely.
+      truncated_note = diff.size > 10 ? "\n  ... and #{diff.size - 10} more differing line(s)" : ''
+      size_note = "line counts — worker: #{worker_lines.size}, server: #{server_lines.size}\n"
+
+      expect(worker_lines).to eq(server_lines),
+                               "#{size_note}source diverged beyond comments/blank-lines/the module wrapper:\n" \
+                               "#{diff.first(10).join("\n")}#{truncated_note}"
+    end
+
+    # The comment-stripper above treats a magic comment (frozen_string_literal,
+    # encoding, ...) as an ORDINARY comment — normalization discards it like
+    # any other, so a divergence there (e.g. one file missing
+    # frozen_string_literal) would otherwise pass silently. Checked
+    # separately, against the RAW files, before any stripping.
+    it 'the leading magic comments (e.g. frozen_string_literal) are identical' do
+      worker_magic = File.readlines(WORKER_SOURCE_PATH).take_while { |l| l.start_with?('#') }
+      server_magic = File.readlines(SERVER_SOURCE_PATH).take_while { |l| l.start_with?('#') }
+
+      expect(server_magic).to eq(worker_magic),
+                              "leading magic comments diverged — worker: #{worker_magic.inspect}, server: #{server_magic.inspect}"
+    end
+  end
+
+  # IMP-9cde5262cb8f — belt-and-suspenders on top of the whole-body check
+  # above: names the ONE call site that matters most (a dropped
+  # unsetenv_others: true leaks this Rails process's full environment,
+  # including secrets, into every spawned stdio MCP server — see
+  # #spawn_stdio's own doc comment) so a failure here is unambiguous about
+  # WHAT diverged, without needing to read a whole-body diff to find it.
+  describe "spawn_stdio's Open3.capture3 call" do
+    # Scoped to the `def spawn_stdio ... end` body specifically — both
+    # files' surrounding COMMENTS also mention "Open3.capture3" in prose
+    # (describing what the method below does), so a bare source-wide grep
+    # for the string would risk matching a comment instead of the actual
+    # call, or matching the wrong one if a second call is ever added
+    # elsewhere.
+    def self.spawn_stdio_capture3_call(source_path)
+      lines = File.readlines(source_path)
+      def_idx = lines.index { |l| l =~ /^\s*def spawn_stdio\(/ }
+      raise "def spawn_stdio(...) not found in #{source_path}" unless def_idx
+
+      body_end = lines[def_idx..].index { |l| l.strip == 'end' }
+      raise "spawn_stdio's closing `end` not found in #{source_path}" unless body_end
+
+      body = lines[def_idx, body_end + 1]
+      call_line = body.find { |l| l.strip.start_with?('Open3.capture3(') }
+      raise "no Open3.capture3(...) call found inside spawn_stdio in #{source_path}" unless call_line
+
+      call_line.strip
+    end
+
+    it 'both classes pass IDENTICAL Open3.capture3 options, including unsetenv_others: true' do
+      worker_call = self.class.spawn_stdio_capture3_call(WORKER_SOURCE_PATH)
+      server_call = self.class.spawn_stdio_capture3_call(SERVER_SOURCE_PATH)
+
+      expect(worker_call).to include('unsetenv_others: true'),
+                              "worker's spawn_stdio is missing unsetenv_others: true — #{worker_call.inspect}"
+      expect(server_call).to include('unsetenv_others: true'),
+                              "server's spawn_stdio is missing unsetenv_others: true — #{server_call.inspect}"
+      expect(server_call).to eq(worker_call),
+                             "spawn_stdio's Open3.capture3 call diverged —\n  worker: #{worker_call.inspect}\n  server: #{server_call.inspect}"
+    end
+  end
 
   # The exact set of security-relevant constants both classes must agree
   # on byte-for-byte — command/env allow+forbid lists, interpreter argv
