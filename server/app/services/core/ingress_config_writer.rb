@@ -816,8 +816,17 @@ module Core
       # whole bundle would drop clientAuth entirely and FAIL-OPEN the mTLS gate;
       # dropping just the unreadable source keeps the gate up on whatever
       # remains (e.g. the enrolled agent chain when only the local root glitches).
+      # Two log LEVELS cover the same class of fault (an existing source
+      # this process can't read) at two different points: ca_source_readable?
+      # below logs at :error the moment the stat itself fails (the common
+      # case — a permissions problem on the file/directory). The :warn
+      # here covers the narrower window where stat succeeded but the
+      # SUBSEQUENT File.read still raised (e.g. a permissions change or an
+      # unmount racing between the two calls) — grep for BOTH
+      # "client-auth CA source" occurrences, not just one, to see every
+      # skip.
       def read_ca_source(path)
-        return nil unless File.file?(path)
+        return nil unless ca_source_readable?(path)
 
         pem = File.read(path)
         return nil unless pem.include?("BEGIN CERTIFICATE")
@@ -828,6 +837,34 @@ module Core
           ::Rails.logger.warn("[IngressConfigWriter] client-auth CA source skipped (#{path}): #{e.class}: #{e.message}")
         end
         nil
+      end
+
+      # IMP-94977647c24c part A blocker 1: File.file?(path) SILENTLY
+      # returns false on Errno::EACCES too — it does not distinguish "not
+      # there" from "there, but this process can't read it" (verified: a
+      # non-root process probing a root-only path gets `false`, not a
+      # raised error). read_ca_source's own rescue above therefore NEVER
+      # fired for a permissions problem — the source looked identically
+      # "absent" whether it never existed or genuinely does, and this
+      # source silently dropped out of the clientAuth bundle with nothing
+      # in the logs to say why. Once hub-backend's rails runs as a
+      # different OS identity than the agent that owns
+      # /persist/var/lib/powernode, an unreadable-but-present agent PKI
+      # dir is exactly the failure mode this exists to catch loudly
+      # rather than let mTLS quietly stop verifying worker certs.
+      def ca_source_readable?(path)
+        File.stat(path).file?
+      rescue Errno::ENOENT, Errno::ENOTDIR
+        false
+      rescue SystemCallError => e
+        if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
+          ::Rails.logger.error(
+            "[IngressConfigWriter] client-auth CA source #{path} exists but is unreadable " \
+            "(#{e.class}: #{e.message}) — skipping it, NOT because it's absent; clientAuth may " \
+            "be missing a trust anchor it should have"
+          )
+        end
+        false
       end
 
       # Ordered CA sources unioned into the client-auth trust bundle:

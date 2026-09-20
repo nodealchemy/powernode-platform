@@ -1009,4 +1009,36 @@ RSpec.describe Core::IngressConfigWriter, type: :service do
       expect(Dir.glob("#{File.dirname(out)}/*.tmp-*")).to be_empty
     end
   end
+
+  describe "ca_source_readable? / read_ca_source (IMP-94977647c24c part A blocker 1)" do
+    let(:tmp_ca_dir) { Dir.mktmpdir("core-ingress-ca") }
+    let(:ca_path)    { File.join(tmp_ca_dir, "ca-chain.crt") }
+
+    after { FileUtils.rm_rf(tmp_ca_dir) }
+
+    it "returns nil (not an error) for a genuinely absent path" do
+      expect(described_class.send(:read_ca_source, File.join(tmp_ca_dir, "missing.crt"))).to be_nil
+    end
+
+    # The defect this closes: File.file?(path) silently returns false on
+    # Errno::EACCES too, identically to a path that never existed — the
+    # OLD read_ca_source therefore treated "exists but I can't read it"
+    # as "absent" and dropped the source with nothing logged. Once
+    # hub-backend's rails is a different OS identity than whatever owns
+    # the agent's PKI directory, an existing-but-unreadable source is
+    # exactly the case that must be LOUD, not silent.
+    it "logs loudly (error, not the generic warn) and returns nil when the path exists but stat raises EACCES" do
+      allow(File).to receive(:stat).and_call_original
+      allow(File).to receive(:stat).with(ca_path).and_raise(Errno::EACCES, "permission denied")
+      expect(Rails.logger).to receive(:error).with(a_string_matching(/#{Regexp.escape(ca_path)}.*unreadable.*not.*absent/i))
+
+      expect(described_class.send(:read_ca_source, ca_path)).to be_nil
+    end
+
+    it "still reads a genuinely present, readable source" do
+      File.write(ca_path, "-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----\n")
+
+      expect(described_class.send(:read_ca_source, ca_path)).to include("BEGIN CERTIFICATE")
+    end
+  end
 end
