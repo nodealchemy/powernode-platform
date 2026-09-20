@@ -167,9 +167,6 @@ gem "neighbor"
 gem "sentry-ruby", "~> 6.5"
 gem "sentry-rails", "~> 6.5"
 
-# Application performance monitoring (optional)
-gem "skylight", "~> 7.1", require: false
-
 # ===================================================================
 # OPENTELEMETRY - Distributed Tracing & Observability
 # Enable with: OTEL_ENABLED=true, then `bundle install --with opentelemetry`
