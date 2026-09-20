@@ -13,17 +13,28 @@
 # Usage:
 #   ruby scripts/audit/exception_forwarding_scan.rb <root-or-file> [<root-or-file> ...]
 #
-# Typical roots: server/app, extensions/<name>/server/app — NOT narrowed to
-# .../ai/tools. A tool's return value is not the only path to the model
-# provider: a service or skill-executor result an MCP tool wraps reaches it
-# just the same, and three of this scanner's own reported counts were
-# wrong (twice independently, by two different people running the same
-# command) because the ai/tools-only scope was documented right here and
-# every run inherited it. Point this at the whole app tree; a narrower
-# root is a choice the CALLER makes deliberately, not this script's default.
+# ROOTS: this script has no default — it scans exactly what ARGV names.
+# `.../ai/tools` was this comment's own former recommendation, and it was
+# wrong: three of this scanner's reported counts were wrong (twice
+# independently, by different people running the same command) because
+# every run inherited that scope. But the fix is NOT "scan everything" —
+# `server/app` mixes two trust boundaries with opposite rules (a
+# controller returning e.message to an authenticated operator is often
+# correct) and produces a total in the thousands that nobody can drive to
+# zero or usefully gate on. THE RIGHT BOUNDARY is "can this method write a
+# value that becomes an MCP tool result envelope" — concretely, files
+# defining `error_result(`/`success_result(`/an `ai_messages.processing_
+# metadata` producer. Measured directly (not derived by this script,
+# which does not compute it): ~64 such files, only ~16 of them outside
+# `ai/tools` (e.g. ai/ralph/repository_git_tool.rb) — meaning the narrow
+# root was genuinely incomplete, but "wider" means "shaped like this
+# boundary", not "the whole app tree". A hand-maintained root list fails
+# the way allowlists always do (see finding 5's "match by name, not a
+# map"); computing these roots from the producers themselves, each run,
+# is future work, not done here.
 #
-# THIS IS THE THIRD VERSION of this instrument. It has been examined
-# adversarially four times and a defect found each time — treat that
+# THIS IS THE FOURTH VERSION of this instrument. It has been examined
+# adversarially five times and a defect found each time — treat that
 # history as the reason later changes should GENERALISE the question this
 # script asks rather than add another special case, not as a reason to
 # distrust the approach:
@@ -69,6 +80,75 @@
 #      at all, where the body reads `$!` or the `English` library's
 #      `$ERROR_INFO` alias (both parse as GVAR nodes), is checked
 #      independently of whether a local/instance binding exists.
+#   5. (IMP-9553e923e1bc) Two defects, both DEMONSTRATED by running the
+#      #4 scanner on a synthetic probe rather than found by reading it.
+#      FIRST: #4's fix mapped BINDING node type to a single expected READ
+#      node type (ASSIGN_TO_READ_TYPE: LASGN -> LVAR, DASGN -> DVAR, ...)
+#      and matched only when a read's node type equaled that one entry.
+#      That is wrong: a read's node type depends on the SCOPE DOING THE
+#      READING, not the scope that bound the variable. A method-scope
+#      `rescue => e` binds via LASGN, but a read of `e` inside a block
+#      passed to `each`/`map`/`transaction do`/etc. is a DVAR regardless —
+#      the read's own scope, unrelated to where `e` was bound. That map
+#      was STILL an enumeration standing in for the property actually
+#      wanted ("does this node name the bound variable"), just a
+#      better-disguised one than #4's two-method allowlist; approving it
+#      as "the generalisation" was the mistake, not writing it. THE FIX IS
+#      A DELETION: match the read by NAME across every read-node type
+#      that could reference a variable (LVAR/DVAR/IVAR/GVAR/CVAR) — not a
+#      bigger or smarter map. Names cannot collide across those
+#      namespaces (`:e` a local, `:@e` an ivar, `:@@e` a cvar, `:$e` a
+#      global), so this is strictly safer than type equality, not just
+#      simpler.
+#
+#      SECOND: the sink classification added in #4 tagged EVERY read in a
+#      sanitizing sink call's ENTIRE argument list as :sanitized — so
+#      `rescued_error_result(e, message: "failed: " + e.message)` had its
+#      legitimate argument-0 read AND the read nested in `message:` both
+#      tagged sanitized, and the arm was affirmatively labeled SANITIZED
+#      while that `message:` string is returned VERBATIM. A second,
+#      independent review broadened this: even the sweep's OWN reviewed
+#      idiom, plain `rescued_error_result(e, message: e.message)` with no
+#      extra nesting, has the same defect — 33 such arms exist in core.
+#      An affirmative SANITIZED on a real forward is worse than a missing
+#      flag — it is what stops the next reviewer looking.
+#
+#      Fixing this by sanitizing argument position 0 only and calling
+#      everything else RAW was rejected: it correctly stops mislabeling
+#      those 33 arms SANITIZED, but dumps them into RAW and recreates the
+#      exact noise problem #4's RAW/SANITIZED split existed to solve. The
+#      resolution is a THIRD bucket, FORWARDED-BY-INTENT: argument
+#      position 0 (what the helper logs, never returns) is SANITIZED;
+#      a read anywhere else in the sink call is FORWARDED-BY-INTENT, not
+#      RAW — a read entirely outside any sink call is still RAW. Before
+#      this fix the scanner rendered "sanitizes the exception" and
+#      "forwards it raw by deliberate choice" IDENTICALLY, which hides
+#      the one category most in need of periodic re-audit.
+#
+#      CONSERVATION: fixing finding 1 does not, by itself, guarantee a
+#      future read shape (call it shape six) cannot vanish the same way —
+#      it just closes the two known holes. The total (below) used to be
+#      `raw.size + sanitized.size`, computed FROM the buckets — a check
+#      that cannot fail differently from the thing it measures, which is
+#      exactly how finding 1's probe printed a confident, internally
+#      consistent `TOTAL: 2` while silently dropping an arm. The fix is
+#      `mentions_name?`, a deliberately COARSE, type-agnostic tripwire
+#      (see its own comment) run against every RESBODY: does the bound
+#      name (or $!/$ERROR_INFO) appear ANYWHERE in the body at all,
+#      regardless of node type? If so, the fine-grained matchers above
+#      MUST have produced at least one hit — if they produced none, this
+#      raises immediately, naming the file and line, rather than letting
+#      the run finish with a smaller, plausible-looking total. This is
+#      NOT "every RESBODY must land in a bucket" (false by construction —
+#      most legitimately never read the exception, e.g. `rescue => e;
+#      retry`); it is "if the coarse check found the name, the fine
+#      check must have found a hit too", which holds regardless of how
+#      many RESBODY arms exist that correctly produce zero hits.
+#      Demonstrated by deliberately narrowing VARIABLE_READ_TYPES back to
+#      finding 1's broken state against server/spec/scripts/
+#      exception_forwarding_scan_spec.rb's conservation fixture: the
+#      tripwire fires, naming the exact arm the fine matcher would have
+#      dropped.
 #
 # VALIDATE BEFORE TRUSTING: point this script at a known-positive shape
 # (one of the arms this version was written to catch — see
@@ -84,22 +164,33 @@
 # completeness claim, an unparseable file and a clean one must never look
 # identical.
 #
-# OUTPUT IS SPLIT INTO TWO BUCKETS, RAW and SANITIZED, both counted in the
-# total — nothing is hidden. A rescue arm whose EVERY read of the bound
-# exception passes as an argument to `rescued_error_result` (the audited
-# helper introduced in IMP-095a5fe91b4a: it logs the raw exception
-# server-side and returns only a caller-supplied or generic safe message)
-# is SANITIZED; any arm with even one read that does not is RAW. This is
+# OUTPUT IS SPLIT INTO THREE BUCKETS — RAW, FORWARDED-BY-INTENT, and
+# SANITIZED — all counted in the TOTAL, nothing hidden. See finding 5's
+# "SECOND" paragraph above for why two buckets were not enough: labeling
+# a real forward SANITIZED just because it passes through the audited
+# helper's call is worse than not flagging it, because it is what stops
+# the next reviewer looking. RAW: at least one read of the bound
+# exception outside any sanitizing sink call. FORWARDED-BY-INTENT: every
+# read is inside a sink call, but at least one is NOT argument position 0
+# — the exception reaches the audited helper, but part of its content is
+# still returned verbatim (e.g. `message: e.message`); a deliberate-
+# looking carve-out, not a proven-safe pattern, and worth periodic
+# re-audit precisely because nothing else marks it. SANITIZED: every read
+# is argument position 0 — logged server-side, never returned. This is
 # NOT a special case of the kind that caused blind spot 4 — that one
 # narrowed what counts as a READ, syntactically, so a read could vanish
 # from the count entirely. This narrows nothing: every hit stays in the
-# total, unconditionally, and is only ever LABELED by which sink it flows
-# through. Without this split, IMP-7e08feaf4ebf's core count read as
-# 199 candidates when only 3 were unreviewed — the other 196 either
-# already routed through the audited helper or were pre-existing
-# RecordInvalid/InvalidPageRequest/etc. arms, and an instrument whose
-# answer needs a manual re-read of most of its own output before it means
-# anything has not really been repaired.
+# total, unconditionally, and is only ever LABELED by which bucket it
+# falls into. Without SOME split, IMP-7e08feaf4ebf's core count read as
+# 199 candidates when only a handful were unreviewed, and an instrument
+# whose answer needs a manual re-read of most of its own output before it
+# means anything has not really been repaired.
+#
+# "Nothing is hidden" is enforced, not just asserted: `mentions_name?`'s
+# CONSERVATION TRIPWIRE (see finding 5's own paragraph and the function's
+# comment) raises immediately if a rescue arm's body mentions the bound
+# name at all but no bucket recorded a hit for it — the exact signature
+# of a read shape this scanner's fine matchers do not yet recognize.
 #
 # THE LOAD-BEARING ASSUMPTION, stated plainly rather than left implicit:
 # this script trusts `rescued_error_result` BY NAME. It does not, and
@@ -121,18 +212,25 @@ LOGGER_LEVELS = %i[debug info warn error fatal unknown].freeze
 # security claim about that helper, not a bookkeeping change.
 SANITIZING_SINK_METHODS = %i[rescued_error_result].freeze
 
-# Read-node type a rescued exception is referenced through, keyed by the
-# assignment-node type that bound it. Determined generically from the
-# assignment shape rather than hand-listing "method-scope vs block-scope"
-# as two separate cases — the same reasoning applies to any further
-# binding shape (e.g. a class variable) without another special case.
-ASSIGN_TO_READ_TYPE = {
-  LASGN: :LVAR,
-  DASGN: :DVAR,
-  IASGN: :IVAR,
-  GASGN: :GVAR,
-  CVASGN: :CVAR
-}.freeze
+# Assignment-node types that can bind `rescue X => name`, and the
+# corresponding READ-node types that can reference a variable of that
+# kind. IMP-9553e923e1bc: earlier versions of this file mapped BINDING
+# type to a single expected READ type (LASGN -> LVAR, DASGN -> DVAR, ...)
+# and matched a read only if its node type equaled that one entry. That
+# is wrong: a read's node type depends on the SCOPE DOING THE READING, not
+# the scope that bound the variable. A method-scope `rescue => e` binds
+# via LASGN, but a read of `e` inside a block passed to `each`/`map`/
+# `transaction do`/etc. is a DVAR regardless — demonstrated by running the
+# scanner on exactly that shape and getting neither RAW nor SANITIZED,
+# just silence. The fix is not a bigger map (that is the same enumeration
+# one binding type at a time, and iteration six would find the next gap);
+# it is matching the read by NAME across every read-node type that could
+# possibly reference a variable, regardless of how it was bound. Names
+# cannot collide across these namespaces (`:e` a local, `:@e` an ivar,
+# `:@@e` a cvar, `:$e` a global), so this is strictly safer than type
+# equality, not just simpler.
+BINDING_ASSIGN_TYPES = %i[LASGN DASGN IASGN GASGN CVASGN].freeze
+VARIABLE_READ_TYPES = %i[LVAR DVAR IVAR GVAR CVAR].freeze
 
 # `$!` and (via the stdlib `English` library's alias) `$ERROR_INFO` both
 # read the currently-rescued exception even with NO `=> e` binding at all.
@@ -143,6 +241,40 @@ def find_resbodies(node, acc)
   acc << node if node.type == :RESBODY
   node.children.each { |c| find_resbodies(c, acc) }
   acc
+end
+
+# CONSERVATION TRIPWIRE (IMP-9553e923e1bc, added after review). Deliberately
+# INDEPENDENT of find_reads/find_global_errinfo_reads: it does not care
+# about node TYPE at all, only whether `name` (a Symbol) appears as a
+# child value ANYWHERE in the subtree. This is the coarsest possible
+# "does this body mention the bound variable" check — exactly because
+# blind spot 5 was a fine-grained matcher (restricted to specific node
+# types) missing a real occurrence. A coarse, type-agnostic check cannot
+# share that failure mode: it does not know or care what kind of node
+# carries the name, so a future read shape (blind spot six, whatever it
+# turns out to be) that the fine matcher fails to recognize is still
+# visible here. It trades precision for that independence on purpose —
+# it is a TRIPWIRE, not a classifier: used only to assert "if the name
+# appears at all, something in the fine matchers must have found a hit",
+# never to decide RAW/FORWARDED/SANITIZED itself.
+#
+# It DOES still respect the Rails.logger exclusion (via `guarded`,
+# threaded the same way find_reads threads it) — a mention inside
+# `Rails.logger.error(...)` is a deliberate, correct exclusion (logging
+# server-side is always safe), not a read shape the fine matchers failed
+# to recognize, and must not trip the tripwire.
+def mentions_name?(node, name, guarded = false)
+  return false unless node.is_a?(AST::Node)
+
+  if rails_logger_call?(node)
+    recv, _mid, args = node.children
+    return true if mentions_name?(recv, name, guarded)
+    return true if args && mentions_name?(args, name, true)
+    return false
+  end
+
+  return true if !guarded && node.children.any? { |c| c == name }
+  node.children.any? { |c| mentions_name?(c, name, guarded) }
 end
 
 # A RESBODY's body is either a single statement node, or a BLOCK node whose
@@ -158,17 +290,16 @@ end
 
 # The `=> e` binding is an assignment of ERRINFO — it may be the first
 # statement of the body, or (for a bare `rescue => e` with no further
-# body) the entire body. Returns [var_name, read_node_type] or nil.
+# body) the entire body. Returns the bound variable's NAME (a Symbol) or
+# nil — no read-type is derived from the binding; see VARIABLE_READ_TYPES.
 def errinfo_binding(stmt)
-  return nil unless stmt.is_a?(AST::Node)
-  read_type = ASSIGN_TO_READ_TYPE[stmt.type]
-  return nil unless read_type
+  return nil unless stmt.is_a?(AST::Node) && BINDING_ASSIGN_TYPES.include?(stmt.type)
   name, val = stmt.children
   return nil unless val.is_a?(AST::Node) && val.type == :ERRINFO
-  [name, read_type]
+  name
 end
 
-def exc_var_binding(body_node)
+def exc_var_name(body_node)
   body_statements(body_node).each do |stmt|
     found = errinfo_binding(stmt)
     return found if found
@@ -199,46 +330,77 @@ def sanitizing_sink_call?(node)
   mid && SANITIZING_SINK_METHODS.include?(mid)
 end
 
-def sink_call_args(node)
-  case node.type
-  when :FCALL then node.children[1]
-  when :CALL then node.children[2]
-  end
+# The sink's argument LIST, positionally — an ARRAY node (or ARGSCAT/etc
+# for a splat, left as-is; not special-cased here beyond returning it).
+# IMP-9553e923e1bc, finding 2: only argument POSITION 0 is what the
+# helper logs and never returns — `rescued_error_result(e, message: ...)`
+# returns `message:` (argument position 1+) VERBATIM. A prior version
+# tagged the entire argument list :sanitized, so a read nested inside
+# `message:` — e.g. `message: "failed: " + e.message`, exactly the
+# sweep's own idiom for preserving a specific message — was wrongly
+# labeled sanitized instead of flagged. Position 0 is genuinely safe;
+# nothing past it is, regardless of how it's nested (string concat, a
+# hash value, ...).
+def sink_call_arg0(node)
+  args = case node.type
+         when :FCALL then node.children[1]
+         when :CALL then node.children[2]
+         end
+  return nil unless args.is_a?(AST::Node)
+  args.children[0]
 end
 
-# Walk `node`, recording every reference to the bound exception — a node of
-# `read_type` (LVAR/DVAR/IVAR/GVAR/CVAR, matched to how it was bound) naming
-# `var_name` — that is NOT inside a Rails.logger.<level>(...) call's
-# argument list. Each recorded hit is tagged :raw or :sanitized depending
-# on whether it sits inside a SANITIZING_SINK_METHODS call's argument list
-# (see the file header) — never dropped either way. This is deliberately
-# NOT an allowlist of methods called on the reference: whatever the body
-# does with the reference once found (call .message on it, call .record
+def sink_call_remaining_args(node)
+  args = case node.type
+         when :FCALL then node.children[1]
+         when :CALL then node.children[2]
+         end
+  return nil unless args.is_a?(AST::Node)
+  rest = args.children[1..]
+  return nil if rest.nil? || rest.empty?
+  # Wrap the remaining positional/keyword argument nodes back into a LIST
+  # so the walk can recurse into them uniformly (a bare Array isn't a
+  # Node, but each element of it is one, and #find_reads only needs to
+  # recurse into Nodes — iterate directly instead of re-wrapping).
+  rest
+end
+
+# Walk `node`, recording every reference to the bound exception — a
+# VARIABLE_READ_TYPES node (see its own comment: matched by NAME, not by
+# a type derived from how the variable was bound) naming `var_name` —
+# that is NOT inside a Rails.logger.<level>(...) call's argument list.
+# Each recorded hit is tagged :sanitized (argument position 0 of a
+# SANITIZING_SINK_METHODS call), :forwarded (any OTHER argument of such a
+# call), or left nil — read as :raw by the caller — for anything outside
+# a sink call entirely (see sink_call_arg0's comment and the file
+# header). Never dropped either way. This is deliberately NOT an
+# allowlist of methods called on the reference: whatever the body does
+# with the reference once found (call .message on it, call .record
 # .errors.full_messages.join(', ') on it, pass it bare as an argument,
 # interpolate it into a string) is a read of the exception, and the
 # instrument's job is to say so and how it flows, not to guess which uses
 # are interesting.
-def find_reads(node, var_name, read_type, guarded, sink, hits)
+def find_reads(node, var_name, guarded, sink, hits)
   return unless node.is_a?(AST::Node)
 
   if rails_logger_call?(node)
     recv, _mid, args = node.children
-    find_reads(recv, var_name, read_type, guarded, sink, hits)
-    find_reads(args, var_name, read_type, true, sink, hits) if args
+    find_reads(recv, var_name, guarded, sink, hits)
+    find_reads(args, var_name, true, sink, hits) if args
     return
   end
 
   if sanitizing_sink_call?(node)
-    args = sink_call_args(node)
-    find_reads(args, var_name, read_type, guarded, :sanitized, hits) if args
+    find_reads(sink_call_arg0(node), var_name, guarded, :sanitized, hits)
+    Array(sink_call_remaining_args(node)).each { |a| find_reads(a, var_name, guarded, :forwarded, hits) }
     return
   end
 
-  if !guarded && node.type == read_type && node.children[0] == var_name
+  if !guarded && VARIABLE_READ_TYPES.include?(node.type) && node.children[0] == var_name
     hits << [node.first_lineno, sink || :raw]
   end
 
-  node.children.each { |c| find_reads(c, var_name, read_type, guarded, sink, hits) }
+  node.children.each { |c| find_reads(c, var_name, guarded, sink, hits) }
 end
 
 # Same shape, for `$!` / `$ERROR_INFO` read with no local/instance binding
@@ -255,8 +417,8 @@ def find_global_errinfo_reads(node, guarded, sink, hits)
   end
 
   if sanitizing_sink_call?(node)
-    args = sink_call_args(node)
-    find_global_errinfo_reads(args, guarded, :sanitized, hits) if args
+    find_global_errinfo_reads(sink_call_arg0(node), guarded, :sanitized, hits)
+    Array(sink_call_remaining_args(node)).each { |a| find_global_errinfo_reads(a, guarded, :forwarded, hits) }
     return
   end
 
@@ -267,12 +429,27 @@ def find_global_errinfo_reads(node, guarded, sink, hits)
   node.children.each { |c| find_global_errinfo_reads(c, guarded, sink, hits) }
 end
 
-# An arm is SANITIZED only if EVERY read of the bound exception in its
-# body goes through a SANITIZING_SINK_METHODS call — one read that bypasses
-# the sink (even alongside others that don't) makes the whole arm RAW,
-# because a single unsanitized read is the leak regardless of how many
-# other reads are safely handled.
-def scan_file(file, raw, sanitized)
+# Three buckets, priority RAW > FORWARDED > SANITIZED (a single sinkless
+# read makes the whole arm RAW regardless of what else it also does):
+#   RAW        — at least one read of the bound exception outside any
+#                sanitizing sink call entirely. Needs review.
+#   FORWARDED  — every read is inside a sanitizing sink call, but at least
+#                one sits in an argument OTHER than position 0 (what the
+#                helper logs, never returns) — e.g. `rescued_error_result(e,
+#                message: "...: " + e.message)`. The exception reaches the
+#                helper, but part of its content is returned verbatim
+#                anyway. This is a DELIBERATE-LOOKING carve-out, not a
+#                leak the scanner failed to see and not a proven-safe
+#                pattern either — its own bucket so it is counted and
+#                re-auditable rather than either invisible (blind spot 4's
+#                original mistake) or drowned in RAW (which would recreate
+#                the noise Addition 2 existed to fix: 33 such arms exist in
+#                core today, mostly the sweep's own reviewed
+#                `message: e.message` idiom).
+#   SANITIZED  — every read is argument position 0 of a sanitizing sink
+#                call. Nothing reaches the returned value except what the
+#                helper's own logic decides to return.
+def scan_file(file, raw, forwarded, sanitized)
   src = File.read(file)
   ast = begin
     AST.parse(src)
@@ -283,38 +460,63 @@ def scan_file(file, raw, sanitized)
 
   find_resbodies(ast, []).each do |rb|
     _classes, body, _else = rb.children
-    binding = exc_var_binding(body)
+    var_name = exc_var_name(body)
     stmts = body_statements(body).reject { |s| errinfo_binding(s) }
 
     hits = []
     stmts.each do |s|
-      find_reads(s, binding[0], binding[1], false, nil, hits) if binding
+      find_reads(s, var_name, false, nil, hits) if var_name
       find_global_errinfo_reads(s, false, nil, hits)
+    end
+
+    # The tripwire: does ANY statement mention the bound name (or $!/
+    # $ERROR_INFO) at all, by the coarse, type-agnostic check above? If
+    # so, the fine matchers above MUST have produced at least one hit —
+    # if they didn't, that is exactly blind spot 5's signature (a real
+    # reference the fine matcher's node-type list does not recognize),
+    # and printing a smaller, internally-consistent total would repeat
+    # it. Fail loudly here instead of silently undercounting.
+    mentioned = stmts.any? { |s| (var_name && mentions_name?(s, var_name)) || mentions_name?(s, :$!) || mentions_name?(s, :$ERROR_INFO) }
+    if mentioned && hits.empty?
+      raise "exception_forwarding_scan: CONSERVATION VIOLATION at #{file}:#{rb.first_lineno} — " \
+            "the rescued exception's name appears somewhere in this rescue arm's body, but no " \
+            "fine-grained matcher (find_reads / find_global_errinfo_reads) found a hit. This means " \
+            "a read shape exists here that this scanner's node-type matchers do not recognize — " \
+            "the exact failure mode that made blind spot 5 (IMP-9553e923e1bc) undercount silently. " \
+            "Investigate this arm by hand before trusting any count from this run."
     end
     next if hits.empty?
 
     entry = "#{file}:#{rb.first_lineno}"
-    if hits.all? { |_line, sink| sink == :sanitized }
-      sanitized << entry
-    else
+    sinks = hits.map { |_line, sink| sink }
+    if sinks.any?(:raw)
       raw << entry
+    elsif sinks.any?(:forwarded)
+      forwarded << entry
+    else
+      sanitized << entry
     end
   end
 end
 
 if $PROGRAM_NAME == __FILE__
   raw = []
+  forwarded = []
   sanitized = []
   ARGV.each do |root|
     files = File.file?(root) ? [root] : Dir.glob(File.join(root, "**", "*.rb"))
-    files.sort.each { |file| scan_file(file, raw, sanitized) }
+    files.sort.each { |file| scan_file(file, raw, forwarded, sanitized) }
   end
 
   puts "RAW — needs review, exception content does not provably route through a sanitizing sink (#{raw.size}):"
   puts raw.sort
   puts
-  puts "SANITIZED — every read routes through #{SANITIZING_SINK_METHODS.join(', ')} (#{sanitized.size}):"
+  puts "FORWARDED-BY-INTENT — routes through #{SANITIZING_SINK_METHODS.join(', ')} but a non-arg0 argument " \
+       "also reads the exception (#{forwarded.size}):"
+  puts forwarded.sort
+  puts
+  puts "SANITIZED — every read is argument position 0 of #{SANITIZING_SINK_METHODS.join(', ')} (#{sanitized.size}):"
   puts sanitized.sort
   puts
-  puts "TOTAL: #{raw.size + sanitized.size}"
+  puts "TOTAL: #{raw.size + forwarded.size + sanitized.size}"
 end
