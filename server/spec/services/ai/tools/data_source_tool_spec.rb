@@ -205,6 +205,32 @@ RSpec.describe Ai::Tools::DataSourceTool do
       expect(result[:data][:errors].join).to match(/egress policy/i)
     end
 
+    # IMP-095a5fe91b4a. HttpConnectionFactory::SsrfError is mostly safe (it
+    # mostly echoes the caller's own URL/scheme/host back), but two of its
+    # seven raise sites wrap an INNER stdlib exception's raw #message
+    # (`raise SsrfError, "Invalid URL: #{e.message}"` from a rescued
+    # URI::InvalidURIError, and the equivalent for Resolv::ResolvError /
+    # SocketError) — content nobody here authored or reviewed, the same
+    # "app-authored is not the same as safe" shape already confirmed for
+    # Devops::Docker::ApiClient::ApiError. validate_base_url interpolated
+    # e.message directly into the errors array pushed into this tool's
+    # result, forwarded to the model provider.
+    it "does not forward a wrapped stdlib resolver message through the egress-policy error" do
+      unresolvable = create(:ai_data_source, account: account, slug: "unresolvable",
+                             api_base_url: "https://nonexistent.internal.example")
+      create(:ai_data_source_endpoint, data_source: unresolvable)
+      raw = "getaddrinfo: Name or service not known (internal-resolver-detail)"
+      allow(Ai::DataSources::HttpConnectionFactory).to receive(:validate_url!)
+        .and_raise(Ai::DataSources::HttpConnectionFactory::SsrfError, "Could not resolve host: #{raw}")
+
+      result = tool.execute(params: { action: "data_source_validate_config", data_source_id: "unresolvable" })
+
+      expect(result[:data][:valid]).to be false
+      expect(result[:data][:errors].join).to match(/egress policy/i)
+      expect(result[:data][:errors].join).not_to include("internal-resolver-detail")
+      expect(result[:data][:errors].join).not_to include("getaddrinfo")
+    end
+
     it "flags an unknown auth scheme as invalid" do
       allow(Ai::DataSources::HttpConnectionFactory).to receive(:validate_url!).and_return(true)
       bad = create(:ai_data_source, account: account, slug: "weird-auth", auth_scheme: "totally_made_up")

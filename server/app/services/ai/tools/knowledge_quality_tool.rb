@@ -126,7 +126,17 @@ module Ai
             { id: id, ok: true }
           end
         rescue StandardError => e
-          { id: id, ok: false, reason: e.message }
+          # IMP-095a5fe91b4a — this rescue sits on the `ids.map do |id| ... end`
+          # BLOCK, not a method definition, and its batch-payload shape
+          # (`reason:`, not `error:`/`success: false`) is why it survived
+          # commit 29085b9e4's sweep of five sibling arms in this same file:
+          # neither of the original scanner's two assumptions held here. The
+          # raw text (a PG constraint violation, for #verify!, is plausible)
+          # has nothing safe to keep, so route it through the same helper
+          # every other rescue arm uses — adapted into `reason:` rather than
+          # reshaping this into the standard error hash, which callers of
+          # verify_learning_batch do not expect.
+          { id: id, ok: false, reason: rescued_error_result(e, message: "verification failed — see server logs").fetch(:error) }
         end
         { success: true, verified: results.count { |r| r[:ok] }, total: ids.size, results: results }
       end

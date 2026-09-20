@@ -1553,7 +1553,16 @@ module Ai
         end
         Ai::DataSources::HttpConnectionFactory.validate_url!(url)
       rescue Ai::DataSources::HttpConnectionFactory::SsrfError => e
-        errors << "api_base_url blocked by egress policy: #{e.message}"
+        # IMP-095a5fe91b4a. SsrfError is safe at five of its seven raise
+        # sites (they echo only the caller's own scheme/host/URL back), but
+        # two wrap an inner stdlib exception verbatim (URI::InvalidURIError,
+        # Resolv::ResolvError/SocketError — see http_connection_factory.rb),
+        # content nobody here authored or reviewed. Interpolating e.message
+        # forwarded that raw text into this tool's result. The static
+        # prefix already names the failure category; drop the
+        # interpolation rather than risk the two unsafe raise sites.
+        Rails.logger.warn("[DataSourceTool] api_base_url blocked by egress policy: #{e.class}: #{e.message}")
+        errors << "api_base_url blocked by egress policy"
       rescue StandardError => e
         Rails.logger.error("[DataSourceTool] api_base_url validation raised #{e.class}: #{e.message}")
         errors << "api_base_url invalid"
