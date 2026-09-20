@@ -146,8 +146,10 @@ RSpec.describe Ai::Executors::DeferredToolCall do
     end
 
     it "replays an agent-principal call under that agent" do
-      create(:user, account: account, permissions: [ "ai.agents.manage" ])
-      agent = create(:ai_agent, account: account)
+      # IMP-82db8ba318aa: the agent's own CREATOR must hold the permission —
+      # a different user in the same account holding it is no longer enough.
+      creator = create(:user, account: account, permissions: [ "ai.agents.manage" ])
+      agent = create(:ai_agent, account: account, creator: creator)
       operation = park!(SpecReplayTool.new(account: account, agent: agent))
 
       expect(operation.params["principal"]).to include("kind" => "agent", "agent_id" => agent.id)
@@ -334,8 +336,9 @@ RSpec.describe Ai::Executors::DeferredToolCall do
   # `return true if internal?` then refuses what the operator just granted.
   describe "an internal nested hop carrying an agent" do
     it "records the internal flag and rebuilds the tool with it" do
-      create(:user, account: account, permissions: [ "ai.agents.manage" ])
-      agent = create(:ai_agent, account: account)
+      # IMP-82db8ba318aa: the agent's own CREATOR must hold the permission.
+      creator = create(:user, account: account, permissions: [ "ai.agents.manage" ])
+      agent = create(:ai_agent, account: account, creator: creator)
       operation = park!(SpecReplayTool.new(account: account, agent: agent, internal: true))
 
       expect(operation.params["principal"]).to include(
@@ -350,8 +353,9 @@ RSpec.describe Ai::Executors::DeferredToolCall do
     end
 
     it "does not invent the flag for a plain agent call" do
-      create(:user, account: account, permissions: [ "ai.agents.manage" ])
-      agent = create(:ai_agent, account: account)
+      # IMP-82db8ba318aa: the agent's own CREATOR must hold the permission.
+      creator = create(:user, account: account, permissions: [ "ai.agents.manage" ])
+      agent = create(:ai_agent, account: account, creator: creator)
       operation = park!(SpecReplayTool.new(account: account, agent: agent))
 
       expect(operation.params["principal"]).to include("internal" => false)
@@ -462,7 +466,14 @@ RSpec.describe Ai::Executors::DeferredToolCall do
 
     it "still replays an account clone of the canonical under the clone" do
       user
-      clone = canonical.clone_to_account(account)
+      # IMP-82db8ba318aa: creator: user, matching what the real minting path
+      # (Ai::Agents::AccountPrincipalResolver#mint!) does — it explicitly
+      # overrides the clone's creator to the account's real owner rather
+      # than letting clone_to_account copy the canonical's own (irrelevant,
+      # seed-time) creator verbatim. Without this override the clone would
+      # inherit a creator with no permissions in THIS account, which is a
+      # test-fidelity gap, not a real path this app takes to mint a clone.
+      clone = canonical.clone_to_account(account, creator: user)
       operation = park!(SpecReplayTool.new(account: account, agent: clone))
 
       operation.execute_now!

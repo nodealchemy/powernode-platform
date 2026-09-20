@@ -221,21 +221,108 @@ module Ai
           # It used to pass here; it fails CLOSED now (MCP identity plan, commit 4).
           return false unless agent.respond_to?(:account) && agent.account
 
-          permitted_by_account_role?(agent)
+          permitted_by_creator_role?(agent)
         end
 
-        # A tool is permitted for an agent when any user in its account holds the
-        # required permission. Use the canonical resolution (User#has_permission?) so
-        # CODE-DEFINED role grants count — a raw RolePermission query only sees DB
-        # grants and silently hides every code-defined-role permission (e.g.
-        # ai.campaigns.*) from all agents, including the concierge. Accounts are small
-        # (single-user in core mode), so the per-user check is cheap.
+        # A tool is permitted for an agent when its CREATOR holds the required
+        # permission (IMP-82db8ba318aa; renamed from permitted_by_account_role?
+        # — this no longer asks about the account at all). The union check
+        # this replaces answered "is ANYONE in the account authorized", not
+        # "is THIS agent authorized": an agent's authority was effectively
+        # the union of every account user's roles, so an agent created by a
+        # user with NO permission could still act as long as some OTHER user
+        # in the account happened to hold it. Proven by execution
+        # (campaign_resume security review, campaign 01a08c9b §9): an agent
+        # whose creator had no campaign permission raised its own campaign's
+        # max_failed to 50.
+        #
+        # `agent.creator` is safe to consult unconditionally for the
+        # population that reaches here: `permitted?` has already returned
+        # false for a canonical (account_id NULL) or accountless agent, and
+        # every OTHER row is DB-constrained to have a non-nil creator_id
+        # (chk_ai_agents_account_rows_need_creator_and_provider, schema.rb;
+        # verified against the migration that introduced the nullable
+        # column — it only ever exempted global canonicals, and
+        # add_check_constraint validated every existing row at the time) —
+        # `&.` below is defensive-depth, not covering a real nil case.
+        #
+        # The full state check is REQUIRED, not optional (review decision,
+        # IMP-82db8ba318aa) — and it is not just `creator&.active?`.
+        # User#has_permission? consults only roles/role_permissions and does
+        # not itself check `active?` — so without a state check at all, an
+        # OFFBOARDED creator (deactivated, GDPR-anonymized, etc.) would keep
+        # conferring full authority to every agent they created, for as long
+        # as their roles survive the deactivation. That is the SAME shape as
+        # the bug this method fixes — authority flowing from someone who
+        # should not be conferring it — one step further along, so this gate
+        # fails closed on the same principle as every other rung in
+        # #permitted?. `active?` alone is one clause short of the app's own
+        # standard, though: Authentication#authenticate_request
+        # (authentication.rb:177) requires `user&.active? &&
+        # user.account&.active?` — a creator who is personally active but
+        # whose ACCOUNT is suspended or cancelled (Account::STATUSES) would
+        # otherwise still pass here. Not a regression (the union check had
+        # the same hole), but this rung is being fixed, so it is fixed
+        # completely: `creator.account&.active?` too.
+        #
+        # `creator.account_id == agent.account_id` closes a latent class
+        # defensively: the codebase already recognises cross-account-creator
+        # as a hazard worth refusing —
+        # Ai::Agents::AccountPrincipalResolver#creator (:197) explicitly
+        # refuses a user from a different account before using one as a
+        # creator — but THIS gate did not check it, so it would have
+        # consulted a foreign user's permissions if one ever reached here
+        # through a different door. Two such doors are filed as offers
+        # (01a0bccb-cae6-7a82-a228-42df0560f22b,
+        # 01a0bccc-0813-7af4-873b-ef51737554c0) rather than fixed here; this
+        # gate refuses regardless of whether those get fixed.
+        #
+        # Two states were considered and deliberately EXCLUDED, so the next
+        # reader does not add them reflexively: `locked?` (a failed-login
+        # throttle) is not consulted anywhere in the request-authentication
+        # path either — Authentication#authenticate_request ignores it
+        # deliberately, and this gate matches that precedent rather than
+        # inventing a stricter rule for agents than for the users
+        # themselves; `pending_verification` already fails `active?` (status
+        # is not "active"), so checking it separately would be redundant.
+        #
+        # INTERACTION WITH GDPR ERASURE (IMP-df4aa2b46dbc, commit
+        # 70a33eef3), documented here rather than fixed there:
+        # Api::V1::Internal::UsersController#delete_roles does
+        # `@user.user_roles.delete_all`, and #anonymize sets
+        # status: "inactive". Either one, run against a creator, now
+        # silently disables EVERY agent that creator made — the agents keep
+        # running and simply start failing this gate rather than raising
+        # anywhere visible. Arguably correct least-privilege behavior (a
+        # deactivated/erased user's delegated authority should not outlive
+        # them), but it is a quiet failure nobody would predict from either
+        # change read in isolation.
+        #
+        # `system.admin` still short-circuits through unchanged — that is
+        # User#has_permission?'s own behavior, not something this method
+        # special-cases.
+        #
+        # KillSwitchTool and AgentAutonomyTool do NOT route through this
+        # method at all — both override .permitted? without calling super
+        # (HIER-P2I: an override without super would otherwise skip
+        # BaseTool's fail-closed canonical check, so they replicate just
+        # that one check and always return true for a non-canonical agent).
+        # Their own REQUIRED_PERMISSION constants are therefore dead for
+        # this gate specifically, by design — not an oversight this diff
+        # left behind.
         #
         # A check that cannot answer refuses. This rescue used to answer `true` on
         # the premise that a user's API-level authorization gated the call, which
         # an agent's own loop and a no-agent MCP call never pass through.
-        def permitted_by_account_role?(agent)
-          agent.account.users.any? { |user| user.has_permission?(self::REQUIRED_PERMISSION) }
+        def permitted_by_creator_role?(agent)
+          creator = agent.creator
+          !!(
+            creator &&
+            creator.active? &&
+            creator.account&.active? &&
+            creator.account_id == agent.account_id &&
+            creator.has_permission?(self::REQUIRED_PERMISSION)
+          )
         rescue StandardError => e
           Rails.logger.warn("[#{name}] agent permission check failed closed: #{e.class}: #{e.message}")
           false
