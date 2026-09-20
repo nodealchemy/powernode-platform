@@ -165,19 +165,40 @@ module Ai
     end
 
     # Bridges the require_approval policy decision to the approval-chain
-    # workflow. The `else` arm is a historical fall-through from when
-    # Ai::ApprovalChain lived in the business extension; the chain models are
-    # CORE now, so `defined?` is always true and every deployment parks here.
-    # The parked request is decidable on every deployment too — the decision
-    # side of Ai::Autonomy::ApprovalWorkflowService is not capability-gated
-    # (IMP-27e2f8e59ce0). Left in place rather than deleted so the branch's
-    # spec history stays legible; do not read it as a live core-mode mode.
+    # workflow. The `elsif`/`else` arms are a historical fall-through from
+    # when Ai::ApprovalChain lived in the business extension; the chain
+    # models are CORE now, so `defined?` is always true and every deployment
+    # parks here. The parked request is decidable on every deployment too —
+    # the decision side of Ai::Autonomy::ApprovalWorkflowService is not
+    # capability-gated (IMP-27e2f8e59ce0). Left in place rather than deleted
+    # so the branch's spec history stays legible; do not read either as a
+    # live core-mode path.
     #
     # Without this fork the require_approval path raised NameError on every
     # core-mode evaluation, the rescue caught it, and the gate returned
     # :blocked + 422 — which broke `tasks_controller create`,
     # `sdwan/networks destroy`, and every other AutonomyGate-protected
     # request spec running without business loaded.
+    #
+    # IMP-c16864f5a1cd — the final `else` used to auto-proceed the action
+    # when Ai::ApprovalChain was undefined: exactly the "core mode fails
+    # open on a missing policy" shape the operator ruled must never happen.
+    # It never actually fired (verified: the comment above, a static check of
+    # config for any conditional autoload/eager_load exclusion of
+    # approval_chain.rb, an empirical `defined?` check, an executed spec
+    # against a real gated call site, and two further probes closing the
+    # only shapes that could plausibly have made this branch live: `defined?`
+    # reports "constant" for a merely PENDING Zeitwerk autoload — a
+    # lazily-loading env before first reference does NOT read as undefined —
+    # and it continues to report "constant" even after that autoload's file
+    # has RAISED, so a load-time failure in approval_chain.rb does not fall
+    # into this branch either. The only way in is Zeitwerk never registering
+    # the constant at all), but a dead branch that still auto-proceeds is a
+    # live trap for whoever next moves ApprovalChain out of core or copies
+    # this pattern elsewhere. Hardened to fail CLOSED instead, in the same
+    # shape the `requires_human_session` arm above it already uses. Do NOT
+    # restore the auto-proceed as a convenience if this branch is ever
+    # observed firing — that is precisely the condition it exists to refuse.
     def require_approval_or_proceed(deferred, policy_record, action_category, escalation: nil, blast_radius: nil,
                                     requires_human_session: false, call_origin: nil)
       if defined?(::Ai::ApprovalChain)
@@ -192,12 +213,14 @@ module Ai
         Result.new(decision: :blocked, deferred_operation: deferred,
                    error: "Action #{action_category} needs a person's confirmation and cannot be parked here")
       else
-        Rails.logger.info(
-          "[AutonomyGate] require_approval policy in core mode (no Ai::ApprovalChain) — " \
-          "auto-proceeding for #{action_category}"
+        Rails.logger.error(
+          "[AutonomyGate] require_approval policy with no Ai::ApprovalChain available — " \
+          "this branch is expected to be unreachable on every real deployment " \
+          "(IMP-c16864f5a1cd); refusing rather than auto-proceeding for #{action_category}"
         )
-        result_data = deferred.execute_now!
-        Result.new(decision: :proceed, deferred_operation: deferred, result: result_data)
+        deferred.update!(status: "rejected", error_message: "No approval chain available to park this action on")
+        Result.new(decision: :blocked, deferred_operation: deferred,
+                   error: "Action #{action_category} requires approval but no approval chain is available")
       end
     end
 

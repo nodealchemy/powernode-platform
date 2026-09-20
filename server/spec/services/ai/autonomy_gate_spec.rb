@@ -421,4 +421,49 @@ RSpec.describe Ai::AutonomyGate do
       expect(described_class.evaluate(**base_args, action_category: 'test.env_bound').decision).to eq(:pending)
     end
   end
+
+  # IMP-c16864f5a1cd — #require_approval_or_proceed's final `else` arm is not
+  # reachable on any real deployment: Ai::ApprovalChain is a core model with
+  # no conditional autoload/eager_load exclusion, so `defined?(::Ai::ApprovalChain)`
+  # is always true (see the method's own comment, and the executed proof in
+  # extensions/system's autonomy_gate_unseeded_lane_reachability_spec.rb
+  # against a real gated call site). This spec is NOT evidence the branch is
+  # reachable — it is defence-in-depth: were that branch ever to fire (someone
+  # extracts ApprovalChain to an extension, adds an autoload exclusion, or
+  # copies this pattern elsewhere), it must fail CLOSED rather than silently
+  # auto-proceed an action a policy said needed approval.
+  #
+  # `defined?` is a keyword, not a method — it cannot be stubbed with
+  # `allow(...).to receive(...)`. RSpec's `hide_const` is the genuine
+  # differentiator: it temporarily undefines the real constant (not a double)
+  # for the duration of the example and restores it after, so
+  # `defined?(::Ai::ApprovalChain)` itself evaluates differently between the
+  # two examples below — the same call, the same inputs, only the constant's
+  # visibility differs.
+  describe '#require_approval_or_proceed — fail-closed hardening when Ai::ApprovalChain is unavailable' do
+    let(:gate) { described_class.new(account: account) }
+    let(:deferred) do
+      Ai::DeferredOperation.create!(
+        account: account, action_category: 'test.action',
+        executor_class: 'TestSpecExecutor', params: { foo: 'bar' }
+      )
+    end
+
+    it 'parks (decision :pending) when Ai::ApprovalChain is defined — the actual, current shape' do
+      result = gate.send(:require_approval_or_proceed, deferred, nil, 'test.action')
+
+      expect(result.decision).to eq(:pending)
+      expect(deferred.reload.status).to eq('pending')
+    end
+
+    it 'fails CLOSED, not open, when Ai::ApprovalChain is hidden — the branch this hardening targets' do
+      hide_const('Ai::ApprovalChain')
+
+      result = gate.send(:require_approval_or_proceed, deferred, nil, 'test.action')
+
+      expect(result.decision).to eq(:blocked)
+      expect(result.error).to match(/no approval chain/i)
+      expect(deferred.reload.status).to eq('rejected')
+    end
+  end
 end
