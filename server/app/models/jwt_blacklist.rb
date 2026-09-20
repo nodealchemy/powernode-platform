@@ -32,6 +32,19 @@ class JwtBlacklist < ApplicationRecord
     active.exists?(jti: jti)
   end
 
+  # TRAP (IMP-c358bba8bdc8 review): this has zero callers anywhere in the
+  # codebase, including specs — do not reach for it thinking it is
+  # equivalent to Security::JwtBlacklistService.blacklist_user_tokens, the
+  # actual production path. Two latent defects if it is ever woken up:
+  # (1) it writes ONLY this database row, never a redis marker — on a
+  # redis-enabled deployment, JwtBlacklistService#blacklisted? checks redis
+  # FIRST and only falls back to the database when redis is unavailable, so
+  # a blacklist written through this door would be entirely invisible
+  # whenever redis is up; (2) on a RE-blacklist the `rescue -> find_by`
+  # branch returns the EXISTING row without touching `updated_at`, so the
+  # cutoff a caller relies on never advances — unlike the production path's
+  # `find_or_initialize_by` + `save!`, which explicitly refreshes it on
+  # every re-blacklist.
   def self.blacklist_user(user_id, reason: "logout")
     create!(
       jti: "user_blacklist_#{user_id}",

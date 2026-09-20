@@ -230,6 +230,48 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
           described_class.blacklisted?(SecureRandom.uuid, user_id: other_user.id, issued_at: 1.hour.ago.to_i)
         ).to be(false)
       end
+
+      # SECURITY (IMP-c358bba8bdc8): both `iat` and the stored cutoff have
+      # whole-SECOND resolution, so a token minted in the SAME second as the
+      # blacklist must not read as "issued after" it. `freeze_time` (not
+      # travel_to-backdating the token, per the driver instruction) so the
+      # blacklist call and the issued_at capture land in the literal same
+      # instant deterministically, rather than relying on two real clock
+      # reads happening to share a second.
+      it "revokes a token minted in the SAME SECOND as the blacklist cutoff" do
+        freeze_time do
+          described_class.blacklist_user_tokens(user.id)
+          same_second_issued_at = Time.current.to_i
+
+          expect(
+            described_class.blacklisted?(SecureRandom.uuid, user_id: user.id, issued_at: same_second_issued_at)
+          ).to be(true)
+        end
+      end
+
+      it "revokes a token issued exactly one second BEFORE the cutoff" do
+        freeze_time do
+          described_class.blacklist_user_tokens(user.id)
+          issued_at = (Time.current - 1.second).to_i
+
+          expect(
+            described_class.blacklisted?(SecureRandom.uuid, user_id: user.id, issued_at: issued_at)
+          ).to be(true)
+        end
+      end
+
+      # Proves the fix does not over-revoke beyond the same second: a token
+      # issued a full second AFTER the cutoff must still survive.
+      it "leaves a token issued exactly one second AFTER the cutoff valid" do
+        freeze_time do
+          described_class.blacklist_user_tokens(user.id)
+          issued_at = (Time.current + 1.second).to_i
+
+          expect(
+            described_class.blacklisted?(SecureRandom.uuid, user_id: user.id, issued_at: issued_at)
+          ).to be(false)
+        end
+      end
     end
 
     describe ".cleanup_expired" do
@@ -343,6 +385,30 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
 
         expect(revoked).to be(true)
         expect(allowed).to be(false)
+      end
+
+      # SECURITY (IMP-c358bba8bdc8): same boundary as the database path,
+      # exercised against the redis-backed cutoff (iso8601 blacklisted_at).
+      it "revokes a token minted in the SAME SECOND as the blacklist cutoff" do
+        freeze_time do
+          described_class.blacklist_user_tokens(user.id)
+          same_second_issued_at = Time.current.to_i
+
+          expect(
+            described_class.blacklisted?(SecureRandom.uuid, user_id: user.id, issued_at: same_second_issued_at)
+          ).to be(true)
+        end
+      end
+
+      it "leaves a token issued exactly one second AFTER the cutoff valid" do
+        freeze_time do
+          described_class.blacklist_user_tokens(user.id)
+          issued_at = (Time.current + 1.second).to_i
+
+          expect(
+            described_class.blacklisted?(SecureRandom.uuid, user_id: user.id, issued_at: issued_at)
+          ).to be(false)
+        end
       end
     end
 

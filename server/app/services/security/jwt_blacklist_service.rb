@@ -242,11 +242,34 @@ module Security
       # A user marker is present; decide whether THIS token predates the cutoff.
       # An unparseable cutoff or a missing issued_at means we cannot prove the
       # token was issued after the user was blacklisted, so we revoke (fail safe).
+      #
+      # IMP-c358bba8bdc8: `<=`, not `<`. JWT `iat` and the stored cutoff both
+      # have whole-SECOND resolution (`to_i` truncates both), so a token
+      # minted in the SAME second as the blacklist compared EQUAL under `<`
+      # and read as NOT predating the cutoff — surviving the revocation for
+      # its full remaining lifetime (up to 15 minutes for an access token, 7
+      # days for a refresh token). This is a revocation check: on a genuine
+      # tie it must fail closed (revoke), the same principle #blacklisted?'s
+      # own `rescue => true` already applies to a store outage. The trade is
+      # bounded and deliberate: a token legitimately minted in the SAME
+      # second, immediately AFTER the revocation, now also reads as revoked
+      # (a caller would see one spurious re-login prompt in a sub-second
+      # window) — accepted because whole-second `iat` makes the two cases
+      # (before vs. after, same second) indistinguishable from the
+      # timestamps alone, and over-revoking by up to one second is a far
+      # smaller cost than a live token surviving a password reset or
+      # anonymize for its full remaining lifetime. Verified before choosing
+      # this side: `blacklist_user_tokens` (the only thing that sets this
+      # cutoff) has exactly one production caller
+      # (Api::V1::Internal::UsersController#anonymize), which never mints a
+      # fresh token afterward in the same request — there is no
+      # revoke-then-legitimate-remint-in-the-same-second pattern in this
+      # codebase today for `<=` to turn into a logout loop.
       def token_predates_cutoff?(issued_at, cutoff)
         return true if cutoff.nil?
         return true if issued_at.blank?
 
-        issued_at.to_i < cutoff.to_i
+        issued_at.to_i <= cutoff.to_i
       end
 
       def extract_blacklisted_at(raw)

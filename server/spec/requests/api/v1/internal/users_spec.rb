@@ -205,15 +205,16 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         # would also produce.
         #
         # Minted a full minute in the past (travel_to), not merely "before" in
-        # wall-clock call order: JwtBlacklistService's per-user marker revokes
-        # a token only when its `iat` is STRICTLY EARLIER than the marker's
-        # cutoff (token_predates_cutoff? uses `<`, not `<=`), so a token minted
-        # in the SAME SECOND as the blacklist call — which two calls this
-        # close together in a fast in-process spec reliably are — reads as NOT
-        # revoked. That is a real, narrow same-second race in shared
-        # production code (flagged to the driver separately, out of this
-        # task's scope); sidestepping it here with travel_to keeps this
-        # assertion about OUR code's use of the seam, not about that edge case.
+        # wall-clock call order. The same-second boundary this comment used to
+        # describe as a live gap is now CLOSED (IMP-c358bba8bdc8):
+        # token_predates_cutoff? uses `<=`, so a token minted in the SAME
+        # SECOND as the blacklist call is correctly revoked too. The
+        # backdating here is kept anyway, not to dodge a live bug but for
+        # INDEPENDENCE: this test exists to pin OUR code's use of the
+        # blacklist seam, not the seam's own boundary behavior (which
+        # jwt_blacklist_service_spec.rb now covers directly, including the
+        # same-second case) — a full minute keeps this assertion meaningful
+        # regardless of which side of any future boundary change it lands on.
         pre_anonymize_token = travel_to(1.minute.ago) { token_for(user) }
         expect(Security::JwtService.blacklisted?(pre_anonymize_token)).to be false
 

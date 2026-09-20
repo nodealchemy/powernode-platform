@@ -180,7 +180,20 @@ RSpec.describe Security::JwtService do
 
     it "accepts a token issued after the user's tokens were blacklisted (reinstatement)" do
       described_class.blacklist_user_tokens(user.id, reason: "account_suspended")
-      token = described_class.encode({ sub: user.id, account_id: account.id })
+
+      # IMP-c358bba8bdc8: minted a full second later via travel_to, not
+      # merely "after" in wall-clock CALL order. `iat` and the blacklist
+      # cutoff both have whole-second resolution, and this service now
+      # fails closed on a same-second tie (see jwt_blacklist_service_spec.rb)
+      # — two fast in-process calls with no travel_to reliably land in the
+      # SAME real second, which used to pass here only because the bug this
+      # task fixes made a same-second token read as "not revoked" by
+      # accident. This test's actual intent — a genuinely later, legitimate
+      # token must stay valid — needs a real gap to prove, not that timing
+      # coincidence.
+      token = travel_to(1.second.from_now) do
+        described_class.encode({ sub: user.id, account_id: account.id })
+      end
 
       payload = described_class.decode(token)
       expect(payload[:sub]).to eq(user.id)
