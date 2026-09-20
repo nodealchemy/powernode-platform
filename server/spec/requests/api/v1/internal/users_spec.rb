@@ -305,6 +305,347 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         user.reload
         expect(user.id).to eq(original_id)
       end
+
+      # IMP-df4aa2b46dbc finding 1 — an API key this user created kept
+      # authenticating indefinitely after erasure (ApiKey#active? has zero
+      # coupling to created_by/user status). Driven through the REAL
+      # authenticator (Api::V1::A2aController#authenticate_api_key), not
+      # asserted on the `is_active` column — a column assertion would still
+      # pass with the auth-path fix reverted, since it wouldn't be exercising
+      # the credential at all.
+      describe 'API keys created by the erased user' do
+        let(:other_user) { create(:user, account: account) }
+        let!(:own_api_key) { create(:api_key, account: account, created_by: user, is_active: true) }
+        let!(:other_users_api_key) { create(:api_key, account: account, created_by: other_user, is_active: true) }
+
+        # Stubs only the downstream skill handler, never authenticate_api_key
+        # itself — the authenticator (the thing under test) runs for real.
+        #
+        # Rack::Attack disabled around the call: unrelated pre-existing defect
+        # (rack_attack.rb's own extract_account_from_request/safelist query
+        # ApiKey by a `key_hash` column that does not exist on this table —
+        # schema only has `key_digest` — raising PG::UndefinedColumn and
+        # poisoning the request's DB transaction for every subsequent query,
+        # including the real authenticate_api_key lookup this test exists to
+        # exercise). Also confirmed separately: the app's own
+        # `unless Rails.env.test?` guard around installing this middleware is
+        # dead — the rack-attack GEM's own Railtie installs it unconditionally
+        # in every environment regardless of that guard, so it runs in this
+        # test process too. Flagged to the driver as its own finding; toggling
+        # `enabled` here only isolates this spec from it, not a fix.
+        def a2a_auth_error_code(key_value)
+          handler = instance_double(A2a::MessageHandler, list_tasks: { result: { tasks: [] } })
+          allow(A2a::MessageHandler).to receive(:new).and_return(handler)
+
+          original_rack_attack_enabled = Rack::Attack.enabled
+          Rack::Attack.enabled = false
+          begin
+            post '/api/v1/a2a',
+                 params: { jsonrpc: '2.0', id: '1', method: 'tasks/list', params: {} }.to_json,
+                 headers: { 'X-API-Key' => key_value, 'Content-Type' => 'application/json' }
+          ensure
+            Rack::Attack.enabled = original_rack_attack_enabled
+          end
+
+          JSON.parse(response.body)['error']&.dig('code')
+        end
+
+        it 'is refused by the real A2A authenticator after erasure' do
+          key_value = own_api_key.key_value
+          expect(a2a_auth_error_code(key_value)).to be_nil # sanity: authenticates BEFORE erasure
+
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          expect(a2a_auth_error_code(key_value)).to eq(-32001)
+        end
+
+        it "does not revoke another user's key (scoped by created_by_id, which cannot reach another user's key by construction)" do
+          other_key_value = other_users_api_key.key_value
+
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          expect(a2a_auth_error_code(other_key_value)).to be_nil
+        end
+
+        # Blocker 2, review round 2: last_used_ip is the same PII class
+        # already scrubbed on user_tokens/mcp_sessions — an already-inactive
+        # key must not be skipped just because it isn't also being
+        # deactivated by this request.
+        it 'scrubs last_used_ip even on a key that was already inactive before erasure' do
+          already_inactive_key = create(
+            :api_key, account: account, created_by: user, is_active: false, last_used_ip: '203.0.113.7'
+          )
+
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          expect(ApiKey.find(already_inactive_key.id).last_used_ip).to be_nil
+        end
+
+        # Deliberate retention (review round 2, non-blocking): allowed_ips is
+        # IP infrastructure the key's CREATOR configured the key to run
+        # from, not a record of this user's own activity — scrubbing it
+        # would destroy configuration history for no privacy benefit once
+        # the key is already deactivated.
+        it 'retains allowed_ips as key configuration, not user PII' do
+          own_api_key.update!(allowed_ips: [ '203.0.113.0/24' ])
+
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          expect(ApiKey.find(own_api_key.id).allowed_ips).to eq([ '203.0.113.0/24' ])
+        end
+      end
+
+      # IMP-df4aa2b46dbc finding 4 — none of these are touched by
+      # anonymize-in-place today (dependent: :destroy on User only fires on
+      # an actual user.destroy!, which this design never calls). Every
+      # assertion reads a FRESH row from the DB, not the in-memory object.
+      describe 'ancillary PII tables' do
+        let!(:user_token) do
+          UserToken.create!(
+            user: user,
+            token_digest: SecureRandom.hex(32),
+            token_type: 'access',
+            name: "Everett's Laptop",
+            last_used_ip: '203.0.113.5',
+            user_agent: 'RedFirst/1.0'
+          )
+        end
+
+        let!(:mcp_session) do
+          McpSession.create!(
+            account: account,
+            user: user,
+            session_token: SecureRandom.hex(16),
+            ip_address: '203.0.113.9',
+            user_agent: 'RedFirst/2.0',
+            display_name: "Everett's Laptop",
+            client_info: { hostname: 'everett-laptop.local' },
+            metadata: { device_id: 'abc123' },
+            status: 'active'
+          )
+        end
+
+        let(:other_user) { create(:user, account: account) }
+        let!(:impersonation_as_impersonator) do
+          create(:impersonation_session, impersonator: user, impersonated_user: other_user)
+        end
+        let!(:impersonation_as_target) do
+          create(:impersonation_session, impersonator: other_user, impersonated_user: user)
+        end
+        let!(:notification) { create(:notification, account: account, user: user) }
+
+        it 'revokes and scrubs the PII on the erased user_tokens row' do
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          reloaded = UserToken.find(user_token.id)
+          expect(reloaded.revoked).to be true
+          expect(reloaded.last_used_ip).to be_nil
+          expect(reloaded.user_agent).to be_nil
+          expect(reloaded.name).to be_nil
+        end
+
+        # Non-blocking 4 split (review round 2): a row already revoked for a
+        # real, different reason must not have that history overwritten just
+        # because its PII also needs scrubbing.
+        it "preserves an already-revoked token's original revocation metadata while still scrubbing its PII" do
+          original_time = 3.days.ago.change(usec: 0)
+          user_token.update!(revoked: true, revoked_at: original_time, revoked_reason: 'manual')
+
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          reloaded = UserToken.find(user_token.id)
+          expect(reloaded.revoked_at).to be_within(1.second).of(original_time)
+          expect(reloaded.revoked_reason).to eq('manual')
+          expect(reloaded.last_used_ip).to be_nil
+          expect(reloaded.user_agent).to be_nil
+          expect(reloaded.name).to be_nil
+        end
+
+        # Blocker 2, review round 3: `revoked` is a NULLABLE boolean.
+        # `where(revoked: false)` and `where(revoked: true)` BOTH exclude a
+        # NULL row in SQL — a normal revoked/unrevoked pair cannot reproduce
+        # this, it needs the NULL value specifically (raw update_column,
+        # bypassing the model default).
+        it 'scrubs a user_token whose revoked column is NULL, not just false or true' do
+          user_token.update_column(:revoked, nil)
+
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          reloaded = UserToken.find(user_token.id)
+          expect(reloaded.revoked).to be true
+          expect(reloaded.last_used_ip).to be_nil
+          expect(reloaded.user_agent).to be_nil
+          expect(reloaded.name).to be_nil
+        end
+
+        it 'revokes and scrubs the PII on the erased mcp_sessions row' do
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          reloaded = McpSession.find(mcp_session.id)
+          expect(reloaded.status).to eq('revoked')
+          expect(reloaded.ip_address).to be_nil
+          expect(reloaded.user_agent).to be_nil
+          expect(reloaded.display_name).to be_nil
+          expect(reloaded.client_info).to eq({})
+          expect(reloaded.metadata).to eq({})
+        end
+
+        # Round 3 parity with the UserToken history-preservation test above:
+        # the mcp_sessions update was ALSO split into two update_all calls
+        # (round 3, replacing round 2's incorrect update! rationale) to
+        # avoid clobbering an existing revoked_at.
+        it "preserves an already-revoked mcp_session's original revoked_at while still scrubbing its PII" do
+          original_time = 3.days.ago.change(usec: 0)
+          mcp_session.update_columns(status: 'revoked', revoked_at: original_time)
+
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          reloaded = McpSession.find(mcp_session.id)
+          expect(reloaded.revoked_at).to be_within(1.second).of(original_time)
+          expect(reloaded.ip_address).to be_nil
+          expect(reloaded.user_agent).to be_nil
+          expect(reloaded.display_name).to be_nil
+          expect(reloaded.client_info).to eq({})
+          expect(reloaded.metadata).to eq({})
+        end
+
+        it 'scrubs ip_address/user_agent on a session where the erased user was the IMPERSONATOR' do
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          reloaded = ImpersonationSession.find(impersonation_as_impersonator.id)
+          expect(reloaded.ip_address).to be_nil
+          expect(reloaded.user_agent).to be_nil
+        end
+
+        it "leaves a session where the erased user was only the TARGET untouched (not this user's PII)" do
+          original_ip = impersonation_as_target.ip_address
+          original_agent = impersonation_as_target.user_agent
+
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+          expect_success_response
+
+          reloaded = ImpersonationSession.find(impersonation_as_target.id)
+          expect(reloaded.ip_address).to eq(original_ip)
+          expect(reloaded.user_agent).to eq(original_agent)
+        end
+
+        it 'deletes the erased user\'s notifications' do
+          expect do
+            patch "/api/v1/internal/users/#{user.id}/anonymize",
+                  headers: internal_headers,
+                  as: :json
+          end.to change { Notification.where(id: notification.id).count }.from(1).to(0)
+
+          expect_success_response
+        end
+      end
+
+      # IMP-df4aa2b46dbc finding 3 — a live ActionCable connection was never
+      # forced closed on erasure. Asserted on the REAL broadcast reaching the
+      # exact internal channel a live connection with this identity would be
+      # subscribed to (computed via ActionCable's own RemoteConnection, not
+      # hand-typed), with the real disconnect payload — not a mock of
+      # `remote_connections`/`disconnect` being called.
+      it 'broadcasts a disconnect over the real ActionCable internal channel for this user' do
+        channel = ActionCable.server.remote_connections
+          .where(current_user: user, current_worker: nil)
+          .send(:internal_channel)
+
+        # Pins the expected channel to a value computed INDEPENDENTLY of
+        # RemoteConnection (review round 2, reviewer note): the line above
+        # proves this test's own computation matches production's, but both
+        # would silently drift together if a THIRD identified_by were added
+        # to ApplicationCable::Connection — this literal closes that gap.
+        expect(channel).to eq("action_cable/#{user.to_gid_param}")
+
+        expect do
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+        end.to have_broadcasted_to(channel).with(hash_including('type' => 'disconnect'))
+
+        expect_success_response
+      end
+
+      # Blocker 1, review round 2: before this fix, the disconnect sat AFTER
+      # the JWT-revocation raise — any blacklist_user_tokens failure left the
+      # already-committed erasure with the live socket still open
+      # indefinitely, since nothing after the raise ever ran.
+      it 'still disconnects the live ActionCable connection even when JWT revocation fails' do
+        allow(Security::JwtService).to receive(:blacklist_user_tokens).and_return(false)
+
+        channel = ActionCable.server.remote_connections
+          .where(current_user: user, current_worker: nil)
+          .send(:internal_channel)
+
+        expect do
+          patch "/api/v1/internal/users/#{user.id}/anonymize",
+                headers: internal_headers,
+                as: :json
+        end.to have_broadcasted_to(channel).with(hash_including('type' => 'disconnect'))
+
+        expect(response).to have_http_status(:internal_server_error)
+      end
+
+      # Review round 3: distinct from the test above. This app's own
+      # rescue_from StandardError (api_response.rb:201) already logs
+      # exception.message for ANY unhandled exception, so a single JWT
+      # failure alone is not sensitive to the added Rails.logger.error line
+      # — the framework's generic handler already surfaces that message
+      # (verified: a spec asserting the log line on the single-failure case
+      # alone passed even with the line removed). The line's actual
+      # contribution only shows up here, where the disconnect ALSO raises:
+      # Ruby's `ensure` semantics mean the DISCONNECT's exception is what
+      # ultimately propagates and reaches rescue_from, not the JWT one — so
+      # without the explicit log line, "Failed to revoke JWTs" is lost
+      # entirely, and only the disconnect's own (Redis-shaped) message
+      # survives.
+      it 'logs the original JWT failure even when the disconnect broadcast itself also raises' do
+        allow(Security::JwtService).to receive(:blacklist_user_tokens).and_return(false)
+        remote_connections_double = instance_double(ActionCable::RemoteConnections)
+        allow(ActionCable.server).to receive(:remote_connections).and_return(remote_connections_double)
+        allow(remote_connections_double).to receive(:where).and_raise(StandardError, 'redis unreachable')
+        allow(Rails.logger).to receive(:error).and_call_original
+
+        patch "/api/v1/internal/users/#{user.id}/anonymize",
+              headers: internal_headers,
+              as: :json
+
+        expect(response).to have_http_status(:internal_server_error)
+        expect(Rails.logger).to have_received(:error).with(a_string_matching(/Failed to revoke JWTs/)).at_least(:once)
+      end
     end
 
     context 'with non-existent user' do

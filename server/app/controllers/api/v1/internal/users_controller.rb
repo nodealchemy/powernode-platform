@@ -119,6 +119,180 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
       )
 
       @user.password_histories.delete_all
+
+      # IMP-df4aa2b46dbc finding 1 — API keys created by this user carry no
+      # coupling to the user's own status: ApiKey#active? is `is_active &&
+      # !expired?`, and the only consumer (Api::V1::A2aController
+      # #authenticate_api_key) authenticates on `active?` alone, so a key
+      # this user created kept working indefinitely after erasure. Scoped to
+      # created_by_id — not account-wide, and does not need an explicit
+      # account_id filter to stay that way: a user can only ever be
+      # created_by on keys in their own account, so this cannot reach
+      # another user's key by construction (review correction,
+      # IMP-df4aa2b46dbc non-blocking 6: the ORIGINAL comment here called
+      # this "account-scoped", which named the wrong mechanism — there is no
+      # account_id anywhere in the WHERE clause).
+      #
+      # `update_all`, not a find_each/update! loop (review correction,
+      # IMP-df4aa2b46dbc non-blocking 4): `update!` runs ApiKey's full
+      # validation set, including an expires_at comparison validation, on
+      # rows this code does not own — one legacy row failing validation
+      # raises RecordInvalid and rolls back the WHOLE anonymize transaction,
+      # permanently failing that user's erasure on every retry. ApiKey's
+      # only update callback (log_status_change) is a Rails.logger.info
+      # line — losing it under update_all is not load-bearing.
+      #
+      # ALL keys created by this user, not only the currently-active ones
+      # (review correction, IMP-df4aa2b46dbc blocker 2): last_used_ip is the
+      # SAME PII class already scrubbed on user_tokens/mcp_sessions below,
+      # and an already-deactivated key kept it under the old is_active:true
+      # filter. `allowed_ips` is deliberately RETAINED as configuration
+      # history — a deliberate retention decision, reviewed and accepted,
+      # NOT a claim that it carries no PII (review round 3 wording
+      # correction: for a personal key this range is frequently the user's
+      # own home or office network, so this is a real retention trade-off,
+      # not an exploitability argument).
+      ApiKey.where(created_by_id: @user.id).update_all(is_active: false, last_used_ip: nil)
+
+      # IMP-df4aa2b46dbc finding 4 — none of these tables are touched by
+      # anonymize-in-place today. User declares `dependent: :destroy` for
+      # each of them, but that only fires on an actual `user.destroy!`,
+      # which this design never calls (anonymize-in-place, see the class
+      # doc above) — so the PII on these rows survived every erasure path
+      # unless removed here explicitly.
+      #
+      # None of UserToken, McpSession, ImpersonationSession, ApiKey, or
+      # Notification includes Auditable (review correction, IMP-df4aa2b46dbc
+      # non-blocking 7) — these scrubbing writes cannot copy PII into
+      # audit_logs the way @user.update! above could without the
+      # audit_extra_redactions guard set at the top of this method. Adding
+      # `include Auditable` to any of them later would need that SAME
+      # guard; do not do it silently.
+      #
+      # `update_all`, not `update!` (review correction, IMP-df4aa2b46dbc
+      # non-blocking 4): UserToken validates token_digest/token_type/
+      # expires_at presence on every save, and a legacy row with a null
+      # expires_at would raise RecordInvalid mid-transaction, permanently
+      # failing this user's erasure on retry. UserToken's only callbacks
+      # (set_default_expiration, cleanup_expired_tokens) are create-only, so
+      # nothing meaningful is skipped.
+      #
+      # `revoked` is a NULLABLE boolean (schema: default false, no
+      # `null: false`) — review round 3 correction: `where(revoked: false)`
+      # / `where(revoked: true)` BOTH exclude a NULL row in SQL, so the
+      # original two-call split here matched neither call and left such a
+      # row's PII forever. Not a live-credential hole (UserToken.active,
+      # the scope find_by_token/authenticate go through, also excludes NULL
+      # via `where(revoked: false)`), but it is permanent PII retention, and
+      # `cleanup_expired` filters on `revoked = true` too, so the row is
+      # never reaped either. `revoked: [false, nil]` catches both; the
+      # second call below drops the revoked filter entirely so it always
+      # scrubs PII regardless of the column's value, including on a row the
+      # first call already touched (harmless re-write) and on an
+      # already-true row it does not.
+      UserToken.where(user_id: @user.id, revoked: [ false, nil ]).update_all(
+        revoked: true,
+        revoked_at: Time.current,
+        revoked_reason: "gdpr_anonymize",
+        last_used_ip: nil,
+        user_agent: nil,
+        name: nil # user-supplied token label (review correction, non-blocking 1)
+      )
+      UserToken.where(user_id: @user.id).update_all(
+        last_used_ip: nil,
+        user_agent: nil,
+        name: nil
+      )
+
+      # `update_all`, not `update!` (review round 3 correction — this
+      # reverses round 2's own comment here, which claimed
+      # `after_update :deactivate_agent_on_end` "deactivates the linked AI
+      # client agent". Traced now: Ai::McpClientIdentityService
+      # .deactivate_agent (mcp_client_identity_service.rb:41-51) is, in its
+      # OWN doc comment, "intentionally a no-op beyond logging — the agent
+      # stays active with its workspace team memberships, conversation/
+      # message FKs, and sequence number intact." It is the SAME class of
+      # effect as ApiKey#log_status_change, which this diff already
+      # correctly dismissed as not load-bearing on the table above. It is
+      # weaker still on this exact path: the callback early-returns on
+      # `revoked? && reactivatable?` (mcp_session.rb:174), and a
+      # freshly-revoked, unexpired session IS reactivatable, so a session
+      # revoked for the FIRST time here returns before the log line; an
+      # ALREADY-revoked session never fires the callback at all
+      # (`saved_change_to_status?` is false). So `update!` bought nothing but
+      # one conditional log line.
+      #
+      # Unlike UserToken's genuinely-reachable nullable expires_at (below),
+      # attempting to red-first "a legacy row makes update! raise here"
+      # found no reachable case for THIS table (verified by trying, not
+      # assumed): session_token's presence/uniqueness are backed by DB-level
+      # NOT NULL + a unique index, which make the REALISTIC violations
+      # unreachable (review round 3b trim: NOT NULL does not enforce
+      # `validates :presence` — a raw-SQL empty string satisfies the column
+      # and still fails the model — so this is not a strict impossibility
+      # claim, just an unreachable-in-practice one; moot for behavior either
+      # way, since update_all skips validations regardless of which kind of
+      # row it meets). `status` is always overwritten to a valid value by
+      # this very write, so a corrupted pre-existing value gets fixed, not
+      # tripped over. `must_have_a_principal` cannot fire because the
+      # `user_id: @user.id` scope this query runs under already guarantees
+      # the one condition it checks. `update_all` is used here for
+      # CONSISTENCY with the two tables above (same shape, same reasoning
+      # family) and because it is simply unnecessary overhead to run
+      # McpSession's full validation set on a write that cannot fail it —
+      # not because a reachable erasure-breaking bug was found and fixed.
+      #
+      # Split into two calls, same shape as UserToken above, to preserve an
+      # existing revoked_at rather than clobber it: a row not already
+      # "revoked" gets a fresh timestamp; an already-revoked row keeps its
+      # original one and only has its PII scrubbed.
+      #
+      # Second call carries NO status filter (review round 3b correction) —
+      # same reasoning as UserToken's second call above: with the filter,
+      # this table would only be correct BY SEQUENCE (call 1 must run first
+      # and normalize every row to "revoked" for call 2 to reach them all),
+      # not by construction. That is the exact property the UserToken fix
+      # removed when its own revoked filter was dropped from the PII-scrub
+      # call. The call writes only nils/{}, so dropping the filter costs
+      # nothing and makes both tables read identically, correct regardless
+      # of whether a future edit changes call 1's predicate.
+      #
+      # client_info/metadata (jsonb) scrubbed to {} (review correction,
+      # IMP-df4aa2b46dbc non-blocking 2, deliberate yes): both can carry
+      # client hostnames and device identifiers, the same class of PII as
+      # ip_address/user_agent/display_name on this same row.
+      McpSession.where(user_id: @user.id).where.not(status: "revoked").update_all(
+        status: "revoked",
+        revoked_at: Time.current,
+        ip_address: nil,
+        user_agent: nil,
+        display_name: nil,
+        client_info: {},
+        metadata: {}
+      )
+      McpSession.where(user_id: @user.id).update_all(
+        ip_address: nil,
+        user_agent: nil,
+        display_name: nil,
+        client_info: {},
+        metadata: {}
+      )
+
+      # Only the rows where THIS user is the IMPERSONATOR carry their own
+      # ip_address/user_agent. On a row where they are the TARGET, those
+      # columns describe the OTHER party's session — not this user's PII —
+      # so they are left untouched (team review, IMP-df4aa2b46dbc).
+      #
+      # `reason` deliberately left untouched on BOTH row types (team
+      # decision, IMP-df4aa2b46dbc review): it is operator-authored free
+      # text that can name the erased user on a row where they are the
+      # TARGET, and is text THEY wrote on a row where they are the
+      # IMPERSONATOR. Considered and deferred as a policy call (same bucket
+      # as the sole-owner question, finding 5) rather than folded into this
+      # task as a free-text redaction policy.
+      @user.impersonation_sessions_as_impersonator.update_all(ip_address: nil, user_agent: nil)
+
+      @user.notifications.delete_all
     end
 
     # Revoke every already-issued JWT (access + refresh) for this user via the
@@ -145,8 +319,70 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
     # 'processing' from the failed attempt and skip it rather than
     # re-attempting the anonymize call. Pre-existing, not introduced by this
     # fix, and out of scope here; tracked as offer 01a0b5c4-b71a.
-    unless Security::JwtService.blacklist_user_tokens(@user.id, reason: "gdpr_anonymize")
-      raise "Failed to revoke JWTs for user #{@user.id} during anonymization"
+    begin
+      unless Security::JwtService.blacklist_user_tokens(@user.id, reason: "gdpr_anonymize")
+        raise "Failed to revoke JWTs for user #{@user.id} during anonymization"
+      end
+    ensure
+      # IMP-df4aa2b46dbc finding 3 (blocker 1 fix, review round 2) — this
+      # MUST run even when the JWT revocation above raises. Before this fix
+      # the disconnect sat AFTER the raise: on any blacklist_user_tokens
+      # failure (e.g. a Redis blip), the anonymization/key-deactivation/PII
+      # scrub above had ALREADY COMMITTED (the transaction closes above,
+      # before this method ever reaches this line), JWTs were NOT revoked,
+      # and the disconnect never ran — leaving the erased user's live
+      # ActionCable socket open indefinitely, which is the entire premise
+      # finding 3 exists to close (authenticate_user only runs once, at
+      # handshake). The request 500s and reports failure while the erasure
+      # has actually applied — and DataDeletionJob's retry is not
+      # unconditionally safe here (see the comment on the raise above), so
+      # the retry that would eventually reach this line may never come.
+      #
+      # Kept OUTSIDE the @user.transaction block above (unchanged): a
+      # broadcast from inside that transaction would announce a state that
+      # can still roll back.
+      #
+      # `current_worker: nil` is REQUIRED here, not optional decoration:
+      # ApplicationCable::Connection declares `identified_by :current_user`
+      # AND `identified_by :current_worker`, and RemoteConnection#valid_identifiers?
+      # requires every declared identifier's key present in `where(...)`, not
+      # just the one being searched on — `where(current_user: @user)` alone
+      # raises ActionCable::RemoteConnections::RemoteConnection
+      # ::InvalidIdentifiersError (verified via `rails runner`, not assumed).
+      # This does not broaden the match: connection_identifier is built via
+      # `identifiers.filter_map { ... }`, which drops nil values, so a real
+      # user-only connection (whose own @current_worker is also nil) computes
+      # the identical identifier either way.
+      #
+      # Decision (non-blocking item 5, IMP-df4aa2b46dbc review): a failure
+      # from THIS call is allowed to propagate, same as blacklist_user_tokens
+      # above — both are "close a live access surface" failures of the same
+      # severity class, and `disconnect`'s broadcast has no success/failure
+      # signal of its own beyond raising, unlike blacklist_user_tokens'
+      # explicit boolean.
+      #
+      # Review round 3 correction: if both this and the JWT revocation fail
+      # in the SAME request, Ruby's `ensure` semantics mean THIS exception
+      # would otherwise replace the JWT one in what propagates — losing
+      # "Failed to revoke JWTs", the one fact the operator most needs (the
+      # erasure committed but tokens are still live). Both exceptions being
+      # Redis-shaped does not make them interchangeable. Logged explicitly
+      # here, before attempting the disconnect, so the JWT failure is on
+      # record even if the disconnect's own exception is what propagates.
+      #
+      # `$!` scope (review round 3b addition): nil on the success path, and
+      # inside THIS ensure it holds the in-flight exception from the begin
+      # block directly above — but `$!` is a thread-global that reflects
+      # whichever rescue/ensure frame is CURRENTLY unwinding, so code
+      # running inside an ENCLOSING, still-active rescue frame could see
+      # that outer frame's exception instead of this method's own. Rails'
+      # normal action-dispatch path does not put this method inside such a
+      # frame, so that case does not arise here; the worst case if it ever
+      # did is one spuriously-attributed error log line, not a behavior
+      # change — but the boundary is worth stating rather than leaving the
+      # next reader to re-derive it.
+      Rails.logger.error("[Api::V1::Internal::UsersController#anonymize] JWT revocation failed for user #{@user.id}: #{$!.message}") if $!
+      ActionCable.server.remote_connections.where(current_user: @user, current_worker: nil).disconnect
     end
 
     log_internal_audit("user.anonymize", "User", @user.id, account_id: @user.account_id)
