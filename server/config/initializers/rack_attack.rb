@@ -40,6 +40,23 @@ class Rack::Attack
   end
 
   # Extract user from JWT token
+  #
+  # IMP-24df1ec74489 review follow-up — the pre-existing `rescue
+  # JWT::DecodeError, ActiveRecord::RecordNotFound` clause below is
+  # unchanged; only JWT::DecodeError actually fires from this body (a bad
+  # or expired token). `User.find_by` returns nil rather than raising
+  # RecordNotFound — that's `.find`, not `.find_by` — so a since-deleted
+  # user already resolves to nil with no rescue involved at all.
+  # RecordNotFound is vestigial here; left in place rather than removed
+  # (avoid unrelated churn), but don't read it as what makes a deleted
+  # user resolve quietly.
+  #
+  # What IS new: `User.find_by` can still raise on a transient DB error,
+  # and this method is called directly by other throttles below (e.g.
+  # "impersonation_by_user"), not only via #extract_account_from_request —
+  # so a rescue scoped to that caller alone would not have covered this
+  # call site. The added `rescue StandardError` below fails open but logs
+  # at ERROR naming why, same principle as #extract_account_from_request.
   def self.extract_user_from_request(request)
     auth_header = request.get_header("HTTP_AUTHORIZATION")
     return nil unless auth_header&.start_with?("Bearer ")
@@ -53,10 +70,68 @@ class Rack::Attack
     User.find_by(id: user_id) if user_id
   rescue JWT::DecodeError, ActiveRecord::RecordNotFound
     nil
+  rescue StandardError => e
+    Rails.logger.error(
+      "[RackAttack] extract_user_from_request failed to look up user — failing open " \
+      "(no user/account attribution for this request; anonymous/IP-based limits still apply): " \
+      "#{e.class}: #{e.message}"
+    )
+    nil
   end
 
   # Extract account from request (via user or API key)
+  #
+  # IMP-24df1ec74489 — TWO bugs here, both fixed together (fixing the
+  # column name alone would trade a loud failure for a silent one — see
+  # below). `api_keys` has a `key_digest` column, not `key_hash` (schema
+  # drift; PG::UndefinedColumn on every request carrying an X-API-Key
+  # header, unrescued at most of #extract_account_from_request's call
+  # sites — including the "extreme_abuse" blocklist, which runs
+  # unconditionally for every request — reproduced end to end via a real
+  # request through that path, which 500s). AND the digest scheme was
+  # wrong: `Digest::SHA256.hexdigest(api_key)` (bare) never equals what
+  # ApiKey#generate_key actually writes to key_digest, which is
+  # `ApiKey.hash_key(api_key)` =
+  # `Digest::SHA256.hexdigest("#{secret_key_base}:#{api_key}")` — verified
+  # by executing the real write path and comparing both candidate digests
+  # against the stored value before writing this fix, not assumed.
+  # Renaming the column reference alone would have converted today's loud
+  # error into a silent never-match: every lookup would miss, attribution
+  # would always be nil, and nothing would ever indicate why.
+  #
+  # Rescued here as ONE `rescue` wrapping the whole resolution (user
+  # lookup, its `.account` association load, the API-key lookup, and ITS
+  # `.account` load — review follow-up: a narrower rescue around only the
+  # API-key query left the user/JWT branch, which most authenticated
+  # requests take, exposed to the identical unrescued-helper -> 500 path)
+  # rather than at each of the many call sites below: a transient DB error
+  # must fail OPEN for this one account-attribution lookup (falls back to
+  # anonymous/IP-based throttling for this request) rather than 500 every
+  # request — but per the "a rate limiter that silently stops limiting is
+  # the dangerous direction" principle, failing open here is logged at
+  # ERROR naming why, not swallowed silently the way client_ip's identical
+  # rescue above is (that one falls back to an equally-valid IP; this one
+  # gives up an entire attribution dimension).
+  #
+  # Memoized per request (env-scoped — NOT class- or thread-level, which
+  # would leak across requests): every account-keyed throttle below calls
+  # this at least twice, once in its discriminator and once in its
+  # `limit:` proc, and several throttles share it, so a single
+  # authenticated `/api/` request would otherwise repeat this same
+  # resolution (a JWT decode plus a DB query, or two DB queries) many
+  # times over. A plain `||=` would be wrong here: a fail-open lookup
+  # legitimately resolves to `nil` (no account), and `||=` would treat that
+  # as "not yet cached" and repeat the query every single time — the
+  # common case for unauthenticated traffic. `env.key?` distinguishes
+  # "resolved to nil" from "not yet resolved."
   def self.extract_account_from_request(request)
+    env = request.env
+    return env["rack_attack.account"] if env.key?("rack_attack.account")
+
+    env["rack_attack.account"] = resolve_account_from_request(request)
+  end
+
+  def self.resolve_account_from_request(request)
     # Try to get from user first
     user = extract_user_from_request(request)
     return user.account if user&.account
@@ -64,12 +139,20 @@ class Rack::Attack
     # Try to get from API key
     api_key = request.get_header("HTTP_X_API_KEY")
     if api_key
-      key = ApiKey.active.find_by(key_hash: Digest::SHA256.hexdigest(api_key))
+      key = ApiKey.active.find_by(key_digest: ApiKey.hash_key(api_key))
       return key.account if key&.account
     end
 
     nil
+  rescue StandardError => e
+    Rails.logger.error(
+      "[RackAttack] extract_account_from_request failed to resolve account — failing open " \
+      "(no account attribution for this request; anonymous/IP-based limits still apply): " \
+      "#{e.class}: #{e.message}"
+    )
+    nil
   end
+  private_class_method :resolve_account_from_request
 
   # Real client IP. ActionDispatch::RemoteIp runs before Rack::Attack in the
   # middleware stack and resolves the client from X-Forwarded-For (honoring
@@ -380,17 +463,43 @@ class Rack::Attack
   end
 
   # Safelist specific API keys (e.g., system workers)
+  #
+  # IMP-24df1ec74489 — same key_hash -> key_digest column fix and digest
+  # scheme fix as #extract_account_from_request above (see that method's
+  # comment for the full trace). This rescue already failed open (not
+  # safelisted; normal throttling still applies — the safe direction), but
+  # logged nothing, which is exactly how the original column-name bug went
+  # unnoticed: the safelist silently never matched, with zero trace. Now
+  # logs at ERROR naming the reason, per the "a rate limiter that silently
+  # stops limiting is the dangerous direction" principle.
+  #
+  # Review follow-up: reuses `ApiKey.find_by_key` (the model's own
+  # digest-and-lookup pair) instead of a second hand-rolled
+  # `find_by(key_digest: ApiKey.hash_key(...))` — a second copy of that
+  # pairing is the same duplication that produced the original column/
+  # scheme bug. And the CACHE key now uses `ApiKey.hash_key` (salted, same
+  # scheme as the stored digest) instead of a bare `SHA256.hexdigest`:
+  # nothing compares the two digests today so this was not exploitable as
+  # written, but a bare hash of a live credential is still an unsalted
+  # digest of secret material used as a cache key, and it was identical
+  # across environments — a shared cache (e.g. dev and staging pointed at
+  # one Redis) would collide on the same key and could serve one
+  # environment's is_system_key verdict to another.
   safelist("system_api_keys") do |request|
     api_key = request.get_header("HTTP_X_API_KEY")
     next false unless api_key
 
     # Check if it's a system API key
-    cache_key = "system_api_key:#{Digest::SHA256.hexdigest(api_key)}"
+    cache_key = "system_api_key:#{ApiKey.hash_key(api_key)}"
     Rails.cache.fetch(cache_key, expires_in: 5.minutes) do
-      key = ApiKey.find_by(key_hash: Digest::SHA256.hexdigest(api_key))
+      key = ApiKey.find_by_key(api_key)
       key&.metadata&.dig("is_system_key") == true
     end
-  rescue StandardError
+  rescue StandardError => e
+    Rails.logger.error(
+      "[RackAttack] system_api_keys safelist check failed — failing open (NOT safelisted; normal " \
+      "throttling still applies to this request): #{e.class}: #{e.message}"
+    )
     false
   end
 
