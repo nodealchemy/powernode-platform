@@ -14,6 +14,85 @@ module Ai
       CHARS_PER_TOKEN = 4
       ACCESS_LEVEL_HIERARCHY = %w[private team account global].freeze
 
+      # The hard ceiling on #archive_by_predicate! and #hard_delete_archived!
+      # lives on Ai::BulkPredicateMutation::MAX_BULK_PER_CALL, not here — see
+      # that module for the reasoning. Deliberately NOT aliased to a local
+      # constant: a copy taken at class-load time would be a frozen Integer,
+      # not a live reference, so `stub_const` on a local alias would silently
+      # stop affecting the ceiling #call actually enforces. Stub
+      # Ai::BulkPredicateMutation::MAX_BULK_PER_CALL directly.
+
+      # Kill switch for the nightly producer (04:30 UTC,
+      # AiSharedKnowledgeMaintenanceJob -> shared_maintenance ->
+      # #import_from_learnings). SiteSetting, not Flipper — operator-facing,
+      # admin-settings-editable, matching Ai::Learning::EvaluationService's
+      # ai.evaluation.enabled shape.
+      #
+      # DEFAULTS TO ON, deliberately, per operator direction: an absent row
+      # means the producer KEEPS RUNNING (seeds do not re-run after first
+      # boot, so this is never seeded — see EvaluationService's identical
+      # note). Getting this default backwards would silently stop the
+      # platform learning anything, which the operator named as worse than
+      # the archive-tooling gap this task exists to close.
+      #
+      # THE POLARITY IS INVERTED FROM EvaluationService.enabled? ON PURPOSE.
+      # That switch treats an unparseable value as OFF (fails toward "don't
+      # spend money on the judge" — the safe direction for a paid call).
+      # Here OFF is the DANGEROUS direction — it silently stops the platform
+      # learning anything and nobody would trace a later "why is knowledge
+      # not growing" question back to a typo'd SiteSetting value. So a
+      # garbage value here fails toward ON (with a logged warning), not OFF.
+      # Copying EvaluationService's shape into a fourth switch without
+      # re-deriving which direction is safe for THAT switch is exactly the
+      # mistake this comment exists to prevent.
+      KNOWLEDGE_PURGE_IMPORT_ENABLED_SETTING = "ai.knowledge_purge.import_from_learnings_enabled"
+
+      # IMP-3c9a6dc8f0a9 review round (blocker 4) — reads the setting's raw
+      # STORED value directly (SiteSetting#value, a string column) rather
+      # than through ::SiteSetting.get, which type-casts per setting_type
+      # BEFORE we ever see it. For a "boolean"-typed row, .get does
+      # `value.to_s.downcase.in?(%w[true 1 yes])` — so a typo'd value like
+      # "ture" is already collapsed to Ruby `false` by the time it reaches
+      # us, indistinguishable from a deliberate false. Our own "garbage
+      # fails toward ON" parsing below then never runs on the actual
+      # garbage string — it runs on `false.to_s == "false"`, which matches
+      # the `when "false"` branch cleanly and silently, with no warning.
+      # The fail-toward-ON property this switch exists to guarantee only
+      # held for a "string"-typed row, where .get returns the raw string
+      # unmodified. Reading .value directly makes the property hold
+      # regardless of which setting_type an operator (or a future seed)
+      # gives this row — see "creates the row with setting_type: boolean
+      # and a garbage value" in the spec for the case this fixes.
+      #
+      # IMP-3c9a6dc8f0a9 review round — REGRESSION FIX. The above fix's
+      # first draft accepted only "true"/"false", a narrower set than what
+      # ::SiteSetting.get's OWN cast accepts (`value.to_s.downcase.in?(%w[true
+      # 1 yes])`). An operator who had already typed "0"/"no"/"off" into a
+      # boolean-typed row — which worked correctly before this switch even
+      # existed, via that cast — got OFF before this file's fix and
+      # (wrongly) ON after: "0" matched neither "true" nor "false", hit the
+      # garbage branch, and the switch designed to fail toward the SAFE
+      # direction on garbage instead flipped a deliberate, working OFF into
+      # an accidental ON. The parser here MUST be a superset of what
+      # SiteSetting's own cast already accepted, because that is what an
+      # operator may already have typed into an existing row.
+      def self.import_from_learnings_enabled?
+        setting = ::SiteSetting.find_by(key: KNOWLEDGE_PURGE_IMPORT_ENABLED_SETTING)
+        return true if setting.nil?
+
+        case setting.value.to_s.strip.downcase
+        when "true", "1", "yes" then true
+        when "false", "0", "no", "off" then false
+        else
+          Rails.logger.warn(
+            "[SharedKnowledge] #{KNOWLEDGE_PURGE_IMPORT_ENABLED_SETTING}=#{setting.value.inspect} is not " \
+            "true/false; treating it as ON — OFF is the dangerous direction for this switch " \
+            "(silently stops the platform learning), so a garbage value fails toward ON, not OFF"
+          )
+          true
+        end
+      end
+
       def initialize(account:)
         @account = account
         @embedding_service = EmbeddingService.new(account: account)
@@ -27,10 +106,22 @@ module Ai
 
         embedding = @embedding_service.generate(content)
 
-        # Check for near-duplicates via semantic search
-        if embedding && Ai::SharedKnowledge.where(account: @account).with_embedding.exists?
+        # Check for near-duplicates via semantic search.
+        #
+        # IMP-3c9a6dc8f0a9 — `.not_archived` on BOTH the `exists?` guard and
+        # the `nearest_neighbors` scope. An archived row's embedding is still
+        # live (archiving is a provenance flag, not a delete — see
+        # SharedKnowledge#not_archived and the class-level note on the
+        # embedding index), so without this an archived row could refuse a
+        # brand-new, legitimate create as a "duplicate" AND — worse —
+        # `touch_usage!` the archived row first, silently resurrecting the
+        # usage stats of something already archived. Harmless at a handful of
+        # archived rows; a landmine at the scale this task's bulk-archive
+        # tooling produces (~6,250 rows in one pass).
+        if embedding && Ai::SharedKnowledge.where(account: @account).not_archived.with_embedding.exists?
           duplicates = Ai::SharedKnowledge
             .where(account: @account)
+            .not_archived
             .nearest_neighbors(:embedding, embedding, distance: "cosine")
             .first(3)
 
@@ -239,6 +330,14 @@ module Ai
       # head-of-scope batch forever (the failure mode that stalled the
       # shared-knowledge feedback pipeline).
       def import_from_learnings(team: nil, min_importance: 0.7, max_per_run: 100)
+        unless self.class.import_from_learnings_enabled?
+          Rails.logger.info(
+            "[SharedKnowledge] Import from learnings skipped — kill switch " \
+            "#{KNOWLEDGE_PURGE_IMPORT_ENABLED_SETTING} is OFF"
+          )
+          return { success: true, imported: 0, skipped: 0, remaining: 0, skipped_reason: "kill_switch" }
+        end
+
         scope = Ai::CompoundLearning
           .active
           .for_account(@account.id)
@@ -467,7 +566,124 @@ module Ai
         { success: false, context: nil, token_estimate: 0, entry_ids: [] }
       end
 
+      # ==================================================
+      # Predicate-scoped bulk archive / hard-delete (IMP-3c9a6dc8f0a9)
+      # ==================================================
+      #
+      # Prerequisite for the platform-memory purge (report-platform.md §8/§10):
+      # `delete_knowledge` takes one id per call; this is the predicate-scoped
+      # path. TWO SEPARATE STEPS, deliberately, never one call that both finds
+      # and hard-deletes: #archive_by_predicate! only ever touches NOT-yet-
+      # archived rows (soft, reversible — unset the provenance flag to undo);
+      # #hard_delete_archived! only ever touches rows THAT ARE ALREADY
+      # archived (irreversible), and its own predicate can only narrow that
+      # fixed base, never widen past it. This mirrors §10's own recommended
+      # order (archive first, hard-delete only what is already archived as a
+      # distinct later step) and means the irreversible half of this tool
+      # only ever needs a much narrower, already-reviewed predicate.
+      #
+      # DRY-RUN IS THE DEFAULT ON BOTH. To actually mutate, the caller must
+      # pass `dry_run: false` explicitly — one deliberate, named boolean flip,
+      # not a flag a copy-pasted invocation forgets. A dry run never touches
+      # the DB; it returns the same shape a real run would (count + sample),
+      # minus `archived`/`deleted`.
+      #
+      # Archives (or hard-deletes) MAX_BULK_PER_CALL rows in the single call;
+      # a predicate matching more REFUSES outright (see the constant comment)
+      # rather than truncating.
+      #
+      # @param predicate [Hash] :tags, :content_type, :access_level,
+      #   :source_type, :imported_from (provenance->>'imported_from'),
+      #   :created_before, :ids — all optional, ANDed together. An empty
+      #   predicate matches every not-yet-archived row in the account, which
+      #   is a real thing an operator might want (and the count/ceiling still
+      #   apply), not a mistake this method guards against on its own.
+      # @param dry_run [Boolean] default true — see above.
+      # @param actor [User, nil] attributed on the audit log entry when a real
+      #   run mutates anything. nil for a rake/cron-driven run.
+      def archive_by_predicate!(predicate: {}, dry_run: true, actor: nil)
+        scope = build_knowledge_predicate_scope(predicate).not_archived
+
+        Ai::BulkPredicateMutation.call(
+          account: @account, scope: scope, dry_run: dry_run, actor: actor,
+          action: "ai.knowledge.bulk_archive", predicate: predicate,
+          serializer: ->(e) { { id: e.id, title: e.title } }, log_tag: "[SharedKnowledge]"
+        ) do |entry|
+          archive(entry_id: entry.id)[:success]
+        end
+      end
+
+      # See the shared header comment above #archive_by_predicate! for why
+      # this method's base scope (archived rows only) is NOT part of the
+      # caller-supplied predicate and cannot be widened past it.
+      #
+      # @param predicate [Hash] the same optional keys as
+      #   #archive_by_predicate!, plus :archived_before (compares against the
+      #   provenance->>'archived_at' timestamp, not created_at) — all narrow
+      #   the mandatory archived-only base further; none can remove it.
+      def hard_delete_archived!(predicate: {}, dry_run: true, actor: nil)
+        scope = build_knowledge_predicate_scope(predicate)
+          .where("provenance @> ?", { archived: true }.to_json)
+
+        if predicate[:archived_before].present?
+          scope = scope.where(
+            "(provenance->>'archived_at')::timestamptz < ?", predicate[:archived_before]
+          )
+        end
+
+        Ai::BulkPredicateMutation.call(
+          account: @account, scope: scope, dry_run: dry_run, actor: actor,
+          action: "ai.knowledge.bulk_hard_delete", predicate: predicate,
+          serializer: ->(e) { { id: e.id, title: e.title } }, log_tag: "[SharedKnowledge]"
+        ) do |entry|
+          entry.destroy!
+          true
+        end
+      end
+
       private
+
+      # ANDs every present predicate key. An absent/blank key is simply not
+      # applied — this is the seam #archive_by_predicate! and
+      # #hard_delete_archived! both extend, so a new predicate key is added
+      # here once rather than in each caller.
+      # IMP-3c9a6dc8f0a9 review round (blocker 3) — the keys this predicate
+      # builder actually implements, PLUS :archived_before — applied by
+      # #hard_delete_archived! itself, after this builder returns, never
+      # inside it (see there) — included here so it validates as known
+      # rather than raising on the one call site that legitimately uses it;
+      # #archive_by_predicate! simply never reads it back out, so accepting
+      # it there too is inert, not a widening. Anything else raises via
+      # Ai::BulkPredicateMutation.validate_predicate! rather than being
+      # silently ignored — see that method's header comment.
+      KNOWLEDGE_PREDICATE_KEYS = %i[source_type content_type access_level tags imported_from created_before ids archived_before].freeze
+
+      def build_knowledge_predicate_scope(predicate)
+        Ai::BulkPredicateMutation.validate_predicate!(predicate, allowed_keys: KNOWLEDGE_PREDICATE_KEYS)
+
+        scope = Ai::SharedKnowledge.where(account: @account)
+        scope = scope.where(source_type: predicate[:source_type]) if predicate.key?(:source_type)
+        scope = scope.where(content_type: predicate[:content_type]) if predicate.key?(:content_type)
+        scope = scope.where(access_level: predicate[:access_level]) if predicate.key?(:access_level)
+        if predicate.key?(:tags)
+          # validate_predicate! only catches BLANK values — a wrong-typed
+          # non-blank value (a String instead of an Array) passed that check
+          # and then failed `.is_a?(Array)` silently, dropping the filter
+          # entirely (the same widening blocker 3 exists to close). Checked
+          # explicitly here instead.
+          unless predicate[:tags].is_a?(Array)
+            raise ArgumentError, "predicate[:tags] must be an Array, got #{predicate[:tags].class}: #{predicate[:tags].inspect}"
+          end
+
+          scope = scope.with_any_tags(predicate[:tags])
+        end
+        if predicate.key?(:imported_from)
+          scope = scope.where("provenance->>'imported_from' = ?", predicate[:imported_from])
+        end
+        scope = scope.where("created_at < ?", predicate[:created_before]) if predicate.key?(:created_before)
+        scope = scope.where(id: predicate[:ids]) if predicate.key?(:ids)
+        scope
+      end
 
       def find_entry!(entry_id)
         Ai::SharedKnowledge.find_by(id: entry_id, account: @account)

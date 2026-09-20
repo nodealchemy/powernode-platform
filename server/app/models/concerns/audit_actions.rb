@@ -253,6 +253,8 @@ module AuditActions
     ai.analytics.usage_recorded ai.analytics.update ai.analytics.report_generated
     ai.analytics.cost_analysis ai.analytics.dashboard ai.analytics.export ai.analytics.insights
     ai.analytics.report.cancel ai.analytics.report.create ai.analytics.report.download
+    ai.knowledge.bulk_archive ai.knowledge.bulk_hard_delete
+    ai.learning.bulk_retire ai.learning.bulk_hard_delete
   ].freeze
 
   # =============================================================================

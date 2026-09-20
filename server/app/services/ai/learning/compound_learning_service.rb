@@ -73,6 +73,61 @@ module Ai
       DEFAULT_INJECTION_SIMILARITY_THRESHOLD = 0.65
       SEMANTIC_CANDIDATE_LIMIT = 30
 
+      # The hard ceiling on #retire_by_predicate! and
+      # #hard_delete_retired_or_superseded! lives on
+      # Ai::BulkPredicateMutation::MAX_BULK_PER_CALL — see that module for the
+      # full reasoning, and for why this is NOT re-declared as a local alias
+      # (a class-load-time copy would silently stop tracking a `stub_const`
+      # on the shared constant).
+
+      # Kill switch for the 03:45 UTC producer (AiCompoundLearningMaintenanceJob
+      # -> compound_maintenance -> #promote_cross_team). Layered ALONGSIDE the
+      # existing :compound_learning_promotion Flipper flag (#promotion_enabled?)
+      # — both must be true to proceed; this does not replace or remove the
+      # Flipper check. SiteSetting per the operator's explicit direction
+      # (admin-settings-editable, not an engineering-only Flipper toggle).
+      #
+      # Same default-ON, same inverted-from-EvaluationService polarity as
+      # Ai::Memory::SharedKnowledgeService::KNOWLEDGE_PURGE_IMPORT_ENABLED_SETTING
+      # — see that constant's comment for the full reasoning. Restated here
+      # because this is exactly the kind of switch someone will one day copy
+      # EvaluationService's shape into without re-deriving which garbage-value
+      # direction is safe for it.
+      PROMOTE_CROSS_TEAM_ENABLED_SETTING = "ai.knowledge_purge.promote_cross_team_enabled"
+
+      # IMP-3c9a6dc8f0a9 review round (blocker 4) — reads SiteSetting#value
+      # directly rather than through ::SiteSetting.get, whose per-setting_type
+      # cast destroys the "this was garbage" signal for a "boolean"-typed row
+      # before we ever see it (a typo'd value collapses to Ruby `false`,
+      # indistinguishable from a deliberate false, so the fail-toward-ON
+      # parsing below never actually runs on it). See the identical comment
+      # on Ai::Memory::SharedKnowledgeService.import_from_learnings_enabled?
+      # for the full reasoning.
+      #
+      # IMP-3c9a6dc8f0a9 review round — REGRESSION FIX: the parser accepts
+      # "1"/"yes"/"0"/"no"/"off" too, not just "true"/"false" — a superset
+      # of what ::SiteSetting.get's own cast already accepted, because an
+      # operator may already have typed one of those into an existing row.
+      # See the identical comment on SharedKnowledgeService for the full
+      # trace of how narrowing this to "true"/"false" only regressed a
+      # working "0" OFF into an accidental "garbage, fails toward ON".
+      def self.promote_cross_team_enabled?
+        setting = ::SiteSetting.find_by(key: PROMOTE_CROSS_TEAM_ENABLED_SETTING)
+        return true if setting.nil?
+
+        case setting.value.to_s.strip.downcase
+        when "true", "1", "yes" then true
+        when "false", "0", "no", "off" then false
+        else
+          Rails.logger.warn(
+            "[CompoundLearning] #{PROMOTE_CROSS_TEAM_ENABLED_SETTING}=#{setting.value.inspect} is not " \
+            "true/false; treating it as ON — OFF is the dangerous direction for this switch " \
+            "(silently stops cross-team promotion), so a garbage value fails toward ON, not OFF"
+          )
+          true
+        end
+      end
+
       def initialize(account:)
         @account = account
         @embedding_service = Ai::Memory::EmbeddingService.new(account: account)
@@ -289,6 +344,7 @@ module Ai
 
       def promote_cross_team(min_importance: 0.7)
         return 0 unless promotion_enabled?
+        return 0 unless self.class.promote_cross_team_enabled?
 
         candidates = Ai::CompoundLearning
           .for_account(@account.id)
@@ -365,7 +421,17 @@ module Ai
       # oldest-keeper pattern. Restricting to status active/verified makes
       # repeated runs idempotent — once collapsed, duplicates carry status
       # "superseded" and drop out of the group scope.
-      def dedup_promoted_copies(scope: nil)
+      # IMP-3c9a6dc8f0a9 — `dry_run:` added so the ai:dedup_promoted_learnings
+      # rake task can be brought under the same
+      # Ai::BulkPredicateMutation.resolve_accounts_for_rake!/
+      # enforce_aggregate_ceiling! guard as the predicate-scoped tasks below,
+      # rather than looping every account with no bound (operator directive:
+      # standardize, don't leave a partially-hardened file). This method's
+      # unit of work (a duplicate GROUP, collapsing to N-1 superseded rows)
+      # doesn't fit Ai::BulkPredicateMutation.call's per-row scope shape, so
+      # it is not routed through that module — dry_run here is a local,
+      # count-only preview instead.
+      def dedup_promoted_copies(scope: nil, dry_run: false)
         base = Ai::CompoundLearning
           .for_account(@account.id)
           .where(status: %w[active verified])
@@ -373,6 +439,11 @@ module Ai
         base = base.where(scope: scope) if scope.present?
 
         groups = base.group(:scope, :content).having("COUNT(*) > 1").count
+
+        if dry_run
+          would_collapse = groups.each_key.sum { |(dup_scope, content)| base.where(scope: dup_scope, content: content).count - 1 }
+          return { success: true, dry_run: true, count: would_collapse, groups: groups.size }
+        end
 
         collapsed = 0
         groups.each_key do |(dup_scope, content)|
@@ -632,45 +703,76 @@ module Ai
       end
 
       # ==================================================
-      # Lifecycle: Domain Retirement
+      # Predicate-scoped bulk retire / hard-delete (IMP-3c9a6dc8f0a9)
       # ==================================================
-
-      # Generic, domain-agnostic soft-retirement: excludes every learning
-      # tagged/domained under `domain` from injection, retrieval, and ranking
-      # by flipping status to "retired" (a status every surfacing query in
-      # this class already restricts away from — semantic_search, find_similar,
-      # keyword_search, and compound_metrics' active_base all scope to
-      # active/verified). Never hard-deletes; retired rows remain queryable
-      # via list_learnings(status: "retired") for audit.
       #
-      # Scoped to active/verified because those are the only statuses that
-      # ever surface (deprecated/superseded/disproven already carry their own
-      # audit semantics and are excluded from surfacing today) — retiring them
-      # too would just overwrite that history for no behavioral change.
+      # Generic, domain-agnostic soft-retirement: excludes matching learnings
+      # from injection, retrieval, and ranking by flipping status to "retired"
+      # (a status every surfacing query in this class already restricts away
+      # from — semantic_search, find_similar, keyword_search, and
+      # compound_metrics' active_base all scope to active/verified). Never
+      # hard-deletes; retired rows remain queryable via
+      # list_learnings(status: "retired") for audit.
       #
-      # First caller: retiring the purged trading/Kalshi domain (see
-      # lib/tasks/ai_learning.rake) — but this method takes domain as a
-      # parameter, not a hardcoded value, so any future domain retirement
-      # reuses it as-is.
-      def retire_domain!(domain, reason: nil)
-        return { success: false, error: "domain is required", retired_count: 0 } if domain.blank?
+      # This SUBSUMES the former #retire_domain!/ai:retire_learning_domain
+      # (deleted 2026-09-20, operator directive: always remove legacy support
+      # in favour of standardized platform capabilities) — `predicate: {
+      # domain: "..." }` reuses the same #in_domain scope and threads domain
+      # through to CompoundLearning#retire! so the recorded metadata is
+      # identical; see "subsumes retire_domain!" in
+      # compound_learning_service_spec.rb for the equivalence proof that
+      # licensed the deletion. The general predicate path additionally
+      # retires by status/category/extraction_method/min_importance/age/id —
+      # untagged rows retire_domain! could never reach — and a separate
+      # hard-delete exists for rows ALREADY retired or superseded. Same
+      # two-step, dry-run-first, hard-ceiling, audited shape as
+      # Ai::Memory::SharedKnowledgeService's knowledge-side pair — see that
+      # class's header comment for the full reasoning; not repeated here.
+      #
+      # @param predicate [Hash] anything #build_learnings_scope accepts
+      #   (status, category, scope, min_importance, team_id, extraction_method,
+      #   domain, created_before, ids). Only status IN active/verified rows
+      #   are ever retired — a predicate naming a different status matches
+      #   nothing, rather than silently re-retiring an already-retired row.
+      # @param dry_run [Boolean] default true.
+      # @param reason [String, nil] recorded on each retired row via the
+      #   existing CompoundLearning#retire! (metadata, not a new column).
+      # @param actor [User, nil] attributed on the audit log entry.
+      def retire_by_predicate!(predicate: {}, dry_run: true, reason: nil, actor: nil)
+        Ai::BulkPredicateMutation.validate_predicate!(predicate, allowed_keys: LEARNINGS_PREDICATE_KEYS)
+        scope = build_learnings_scope(predicate).where(status: %w[active verified])
+        domain = predicate[:domain]
 
-        scope = Ai::CompoundLearning
-          .for_account(@account.id)
-          .where(status: %w[active verified])
-          .in_domain(domain)
-
-        retired_count = 0
-        scope.find_each do |learning|
+        Ai::BulkPredicateMutation.call(
+          account: @account, scope: scope, dry_run: dry_run, actor: actor,
+          action: "ai.learning.bulk_retire", predicate: predicate,
+          serializer: ->(l) { { id: l.id, title: l.title, category: l.category } }, log_tag: "[CompoundLearning]"
+        ) do |learning|
           learning.retire!(domain: domain, reason: reason)
-          retired_count += 1
+          true
         end
+      end
 
-        Rails.logger.info("[CompoundLearning] Retired #{retired_count} learnings in domain '#{domain}' for account #{@account.id}")
-        { success: true, domain: domain, retired_count: retired_count }
-      rescue StandardError => e
-        Rails.logger.error("[CompoundLearning] Domain retirement failed for '#{domain}': #{e.message}")
-        { success: false, error: e.message, retired_count: 0 }
+      # The mandatory base (status IN retired/superseded) is NOT part of the
+      # caller-supplied predicate and cannot be widened past it — same
+      # irreversibility boundary as
+      # Ai::Memory::SharedKnowledgeService#hard_delete_archived!.
+      #
+      # @param predicate [Hash] the same optional keys as #retire_by_predicate!
+      #   further narrow the mandatory retired/superseded base; none can
+      #   remove it.
+      def hard_delete_retired_or_superseded!(predicate: {}, dry_run: true, actor: nil)
+        Ai::BulkPredicateMutation.validate_predicate!(predicate, allowed_keys: LEARNINGS_PREDICATE_KEYS)
+        scope = build_learnings_scope(predicate).where(status: %w[retired superseded])
+
+        Ai::BulkPredicateMutation.call(
+          account: @account, scope: scope, dry_run: dry_run, actor: actor,
+          action: "ai.learning.bulk_hard_delete", predicate: predicate,
+          serializer: ->(l) { { id: l.id, title: l.title, category: l.category } }, log_tag: "[CompoundLearning]"
+        ) do |learning|
+          learning.destroy!
+          true
+        end
       end
 
       # ==================================================
@@ -914,6 +1016,20 @@ module Ai
 
       SORTABLE_COLUMNS = %w[created_at importance_score effectiveness_score injection_count confidence_score updated_at].freeze
 
+      # IMP-3c9a6dc8f0a9 review round (blocker 3) — the keys the two
+      # DESTRUCTIVE predicate-scoped bulk methods (#retire_by_predicate!,
+      # #hard_delete_retired_or_superseded!) accept, validated via
+      # Ai::BulkPredicateMutation.validate_predicate! at THEIR call sites
+      # (not inside #build_learnings_scope itself). #build_learnings_scope
+      # is also #list_learnings/#count_learnings' shared filter builder,
+      # which legitimately passes unrelated keys (query, limit, offset,
+      # sort_by, sort_dir) and where a blank filter value meaning "no filter
+      # on this dimension" is the correct, lenient read-path behaviour —
+      # validating strictly THERE would break both. Strictness belongs at
+      # the destructive entry points, not the shared field-application
+      # logic both paths reuse.
+      LEARNINGS_PREDICATE_KEYS = %i[status category scope min_importance team_id extraction_method domain created_before ids].freeze
+
       def build_learnings_scope(filters)
         scope = Ai::CompoundLearning.for_account(@account.id)
         scope = scope.where(status: filters[:status]) if filters[:status].present?
@@ -921,6 +1037,23 @@ module Ai
         scope = scope.where(scope: filters[:scope]) if filters[:scope].present?
         scope = scope.where("importance_score >= ?", filters[:min_importance]) if filters[:min_importance].present?
         scope = scope.for_team(filters[:team_id]) if filters[:team_id].present?
+        # IMP-3c9a6dc8f0a9 — added for the predicate-scoped bulk retire/
+        # hard-delete tooling. `extraction_method`, NOT `source_type` —
+        # ai_compound_learnings has no source_type column (confirmed against
+        # db/schema.rb); report-platform.md §9's `WHERE source_type='...'`
+        # SQL would raise PG::UndefinedColumn as written.
+        scope = scope.where(extraction_method: filters[:extraction_method]) if filters[:extraction_method].present?
+        scope = scope.where("created_at < ?", filters[:created_before]) if filters[:created_before].present?
+        scope = scope.where(id: filters[:ids]) if filters[:ids].present?
+        # IMP-3c9a6dc8f0a9 (operator directive — always remove legacy support
+        # in favour of standardized platform capabilities) — reuses the
+        # existing #in_domain scope (tags/applicable_domains JSONB
+        # containment) rather than re-deriving it, so the predicate path can
+        # fully express what the now-deleted #retire_domain!/
+        # ai:retire_learning_domain did. See the equivalence spec in
+        # compound_learning_service_spec.rb ("subsumes retire_domain!") —
+        # that spec, not this comment, is what licenses the deletion.
+        scope = scope.in_domain(filters[:domain]) if filters[:domain].present?
         scope
       end
 

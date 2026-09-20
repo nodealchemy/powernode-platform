@@ -85,6 +85,67 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
         )
       }.to raise_error(ArgumentError, /Invalid access_level/)
     end
+
+    # IMP-3c9a6dc8f0a9 — prerequisite for the bulk-archive tooling this task
+    # ships: the dedup check's `exists?` guard and `nearest_neighbors` scope
+    # carried no `.not_archived`, so an archived row could still refuse a
+    # brand-new create as a "duplicate" — and the refusal called
+    # `existing.touch_usage!` on the archived row FIRST, silently resurrecting
+    # its usage stats. Today that is a handful of rows; after this task's
+    # purge archives ~6,250 rows, every one becomes a landmine.
+    context "against an archived near-duplicate" do
+      it "succeeds instead of refusing as a duplicate" do
+        first = service.create(
+          title: "Archived Duplicate Source",
+          content: "This is the original content that will be archived.",
+          content_type: "text",
+          access_level: "team"
+        )
+        service.archive(entry_id: first[:entry][:id])
+
+        result = service.create(
+          title: "Archived Duplicate Source Copy",
+          content: "This is nearly identical content, post-archive.",
+          content_type: "text",
+          access_level: "team"
+        )
+
+        expect(result[:success]).to be true
+        expect(result[:entry]).to be_present
+      end
+
+      # THE RESURRECTION, not just the refusal. Proving the create succeeds
+      # is not enough on its own — the old code could in principle succeed
+      # for an unrelated reason while still having touched the archived row
+      # on the way. This asserts the archived row's own usage_count/
+      # last_used_at never moved, which is the specific corruption the
+      # operator flagged: a false duplicate silently boosting the usage
+      # signal of something already archived, poisoning the very metric a
+      # future rot pass would use to decide what to keep.
+      it "does not touch_usage! the archived row" do
+        first = service.create(
+          title: "Archived Duplicate Source",
+          content: "This is the original content that will be archived.",
+          content_type: "text",
+          access_level: "team"
+        )
+        archived_entry = Ai::SharedKnowledge.find(first[:entry][:id])
+        service.archive(entry_id: archived_entry.id)
+        usage_before = archived_entry.reload.usage_count
+        last_used_before = archived_entry.last_used_at
+
+        service.create(
+          title: "Archived Duplicate Source Copy",
+          content: "This is nearly identical content, post-archive.",
+          content_type: "text",
+          access_level: "team"
+        )
+
+        archived_entry.reload
+        expect(archived_entry.usage_count).to eq(usage_before)
+        expect(archived_entry.last_used_at).to eq(last_used_before)
+      end
+    end
   end
 
   # ===========================================================================
@@ -352,6 +413,256 @@ RSpec.describe Ai::Memory::SharedKnowledgeService, type: :service do
 
       expect(result[:success]).to be false
       expect(result[:error]).to include("not found")
+    end
+  end
+
+  # ===========================================================================
+  # archive_by_predicate! / hard_delete_archived! (IMP-3c9a6dc8f0a9)
+  # ===========================================================================
+
+  describe "#archive_by_predicate!" do
+    let!(:trading_entries) { create_list(:ai_shared_knowledge, 3, account: account, source_type: "import", tags: ["trading"]) }
+    let!(:other_entry) { create(:ai_shared_knowledge, account: account, source_type: "manual", tags: ["keep"]) }
+
+    it "defaults to dry_run and mutates nothing" do
+      result = service.archive_by_predicate!(predicate: { source_type: "import" })
+
+      expect(result[:success]).to be true
+      expect(result[:dry_run]).to be true
+      expect(result[:count]).to eq(3)
+      trading_entries.each { |e| expect(e.reload.provenance["archived"]).not_to eq(true) }
+    end
+
+    it "reports the count and a first-3/last-1 sample without mutating" do
+      result = service.archive_by_predicate!(predicate: { source_type: "import" }, dry_run: true)
+
+      expect(result[:sample].size).to eq(3) # only 3 matches, first3+last1 dedupes to 3
+      expect(result[:sample].map { |s| s[:id] }).to match_array(trading_entries.map(&:id))
+    end
+
+    it "archives only the matching rows when dry_run: false" do
+      result = service.archive_by_predicate!(predicate: { source_type: "import" }, dry_run: false)
+
+      expect(result[:success]).to be true
+      expect(result[:dry_run]).to be false
+      expect(result[:count]).to eq(3)
+      trading_entries.each { |e| expect(e.reload.provenance["archived"]).to be true }
+      expect(other_entry.reload.provenance["archived"]).not_to eq(true)
+    end
+
+    it "refuses rather than truncates when the predicate exceeds MAX_BULK_PER_CALL" do
+      stub_const("Ai::BulkPredicateMutation::MAX_BULK_PER_CALL", 2)
+
+      result = service.archive_by_predicate!(predicate: { source_type: "import" }, dry_run: false)
+
+      expect(result[:success]).to be false
+      expect(result[:count]).to eq(3)
+      expect(result[:ceiling]).to eq(2)
+      trading_entries.each { |e| expect(e.reload.provenance["archived"]).not_to eq(true) }
+    end
+
+    it "writes a tamper-evident audit log entry on a real run, not on a dry run" do
+      expect { service.archive_by_predicate!(predicate: { source_type: "import" }, dry_run: true) }
+        .not_to change(AuditLog, :count)
+
+      expect { service.archive_by_predicate!(predicate: { source_type: "import" }, dry_run: false) }
+        .to change(AuditLog, :count).by(1)
+
+      log = AuditLog.last
+      expect(log.metadata["dry_run"]).to eq(false)
+      expect(log.metadata["affected_count"]).to eq(3)
+      expect(log.metadata["affected_ids"]).to match_array(trading_entries.map(&:id))
+    end
+
+    # IMP-3c9a6dc8f0a9 review round (BLOCKER 3) — a predicate key the caller
+    # supplied but the builder silently ignored used to fall through as "no
+    # filter on this dimension" (matching EVERY row) rather than an error.
+    # Verified by execution against the shape that FIRES the guard, not the
+    # shape that makes it pass — a valid predicate proves nothing about
+    # this defect class.
+    describe "a predicate key present with a value the builder cannot honor" do
+      it "raises rather than silently matching every row for a blank value" do
+        expect {
+          service.archive_by_predicate!(predicate: { source_type: "" }, dry_run: false)
+        }.to raise_error(ArgumentError, /source_type.*blank/)
+        trading_entries.each { |e| expect(e.reload.provenance["archived"]).not_to eq(true) }
+      end
+
+      it "raises on an unrecognised predicate key rather than ignoring it" do
+        expect {
+          service.archive_by_predicate!(predicate: { nonsense_key: 1 }, dry_run: false)
+        }.to raise_error(ArgumentError, /Unknown predicate key/)
+      end
+
+      it "raises when :tags is given as a String instead of an Array, rather than dropping the filter" do
+        expect {
+          service.archive_by_predicate!(predicate: { tags: "trading" }, dry_run: false)
+        }.to raise_error(ArgumentError, /tags.*must be an Array/)
+        trading_entries.each { |e| expect(e.reload.provenance["archived"]).not_to eq(true) }
+      end
+
+      it "raises on an empty :tags array rather than matching every row" do
+        expect {
+          service.archive_by_predicate!(predicate: { tags: [] }, dry_run: false)
+        }.to raise_error(ArgumentError, /tags.*blank/)
+      end
+    end
+  end
+
+  describe "#hard_delete_archived!" do
+    let!(:archived_entries) do
+      create_list(:ai_shared_knowledge, 2, account: account, tags: ["trading"],
+                                            provenance: { "archived" => true, "archived_at" => 40.days.ago.iso8601 })
+    end
+    let!(:not_yet_archived) { create(:ai_shared_knowledge, account: account, tags: ["trading"]) }
+
+    it "only ever matches already-archived rows, even with no predicate" do
+      result = service.hard_delete_archived!(dry_run: true)
+
+      expect(result[:count]).to eq(2)
+      expect(Ai::SharedKnowledge.where(id: not_yet_archived.id)).to exist
+    end
+
+    it "defaults to dry_run and destroys nothing" do
+      result = service.hard_delete_archived!(predicate: { tags: ["trading"] })
+
+      expect(result[:dry_run]).to be true
+      expect(Ai::SharedKnowledge.where(id: archived_entries.map(&:id)).count).to eq(2)
+    end
+
+    it "hard-deletes only the matching already-archived rows when dry_run: false" do
+      result = service.hard_delete_archived!(predicate: { tags: ["trading"] }, dry_run: false)
+
+      expect(result[:success]).to be true
+      expect(result[:count]).to eq(2)
+      expect(Ai::SharedKnowledge.where(id: archived_entries.map(&:id))).not_to exist
+      expect(Ai::SharedKnowledge.where(id: not_yet_archived.id)).to exist
+    end
+
+    it "narrows further via archived_before but cannot widen past the archived-only base" do
+      recently_archived = create(:ai_shared_knowledge, account: account, tags: ["trading"],
+                                                         provenance: { "archived" => true, "archived_at" => 1.day.ago.iso8601 })
+
+      result = service.hard_delete_archived!(predicate: { tags: ["trading"], archived_before: 7.days.ago }, dry_run: false)
+
+      expect(result[:count]).to eq(2)
+      expect(Ai::SharedKnowledge.where(id: archived_entries.map(&:id))).not_to exist
+      expect(Ai::SharedKnowledge.where(id: recently_archived.id)).to exist
+      expect(Ai::SharedKnowledge.where(id: not_yet_archived.id)).to exist
+    end
+
+    # IMP-3c9a6dc8f0a9 review round — proven through THIS real call site, not
+    # only Ai::BulkPredicateMutation in isolation: a mid-loop raise (an FK
+    # constraint, say) on this destructive path used to skip the audit write
+    # entirely and abort the whole run. See bulk_predicate_mutation_spec.rb
+    # for the module-level oracle; this is the end-to-end one.
+    it "destroys the other matching rows and audits the partial run when one row's destroy! raises" do
+      third = create(:ai_shared_knowledge, account: account, tags: ["trading"],
+                                            provenance: { "archived" => true, "archived_at" => 40.days.ago.iso8601 })
+      raiser = archived_entries.first
+      allow_any_instance_of(Ai::SharedKnowledge).to receive(:destroy!) do |instance|
+        raise ActiveRecord::RecordNotDestroyed, "simulated FK constraint" if instance.id == raiser.id
+
+        instance.delete
+      end
+
+      result = service.hard_delete_archived!(predicate: { tags: ["trading"] }, dry_run: false)
+
+      expect(result[:success]).to be true
+      expect(result[:count]).to eq(2)
+      expect(result[:failed]).to eq(1)
+      expect(Ai::SharedKnowledge.where(id: raiser.id)).to exist
+      expect(Ai::SharedKnowledge.where(id: [archived_entries.last.id, third.id])).not_to exist
+
+      log = AuditLog.where(action: "ai.knowledge.bulk_hard_delete").last
+      expect(log).to be_present
+      expect(log.metadata["affected_count"]).to eq(2)
+      expect(log.metadata["failed"]).to eq(1)
+      expect(log.metadata["row_errors"].first["error"]).to include("simulated FK constraint")
+    end
+  end
+
+  # ===========================================================================
+  # import_from_learnings kill switch (IMP-3c9a6dc8f0a9)
+  # ===========================================================================
+
+  describe "#import_from_learnings kill switch" do
+    let!(:learning) { create(:ai_compound_learning, account: account, status: "active", importance_score: 0.9) }
+
+    it "runs the producer when the setting is absent (default ON)" do
+      expect(SiteSetting.get("ai.knowledge_purge.import_from_learnings_enabled")).to be_nil
+
+      result = service.import_from_learnings(min_importance: 0.5)
+
+      expect(result[:skipped_reason]).to be_nil
+      expect(result[:imported]).to eq(1)
+    end
+
+    it "skips the producer when the setting is explicitly false" do
+      SiteSetting.set("ai.knowledge_purge.import_from_learnings_enabled", "false")
+
+      result = service.import_from_learnings(min_importance: 0.5)
+
+      expect(result[:success]).to be true
+      expect(result[:imported]).to eq(0)
+      expect(result[:skipped_reason]).to eq("kill_switch")
+    end
+
+    it "fails toward ON (not OFF) for a garbage value, inverted from EvaluationService" do
+      SiteSetting.set("ai.knowledge_purge.import_from_learnings_enabled", "maybe")
+      allow(Rails.logger).to receive(:warn)
+
+      result = service.import_from_learnings(min_importance: 0.5)
+
+      expect(result[:imported]).to eq(1)
+      expect(Rails.logger).to have_received(:warn).with(a_string_including("treating it as ON"))
+    end
+
+    # IMP-3c9a6dc8f0a9 review round (blocker 4) — the shape that FIRES the
+    # guard: a row typed "boolean" (not the default "string" every other
+    # example here uses) with a garbage value. ::SiteSetting.get casts a
+    # boolean-typed row's value via `.downcase.in?(%w[true 1 yes])` BEFORE
+    # this method ever sees it — a typo collapses straight to Ruby `false`,
+    # indistinguishable from a deliberate false, so the fail-toward-ON
+    # parsing silently never ran on it. Reading SiteSetting#value directly
+    # (this method's fix) is what makes this pass.
+    it "still fails toward ON for a garbage value on a setting_type: boolean row" do
+      SiteSetting.set("ai.knowledge_purge.import_from_learnings_enabled", "ture", setting_type: "boolean")
+      allow(Rails.logger).to receive(:warn)
+
+      result = service.import_from_learnings(min_importance: 0.5)
+
+      expect(result[:imported]).to eq(1)
+      expect(Rails.logger).to have_received(:warn).with(a_string_including("treating it as ON"))
+    end
+
+    # IMP-3c9a6dc8f0a9 review round — REGRESSION: the blocker-4 fix's first
+    # draft accepted only "true"/"false", narrower than what
+    # ::SiteSetting.get's own cast already accepted
+    # (`value.to_s.downcase.in?(%w[true 1 yes])`). An operator who had
+    # already typed "0" into a boolean-typed row got a correctly-working
+    # OFF before that fix and an ACCIDENTAL ON after it — "0" is neither
+    # "true" nor "false", so it hit the garbage branch. Not the
+    # "shape that fires the guard" for the ORIGINAL blocker-4 defect (that's
+    # the example above) — this is the shape that fires the REGRESSION the
+    # fix itself introduced. Not previously exercised: none of the existing
+    # examples use "0"/"1"/"no"/"yes"/"off".
+    it "still respects an explicit OFF written as \"0\" on a setting_type: boolean row" do
+      SiteSetting.set("ai.knowledge_purge.import_from_learnings_enabled", "0", setting_type: "boolean")
+
+      result = service.import_from_learnings(min_importance: 0.5)
+
+      expect(result[:imported]).to eq(0)
+      expect(result[:skipped_reason]).to eq("kill_switch")
+    end
+
+    it "still respects an explicit OFF written as \"off\" on a setting_type: string row" do
+      SiteSetting.set("ai.knowledge_purge.import_from_learnings_enabled", "off")
+
+      result = service.import_from_learnings(min_importance: 0.5)
+
+      expect(result[:imported]).to eq(0)
+      expect(result[:skipped_reason]).to eq("kill_switch")
     end
   end
 

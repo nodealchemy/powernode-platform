@@ -26,7 +26,9 @@ module Ai
         "create_knowledge" => "ai.memory.write",
         "update_knowledge" => "ai.memory.write",
         "promote_knowledge" => "ai.memory.write",
-        "delete_knowledge" => "ai.memory.write"
+        "delete_knowledge" => "ai.memory.write",
+        "archive_by_predicate" => "ai.memory.write",
+        "hard_delete_archived" => "ai.memory.write"
       }.freeze
 
 
@@ -37,6 +39,12 @@ module Ai
       declare_action "create_knowledge", mutating: true
       declare_action "delete_knowledge", mutating: true, destructive: true
       declare_action "promote_knowledge", mutating: true
+      # IMP-3c9a6dc8f0a9 — dry_run: true is the CALLER'S default too (matches
+      # the service methods' own default); a dry-run call does not mutate
+      # anything, so `destructive: true` describes the SHAPE this action can
+      # take, not every invocation of it.
+      declare_action "archive_by_predicate", mutating: true, destructive: true
+      declare_action "hard_delete_archived", mutating: true, destructive: true
       declare_action "search_knowledge", mutating: false
       declare_action "update_knowledge", mutating: true
 
@@ -102,6 +110,39 @@ module Ai
               entry_id: { type: "string", required: true, description: "Knowledge entry ID to delete" },
               hard_delete: { type: "boolean", required: false, description: "Permanently destroy instead of archiving (default: false)" }
             }
+          },
+          "archive_by_predicate" => {
+            description: "Predicate-scoped bulk archive (soft, reversible) of shared knowledge entries. " \
+                         "dry_run defaults to true — returns the count and a first-3/last-1 sample without " \
+                         "mutating anything; pass dry_run: false to actually archive. Refuses (does not " \
+                         "truncate) if the predicate matches more than the per-call ceiling.",
+            parameters: {
+              source_type: { type: "string", required: false, description: "Filter by source_type" },
+              content_type: { type: "string", required: false, description: "Filter by content_type" },
+              access_level: { type: "string", required: false, description: "Filter by access_level" },
+              tags: { type: "array", required: false, description: "Filter: matches any of the given tags" },
+              imported_from: { type: "string", required: false, description: "Filter by provenance.imported_from" },
+              created_before: { type: "string", required: false, description: "Filter: created_at before this ISO8601 timestamp" },
+              ids: { type: "array", required: false, description: "Filter: restrict to these entry ids" },
+              dry_run: { type: "boolean", required: false, description: "Default true — preview only, no mutation" }
+            }
+          },
+          "hard_delete_archived" => {
+            description: "Hard-delete (irreversible) shared knowledge entries that are ALREADY archived. " \
+                         "The predicate can only narrow this fixed base, never widen past it — a row that " \
+                         "is not archived is never matched, whatever the predicate says. dry_run defaults " \
+                         "to true.",
+            parameters: {
+              source_type: { type: "string", required: false, description: "Filter by source_type" },
+              content_type: { type: "string", required: false, description: "Filter by content_type" },
+              access_level: { type: "string", required: false, description: "Filter by access_level" },
+              tags: { type: "array", required: false, description: "Filter: matches any of the given tags" },
+              imported_from: { type: "string", required: false, description: "Filter by provenance.imported_from" },
+              created_before: { type: "string", required: false, description: "Filter: created_at before this ISO8601 timestamp" },
+              archived_before: { type: "string", required: false, description: "Filter: archived_at before this ISO8601 timestamp" },
+              ids: { type: "array", required: false, description: "Filter: restrict to these entry ids" },
+              dry_run: { type: "boolean", required: false, description: "Default true — preview only, no mutation" }
+            }
           }
         }
       end
@@ -125,6 +166,8 @@ module Ai
         when "update_knowledge" then update_knowledge(params)
         when "promote_knowledge" then promote_knowledge(params)
         when "delete_knowledge" then delete_knowledge(params)
+        when "archive_by_predicate" then archive_by_predicate(params)
+        when "hard_delete_archived" then hard_delete_archived(params)
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       end
@@ -233,6 +276,42 @@ module Ai
         end
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Knowledge entry not found: #{params[:entry_id]}" }
+      end
+
+      # IMP-3c9a6dc8f0a9 — predicate-scoped bulk archive/hard-delete. Thin
+      # wrappers: all dry-run/ceiling/audit behaviour lives in
+      # Ai::Memory::SharedKnowledgeService, tested there. `dry_run` defaults
+      # to true here too (params[:dry_run] == false is the only way to
+      # mutate — an absent, nil, or truthy-but-not-literal-false value stays
+      # a preview).
+      def archive_by_predicate(params)
+        knowledge_service.archive_by_predicate!(
+          predicate: bulk_predicate_from(params),
+          dry_run: params[:dry_run] != false,
+          actor: user
+        )
+      end
+
+      def hard_delete_archived(params)
+        knowledge_service.hard_delete_archived!(
+          predicate: bulk_predicate_from(params).merge(
+            archived_before: params[:archived_before]
+          ).compact,
+          dry_run: params[:dry_run] != false,
+          actor: user
+        )
+      end
+
+      def bulk_predicate_from(params)
+        {
+          source_type: params[:source_type],
+          content_type: params[:content_type],
+          access_level: params[:access_level],
+          tags: normalize_tags(params[:tags]).presence,
+          imported_from: params[:imported_from],
+          created_before: params[:created_before],
+          ids: Array(params[:ids]).presence
+        }.compact
       end
 
       def next_access_level(entry_id)

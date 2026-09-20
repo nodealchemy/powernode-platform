@@ -352,7 +352,7 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
                           content: "caching queries pattern", importance_score: 0.9)
         trading = create(:ai_compound_learning, account: account, status: "active", tags: ["trading"],
                          content: "caching queries trading pattern", importance_score: 0.95)
-        service.retire_domain!("trading")
+        service.retire_by_predicate!(predicate: { domain: "trading" }, dry_run: false)
 
         results = service.top_relevant_learnings(task_description: "caching queries trading pattern")
 
@@ -610,6 +610,236 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
         ).to exist
       end
 
+      # IMP-3c9a6dc8f0a9 — the SiteSetting kill switch, layered ALONGSIDE the
+      # Flipper flag stubbed to true by this context (both must be true).
+      context "SiteSetting kill switch" do
+        it "promotes when the setting is absent (default ON)" do
+          expect(SiteSetting.get("ai.knowledge_purge.promote_cross_team_enabled")).to be_nil
+
+          candidate = create(:ai_compound_learning, account: account, scope: "team",
+                              status: "active", importance_score: 0.8, confidence_score: 0.8,
+                              access_count: 2)
+
+          expect(service.promote_cross_team).to eq(1)
+          expect(
+            Ai::CompoundLearning.global_scope.for_account(account.id)
+              .where("metadata->>'original_id' = ?", candidate.id.to_s)
+          ).to exist
+        end
+
+        it "skips promotion when the setting is explicitly false, even though Flipper is on" do
+          SiteSetting.set("ai.knowledge_purge.promote_cross_team_enabled", "false")
+          create(:ai_compound_learning, account: account, scope: "team",
+                 status: "active", importance_score: 0.8, confidence_score: 0.8, access_count: 2)
+
+          expect(service.promote_cross_team).to eq(0)
+          expect(Ai::CompoundLearning.global_scope.for_account(account.id)).not_to exist
+        end
+
+        it "fails toward ON (not OFF) for a garbage value, inverted from EvaluationService" do
+          SiteSetting.set("ai.knowledge_purge.promote_cross_team_enabled", "maybe")
+          candidate = create(:ai_compound_learning, account: account, scope: "team",
+                              status: "active", importance_score: 0.8, confidence_score: 0.8,
+                              access_count: 2)
+
+          expect(service.promote_cross_team).to eq(1)
+          expect(Rails.logger).to have_received(:warn).with(a_string_including("treating it as ON"))
+        end
+
+        # IMP-3c9a6dc8f0a9 review round (blocker 4) — the shape that FIRES
+        # the guard: a row typed "boolean" with a garbage value.
+        # ::SiteSetting.get casts a boolean-typed row's value BEFORE this
+        # method ever sees it — a typo collapses straight to Ruby `false`,
+        # so the fail-toward-ON parsing silently never ran on it. Reading
+        # SiteSetting#value directly (this method's fix) is what makes this
+        # pass; see the identical case on
+        # Ai::Memory::SharedKnowledgeService#import_from_learnings_enabled?.
+        it "still fails toward ON for a garbage value on a setting_type: boolean row" do
+          SiteSetting.set("ai.knowledge_purge.promote_cross_team_enabled", "ture", setting_type: "boolean")
+          candidate = create(:ai_compound_learning, account: account, scope: "team",
+                              status: "active", importance_score: 0.8, confidence_score: 0.8,
+                              access_count: 2)
+
+          expect(service.promote_cross_team).to eq(1)
+          expect(Rails.logger).to have_received(:warn).with(a_string_including("treating it as ON"))
+        end
+
+        # IMP-3c9a6dc8f0a9 review round — REGRESSION: see the identical
+        # example on SharedKnowledgeService for the full trace. "0" on a
+        # boolean-typed row must still mean OFF, not "garbage -> ON".
+        it "still respects an explicit OFF written as \"0\" on a setting_type: boolean row" do
+          SiteSetting.set("ai.knowledge_purge.promote_cross_team_enabled", "0", setting_type: "boolean")
+          create(:ai_compound_learning, account: account, scope: "team",
+                 status: "active", importance_score: 0.8, confidence_score: 0.8, access_count: 2)
+
+          expect(service.promote_cross_team).to eq(0)
+        end
+      end
+    end
+  end
+
+  describe "#retire_by_predicate!" do
+    it "defaults to dry_run and mutates nothing" do
+      trading = create_list(:ai_compound_learning, 3, account: account, status: "active", extraction_method: "trading_session")
+      create(:ai_compound_learning, account: account, status: "active", extraction_method: "auto_success")
+
+      result = service.retire_by_predicate!(predicate: { extraction_method: "trading_session" })
+
+      expect(result[:success]).to be true
+      expect(result[:dry_run]).to be true
+      expect(result[:count]).to eq(3)
+      trading.each { |l| expect(l.reload.status).to eq("active") }
+    end
+
+    it "retires only the matching rows when dry_run: false, and records the reason" do
+      trading = create_list(:ai_compound_learning, 2, account: account, status: "active", extraction_method: "trading_session")
+      other = create(:ai_compound_learning, account: account, status: "active", extraction_method: "auto_success")
+
+      result = service.retire_by_predicate!(predicate: { extraction_method: "trading_session" },
+                                             dry_run: false, reason: "out of scope")
+
+      expect(result[:success]).to be true
+      expect(result[:count]).to eq(2)
+      trading.each do |l|
+        l.reload
+        expect(l.status).to eq("retired")
+        expect(l.metadata["retired_reason"]).to eq("out of scope")
+      end
+      expect(other.reload.status).to eq("active")
+    end
+
+    it "retires an untagged row that #retire_domain! could never reach" do
+      untagged = create(:ai_compound_learning, account: account, status: "active", tags: [], applicable_domains: [])
+
+      result = service.retire_by_predicate!(predicate: { extraction_method: untagged.extraction_method }, dry_run: false)
+
+      expect(result[:count]).to eq(1)
+      expect(untagged.reload.status).to eq("retired")
+    end
+
+    it "only ever retires active/verified rows, even if the predicate matches a different status" do
+      already_retired = create(:ai_compound_learning, :retired, account: account, extraction_method: "trading_session")
+
+      result = service.retire_by_predicate!(predicate: { extraction_method: "trading_session", status: "retired" }, dry_run: false)
+
+      expect(result[:count]).to eq(0)
+      expect(already_retired.reload.status).to eq("retired")
+    end
+
+    it "refuses rather than truncates when the predicate exceeds MAX_BULK_PER_CALL" do
+      stub_const("Ai::BulkPredicateMutation::MAX_BULK_PER_CALL", 2)
+      trading = create_list(:ai_compound_learning, 3, account: account, status: "active", extraction_method: "trading_session")
+
+      result = service.retire_by_predicate!(predicate: { extraction_method: "trading_session" }, dry_run: false)
+
+      expect(result[:success]).to be false
+      expect(result[:count]).to eq(3)
+      expect(result[:ceiling]).to eq(2)
+      trading.each { |l| expect(l.reload.status).to eq("active") }
+    end
+
+    it "writes a tamper-evident audit log entry on a real run, not on a dry run" do
+      create(:ai_compound_learning, account: account, status: "active", extraction_method: "trading_session")
+
+      expect { service.retire_by_predicate!(predicate: { extraction_method: "trading_session" }, dry_run: true) }
+        .not_to change(AuditLog, :count)
+
+      expect { service.retire_by_predicate!(predicate: { extraction_method: "trading_session" }, dry_run: false) }
+        .to change(AuditLog, :count).by(1)
+
+      log = AuditLog.last
+      expect(log.metadata["dry_run"]).to eq(false)
+      expect(log.metadata["affected_count"]).to eq(1)
+    end
+
+    # IMP-3c9a6dc8f0a9 review round (BLOCKER 3) — a predicate key present
+    # but ignored used to fall through as "no filter" (matching EVERY row)
+    # rather than an error. This is specifically the re-hosted guard:
+    # #retire_domain! had `return ... if domain.blank?`; that guard was NOT
+    # carried over when the predicate path replaced it — a real gap the
+    # first equivalence spec's own re-derivation could not catch (it
+    # exercised only a non-blank domain). Verified by execution against the
+    # shape that FIRES the guard.
+    describe "a predicate key present with a value the builder cannot honor" do
+      it "raises rather than silently retiring every active/verified row for a blank domain" do
+        untouched = create(:ai_compound_learning, account: account, status: "active", extraction_method: "auto_success")
+
+        expect {
+          service.retire_by_predicate!(predicate: { domain: "" }, dry_run: false)
+        }.to raise_error(ArgumentError, /domain.*blank/)
+        expect(untouched.reload.status).to eq("active")
+      end
+
+      it "raises on an unrecognised predicate key rather than ignoring it" do
+        expect {
+          service.retire_by_predicate!(predicate: { nonsense_key: 1 }, dry_run: false)
+        }.to raise_error(ArgumentError, /Unknown predicate key/)
+      end
+    end
+  end
+
+  describe "#hard_delete_retired_or_superseded!" do
+    it "only ever matches retired/superseded rows, even with no predicate" do
+      retired = create(:ai_compound_learning, :retired, account: account)
+      superseded = create(:ai_compound_learning, account: account, status: "superseded")
+      active = create(:ai_compound_learning, account: account, status: "active")
+
+      result = service.hard_delete_retired_or_superseded!(dry_run: true)
+
+      expect(result[:count]).to eq(2)
+      expect(Ai::CompoundLearning.where(id: active.id)).to exist
+      [retired, superseded].each { |l| expect(Ai::CompoundLearning.where(id: l.id)).to exist }
+    end
+
+    it "defaults to dry_run and destroys nothing" do
+      retired = create(:ai_compound_learning, :retired, account: account, extraction_method: "trading_session")
+
+      result = service.hard_delete_retired_or_superseded!(predicate: { extraction_method: "trading_session" })
+
+      expect(result[:dry_run]).to be true
+      expect(Ai::CompoundLearning.where(id: retired.id)).to exist
+    end
+
+    it "hard-deletes only the matching already-retired/superseded rows when dry_run: false" do
+      retired = create(:ai_compound_learning, :retired, account: account, extraction_method: "trading_session")
+      active_same_method = create(:ai_compound_learning, account: account, status: "active", extraction_method: "trading_session")
+
+      result = service.hard_delete_retired_or_superseded!(predicate: { extraction_method: "trading_session" }, dry_run: false)
+
+      expect(result[:success]).to be true
+      expect(result[:count]).to eq(1)
+      expect(Ai::CompoundLearning.where(id: retired.id)).not_to exist
+      expect(Ai::CompoundLearning.where(id: active_same_method.id)).to exist
+    end
+
+    # IMP-3c9a6dc8f0a9 review round — proven through THIS real call site, not
+    # only Ai::BulkPredicateMutation in isolation. Worse on this side pre-fix
+    # than the knowledge one: #retire_by_predicate!'s block (learning.retire!)
+    # can also raise, so even the NON-destructive half used to abort silently
+    # here. See bulk_predicate_mutation_spec.rb for the module-level oracle.
+    it "destroys the other matching rows and audits the partial run when one row's destroy! raises" do
+      retired = create_list(:ai_compound_learning, 2, :retired, account: account, extraction_method: "trading_session")
+      third = create(:ai_compound_learning, status: "superseded", account: account, extraction_method: "trading_session")
+      raiser = retired.first
+      allow_any_instance_of(Ai::CompoundLearning).to receive(:destroy!) do |instance|
+        raise ActiveRecord::RecordNotDestroyed, "simulated FK constraint" if instance.id == raiser.id
+
+        instance.delete
+      end
+
+      result = service.hard_delete_retired_or_superseded!(predicate: { extraction_method: "trading_session" }, dry_run: false)
+
+      expect(result[:success]).to be true
+      expect(result[:count]).to eq(2)
+      expect(result[:failed]).to eq(1)
+      expect(Ai::CompoundLearning.where(id: raiser.id)).to exist
+      expect(Ai::CompoundLearning.where(id: [retired.last.id, third.id])).not_to exist
+
+      log = AuditLog.where(action: "ai.learning.bulk_hard_delete").last
+      expect(log).to be_present
+      expect(log.metadata["affected_count"]).to eq(2)
+      expect(log.metadata["failed"]).to eq(1)
+      expect(log.metadata["row_errors"].first["error"]).to include("simulated FK constraint")
     end
   end
 
@@ -686,6 +916,35 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
 
       expect(result[:success]).to eq(false)
       expect(result[:collapsed]).to eq(0)
+    end
+
+    # IMP-3c9a6dc8f0a9 — dry_run added so ai:dedup_promoted_learnings could be
+    # brought under Ai::BulkPredicateMutation.resolve_accounts_for_rake!/
+    # enforce_aggregate_ceiling! (same guard as the predicate-scoped tasks).
+    context "dry_run: true" do
+      it "reports the would-be collapse count without mutating anything" do
+        keeper = create(:ai_compound_learning, account: account, scope: "global", status: "active",
+                         content: "Promotion-optimal training session design", promoted_at: 2.days.ago,
+                         created_at: 2.days.ago)
+        dup = create(:ai_compound_learning, account: account, scope: "global", status: "active",
+                      content: "Promotion-optimal training session design", promoted_at: 1.day.ago,
+                      created_at: 1.day.ago)
+
+        result = service.dedup_promoted_copies(dry_run: true)
+
+        expect(result).to include(success: true, dry_run: true, count: 1, groups: 1)
+        expect(keeper.reload.status).to eq("active")
+        expect(dup.reload.status).to eq("active")
+      end
+
+      it "reports zero for no duplicates, still mutating nothing" do
+        create(:ai_compound_learning, account: account, scope: "global", status: "active",
+               content: "Unique promoted content", promoted_at: 1.day.ago)
+
+        result = service.dedup_promoted_copies(dry_run: true)
+
+        expect(result).to include(success: true, dry_run: true, count: 0)
+      end
     end
   end
 
@@ -1053,49 +1312,50 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
     end
   end
 
-  describe "#retire_domain!" do
-    it "returns an error and retires nothing when domain is blank" do
-      result = service.retire_domain!("")
-
-      expect(result).to eq(success: false, error: "domain is required", retired_count: 0)
-    end
-
-    it "retires learnings tagged with the given domain, by tag or applicable_domains" do
+  # IMP-3c9a6dc8f0a9 (operator directive: always remove legacy support in
+  # favour of standardized platform capabilities) — #retire_domain! and
+  # ai:retire_learning_domain were DELETED 2026-09-20;
+  # #retire_by_predicate!(predicate: { domain: ... }) fully subsumes them.
+  # The first example is the equivalence proof that licensed the deletion
+  # (same row set #retire_domain! would have selected, same recorded
+  # metadata); the rest re-hosts the domain-retirement behavioral coverage
+  # that used to live directly under #retire_domain!, now exercised through
+  # the predicate path instead.
+  describe "#retire_by_predicate! (predicate: { domain: ... }) — subsumes retire_domain!" do
+    it "subsumes retire_domain!: retires the same row set #retire_domain! selected (in_domain ∩ active/verified), with identical recorded metadata" do
       trading_by_tag = create(:ai_compound_learning, account: account, status: "active", tags: ["trading"])
       trading_by_domain = create(:ai_compound_learning, account: account, status: "verified", applicable_domains: ["trading"])
       other_domain = create(:ai_compound_learning, account: account, status: "active", tags: ["dev-loop"])
 
-      result = service.retire_domain!("trading")
+      # #retire_domain!'s own scope, reproduced directly (the method itself
+      # is gone) as the oracle #retire_by_predicate! must match exactly.
+      expected_ids = Ai::CompoundLearning.for_account(account.id).where(status: %w[active verified])
+                                          .in_domain("trading").pluck(:id)
 
-      expect(result).to eq(success: true, domain: "trading", retired_count: 2)
+      result = service.retire_by_predicate!(predicate: { domain: "trading" }, dry_run: false, reason: "purged domain")
+
+      expect(result[:success]).to be true
+      expect(result[:ids]).to match_array(expected_ids)
       expect(trading_by_tag.reload.status).to eq("retired")
       expect(trading_by_domain.reload.status).to eq("retired")
       expect(other_domain.reload.status).to eq("active")
-    end
-
-    it "records the domain and an optional reason on each retired learning" do
-      learning = create(:ai_compound_learning, account: account, status: "active", tags: ["trading"])
-
-      service.retire_domain!("trading", reason: "purged domain")
-
-      learning.reload
-      expect(learning.metadata["retired_domain"]).to eq("trading")
-      expect(learning.metadata["retired_reason"]).to eq("purged domain")
+      expect(trading_by_tag.metadata["retired_domain"]).to eq("trading")
+      expect(trading_by_tag.metadata["retired_reason"]).to eq("purged domain")
     end
 
     it "does not retire learnings already deprecated/superseded/disproven (they don't surface today anyway)" do
       deprecated = create(:ai_compound_learning, :deprecated, account: account, tags: ["trading"])
 
-      result = service.retire_domain!("trading")
+      result = service.retire_by_predicate!(predicate: { domain: "trading" }, dry_run: false)
 
-      expect(result[:retired_count]).to eq(0)
+      expect(result[:count]).to eq(0)
       expect(deprecated.reload.status).to eq("deprecated")
     end
 
     it "does not hard-delete retired rows — they remain queryable for audit" do
       learning = create(:ai_compound_learning, account: account, status: "active", tags: ["trading"])
 
-      service.retire_domain!("trading")
+      service.retire_by_predicate!(predicate: { domain: "trading" }, dry_run: false)
 
       expect(service.list_learnings(status: "retired")).to include(learning.reload)
     end
@@ -1104,18 +1364,9 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       other_account = create(:account)
       other_learning = create(:ai_compound_learning, account: other_account, status: "active", tags: ["trading"])
 
-      service.retire_domain!("trading")
+      service.retire_by_predicate!(predicate: { domain: "trading" }, dry_run: false)
 
       expect(other_learning.reload.status).to eq("active")
-    end
-
-    it "handles exceptions gracefully" do
-      allow(Ai::CompoundLearning).to receive(:for_account).and_raise(StandardError, "query error")
-
-      result = service.retire_domain!("trading")
-
-      expect(result[:success]).to eq(false)
-      expect(result[:retired_count]).to eq(0)
     end
 
     context "surfacing exclusion" do
@@ -1130,7 +1381,7 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
                importance_score: 0.95, effectiveness_score: 0.95)
       end
 
-      before { service.retire_domain!("trading") }
+      before { service.retire_by_predicate!(predicate: { domain: "trading" }, dry_run: false) }
 
       it "excludes retired learnings from compound_metrics' most_effective ranking" do
         metrics = service.compound_metrics

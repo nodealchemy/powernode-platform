@@ -12,7 +12,7 @@ module Ai
     # Candidate pool: the same "quality, surfacing-set" bar #promote_cross_team
     # already established — status active/verified (retired/deprecated/
     # superseded/disproven are never candidates, see Ai::CompoundLearning::
-    # STATUSES and C1's retire_domain!), confidence/effectiveness gated by
+    # STATUSES and C1's #retire_by_predicate!), confidence/effectiveness gated by
     # Ai::Learning::CompoundLearningService's MIN_PROMOTION_CONFIDENCE /
     # MIN_PROMOTION_EFFECTIVENESS rather than inventing new thresholds.
     # Ranked by #effective_importance (importance blended with observed

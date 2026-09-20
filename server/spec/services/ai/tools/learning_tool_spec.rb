@@ -75,4 +75,42 @@ RSpec.describe Ai::Tools::LearningTool do
       expect(result[:learnings].map { |l| l[:id] }).to include(learning.id)
     end
   end
+
+  # IMP-3c9a6dc8f0a9
+  describe "retire_by_predicate" do
+    let!(:matching) { create(:ai_compound_learning, account: account, status: "active", extraction_method: "trading_session") }
+
+    it "defaults to dry_run and mutates nothing when dry_run is omitted" do
+      result = tool.send(:call, action: "retire_by_predicate", extraction_method: "trading_session")
+
+      expect(result[:dry_run]).to be true
+      expect(matching.reload.status).to eq("active")
+    end
+
+    it "retires only the matching rows when dry_run: false is explicit" do
+      result = tool.send(:call, action: "retire_by_predicate", extraction_method: "trading_session", dry_run: false)
+
+      expect(result[:success]).to be true
+      expect(matching.reload.status).to eq("retired")
+      expect(learning.reload.status).to eq("active")
+    end
+  end
+
+  describe "hard_delete_retired" do
+    let!(:retired) { create(:ai_compound_learning, :retired, account: account, extraction_method: "trading_session") }
+
+    it "defaults to dry_run and destroys nothing when dry_run is omitted" do
+      tool.send(:call, action: "hard_delete_retired", extraction_method: "trading_session")
+
+      expect(Ai::CompoundLearning.where(id: retired.id)).to exist
+    end
+
+    it "hard-deletes only already-retired/superseded rows when dry_run: false is explicit" do
+      result = tool.send(:call, action: "hard_delete_retired", extraction_method: "trading_session", dry_run: false)
+
+      expect(result[:success]).to be true
+      expect(Ai::CompoundLearning.where(id: retired.id)).not_to exist
+      expect(Ai::CompoundLearning.where(id: learning.id)).to exist
+    end
+  end
 end

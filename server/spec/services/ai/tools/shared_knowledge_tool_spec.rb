@@ -114,4 +114,44 @@ RSpec.describe Ai::Tools::SharedKnowledgeTool do
       expect(result[:entries].map { |e| e[:title] }).to eq(["Alpha Widget Doc"])
     end
   end
+
+  # IMP-3c9a6dc8f0a9
+  describe "#execute action: archive_by_predicate" do
+    let!(:matching) { create(:ai_shared_knowledge, account: account, source_type: "import") }
+    let!(:other) { create(:ai_shared_knowledge, account: account, source_type: "manual") }
+
+    it "defaults to dry_run and mutates nothing when dry_run is omitted" do
+      result = tool.execute(params: { action: "archive_by_predicate", source_type: "import" })
+
+      expect(result[:dry_run]).to be true
+      expect(matching.reload.provenance["archived"]).not_to eq(true)
+    end
+
+    it "archives only the matching rows when dry_run: false is explicit" do
+      result = tool.execute(params: { action: "archive_by_predicate", source_type: "import", dry_run: false })
+
+      expect(result[:success]).to be true
+      expect(matching.reload.provenance["archived"]).to be true
+      expect(other.reload.provenance["archived"]).not_to eq(true)
+    end
+  end
+
+  describe "#execute action: hard_delete_archived" do
+    let!(:archived) { create(:ai_shared_knowledge, account: account, provenance: { "archived" => true }) }
+    let!(:not_archived) { create(:ai_shared_knowledge, account: account) }
+
+    it "defaults to dry_run and destroys nothing when dry_run is omitted" do
+      tool.execute(params: { action: "hard_delete_archived" })
+
+      expect(Ai::SharedKnowledge.where(id: archived.id)).to exist
+    end
+
+    it "hard-deletes only already-archived rows when dry_run: false is explicit" do
+      result = tool.execute(params: { action: "hard_delete_archived", dry_run: false })
+
+      expect(result[:success]).to be true
+      expect(Ai::SharedKnowledge.where(id: archived.id)).not_to exist
+      expect(Ai::SharedKnowledge.where(id: not_archived.id)).to exist
+    end
+  end
 end

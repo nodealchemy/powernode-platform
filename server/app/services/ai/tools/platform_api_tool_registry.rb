@@ -588,12 +588,18 @@ module Ai
         "reinforce_learning" => "Ai::Tools::LearningTool",
         "learning_metrics" => "Ai::Tools::LearningTool",
         "create_learning" => "Ai::Tools::LearningTool",
+        # IMP-3c9a6dc8f0a9 — predicate-scoped bulk retire/hard-delete
+        "retire_by_predicate" => "Ai::Tools::LearningTool",
+        "hard_delete_retired" => "Ai::Tools::LearningTool",
         # Shared knowledge
         "search_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         "create_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         "update_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         "promote_knowledge" => "Ai::Tools::SharedKnowledgeTool",
         "delete_knowledge" => "Ai::Tools::SharedKnowledgeTool",
+        # IMP-3c9a6dc8f0a9 — predicate-scoped bulk archive/hard-delete
+        "archive_by_predicate" => "Ai::Tools::SharedKnowledgeTool",
+        "hard_delete_archived" => "Ai::Tools::SharedKnowledgeTool",
         # Skills
         "list_skills" => "Ai::Tools::SkillTool",
         "get_skill" => "Ai::Tools::SkillTool",

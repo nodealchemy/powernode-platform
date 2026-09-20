@@ -34,7 +34,9 @@ module Ai
       # (owner, manager, ai_specialist, system_worker), alongside admin.
       ACTION_PERMISSIONS = {
         "create_learning" => "ai.memory.write",
-        "reinforce_learning" => "ai.memory.write"
+        "reinforce_learning" => "ai.memory.write",
+        "retire_by_predicate" => "ai.memory.write",
+        "hard_delete_retired" => "ai.memory.write"
       }.freeze
 
 
@@ -46,6 +48,10 @@ module Ai
       declare_action "learning_metrics", mutating: false
       declare_action "query_learnings", mutating: false
       declare_action "reinforce_learning", mutating: true
+      # IMP-3c9a6dc8f0a9 — dry_run: true is the caller's default too; see
+      # Ai::Tools::SharedKnowledgeTool's identical note on its bulk actions.
+      declare_action "retire_by_predicate", mutating: true, destructive: true
+      declare_action "hard_delete_retired", mutating: true, destructive: true
 
       def self.definition
         {
@@ -108,6 +114,37 @@ module Ai
               confidence_score: { type: "number", required: false, description: "Confidence score 0.0-1.0 (default: 0.5)" },
               tags: { type: "array", required: false, description: "Tags array for categorization and dedup" }
             }
+          },
+          "retire_by_predicate" => {
+            description: "Predicate-scoped bulk retire (soft, reversible) of active/verified compound " \
+                         "learnings — reaches untagged rows #reinforce_learning-style domain retirement " \
+                         "cannot. dry_run defaults to true — returns the count and a first-3/last-1 sample " \
+                         "without mutating; pass dry_run: false to actually retire. Refuses (does not " \
+                         "truncate) if the predicate matches more than the per-call ceiling.",
+            parameters: {
+              status: { type: "string", required: false, description: "Filter by status (only active/verified are ever retired)" },
+              category: { type: "string", required: false, description: "Filter by category" },
+              scope: { type: "string", required: false, description: "Filter by scope (team/global)" },
+              min_importance: { type: "number", required: false, description: "Filter: importance_score >=" },
+              extraction_method: { type: "string", required: false, description: "Filter by extraction_method" },
+              created_before: { type: "string", required: false, description: "Filter: created_at before this ISO8601 timestamp" },
+              ids: { type: "array", required: false, description: "Filter: restrict to these learning ids" },
+              reason: { type: "string", required: false, description: "Recorded on each retired row" },
+              dry_run: { type: "boolean", required: false, description: "Default true — preview only, no mutation" }
+            }
+          },
+          "hard_delete_retired" => {
+            description: "Hard-delete (irreversible) compound learnings that are ALREADY retired or " \
+                         "superseded. The predicate can only narrow this fixed base, never widen past it. " \
+                         "dry_run defaults to true.",
+            parameters: {
+              category: { type: "string", required: false, description: "Filter by category" },
+              scope: { type: "string", required: false, description: "Filter by scope (team/global)" },
+              extraction_method: { type: "string", required: false, description: "Filter by extraction_method" },
+              created_before: { type: "string", required: false, description: "Filter: created_at before this ISO8601 timestamp" },
+              ids: { type: "array", required: false, description: "Filter: restrict to these learning ids" },
+              dry_run: { type: "boolean", required: false, description: "Default true — preview only, no mutation" }
+            }
           }
         }
       end
@@ -130,7 +167,9 @@ module Ai
         when "reinforce_learning" then reinforce_learning(params)
         when "learning_metrics" then learning_metrics
         when "create_learning" then create_learning(params)
-        else { success: false, error: "Unknown action: #{params[:action]}. Valid actions: query_learnings, reinforce_learning, learning_metrics, create_learning" }
+        when "retire_by_predicate" then retire_by_predicate(params)
+        when "hard_delete_retired" then hard_delete_retired(params)
+        else { success: false, error: "Unknown action: #{params[:action]}. Valid actions: query_learnings, reinforce_learning, learning_metrics, create_learning, retire_by_predicate, hard_delete_retired" }
         end
       end
 
@@ -237,6 +276,39 @@ module Ai
         end
       rescue StandardError => e
         { success: false, error: e.message }
+      end
+
+      # IMP-3c9a6dc8f0a9 — predicate-scoped bulk retire/hard-delete. Thin
+      # wrappers: all dry-run/ceiling/audit behaviour lives in
+      # Ai::Learning::CompoundLearningService, tested there. `dry_run`
+      # defaults to true here too — only a literal `false` mutates.
+      def retire_by_predicate(params)
+        Ai::Learning::CompoundLearningService.new(account: account).retire_by_predicate!(
+          predicate: bulk_learning_predicate_from(params),
+          dry_run: params[:dry_run] != false,
+          reason: params[:reason],
+          actor: user
+        )
+      end
+
+      def hard_delete_retired(params)
+        Ai::Learning::CompoundLearningService.new(account: account).hard_delete_retired_or_superseded!(
+          predicate: bulk_learning_predicate_from(params),
+          dry_run: params[:dry_run] != false,
+          actor: user
+        )
+      end
+
+      def bulk_learning_predicate_from(params)
+        {
+          status: params[:status],
+          category: params[:category],
+          scope: params[:scope],
+          min_importance: params[:min_importance],
+          extraction_method: params[:extraction_method],
+          created_before: params[:created_before],
+          ids: Array(params[:ids]).presence
+        }.compact
       end
 
       def serialize_learning(learning)
