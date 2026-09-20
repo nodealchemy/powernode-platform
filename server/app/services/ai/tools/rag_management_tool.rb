@@ -114,7 +114,7 @@ module Ai
           knowledge_bases: bases.map { |kb| serialize_kb(kb) }
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def create_knowledge_base(params)
@@ -139,7 +139,7 @@ module Ai
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: e.message }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def add_document(params)
@@ -164,7 +164,7 @@ module Ai
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Knowledge base not found: #{params[:knowledge_base_id]}" }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def process_document(params)
@@ -186,9 +186,9 @@ module Ai
           chunks_embedded: embed_result[:embedded_count]
         }
       rescue ActiveRecord::RecordNotFound => e
-        { success: false, error: "Record not found: #{e.message}" }
+        rescued_error_result(e, message: "Record not found")
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def search_documents(params)
@@ -236,7 +236,7 @@ module Ai
           search_mode: mode
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def delete_document(params)
@@ -248,9 +248,9 @@ module Ai
 
         { success: true, message: "Document deleted successfully" }
       rescue ActiveRecord::RecordNotFound => e
-        { success: false, error: "Record not found: #{e.message}" }
+        rescued_error_result(e, message: "Record not found")
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def serialize_kb(kb)

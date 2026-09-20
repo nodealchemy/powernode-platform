@@ -95,10 +95,9 @@ module Ai
 
         response
       rescue Ai::ImageGenerationService::GenerationError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       rescue StandardError => e
-        Rails.logger.error "[ImageGenerationTool] Unexpected error: #{e.message}"
-        { success: false, error: "Image generation failed: #{e.message}" }
+        rescued_error_result(e, message: "Image generation failed")
       end
 
       def list_generated_images(params)
@@ -115,7 +114,7 @@ module Ai
           images: images.map { |img| serialize_file(img) }
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def serialize_file(file_obj)

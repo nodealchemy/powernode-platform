@@ -171,7 +171,7 @@ module Ai
       rescue ActiveRecord::RecordInvalid => e
         { success: false, error: e.message }
       rescue ArgumentError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       private
@@ -292,7 +292,7 @@ module Ai
 
         { success: true, query: query, results: results, count: results.size }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def consolidate_memory(params)
@@ -311,7 +311,7 @@ module Ai
         result = maintenance.run_consolidation_pipeline(agent: target_agent)
         { success: true, consolidated: result }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def memory_stats(params = {})
@@ -330,7 +330,7 @@ module Ai
           { success: true, stats: { short_term: stm_count, long_term: ltm_count, shared: shared_count, pools: pools_count } }
         end
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def list_pools(params = {})
@@ -340,7 +340,7 @@ module Ai
           pools: pools.map { |p| { id: p.id, pool_id: p.pool_id, name: p.name, pool_type: p.pool_type } }
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       # Falls back to the class floor for read actions, which the registrar has

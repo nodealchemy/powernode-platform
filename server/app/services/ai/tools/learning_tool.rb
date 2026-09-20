@@ -231,7 +231,7 @@ module Ai
 
         { success: true, learning_id: learning.id, new_importance: learning.importance_score.to_f.round(4) }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def learning_metrics
@@ -243,7 +243,7 @@ module Ai
           metrics: metrics
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def create_learning(params)
@@ -275,7 +275,7 @@ module Ai
           { success: true, message: "Similar learning already exists and was reinforced" }
         end
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       # IMP-3c9a6dc8f0a9 — predicate-scoped bulk retire/hard-delete. Thin

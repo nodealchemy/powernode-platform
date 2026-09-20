@@ -612,7 +612,8 @@ module Ai
               revoked = del.is_a?(Hash) && del[:success]
               cleanup_error = del[:error] || "revoke returned no success flag" unless revoked
             rescue StandardError => e
-              cleanup_error = "#{e.class}: #{e.message}"
+              Rails.logger.error("[GiteaActionsTool] token revoke raised #{e.class}: #{e.message}")
+              cleanup_error = "token revoke raised an exception — see server logs"
             end
           end
 

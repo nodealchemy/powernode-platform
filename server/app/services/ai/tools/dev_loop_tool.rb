@@ -411,8 +411,11 @@ module Ai
         error_result(e.record.errors.full_messages.join("; "))
       rescue ArgumentError => e
         # Shape rejection from RalphTask::OPERATOR_FIELD_SHAPES — fail at the seam
-        # rather than persisting a scalar that raises TypeError later.
-        error_result(e.message)
+        # rather than persisting a scalar that raises TypeError later. The only
+        # raise site reachable here (RalphTask#apply_operator_edit!) interpolates
+        # a fixed field name and the CALLER'S OWN submitted value's class name
+        # (e.g. "Integer") — safe, preserved verbatim (IMP-5ed95e651b80).
+        rescued_error_result(e, message: e.message)
       end
 
       # IMP-3c15b871f6bd. The abuse shape is self-serving: weaken the brief you
@@ -459,7 +462,7 @@ module Ai
         task.requeue!(reason: params[:reason].to_s, by: claimant_ref)
         { success: true, task: task.reload.task_details, requeued_by: claimant_ref }
       rescue Ai::RalphTask::InvalidTransitionError, ArgumentError => e
-        error_result(e.message)
+        rescued_error_result(e)
       end
 
       # dev_requeue_task parks for a person (human-only). A call that could only

@@ -50,7 +50,7 @@ module Ai
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Container instance not found: #{params[:execution_id]}" }
       rescue StandardError => e
-        { success: false, error: "Termination failed: #{e.message}" }
+        rescued_error_result(e, message: "Termination failed")
       end
     end
   end

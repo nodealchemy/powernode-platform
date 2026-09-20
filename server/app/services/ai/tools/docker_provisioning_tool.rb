@@ -175,9 +175,9 @@ module Ai
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       rescue ActiveRecord::RecordNotFound => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       rescue ArgumentError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       rescue ::System::DockerDaemonProvisionerService::ProvisionError => e
         # Covers the UNGATED actions only. Since IMP-9b9653e6514e the two
         # mutating actions reach the provisioner through Ai::AutonomyGate,

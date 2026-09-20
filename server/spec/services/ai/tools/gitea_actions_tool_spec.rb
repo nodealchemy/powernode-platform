@@ -505,7 +505,16 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
       })
       expect(result[:success]).to be false
       expect(result[:revoked_undeliverable_token]).to be false
-      expect(result[:cleanup_error]).to match(/gitea down/)
+      # IMP-5ed95e651b80: this test deliberately stubs an ARBITRARY transport
+      # exception ("gitea down") standing in for whatever a real
+      # StandardError from the Gitea API client's transport layer might say —
+      # which could be anything (a real host/URL, a connection detail, an
+      # internal path). The pre-fix assertion here pinned exactly that raw
+      # text reaching the tool's provider-facing result, which is the defect
+      # this task closes — updated to assert the safe, generic replacement
+      # instead of the raw exception content, per rescued_error_result's
+      # contract (see base_tool.rb).
+      expect(result[:cleanup_error]).to eq("token revoke raised an exception — see server logs")
       expect(result[:note]).to match(/revoke it by hand/)
     end
 

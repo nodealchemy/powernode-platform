@@ -151,7 +151,7 @@ module Ai
           new_confidence: learning.confidence_score.to_f.round(4)
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def dispute_learning(params)
@@ -173,7 +173,7 @@ module Ai
           reason: params[:reason]
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def resolve_contradiction(params)
@@ -199,7 +199,7 @@ module Ai
           reason: params[:reason]
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def rate_knowledge(params)
@@ -223,7 +223,7 @@ module Ai
           average_rating: entry.rating_count.positive? ? (entry.rating_sum.to_f / entry.rating_count).round(2) : nil
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def knowledge_health
@@ -241,7 +241,7 @@ module Ai
           }
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def learning_health

@@ -65,7 +65,7 @@ module Ai
           }
         }
       rescue StandardError => e
-        { success: false, error: "Integration health check failed: #{e.message}" }
+        rescued_error_result(e, message: "Integration health check failed")
       end
     end
   end

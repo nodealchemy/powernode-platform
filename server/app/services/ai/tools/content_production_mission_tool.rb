@@ -118,7 +118,7 @@ module Ai
 
         { success: true, mission: mission.mission_summary }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
     end
   end

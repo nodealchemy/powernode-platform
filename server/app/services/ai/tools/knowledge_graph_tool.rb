@@ -139,7 +139,7 @@ module Ai
 
         { success: true, **result }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def reason(params)
@@ -153,7 +153,7 @@ module Ai
 
         { success: true, **result }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def get_node(params)
@@ -164,7 +164,7 @@ module Ai
       rescue Ai::KnowledgeGraph::GraphServiceError => e
         { success: false, error: e.message }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def list_nodes(params)
@@ -191,7 +191,7 @@ module Ai
         result[:nodes] = nodes.map { |n| serialize_node(n) }
         result
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def get_neighbors(params)
@@ -207,14 +207,14 @@ module Ai
       rescue Ai::KnowledgeGraph::GraphServiceError => e
         { success: false, error: e.message }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def get_statistics
         stats = graph_service.statistics
         { success: true, **stats }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def get_subgraph(params)
@@ -224,7 +224,7 @@ module Ai
         result = graph_service.subgraph(node_ids: node_ids)
         { success: true, **result }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def extract(params)
@@ -242,9 +242,9 @@ module Ai
           edges: result[:edges].map { |e| { id: e.id, source: e.source_node_id, target: e.target_node_id, relation_type: e.relation_type } }
         }
       rescue Ai::KnowledgeGraph::ExtractionServiceError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def graph_service

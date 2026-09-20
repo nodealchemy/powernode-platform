@@ -42,7 +42,14 @@ RSpec.describe Ai::Tools::VideoGenerationTool do
 
       result = tool.execute(params: { action: "generate_video", prompt: "x" })
       expect(result[:success]).to be(false)
-      expect(result[:error]).to eq("no runway provider")
+      # IMP-5ed95e651b80: this stub's own text is benign, but it stands in for
+      # GenerationError generally — and that class's REAL raise sites include
+      # api_error(resp) (the external provider's raw HTTP error body) and
+      # "HTTP request failed: #{e.message}" (an inner HTTP::Error's message),
+      # both confirmed unsafe on audit. Asserting a blind e.message
+      # passthrough here would pin exactly the leak shape those raise sites
+      # produce, so this now asserts the sanitized envelope instead.
+      expect(result[:error]).to eq("An internal error occurred processing this request.")
     end
   end
 

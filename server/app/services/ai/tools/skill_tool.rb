@@ -321,7 +321,7 @@ module Ai
           skills: skills.map(&:skill_summary)
         }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def get_skill(params)
@@ -332,7 +332,7 @@ module Ai
       rescue Ai::SkillService::NotFoundError => e
         { success: false, error: e.message }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def discover_skills(params)
@@ -346,7 +346,7 @@ module Ai
 
         { success: true, **result }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def get_skill_context(params)
@@ -363,21 +363,21 @@ module Ai
 
         { success: true, **result }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def skill_health
         report = health_score_service.comprehensive_report
         { success: true, **report }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def skill_metrics
         metrics = health_score_service.calculate
         { success: true, **metrics }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def create_skill(params)
@@ -395,7 +395,7 @@ module Ai
       rescue Ai::SkillService::ValidationError => e
         { success: false, error: e.message }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def update_skill(params)
@@ -416,7 +416,7 @@ module Ai
       rescue Ai::SkillService::NotFoundError, Ai::SkillService::ValidationError => e
         { success: false, error: e.message }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def clone_skill(params)
@@ -440,7 +440,7 @@ module Ai
       rescue Ai::SkillService::NotFoundError, Ai::SkillService::ValidationError => e
         { success: false, error: e.message }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def delete_skill(params)
@@ -451,7 +451,7 @@ module Ai
       rescue Ai::SkillService::NotFoundError, Ai::SkillService::ValidationError => e
         { success: false, error: e.message }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def toggle_skill(params)
@@ -463,7 +463,7 @@ module Ai
       rescue Ai::SkillService::NotFoundError => e
         { success: false, error: e.message }
       rescue StandardError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def skill_service

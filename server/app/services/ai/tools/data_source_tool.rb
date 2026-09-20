@@ -538,9 +538,27 @@ module Ai
         when "data_source_ingest_to_kb" then ingest_to_kb(params)
         else error_result("Unknown action: #{action}")
         end
+      # This ONE rescue pair is the shared catch-all for every action above —
+      # ~20 distinct raise sites throughout this file (query_source,
+      # get_source, subscribe_source, reconcile_sources, etc.), each with its
+      # OWN specific, safe, hand-authored message ("endpoint_id is required",
+      # "Data source not found: #{identifier}" echoing only the caller's own
+      # supplied id, and so on — audited exhaustively for IMP-5ed95e651b80,
+      # every current raise site here is static app-authored text or an echo
+      # of the caller's own already-known identifier, never raw driver/model
+      # internals). A single static `message:` can't serve 20 different
+      # legitimate texts, so — unlike the generic-default shape used
+      # elsewhere — this arm keeps forwarding e.message, verified safe today,
+      # while still logging server-side. This is the one shape the audit
+      # could not give blanket protection to: a FUTURE raise added anywhere
+      # in this file that wraps a raw inner error's message would flow
+      # through here unexamined. Any new raise site in this file must keep
+      # authoring its own safe, static (or caller-echo-only) text.
       rescue ActiveRecord::RecordNotFound => e
+        Rails.logger.info("[DataSourceTool] #{e.class}: #{e.message}")
         error_result(e.message)
       rescue ArgumentError => e
+        Rails.logger.info("[DataSourceTool] #{e.class}: #{e.message}")
         error_result(e.message)
       end
 
@@ -1537,7 +1555,8 @@ module Ai
       rescue Ai::DataSources::HttpConnectionFactory::SsrfError => e
         errors << "api_base_url blocked by egress policy: #{e.message}"
       rescue StandardError => e
-        errors << "api_base_url invalid: #{e.message}"
+        Rails.logger.error("[DataSourceTool] api_base_url validation raised #{e.class}: #{e.message}")
+        errors << "api_base_url invalid"
       end
 
       def validate_auth_scheme(ds, errors)

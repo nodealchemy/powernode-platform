@@ -99,7 +99,7 @@ module Ai
         )
         success_result(delivery: run.summary)
       rescue ArgumentError, ActiveRecord::RecordInvalid => e
-        error_result(e.message)
+        rescued_error_result(e)
       end
 
       def delivery_status(params)

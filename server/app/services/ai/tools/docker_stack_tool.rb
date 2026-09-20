@@ -126,11 +126,11 @@ module Ai
         else { success: false, error: "Unknown action: #{params[:action]}" }
         end
       rescue ActiveRecord::RecordNotFound => e
-        { success: false, error: e.message }
+        rescued_error_result(e, message: e.message)
       rescue ArgumentError => e
-        { success: false, error: e.message }
+        rescued_error_result(e, message: e.message)
       rescue Devops::Docker::ApiClient::ApiError => e
-        { success: false, error: "Docker API error: #{e.message}" }
+        rescued_error_result(e, message: "Docker API error")
       end
 
       private

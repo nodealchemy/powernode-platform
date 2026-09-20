@@ -215,7 +215,7 @@ module Ai
         )
         success_result({ signal_id: signal.id, signal_key: signal.signal_key, strength: signal.strength })
       rescue StandardError => e
-        error_result("Failed to emit signal: #{e.message}")
+        rescued_error_result(e, message: "Failed to emit signal")
       end
 
       def perceive_signals(params)
@@ -227,7 +227,7 @@ module Ai
         )
         success_result({ signals: signals.map { |s| s.as_json(only: [:id, :signal_type, :signal_key, :strength, :payload, :perceive_count]) }, count: signals.size })
       rescue StandardError => e
-        error_result("Failed to perceive signals: #{e.message}")
+        rescued_error_result(e, message: "Failed to perceive signals")
       end
 
       def reinforce_signal(params)
@@ -240,7 +240,7 @@ module Ai
         return error_result("Signal not found") unless signal
         success_result({ signal_id: signal.id, new_strength: signal.strength })
       rescue StandardError => e
-        error_result("Failed to reinforce signal: #{e.message}")
+        rescued_error_result(e, message: "Failed to reinforce signal")
       end
 
       def measure_pressure(params)
@@ -253,7 +253,7 @@ module Ai
         return error_result("Measurement failed") unless field
         success_result(field.as_json(only: [:id, :field_type, :artifact_ref, :pressure_value, :threshold, :dimensions, :last_measured_at]))
       rescue StandardError => e
-        error_result("Failed to measure pressure: #{e.message}")
+        rescued_error_result(e, message: "Failed to measure pressure")
       end
 
       def perceive_pressure(params)
@@ -265,7 +265,7 @@ module Ai
         )
         success_result({ fields: fields, count: fields.size })
       rescue StandardError => e
-        error_result("Failed to perceive pressure: #{e.message}")
+        rescued_error_result(e, message: "Failed to perceive pressure")
       end
 
       def optimize_team(params)
@@ -276,7 +276,7 @@ module Ai
         result = service.optimize_team_composition!(team: team)
         success_result(result)
       rescue StandardError => e
-        error_result("Failed to optimize team: #{e.message}")
+        rescued_error_result(e, message: "Failed to optimize team")
       end
 
       def recruit_agent(params)
@@ -295,7 +295,7 @@ module Ai
         result = service.recruit_member!(team: team, capability: capability)
         success_result(result)
       rescue StandardError => e
-        error_result("Failed to recruit agent: #{e.message}")
+        rescued_error_result(e, message: "Failed to recruit agent")
       end
     end
   end

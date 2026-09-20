@@ -171,7 +171,7 @@ module Ai
 
         { success: true, member_id: member.id }
       rescue ActiveRecord::RecordNotFound => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def execute_team(params)
@@ -191,7 +191,7 @@ module Ai
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Team not found" }
       rescue WorkerJobService::WorkerServiceError => e
-        { success: false, error: "Failed to dispatch team execution: #{e.message}" }
+        rescued_error_result(e, message: "Failed to dispatch team execution")
       end
 
       def get_team(params)
@@ -264,7 +264,7 @@ module Ai
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Team not found" }
       rescue ActiveRecord::RecordNotDestroyed, ActiveRecord::InvalidForeignKey => e
-        { success: false, error: "Failed to delete team: #{e.message}" }
+        rescued_error_result(e, message: "Failed to delete team")
       end
 
       def remove_team_member(params)
@@ -279,7 +279,7 @@ module Ai
         member.destroy!
         { success: true, removed: true, team_id: team.id, agent_id: agent.id }
       rescue ActiveRecord::RecordNotFound => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       def canonical_refusal(team)

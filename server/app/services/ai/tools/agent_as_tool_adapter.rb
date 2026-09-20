@@ -73,9 +73,16 @@ module Ai
           status: execution.status,
           message: "Agent '#{@target_agent.name}' execution started"
         }
+      # ArgumentError here can ONLY come from validate_target_agent! below,
+      # whose three messages are static/hand-authored (one interpolates the
+      # target agent's own name — safe, same-account data the caller already
+      # has). Preserved verbatim rather than the generic default. Any OTHER
+      # StandardError (e.g. Ai::AgentExecution.create! failing) is a real
+      # driver/framework error and stays generic.
+      rescue ArgumentError => e
+        rescued_error_result(e, message: e.message)
       rescue StandardError => e
-        Rails.logger.error "[AgentAsToolAdapter] Execution failed: #{e.message}"
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       private

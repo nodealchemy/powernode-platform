@@ -74,8 +74,7 @@ module Ai
           metadata: result[:metadata]
         }
       rescue StandardError => e
-        Rails.logger.error "[KnowledgeTool] Search failed: #{e.message}"
-        { success: false, error: e.message }
+        rescued_error_result(e)
       end
 
       private
