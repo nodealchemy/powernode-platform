@@ -189,30 +189,44 @@ module Ai
         # the generic default: nothing about escaping every tool-level arm
         # makes an otherwise-unreviewed message safer.
         #
-        # SERVES Ai::AgentToolBridgeService's three sites today (platform,
-        # external-MCP, and local-tool dispatch) — the chokepoint for the
-        # agent-conversation-loop boundary, where a forwarded value reaches
-        # ai_messages.processing_metadata and the model provider.
-        # Api::V1::Mcp::StreamableHttpController is a SEPARATE chokepoint,
-        # for a different boundary (an external MCP client over JSON-RPC),
-        # with its own leak of the same shape — NOT served by this helper
-        # today; filed separately as 01a0c169-0e46, deliberately, because
-        # several of its arms map to typed JSON-RPC codes a protocol client
-        # is entitled to and need their own per-arm classification rather
-        # than a blanket sweep.
+        # SERVES TWO CHOKEPOINTS, updated as each was fixed rather than left
+        # to drift (a stale claim here is the exact "reads as deletable"
+        # failure this comment exists to prevent):
+        #   - Ai::AgentToolBridgeService's three sites (IMP-1132d66f6f5c:
+        #     platform, external-MCP, and local-tool dispatch) — the
+        #     chokepoint for the agent-conversation-loop boundary, where a
+        #     forwarded value reaches ai_messages.processing_metadata and
+        #     the model provider.
+        #   - Api::V1::Mcp::StreamableHttpController's `-32602` ArgumentError
+        #     arms, non-streaming and SSE (IMP-378de6e082be) — a SEPARATE
+        #     chokepoint, for a different boundary (an external MCP client
+        #     over JSON-RPC). Its typed-protocol-class arms (PermissionDenied
+        #     Error, ToolNotFoundError, SchemaValidationError) needed their
+        #     own per-arm classification and are NOT routed through this
+        #     helper — see docs/reference/mcp-controller-forwarding-
+        #     classification-2026-09-21.md — only its two bare-ArgumentError
+        #     arms are.
+        # Five call sites total today, not three.
         #
-        # REACHABILITY, stated plainly rather than assumed: at every site
-        # this helper serves today, review found no LIVE raise site that
-        # produces a CallerFacingError able to escape a tool and reach this
-        # helper — every current CallerFacingError raise sits behind
-        # #run_through_autonomy_gate's own gate_context rescue, which
-        # answers it first and never reaches here. The CallerFacingError
-        # branch below is therefore a forward-looking contract, not
-        # something protecting a site today: correct to keep (a tool
-        # deliberately raising caller-facing text that ESCAPES its own gate
-        # is arguably right to forward, and flattening it would be a silent
-        # regression the day a raise site like that is added), but it must
-        # not be read as live protection until one exists.
+        # REACHABILITY IS LIVE, NOT FORWARD-LOOKING, as of IMP-378de6e082be —
+        # an EARLIER version of this comment said no current raise reaches
+        # the CallerFacingError branch and called it a forward-looking
+        # contract only. That stopped being true the moment
+        # Mcp::NativePromptProvider#get_prompt/#complete_argument and
+        # Mcp::NativeResourceProvider#read_resource were migrated to
+        # CallerFacingError (same task): those five raises sit behind NO
+        # gate_context and NO other rescue arm — they escape straight into
+        # this controller's sanitizing ArgumentError arms, where the
+        # CallerFacingError branch is now THE ONLY THING keeping their
+        # messages ("Prompt not found: my-slug", a template's own missing-
+        # variable name) from flattening to the generic string. Removing
+        # this branch, or "simplifying" it back to always-flatten, is a
+        # live, user-visible regression today — not a hypothetical one for
+        # whenever a future raise site is added. (The bridge's own three
+        # sites still have no live CallerFacingError raiser reaching them;
+        # only the controller's do. Both are served by the SAME method
+        # because the distinction it makes is the same regardless of which
+        # dispatcher's raisers currently exercise which branch.)
         def dispatch_fallback_message(exception)
           exception.is_a?(CallerFacingError) ? exception.message : DISPATCH_FALLBACK_GENERIC_MESSAGE
         end

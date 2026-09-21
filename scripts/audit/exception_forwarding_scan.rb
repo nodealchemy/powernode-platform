@@ -254,13 +254,30 @@
 #      UNVERIFIED for this leak shape (see below) — real callers, not yet
 #      examined, neither assumed clean nor dirty.
 #
-#      StreamableHttpController's own leak is deliberately NOT fixed by
-#      IMP-1132d66f6f5c and not this scanner's fix either — filed
-#      separately (01a0c169-0e46) because several of its arms map to TYPED
-#      JSON-RPC error codes a protocol client is entitled to (unknown
-#      session, unknown method, invalid params) and need the SAME
-#      per-classification judgment IMP-bbb881b3e4f7 applied to
-#      RecordInvalid, not a blanket sweep.
+#      StreamableHttpController's own leak was deliberately NOT fixed by
+#      IMP-1132d66f6f5c — filed separately (01a0c169-0e46, landed as
+#      IMP-378de6e082be) because several of its arms map to TYPED JSON-RPC
+#      error codes a protocol client is entitled to (unknown session,
+#      unknown method, invalid params) and needed the SAME per-arm
+#      classification judgment IMP-bbb881b3e4f7 applied to RecordInvalid,
+#      not a blanket sweep. See docs/reference/mcp-controller-forwarding-
+#      classification-2026-09-21.md for the full table. Outcome: 3 of its
+#      typed classes (PermissionDeniedError, ToolNotFoundError,
+#      SchemaValidationError) and RateLimitExceeded were traced to their
+#      raisers and found SAFE BY DESIGN — kept forwarding verbatim,
+#      unchanged. Its bare `ArgumentError` arm was MUST-SANITIZE — same
+#      class, same distrust, same `dispatch_fallback_message` fix — but
+#      unlike the bridge's own ArgumentError arm, doing so here broke two
+#      GENUINELY SAFE existing raise sites (`Mcp::NativePromptProvider`,
+#      `Mcp::NativeResourceProvider`, both interpolating only the caller's
+#      own submitted name/uri or the template's own declared variable
+#      names) that shared the bare `ArgumentError` class with every
+#      unreviewed one — caught by running the existing spec suite, not by
+#      inspection. Fixed by migrating those two providers' five raise
+#      sites to `CallerFacingError` rather than widening the rescue clause
+#      back to forwarding verbatim — the same "the seam is correct, the
+#      raisers were behind" shape as IMP-2d0bc859fb40's gate_context
+#      migration, one more time, at a THIRD dispatcher.
 #
 #      REMEDIATION SHAPE, worth recording because the wrong one was
 #      explicitly considered and rejected: NOT per-tool rescue arms added

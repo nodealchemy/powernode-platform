@@ -149,12 +149,35 @@ module Api
         rescue ::Mcp::ProtocolService::ToolNotFoundError => e
           render_jsonrpc_error(body&.dig("id"), -32601, e.message)
         rescue ::Mcp::ProtocolService::SchemaValidationError => e
+          # IMP-378de6e082be — SAFE BY DESIGN, verified from the raiser (see
+          # docs/reference/mcp-controller-forwarding-classification-2026-09-
+          # 21.md): every message here is built from the tool's own declared
+          # schema constraints and the caller's own submitted input, never
+          # exception/driver content — kept verbatim.
           render_jsonrpc_error(body&.dig("id"), -32602, e.message)
         rescue ArgumentError => e
-          render_jsonrpc_error(body&.dig("id"), -32602, e.message)
+          # IMP-378de6e082be — bare ArgumentError is not an app-specific
+          # class; the stdlib raises it too (Integer("x"), Date.parse, ...)
+          # from any depth below any of #dispatch_method's branches, with no
+          # single confirmed-safe raiser for THIS clause specifically (unlike
+          # the three typed classes above). Routed through the same helper
+          # IMP-1132d66f6f5c introduced for the identical class-level
+          # distrust at a different dispatcher/boundary. Logged here, in
+          # full, before narrowing — dispatch_fallback_message itself must
+          # never log (it sits inside rescue arms whose whole job is not to
+          # raise, and a helper that can fail is the wrong place for a new
+          # failure path), so each call site logs for itself, same as the
+          # StandardError arm immediately below.
+          Rails.logger.warn "[MCP StreamableHTTP] ArgumentError: #{e.message}"
+          render_jsonrpc_error(body&.dig("id"), -32602, ::Ai::Tools::BaseTool.dispatch_fallback_message(e))
         rescue StandardError => e
+          # IMP-378de6e082be — the blanket arm: forwards e.message for ANY
+          # exception no more specific clause above caught. The raw text is
+          # still logged in full immediately above; only the client-visible
+          # value narrows.
           Rails.logger.error "[MCP StreamableHTTP] Internal error: #{e.class}: #{e.message}\n#{e.backtrace&.first(5)&.join("\n")}"
-          render_jsonrpc_error(body&.dig("id"), -32603, "Internal error: #{e.message}")
+          render_jsonrpc_error(body&.dig("id"), -32603,
+                               "Internal error: #{::Ai::Tools::BaseTool.dispatch_fallback_message(e)}")
         end
 
         # DELETE /api/v1/mcp/message
@@ -664,7 +687,18 @@ module Api
                   agent_id: mcp_client_agent&.id
                 )
               else
-                result = { success: false, error: e.message }
+                # IMP-378de6e082be — every ArgumentError the registrar raises
+                # OTHER than its own known-safe "Unknown platform tool: X"
+                # (handled above) is unreviewed: an action-scope refusal, a
+                # param-shape rejection, or anything a dispatched tool itself
+                # let escape as a bare ArgumentError. This result is wrapped
+                # in a JSON-RPC SUCCESS envelope below (content[0].text), not
+                # an error response — a caller reads it as a normal tool
+                # result, which is exactly why a raw message here is easy to
+                # miss. The raw text is logged here, in full, before it is
+                # narrowed — nothing is lost for whoever debugs this server-side.
+                Rails.logger.error "[MCP StreamableHTTP] platform tool ArgumentError: #{tool_name} - #{e.message}"
+                result = { success: false, error: ::Ai::Tools::BaseTool.dispatch_fallback_message(e) }
               end
             rescue ::Ai::Introspection::RateLimiter::RateLimitExceeded => e
               # Threading agent_id above re-armed this limiter, which had been
@@ -1030,11 +1064,35 @@ module Api
             sse.write({ jsonrpc: "2.0", id: message_id, error: { code: -32001, message: e.message } }, event: "message")
           rescue ::Mcp::ProtocolService::ToolNotFoundError => e
             sse.write({ jsonrpc: "2.0", id: message_id, error: { code: -32601, message: e.message } }, event: "message")
-          rescue ::Mcp::ProtocolService::SchemaValidationError, ArgumentError => e
+          rescue ::Mcp::ProtocolService::SchemaValidationError => e
+            # IMP-378de6e082be — un-merged from the combined
+            # `SchemaValidationError, ArgumentError` clause this used to be:
+            # the two classes need different verdicts (see docs/reference/
+            # mcp-controller-forwarding-classification-2026-09-21.md) and a
+            # shared rescue list cannot carry two different ones. Not a
+            # reorder — the two classes do not overlap by inheritance, so
+            # splitting the list changes nothing about which OTHER class
+            # matches which arm. SAFE BY DESIGN, same reasoning as the
+            # non-streaming twin's own SchemaValidationError arm — kept
+            # verbatim.
             sse.write({ jsonrpc: "2.0", id: message_id, error: { code: -32602, message: e.message } }, event: "message")
+          rescue ArgumentError => e
+            # IMP-378de6e082be — the SSE twin of the non-streaming method's
+            # own ArgumentError arm; same reasoning, same helper, and the
+            # same reason the log line lives HERE rather than inside
+            # dispatch_fallback_message.
+            Rails.logger.warn "[MCP StreamableHTTP] Streaming ArgumentError: #{e.message}"
+            sse.write({ jsonrpc: "2.0", id: message_id,
+                       error: { code: -32602, message: ::Ai::Tools::BaseTool.dispatch_fallback_message(e) } },
+                      event: "message")
           rescue StandardError => e
+            # IMP-378de6e082be — the SSE twin of the non-streaming blanket
+            # arm; same reasoning, same helper.
             Rails.logger.error "[MCP StreamableHTTP] Streaming error: #{e.class}: #{e.message}\n#{e.backtrace&.first(5)&.join("\n")}"
-            sse.write({ jsonrpc: "2.0", id: message_id, error: { code: -32603, message: "Internal error: #{e.message}" } }, event: "message")
+            sse.write({ jsonrpc: "2.0", id: message_id,
+                       error: { code: -32603,
+                               message: "Internal error: #{::Ai::Tools::BaseTool.dispatch_fallback_message(e)}" } },
+                      event: "message")
           ensure
             sse&.close rescue nil
           end
