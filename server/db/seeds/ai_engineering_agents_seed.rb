@@ -326,7 +326,7 @@ ENGINEERING_AGENTS = [
                  "Do not use for code changes (use Platform Developer) or for fleet capacity and instance " \
                  "lifecycle (use Capacity Manager).",
     tool_families: %w[
-      system_dispatch_module_build_batch system_cancel_module_build_batch
+      system_dispatch_module_build_batch system_cancel_module_build_batch system_readvance_module_build_batch
       system_promote_module_version system_rollback_module_version
       system_module_mark_canary system_unmark_module_canary
       system_list_disk_image_publications system_set_default_disk_image_publication

@@ -181,6 +181,7 @@ RSpec.describe "ai_engineering_agents_seed" do
       release = canonical("release-manager").mcp_metadata.dig("tool_access", "tool_families")
       expect(release).to include(
         "system_dispatch_module_build_batch", "system_cancel_module_build_batch",
+        "system_readvance_module_build_batch",
         "system_promote_module_version", "system_rollback_module_version",
         "system_module_mark_canary", "system_unmark_module_canary",
         "system_list_disk_image_publications", "system_set_default_disk_image_publication",
