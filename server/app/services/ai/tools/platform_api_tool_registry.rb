@@ -184,6 +184,8 @@ module Ai
         "system_delete_cve" => "Ai::Tools::SystemFleetTool",
         "system_unassign_module_from_template" => "Ai::Tools::SystemFleetTool",
         "system_update_module_assignment" => "Ai::Tools::SystemFleetTool",
+        "system_list_node_module_assignments" => "Ai::Tools::SystemFleetTool",
+        "system_assign_module_to_node" => "Ai::Tools::SystemFleetTool",
         # Gap remediation slice 3 — pool ops + canary marking
         "system_return_pooled_instance" => "Ai::Tools::SystemFleetTool",
         "system_delete_instance_pool" => "Ai::Tools::SystemFleetTool",
@@ -233,6 +235,7 @@ module Ai
         "system_dispatch_module_build_batch" => "Ai::Tools::SystemFleetTool",
         "system_get_module_build_batch" => "Ai::Tools::SystemFleetTool",
         "system_cancel_module_build_batch" => "Ai::Tools::SystemFleetTool",
+        "system_readvance_module_build_batch" => "Ai::Tools::SystemFleetTool",
         "system_rollback_module_version" => "Ai::Tools::SystemFleetTool",
         # Missing-features slice 6a — GitOps reconciler MCP surface
         "system_gitops_register_repository" => "Ai::Tools::SystemFleetTool",
