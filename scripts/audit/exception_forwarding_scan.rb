@@ -150,6 +150,143 @@
 #      tripwire fires, naming the exact arm the fine matcher would have
 #      dropped.
 #
+#      SAY THIS PLAINLY SO NOBODY MISTAKES THE ARITHMETIC FOR THE GUARD:
+#      the printed total today is STILL `raw.size + forwarded.size +
+#      sanitized.size` — three buckets now instead of two, but still a sum
+#      OF the very buckets it is supposed to check, and on any given run
+#      it can only ever agree with them (53 + 31 + 115 = 199, exactly,
+#      every time, by construction). `mentions_name?` is what actually
+#      guards this file's completeness — it is the thing that can
+#      DISAGREE with the fine matchers and fail loudly when it does; the
+#      total itself still cannot. Remove the tripwire and the arithmetic
+#      alone would happily print a smaller, self-consistent, wrong number
+#      again, exactly as it did before finding 1 existed.
+#
+#   6. (IMP-1132d66f6f5c) A SIXTH BLIND SPOT, DIFFERENT IN KIND FROM THE
+#      FIVE ABOVE — name it here rather than let a completeness claim
+#      outrun what this instrument can see. Findings 1-5 were all
+#      misclassifications of a rescue arm the scanner DID see: it walked a
+#      real RESBODY and got the read/sink/type analysis wrong. THIS SCRIPT
+#      CANNOT SEE AN EXCEPTION PATH THAT HAS NO TOOL-LEVEL RESCUE ARM AT
+#      ALL. When a tool raises (or lets propagate) an exception it never
+#      rescues itself, there is no RESBODY in that tool's source for this
+#      scanner to visit, classify, or flag — however precisely #4/#5's
+#      fixes classify the arms that DO exist, an arm that does not exist
+#      contributes nothing to walk. Neither better classification nor the
+#      conservation tripwire (which asks "did a VISITED RESBODY get
+#      classified", not "does an exception path exist that produces no
+#      RESBODY at all") can surface this from inside the walked file.
+#
+#      Found by tracing one tool (docker_stack_tool.rb) that has ZERO
+#      RecordInvalid rescue arms of its own, yet a validation reachable
+#      from it (Devops::SwarmStack, see docs/reference/record-invalid-
+#      exclusion-classification-2026-09-21.md) launders a rescued
+#      Psych::SyntaxError's message into `errors.add`. Tracing where that
+#      RecordInvalid is actually caught found no tool-level or BaseTool-
+#      level rescue anywhere in the call chain — only a shared DISPATCH
+#      CHOKEPOINT below every tool called through it: Ai::AgentToolBridge
+#      Service (three `rescue StandardError` arms: platform dispatch,
+#      external MCP dispatch, local-tool dispatch), which forwarded
+#      `e.message` verbatim for ANY exception ANY tool did not itself catch
+#      — the DEFAULT for every exception that has no tool-level arm, which
+#      no amount of hardening the arms that DO exist can close. Fixed
+#      (IMP-1132d66f6f5c) via `Ai::Tools::BaseTool.dispatch_fallback_
+#      message`, reusing the same CallerFacingError-vs-generic-default
+#      distinction #run_through_autonomy_gate's own gate_context rescue
+#      already makes, one layer up.
+#
+#      EXAMINED AND EXCLUDED, same method: two more `rescue` arms sit
+#      directly beside the three fixed ones — `::Mcp::ProtocolService::
+#      PermissionDeniedError` and `Ai::Introspection::RateLimiter::
+#      RateLimitExceeded` — and both still forward `e.message` verbatim.
+#      Left alone deliberately, not overlooked: both are app-authored
+#      exception classes whose `#message` is composed text the class
+#      itself writes (`PermissionDeniedError < ProtocolError`, a plain
+#      internal class with no wrapped inner exception; `RateLimitExceeded`
+#      builds its own message from a `retry_after` integer, `"Rate limit
+#      exceeded. Retry after #{retry_after} seconds."`) — the same
+#      "authored text, not a wrapped driver/stdlib exception" property
+#      that makes a message safe under IMP-bbb881b3e4f7's rule, just never
+#      migrated to CallerFacingError to say so structurally. Naming this
+#      here rather than leaving it unstated: an enumeration of what a fix
+#      touched that stays silent about what sits adjacent and excluded is
+#      the identical gap review found in an earlier draft of this very
+#      paragraph, one layer up.
+#
+#      NOT A GLOBAL CHOKEPOINT — an initial version of this note claimed
+#      AgentToolBridgeService was "the single dispatcher for every tool
+#      call". Checked and FALSE: restricting to real calls of
+#      `Ai::Tools::McpPlatformToolRegistrar.execute_tool`/`.run_guarded`
+#      (not every match of the registrar's name — several touch
+#      `ACTION_ALIASES`, `resolved_permission_for`, `default_output_schema`,
+#      `action_dispatched?`, `unavailable_action_refusal`, or
+#      `register_all!`, none of which dispatch), the callers other than the
+#      bridge are exactly FOUR: `streamable_http_controller.rb:622`,
+#      `skill_recipe_runner.rb:328`, `local_tool_binding.rb:62`, and
+#      `mcp/protocol_service.rb:620`. (Two further files —
+#      `docker_provisioning_tool.rb`, `disk_image_operator_tool.rb` — only
+#      ever MENTION the registrar in a comment and are not callers of any
+#      kind; see the UNVERIFIED paragraph below for why that is a separate
+#      claim from "no leak shape", not the same one.)
+#
+#      Of those four: `Api::V1::Mcp::StreamableHttpController` is a
+#      SEPARATE, independently-confirmed chokepoint with the same leak
+#      shape (eleven client-visible `e.message`-forwarding sites of its
+#      own, `:148/:150/:152/:154/:157/:667/:679/:1030/:1032/:1034/:1037`
+#      at time of writing, out of 16 total `e.message` references in the
+#      file — the rest are server-side logging) — for a DIFFERENT trust
+#      boundary (an external MCP client over JSON-RPC, not the agent
+#      conversation loop AgentToolBridgeService feeds into `processing_
+#      metadata`).
+#
+#      `mcp/protocol_service.rb:620` is a THIRD dispatcher, for a THIRD
+#      boundary again (MCP over ActionCable, `CallOrigin::MCP_CABLE`) —
+#      named here because a list whose whole purpose is enumerating
+#      dispatchers must name every one it finds, not just the ones with a
+#      confirmed leak. Checked: its own `rescue StandardError` (`:354`)
+#      calls `@telemetry.track_tool_invocation_error(...)` and then a bare
+#      `raise` — it RE-RAISES rather than returning a forwarded value, so
+#      the leak shape this finding describes is not realized there. Still
+#      worth a caller confirming this holds if that method's rescue ever
+#      changes shape; recorded as checked-and-excluded, not silently
+#      dropped from the list the way an unstated dispatcher would be.
+#      `skill_recipe_runner.rb` and `local_tool_binding.rb` remain
+#      UNVERIFIED for this leak shape (see below) — real callers, not yet
+#      examined, neither assumed clean nor dirty.
+#
+#      StreamableHttpController's own leak is deliberately NOT fixed by
+#      IMP-1132d66f6f5c and not this scanner's fix either — filed
+#      separately (01a0c169-0e46) because several of its arms map to TYPED
+#      JSON-RPC error codes a protocol client is entitled to (unknown
+#      session, unknown method, invalid params) and need the SAME
+#      per-classification judgment IMP-bbb881b3e4f7 applied to
+#      RecordInvalid, not a blanket sweep.
+#
+#      REMEDIATION SHAPE, worth recording because the wrong one was
+#      explicitly considered and rejected: NOT per-tool rescue arms added
+#      to the ~100+ tool classes reachable through a chokepoint like this —
+#      that repeats the mistake IMP-095a5fe91b4a fixed for `Ai::DataSources
+#      ::HttpConnectionFactory::SsrfError` (01a0c100-bf1f), scales with
+#      every caller, leaves the default unsafe, and exposes the next new
+#      tool on day one. Fix the chokepoint itself.
+#
+#      THE LESSON FOR THIS SCRIPT'S OWN COMPLETENESS CLAIM: "every rescue
+#      arm in the scanned files is correctly classified" is a narrower
+#      claim than "every exception path in the scanned files is accounted
+#      for", and the difference is exactly the exception paths with no arm
+#      at all — INCLUDING in the DISPATCHERS themselves (this scanner has
+#      never been pointed at agent_tool_bridge_service.rb,
+#      streamable_http_controller.rb, or mcp/protocol_service.rb; none of
+#      the three is a "tool" in the sense ROOTS above defines). A future
+#      scanner enhancement should not claim
+#      to close this by classifying arms better — it would need to walk
+#      CALL GRAPHS (which methods can raise, unrescued, into which
+#      dispatcher, and how many independent dispatchers exist at all), a
+#      fundamentally different analysis than this file's per-arm walk. Not
+#      attempted here; recorded so nobody re-derives "why doesn't the
+#      scanner catch chokepoint leaks", or re-assumes there is only one
+#      chokepoint, from scratch.
+#
 # VALIDATE BEFORE TRUSTING: point this script at a known-positive shape
 # (one of the arms this version was written to catch — see
 # server/spec/scripts/exception_forwarding_scan_spec.rb, which does this in

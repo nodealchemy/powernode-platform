@@ -165,7 +165,58 @@ module Ai
       # distinction real; see run_through_autonomy_gate's own comment.
       class CallerFacingError < ArgumentError; end
 
+      # Deliberately the same text #rescued_error_result defaults to, and kept
+      # as its own named constant rather than duplicated, so the two do not
+      # silently diverge if one is edited later.
+      DISPATCH_FALLBACK_GENERIC_MESSAGE = "An internal error occurred processing this request."
+
       class << self
+        # IMP-1132d66f6f5c — the SAME distinction #run_through_autonomy_gate's
+        # own CallerFacingError rescue applies to a gate_context raise,
+        # applied here for an exception that escaped EVERY tool-level rescue
+        # arm entirely and reached a shared dispatch chokepoint with no
+        # tool-specific handling left to run at all. A CallerFacingError's
+        # whole meaning — "authored to be shown to the caller" (see the class
+        # comment above) — does not depend on WHICH seam catches it: a tool
+        # that raises it directly from an action body (not through
+        # gate_context, so #run_through_autonomy_gate's own rescue never
+        # sees it) and does not wrap that call site in its own rescue is
+        # still making the same deliberate, reviewed assertion. Flattening it
+        # to the generic default at this second chokepoint would discard an
+        # intentionally safe message for want of a tool author remembering a
+        # redundant local rescue arm. Anything else — PG errors, resolver
+        # internals, a bare stdlib ArgumentError, a filesystem path — gets
+        # the generic default: nothing about escaping every tool-level arm
+        # makes an otherwise-unreviewed message safer.
+        #
+        # SERVES Ai::AgentToolBridgeService's three sites today (platform,
+        # external-MCP, and local-tool dispatch) — the chokepoint for the
+        # agent-conversation-loop boundary, where a forwarded value reaches
+        # ai_messages.processing_metadata and the model provider.
+        # Api::V1::Mcp::StreamableHttpController is a SEPARATE chokepoint,
+        # for a different boundary (an external MCP client over JSON-RPC),
+        # with its own leak of the same shape — NOT served by this helper
+        # today; filed separately as 01a0c169-0e46, deliberately, because
+        # several of its arms map to typed JSON-RPC codes a protocol client
+        # is entitled to and need their own per-arm classification rather
+        # than a blanket sweep.
+        #
+        # REACHABILITY, stated plainly rather than assumed: at every site
+        # this helper serves today, review found no LIVE raise site that
+        # produces a CallerFacingError able to escape a tool and reach this
+        # helper — every current CallerFacingError raise sits behind
+        # #run_through_autonomy_gate's own gate_context rescue, which
+        # answers it first and never reaches here. The CallerFacingError
+        # branch below is therefore a forward-looking contract, not
+        # something protecting a site today: correct to keep (a tool
+        # deliberately raising caller-facing text that ESCAPES its own gate
+        # is arguably right to forward, and flattening it would be a silent
+        # regression the day a raise site like that is added), but it must
+        # not be read as live protection until one exists.
+        def dispatch_fallback_message(exception)
+          exception.is_a?(CallerFacingError) ? exception.message : DISPATCH_FALLBACK_GENERIC_MESSAGE
+        end
+
         # Operator-configured page size, with the constant as the fallback.
         # A non-positive configured value is ignored rather than honoured: a
         # zero would make every list action answer with an empty page and no
@@ -1271,7 +1322,7 @@ module Ai
       # keeping. This exists precisely so a sweep across many rescue arms
       # does not flatten every distinct, useful error into one string —
       # that would trade a security fix for a debuggability regression.
-      def rescued_error_result(e, message: "An internal error occurred processing this request.")
+      def rescued_error_result(e, message: DISPATCH_FALLBACK_GENERIC_MESSAGE)
         Rails.logger.error("[#{self.class.name}] #{e.class}: #{e.message}")
         error_result(message)
       end

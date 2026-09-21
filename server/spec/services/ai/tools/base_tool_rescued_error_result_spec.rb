@@ -238,4 +238,33 @@ RSpec.describe "BaseTool#rescued_error_result" do
                                          .execute(params: { action: "spec_gated_write" })
     end
   end
+
+  # IMP-1132d66f6f5c — the same intent-based distinction, exposed as a class
+  # method so shared dispatch chokepoints BELOW every tool's own rescue arms
+  # (Ai::AgentToolBridgeService, Api::V1::Mcp::StreamableHttpController) can
+  # apply it to an exception that escaped a tool entirely, with no tool-level
+  # or gate-level rescue in the way.
+  describe ".dispatch_fallback_message" do
+    it "returns a CallerFacingError's own message verbatim" do
+      exception = Ai::Tools::BaseTool::CallerFacingError.new("Skill not found")
+      expect(Ai::Tools::BaseTool.dispatch_fallback_message(exception)).to eq("Skill not found")
+    end
+
+    it "returns the generic default for a bare ArgumentError that never opted in" do
+      exception = ArgumentError.new("not-a-number-internal-detail")
+      expect(Ai::Tools::BaseTool.dispatch_fallback_message(exception))
+        .to eq(Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE)
+    end
+
+    it "returns the generic default for an unrelated StandardError" do
+      exception = StandardError.new("PG::UndefinedColumn: internal detail")
+      expect(Ai::Tools::BaseTool.dispatch_fallback_message(exception))
+        .to eq(Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE)
+    end
+
+    it "never lets the raw message of a non-CallerFacingError reach the result" do
+      exception = StandardError.new("internal-secret-detail")
+      expect(Ai::Tools::BaseTool.dispatch_fallback_message(exception)).not_to include("internal-secret-detail")
+    end
+  end
 end
