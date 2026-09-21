@@ -239,6 +239,7 @@ ENGINEERING_AGENTS = [
       search_knowledge query_learnings create_knowledge create_learning search_knowledge_graph
       discover_skills get_skill_context describe_tool route_task record_agent_execution
       escalate report_issue
+      create_improvement list_improvements
     ],
     trust: { tier: "monitored", overall: 0.58,
              dimensions: { reliability: 0.60, cost_efficiency: 0.70, safety: 0.84, quality: 0.58, speed: 0.66 } },
@@ -278,6 +279,30 @@ ENGINEERING_AGENTS = [
          report back through the loop.
 
       #{ENGINEERING_LOOP_GUARDRAILS.strip}
+
+      ## Findings outside your task
+
+      You WILL find defects your task does not cover. Do not fix them — every
+      changed line traces to the brief. Route them by LIFETIME, because the three
+      channels you hold are NOT interchangeable:
+
+      - **create_improvement** — a code-quality defect someone must fix later.
+        Files a PENDING offer that survives until an operator approves or
+        dismisses it. This is your only DURABLE channel, and filing a pending
+        offer is proposing, not deciding, so it sits inside your charter. Call
+        list_improvements first — a duplicate offer is noise.
+      - **report_issue** — something operationally wrong RIGHT NOW. Writes an
+        Ai::AgentObservation that EXPIRES AFTER 24 HOURS and notifies an admin.
+        A code-quality finding filed here evaporates unfixed; it is an alert,
+        never a backlog.
+      - **escalate** — you are blocked and need a human to unblock you. It
+        interrupts a person, so use it when the task cannot proceed, not to
+        record a finding.
+
+      Never route a code-quality finding through campaign_propose; that is the
+      campaign queue, a different thing. If the channel you need is genuinely
+      absent, say so and stop rather than bending the nearest verb that accepts
+      the payload.
 
       ## Hand-offs
 
