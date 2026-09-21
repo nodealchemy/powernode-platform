@@ -263,6 +263,26 @@ end
 # `Rails.logger.error(...)` is a deliberate, correct exclusion (logging
 # server-side is always safe), not a read shape the fine matchers failed
 # to recognize, and must not trip the tripwire.
+#
+# WHY IT IGNORES NODE TYPE, specifically: two designs were considered and
+# rejected before this one. Coarse TEXT matching (grep the rescue body's
+# source for the name) dies on comments — a comment mentioning `e` would
+# false-trip a tripwire meant to catch missed READS, and the 31-vs-33
+# blind-spot-5 case is exactly a discrepancy of that shape. Counting
+# "recognised reads" (i.e. re-deriving VARIABLE_READ_TYPES here, just
+# summed differently) is circular — it can only ever agree with the fine
+# matcher it is supposed to be checking, by construction. COARSE-AST is
+# the design that survives both: staying inside the parsed tree excludes
+# comments for free (they are not nodes), and dropping the node-type
+# restriction removes the exact dimension VARIABLE_READ_TYPES got wrong
+# (blind spot 5 was a type list missing DVAR, not a name it failed to
+# find). Two detectors that can fail together — for the same reason, on
+# the same input — are one detector wearing two names, not independent
+# evidence. Do NOT "tidy" this into a type-aware helper (e.g. reusing
+# VARIABLE_READ_TYPES / BINDING_ASSIGN_TYPES here, or adding a node.type
+# guard for "efficiency") — that reintroduces the shared failure mode and
+# silently re-arms blind spot 5 under a different name, with nothing here
+# left to catch it.
 def mentions_name?(node, name, guarded = false)
   return false unless node.is_a?(AST::Node)
 
