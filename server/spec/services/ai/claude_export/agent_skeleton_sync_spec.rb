@@ -816,25 +816,40 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
       path
     end
 
-    it "keeps every committed skeleton when the database holds no provider" do
+    # Both preconditions below became obsolete with IMP-01a06b99: the
+    # extension's bootstrap_admin_context! no longer raises on a missing
+    # account, user or provider, so its agent seeds write their GLOBAL rows
+    # regardless and a provider-less install holds the WHOLE roster. Verified
+    # on a dev cell: 29 canonical agents with Ai::Provider.count == 0 and
+    # Account.joins(:users).exists? == false. Gating the export on either is
+    # therefore no longer a proxy for "could this database hold the full set?"
+    # — it just blocks a legitimate regeneration, which is the only way a
+    # provider-less install can ever refresh its committed skeletons.
+    it "syncs a provider-less database — a canonical render never reads provider state" do
       canonical = build_canonical(name: "Fleet Autonomy", slug: "fleet-autonomy")
       Ai::Agent.global.update_all(ai_provider_id: nil)
       Ai::Provider.delete_all
 
       Dir.mktmpdir do |dir|
-        retired = committed_skeleton(dir, "long-gone")
         service = described_class.new(account: nil, target_dir: dir)
         allow(service).to receive(:syncable_agents).and_return([ canonical.reload ])
 
         result = service.sync!
 
-        expect(result.written).to eq([])
-        expect(result.removed).to eq([])
-        expect(File.exist?(retired)).to be(true)
-        expect(File.exist?(File.join(dir, "fleet-autonomy.md"))).to be(false)
+        expect(result.written).to eq([ "fleet-autonomy" ])
+        expect(File.exist?(File.join(dir, "fleet-autonomy.md"))).to be(true)
       end
     end
 
+    # This one still refuses, and the reason is NOT the agent rows — the seeds
+    # write a canonical's global definition without an account. It is the
+    # ACCOUNT-KEYED extras the export renders: `## Delegation` (parent_agent_id,
+    # written by the hierarchy seeds, which resolve an account) and the
+    # fetch-skill-context step (skill bindings). Measured on a dev cell holding
+    # all 29 canonicals but no account with a user, a full regeneration was 38
+    # insertions against 157 deletions — `## Delegation` stripped from all 28
+    # rewritten files, and the extension-developer skill step gone from
+    # platform-developer. Exporting there quietly degrades every skeleton.
     it "keeps every committed skeleton when no account has a user" do
       canonical = build_canonical(name: "Fleet Autonomy", slug: "fleet-autonomy")
       Ai::Agent.global.update_all(creator_id: nil)
@@ -848,6 +863,24 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
 
         result = service.sync!
 
+        expect(result.written).to eq([])
+        expect(result.removed).to eq([])
+        expect(File.exist?(retired)).to be(true)
+      end
+    end
+
+    # The one case that still refuses: an EMPTY set is a database whose agent
+    # seeds never ran, not a platform that retired every agent. Cleaning up
+    # there would delete every committed skeleton at once.
+    it "still refuses, and deletes nothing, when the database holds no canonical at all" do
+      Dir.mktmpdir do |dir|
+        retired = committed_skeleton(dir, "long-gone")
+        service = described_class.new(account: nil, target_dir: dir)
+        allow(service).to receive(:syncable_agents).and_return([])
+
+        result = service.sync!
+
+        expect(result.written).to eq([])
         expect(result.removed).to eq([])
         expect(File.exist?(retired)).to be(true)
       end

@@ -122,30 +122,44 @@ module Ai
       # hold? Only then does it describe the committed skeletons.
       #
       # An EMPTY set is a database that never ran the agent seeds (a fresh dev
-      # cell), not a platform with no agents. A PARTIAL set is the same failure
-      # one step along (IMP-6cda93db7f31): the core canonical seeds no longer
-      # need an account, but the agent seeds that ship with extensions still
-      # resolve an admin account, a user in it and a provider, and RAISE
-      # without them — so a database missing any of the three holds the core
-      # canonicals and none of theirs. Neither state is distinguishable HERE
-      # from a platform that retired the missing agents, and the Stop hook runs
-      # this after any seed edit: cleaning up would delete their committed
-      # skeletons, and even the write side would rewrite the survivors from
-      # rows that still carry no provider (Ai::ModelTiers then falls back to
-      # the default tier, so `model:` drifts off the committed value).
+      # cell), not a platform with no agents: cleaning up there would delete
+      # every committed skeleton at once, and the Stop hook runs this after any
+      # seed edit.
       #
-      # Three indexed EXISTS, only in canonical scope. An account-scoped export
-      # is the account's own rows and is trustworthy by construction.
+      # An account holding a user is still required, and it is NOT about the
+      # agent rows themselves. The seeds write a canonical's GLOBAL definition
+      # with no account (IMP-01a06b99), but they skip the ACCOUNT-KEYED extras
+      # until one exists — and the export renders two of them: the `##
+      # Delegation` section (parent_agent_id, written by the hierarchy seeds,
+      # which resolve an account) and the fetch-skill-context step (skill
+      # bindings). Exporting without them silently strips both from every
+      # committed skeleton. Measured on a dev cell holding all 29 canonicals but
+      # no account with a user: a full regeneration came out 38 insertions
+      # against 157 deletions, dropping `## Delegation` from all 28 rewritten
+      # files and the `extension-developer` skill step from platform-developer.
+      #
+      # ::Ai::Provider.exists? was ALSO required and has been dropped: nothing a
+      # canonical render reads consults provider state. #tier_for returns
+      # DEFAULT_TIER for canonical scope BEFORE the resolved_model branch,
+      # precisely so a committed file renders identically on every install, and
+      # the seeds no longer raise without a provider. The old comment here
+      # claimed a provider-less row would drift `model:` off the committed value
+      # via a default-tier fallback; that is not reachable in this scope, and
+      # keeping the clause only blocked the one regeneration a provider-less
+      # install can ever perform.
+      #
+      # Two indexed EXISTS, only in canonical scope. An account-scoped export is
+      # the account's own rows and is trustworthy by construction.
       def trustworthy_roster?(agents)
-        agents.any? && ::Account.joins(:users).exists? && ::Ai::Provider.exists?
+        agents.any? && ::Account.joins(:users).exists?
       end
 
       def refuse_untrustworthy_roster(agents)
         Rails.logger.warn(
           "[claude:sync_agents] canonical scope resolved #{agents.size} agent(s) on a database that " \
-          "cannot hold the whole canonical roster (account with a user: " \
-          "#{::Account.joins(:users).exists?}, provider: #{::Ai::Provider.exists?}) — leaving " \
-          "#{@target_dir} untouched (unseeded or partially seeded database?)"
+          "cannot render the whole skeleton (account with a user: " \
+          "#{::Account.joins(:users).exists?}) — leaving #{@target_dir} untouched " \
+          "(unseeded database, or one whose account-keyed agent extras have not been seeded?)"
         )
         Result.new(written: [], unchanged: [], removed: [], total: agents.size)
       end
