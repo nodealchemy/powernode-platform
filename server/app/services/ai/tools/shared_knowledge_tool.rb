@@ -61,6 +61,7 @@ module Ai
             content_type: { type: "string", required: false, description: "Content type: text/markdown/code/snippet/procedure/reference/fact/definition/guide (default: text)" },
             access_level: { type: "string", required: false, description: "Access level: private/team/account/global (for create/promote)" },
             tags: { type: "array", required: false, description: "Tags array (for create/update, or as a filter for search_knowledge)" },
+            key: { type: "string", required: false, description: "Stable upsert key \"<prefix>:<slug>\" (create_knowledge) — makes the write idempotent; see the create_knowledge action schema" },
             limit: { type: "integer", required: false, description: "Max results (default 10)" }
           }
         }
@@ -79,13 +80,16 @@ module Ai
             }
           },
           "create_knowledge" => {
-            description: "Create a new shared knowledge entry",
+            description: "Create a new shared knowledge entry. Pass `key` to make the write an " \
+                         "idempotent UPSERT anchored on that key, so editing the same entry later " \
+                         "updates it in place instead of leaving a near-duplicate.",
             parameters: {
               title: { type: "string", required: true, description: "Entry title" },
               content: { type: "string", required: true, description: "Entry content" },
-              content_type: { type: "string", required: false, description: "Content type: text/markdown/code/snippet/procedure/reference/fact/definition/guide (default: text)" },
-              access_level: { type: "string", required: false, description: "Access level (default: team)" },
-              tags: { type: "array", required: false, description: "Tags array" }
+              content_type: { type: "string", required: false, description: "Content type: text/markdown/code/snippet/procedure/reference/fact/definition/guide (default: text; reference for a keyed write)" },
+              access_level: { type: "string", required: false, description: "Access level (default: team). Ignored for a keyed write, which is always account-scoped." },
+              tags: { type: "array", required: false, description: "Tags array" },
+              key: { type: "string", required: false, description: "Stable upsert key \"<prefix>:<slug>\", e.g. \"memory:grep-rulebook\". Re-writing the same key updates that row (unchanged when the content is identical) and adds the canonical <prefix> / <prefix>-<slug> tags; tags and provenance MERGE with what is stored, so a later write never drops them. Re-writing an archived entry revives it. Returned as provenance.guidance_key by search_knowledge." }
             }
           },
           "update_knowledge" => {
@@ -225,6 +229,19 @@ module Ai
       end
 
       def create_knowledge(params)
+        # A keyed create is an upsert (IMP-a7734de23fc7): it routes to the
+        # key-anchored seeder path so a session can edit what it wrote before.
+        if params[:key].present?
+          return knowledge_service.upsert(
+            key: params[:key],
+            title: params[:title],
+            content: params[:content],
+            content_type: params[:content_type] || "reference",
+            tags: normalize_tags(params[:tags]),
+            source_type: "agent"
+          )
+        end
+
         result = knowledge_service.create(
           title: params[:title],
           content: params[:content],

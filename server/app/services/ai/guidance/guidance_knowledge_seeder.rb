@@ -83,7 +83,13 @@ module Ai
       # both paths share the key-anchored upsert AND the gate #9 refusal. Returns
       # :created / :updated / :unchanged / :refused. `extra_tags` are merged after
       # the canonical guidance / guidance-<slug> / repository tags.
-      def upsert_guidance(key:, slug:, title:, content:, provenance: {}, extra_tags: [], source_type: "import")
+      #
+      # `content_type` is a parameter (default "reference") because the MCP
+      # keyed-create path (Ai::Memory::SharedKnowledgeService#upsert) lets a
+      # caller write markdown/procedure entries through this same upsert rather
+      # than adding a second one — see IMP-a7734de23fc7.
+      def upsert_guidance(key:, slug:, title:, content:, provenance: {}, extra_tags: [], source_type: "import",
+                          content_type: "reference")
         if refuse_private_references && (ext = private_extension_in(content))
           Rails.logger.warn("[GuidanceSeeder] Refused #{key}: names private extension '#{ext}' (gate #9)")
           return :refused
@@ -94,22 +100,38 @@ module Ai
                  .where("provenance->>'guidance_key' = ?", key)
                  .first_or_initialize
         hash = Digest::SHA256.hexdigest(content)
+        stored = record.provenance || {}
 
-        return :unchanged if record.persisted? && record.integrity_hash == hash
+        # An archived row is still found by key (archiving is a provenance flag,
+        # not a delete), so a re-write of unchanged content would otherwise
+        # report success while the entry stayed invisible to search. Writing the
+        # key again is an assertion that the entry should exist, so it revives:
+        # the archive flags are cleared and the outcome is :updated even when the
+        # body is byte-identical, never a silent :unchanged on a hidden row.
+        archived = stored["archived"] == true
+
+        return :unchanged if record.persisted? && record.integrity_hash == hash && !archived
 
         was_new = record.new_record?
         record.assign_attributes(
           account: account,
           title: title,
           content: content,
-          content_type: "reference",
+          content_type: content_type,
           access_level: "account",
           source_type: source_type,
           usage_count: record.usage_count || 0,
-          tags: ([tag_prefix, "#{tag_prefix}-#{slug}", "repository:#{repository}"] + Array(extra_tags)).map { |t| t.to_s }.uniq,
+          # Tags and provenance MERGE with what is stored. A caller that edits an
+          # entry without repeating its tags must not lose them, and provenance
+          # written by another producer (e.g. GuidancePromotionService's
+          # source_learning_id, which rating propagation reads) must survive a
+          # later write through a different path.
+          tags: (Array(record.tags) + [ tag_prefix, "#{tag_prefix}-#{slug}", "repository:#{repository}" ] +
+                 Array(extra_tags)).map { |t| t.to_s }.uniq,
           integrity_hash: hash,
           embedding: best_effort_embedding(content),
-          provenance: provenance.merge("guidance_key" => key)
+          provenance: stored.merge(provenance).merge("guidance_key" => key)
+                            .except("archived", "archived_at", "archived_by")
         )
         record.save!
 

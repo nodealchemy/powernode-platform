@@ -98,6 +98,90 @@ module Ai
         @embedding_service = EmbeddingService.new(account: account)
       end
 
+      # "<prefix>:<slug>", lowercase; the slug may not contain a colon, so
+      # #upsert's split can never mis-anchor a key.
+      KEY_FORMAT = /\A[a-z][a-z0-9_-]*:[a-z0-9][a-z0-9_.\-]*\z/
+
+      # A key-anchored write: create the entry the key names, or update it in
+      # place when it already exists (IMP-a7734de23fc7). This is what makes a
+      # memory editable over MCP — the unkeyed #create path dedupes by cosine
+      # similarity, which leaves a near-duplicate row behind whenever a session
+      # edits something it wrote earlier.
+      #
+      # The upsert itself is NOT reimplemented here: it delegates to
+      # Ai::Guidance::GuidanceKnowledgeSeeder#upsert_guidance, which already owns
+      # the provenance->>'guidance_key' lookup and SHA-256 change detection that
+      # the guidance and deployment seeds use.
+      #
+      # `key` is "<prefix>:<slug>" (e.g. "memory:grep-rulebook"). The prefix
+      # becomes the entry's tag prefix, so the canonical tags are <prefix> and
+      # <prefix>-<slug>; caller tags are merged after those. Entries written this
+      # way are always account-scoped — never global, which would cross accounts.
+      #
+      # Gate #9 (refuse content naming a private extension) fires whenever the
+      # write would land in the PUBLIC guidance corpus — by its key prefix or by
+      # a caller-supplied guidance* tag, because recall is by tag
+      # (`search_knowledge tags: ["guidance-..."]`) and a caller chooses tags
+      # independently of the key. Other prefixes are account-scoped operator
+      # material, exactly as Ai::Guidance::GuidanceKnowledgeSeeder.for_deployment
+      # treats the gitignored deployment docs.
+      #
+      # Caveat worth knowing: the gate derives the private-extension names by
+      # globbing extensions/private/, so on a deployment whose tree does not
+      # carry that directory the name list is empty and the gate passes
+      # everything. It is a guard against accident, not an access control.
+      def upsert(key:, title:, content:, content_type: "reference", tags: [], source_type: "agent",
+                 metadata: {})
+        key = key.to_s.strip
+        unless key.match?(KEY_FORMAT)
+          return {
+            success: false,
+            error: "key must be \"<prefix>:<slug>\" in lowercase (e.g. \"memory:grep-rulebook\"), got #{key.inspect}"
+          }
+        end
+
+        prefix, slug = key.split(":", 2)
+        validate_content_type!(content_type)
+
+        reaches_guidance_corpus = prefix.start_with?("guidance") ||
+                                  Array(tags).any? { |t| t.to_s.start_with?("guidance") }
+
+        seeder = Ai::Guidance::GuidanceKnowledgeSeeder.new(
+          account: @account,
+          tag_prefix: prefix,
+          source_dir_label: "mcp",
+          refuse_private_references: reaches_guidance_corpus,
+          # Skip the filesystem glob when the gate is off.
+          private_names: reaches_guidance_corpus ? nil : []
+        )
+
+        outcome = seeder.upsert_guidance(
+          key: key, slug: slug, title: title, content: content,
+          content_type: content_type, source_type: source_type,
+          extra_tags: Array(tags), provenance: (metadata || {}).merge("source_type" => source_type)
+        )
+
+        if outcome == :refused
+          return {
+            success: false,
+            error: "Refused: the content names a private extension, so it cannot be written as public guidance"
+          }
+        end
+
+        entry = Ai::SharedKnowledge.where(account: @account)
+                                   .where("provenance->>'guidance_key' = ?", key).first
+        Rails.logger.info("[SharedKnowledge] Upsert #{key} -> #{outcome} (#{entry&.id})")
+        { success: true, action: outcome.to_s, entry: entry && serialize_entry(entry) }
+      rescue ActiveRecord::RecordInvalid => e
+        Rails.logger.warn("[SharedKnowledge] Upsert rejected: #{e.message}")
+        { success: false, error: e.message }
+      rescue ArgumentError => e
+        { success: false, error: e.message }
+      rescue StandardError => e
+        Rails.logger.error("[SharedKnowledge] Upsert failed: #{e.class} - #{e.message}")
+        { success: false, error: "Failed to upsert knowledge entry" }
+      end
+
       # Create a new shared knowledge entry with deduplication
       def create(title:, content:, content_type: "text", access_level: "team",
                  tags: [], metadata: {}, agent: nil, team: nil, source_type: "manual")
