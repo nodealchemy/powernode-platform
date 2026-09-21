@@ -422,7 +422,7 @@ module Ai
 
         { success: true, agent_id: agent.id, execution_id: execution.id, status: "execution_dispatched", message: "Agent execution dispatched to worker" }
       rescue WorkerJobService::WorkerServiceError => e
-        { success: false, error: "Failed to dispatch execution: #{e.message}" }
+        rescued_error_result(e, message: "Failed to dispatch execution")
       end
 
       # `slug:` is the environment-independent lookup the Claude Code skeletons
@@ -611,9 +611,9 @@ module Ai
           reassigned_to: canonical&.id, repointed_rows: repointed, deleted_rows: deleted
         }
       rescue ActiveRecord::InvalidForeignKey => e
-        { success: false, error: "Foreign key blocks destroy — extend REASSIGN_AGENT_FKS or DELETE_AGENT_ROWS to cover it: #{e.message}" }
+        rescued_error_result(e, message: "Foreign key blocks destroy — extend REASSIGN_AGENT_FKS or DELETE_AGENT_ROWS to cover it")
       rescue StandardError => e
-        { success: false, error: "Failed to delete agent: #{e.class}: #{e.message}" }
+        rescued_error_result(e, message: "Failed to delete agent")
       end
 
       def spawn_task(params)
@@ -656,7 +656,7 @@ module Ai
 
         { success: true, task_id: task.task_id, status: task.status, agent_id: target.id, agent_name: target.name }
       rescue StandardError => e
-        { success: false, error: "Failed to spawn task: #{e.message}" }
+        rescued_error_result(e, message: "Failed to spawn task")
       end
 
       def check_task_status(params)

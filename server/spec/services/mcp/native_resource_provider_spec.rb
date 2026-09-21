@@ -163,28 +163,32 @@ RSpec.describe Mcp::NativeResourceProvider, type: :model do
       end
     end
 
-    it "raises ArgumentError for unknown URI scheme" do
+    # IMP-378de6e082be — pinned to the specific class, not just ArgumentError
+    # (which CallerFacingError subclasses); see native_prompt_provider_spec.rb's
+    # equivalent comment for why a bare-superclass match here would not have
+    # caught a revert of the migration.
+    it "raises CallerFacingError for unknown URI scheme" do
       expect {
         provider.read_resource(uri: "powernode://unknown/type/thing")
-      }.to raise_error(ArgumentError, /Invalid resource URI/)
+      }.to raise_error(::Ai::Tools::BaseTool::CallerFacingError, /Invalid resource URI/)
     end
 
-    it "raises ArgumentError for non-existent resource" do
+    it "raises CallerFacingError for non-existent resource" do
       expect {
         provider.read_resource(uri: "powernode://kb/articles/does-not-exist")
-      }.to raise_error(ArgumentError, /Resource not found/)
+      }.to raise_error(::Ai::Tools::BaseTool::CallerFacingError, /Resource not found/)
     end
 
-    it "raises ArgumentError for invalid URI format" do
+    it "raises CallerFacingError for invalid URI format" do
       expect {
         provider.read_resource(uri: "not-a-valid-uri")
-      }.to raise_error(ArgumentError, /Invalid resource URI/)
+      }.to raise_error(::Ai::Tools::BaseTool::CallerFacingError, /Invalid resource URI/)
     end
 
-    it "raises ArgumentError for nil URI" do
+    it "raises CallerFacingError for nil URI" do
       expect {
         provider.read_resource(uri: nil)
-      }.to raise_error(ArgumentError, /Invalid resource URI/)
+      }.to raise_error(::Ai::Tools::BaseTool::CallerFacingError, /Invalid resource URI/)
     end
   end
 end

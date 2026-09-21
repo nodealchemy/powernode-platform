@@ -302,8 +302,26 @@ module Ai
 
       [truncate_result(result.to_json), result]
     rescue ArgumentError => e
+      # IMP-1132d66f6f5c — CallerFacingError < ArgumentError (deliberately;
+      # see the class's own comment in base_tool.rb), so it matches THIS
+      # clause first, three clauses above the StandardError arm below — NOT
+      # reordered here, because swapping the clause ORDER would silently
+      # change which ArgumentError raises this "Unknown tool" branch answers
+      # at all. Instead, the label is decided from what actually escaped:
+      # a genuine "Unknown platform tool: X" raise (the registrar's own,
+      # never wrapped in CallerFacingError) keeps its accurate label; a
+      # CallerFacingError did not fail to resolve a tool name at all — a
+      # real tool ran and refused — so it gets the same label the
+      # StandardError arm below uses for "a tool ran and something in it
+      # went wrong", and its own message forwards verbatim (the only shape
+      # that makes that branch load-bearing AT THIS SITE). Every OTHER
+      # ArgumentError — including a bare stdlib one (Integer("abc"),
+      # Date.parse, ...) raised at any depth below a dispatched tool and
+      # never wrapped in CallerFacingError — stops forwarding e.message raw
+      # and gets the generic default instead, via the same helper.
       Rails.logger.warn "[AgentToolBridge] Unknown tool: #{tool_name} - #{e.message}"
-      [{ error: "Unknown tool: #{tool_name}", message: e.message }.to_json, nil]
+      label = e.is_a?(::Ai::Tools::BaseTool::CallerFacingError) ? "Tool execution failed" : "Unknown tool: #{tool_name}"
+      [{ error: label, message: ::Ai::Tools::BaseTool.dispatch_fallback_message(e) }.to_json, nil]
     rescue ::Mcp::ProtocolService::PermissionDeniedError => e
       Rails.logger.warn "[AgentToolBridge] Permission denied: #{tool_name} - #{e.message}"
       [{ error: "Permission denied", tool: tool_name, message: e.message }.to_json, nil]
@@ -311,8 +329,17 @@ module Ai
       Rails.logger.warn "[AgentToolBridge] Rate limited: #{tool_name} - #{e.message}"
       [{ error: "Rate limit exceeded", tool: tool_name, message: e.message }.to_json, nil]
     rescue StandardError => e
+      # IMP-1132d66f6f5c — the structural leak: an exception the dispatched
+      # tool did not itself catch (no tool-level rescue for this class, or no
+      # rescue at all) reaches THIS chokepoint with nothing tool-specific left
+      # to sanitize it. The raw text is still logged server-side, in full,
+      # immediately above; only the value returned to the caller — which
+      # becomes part of the conversation forwarded to the model provider — is
+      # narrowed. See BaseTool.dispatch_fallback_message for why a
+      # CallerFacingError is the one exception forwarded verbatim here.
       Rails.logger.error "[AgentToolBridge] Tool error: #{tool_name} - #{e.message}"
-      [{ error: "Tool execution failed", tool: tool_name, message: e.message }.to_json, nil]
+      [{ error: "Tool execution failed", tool: tool_name,
+        message: ::Ai::Tools::BaseTool.dispatch_fallback_message(e) }.to_json, nil]
     end
 
     # Shared agentic tool loop — call LLM with tools, dispatch calls, repeat.
@@ -801,12 +828,18 @@ module Ai
         )
         [truncate_result(result.to_json), result]
       rescue StandardError => e
+        # IMP-1132d66f6f5c — same structural leak as #dispatch_tool_call_
+        # capturing's arm, at the external-MCP dispatch path. execution.
+        # error_message keeps the raw text (server-side, an operator's own
+        # debugging record — not returned to the caller), same as the
+        # Rails.logger line; only the JSON handed back narrows.
         execution.update!(
           status: "failed", error_message: e.message,
           completed_at: Time.current, duration_ms: ((Time.current - started) * 1000).round
         )
         Rails.logger.error "[AgentToolBridge] External MCP tool error: #{tool_name} - #{e.message}"
-        [{ error: "Tool execution failed", tool: tool_name, message: e.message }.to_json, nil]
+        [{ error: "Tool execution failed", tool: tool_name,
+          message: ::Ai::Tools::BaseTool.dispatch_fallback_message(e) }.to_json, nil]
       end
     end
 
@@ -980,8 +1013,12 @@ module Ai
                                                                origin: ::Ai::Tools::CallOrigin::AGENT_BRIDGE)
       [ truncate_result(result.to_json), result ]
     rescue StandardError => e
+      # IMP-1132d66f6f5c — same structural leak, third and last site: a local
+      # tool's own action body can raise unrescued with no gate_context
+      # involved at all.
       Rails.logger.error "[AgentToolBridge] Local tool error: #{tool_name} - #{e.message}"
-      [ { error: "Tool execution failed", tool: tool_name, message: e.message }.to_json, nil ]
+      [ { error: "Tool execution failed", tool: tool_name,
+         message: ::Ai::Tools::BaseTool.dispatch_fallback_message(e) }.to_json, nil ]
     end
 
     def accumulate_usage(accumulated, response_usage)

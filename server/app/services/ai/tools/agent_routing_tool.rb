@@ -101,8 +101,7 @@ module Ai
           }.merge(routed[:execution_note] ? { execution_note: routed[:execution_note] } : {})
         )
       rescue StandardError => e
-        Rails.logger.error("[AgentRoutingTool] route_task failed: #{e.class}: #{e.message}")
-        error_result("routing failed: #{e.message}")
+        rescued_error_result(e, message: "routing failed")
       end
 
       private

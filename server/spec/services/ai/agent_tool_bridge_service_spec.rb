@@ -398,6 +398,90 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
       expect(result.bytesize).to be <= described_class::MAX_RESULT_SIZE + 100
       expect(result).to include("truncated")
     end
+
+    # IMP-1132d66f6f5c — the structural leak: an exception a tool does not
+    # itself rescue reaches this blanket `rescue StandardError`, which used
+    # to forward e.message verbatim. Distinctive token stands in for real
+    # internal content (a PG driver message, a filesystem path, ...) that
+    # nobody reviewed for caller safety.
+    context "an exception the tool itself did not catch" do
+      let(:internal_token) { "INTERNAL-DETAIL-cb3f0a1e9d4c" }
+
+      it "does not let the raw message reach the returned JSON, and keeps the payload shape" do
+        allow(Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+          .and_raise(StandardError, "PG::UndefinedColumn: column #{internal_token} does not exist")
+
+        result = bridge.dispatch_tool_call(tool_call)
+        parsed = JSON.parse(result)
+
+        expect(parsed["message"]).not_to include(internal_token)
+        # Positive assertion, not just a negative one (01a0c10b-29d2's own
+        # lesson) — this fails loudly if the fix merely blanks the field
+        # instead of substituting the reviewed generic string.
+        expect(parsed["message"]).to eq(Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE)
+        expect(parsed.keys).to contain_exactly("error", "tool", "message")
+        expect(parsed["error"]).to eq("Tool execution failed")
+        expect(parsed["tool"]).to eq(tool_call[:name])
+      end
+
+      it "still logs the raw message server-side" do
+        # `bridge` FIRST — forces the agent factory's own incidental MCP
+        # registration logging to run before the strict expectation below is
+        # installed (base_tool_rescued_error_result_spec.rb's own pattern).
+        bridge
+        allow(Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+          .and_raise(StandardError, "boom #{internal_token}")
+        expect(Rails.logger).to receive(:error).with(a_string_including(internal_token))
+
+        bridge.dispatch_tool_call(tool_call)
+      end
+
+      it "forwards a CallerFacingError's own message verbatim instead of the generic default" do
+        allow(Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+          .and_raise(Ai::Tools::BaseTool::CallerFacingError, "Skill not found")
+
+        result = bridge.dispatch_tool_call(tool_call)
+        parsed = JSON.parse(result)
+
+        expect(parsed["message"]).to eq("Skill not found")
+        # THE DISCRIMINATING ASSERTION (review-smb) — CallerFacingError <
+        # ArgumentError, so this raise is actually caught THREE CLAUSES
+        # ABOVE this context's own StandardError arm, by the `rescue
+        # ArgumentError` clause that answers every OTHER ArgumentError with
+        # "Unknown tool: ...". Without this line the example passes
+        # unchanged whether or not that clause's own fix (below) exists —
+        # it would pass even against the OLD code, since `e.message` was
+        # ALREADY forwarded verbatim there. "Tool execution failed" is only
+        # correct here because that clause now labels a CallerFacingError
+        # by what actually happened (a tool ran and refused), not by the
+        # unrelated "couldn't resolve a tool name" label every OTHER
+        # ArgumentError still gets.
+        expect(parsed["error"]).to eq("Tool execution failed")
+      end
+
+      it "sanitizes a bare ArgumentError that never opted into CallerFacingError, even though it shares a rescue clause with 'unknown tool'" do
+        # THE ACTUAL LEAK site 1's fix closes: a stdlib-raised ArgumentError
+        # (Integer("abc"), Date.parse, ...) from any depth below a
+        # dispatched tool matches the SAME `rescue ArgumentError` clause as
+        # the registrar's own "Unknown platform tool" raise — one clause,
+        # three above this context's StandardError arm, that the earlier
+        # tests in this file never exercised with anything but that one
+        # known-safe registrar message.
+        allow(Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+          .and_raise(ArgumentError, "PG::UndefinedColumn: column #{internal_token} does not exist")
+
+        result = bridge.dispatch_tool_call(tool_call)
+        parsed = JSON.parse(result)
+
+        expect(parsed["message"]).not_to include(internal_token)
+        expect(parsed["message"]).to eq(Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE)
+        # The label is UNCHANGED by this fix — only a CallerFacingError gets
+        # the "Tool execution failed" label; every other ArgumentError,
+        # including this one, keeps "Unknown tool", which is imprecise here
+        # but not unsafe: no exception content reaches it.
+        expect(parsed["error"]).to eq("Unknown tool: #{tool_call[:name]}")
+      end
+    end
   end
 
   describe '#execute_tool_loop' do
@@ -663,6 +747,63 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
         expect(result).to be_nil
         expect(JSON.parse(json)["error"]).to eq("Unknown tool: mcp__nope__missing")
         expect(Mcp::SyncExecutionService).not_to have_received(:new)
+      end
+
+      # IMP-1132d66f6f5c — the :809 arm of the same structural leak. This one
+      # ALSO persists e.message into execution.error_message, which must stay
+      # (server-side, not provider-facing) even once the returned JSON stops
+      # carrying it.
+      context "an exception the sync client itself did not catch" do
+        let(:internal_token) { "INTERNAL-DETAIL-7a2c19f0" }
+
+        it "does not let the raw message reach the returned JSON, but keeps it in execution.error_message" do
+          allow(Mcp::SyncExecutionService).to receive(:new)
+            .and_raise(StandardError, "socket error near #{internal_token}")
+          name = external_tool_name
+
+          json, result = bridge.dispatch_tool_call_capturing({ name: name, arguments: {} })
+          parsed = JSON.parse(json)
+
+          expect(result).to be_nil
+          expect(parsed["message"]).not_to include(internal_token)
+          expect(parsed["message"]).to eq(Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE)
+          expect(parsed["error"]).to eq("Tool execution failed")
+          # Would not catch an ADDED key on its own (review-7046) — paired
+          # with the eq assertions above, which pin the two keys' VALUES.
+          expect(parsed.keys).to contain_exactly("error", "tool", "message")
+
+          execution = mcp_tool.mcp_tool_executions.order(:created_at).last
+          expect(execution.status).to eq("failed")
+          # The raw detail is exactly what an operator debugging this needs —
+          # kept here deliberately, per the task's own instruction.
+          expect(execution.error_message).to include(internal_token)
+        end
+
+        # review-7046 — sites 1 and 3 each have their own "still logs the raw
+        # message server-side" example; this one pinned execution.error_message
+        # instead, leaving Rails.logger.error with no oracle at this site.
+        it "still logs the raw message server-side" do
+          # `name` FIRST — forces the agent/tool advertisement machinery to
+          # run (same incidental-logging-before-strict-mock ordering as the
+          # other two sites' equivalent examples) before the expectation
+          # below is installed.
+          name = external_tool_name
+          allow(Mcp::SyncExecutionService).to receive(:new)
+            .and_raise(StandardError, "boom #{internal_token}")
+          expect(Rails.logger).to receive(:error).with(a_string_including(internal_token))
+
+          bridge.dispatch_tool_call_capturing({ name: name, arguments: {} })
+        end
+
+        it "forwards a CallerFacingError's own message verbatim instead of the generic default" do
+          allow(Mcp::SyncExecutionService).to receive(:new)
+            .and_raise(Ai::Tools::BaseTool::CallerFacingError, "Skill not found")
+          name = external_tool_name
+
+          json, = bridge.dispatch_tool_call_capturing({ name: name, arguments: {} })
+
+          expect(JSON.parse(json)["message"]).to eq("Skill not found")
+        end
       end
     end
   end

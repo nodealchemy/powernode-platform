@@ -6,6 +6,20 @@ module Ai
       module CodebaseContextResolvable
         extend ActiveSupport::Concern
 
+        # PROVIDER-SAFETY CONTRACT (IMP-5ed95e651b80): every ArgumentError /
+        # ActiveRecord::RecordNotFound this concern raises is static
+        # app-authored text, at most interpolating an identifier/path/count
+        # the CALLING ACCOUNT already owns or supplied (never another
+        # account's data, never a raw driver/framework message) — audited
+        # exhaustively when this file's only three includers
+        # (code_analysis_tool.rb, code_discovery_tool.rb, code_memory_tool.rb)
+        # were found to have no OTHER raise site for either class. Those
+        # tools' rescue arms rely on that and forward e.message verbatim via
+        # `rescued_error_result(e, message: e.message)` rather than the
+        # generic default. If a future raise site here ever needs to wrap an
+        # inner error's message, it must keep that contract — sanitize
+        # before raising, not after.
+        #
         # Maximum number of files to index in a single run
         MAX_INDEX_FILES = 5000
 

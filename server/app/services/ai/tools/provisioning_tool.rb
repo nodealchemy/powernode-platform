@@ -231,9 +231,18 @@ module Ai
         else
           error_result("Unknown action: #{params[:action]}")
         end
+      # Shared catch-all for every action above. Every raise site reachable
+      # here (find_mission!, find_plan!, create_infrastructure_mission!) is
+      # static app-authored text, at most interpolating a mission/plan id the
+      # caller supplied or an app-internal constant (template name, seed
+      # path) — audited exhaustively for IMP-5ed95e651b80. Preserved via
+      # e.message rather than the generic default; a future raise site here
+      # wrapping a raw inner error's message would need its own review.
       rescue ActiveRecord::RecordNotFound => e
+        Rails.logger.info("[ProvisioningTool] #{e.class}: #{e.message}")
         error_result(e.message)
       rescue ArgumentError => e
+        Rails.logger.info("[ProvisioningTool] #{e.class}: #{e.message}")
         error_result(e.message)
       end
 
@@ -520,7 +529,7 @@ module Ai
         )
         { gate: ::Ai::Provisioning::AdaptationDispatchService::GATE_PARKED,
           dispatched: false, approval_request_id: nil, within_bounds: false,
-          detail: "dispatch failed: #{e.class}: #{e.message[0, 200]}" }
+          detail: "dispatch failed — see server logs" }
       end
 
       # The proposer raises for a genuinely unknown change_type (already

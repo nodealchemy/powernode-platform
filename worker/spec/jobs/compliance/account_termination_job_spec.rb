@@ -83,6 +83,9 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
           .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
           .and_return('success' => true, 'data' => [])
         allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'processing' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
           .with("/api/v1/internal/accounts/#{account_id}/users")
           .and_return('success' => true, 'data' => users_data)
         allow(api_client).to receive(:patch).and_return('success' => true, 'data' => termination_data)
@@ -169,6 +172,8 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
 
         expect(result[:processed]).to eq(1)
         expect(result[:errors]).to be_empty
+        # A fresh grace_period termination is not a resumed strand.
+        expect(result[:resumed]).to eq(0)
       end
 
       it 'finalizes a succeeded termination as completed so it is not re-selected' do
@@ -249,6 +254,439 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
       end
     end
 
+    # IMP-f0560910fa62: process_termination PATCHes status: 'processing'
+    # BEFORE entering its begin/rescue (line ~78). If the worker dies in that
+    # window -- or anywhere before the completed/grace_period write lands --
+    # the rescue never runs and the row is stranded: process_ready_terminations
+    # only ever asks for {status: 'grace_period', grace_period_expired: true},
+    # and no other query re-selects 'processing'.
+    #
+    # This does NOT simply mirror DataDeletionJob (IMP-b33a3ecca331) treating
+    # any 'processing' row as safe to resume: that precedent is per-id,
+    # re-invoked only by Sidekiq's OWN retry, which guarantees the prior
+    # attempt is dead. This job is a periodic SWEEP with no such guarantee --
+    # a 'processing' row could be a crash (safe to resume) or a run still
+    # genuinely in flight (resuming would double-process a live termination).
+    # Status alone can't distinguish them, so the fix filters on
+    # processing_started_at (written atomically with the status, :80):
+    # only a row idle longer than STRANDED_PROCESSING_THRESHOLD is stranded.
+    context 'when a termination is in processing' do
+      before do
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/accounts/#{account_id}/users")
+          .and_return('success' => true, 'data' => users_data)
+        allow(api_client).to receive(:patch).and_return('success' => true, 'data' => termination_data)
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 5 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      context 'and it has been idle past the staleness threshold (a prior crash)' do
+        let(:stranded_termination) do
+          termination_data.merge('status' => 'processing', 'processing_started_at' => 7.hours.ago.iso8601)
+        end
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'processing' })
+            .and_return('success' => true, 'data' => [ stranded_termination ])
+
+          # BLOCKER 1 (IMP-f0560910fa62 review): the server's own guard
+          # (account_terminations_controller.rb#status_transition_allowed?)
+          # permits ONLY processing -> {completed, grace_period}, never
+          # processing -> processing -- so re-issuing the SAME initial
+          # status write this job sends for a fresh grace_period row would
+          # 422 against a row that is ALREADY 'processing'. Modeling that
+          # here (rather than a blanket success stub for every patch) is
+          # what makes this context able to catch a regression back to the
+          # unconditional write: a blanket `.and_return('success' => true)`
+          # stub can't distinguish a real invalid-transition 422 from a
+          # valid one, which is exactly how the original unit tests missed
+          # this -- they never talked to the real server's guard.
+          allow(api_client).to receive(:patch)
+            .with(
+              "/api/v1/internal/account_terminations/#{termination_id}",
+              hash_including(status: 'processing')
+            )
+            .and_raise(BackendApiClient::ApiError, "422: Invalid status transition from 'processing' to 'processing'")
+        end
+
+        it 'does not re-issue the initial processing status write on a resumed row' do
+          expect(api_client).not_to receive(:patch)
+            .with(
+              "/api/v1/internal/account_terminations/#{termination_id}",
+              hash_including(status: 'processing')
+            )
+
+          job.execute
+        end
+
+        it 'resumes and completes it rather than leaving it forever unreachable' do
+          expect(api_client).to receive(:patch)
+            .with(
+              "/api/v1/internal/account_terminations/#{termination_id}",
+              hash_including(status: 'completed')
+            )
+            .and_return('success' => true, 'data' => stranded_termination)
+
+          job.execute
+        end
+
+        it 'counts it as processed' do
+          result = job.execute
+
+          expect(result[:processed]).to eq(1)
+        end
+
+        # Cosmetic (IMP-f0560910fa62 review, finding 5): resumed is a
+        # SUBSET of processed, tracked separately so an operator can see a
+        # strand occurred without grepping logs.
+        it 'counts it as a resumed strand, not just a newly-processed termination' do
+          result = job.execute
+
+          expect(result[:resumed]).to eq(1)
+        end
+
+        it 'does not raise or strand the row on the redundant write the server would 422 on' do
+          expect { job.execute }.not_to raise_error
+        end
+      end
+
+      # Brackets the THRESHOLD VALUE (IMP-f0560910fa62 review, finding 1):
+      # 3 hours is stale under the fix's ORIGINAL 1-hour value but still
+      # within the CURRENT 6-hour one. This constrains the value to
+      # 3h <= T < 7h against this file's other two fixtures (7h, 5min) --
+      # it is a bracket, not an exact pin (a 6h -> 4h regression would still
+      # pass; exact pinning would need 5h59m/6h01m fixtures, which is
+      # brittle, and asserting the constant against itself proves nothing).
+      # Still valuable: without it, a regression back to 1 hour (or anything
+      # below 3h) would silently pass every other example in this file --
+      # "idle past threshold" (7h) and "started recently" (5min) are both
+      # unaffected by 1h-vs-6h and can't distinguish the two values.
+      context 'and it is idle for 3 hours (stale under the fix\'s original 1-hour value, not under the current 6-hour one)' do
+        let(:borderline_termination) do
+          termination_data.merge('status' => 'processing', 'processing_started_at' => 3.hours.ago.iso8601)
+        end
+
+        before do
+          # `expect` (not `allow`): this context has no log_error assertion
+          # to self-pin on (correctly -- a young row logs nothing), and it is
+          # the ONLY example bracketing the threshold from below, so an
+          # `allow` here would leave it green even if the whole
+          # stranded-processing feature (the `+ stranded_processing_terminations`
+          # concatenation) were deleted -- nothing would call patch/delete
+          # either way, and `processed == 0` would pass vacuously. Matches
+          # the same fix already applied to "started recently", below.
+          expect(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'processing' })
+            .and_return('success' => true, 'data' => [ borderline_termination ])
+        end
+
+        it 'does not touch it -- a live run this size can still be in flight' do
+          expect(api_client).not_to receive(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", anything)
+          expect(api_client).not_to receive(:delete)
+
+          job.execute
+        end
+
+        it 'does not count it as processed' do
+          result = job.execute
+
+          expect(result[:processed]).to eq(0)
+        end
+      end
+
+      # The negative arm a staleness gate needs to be able to fail
+      # differently: without it, a gate that always resumes (or one whose
+      # threshold is wired to the wrong field/comparison) is indistinguishable
+      # from a correct one -- only this example can tell them apart.
+      context 'and it started recently (a run genuinely still in flight)' do
+        let(:recent_termination) do
+          termination_data.merge('status' => 'processing', 'processing_started_at' => 5.minutes.ago.iso8601)
+        end
+
+        before do
+          # `expect` (not `allow`): pins that the stranded-row fetch is
+          # actually MADE. An `allow` here would leave this example green
+          # even if the whole stranded-processing feature were removed --
+          # nothing would call patch/delete either way, and "does not count
+          # it as processed" would pass vacuously too.
+          expect(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'processing' })
+            .and_return('success' => true, 'data' => [ recent_termination ])
+        end
+
+        it 'does not touch it -- a concurrent run may still own it' do
+          expect(api_client).not_to receive(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", anything)
+          expect(api_client).not_to receive(:delete)
+
+          job.execute
+        end
+
+        it 'does not count it as processed' do
+          result = job.execute
+
+          expect(result[:processed]).to eq(0)
+        end
+      end
+
+      # DESIGN DECISION (IMP-f0560910fa62 review, changed from the original
+      # fix): an undeterminable age -- absent, blank, or unparseable -- is
+      # now QUARANTINED (skipped, not counted, logged at error), not
+      # resumed. The original version of this fix resumed unconditionally
+      # here, reasoning that a missing processing_started_at could only mean
+      # process_termination's own write invariant broke. That premise was
+      # disproven by the SAME review: the server's index serializer
+      # (termination_data) never included this field at all, so every
+      # 'processing' row arrived absent on a perfectly healthy system -- the
+      # staleness gate was silently inert, resuming every row regardless of
+      # true age. "I cannot determine this row's state, therefore I will act
+      # on it" is the wrong default on a path that anonymizes users and
+      # cancels accounts. Quarantining leaves the row exactly as stuck as it
+      # already was (no regression), while surfacing it to an operator.
+      #
+      # Fixture note: omits the key entirely (`termination_data.merge('status'
+      # => 'processing')`) rather than setting it to an explicit `nil` --
+      # that is the REAL payload shape a Hash#[] lookup on a JSON body
+      # produces when a field is absent, and it survives a later rewrite of
+      # the guard to `key?`/`fetch`.
+      context 'and processing_started_at is absent (the exact shape the missing serializer field produced)' do
+        let(:anomalous_termination) do
+          termination_data.merge('status' => 'processing')
+        end
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'processing' })
+            .and_return('success' => true, 'data' => [ anomalous_termination ])
+        end
+
+        it 'does not resume it -- quarantines it instead of acting on an undeterminable row' do
+          expect(api_client).not_to receive(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", anything)
+          expect(api_client).not_to receive(:delete)
+
+          job.execute
+        end
+
+        it 'does not count it as processed' do
+          result = job.execute
+
+          expect(result[:processed]).to eq(0)
+        end
+
+        # `/processing_started_at/` alone would match BOTH this message and
+        # the unparseable-garbage message below -- `/should never happen/`
+        # is unique to this (blank/absent) branch, so it actually
+        # discriminates between the two log call sites.
+        it 'logs the anomaly at error severity so it surfaces to an operator' do
+          expect(job).to receive(:log_error).with(/should never happen/)
+
+          job.execute
+        end
+      end
+
+      # A non-blank but structurally invalid processing_started_at reaches
+      # parse_processing_started_at by a different path than the absent case
+      # above: Time.zone.parse either raises (ArgumentError/TypeError,
+      # rescued) or returns nil, and both land in unparseable_processing_started_at!
+      # -- same quarantine outcome, but a distinct code path worth its own
+      # example. stranded_processing_terminations runs OUTSIDE
+      # process_ready_terminations' per-item rescue (it BUILDS the array that
+      # method's each iterates), and #execute has no rescue around
+      # process_ready_terminations itself -- only send_termination_reminders
+      # follows it, unguarded. A raise here would abort the whole sweep before
+      # any per-item bookkeeping exists, skip send_termination_reminders
+      # entirely, and bypass the fail-loud/revert-to-grace_period mechanism at
+      # the end of #execute; unlike a per-item failure, Sidekiq's retry: 3
+      # would then re-run the WHOLE job against the SAME bad row every time.
+      # One malformed row must not take the entire sweep down with it -- the
+      # ordinary grace_period termination in the same sweep (below) is what
+      # actually pins that blast radius, not just that the parse doesn't raise.
+      context 'and processing_started_at is unparseable garbage' do
+        let(:unparseable_termination) do
+          # A structurally invalid date (the code's own comment names this
+          # exact string) -- Time.zone.parse RAISES ArgumentError for this
+          # shape, unlike a merely-nonsensical string such as "garbage" or
+          # "not-a-timestamp", both of which it returns nil for without
+          # raising. This example needs the raising shape to actually
+          # exercise parse_processing_started_at's `rescue ArgumentError,
+          # TypeError` arm (confirmed by direct execution: Time.zone.parse
+          # returns nil, not a raise, for "not-a-timestamp").
+          termination_data.merge('status' => 'processing', 'processing_started_at' => '2026-99-99')
+        end
+
+        let(:other_account_id) { 'account-999' }
+        let(:other_termination_id) { 'term-999' }
+        let(:other_termination_data) do
+          termination_data.merge('id' => other_termination_id, 'account_id' => other_account_id,
+                                  'status' => 'grace_period')
+        end
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ other_termination_data ])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'processing' })
+            .and_return('success' => true, 'data' => [ unparseable_termination ])
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/accounts/#{other_account_id}/users")
+            .and_return('success' => true, 'data' => users_data)
+        end
+
+        it 'does not raise, and quarantines the unparseable row without resuming it' do
+          expect(api_client).not_to receive(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", anything)
+
+          expect { job.execute }.not_to raise_error
+        end
+
+        it 'still processes the normal grace_period termination in the same sweep' do
+          expect(api_client).to receive(:patch)
+            .with(
+              "/api/v1/internal/account_terminations/#{other_termination_id}",
+              hash_including(status: 'completed')
+            )
+            .and_return('success' => true, 'data' => other_termination_data)
+
+          job.execute
+        end
+
+        it 'counts only the normal termination as processed, not the quarantined one' do
+          result = job.execute
+
+          expect(result[:processed]).to eq(1)
+        end
+
+        it 'logs the anomaly at error severity so it surfaces to an operator' do
+          expect(job).to receive(:log_error).with(/unparseable processing_started_at/)
+
+          job.execute
+        end
+      end
+
+      # A future-dated processing_started_at PARSES CLEANLY (confirmed by
+      # direct execution: Time.zone.parse("999999999999-01-01") raises
+      # nothing), so it escapes both the blank and unparseable branches above
+      # (IMP-f0560910fa62 review, finding 4). Left unhandled, the age
+      # comparison in stranded_processing_terminations would simply evaluate
+      # false -- silently treating it as "not yet stale" with no anomaly ever
+      # logged, which is worse than either other anomaly: those at least
+      # surface via an error log even though they're also not resumed. This
+      # case must not be indistinguishable from an ordinary young row.
+      context 'and processing_started_at is in the future (clock skew or corrupted data)' do
+        let(:future_termination) do
+          termination_data.merge('status' => 'processing', 'processing_started_at' => '999999999999-01-01')
+        end
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'processing' })
+            .and_return('success' => true, 'data' => [ future_termination ])
+        end
+
+        it 'does not resume it -- quarantines it instead of treating it as merely young' do
+          expect(api_client).not_to receive(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", anything)
+          expect(api_client).not_to receive(:delete)
+
+          job.execute
+        end
+
+        it 'does not count it as processed' do
+          result = job.execute
+
+          expect(result[:processed]).to eq(0)
+        end
+
+        # `/in the future/` is unique to this branch -- distinct from
+        # `/should never happen/` (blank) and `/unparseable processing_started_at/`
+        # (garbage), so this actually discriminates the three log call sites.
+        it 'logs the anomaly at error severity so it surfaces to an operator' do
+          expect(job).to receive(:log_error).with(/in the future/)
+
+          job.execute
+        end
+      end
+    end
+
+    # DEDUPE (IMP-f0560910fa62 review, finding 3): status being a single
+    # column makes process_ready_terminations' two queries' filters disjoint
+    # only in ONE instantaneous snapshot -- they are two SEQUENTIAL HTTP
+    # requests, so a row that was 'grace_period'+expired when the first ran
+    # can have moved to 'processing' by the time the second ran a moment
+    # later (an overlapping sweep, a Sidekiq retry racing the cron, or an
+    # admin action), landing in BOTH arrays. Without de-duplication this
+    # would call process_termination for the SAME row twice in one loop: the
+    # second call would find it already 'processing' from the first call's
+    # own write and hit the exact 422 BLOCKER 1 exists to avoid.
+    context 'when a termination appears in both the ready and stranded queries (a race)' do
+      let(:racing_termination_as_ready) do
+        termination_data.merge('status' => 'grace_period')
+      end
+
+      let(:racing_termination_as_stranded) do
+        termination_data.merge('status' => 'processing', 'processing_started_at' => 7.hours.ago.iso8601)
+      end
+
+      before do
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+          .and_return('success' => true, 'data' => [ racing_termination_as_ready ])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'processing' })
+          .and_return('success' => true, 'data' => [ racing_termination_as_stranded ])
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/accounts/#{account_id}/users")
+          .and_return('success' => true, 'data' => users_data)
+        allow(api_client).to receive(:patch).and_return('success' => true, 'data' => termination_data)
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 5 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      it 'processes the colliding row exactly once, not twice' do
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/account_terminations/#{termination_id}",
+            hash_including(status: 'completed')
+          )
+          .once
+          .and_return('success' => true, 'data' => termination_data)
+
+        result = job.execute
+
+        expect(result[:processed]).to eq(1)
+      end
+
+      # Array#uniq keeps the FIRST occurrence, and stranded_terminations is
+      # concatenated first in process_ready_terminations specifically so the
+      # MORE CURRENT (chronologically later-fetched) copy wins a collision --
+      # here, the 'processing' copy, which is treated as a resume rather than
+      # a fresh grace_period -> processing transition.
+      it 'treats the collision as a resume (the more-current, stranded copy wins), not a fresh transition' do
+        expect(api_client).not_to receive(:patch)
+          .with(
+            "/api/v1/internal/account_terminations/#{termination_id}",
+            hash_including(status: 'processing')
+          )
+
+        result = job.execute
+
+        expect(result[:resumed]).to eq(1)
+      end
+    end
+
     context 'when no terminations are ready' do
       before do
         allow(api_client).to receive(:get)
@@ -256,6 +694,9 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
           .and_return('success' => true, 'data' => [])
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'processing' })
           .and_return('success' => true, 'data' => [])
       end
 
@@ -278,6 +719,9 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
           .and_return('success' => true, 'data' => [ reminder_termination ])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'processing' })
+          .and_return('success' => true, 'data' => [])
         allow(api_client).to receive(:patch).and_return('success' => true, 'data' => reminder_termination)
         allow(api_client).to receive(:post).and_return('success' => true)
       end
@@ -320,6 +764,9 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
           .and_return('success' => true, 'data' => [ termination_data ])
         allow(api_client).to receive(:get)
           .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'processing' })
           .and_return('success' => true, 'data' => [])
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/accounts/#{account_id}/users")

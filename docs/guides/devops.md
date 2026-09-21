@@ -557,7 +557,7 @@ For backup, recovery, and migration runbooks, see [`docs/operations/production-d
 
 > **Status: not yet implemented** — the Prometheus exporter is force-disabled in `server/config/initializers/metrics.rb` (`if Rails.env.test? || true`) and there is no root-level `/metrics` route, so no Prometheus metrics are exported today. Planned: a `/metrics` Prometheus surface served by a separate `prometheus_exporter` process once the `|| true` disable is removed.
 
-> **Status: not yet implemented** — Skylight APM (`SKYLIGHT_AUTHENTICATION` env var) is not wired: the `skylight` gem is loaded `require: false` with no initializer or `skylight.yml`. Planned as an optional APM integration. (Sentry, by contrast, is wired via `SENTRY_DSN`.)
+> **Skylight APM was removed** (IMP-13aa8e9e2fd4) — it was never wired (no initializer, no `skylight.yml`) and its install step downloads a prebuilt agent binary over the network; fleet nodes install gems offline with default-deny egress, so the gem left `bundle install` unable to complete on any node without an exception. Re-adding an APM gem here needs a plan for that constraint first, not a Gemfile line. (Sentry, by contrast, is wired via `SENTRY_DSN` and installs from the vendored cache with no network step.)
 
 ### Alerting
 

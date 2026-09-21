@@ -137,16 +137,23 @@ RSpec.describe Mcp::NativePromptProvider, type: :model do
       expect(message[:content][:text]).to be_a(String)
     end
 
-    it "raises ArgumentError for missing required variables" do
+    # IMP-378de6e082be — pinned to the specific class, not just ArgumentError
+    # (which CallerFacingError subclasses): a `raise_error(ArgumentError,
+    # ...)` match here would pass identically before the migration, after
+    # it, and after a revert of it, since it only checks the shared
+    # superclass. That left the migration's actual property — WHICH class —
+    # asserted nowhere, so reverting it would flatten this message to the
+    # generic string with every provider spec still green.
+    it "raises CallerFacingError for missing required variables" do
       expect {
         provider.get_prompt(name: "greeting", arguments: {})
-      }.to raise_error(ArgumentError, /Missing required variable: name/)
+      }.to raise_error(::Ai::Tools::BaseTool::CallerFacingError, /Missing required variable: name/)
     end
 
-    it "raises ArgumentError for non-existent prompt name" do
+    it "raises CallerFacingError for non-existent prompt name" do
       expect {
         provider.get_prompt(name: "does-not-exist", arguments: {})
-      }.to raise_error(ArgumentError, /Prompt not found/)
+      }.to raise_error(::Ai::Tools::BaseTool::CallerFacingError, /Prompt not found/)
     end
 
     it "works with template that has no variables" do

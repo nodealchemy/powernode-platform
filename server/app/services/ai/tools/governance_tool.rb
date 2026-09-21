@@ -191,7 +191,7 @@ module Ai
           count: reports.size
         })
       rescue StandardError => e
-        error_result("Governance scan failed: #{e.message}")
+        rescued_error_result(e, message: "Governance scan failed")
       end
 
       def list_governance_reports(params)
@@ -205,7 +205,7 @@ module Ai
           count: reports.size
         })
       rescue StandardError => e
-        error_result("List reports failed: #{e.message}")
+        rescued_error_result(e, message: "List reports failed")
       end
 
       def get_governance_report(params)
@@ -213,7 +213,7 @@ module Ai
         return error_result("Report not found") unless report
         success_result(report.as_json(except: [:updated_at]))
       rescue StandardError => e
-        error_result("Get report failed: #{e.message}")
+        rescued_error_result(e, message: "Get report failed")
       end
 
       def resolve_governance_report(params)
@@ -222,7 +222,7 @@ module Ai
         report.resolve!(status: params["resolution_status"], remediation_notes: params["notes"])
         success_result({ report_id: report.id, status: report.status })
       rescue StandardError => e
-        error_result("Resolve report failed: #{e.message}")
+        rescued_error_result(e, message: "Resolve report failed")
       end
 
       def detect_collusion(params)
@@ -233,7 +233,7 @@ module Ai
           count: indicators.size
         })
       rescue StandardError => e
-        error_result("Collusion detection failed: #{e.message}")
+        rescued_error_result(e, message: "Collusion detection failed")
       end
 
       def governance_dashboard(params)
@@ -251,7 +251,7 @@ module Ai
           agents_under_investigation: open_reports.distinct.pluck(:subject_agent_id).compact.size
         })
       rescue StandardError => e
-        error_result("Dashboard failed: #{e.message}")
+        rescued_error_result(e, message: "Dashboard failed")
       end
     end
   end

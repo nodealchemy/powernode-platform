@@ -201,7 +201,7 @@ module Ai
       # that belongs on the operation's params under Ai::SensitiveParams).
       def mutate_skill_gate_context(params)
         skill = Ai::Skill.find_by(id: param(params, :skill_id), account: account)
-        raise ArgumentError, "Skill not found" unless skill
+        raise CallerFacingError, "Skill not found" unless skill
 
         deferred_tool_call_context(params).merge(
           source_type: "Ai::Skill",
@@ -219,7 +219,7 @@ module Ai
         return error_result("Mutation produced no variant") unless version
         success_result({ version_id: version.id, strategy: strategy })
       rescue StandardError => e
-        error_result("Skill mutation failed: #{e.message}")
+        rescued_error_result(e, message: "Skill mutation failed")
       end
 
       def compose_skills(params)
@@ -232,20 +232,26 @@ module Ai
         return error_result("Composition failed") unless composite
         success_result({ skill_id: composite.id, name: composite.name, is_composite: true })
       rescue StandardError => e
-        error_result("Skill composition failed: #{e.message}")
+        rescued_error_result(e, message: "Skill composition failed")
       end
 
       # The sweep's admission rule, spelled once for the body and the gate
       # context: an absent threshold takes the default, a present one must be
       # a number — a call that could only ever be refused must not park.
-      # Returns the Float, or raises ArgumentError with the refusal.
+      # Returns the Float, or raises CallerFacingError with the refusal — the
+      # message only ever echoes the caller's OWN supplied value via
+      # .inspect, never anything else, so it's safe to show verbatim
+      # (IMP-5ed95e651b80). A subclass of ArgumentError, so
+      # auto_evolve_skill's own `rescue ArgumentError` below still catches it
+      # unchanged when this is called from the action body rather than the
+      # gate.
       def evolve_threshold(params)
         raw = param(params, :threshold)
         return 0.4 if raw.nil?
         return raw.to_f if raw.is_a?(Numeric)
         return raw.to_f if raw.is_a?(String) && raw.strip.match?(/\A-?\d+(\.\d+)?\z/)
 
-        raise ArgumentError, "threshold must be a number (got #{raw.inspect})"
+        raise CallerFacingError, "threshold must be a number (got #{raw.inspect})"
       end
 
       # The gated sweep's context (HIER-P2B-ENG). No single source row — the
@@ -266,9 +272,12 @@ module Ai
         mutated = service.auto_mutate_underperforming!(threshold: threshold)
         success_result({ skills_mutated: mutated })
       rescue ArgumentError => e
-        error_result(e.message)
+        # The only ArgumentError evolve_threshold raises is CallerFacingError,
+        # whose message echoes only the caller's own supplied value — safe,
+        # preserved verbatim (IMP-5ed95e651b80).
+        rescued_error_result(e, message: e.message)
       rescue StandardError => e
-        error_result("Auto evolution failed: #{e.message}")
+        rescued_error_result(e, message: "Auto evolution failed")
       end
     end
   end

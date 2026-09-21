@@ -10,7 +10,12 @@ module Ai
     # The created task carries a recommendation_id back-link; the dev_loop bridge
     # (DevLoopTool) drains it via /dev-loop dev-improve with no bridge change.
     class ImprovementPromotionService
-      DIRECTION_MAX = 4_096
+      # IMP-05a4ff16fbf3: this is a REFUSAL cap now, enforced by ImprovementTool
+      # BEFORE rec.approve!(user) — never by this service, which runs AFTER
+      # approve! (see #call's guard). Raising in here on an over-length
+      # direction would strand an already-approved offer with no task; the
+      # only safe place to say no is before the state change, in the tool.
+      DIRECTION_MAX = 16_384
       DIRECTION_PREFIX = "OPERATOR DIRECTION (decided at approval — do not re-litigate): "
 
       LOOP_NAME = "dev-improve"
@@ -47,12 +52,18 @@ module Ai
         # set earlier" — a superseded do-not-re-litigate order stayed pinned with
         # no seam to clear it, and the dev_update_task workaround desynced
         # metadata["operator_direction"] and reintroduced header stacking.
-        # Bounded here, at the single seam: metadata["operator_direction"] is
-        # exempt from journal truncation (strip_direction needs an exact match),
-        # and the same string is ALSO prefixed onto acceptance_criteria — so an
-        # unbounded direction rides every dev_next_task claim payload twice.
-        # Truncating once, before both writes, keeps them identical.
-        @direction = direction.is_a?(String) ? direction.truncate(DIRECTION_MAX) : direction
+        # No truncation here (IMP-05a4ff16fbf3: was `direction.truncate(DIRECTION_MAX)`,
+        # cutting the SAME string before both writes below — the same string is
+        # prefixed onto acceptance_criteria and written to
+        # metadata["operator_direction"], and there was no untruncated copy
+        # anywhere). A silent cut lands invisibly here: acceptance_criteria
+        # immediately appends the task-template boilerplate after the
+        # direction, so a mid-sentence cut reads as a normal section boundary
+        # rather than a truncation. DIRECTION_MAX is now enforced as a REFUSAL
+        # by ImprovementTool#approve_improvement, before rec.approve!(user) —
+        # by the time a direction reaches this constructor it has already
+        # cleared the cap, so accept it as-is.
+        @direction = direction
         @direction_given = !direction.nil?
         @actor = actor
       end

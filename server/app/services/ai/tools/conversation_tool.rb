@@ -284,8 +284,7 @@ module Ai
         result[:response] = response_message.content if response_message
         result
       rescue StandardError => e
-        Rails.logger.error("[ConversationTool] send_message error: #{e.message}")
-        { success: false, error: "Failed to send message: #{e.message}" }
+        rescued_error_result(e, message: "Failed to send message")
       end
 
       def list_messages(params)
@@ -362,8 +361,7 @@ module Ai
 
         response
       rescue StandardError => e
-        Rails.logger.error("[ConversationTool] send_concierge_message error: #{e.message}")
-        { success: false, error: "Failed to process message: #{e.message}" }
+        rescued_error_result(e, message: "Failed to process message")
       end
 
       def confirm_concierge_action(params)
@@ -394,8 +392,7 @@ module Ai
           result: last_message&.content
         }
       rescue StandardError => e
-        Rails.logger.error("[ConversationTool] confirm_concierge_action error: #{e.message}")
-        { success: false, error: "Failed to confirm action: #{e.message}" }
+        rescued_error_result(e, message: "Failed to confirm action")
       end
 
       # =====================================================================
@@ -434,8 +431,7 @@ module Ai
           }
         }
       rescue StandardError => e
-        Rails.logger.error("[ConversationTool] create_workspace error: #{e.message}")
-        { success: false, error: "Failed to create workspace: #{e.message}" }
+        rescued_error_result(e, message: "Failed to create workspace")
       end
 
       def invite_agent(params)
@@ -466,8 +462,7 @@ module Ai
           invited_agent: { id: target_agent.id, name: target_agent.name, agent_type: target_agent.agent_type }
         }
       rescue StandardError => e
-        Rails.logger.error("[ConversationTool] invite_agent error: #{e.message}")
-        { success: false, error: "Failed to invite agent: #{e.message}" }
+        rescued_error_result(e, message: "Failed to invite agent")
       end
 
       def list_active_sessions(_params)

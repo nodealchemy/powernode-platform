@@ -72,10 +72,9 @@ module Ai
         response[:file] = serialize_file(result[:file_object]) if result[:file_object]
         response
       rescue Ai::VideoGenerationService::GenerationError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       rescue StandardError => e
-        Rails.logger.error "[VideoGenerationTool] Unexpected error: #{e.message}"
-        { success: false, error: "Video generation failed: #{e.message}" }
+        rescued_error_result(e, message: "Video generation failed")
       end
 
       def serialize_file(file_obj)

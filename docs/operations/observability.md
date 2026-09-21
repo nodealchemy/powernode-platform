@@ -162,7 +162,7 @@ If you add a new component that should ship logs to Loki:
 
 The repo ships `configs/monitoring/grafana-dashboards.yml` and a `grafana-dashboards/` directory. Prometheus scrape config is operator-owned — point Prometheus at:
 
-> **Status: not yet implemented** — there is no `yabeda-rails`/`yabeda-prometheus`-backed `/metrics` endpoint today, and no yabeda gem (active or commented) exists in `server/Gemfile`. The actual APM/monitoring gems are `sentry-ruby`/`sentry-rails`, `skylight` (optional), and OpenTelemetry (opt-in via `OTEL_ENABLED=true` + `bundle install --with opentelemetry`). The Rails-app Prometheus `/metrics` path below is planned; adding the yabeda gems is the intended path to enable it.
+> **Status: not yet implemented** — there is no `yabeda-rails`/`yabeda-prometheus`-backed `/metrics` endpoint today, and no yabeda gem (active or commented) exists in `server/Gemfile`. The actual APM/monitoring gems are `sentry-ruby`/`sentry-rails` and OpenTelemetry (opt-in via `OTEL_ENABLED=true` + `bundle install --with opentelemetry`). The Rails-app Prometheus `/metrics` path below is planned; adding the yabeda gems is the intended path to enable it.
 
 | Endpoint | What it exposes |
 |----------|-----------------|

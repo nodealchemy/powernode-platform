@@ -134,4 +134,73 @@ RSpec.describe Ai::AgentToolBridgeService, "#execute_tool_loop with local tools"
 
     expect(names(client.requests.first[:tools])).not_to include("write_file")
   end
+
+  # IMP-1132d66f6f5c — the :984 arm of the same structural leak: a local
+  # tool's own action body can raise unrescued (no gate_context involved at
+  # all here), and #dispatch_local_tool_call's blanket rescue used to forward
+  # e.message verbatim.
+  describe "an exception the local tool itself did not catch" do
+    let(:internal_token) { "INTERNAL-DETAIL-5f61b2a8" }
+
+    let(:raising_tool_class) do
+      token = internal_token
+      Class.new(Ai::Tools::BaseTool) do
+        def self.definition
+          { name: "spec_raising_local_tool", description: "spec", parameters: { type: "object", properties: {} } }
+        end
+        declare_action "write_file", mutating: false
+
+        define_method(:call) { |_params| raise StandardError, "disk full near #{token}" }
+      end
+    end
+
+    let(:raising_local_tools) do
+      Ai::Tools::LocalToolBinding.new(tool_class: raising_tool_class, definitions: local_definitions,
+                                      server_params: {})
+    end
+
+    it "does not let the raw message reach the returned JSON, and keeps the payload shape" do
+      json, result = bridge.send(:dispatch_local_tool_call, raising_local_tools, "write_file",
+                                 { arguments: { "path" => "a.go" } })
+      parsed = JSON.parse(json)
+
+      expect(result).to be_nil
+      expect(parsed["message"]).not_to include(internal_token)
+      expect(parsed["message"]).to eq(Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE)
+      expect(parsed["error"]).to eq("Tool execution failed")
+      expect(parsed["tool"]).to eq("write_file")
+      # Would not catch an ADDED key on its own (review-7046) — paired with
+      # the eq assertions above, which pin the existing keys' values.
+      expect(parsed.keys).to contain_exactly("error", "tool", "message")
+    end
+
+    it "still logs the raw message server-side" do
+      # `bridge` FIRST — forces the agent factory's own incidental MCP
+      # registration logging to run before the strict expectation below is
+      # installed (base_tool_rescued_error_result_spec.rb's own pattern).
+      bridge
+      expect(Rails.logger).to receive(:error).with(a_string_including(internal_token))
+
+      bridge.send(:dispatch_local_tool_call, raising_local_tools, "write_file", { arguments: { "path" => "a.go" } })
+    end
+
+    it "forwards a CallerFacingError's own message verbatim instead of the generic default" do
+      token = internal_token
+      caller_facing_tool_class = Class.new(Ai::Tools::BaseTool) do
+        def self.definition
+          { name: "spec_caller_facing_local_tool", description: "spec", parameters: { type: "object", properties: {} } }
+        end
+        declare_action "write_file", mutating: false
+        define_method(:call) { |_params| raise Ai::Tools::BaseTool::CallerFacingError, "Skill not found" }
+      end
+      caller_facing_local_tools = Ai::Tools::LocalToolBinding.new(
+        tool_class: caller_facing_tool_class, definitions: local_definitions, server_params: {}
+      )
+
+      json, = bridge.send(:dispatch_local_tool_call, caller_facing_local_tools, "write_file",
+                          { arguments: { "path" => "a.go" } })
+
+      expect(JSON.parse(json)["message"]).to eq("Skill not found")
+    end
+  end
 end

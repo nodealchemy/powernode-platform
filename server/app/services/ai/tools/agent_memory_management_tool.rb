@@ -121,7 +121,7 @@ module Ai
 
         success_result(result)
       rescue StandardError => e
-        error_result("Failed to remember: #{e.message}")
+        rescued_error_result(e, message: "Failed to remember")
       end
 
       def agent_forget(params)
@@ -133,7 +133,7 @@ module Ai
 
         success_result(result)
       rescue StandardError => e
-        error_result("Failed to forget: #{e.message}")
+        rescued_error_result(e, message: "Failed to forget")
       end
 
       def agent_reflect(params)
@@ -142,7 +142,7 @@ module Ai
 
         success_result(result)
       rescue StandardError => e
-        error_result("Failed to reflect: #{e.message}")
+        rescued_error_result(e, message: "Failed to reflect")
       end
 
       def agent_recall(params)
@@ -155,7 +155,7 @@ module Ai
 
         success_result({ results: results, count: results.size })
       rescue StandardError => e
-        error_result("Failed to recall: #{e.message}")
+        rescued_error_result(e, message: "Failed to recall")
       end
 
       def memory_service

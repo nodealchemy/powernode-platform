@@ -42,9 +42,9 @@ module Ai
           deploy_sandbox(agent, params)
         end
       rescue ActiveRecord::RecordNotFound => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       rescue StandardError => e
-        { success: false, error: "Deployment failed: #{e.message}" }
+        rescued_error_result(e, message: "Deployment failed")
       end
 
       private

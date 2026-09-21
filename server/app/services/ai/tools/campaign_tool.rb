@@ -366,8 +366,17 @@ module Ai
 
         proposal.update_fields!(actor: user, principal: campaign_principal, **attrs)
         success_result(proposal: proposal.reload.summary)
+      # Every ArgumentError this file's action methods can catch is raised by
+      # this tool's own domain model/driver (Ai::CampaignProposal,
+      # Ai::DevLoop::CampaignDriver) — audited for IMP-5ed95e651b80: every
+      # raise site is static app-authored text, at most interpolating a
+      # campaign/proposal name, id, or status the caller already supplied or
+      # owns. Preserved via message: e.message (verified safe today) rather
+      # than the generic default, which every ArgumentError arm below does
+      # too for the same reason. A future raise site in either of those
+      # classes must keep authoring its own safe, static text.
       rescue ArgumentError => e
-        error_result(e.message)
+        rescued_error_result(e, message: e.message)
       rescue ActiveRecord::RecordInvalid => e
         error_result(e.message)
       end
@@ -401,7 +410,7 @@ module Ai
           loop: loop_record && { id: loop_record.id, name: loop_record.name, branch: loop_record.branch }
         )
       rescue ArgumentError => e
-        error_result(e.message)
+        rescued_error_result(e, message: e.message)
       end
 
       def campaign_delegate(params)
@@ -416,7 +425,7 @@ module Ai
                                     target: params[:target] || {}, holder: params[:holder])
         )
       rescue ArgumentError => e
-        error_result(e.message)
+        rescued_error_result(e, message: e.message)
       end
 
       def campaign_start(params)
@@ -452,7 +461,7 @@ module Ai
 
         success_result(driver.claim(campaign, holder: params[:holder]))
       rescue ArgumentError => e
-        error_result(e.message)
+        rescued_error_result(e, message: e.message)
       end
 
       def campaign_release(params)
@@ -500,7 +509,7 @@ module Ai
           )
         )
       rescue ArgumentError => e
-        error_result(e.message)
+        rescued_error_result(e, message: e.message)
       end
 
       def campaign_stop(params)
@@ -523,7 +532,7 @@ module Ai
 
         success_result(driver.resume(campaign, reason: params[:reason], stop_conditions: stop_conditions))
       rescue ArgumentError => e
-        error_result(e.message)
+        rescued_error_result(e, message: e.message)
       rescue ActiveRecord::RecordInvalid => e
         error_result(e.message)
       end
@@ -547,7 +556,7 @@ module Ai
         ::Ai::DevLoop::CampaignDriver.validate_stop_conditions!(conditions)
         nil
       rescue ArgumentError => e
-        error_result(e.message)
+        rescued_error_result(e, message: e.message)
       end
 
       # The approval card's line for a parked resume: the campaign and the exact

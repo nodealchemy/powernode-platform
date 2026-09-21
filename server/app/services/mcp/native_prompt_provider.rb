@@ -35,18 +35,25 @@ module Mcp
     # @param name [String] Prompt template slug
     # @param arguments [Hash] Variables to render the prompt with
     # @return [Hash] { description:, messages: [{ role:, content: }] }
-    # @raise [ArgumentError] if prompt not found or validation fails
+    # @raise [Ai::Tools::BaseTool::CallerFacingError] if prompt not found or
+    #   validation fails — IMP-378de6e082be: migrated off bare ArgumentError
+    #   so StreamableHttpController's -32602 arm can sanitize every OTHER
+    #   ArgumentError (which has no confirmed-safe raiser) without also
+    #   flattening this one. Both messages interpolate only the caller's own
+    #   submitted `name`, or the template's own declared variable names
+    #   (Shared::PromptTemplate#validate_variables) — never exception,
+    #   driver, or another account's content.
     def get_prompt(name:, arguments: {})
       template = @account.shared_prompt_templates
                          .active
                          .find_by(slug: name)
 
-      raise ArgumentError, "Prompt not found: #{name}" unless template
+      raise ::Ai::Tools::BaseTool::CallerFacingError, "Prompt not found: #{name}" unless template
 
       # Validate required variables
       validation_errors = template.validate_variables(arguments || {})
       if validation_errors.any?
-        raise ArgumentError, validation_errors.join("; ")
+        raise ::Ai::Tools::BaseTool::CallerFacingError, validation_errors.join("; ")
       end
 
       # Render the template
@@ -73,13 +80,14 @@ module Mcp
     # result per spec.
     #
     # @return [Array<String>] candidate values (prefix-matched, case-insensitive)
-    # @raise [ArgumentError] if the prompt does not exist
+    # @raise [Ai::Tools::BaseTool::CallerFacingError] if the prompt does not
+    #   exist — IMP-378de6e082be, same migration as #get_prompt above.
     def complete_argument(name:, argument_name:, value: "")
       template = @account.shared_prompt_templates
                          .active
                          .find_by(slug: name)
 
-      raise ArgumentError, "Prompt not found: #{name}" unless template
+      raise ::Ai::Tools::BaseTool::CallerFacingError, "Prompt not found: #{name}" unless template
 
       var_def = (template.variables || []).find { |v| v["name"].to_s == argument_name.to_s }
       return [] unless var_def

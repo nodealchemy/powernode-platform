@@ -39,13 +39,16 @@ module Mcp
     #
     # @param uri [String] Resource URI (e.g., "powernode://kb/articles/my-slug")
     # @return [Hash] { contents: [{ uri:, mimeType:, text: }] }
-    # @raise [ArgumentError] if URI is invalid or resource not found
+    # @raise [Ai::Tools::BaseTool::CallerFacingError] if URI is invalid or
+    #   resource not found — IMP-378de6e082be: migrated off bare
+    #   ArgumentError for the same reason as NativePromptProvider. Both
+    #   messages interpolate only the caller's own submitted `uri`.
     def read_resource(uri:)
       parsed = parse_uri(uri)
-      raise ArgumentError, "Invalid resource URI: #{uri}" unless parsed
+      raise ::Ai::Tools::BaseTool::CallerFacingError, "Invalid resource URI: #{uri}" unless parsed
 
       content = fetch_content(parsed[:type], parsed[:identifier])
-      raise ArgumentError, "Resource not found: #{uri}" unless content
+      raise ::Ai::Tools::BaseTool::CallerFacingError, "Resource not found: #{uri}" unless content
 
       {
         contents: [

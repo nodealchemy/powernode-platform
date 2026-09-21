@@ -95,7 +95,7 @@ module Ai
           impact: event.impact
         }
       rescue StandardError => e
-        { success: false, error: "Failed to activate kill switch: #{e.message}" }
+        rescued_error_result(e, message: "Failed to activate kill switch")
       end
 
       def emergency_resume(params)
@@ -118,14 +118,14 @@ module Ai
           { success: false, error: "AI activity is not currently suspended" }
         end
       rescue StandardError => e
-        { success: false, error: "Failed to resume: #{e.message}" }
+        rescued_error_result(e, message: "Failed to resume")
       end
 
       def kill_switch_status
         status = service.status
         { success: true, **status }
       rescue StandardError => e
-        { success: false, error: "Failed to check status: #{e.message}" }
+        rescued_error_result(e, message: "Failed to check status")
       end
 
       def find_account_owner

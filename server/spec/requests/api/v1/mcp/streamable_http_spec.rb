@@ -848,28 +848,241 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
       expect(json_response["error"]["message"]).to include("Tool not found")
     end
 
-    it "maps ArgumentError to -32602" do
+    it "forwards a CallerFacingError raised as an ArgumentError verbatim" do
+      # IMP-378de6e082be — the -32602 ArgumentError arm now discriminates:
+      # a CallerFacingError (the marker IMP-1132d66f6f5c introduced) still
+      # forwards its own authored-for-the-caller message.
       allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
         .to receive(:dispatch_method)
-        .and_raise(ArgumentError, "Invalid parameter value")
+        .and_raise(Ai::Tools::BaseTool::CallerFacingError, "Skill not found")
 
-      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }), headers: headers
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["error"]["code"]).to eq(-32602)
-      expect(json_response["error"]["message"]).to include("Invalid parameter value")
+      expect(json_response["error"]["message"]).to eq("Skill not found")
+      expect(json_response["id"]).to eq(42)
     end
 
-    it "maps StandardError to -32603" do
+    # IMP-378de6e082be — replaces the prior "maps ArgumentError to -32602"
+    # example, which asserted `include("Invalid parameter value")` against
+    # its OWN raised message: it could never fail, since a fix routing that
+    # exact message through unchanged still "includes" it. This is the
+    # real leak the operator's per-arm classification condemned: a bare
+    # ArgumentError (not CallerFacingError) is not app-specific — the
+    # stdlib raises it too — and had no confirmed-safe raiser for this arm.
+    it "does not let a bare ArgumentError's raw message reach the client, but keeps the envelope shape" do
+      internal_token = "INTERNAL-DETAIL-3f8e19a0"
       allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
         .to receive(:dispatch_method)
-        .and_raise(StandardError, "Something went wrong")
+        .and_raise(ArgumentError, "PG::UndefinedColumn: column #{internal_token} does not exist")
 
-      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }), headers: headers
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(json_response["error"]["code"]).to eq(-32602)
+      expect(json_response["error"]["message"]).not_to include(internal_token)
+      expect(json_response["error"]["message"]).to eq(Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE)
+      # The envelope itself — code, id, shape — is what a client parses;
+      # breaking it to fix a message would be a worse bug than the leak.
+      expect(json_response["id"]).to eq(42)
+      expect(json_response.keys).to contain_exactly("jsonrpc", "id", "error")
+      expect(json_response["error"].keys).to contain_exactly("code", "message")
+    end
+
+    it "still logs a bare ArgumentError's raw message server-side" do
+      internal_token = "INTERNAL-DETAIL-4a7c0d21"
+      allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
+        .to receive(:dispatch_method)
+        .and_raise(ArgumentError, "boom #{internal_token}")
+      expect(Rails.logger).to receive(:warn).with(a_string_including(internal_token))
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: headers
+    end
+
+    # IMP-378de6e082be — replaces the prior "maps StandardError to -32603"
+    # example for the same reason: it raised the non-distinctive "Something
+    # went wrong" and never pinned `id`, so it provided zero leak coverage
+    # and would stay green through a regression too (review-7046's finding,
+    # driver-confirmed).
+    it "does not let an unrescued exception's raw message reach the client, but keeps the envelope shape" do
+      internal_token = "INTERNAL-DETAIL-e91fa04c"
+      allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
+        .to receive(:dispatch_method)
+        .and_raise(StandardError, "PG::UndefinedColumn: column #{internal_token} does not exist")
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: headers
 
       expect(response).to have_http_status(:ok)
       expect(json_response["error"]["code"]).to eq(-32603)
-      expect(json_response["error"]["message"]).to include("Internal error")
+      expect(json_response["error"]["message"]).not_to include(internal_token)
+      expect(json_response["error"]["message"])
+        .to eq("Internal error: #{Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE}")
+      expect(json_response["id"]).to eq(42)
+      expect(json_response.keys).to contain_exactly("jsonrpc", "id", "error")
+      expect(json_response["error"].keys).to contain_exactly("code", "message")
+    end
+
+    it "still logs an unrescued exception's raw message server-side" do
+      internal_token = "INTERNAL-DETAIL-5c9a2b1d"
+      allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
+        .to receive(:dispatch_method)
+        .and_raise(StandardError, "boom #{internal_token}")
+      expect(Rails.logger).to receive(:error).with(a_string_including(internal_token))
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: headers
+    end
+  end
+
+  # ===========================================================================
+  # Section 12b: the inline platform-tool ArgumentError branch (:667)
+  # ===========================================================================
+  describe "the platform-tool dispatch's own inline ArgumentError handling" do
+    # IMP-378de6e082be — this arm is reached ONLY via a real "platform."
+    # tool_name (dispatch_method's stub bypasses it entirely), and its leak
+    # is the most hidden of the five: the sanitized/unsanitized message
+    # lands inside a JSON-RPC SUCCESS envelope's content[0].text, not an
+    # error response — a client reading only `result` would never look here.
+    def platform_tool_result(response_body)
+      content_text = JSON.parse(response_body).dig("result", "content", 0, "text")
+      JSON.parse(content_text)
+    end
+
+    it "does not let another ArgumentError's raw message reach the client, staying in the success envelope" do
+      internal_token = "INTERNAL-DETAIL-9b21ac7e"
+      allow(Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+        .and_raise(ArgumentError, "action not permitted: #{internal_token}")
+
+      post mcp_endpoint,
+           params: jsonrpc_request(method: "tools/call", params: { "name" => "platform.search_knowledge" }, id: 42),
+           headers: headers
+
+      expect(response).to have_http_status(:ok)
+      result = platform_tool_result(response.body)
+      expect(result["success"]).to be(false)
+      expect(result["error"]).not_to include(internal_token)
+      expect(result["error"]).to eq(Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE)
+      expect(json_response["id"]).to eq(42)
+    end
+
+    it "still logs the raw message server-side" do
+      internal_token = "INTERNAL-DETAIL-2d84f610"
+      allow(Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+        .and_raise(ArgumentError, "action not permitted: #{internal_token}")
+      expect(Rails.logger).to receive(:error).with(a_string_including(internal_token))
+
+      post mcp_endpoint,
+           params: jsonrpc_request(method: "tools/call", params: { "name" => "platform.search_knowledge" }, id: 42),
+           headers: headers
+    end
+
+    it "still falls through to the introspection registrar for the known-safe 'Unknown platform tool' message, unaffected" do
+      allow(Ai::Tools::McpPlatformToolRegistrar).to receive(:execute_tool)
+        .and_raise(ArgumentError, "Unknown platform tool: search_knowledge")
+      allow(Ai::Introspection::McpToolRegistrar).to receive(:execute_tool).and_return({ success: true, data: {} })
+
+      post mcp_endpoint,
+           params: jsonrpc_request(method: "tools/call", params: { "name" => "platform.search_knowledge" }, id: 42),
+           headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(Ai::Introspection::McpToolRegistrar).to have_received(:execute_tool)
+    end
+  end
+
+  # ===========================================================================
+  # Section 12c: the SSE twin (#handle_streaming_tools_call)
+  # ===========================================================================
+  describe "SSE exception handling" do
+    let(:sse_headers) { headers.merge("Accept" => "text/event-stream") }
+
+    # ActionController::Live writes synchronously into response.body in the
+    # test environment (verified empirically before relying on it — a
+    # request spec captures the full SSE stream, not just headers), so this
+    # is a real exercise of #handle_streaming_tools_call, not a stand-in.
+    def sse_payload(response_body)
+      data_line = response_body.lines.find { |l| l.start_with?("data: ") }
+      JSON.parse(data_line.delete_prefix("data: ").strip)
+    end
+
+    it "forwards a CallerFacingError raised as an ArgumentError verbatim over SSE" do
+      allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
+        .to receive(:handle_tools_call)
+        .and_raise(Ai::Tools::BaseTool::CallerFacingError, "Skill not found")
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: sse_headers
+
+      payload = sse_payload(response.body)
+      expect(payload["error"]["code"]).to eq(-32602)
+      expect(payload["error"]["message"]).to eq("Skill not found")
+      expect(payload["id"]).to eq(42)
+    end
+
+    it "does not let a bare ArgumentError's raw message reach the client over SSE, but keeps the envelope shape" do
+      internal_token = "INTERNAL-DETAIL-7ce4a1f3"
+      allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
+        .to receive(:handle_tools_call)
+        .and_raise(ArgumentError, "PG::UndefinedColumn: column #{internal_token} does not exist")
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: sse_headers
+
+      payload = sse_payload(response.body)
+      expect(payload["error"]["code"]).to eq(-32602)
+      expect(payload["error"]["message"]).not_to include(internal_token)
+      expect(payload["error"]["message"]).to eq(Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE)
+      expect(payload["id"]).to eq(42)
+      expect(payload.keys).to contain_exactly("jsonrpc", "id", "error")
+      expect(payload["error"].keys).to contain_exactly("code", "message")
+    end
+
+    it "still logs a bare ArgumentError's raw message server-side over SSE" do
+      internal_token = "INTERNAL-DETAIL-8d3f21ab"
+      allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
+        .to receive(:handle_tools_call)
+        .and_raise(ArgumentError, "boom #{internal_token}")
+      expect(Rails.logger).to receive(:warn).with(a_string_including(internal_token))
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: sse_headers
+    end
+
+    it "does not let an unrescued exception's raw message reach the client over SSE, but keeps the envelope shape" do
+      internal_token = "INTERNAL-DETAIL-6a1bd820"
+      allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
+        .to receive(:handle_tools_call)
+        .and_raise(StandardError, "PG::UndefinedColumn: column #{internal_token} does not exist")
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: sse_headers
+
+      payload = sse_payload(response.body)
+      expect(payload["error"]["code"]).to eq(-32603)
+      expect(payload["error"]["message"]).not_to include(internal_token)
+      expect(payload["error"]["message"])
+        .to eq("Internal error: #{Ai::Tools::BaseTool::DISPATCH_FALLBACK_GENERIC_MESSAGE}")
+      expect(payload["id"]).to eq(42)
+      expect(payload.keys).to contain_exactly("jsonrpc", "id", "error")
+      expect(payload["error"].keys).to contain_exactly("code", "message")
+    end
+
+    it "still logs an unrescued exception's raw message server-side over SSE" do
+      internal_token = "INTERNAL-DETAIL-1f0e9c72"
+      allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
+        .to receive(:handle_tools_call)
+        .and_raise(StandardError, "boom #{internal_token}")
+      expect(Rails.logger).to receive(:error).with(a_string_including(internal_token))
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: sse_headers
+    end
+
+    it "still forwards a SchemaValidationError verbatim over SSE, unaffected by the ArgumentError split" do
+      allow_any_instance_of(Api::V1::Mcp::StreamableHttpController)
+        .to receive(:handle_tools_call)
+        .and_raise(::Mcp::ProtocolService::SchemaValidationError, "Invalid input: missing 'name'")
+
+      post mcp_endpoint, params: jsonrpc_request(method: "tools/call", params: { "name" => "test" }, id: 42), headers: sse_headers
+
+      payload = sse_payload(response.body)
+      expect(payload["error"]["code"]).to eq(-32602)
+      expect(payload["error"]["message"]).to eq("Invalid input: missing 'name'")
     end
   end
 

@@ -69,10 +69,9 @@ module Ai
         response[:file] = serialize_file(result[:file_object]) if result[:file_object]
         response
       rescue Ai::AudioGenerationService::GenerationError => e
-        { success: false, error: e.message }
+        rescued_error_result(e)
       rescue StandardError => e
-        Rails.logger.error "[AudioGenerationTool] Unexpected error: #{e.message}"
-        { success: false, error: "Audio generation failed: #{e.message}" }
+        rescued_error_result(e, message: "Audio generation failed")
       end
 
       def serialize_file(file_obj)

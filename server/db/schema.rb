@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_18_130300) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_20_182328) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9457,7 +9457,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_130300) do
 
   create_table "system_module_services", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
-    t.jsonb "capabilities", default: [], null: false
+    t.jsonb "capabilities"
     t.datetime "created_at", null: false
     t.jsonb "env", default: {}, null: false
     t.jsonb "exposed_ports", default: [], null: false
@@ -11230,6 +11230,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_130300) do
     t.datetime "last_status_at"
     t.jsonb "mount_options", default: {}, null: false
     t.string "mount_path", null: false
+    t.uuid "mounted_credential_id"
     t.uuid "node_instance_id", null: false
     t.string "owner_kind", limit: 32, default: "service_user", null: false
     t.boolean "read_only", default: false, null: false
@@ -11243,6 +11244,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_130300) do
     t.index ["chown_state"], name: "index_system_storage_assignments_chown_in_flight", where: "((chown_state)::text <> 'complete'::text)"
     t.index ["file_storage_id", "node_instance_id"], name: "idx_on_file_storage_id_node_instance_id_e39b886367", unique: true
     t.index ["file_storage_id"], name: "index_system_storage_assignments_on_file_storage_id"
+    t.index ["mounted_credential_id"], name: "index_system_storage_assignments_on_mounted_credential_id"
     t.index ["node_instance_id", "mount_path"], name: "idx_on_node_instance_id_mount_path_fd6fa07e10", unique: true
     t.index ["node_instance_id"], name: "index_system_storage_assignments_on_node_instance_id"
     t.index ["sdwan_network_id"], name: "index_system_storage_assignments_on_sdwan_network_id"
@@ -12679,6 +12681,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_18_130300) do
   add_foreign_key "system_storage_assignments", "system_sdwan_virtual_ips", column: "sdwan_virtual_ip_id", on_delete: :nullify
   add_foreign_key "system_storage_assignments", "system_service_groups", column: "shared_group_id"
   add_foreign_key "system_storage_assignments", "system_service_users", column: "service_user_id"
+  add_foreign_key "system_storage_assignments", "system_storage_credentials", column: "mounted_credential_id", on_delete: :nullify
   add_foreign_key "system_storage_credentials", "system_node_instances", column: "node_instance_id", on_delete: :cascade
   add_foreign_key "system_storage_credentials", "system_storage_assignments", column: "storage_assignment_id", on_delete: :cascade
   add_foreign_key "system_storage_migrations", "accounts"

@@ -262,6 +262,17 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
       status: termination.status,
       reason: termination.reason,
       grace_period_ends_at: termination.grace_period_ends_at,
+      # BLOCKER 2 (IMP-f0560910fa62 review): this was missing entirely --
+      # the column exists and #update permits writing it (termination_params
+      # above), but this read never included it in the response body.
+      # Compliance::AccountTerminationJob#stranded_processing_terminations
+      # judges every 'processing' row's age off exactly this field; with it
+      # silently absent from every response, every row arrived looking like
+      # it had no processing_started_at at all, regardless of its true age
+      # -- the worker's staleness gate was inert on a perfectly healthy
+      # system. Covered by a dedicated server request spec (worker specs
+      # stub this response and can never catch a server-side field drop).
+      processing_started_at: termination.processing_started_at,
       completed_at: termination.completed_at,
       requested_at: termination.requested_at,
       created_at: termination.created_at,

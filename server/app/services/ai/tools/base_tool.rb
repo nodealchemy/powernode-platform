@@ -143,7 +143,94 @@ module Ai
       # can read and correct.
       class InvalidPageRequest < StandardError; end
 
+      # CallerFacingError marks an exception whose #message was authored
+      # SPECIFICALLY to be shown to the calling agent/tool user — a promise
+      # about INTENT, not about the exception's class (IMP-5ed95e651b80). A
+      # raiser choosing this class asserts its text contains nothing beyond
+      # what the caller already supplied, owns, or is entitled to see: no raw
+      # driver/framework/stdlib content.
+      #
+      # A subclass of ArgumentError, deliberately, so every EXISTING `rescue
+      # ArgumentError` elsewhere in the codebase keeps catching these raises
+      # unchanged — this class exists to let ONE seam
+      # (run_through_autonomy_gate's gate_context rescue) distinguish "this
+      # message was written for the caller" from "this is some OTHER
+      # ArgumentError" without inferring safety from ArgumentError's mere
+      # occurrence, which is unsound: Ruby and the stdlib raise bare
+      # ArgumentError too, with messages nobody here authored or reviewed
+      # (Integer("abc"), Date.parse, Float(), and others) — and a
+      # gate_context method or anything it calls, at any depth, could start
+      # doing that later without any test failing. Rescuing this narrow class
+      # BEFORE the general ArgumentError clause is what makes the
+      # distinction real; see run_through_autonomy_gate's own comment.
+      class CallerFacingError < ArgumentError; end
+
+      # Deliberately the same text #rescued_error_result defaults to, and kept
+      # as its own named constant rather than duplicated, so the two do not
+      # silently diverge if one is edited later.
+      DISPATCH_FALLBACK_GENERIC_MESSAGE = "An internal error occurred processing this request."
+
       class << self
+        # IMP-1132d66f6f5c — the SAME distinction #run_through_autonomy_gate's
+        # own CallerFacingError rescue applies to a gate_context raise,
+        # applied here for an exception that escaped EVERY tool-level rescue
+        # arm entirely and reached a shared dispatch chokepoint with no
+        # tool-specific handling left to run at all. A CallerFacingError's
+        # whole meaning — "authored to be shown to the caller" (see the class
+        # comment above) — does not depend on WHICH seam catches it: a tool
+        # that raises it directly from an action body (not through
+        # gate_context, so #run_through_autonomy_gate's own rescue never
+        # sees it) and does not wrap that call site in its own rescue is
+        # still making the same deliberate, reviewed assertion. Flattening it
+        # to the generic default at this second chokepoint would discard an
+        # intentionally safe message for want of a tool author remembering a
+        # redundant local rescue arm. Anything else — PG errors, resolver
+        # internals, a bare stdlib ArgumentError, a filesystem path — gets
+        # the generic default: nothing about escaping every tool-level arm
+        # makes an otherwise-unreviewed message safer.
+        #
+        # SERVES TWO CHOKEPOINTS, updated as each was fixed rather than left
+        # to drift (a stale claim here is the exact "reads as deletable"
+        # failure this comment exists to prevent):
+        #   - Ai::AgentToolBridgeService's three sites (IMP-1132d66f6f5c:
+        #     platform, external-MCP, and local-tool dispatch) — the
+        #     chokepoint for the agent-conversation-loop boundary, where a
+        #     forwarded value reaches ai_messages.processing_metadata and
+        #     the model provider.
+        #   - Api::V1::Mcp::StreamableHttpController's `-32602` ArgumentError
+        #     arms, non-streaming and SSE (IMP-378de6e082be) — a SEPARATE
+        #     chokepoint, for a different boundary (an external MCP client
+        #     over JSON-RPC). Its typed-protocol-class arms (PermissionDenied
+        #     Error, ToolNotFoundError, SchemaValidationError) needed their
+        #     own per-arm classification and are NOT routed through this
+        #     helper — see docs/reference/mcp-controller-forwarding-
+        #     classification-2026-09-21.md — only its two bare-ArgumentError
+        #     arms are.
+        # Five call sites total today, not three.
+        #
+        # REACHABILITY IS LIVE, NOT FORWARD-LOOKING, as of IMP-378de6e082be —
+        # an EARLIER version of this comment said no current raise reaches
+        # the CallerFacingError branch and called it a forward-looking
+        # contract only. That stopped being true the moment
+        # Mcp::NativePromptProvider#get_prompt/#complete_argument and
+        # Mcp::NativeResourceProvider#read_resource were migrated to
+        # CallerFacingError (same task): those five raises sit behind NO
+        # gate_context and NO other rescue arm — they escape straight into
+        # this controller's sanitizing ArgumentError arms, where the
+        # CallerFacingError branch is now THE ONLY THING keeping their
+        # messages ("Prompt not found: my-slug", a template's own missing-
+        # variable name) from flattening to the generic string. Removing
+        # this branch, or "simplifying" it back to always-flatten, is a
+        # live, user-visible regression today — not a hypothetical one for
+        # whenever a future raise site is added. (The bridge's own three
+        # sites still have no live CallerFacingError raiser reaching them;
+        # only the controller's do. Both are served by the SAME method
+        # because the distinction it makes is the same regardless of which
+        # dispatcher's raisers currently exercise which branch.)
+        def dispatch_fallback_message(exception)
+          exception.is_a?(CallerFacingError) ? exception.message : DISPATCH_FALLBACK_GENERIC_MESSAGE
+        end
+
         # Operator-configured page size, with the constant as the fallback.
         # A non-positive configured value is ignored rather than honoured: a
         # zero would make every list action answer with an empty page and no
@@ -839,11 +926,12 @@ module Ai
         # "unattributed" caller (a federation principal, or any restricted
         # principal arriving without a node instance) is exactly that: the
         # executor's rehydrate step returns nil for it and refuses. Raising
-        # ArgumentError is the seam #run_through_autonomy_gate already rescues
-        # around the context build, and it converts to the caller's error
-        # envelope BEFORE Ai::AutonomyGate.evaluate is reached.
+        # CallerFacingError is the seam #run_through_autonomy_gate already
+        # rescues around the context build, and it converts to the caller's
+        # error envelope, VERBATIM (this text is authored for the caller),
+        # BEFORE Ai::AutonomyGate.evaluate is reached.
         if descriptor["kind"] == "unattributed" && !human_only
-          raise ArgumentError,
+          raise CallerFacingError,
                 "Action #{action} is approval-gated and cannot be parked for an unattributed " \
                 "caller (#{descriptor['detail']}): an approval granted for it could never be replayed"
         end
@@ -1019,8 +1107,38 @@ module Ai
         context =
           begin
             send(declaration[:gate_context], params) || {}
+          rescue CallerFacingError => e
+            # Preserved verbatim (IMP-5ed95e651b80) — forwarded by INTENT, not
+            # by class. CallerFacingError's whole meaning is "this message was
+            # authored to be shown to the caller"; a raiser opts in explicitly
+            # (see mutate_skill_gate_context / evolve_threshold /
+            # deferred_tool_call_context). Several of these messages are
+            # load-bearing today (self_improvement_tool_refine_gating_spec.rb
+            # pins "Skill not found" surfacing inline, by design, for a gated
+            # mutation) — routing them through the generic default would
+            # silently break that.
+            #
+            # This clause MUST stay before the bare ArgumentError clause
+            # below — CallerFacingError IS an ArgumentError (deliberately, so
+            # every OTHER existing `rescue ArgumentError` elsewhere keeps
+            # working unchanged), and Ruby dispatches to the first matching
+            # rescue. Swap the order and every gate_context ArgumentError
+            # would go through here unexamined — the exact defect this class
+            # exists to prevent (see the class's own doc, base_tool.rb ~146).
+            # Pinned directly by
+            # base_tool_rescued_error_result_spec.rb's "order-sensitively"
+            # example, which fails if these two clauses are swapped.
+            return rescued_error_result(e, message: e.message)
           rescue ActiveRecord::RecordNotFound, ArgumentError => e
-            return error_result(e.message)
+            # A bare ArgumentError here — one that did NOT opt into
+            # CallerFacingError — gets the generic default. It is NOT assumed
+            # safe merely because it's an ArgumentError: Ruby and the stdlib
+            # raise that class too, with messages nobody here authored
+            # (Integer("abc"), Date.parse, Float(), ...), and a gate_context
+            # method (or anything it calls, at any depth) could start doing
+            # that without any test failing. Keying safety on intent, not
+            # shape, is the whole point.
+            return rescued_error_result(e)
           end
 
         gate = ::Ai::AutonomyGate.evaluate(
@@ -1194,6 +1312,33 @@ module Ai
 
       def error_result(message)
         { success: false, error: message }
+      end
+
+      # rescued_error_result is the single seam every MCP tool rescue arm
+      # should route through when the exception it caught might not be safe
+      # to forward to the model provider verbatim.
+      #
+      # Tool results persist to ai_messages.processing_metadata and are
+      # FORWARDED TO THE MODEL PROVIDER — a raw driver/framework exception
+      # message can name tables, constraints, columns, paths, hostnames or
+      # other internal identifiers that have no business crossing that trust
+      # boundary (IMP-5ed95e651b80). `#{e.class}: #{e.message}` is always
+      # logged server-side first, so nothing is lost for whoever debugs the
+      # failure — only what reaches the provider is narrowed.
+      #
+      # `message:` lets a caller keep returning SPECIFIC, SAFE text instead
+      # of the generic default — e.g. "Team not found" for a
+      # RecordNotFound, or the static prefix from what used to be
+      # `"Failed to delete team: #{e.message}"` with the raw suffix
+      # dropped. Prefer a specific message wherever today's text is already
+      # safe and useful; reach for the generic default only when the ENTIRE
+      # current message IS the raw e.message with nothing else worth
+      # keeping. This exists precisely so a sweep across many rescue arms
+      # does not flatten every distinct, useful error into one string —
+      # that would trade a security fix for a debuggability regression.
+      def rescued_error_result(e, message: DISPATCH_FALLBACK_GENERIC_MESSAGE)
+        Rails.logger.error("[#{self.class.name}] #{e.class}: #{e.message}")
+        error_result(message)
       end
 
       # True only when the caller explicitly declared itself an in-process

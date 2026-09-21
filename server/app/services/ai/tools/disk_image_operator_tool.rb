@@ -269,7 +269,7 @@ module Ai
           note:           "Fetch the token over the operator API and store it as POWERNODE_CI_WORKER_TOKEN in your CI."
         }
       rescue StandardError => e
-        { success: false, error: "Failed to create CI worker: #{e.message}" }
+        rescued_error_result(e, message: "Failed to create CI worker")
       end
 
       # End-to-end: provision webhook + CI worker → set all 4 Gitea
@@ -387,7 +387,7 @@ module Ai
         result[:platform_read_token] = platform_token_result if platform_token_result
         result
       rescue StandardError => e
-        { success: false, error: "Bootstrap failed: #{e.class}: #{e.message}" }
+        rescued_error_result(e, message: "Bootstrap failed")
       end
 
       def build_webhook_url(webhook, host_override: nil)

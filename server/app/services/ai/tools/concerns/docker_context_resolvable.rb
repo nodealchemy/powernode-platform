@@ -6,6 +6,20 @@ module Ai
       module DockerContextResolvable
         extend ActiveSupport::Concern
 
+        # PROVIDER-SAFETY CONTRACT (IMP-5ed95e651b80): every ArgumentError /
+        # ActiveRecord::RecordNotFound this concern raises is static
+        # app-authored text, at most interpolating a resource name/id/count
+        # scoped to the calling account (never raw driver/framework text) —
+        # audited exhaustively when every one of this concern's seven
+        # includers (docker_cluster_tool.rb, docker_container_tool.rb,
+        # docker_host_tool.rb, docker_image_tool.rb,
+        # docker_network_volume_tool.rb, docker_service_tool.rb,
+        # docker_stack_tool.rb) was found to have no OTHER raise site for
+        # either class. Those tools' rescue arms rely on that and forward
+        # e.message verbatim via `rescued_error_result(e, message: e.message)`
+        # rather than the generic default. A future raise site here that
+        # wraps an inner error's message must sanitize before raising, not
+        # after.
         private
 
         # Resolve a Docker host by identifier (UUID, slug, or name).

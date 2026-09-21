@@ -228,7 +228,7 @@ module Ai
         NotificationChannel.broadcast_notification_read(notification)
         { success: true, notification_id: notification.id, read_at: notification.read_at&.iso8601 }
       rescue StandardError => e
-        { success: false, error: "Failed to dismiss notification: #{e.message}" }
+        rescued_error_result(e, message: "Failed to dismiss notification")
       end
 
       def dismiss_all_notifications
@@ -241,7 +241,7 @@ module Ai
 
         { success: true, dismissed_count: count }
       rescue StandardError => e
-        { success: false, error: "Failed to dismiss notifications: #{e.message}" }
+        rescued_error_result(e, message: "Failed to dismiss notifications")
       end
 
       def mark_all_notifications_read
@@ -254,7 +254,7 @@ module Ai
 
         { success: true, marked_read_count: count }
       rescue StandardError => e
-        { success: false, error: "Failed to mark notifications read: #{e.message}" }
+        rescued_error_result(e, message: "Failed to mark notifications read")
       end
 
       def get_system_health
