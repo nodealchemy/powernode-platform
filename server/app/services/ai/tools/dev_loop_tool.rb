@@ -22,6 +22,21 @@ module Ai
       # design (see #relevant_compound_learnings).
       RELEVANT_LEARNINGS_LIMIT = 4
 
+      # IMP-05a4ff16fbf3: bounds the RETRIEVAL QUERY built from
+      # description+acceptance_criteria, never the stored brief. A directed
+      # task's acceptance_criteria can now run up to
+      # Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX (16,384) chars,
+      # and #relevant_compound_learnings feeds that whole string, untruncated,
+      # to an embedding call whose provider can reject or choke on an
+      # oversized input — top_relevant_learnings rescues StandardError to `[]`
+      # (compound_learning_service.rb), so an over-long query silently blanks
+      # `context.recent_learnings` in the claim payload rather than erroring
+      # loudly. A search query gains nothing from the tail of a long brief
+      # that a fixed-size embedding wouldn't already capture from the head, so
+      # truncating the QUERY loses nothing a search needs — unlike truncating
+      # the brief itself, which is the bug this task fixes.
+      LEARNING_QUERY_CHAR_CAP = 4_000
+
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
@@ -1449,7 +1464,8 @@ module Ai
         return [] if task_description.blank?
 
         ::Ai::Learning::CompoundLearningService.new(account: account)
-          .top_relevant_learnings(task_description: task_description, k: RELEVANT_LEARNINGS_LIMIT)
+          .top_relevant_learnings(task_description: task_description.truncate(LEARNING_QUERY_CHAR_CAP),
+                                   k: RELEVANT_LEARNINGS_LIMIT)
       rescue StandardError => e
         Rails.logger.warn("[DevLoopTool] relevant_compound_learnings failed for task #{task&.task_key}: #{e.message}")
         []

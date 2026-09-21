@@ -173,6 +173,57 @@ RSpec.describe Ai::Tools::DevLoopTool do
 
         expect(ctx).not_to have_key(:relevant_learnings)
       end
+
+      # IMP-05a4ff16fbf3: raising ImprovementPromotionService::DIRECTION_MAX to
+      # 16,384 means acceptance_criteria can now be far longer than this
+      # retrieval query needs. The query is built from description +
+      # acceptance_criteria, UNTRUNCATED, and top_relevant_learnings rescues
+      # StandardError to `[]` — so a max-length directed brief could silently
+      # blank ctx[:relevant_learnings] against a real embedding provider that
+      # rejects an oversized input, with nothing in the response saying why.
+      # Bound the QUERY here, never the stored brief (that cut is the bug the
+      # rest of this task fixes).
+      it "caps the compound-learning retrieval query length, not the stored brief" do
+        huge_criteria = "D" * Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX
+        task = create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "huge-brief", priority: 5,
+                      description: "n/a", acceptance_criteria: huge_criteria)
+
+        received_length = nil
+        allow_any_instance_of(Ai::Learning::CompoundLearningService)
+          .to receive(:top_relevant_learnings) do |_instance, task_description:, k:|
+            received_length = task_description.length
+            []
+          end
+
+        tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+
+        expect(received_length).to eq(described_class::LEARNING_QUERY_CHAR_CAP)
+        # The stored brief itself is untouched — only the retrieval query is bounded.
+        expect(task.reload.acceptance_criteria.length).to eq(Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX)
+      end
+
+      it "still surfaces relevant learnings for a directed brief at the max length (not silently blanked)" do
+        learning = create(:ai_compound_learning, account: account, status: "active",
+                          title: "Cache reporting queries",
+                          content: "Always cache repeated reporting queries", importance_score: 0.8)
+        # The matching keywords sit in the first few words (well inside
+        # LEARNING_QUERY_CHAR_CAP); filler pushes the total past DIRECTION_MAX
+        # — proving the cap does not itself cost the match it exists to
+        # protect. keyword_search only reads the query's first 5 non-stopword
+        # words, so length alone was never the risk here — an untruncated
+        # query reaching a real embedding provider is (see the sibling
+        # example above).
+        huge_criteria = ("Cache reporting queries " + ("filler " * 3_000))[
+          0, Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX
+        ]
+        create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "huge-brief-match", priority: 5,
+               description: "Cache reporting queries", acceptance_criteria: huge_criteria)
+
+        ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
+
+        expect(ctx[:relevant_learnings]).to be_present
+        expect(ctx[:relevant_learnings].map { |l| l[:id] }).to include(learning.id)
+      end
     end
 
     # G12 (IMP-c46281b749ed): a non-Claude executor on the platform path can't read

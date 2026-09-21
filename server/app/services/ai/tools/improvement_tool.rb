@@ -42,7 +42,7 @@ module Ai
             agent_id: { type: "string", required: false, description: "Agent (UUID/slug/name) to drain the dev-improve loop when enabling autonomy" },
             max_iterations_per_day: { type: "integer", required: false, description: "Daily iteration cap for unattended autonomy" },
             reason: { type: "string", required: false, description: "Reason for revert_improvement or dismiss_improvement" },
-            direction: { type: "string", required: false, description: "Operator decision pinned onto the promoted task's brief (approve_improvement)" },
+            direction: { type: "string", required: false, description: "Operator decision pinned onto the promoted task's brief (approve_improvement); refused above #{Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX} chars" },
             title: { type: "string", required: false, description: "Short finding title" },
             description: { type: "string", required: false, description: "What to fix and why" },
             files: { type: "array", required: false, description: "Files the finding touches" },
@@ -99,7 +99,8 @@ module Ai
               direction: { type: "string", required: false,
                            description: "Operator decision to pin onto the task's brief — use when the offer " \
                                         "presents a fork (e.g. 'delete it OR wire it') and you have chosen, so " \
-                                        "the executor does not re-litigate it. Applied on re-approval too." }
+                                        "the executor does not re-litigate it. Applied on re-approval too. " \
+                                        "Refused (not truncated) above #{Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX} chars." }
             }
           },
           "dismiss_improvement" => {
@@ -300,9 +301,24 @@ module Ai
           )
         end
 
+        # IMP-05a4ff16fbf3: MUST run before rec.approve!(user) below. The
+        # promotion service runs after approve! (see its #call guard), so a
+        # refusal raised in there strands an already-approved offer with no
+        # task — the only safe place to say no is here, before the state
+        # change. DIRECTION_MAX is shared with the promotion service so the
+        # cap the tool refuses at is the cap the service accepts.
+        direction = params[:direction]
+        if direction.is_a?(String) && direction.length > Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX
+          return error_result(
+            "direction is #{direction.length} chars, over the " \
+            "#{Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX}-char cap — shorten it, or land the " \
+            "excess as a follow-up amendment via dev_update_task once the task exists"
+          )
+        end
+
         rec.approve!(user) unless rec.status == "approved"
         result = Ai::DevLoop::ImprovementPromotionService.new(
-          recommendation: rec, direction: params[:direction], actor: user
+          recommendation: rec, direction: direction, actor: user
         ).call
         loop_record = result.ralph_loop
 
@@ -329,6 +345,10 @@ module Ai
         if params.key?(:direction) && (w = result.ralph_task.amendment_delivery_warning)
           response[:direction_warning] = w
         end
+        # IMP-05a4ff16fbf3: cheap confirmation that what was sent is what
+        # landed, now that a direction can be up to DIRECTION_MAX chars
+        # instead of always fitting on screen.
+        response[:direction_chars] = direction.length if direction.is_a?(String)
 
         merge_loop_halt_status!(response, loop_record)
         response[:next] = "Drain with: /dev-loop #{loop_record.name}"

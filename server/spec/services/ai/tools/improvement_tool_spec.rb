@@ -309,19 +309,76 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(result[:data][:direction_warning]).to match(/in_progress/)
     end
 
-    it "bounds an oversized direction identically in metadata and the brief" do
+    # Was "bounds an oversized direction identically in metadata and the brief" —
+    # that pinned silent truncate-and-keep as intended. It isn't: the cut lands
+    # before BOTH writes with no untruncated copy anywhere, and it lands
+    # invisibly (task-template boilerplate immediately follows the cut point,
+    # so the brief never looks like it ends early). Refusal replaces the cut;
+    # both arms below assert the refusal AND that the offer is left un-approved,
+    # since a refusal-only check can't tell a clean rejection from a rejection
+    # that still mutated the record on its way out.
+    it "refuses a direction over the cap and leaves the offer un-approved" do
       rec_id = create_offer[:data][:recommendation][:id]
-      huge = "D" * 9_000
+      too_long = "D" * (Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX + 1)
 
       result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
-                                      direction: huge })
+                                      direction: too_long })
 
+      expect(result[:success]).to be false
+      expect(result[:error]).to include(too_long.length.to_s)
+      expect(result[:error]).to include(Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX.to_s)
+      # Un-approved, not merely "no task": approve! must not have run at all,
+      # or the offer is stranded approved-with-no-task on the next attempt.
+      expect(Ai::ImprovementRecommendation.find(rec_id).status).to eq("pending")
+      expect(account.ai_ralph_loops.find_by(name: "dev-improve")).to be_nil
+    end
+
+    it "accepts a direction of exactly DIRECTION_MAX chars (the boundary is inclusive)" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      boundary = "D" * Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: boundary })
+
+      # Pins ">" in the tool's check, not ">=": a direction AT the advertised
+      # cap ("refused above N chars") must be accepted, not refused. Mutating
+      # the check to ">=" makes this example fail without touching the
+      # over-cap example above, which only exercises MAX + 1.
+      expect(result[:success]).to be true
       loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
       task = loop_record.ralph_tasks.find_by(task_key: result[:data][:task_key])
-      stored = task.metadata["operator_direction"]
-      expect(stored.length).to be <= Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX
-      # Identical in both places, or strip_direction's exact match breaks.
-      expect(task.acceptance_criteria).to include(stored)
+      expect(task.metadata["operator_direction"]).to eq(boundary)
+    end
+
+    it "carries a multi-paragraph direction between the old and new cap intact, not truncated or over-included" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      # Multi-paragraph with distinctive first/middle/last markers, not a
+      # homogeneous run of one character: `directed_criteria` joins with
+      # "\n\n" and `strip_direction` matches that exact shape, and a stage
+      # that silently kept only the first paragraph would pass unnoticed
+      # against a single-character fixture. `eq`, not `include`, on both
+      # destinations: `include` on a run of identical/near-identical text
+      # cannot detect over-inclusion (e.g. a stray duplicate paragraph)
+      # either — only exact equality can.
+      first_para = "FIRST-MARKER: " + ("a" * 2_000)
+      middle_para = "MIDDLE-MARKER: " + ("b" * 2_000)
+      last_para = "LAST-MARKER: " + ("c" * 5_000)
+      long_direction = [first_para, middle_para, last_para].join("\n\n")
+      # Sanity: over the OLD 4,096 cap (no longer a named constant — the fix
+      # deleted it), at/under the current DIRECTION_MAX (16,384).
+      expect(long_direction.length).to be_between(4_096, Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX).inclusive
+
+      result = tool.execute(params: { action: "approve_improvement", recommendation_id: rec_id,
+                                      direction: long_direction })
+
+      expect(result[:success]).to be true
+      loop_record = account.ai_ralph_loops.find_by(name: "dev-improve")
+      task = loop_record.ralph_tasks.find_by(task_key: result[:data][:task_key])
+      expect(task.metadata["operator_direction"]).to eq(long_direction)
+      criteria_direction = task.acceptance_criteria
+        .delete_prefix(Ai::DevLoop::ImprovementPromotionService::DIRECTION_PREFIX)
+        .split("\n\nRe-verify the finding").first
+      expect(criteria_direction).to eq(long_direction)
     end
 
     it "warns when a direction cannot reach an already-claimed executor" do
