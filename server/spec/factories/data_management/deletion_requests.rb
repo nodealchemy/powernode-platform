@@ -103,14 +103,17 @@ FactoryBot.define do
       data_types_to_delete { DataManagement::DeletionRequest::DELETABLE_DATA_TYPES }
     end
 
+    # 'activity' and 'files' were withdrawn from DELETABLE_DATA_TYPES
+    # (IMP-bf52b4da135b) and are now rejected on create, so these traits name
+    # types that genuinely have an erasure backend.
     trait :partial_deletion do
       deletion_type { "partial" }
-      data_types_to_delete { %w[profile activity audit_logs] }
+      data_types_to_delete { %w[profile communications audit_logs] }
     end
 
     trait :anonymize do
       deletion_type { "anonymize" }
-      data_types_to_delete { %w[profile activity] }
+      data_types_to_delete { %w[profile settings] }
     end
 
     # ============================================

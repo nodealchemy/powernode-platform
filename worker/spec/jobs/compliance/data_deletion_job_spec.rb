@@ -102,11 +102,12 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
       end
 
       it 'deletes user data types' do
-        # `consents` is the only DELETABLE_DATA_TYPES entry that actually
-        # calls out via api_client.delete — profile/audit_logs/payments use
-        # PATCH (anonymize-in-place), and activity/files/settings/
-        # communications/analytics have no backing data model in core and are
-        # skipped without any call at all (UNSUPPORTED_DATA_TYPES).
+        # consents/settings/communications call out via api_client.delete;
+        # profile/audit_logs/payments use PATCH (anonymize-in-place).
+        # 'files', 'activity' and 'analytics' are withdrawn from
+        # DELETABLE_DATA_TYPES entirely (IMP-bf52b4da135b) and are no longer
+        # walked on a full deletion at all — UNSUPPORTED_DATA_TYPES now only
+        # covers them arriving on a legacy row.
         expect(api_client).to receive(:delete)
           .with("/api/v1/internal/users/#{user_id}/consents")
           .and_return('success' => true, 'data' => { 'count' => 5 })
@@ -265,12 +266,13 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
     end
 
     context 'with partial deletion type' do
-      # 'consents' is the only DELETABLE_DATA_TYPES entry routed to an actual
-      # DELETE call; 'activity' has no backing data model in core
-      # (UNSUPPORTED_DATA_TYPES) — there never was a generic
-      # `/api/v1/internal/data_deletion/:type` route for either (see
-      # #delete_data_type's comment), so a partial request naming both
-      # exercises the "one routed, one skipped" split this job actually makes.
+      # 'consents' is routed to a real DELETE call; 'activity' is a WITHDRAWN
+      # type that only a legacy row can still carry (UNSUPPORTED_DATA_TYPES)
+      # and has no category-level erasure path, so it is skipped without any
+      # call. There never was a generic `/api/v1/internal/data_deletion/:type`
+      # route for either (see #delete_data_type's comment), so a partial
+      # request naming both exercises the "one routed, one skipped" split
+      # this job actually makes.
       let(:partial_request) do
         deletion_request_data.merge(
           'deletion_type' => 'partial',
@@ -299,13 +301,168 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
               status: 'completed',
               deletion_log: array_including(
                 hash_including(data_type: 'consents', action: 'deleted', records_affected: 3),
-                hash_including(data_type: 'activity', action: 'skipped', reason: 'no_backing_data_model')
+                hash_including(data_type: 'activity', action: 'skipped', reason: 'no_erasure_path')
               )
             )
           )
           .and_return(show_response(partial_request))
 
         job.execute(deletion_request_id)
+      end
+    end
+
+    # IMP-bf52b4da135b — the two DELETABLE_DATA_TYPES entries that have a
+    # per-user backing model AND a clean erasure path (the users preference
+    # columns; Notification + EmailDelivery) now route to erasure endpoints
+    # of their own instead of being lumped in with the types that have no
+    # erasure path at all. Before this they were recorded as
+    # `no_erasure_path` skips, which was accurate for 'activity' and
+    # 'analytics' but wrong for these two: the data existed and survived.
+    context 'with the newly-backed data types' do
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:patch).and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 4 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      it 'never calls a files endpoint — the type is withdrawn, not backed' do
+        # `files` HAS a backing model (FileManagement::Object) but no correct
+        # erasure path yet, so it is withdrawn rather than wired. Pins that
+        # this job does not call an endpoint that does not exist.
+        job.execute(deletion_request_id)
+
+        expect(api_client).not_to have_received(:delete)
+          .with("/api/v1/internal/users/#{user_id}/files")
+      end
+
+      it 'erases the user\'s settings' do
+        expect(api_client).to receive(:delete)
+          .with("/api/v1/internal/users/#{user_id}/settings")
+          .and_return('success' => true, 'data' => { 'count' => 1 })
+
+        job.execute(deletion_request_id)
+      end
+
+      it 'erases the user\'s communications' do
+        expect(api_client).to receive(:delete)
+          .with("/api/v1/internal/users/#{user_id}/communications")
+          .and_return('success' => true, 'data' => { 'count' => 4 })
+
+        job.execute(deletion_request_id)
+      end
+
+      it 'records them as deleted with a real count, not as skipped' do
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            hash_including(
+              status: 'completed',
+              deletion_log: array_including(
+                hash_including(data_type: 'settings', action: 'deleted', records_affected: 4),
+                hash_including(data_type: 'communications', action: 'deleted', records_affected: 4)
+              )
+            )
+          )
+          .and_return(show_response(deletion_request_data))
+
+        job.execute(deletion_request_id)
+      end
+
+      it 'no longer walks the withdrawn types on a full deletion' do
+        # 'files', 'activity' and 'analytics' are withdrawn from
+        # DataManagement::DeletionRequest::DELETABLE_DATA_TYPES — a full
+        # deletion must not manufacture log entries for categories the
+        # platform no longer offers.
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            hash_including(
+              status: 'completed',
+              deletion_log: satisfy do |log|
+                log.none? { |entry| %w[files activity analytics].include?(entry[:data_type]) }
+              end
+            )
+          )
+          .and_return(show_response(deletion_request_data))
+
+        job.execute(deletion_request_id)
+      end
+    end
+
+    # IMP-bf52b4da135b — `data_types_to_retain` naming 'profile' was honoured
+    # by the per-type loop (which logged it as retained) and then immediately
+    # contradicted by an UNCONDITIONAL `anonymize_user(user_id)` call after
+    # the loop. The data subject was told their profile was retained while
+    # the user row was anonymized in place anyway.
+    context 'when the request retains the profile' do
+      let(:retain_profile_request) do
+        deletion_request_data.merge('data_types_to_retain' => %w[profile])
+      end
+
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(retain_profile_request))
+        allow(api_client).to receive(:patch).and_return(show_response(retain_profile_request))
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 2 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      it 'does not anonymize the user record' do
+        job.execute(deletion_request_id)
+
+        expect(api_client).not_to have_received(:patch)
+          .with("/api/v1/internal/users/#{user_id}/anonymize", anything)
+      end
+
+      it 'records the profile as retained rather than deleted' do
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            hash_including(
+              status: 'completed',
+              retention_log: array_including(hash_including(data_type: 'profile'))
+            )
+          )
+          .and_return(show_response(retain_profile_request))
+
+        job.execute(deletion_request_id)
+      end
+
+      it 'still erases the data types that were not retained' do
+        # The retention must be scoped to 'profile' alone — it must not become
+        # an excuse to skip the rest of the erasure.
+        expect(api_client).to receive(:delete)
+          .with("/api/v1/internal/users/#{user_id}/consents")
+          .and_return('success' => true, 'data' => { 'count' => 2 })
+
+        job.execute(deletion_request_id)
+      end
+    end
+
+    context 'when the request does not retain the profile' do
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:patch).and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 2 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      it 'anonymizes the user record exactly once' do
+        # Control for the retention example above: making the call conditional
+        # must not remove it from the default path. `exactly(1)` also pins the
+        # removal of the redundant second call — the per-type loop's 'profile'
+        # branch and the unconditional post-loop call used to both fire.
+        job.execute(deletion_request_id)
+
+        expect(api_client).to have_received(:patch)
+          .with("/api/v1/internal/users/#{user_id}/anonymize", anything)
+          .exactly(1).time
       end
     end
 

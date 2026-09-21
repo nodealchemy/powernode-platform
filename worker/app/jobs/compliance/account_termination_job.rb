@@ -539,16 +539,36 @@ module Compliance
     end
 
     def delete_account_records(account_id, termination_log)
-      # Delete files. Api::V1::Internal::AccountsController#delete_files
-      # returns `data: { count: }` (added alongside this fix — it previously
-      # returned `message` only, so this read was always 0 regardless of the
-      # symbol/string key bug).
+      # Files. Api::V1::Internal::AccountsController#delete_files returns
+      # `data: { count:, erased:, reason: }`.
+      #
+      # IMP-bf52b4da135b: that endpoint has never actually erased a file, and
+      # still does not — it now says so explicitly (`erased: false`) instead
+      # of returning a success-shaped "Deleted 0 file records". Record that
+      # honestly in the termination_log rather than writing a `deleted_files`
+      # entry for an erasure that did not happen: an operator reading this
+      # log must be able to see that files were NOT erased. Same shape as the
+      # `subscription_anonymize_skipped` entry below.
+      #
+      # `erased` is read with an explicit `== false` rather than a truthiness
+      # check so that an OLDER server build (which returns neither key) is
+      # treated as the legacy success path rather than being silently
+      # reported as skipped.
       response = api_client.delete("/api/v1/internal/accounts/#{account_id}/files")
-      termination_log << {
-        event: 'deleted_files',
-        count: response['data']&.dig('count') || 0,
-        at: Time.current.iso8601
-      }
+      files_data = response['data'] || {}
+      termination_log << if files_data['erased'] == false
+        {
+          event: 'files_erasure_skipped',
+          reason: files_data['reason'] || 'no_erasure_path',
+          at: Time.current.iso8601
+        }
+      else
+        {
+          event: 'deleted_files',
+          count: files_data['count'] || 0,
+          at: Time.current.iso8601
+        }
+      end
 
       # Delete API keys
       api_client.delete("/api/v1/internal/accounts/#{account_id}/api_keys")

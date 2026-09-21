@@ -211,7 +211,7 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
   # remaining keys are every key the JOB's own termination_log writers
   # actually use: event/at (universal), user_id (per-user steps), count
   # (deleted_files), error (error-revert entry), reason
-  # (subscription_anonymize_skipped entry).
+  # (subscription_anonymize_skipped and files_erasure_skipped entries).
   TERMINATION_LOG_ENTRY_KEYS = [ :event, :user_id, :count, :error, :reason, :at ].freeze
 
   # Fourth review, nit 1: key-permitting alone still let a forged EVENT NAME
@@ -228,6 +228,7 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
     deleted_consents deleted_terms_acceptances anonymized_audit_logs anonymized_user
     deleted_files deleted_api_keys deleted_webhooks deleted_export_requests
     deleted_deletion_requests subscription_anonymize_skipped error
+    files_erasure_skipped
     reminder_7_days_sent reminder_3_days_sent reminder_1_day_sent
   ].freeze
 

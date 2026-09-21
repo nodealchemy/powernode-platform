@@ -31,6 +31,30 @@ module DataManagement
       in: %w[full partial anonymize]
     }
 
+    # Withdrawing a type from DELETABLE_DATA_TYPES is inert on its own —
+    # nothing read the constant, and Api::V1::PrivacyController
+    # #request_deletion permits an arbitrary `data_types_to_delete` array — so
+    # a caller could still ask for 'analytics' and be told the request was
+    # accepted. This is what makes the advertisement binding
+    # (IMP-bf52b4da135b).
+    #
+    # `on: :create` deliberately. Compliance::DataDeletionJob PATCHes a
+    # request repeatedly while processing it (status, deletion_log,
+    # retention_log — #patch_deletion_request!), and rows created before the
+    # withdrawal legitimately still carry 'activity'/'analytics'. Validating
+    # on update would 422 every one of those writes and strand the request
+    # mid-flight — precisely the failure mode IMP-b33a3ecca331 had to repair
+    # when the status validation was rejecting the job's own writes.
+    #
+    # CAVEAT for anyone extending this: create-only is sufficient ONLY while
+    # no update path permits `data_types_to_delete`. That holds today — the
+    # internal controller's update params don't carry the field at all, so a
+    # post-create change is structurally impossible rather than merely
+    # unused. Add an update action that permits it and this validation is
+    # bypassed SILENTLY, with no failing spec to notice; such a change needs
+    # a matching `on: :update` guard that exempts the legacy values.
+    validate :data_types_to_delete_are_deletable, on: :create
+
     # Scopes
     scope :pending, -> { where(status: "pending") }
     scope :approved, -> { where(status: "approved") }
@@ -45,17 +69,70 @@ module DataManagement
     before_create :set_defaults
     after_create :log_deletion_requested
 
-    # Data types that can be deleted
+    # Data types that can be deleted.
+    #
+    # This constant is the platform's ADVERTISEMENT of which GDPR Article 17
+    # categories a data subject can actually have erased, so every entry must
+    # have a real erasure backend behind it (IMP-bf52b4da135b, operator
+    # direction: a type with no backend is withdrawn, not left listed):
+    #
+    #   profile        -> User row, anonymize-in-place
+    #                     (Api::V1::Internal::UsersController#anonymize)
+    #   audit_logs     -> AuditLog, anonymized in place (#anonymize_audit_logs)
+    #   payments       -> account payments, anonymized in place
+    #                     (Api::V1::Internal::AccountsController#anonymize_payments)
+    #   settings       -> users.preferences / users.notification_preferences
+    #                     (#delete_settings)
+    #   consents       -> UserConsent (#delete_consents)
+    #   communications -> Notification + EmailDelivery (#delete_communications)
+    #
+    # THREE types were WITHDRAWN (IMP-bf52b4da135b). Withdrawal means the
+    # platform stops OFFERING a category it has no erasure path for — it is
+    # not a claim that the underlying data does not exist:
+    #
+    #   files    -> FileManagement::Object exists and holds real personal
+    #               data, but there is no correct erasure path for it yet and
+    #               building one is its own piece of work. Five tables
+    #               reference file_objects with no inverse association and no
+    #               `on_delete` (chat_message_attachments,
+    #               system_disk_image_publications x2,
+    #               system_node_architectures x3), so they default to NO
+    #               ACTION and a destroy raises InvalidForeignKey on any
+    #               chat-attached file; FileManagement::Object's
+    #               after_destroy :remove_from_storage swallows a blob-removal
+    #               failure, so a naive implementation reports erasure it did
+    #               not perform; and the same scope holds non-personal
+    #               platform artifacts (disk_image, sbom_export,
+    #               attestation_proof, vendor_certificate, ...) that must not
+    #               be swept up by a data-subject request. Previously this was
+    #               ADVERTISED AND INERT — Api::V1::Internal::AccountsController
+    #               #delete_files is gated on `@account.respond_to?(:files)`
+    #               and Account has no such association, so it always reported
+    #               "Deleted 0 file records". Withdrawing makes the
+    #               advertisement honest until the real implementation lands.
+    #
+    #   activity, analytics
+    #            -> no CATEGORY-LEVEL erasure path was ever built for either,
+    #               and no model in core is scoped to either category. Note
+    #               this is NOT "no user-associated activity data exists": it
+    #               plainly does — Devops::DockerActivity (belongs_to
+    #               :triggered_by, class_name: "User"), McpToolExecution,
+    #               Ai::AgentExecution, Ai::Conversation, Ai::Message,
+    #               Ai::RagQuery, Ai::ContextAccessLog and
+    #               KnowledgeBase::ArticleView are all user-associated and
+    #               activity/analytics-shaped, and nothing erases any of them.
+    #               Deciding which of those constitute a data subject's
+    #               "activity" for Article 17 purposes is a policy question
+    #               that has not been answered, so the category must not be
+    #               offered as though it had been. (WorkerActivity is the one
+    #               genuine exception: it belongs_to :worker only.)
     DELETABLE_DATA_TYPES = %w[
       profile
-      activity
       audit_logs
       payments
-      files
       settings
       consents
       communications
-      analytics
     ].freeze
 
     # Data types that must be retained for legal reasons
@@ -202,6 +279,16 @@ module DataManagement
     end
 
     private
+
+    def data_types_to_delete_are_deletable
+      unsupported = Array(data_types_to_delete) - DELETABLE_DATA_TYPES
+      return if unsupported.empty?
+
+      errors.add(
+        :data_types_to_delete,
+        "contains data types this platform cannot erase: #{unsupported.join(', ')}"
+      )
+    end
 
     def set_defaults
       self.status ||= "pending"

@@ -180,10 +180,22 @@ module AuditActions
   # self-deletion AND removing the last account owner) — invariants this
   # internal action never had.
   # =============================================================================
+  # user.delete_settings / user.delete_communications added
+  # (IMP-bf52b4da135b) — the two DELETABLE_DATA_TYPES entries that have a
+  # per-user backing model in core but had no erasure route of their own.
+  # Same controller, same "user.<verb>" prefix as the rest of this constant.
+  # Registration is not optional: AuditLog validates `action` against these
+  # groups, so an unregistered literal makes the write fail and leaves the
+  # irreversible erasure it documents with no audit row.
+  #
+  # Deliberately NO `user.delete_files`: `files` is withdrawn from
+  # DELETABLE_DATA_TYPES until a real erasure backend exists for it (see the
+  # constant's comment), so there is no action to register yet.
   USER_DATA_LIFECYCLE_ACTIONS = %w[
     user.anonymize user.anonymize_audit_logs
     user.delete_consents user.delete_terms_acceptances
     user.delete_password_histories user.delete_roles
+    user.delete_settings user.delete_communications
   ].freeze
 
   # =============================================================================

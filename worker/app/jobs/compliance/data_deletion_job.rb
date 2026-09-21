@@ -5,15 +5,29 @@ module Compliance
   class DataDeletionJob < BaseJob
     sidekiq_options queue: :compliance
 
-    # DataManagement::DeletionRequest::DELETABLE_DATA_TYPES names these as
-    # canonical GDPR erasure categories, but nothing in core backs them with an
-    # actual model (no Activity, per-user Setting, Communication, or Analytics
-    # model exists; per-user "files" has no clean association either — see
-    # IMP-b33a3ecca331). Calling an endpoint for them would either 404 or
-    # silently do nothing; recording a false 'deleted' would misstate what
-    # actually happened to a data subject's request. Skip them explicitly and
-    # say so in the log, rather than attempt a call.
-    UNSUPPORTED_DATA_TYPES = %w[files activity settings communications analytics].freeze
+    # 'files', 'activity' and 'analytics' are WITHDRAWN from
+    # DataManagement::DeletionRequest::DELETABLE_DATA_TYPES
+    # (IMP-bf52b4da135b) — the server no longer advertises them and rejects
+    # them on create. See that constant's comment for the per-type reasoning;
+    # in short, 'files' HAS a backing model (FileManagement::Object) but no
+    # correct erasure path yet (restrict-FKs from five tables, a blob-removal
+    # failure that is swallowed, and non-personal platform artifacts sharing
+    # the scope), while 'activity'/'analytics' have no category-level erasure
+    # path at all.
+    #
+    # They stay listed HERE, rather than being deleted outright, because rows
+    # created BEFORE that withdrawal can still carry them and this job must
+    # process those rows without either 404ing or — far worse — recording a
+    # false 'deleted'. This list is now purely a legacy-row compatibility
+    # path; nothing new can enter it.
+    #
+    # The other two this constant used to name — settings, communications —
+    # DO have a backing model with a clean erasure path (the users preference
+    # columns; Notification + EmailDelivery) and are now routed to real
+    # endpoints in #delete_data_type. Recording those as skipped was accurate
+    # about the job's behaviour and wrong about the world: the data existed
+    # and survived the erasure.
+    UNSUPPORTED_DATA_TYPES = %w[files activity analytics].freeze
 
     # A per-data-type deletion failure (IMP-b33a3ecca331 third review, S-C).
     # Distinct from the plain `raise failure_message` this used to be so the
@@ -227,8 +241,16 @@ module Compliance
       deletion_log = []
       retention_log = []
 
-      # Delete each data type
-      deletable_types = %w[profile activity files settings consents communications analytics]
+      # Delete each data type. Mirrors the server's
+      # DataManagement::DeletionRequest::DELETABLE_DATA_TYPES minus the two
+      # entries this method handles unconditionally below (audit_logs,
+      # payments); 'files', 'activity' and 'analytics' are gone because they
+      # were withdrawn from that constant (IMP-bf52b4da135b) — walking them
+      # here only ever manufactured skip entries for categories the platform
+      # does not offer. The list is duplicated rather than fetched because
+      # the worker reaches the server over the HTTP API only and never shares
+      # its models.
+      deletable_types = %w[profile settings consents communications]
 
       deletable_types.each do |data_type|
         if data_types_to_retain.include?(data_type)
@@ -246,8 +268,17 @@ module Compliance
       anonymize_audit_logs(user_id)
       anonymize_payments(account_id)
 
-      # Anonymize user record
-      anonymize_user(user_id)
+      # NOTE (IMP-bf52b4da135b): the user record is anonymized by the
+      # 'profile' branch of the loop ABOVE, which is skipped when the request
+      # retains 'profile'. There used to be an unconditional
+      # `anonymize_user(user_id)` call here as well, and it was wrong twice
+      # over: it anonymized the profile even when the data subject had asked
+      # for it to be RETAINED (the retention_log said "retained" while the
+      # row was anonymized anyway), and on every other request it ran the
+      # same anonymize a second time for no reason. Deleting it makes
+      # data_types_to_retain binding without changing the default path —
+      # 'profile' is in deletable_types, so an un-retained profile is still
+      # anonymized exactly once.
 
       [deletion_log, retention_log]
     end
@@ -299,8 +330,14 @@ module Compliance
     #                      handles it separately, unconditionally, below)
     #   * 'payments'   -> the account payment anonymize action (same as above)
     #   * 'consents'   -> the already-routed user consents delete action
-    # Types with no backing data model anywhere in core are skipped explicitly
-    # (see UNSUPPORTED_DATA_TYPES) rather than attempting a call.
+    #   * 'settings' / 'communications' -> the per-user erasure actions added
+    #                      in IMP-bf52b4da135b, backed by the users
+    #                      preference columns and by Notification +
+    #                      EmailDelivery respectively. Both return the same
+    #                      `data: { count: }` shape as 'consents'.
+    # Withdrawn types — reachable only on a legacy row — are skipped
+    # explicitly (see UNSUPPORTED_DATA_TYPES) rather than attempting a call
+    # to an endpoint that does not exist.
     def delete_data_type(data_type, user_id, account_id)
       case data_type
       when 'profile'
@@ -312,17 +349,41 @@ module Compliance
       when 'payments'
         anonymize_payments(account_id)
         { anonymized: true }
-      when 'consents'
-        # Api::V1::Internal::UsersController#delete_consents returns
-        # `data: { count: }` (added alongside this fix — it previously
-        # returned `message` only, so this read was always 0 regardless of
-        # the symbol/string key bug).
-        response = api_client.delete("/api/v1/internal/users/#{user_id}/consents")
+      when 'consents', 'settings', 'communications'
+        # Api::V1::Internal::UsersController's per-type delete actions each
+        # return `data: { count: }` (the consents one gained it alongside
+        # IMP-b33a3ecca331 — it previously returned `message` only, so this
+        # read was always 0 regardless of the symbol/string key bug).
+        response = api_client.delete("/api/v1/internal/users/#{user_id}/#{data_type}")
         { count: response['data']&.dig('count') || 0 }
       when *UNSUPPORTED_DATA_TYPES
-        log_warn "Data type '#{data_type}' has no backing data model in this deployment; " \
+        # Reached only by a legacy row: this type is withdrawn, so nothing
+        # new can name it. The wording deliberately does NOT claim the data
+        # does not exist — for 'files' it demonstrably does
+        # (FileManagement::Object); what is missing is a safe erasure path.
+        log_warn "Data type '#{data_type}' is withdrawn — this platform has no erasure path for it; " \
                  'recording it as skipped rather than claiming it was deleted'
-        { skipped: true, reason: 'no_backing_data_model' }
+        # Renamed from 'no_backing_data_model' (IMP-bf52b4da135b). This value
+        # is persisted into the `deletion_log` of real requests — a retained
+        # COMPLIANCE artifact that a data subject, an operator or a regulator
+        # reads. A wrong comment misleads a developer; a wrong value here
+        # misleads the person the record exists to protect, which is why this
+        # is worth a contract change rather than a comment.
+        #
+        # 'no_backing_data_model' became false once 'files' joined this list:
+        # FileManagement::Object demonstrably exists. What is actually absent
+        # is a safe erasure PATH, which is what the new value names, and which
+        # is true for all three withdrawn types.
+        #
+        # A FORWARD rename only: rows already stored keep the old value, and
+        # for those rows it was never accurate to read as "nothing to erase".
+        # Before this change the list was files/activity/settings/
+        # communications/analytics, so a request that named files, settings
+        # or communications was recorded as skipped ('no_backing_data_model')
+        # although FileManagement::Object, Notification and EmailDelivery
+        # exist. Nothing re-processes those rows; a subject whose completed
+        # request named one of those types has not had that data erased by it.
+        { skipped: true, reason: 'no_erasure_path' }
       else
         log_warn "Unknown data type '#{data_type}' requested for deletion; recording it as skipped"
         { skipped: true, reason: 'unknown_data_type' }

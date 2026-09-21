@@ -85,7 +85,10 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
           user_id: user.id,
           deletion_type: 'full',
           reason: 'GDPR deletion request',
-          data_types_to_delete: [ 'profile', 'activity', 'audit_logs' ]
+          # 'activity' was withdrawn from DELETABLE_DATA_TYPES
+          # (IMP-bf52b4da135b) and is now rejected on create, so this names
+          # types that can actually be erased.
+          data_types_to_delete: [ 'profile', 'communications', 'audit_logs' ]
         }
       }
     end
@@ -342,7 +345,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
               status: 'failed',
               error_message: 'Data deletion failed for: files',
               deletion_log: [
-                { data_type: 'files', action: 'skipped', reason: 'no_backing_data_model',
+                { data_type: 'files', action: 'skipped', reason: 'no_erasure_path',
                   processed_at: Time.current.iso8601 }
               ]
             },
@@ -354,7 +357,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
       deletion_request.reload
       expect(deletion_request.status).to eq('failed')
       expect(deletion_request.error_message).to eq('Data deletion failed for: files')
-      expect(deletion_request.deletion_log.first).to include('action' => 'skipped', 'reason' => 'no_backing_data_model')
+      expect(deletion_request.deletion_log.first).to include('action' => 'skipped', 'reason' => 'no_erasure_path')
     end
 
     it 'rejects an unsupported status value (model inclusion validation still applies)' do

@@ -188,6 +188,43 @@ RSpec.describe 'Api::V1::Privacy', type: :request do
         expect_error_response('You already have an active deletion request')
       end
     end
+
+    # IMP-bf52b4da135b — 'activity' and 'analytics' are withdrawn from
+    # DELETABLE_DATA_TYPES because nothing in core can erase them, and the
+    # model now rejects them on create. This is the USER-FACING half of that
+    # withdrawal: before it, this endpoint accepted a request for a category
+    # the platform could never erase and reported it as submitted.
+    #
+    # The endpoint builds the request with `create!`; the resulting
+    # ActiveRecord::RecordInvalid is turned into the platform's standard
+    # VALIDATION_ERROR envelope by ApiResponse's `rescue_from`
+    # (app/controllers/concerns/api_response.rb), not by Rails' debug
+    # exception formatter — so this 422 and its message are real behaviour in
+    # every environment, not a test-only artifact.
+    context 'with a data type the platform cannot erase' do
+      it 'rejects the request with a client error rather than raising' do
+        expect {
+          post '/api/v1/privacy/deletion',
+               params: deletion_params.merge(data_types_to_delete: %w[profile analytics]),
+               headers: headers,
+               as: :json
+        }.not_to change { DataManagement::DeletionRequest.count }
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['error']).to include('analytics')
+      end
+
+      it 'still accepts a selection of advertised data types' do
+        expect {
+          post '/api/v1/privacy/deletion',
+               params: deletion_params.merge(data_types_to_delete: %w[profile settings communications]),
+               headers: headers,
+               as: :json
+        }.to change { DataManagement::DeletionRequest.count }.by(1)
+
+        expect(response).to have_http_status(:created)
+      end
+    end
   end
 
   describe 'GET /api/v1/privacy/deletion' do

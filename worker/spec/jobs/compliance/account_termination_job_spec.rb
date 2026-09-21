@@ -135,13 +135,75 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
 
       it 'deletes account files' do
         # `.and_return` is load-bearing: delete_account_records reads
-        # `response['data']&.dig('count')` off THIS call's return value; nil
-        # would raise NoMethodError on `nil['data']` (NilClass has no `[]`).
+        # `response['data']` off THIS call's return value; nil would raise
+        # NoMethodError on `nil['data']` (NilClass has no `[]`).
         expect(api_client).to receive(:delete)
           .with("/api/v1/internal/accounts/#{account_id}/files")
           .and_return('success' => true, 'data' => { 'count' => 5 })
 
         job.execute
+      end
+
+      # IMP-bf52b4da135b — the files endpoint has never actually erased
+      # anything and now says so (`erased: false`). The termination_log must
+      # carry that as an UNMET obligation, not as a `deleted_files` entry
+      # reporting a deletion that did not happen: an operator reading this
+      # log has to be able to see that files survived.
+      context 'when the server reports that files were not erased' do
+        before do
+          allow(api_client).to receive(:delete)
+            .with("/api/v1/internal/accounts/#{account_id}/files")
+            .and_return(
+              'success' => true,
+              'data' => { 'count' => 0, 'erased' => false, 'reason' => 'no_erasure_path' }
+            )
+        end
+
+        it 'records the skip with its reason, rather than a deletion' do
+          appended = []
+          allow(api_client).to receive(:patch) do |_path, payload|
+            appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+            { 'success' => true }
+          end
+
+          job.execute
+
+          expect(appended).to include(
+            hash_including(event: 'files_erasure_skipped', reason: 'no_erasure_path')
+          )
+        end
+
+        it 'writes no deleted_files entry for an erasure that did not happen' do
+          appended = []
+          allow(api_client).to receive(:patch) do |_path, payload|
+            appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+            { 'success' => true }
+          end
+
+          job.execute
+
+          expect(appended.map { |e| e[:event] }).to include('files_erasure_skipped')
+          expect(appended.map { |e| e[:event] }).not_to include('deleted_files')
+        end
+      end
+
+      it 'still records a real deletion when the server reports one (legacy//implemented path)' do
+        # Guards the `erased == false` check against becoming a truthiness
+        # test: an older server build returns neither `erased` nor `reason`,
+        # and must still be treated as the deletion path.
+        appended = []
+        allow(api_client).to receive(:delete)
+          .with("/api/v1/internal/accounts/#{account_id}/files")
+          .and_return('success' => true, 'data' => { 'count' => 5 })
+        allow(api_client).to receive(:patch) do |_path, payload|
+          appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+          { 'success' => true }
+        end
+
+        job.execute
+
+        expect(appended).to include(hash_including(event: 'deleted_files', count: 5))
+        expect(appended.map { |e| e[:event] }).not_to include('files_erasure_skipped')
       end
 
       it 'terminates the account via the dedicated idempotent terminate action' do

@@ -4,7 +4,8 @@
 class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseController
   before_action :set_user, only: [ :show, :anonymize, :anonymize_audit_logs,
                                     :delete_consents, :delete_terms_acceptances,
-                                    :delete_password_histories, :delete_roles ]
+                                    :delete_password_histories, :delete_roles,
+                                    :delete_settings, :delete_communications ]
 
   # GET /api/v1/internal/users/:id
   def show
@@ -412,6 +413,75 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
     count = UserConsent.where(user_id: @user.id).delete_all
     log_internal_audit("user.delete_consents", "User", @user.id, account_id: @user.account_id, records_deleted: count)
     render_success(data: { count: count }, message: "Deleted #{count} consent records")
+  end
+
+  # DELETE /api/v1/internal/users/:user_id/settings
+  #
+  # The `settings` entry in DELETABLE_DATA_TYPES (IMP-bf52b4da135b). The
+  # backing store is the two user preference columns, not a separate model
+  # (SiteSetting/AdminSetting are global configuration, not personal data).
+  # #anonymize already clears both, but only as part of anonymizing the whole
+  # profile — so a 'partial' request naming only `settings`, or a 'full'
+  # request RETAINING `profile`, left them in place. `count` is 1/0 (the user
+  # row), matching the `data: { count: }` shape every sibling returns rather
+  # than inventing a second response contract for this one action.
+  def delete_settings
+    already_empty = @user.preferences.blank? && @user.notification_preferences.blank?
+
+    # Same hazard #anonymize guards against: User includes Auditable, so this
+    # write's automatic "updated" audit row would otherwise archive — durably,
+    # in old_values — exactly the preferences this action exists to erase.
+    @user.audit_extra_redactions = %w[preferences notification_preferences]
+    @user.update!(preferences: {}, notification_preferences: {})
+
+    count = already_empty ? 0 : 1
+    log_internal_audit("user.delete_settings", "User", @user.id, account_id: @user.account_id, records_deleted: count)
+    render_success(data: { count: count }, message: "Deleted #{count} settings records")
+  end
+
+  # DELETE /api/v1/internal/users/:user_id/communications
+  #
+  # The `communications` entry in DELETABLE_DATA_TYPES (IMP-bf52b4da135b).
+  # TWO per-user communications models back this category, and both must go
+  # or the category is only half erased:
+  #
+  #   Notification   - in-app messages addressed to this data subject
+  #                    (title/message bodies). #anonymize already deletes
+  #                    these, but only as part of the full profile
+  #                    anonymization — see #delete_settings above for why
+  #                    that is not the same thing.
+  #   EmailDelivery  - the sent-email record: `recipient_email` (the
+  #                    subject's plaintext address, NOT NULL), `subject`
+  #                    (NOT NULL), and the fully rendered `body_html` /
+  #                    `body_text`. Erased by NOTHING before this — not by
+  #                    #anonymize, not by any other internal action — so a
+  #                    completed deletion logged `communications -> deleted`
+  #                    while every email ever sent to the subject survived
+  #                    verbatim and indefinitely (review finding, C).
+  #
+  # `delete_all` is safe on both: neither is referenced by any other table
+  # (email_deliveries has zero inbound foreign keys; its only FK points OUT
+  # at users) and neither declares dependent children, so there is nothing to
+  # cascade and no restrict-FK to raise on. This is exactly the property
+  # `files` lacks, which is why `files` is withdrawn rather than erased here.
+  #
+  # Scoped by user_id only. EmailDelivery.user_id is nullable, and a row with
+  # a null user_id is deliberately NOT swept: it carries no link to this data
+  # subject, and matching on `recipient_email` instead would reach other
+  # people's rows that happen to share an address.
+  def delete_communications
+    notification_count = Notification.where(user_id: @user.id).delete_all
+    email_count = EmailDelivery.where(user_id: @user.id).delete_all
+    count = notification_count + email_count
+
+    log_internal_audit(
+      "user.delete_communications", "User", @user.id,
+      account_id: @user.account_id,
+      records_deleted: count,
+      notifications_deleted: notification_count,
+      email_deliveries_deleted: email_count
+    )
+    render_success(data: { count: count }, message: "Deleted #{count} communication records")
   end
 
   # DELETE /api/v1/internal/users/:user_id/terms_acceptances

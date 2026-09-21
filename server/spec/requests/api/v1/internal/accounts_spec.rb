@@ -208,21 +208,51 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
   describe 'DELETE /api/v1/internal/accounts/:account_id/files' do
     context 'with internal authentication' do
       it 'writes an audit_logs row for the delete_files action' do
-        # Account has no `files` association in core mode, so the endpoint
-        # deletes nothing (records_deleted stays 0) — the audit write is the
-        # only observable effect and is the one this cluster silently lost.
         delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
 
         expect_success_response
-        # IMP-b33a3ecca331 (S5): the response now also carries `data: {count:}`
+        # IMP-b33a3ecca331 (S5): the response carries `data: {count:}`
         # (Compliance::AccountTerminationJob reads it back), so
         # json_response_data returns that data hash rather than falling back
         # to the whole envelope — read `message` from the full response.
-        expect(json_response['message']).to include('Deleted')
         expect(json_response_data['count']).to eq(0)
         expect(
           AuditLog.exists?(account_id: account.id, action: 'account.delete_files')
         ).to be true
+      end
+
+      # IMP-bf52b4da135b — this action has never erased a file
+      # (`@account.respond_to?(:files)` is always false; Account has no such
+      # association) and still does not, because real file erasure is blocked
+      # on restrict-FKs, a swallowed blob-removal failure, and non-personal
+      # artifacts sharing the scope. What changed is that it no longer
+      # PRETENDS: a success-shaped "Deleted 0 file records" is what let this
+      # gap survive unnoticed.
+      it 'reports explicitly that files were not erased, instead of claiming a deletion' do
+        delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['erased']).to be false
+        expect(json_response_data['reason']).to eq('no_erasure_path')
+        expect(json_response['message']).to include('NOT erased')
+        expect(json_response['message']).not_to match(/\ADeleted \d+ file records\z/)
+      end
+
+      it 'records the unmet obligation in the audit row' do
+        delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
+
+        row = AuditLog.find_by(account_id: account.id, action: 'account.delete_files')
+        expect(row.metadata['erased']).to be false
+        expect(row.metadata['reason']).to eq('no_erasure_path')
+      end
+
+      it 'does not fail the request — a known gap must not abort account termination' do
+        # Deliberately not a 501/5xx: BackendApiClient raises on any non-2xx,
+        # which would abort the whole termination, and a termination has no
+        # path back once it fails.
+        delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
+
+        expect(response).to have_http_status(:success)
       end
     end
   end

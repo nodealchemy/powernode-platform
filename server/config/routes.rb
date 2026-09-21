@@ -209,6 +209,9 @@ Rails.application.routes.draw do
           patch :anonymize, to: "users#anonymize"
           patch :anonymize_audit_logs, to: "users#anonymize_audit_logs"
           delete :consents, to: "users#delete_consents"
+          # GDPR data types with a per-user backing model (IMP-bf52b4da135b)
+          delete :settings, to: "users#delete_settings"
+          delete :communications, to: "users#delete_communications"
           delete :terms_acceptances, to: "users#delete_terms_acceptances"
           delete :password_histories, to: "users#delete_password_histories"
           delete :roles, to: "users#delete_roles"

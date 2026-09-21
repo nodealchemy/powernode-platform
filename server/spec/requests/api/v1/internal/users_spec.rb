@@ -768,6 +768,176 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
     end
   end
 
+  # IMP-bf52b4da135b — the two DELETABLE_DATA_TYPES entries that have a
+  # per-user backing model in core but had no erasure route of their own.
+  # Before this they were reachable ONLY as a side effect of #anonymize, so a
+  # 'partial' request naming just one of them, and a 'full' request retaining
+  # `profile`, both left the data in place while the deletion_log recorded it
+  # as skipped.
+  describe 'DELETE /api/v1/internal/users/:user_id/settings' do
+    context 'with valid service token' do
+      before do
+        user.update!(
+          preferences: { 'theme' => 'dark', 'timezone' => 'Europe/Berlin' },
+          notification_preferences: { 'marketing_email' => 'newsletter-weekly' }
+        )
+      end
+
+      it 'clears the user preference columns' do
+        delete "/api/v1/internal/users/#{user.id}/settings", headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['count']).to eq(1)
+        user.reload
+        expect(user.preferences).to eq({})
+        expect(user.notification_preferences).to eq({})
+        expect(AuditLog.exists?(action: 'user.delete_settings', resource_id: user.id)).to be true
+      end
+
+      it 'does not archive the erased preference values in the automatic audit row' do
+        # Same hazard #anonymize guards with audit_extra_redactions (see the
+        # sibling example above): User includes Auditable, so this write's
+        # automatic "updated" row would otherwise become a durable copy, in
+        # old_values, of exactly the settings this endpoint exists to erase.
+        #
+        # `Auditable.with_logging` is load-bearing and NOT optional here.
+        # `Auditable.logging_enabled` defaults to `!Rails.env.test?`, so
+        # without it NO automatic row is written at all and this example
+        # would be satisfied by the absence of the very thing it inspects —
+        # it would stay green with `audit_extra_redactions` deleted from the
+        # controller, while production archived both preference hashes
+        # (review finding E).
+        #
+        # Only rows created by the DELETE are inspected: the `before` block's
+        # own `update!` legitimately seeds 'Europe/Berlin', and once logging
+        # is on anywhere in this example that row must not be mistaken for
+        # the one under test.
+        pre_existing_ids = AuditLog.pluck(:id)
+
+        Auditable.with_logging do
+          delete "/api/v1/internal/users/#{user.id}/settings", headers: internal_headers, as: :json
+        end
+        expect_success_response
+
+        updated_rows = AuditLog.where(resource_type: 'User', resource_id: user.id, action: 'updated')
+                               .where.not(id: pre_existing_ids)
+
+        # Anti-vacuity: if the write stops producing an automatic row, this
+        # example must fail rather than silently pass on an empty set.
+        expect(updated_rows).not_to be_empty
+
+        updated_rows.each do |row|
+          json = [ row.old_values, row.new_values ].to_json
+          # Load-bearing: verified by mutation (delete audit_extra_redactions
+          # from the controller and ONLY this assertion goes red, on
+          # old_values.preferences.timezone).
+          expect(json).not_to include('Europe/Berlin')
+          # Belt-and-braces, NOT independent evidence: a pre-existing global
+          # rule already masks this key's VALUE as "[FILTERED]" on every
+          # write, so this assertion survives the mutant above. Kept because
+          # it pins that the key's value never appears in the clear, not
+          # because it tests this diff.
+          expect(json).not_to include('newsletter-weekly')
+        end
+      end
+    end
+
+    context 'without service token' do
+      it 'returns unauthorized error' do
+        delete "/api/v1/internal/users/#{user.id}/settings", as: :json
+
+        expect_error_response('mTLS client certificate required', 401)
+      end
+    end
+  end
+
+  describe 'DELETE /api/v1/internal/users/:user_id/communications' do
+    context 'with valid service token' do
+      let!(:notifications) do
+        [
+          create(:notification, user: user, account: account),
+          create(:notification, user: user, account: account)
+        ]
+      end
+
+      it 'deletes the user notifications and reports the count' do
+        expect do
+          delete "/api/v1/internal/users/#{user.id}/communications", headers: internal_headers, as: :json
+        end.to change { Notification.where(user_id: user.id).count }.from(2).to(0)
+
+        expect_success_response
+        expect(AuditLog.exists?(action: 'user.delete_communications', resource_id: user.id)).to be true
+      end
+
+      it 'does not affect another user\'s notifications' do
+        other_user = create(:user, account: account)
+        other_notification = create(:notification, user: other_user, account: account)
+
+        delete "/api/v1/internal/users/#{user.id}/communications", headers: internal_headers, as: :json
+
+        expect(Notification.exists?(other_notification.id)).to be true
+      end
+
+      # Review finding C: EmailDelivery is the SECOND per-user
+      # communications model and was erased by nothing at all, so a
+      # completed deletion logged `communications -> deleted` while the
+      # subject's plaintext recipient_email and the full rendered body of
+      # every email sent to them survived verbatim.
+      context 'with sent-email records' do
+        let!(:emails) do
+          [
+            create(:email_delivery, user: user, recipient_email: 'subject@example.com',
+                                    body_html: '<p>hello</p>', body_text: 'hello'),
+            create(:email_delivery, user: user, recipient_email: 'subject@example.com')
+          ]
+        end
+
+        it 'deletes the email delivery records too' do
+          expect do
+            delete "/api/v1/internal/users/#{user.id}/communications", headers: internal_headers, as: :json
+          end.to change { EmailDelivery.where(user_id: user.id).count }.from(2).to(0)
+
+          expect_success_response
+        end
+
+        it 'counts both models in the reported total' do
+          delete "/api/v1/internal/users/#{user.id}/communications", headers: internal_headers, as: :json
+
+          # 2 notifications + 2 email deliveries
+          expect(json_response_data['count']).to eq(4)
+        end
+
+        it 'does not reach another user\'s email deliveries' do
+          other_user = create(:user, account: account)
+          other_email = create(:email_delivery, user: other_user)
+
+          delete "/api/v1/internal/users/#{user.id}/communications", headers: internal_headers, as: :json
+
+          expect(EmailDelivery.exists?(other_email.id)).to be true
+        end
+
+        it 'leaves an unattributed delivery (null user_id) alone' do
+          # A row with no user_id carries no link to this data subject;
+          # matching on recipient_email instead would reach other people's
+          # rows that happen to share an address.
+          orphan = create(:email_delivery, user: nil, recipient_email: 'subject@example.com')
+
+          delete "/api/v1/internal/users/#{user.id}/communications", headers: internal_headers, as: :json
+
+          expect(EmailDelivery.exists?(orphan.id)).to be true
+        end
+      end
+    end
+
+    context 'without service token' do
+      it 'returns unauthorized error' do
+        delete "/api/v1/internal/users/#{user.id}/communications", as: :json
+
+        expect_error_response('mTLS client certificate required', 401)
+      end
+    end
+  end
+
   describe 'DELETE /api/v1/internal/users/:user_id/terms_acceptances' do
     context 'with valid service token' do
       it 'returns success message with count' do

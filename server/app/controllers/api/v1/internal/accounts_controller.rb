@@ -86,10 +86,50 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
   # this count back (Compliance::AccountTerminationJob#delete_account_records)
   # to log how many records were actually deleted — a message-only response
   # gave it nothing structured to read, so that read always saw 0.
+  # IMP-bf52b4da135b: this action has NEVER erased a file. It was
+  # `@account.files.delete_all if @account.respond_to?(:files)`, and Account
+  # declares no `files` association, so the guard was ALWAYS false and every
+  # account termination recorded "Deleted 0 file records" — a success-shaped
+  # response over an erasure that did not happen, which is exactly why the
+  # gap survived this long.
+  #
+  # It is NOT restored to that shape and NOT implemented here either. Real
+  # file erasure is blocked on problems that are their own piece of work, and
+  # they are demonstrated rather than asserted (see the reproduction kept with
+  # the follow-up task): five tables reference file_objects with no inverse
+  # association and no `on_delete`, so destroying a chat-attached file raises
+  #   PG::ForeignKeyViolation ... violates foreign key constraint
+  #   "fk_rails_ca093e583a" on table "chat_message_attachments"
+  # mid-iteration, after shares have already been deleted and with no
+  # rollback; FileManagement::Object's after_destroy :remove_from_storage
+  # swallows a blob-removal failure, so a naive implementation reports
+  # erasure it did not perform; and the same scope holds non-personal
+  # platform artifacts (disk_image, sbom_export, attestation_proof,
+  # vendor_certificate, ...) that must not be swept up by a data-subject
+  # request.
+  #
+  # So until that lands, this reports the gap HONESTLY instead of hiding it:
+  # `erased: false` with a reason, and a message that does not claim a
+  # deletion. Same shape as the already-established
+  # `subscription_anonymize_skipped` precedent in
+  # Compliance::AccountTerminationJob#delete_account_records — an unmet
+  # obligation recorded as unmet.
+  #
+  # Deliberately NOT a 5xx/501: BackendApiClient raises ApiError on any
+  # non-2xx, which would abort the whole account termination, and a
+  # termination has no path back once it fails. Failing every termination to
+  # signal a known, already-documented gap trades a visible gap for a broken
+  # pipeline. `count: 0` is retained so the existing worker read keeps
+  # working; `erased` is what callers should branch on.
   def delete_files
-    count = @account.files.delete_all if @account.respond_to?(:files)
-    log_internal_audit("account.delete_files", "Account", @account.id, account_id: @account.id, records_deleted: count || 0)
-    render_success(data: { count: count || 0 }, message: "Deleted #{count || 0} file records")
+    log_internal_audit(
+      "account.delete_files", "Account", @account.id,
+      account_id: @account.id, records_deleted: 0, erased: false, reason: "no_erasure_path"
+    )
+    render_success(
+      data: { count: 0, erased: false, reason: "no_erasure_path" },
+      message: "Files were NOT erased: this platform has no erasure path for file objects yet"
+    )
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/api_keys
