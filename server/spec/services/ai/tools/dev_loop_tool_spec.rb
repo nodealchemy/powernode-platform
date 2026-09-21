@@ -113,13 +113,22 @@ RSpec.describe Ai::Tools::DevLoopTool do
           .with(:compound_learning_injection, account).and_return(true)
       end
 
+      # IMP-e7f452f42d89: commit 381e9aa0b (IMP-8988961e5bf1) tightened
+      # keyword_search to an N-of-M floor — required_matches = max(2,
+      # ceil(keywords.size/2)), so 5 keywords now need 3 matches, not 1.
+      # These fixtures' task text and the learning's title/content used to
+      # overlap on only 2 words ("queries", "reporting"), which cleared the
+      # OLD unstopped-OR floor but not the current one — the floor is
+      # correct; the fixtures were never updated for it. Task text is now
+      # built directly from words the learning's own title/content contains,
+      # so the first 5 non-stopword keywords clear >= 3 matches deterministically.
       it "injects the top-k most relevant compound learnings, reusing build_compound_context's ranking" do
         learning = create(:ai_compound_learning, account: account, status: "active",
                           category: "best_practice", title: "Cache reporting queries",
                           content: "Always cache repeated reporting queries", importance_score: 0.8)
         create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "cache-task", priority: 5,
-               description: "Optimize caching queries in the reporting service",
-               acceptance_criteria: "Reporting queries should hit the cache")
+               description: "Cache reporting queries",
+               acceptance_criteria: "Cache reporting queries")
 
         ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
 
@@ -134,30 +143,42 @@ RSpec.describe Ai::Tools::DevLoopTool do
                  content: "Cache reporting queries pattern #{i}", importance_score: 0.5)
         end
         create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "cache-task", priority: 5,
-               description: "Optimize caching queries", acceptance_criteria: "n/a")
+               description: "Cache reporting queries", acceptance_criteria: "Cache reporting queries")
 
         ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
 
         expect(ctx[:relevant_learnings].size).to eq(described_class::RELEVANT_LEARNINGS_LIMIT)
       end
 
+      # Confirmed BEFORE adding the positive arm below (not left in the test):
+      # against unfixed task text this example passed with
+      # ctx[:relevant_learnings] == nil — retrieval never ran, so "excludes
+      # retired" was unproven; the assertion was trivially true on an empty
+      # result. The positive arm (a matching ACTIVE learning present in the
+      # same result) is what makes "excluded" mean something, rather than
+      # "nothing was retrieved."
       it "excludes retired learnings" do
         retired = create(:ai_compound_learning, account: account, status: "retired",
                          content: "Cache reporting queries retired pattern", importance_score: 0.9)
+        active = create(:ai_compound_learning, account: account, status: "active",
+                        content: "Cache reporting queries", importance_score: 0.8)
         create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "cache-task", priority: 5,
-               description: "Optimize caching queries", acceptance_criteria: "n/a")
+               description: "Cache reporting queries", acceptance_criteria: "Cache reporting queries")
 
         ctx = tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })[:context]
 
         ids = (ctx[:relevant_learnings] || []).map { |l| l[:id] }
         expect(ids).not_to include(retired.id)
+        # Positive arm: retrieval actually ran and surfaced a real match —
+        # without this, an empty result would satisfy the line above too.
+        expect(ids).to include(active.id)
       end
 
       it "bumps injection_count/last_injected_at on surfaced learnings" do
         learning = create(:ai_compound_learning, account: account, status: "active",
                           content: "Cache reporting queries", importance_score: 0.8, injection_count: 0)
         create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "cache-task", priority: 5,
-               description: "Optimize caching queries", acceptance_criteria: "n/a")
+               description: "Cache reporting queries", acceptance_criteria: "Cache reporting queries")
 
         tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
 
