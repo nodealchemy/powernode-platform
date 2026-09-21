@@ -85,11 +85,34 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
           'status',
           'reason',
           'grace_period_ends_at',
+          'processing_started_at',
           'completed_at',
           'requested_at',
           'created_at',
           'updated_at'
         )
+      end
+
+      # BLOCKER 2 (IMP-f0560910fa62 review): termination_data never included
+      # processing_started_at -- the column exists and PATCH permits writing
+      # it, but this READ silently dropped it, so every 'processing' row
+      # arrived at the worker looking like it had no processing_started_at
+      # at all. Compliance::AccountTerminationJob#stranded_processing_terminations
+      # judges every 'processing' row's age off exactly this field; with it
+      # always absent, the staleness gate was inert on a perfectly healthy
+      # system (every row misjudged as an anomaly, not just old-vs-young).
+      # No worker-side spec can ever catch this: every worker spec stubs the
+      # API response, so it never talks to this serializer. Only a request
+      # spec against the real controller closes the gap.
+      it 'includes processing_started_at, the field the worker staleness gate depends on' do
+        get '/api/v1/internal/account_terminations', headers: internal_headers, as: :json
+
+        expect_success_response
+        termination = json_response['data'].find { |t| t['id'] == processing_termination.id }
+
+        expect(termination['processing_started_at']).to be_present
+        expect(Time.zone.parse(termination['processing_started_at']))
+          .to be_within(1.second).of(processing_termination.processing_started_at)
       end
     end
 
