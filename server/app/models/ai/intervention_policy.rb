@@ -94,6 +94,7 @@ module Ai
       campaign.resume
       dev.task_requeue
       ai.intervention_policy.write
+      ai.environment.write
       platform.site_setting.write platform.site_setting.protected_write
     ] + ENGINEERING_CATEGORIES + %w[*]).freeze
 

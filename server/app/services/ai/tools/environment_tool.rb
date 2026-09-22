@@ -27,7 +27,18 @@ module Ai
       ].freeze
 
       declare_action "environment_list", mutating: false
-      declare_action "environment_update", mutating: true, audit: true
+      # A write here rewrites the governance of everything placed in the plane
+      # (publish-following vs pinned, blast radius, approval-required categories,
+      # protection) — a PERSON's decision. Human-only (MCP identity plan R2): from
+      # any tool door it parks for a person to confirm in their own session, and
+      # runs as that person, who must hold ai.governance.manage. This is also the
+      # only thing standing between an instance principal holding the grant and
+      # the write: #action_permitted? waives the per-user check for one.
+      declare_action "environment_update", mutating: true, audit: true, human_only: true,
+                                           action_category: "ai.environment.write",
+                                           executor_class: "Ai::Executors::DeferredToolCall",
+                                           gate_context: :deferred_tool_call_context,
+                                           on_proceed: :deferred_tool_call_result
 
       def self.definition
         {
@@ -86,6 +97,19 @@ module Ai
         when "environment_update" then environment_update(params)
         else error_result("Unknown action: #{action}")
         end
+      end
+
+      protected
+
+      # A human_only action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first, so a user without ai.governance.manage
+      # is refused outright instead of parking a request nobody asked them for.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
       end
 
       private

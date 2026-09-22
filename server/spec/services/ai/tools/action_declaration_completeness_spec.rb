@@ -164,6 +164,11 @@ RSpec.describe "MCP action declaration completeness" do
   #   dev_requeue_task              dev-loop requeue  dev.task_requeue
   #                                 (human_only: returning a review-parked task to
   #                                 the queue unblocks a park, a person's decision)
+  #   environment_update            env-pin canary    ai.environment.write
+  #                                 (human_only: a plane's governance — pinned vs
+  #                                 following, blast radius, approval categories —
+  #                                 is a person's decision; an instance principal
+  #                                 holding the grant skips the per-user check)
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -200,6 +205,7 @@ RSpec.describe "MCP action declaration completeness" do
     site_setting_set
     site_setting_set_protected
     dev_requeue_task
+    environment_update
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do
