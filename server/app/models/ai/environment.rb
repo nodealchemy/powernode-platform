@@ -46,7 +46,15 @@ module Ai
 
     belongs_to :account
 
-    after_update_commit :notify_promotion_mode_listener, if: :saved_change_to_auto_promote_on_publish?
+    # The flip is recorded at SAVE time and announced at COMMIT time. A
+    # commit-time `saved_change_to_auto_promote_on_publish?` is not enough: a
+    # caller that reloads the record inside an enclosing transaction (an approved
+    # environment_update replay does, inside the approval's transaction) clears
+    # saved_changes before the commit, the check reads false, and the pinned
+    # plane is left with no pins — serving nothing of any module.
+    after_update :remember_promotion_mode_flip, if: :saved_change_to_auto_promote_on_publish?
+    after_update_commit :notify_promotion_mode_listener, if: :promotion_mode_flipped?
+    after_rollback :forget_promotion_mode_flip
     has_many :projects, class_name: "Ai::Project", foreign_key: :environment_id,
                         dependent: :restrict_with_error, inverse_of: :environment
 
@@ -135,6 +143,7 @@ module Ai
     # freezes or drops the environment's pins accordingly. Core mode has no
     # listener and nothing to freeze.
     def notify_promotion_mode_listener
+      forget_promotion_mode_flip
       Powernode::ExtensionRegistry.provider(:environment_promotion_mode_listener)&.call(environment: self)
     end
 
@@ -143,6 +152,18 @@ module Ai
     end
 
     private
+
+    def remember_promotion_mode_flip
+      @promotion_mode_flipped = true
+    end
+
+    def forget_promotion_mode_flip
+      @promotion_mode_flipped = false
+    end
+
+    def promotion_mode_flipped?
+      @promotion_mode_flipped == true
+    end
 
     def approval_required_categories_are_strings
       return if approval_required_categories.is_a?(Array) && approval_required_categories.all? { |c| c.is_a?(String) }

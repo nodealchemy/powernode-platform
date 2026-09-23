@@ -106,6 +106,38 @@ RSpec.describe Ai::Environment do
       ops.update!(auto_promote_on_publish: true)
     end
 
+    # The flip must reach the listener even when it happens inside an enclosing
+    # transaction and the record is reloaded before that transaction commits —
+    # exactly what an approved environment_update replay does (the tool reloads
+    # to serialize its answer inside the approval's status-flip transaction). A
+    # reload clears saved_changes, so a commit-time dirty check sees nothing and
+    # the pinned plane is left with no pins, i.e. serving nothing.
+    it "tells the listener about a flip inside a transaction even when the record is reloaded before commit" do
+      listener = double("listener")
+      allow(Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+      allow(Powernode::ExtensionRegistry).to receive(:provider).with(:environment_promotion_mode_listener).and_return(listener)
+      ops = account.environments.find_by!(slug: "ops")
+
+      expect(listener).to receive(:call).with(environment: ops).once
+      ActiveRecord::Base.transaction(requires_new: true) do
+        ops.update!(auto_promote_on_publish: false)
+        ops.reload
+      end
+    end
+
+    it "does not tell the listener about a reloaded non-flip save inside a transaction" do
+      listener = double("listener")
+      allow(Powernode::ExtensionRegistry).to receive(:provider).and_call_original
+      allow(Powernode::ExtensionRegistry).to receive(:provider).with(:environment_promotion_mode_listener).and_return(listener)
+      ops = account.environments.find_by!(slug: "ops")
+
+      expect(listener).not_to receive(:call)
+      ActiveRecord::Base.transaction(requires_new: true) do
+        ops.update!(name: "Operations (renamed)")
+        ops.reload
+      end
+    end
+
     it "validates max_blast_radius as a positive integer or nil" do
       env = account.environments.find_by!(slug: "ops")
       expect(env.update(max_blast_radius: 0)).to be false
