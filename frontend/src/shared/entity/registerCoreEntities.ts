@@ -441,16 +441,18 @@ export function registerCoreEntities(): void {
     {
       // fc-11: migrated off the retired Governance → Approvals tab's
       // `GET /ai/governance/approval_requests/:id` (GovernanceController
-      // #show_approval_request, no resource permission) onto the surface that
-      // shares its serializer (IMP-550e44e24220) and already reads one request
-      // in detail: `Ai::AutonomyApprovalActions#show_approval`
+      // #show_approval_request, gated on `ai.governance.read` via
+      // `require_governance_read`) onto the surface that shares its serializer
+      // (IMP-550e44e24220) and already reads one request in detail:
+      // `Ai::AutonomyApprovalActions#show_approval`
       // (`GET /ai/autonomy/approvals/:id`). That action renders the request
       // FLAT under `data` — `fetchApprovalRequestDetail` already unwraps
       // exactly that shape for the Approvals feature, so no `.then()` unwrap
       // of a `{ approval_request }` envelope is needed here (there is none).
-      // Gated on `ai.agents.read`, per `AutonomyController#validate_permissions`
-      // — the retired read had no resource permission at all. No `name`;
-      // `description` labels (falls back to the type label when null).
+      // The gate moves with it: `ai.agents.read`, per
+      // `AutonomyController#validate_permissions` — a different permission
+      // than the retired read's `ai.governance.read`, not a newly-added one.
+      // No `name`; `description` labels (falls back to the type label when null).
       type: 'approval_request',
       label: 'Approval Request',
       permission: 'ai.agents.read',

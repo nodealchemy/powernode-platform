@@ -76,26 +76,6 @@ test.describe('AI Governance', () => {
     });
   });
 
-  test.describe('Approval Chains', () => {
-    test('should display approval chains section', async ({ page }) => {
-      await expect(page.locator('body')).toContainText(/approval|chain|workflow|governance/i);
-    });
-  });
-
-  test.describe('Pending Approvals', () => {
-    test('should display pending approvals section', async ({ page }) => {
-      await expect(page.locator('body')).toContainText(/pending|approval|request|governance/i);
-    });
-
-    test('should have approve/reject actions when requests exist', async ({ page }) => {
-      const approveButton = page.locator('button:has-text("Approve"), button:has-text("Reject")');
-      const hasButtons = await approveButton.count() > 0;
-      const hasPageContent = (await page.locator('body').textContent())?.toLowerCase().includes('governance');
-
-      expect(hasButtons || hasPageContent).toBeTruthy();
-    });
-  });
-
   test.describe('Data Classifications', () => {
     test('should display data classification options', async ({ page }) => {
       await expect(page.locator('body')).toContainText(/classification|data|pii|phi|pci|confidential|governance/i);

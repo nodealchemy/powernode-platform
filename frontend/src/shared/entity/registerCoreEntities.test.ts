@@ -42,11 +42,13 @@ describe('approval_request entity — fetchById', () => {
   });
 
   // AutonomyController#validate_permissions requires ai.agents.read on every
-  // action but current_worker. The retired Governance read had NO resource
-  // permission (GovernanceController#show_approval_request), so this is a
-  // gate that did not exist before the migration — degrading to plain text
-  // for a viewer without it, not a 403 render error, per EntityLink's
-  // "omission is always safe" contract.
+  // action but current_worker. The retired Governance read
+  // (GovernanceController#show_approval_request) was gated on ai.governance.read
+  // instead (require_governance_read, READ_ACTIONS) — the permission moved with
+  // the endpoint, it was not added where none existed before. A viewer who
+  // holds one but not the other now sees a different EntityLink outcome than
+  // before the migration: degrading to plain text, not a 403 render error, per
+  // EntityLink's "omission is always safe" contract.
   it('is gated on ai.agents.read, matching AutonomyController#validate_permissions', () => {
     const definition = entityRegistry.getEntity('approval_request');
     expect(definition?.permission).toBe('ai.agents.read');

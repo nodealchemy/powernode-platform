@@ -6,7 +6,6 @@
  * Tests for Governance & Compliance functionality (Phase 4):
  * - Compliance policies management
  * - Policy violations tracking
- * - Approval chains and workflows
  * - Data classifications
  * - Compliance reports
  * - Audit log viewing
@@ -81,45 +80,6 @@ describe('AI Governance Suite Page Tests', () => {
 
     it('should display violation status', () => {
       cy.assertContainsAny(['Open', 'Acknowledged', 'Resolved', 'Dismissed', 'Status', 'Governance']);
-    });
-  });
-
-  describe('Approval Chains', () => {
-    beforeEach(() => {
-      cy.assertPageReady('/app/ai/governance');
-    });
-
-    it('should display approval chains section', () => {
-      cy.assertContainsAny(['Approval', 'Chain', 'Workflow', 'Governance']);
-    });
-
-    it('should have Create Approval Chain option', () => {
-      cy.assertHasElement([
-        'button:contains("Create")',
-        'button:contains("Add")',
-        'button:contains("New")',
-        '[data-testid*="create"]'
-      ]);
-    });
-  });
-
-  describe('Pending Approvals', () => {
-    beforeEach(() => {
-      cy.assertPageReady('/app/ai/governance');
-    });
-
-    it('should display pending approvals section', () => {
-      cy.assertContainsAny(['Pending', 'Approvals', 'Requests', 'Governance']);
-    });
-
-    it('should have approve/reject actions when requests exist', () => {
-      cy.assertHasElement([
-        'button:contains("Approve")',
-        'button:contains("Reject")',
-        '[data-testid*="approve"]',
-        '[data-testid*="reject"]',
-        'button'
-      ]);
     });
   });
 
@@ -301,22 +261,6 @@ function setupGovernanceIntercepts() {
     }
   ];
 
-  const mockApprovalChains = [
-    {
-      id: 'chain-1',
-      name: 'Production Deployment Approval',
-      description: 'Requires manager approval for production deployments',
-      trigger_type: 'deployment',
-      trigger_conditions: { environment: 'production' },
-      steps: [{ approver_type: 'role', approver_id: 'manager', required: true }],
-      status: 'active',
-      is_sequential: true,
-      timeout_hours: 24,
-      usage_count: 45,
-      created_at: '2024-01-01T00:00:00Z'
-    }
-  ];
-
   const mockClassifications = [
     {
       id: 'class-1',
@@ -336,7 +280,6 @@ function setupGovernanceIntercepts() {
   const mockSummary = {
     policies: { total: 5, active: 4, by_type: { data_protection: 2, cost_control: 2, access_control: 1 } },
     violations: { total: 25, open: 8, by_severity: { critical: 1, high: 3, medium: 4, low: 17 } },
-    approvals: { pending: 3, approved: 45, rejected: 2 },
     data_detections: { total: 156, by_action: { masked: 120, blocked: 20, logged: 16 } }
   };
 
@@ -361,23 +304,6 @@ function setupGovernanceIntercepts() {
     statusCode: 200,
     body: { success: true, data: { items: mockViolations, pagination: { current_page: 1, total_pages: 1, total_count: 1, per_page: 25 } } }
   }).as('getViolations');
-
-  // Approval Chains
-  cy.intercept('GET', '**/api/v1/ai/governance/approval_chains*', {
-    statusCode: 200,
-    body: { success: true, data: { items: mockApprovalChains, pagination: { current_page: 1, total_pages: 1, total_count: 1, per_page: 25 } } }
-  }).as('getApprovalChains');
-
-  // Approval Requests
-  cy.intercept('GET', '**/api/v1/ai/governance/approval_requests*', {
-    statusCode: 200,
-    body: { success: true, data: { items: [], pagination: { current_page: 1, total_pages: 1, total_count: 0, per_page: 25 } } }
-  }).as('getApprovalRequests');
-
-  cy.intercept('GET', '**/api/v1/ai/governance/approval_requests/pending*', {
-    statusCode: 200,
-    body: { success: true, data: { approval_requests: [] } }
-  }).as('getPendingApprovals');
 
   // Classifications
   cy.intercept('GET', '**/api/v1/ai/governance/classifications*', {
