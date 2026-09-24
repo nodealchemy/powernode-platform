@@ -2,8 +2,6 @@
 export { RalphTaskList } from './components/RalphTaskList';
 export { RalphIterationList } from './components/RalphIterationList';
 export { RalphProgressView } from './components/RalphProgressView';
-export { RalphPrdEditor } from './components/RalphPrdEditor';
-export { RalphTasksPanel } from './components/RalphTasksPanel';
 export { CreateRalphLoopDialog } from './components/CreateRalphLoopDialog';
 
 // Scheduling and Executor components

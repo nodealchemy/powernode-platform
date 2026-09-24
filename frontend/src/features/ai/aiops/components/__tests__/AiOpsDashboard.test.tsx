@@ -5,7 +5,6 @@ import { AiOpsContent } from '../AiOpsDashboard';
 import { OverviewSection } from '../sections/OverviewSection';
 import { ProvidersSection } from '../sections/ProvidersSection';
 import { AgentsSection } from '../sections/AgentsSection';
-import { CostSection } from '../sections/CostSection';
 import { ReliabilitySection } from '../sections/ReliabilitySection';
 import { TrendsSection } from '../sections/TrendsSection';
 import type { AiOpsDashboard as AiOpsDashboardData } from '@/shared/services/ai/AiOpsApiService';
@@ -208,24 +207,6 @@ describe('AgentsSection', () => {
     setupHooks();
     renderWithClient(<AgentsSection />);
     expect(screen.getByText('Researcher')).toBeInTheDocument();
-  });
-});
-
-describe('CostSection', () => {
-  it('renders cost KPIs and charts', () => {
-    setupHooks();
-    renderWithClient(<CostSection />);
-    expect(screen.getByText('Total Cost')).toBeInTheDocument();
-    expect(screen.getByText('Agent Cost')).toBeInTheDocument();
-    expect(screen.getByText('Providers Billed')).toBeInTheDocument();
-    expect(screen.getByText('Spend Over Time')).toBeInTheDocument();
-  });
-
-  it('shows an empty state when there is no spend', () => {
-    const emptyCost = { ...mockDashboard, cost_analysis: { ...mockDashboard.cost_analysis, totals: { agent_cost: 0, total_cost: 0 }, by_provider: [], hourly_trend: [] } };
-    setupHooks({ dashboardState: { data: emptyCost } });
-    renderWithClient(<CostSection />);
-    expect(screen.getByText('No cost data')).toBeInTheDocument();
   });
 });
 

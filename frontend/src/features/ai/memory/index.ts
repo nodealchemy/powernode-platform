@@ -21,7 +21,6 @@ export { ImportExportModal } from './components/ImportExportModal';
 // Agent memory components (consolidated from agent-memory/)
 export { MemoryTimeline } from './components/MemoryTimeline';
 export { MemoryStats as AgentMemoryStats } from './components/AgentMemoryStats';
-export { ContextInjectionPreview } from './components/ContextInjectionPreview';
 export { MemoryEntryCard as AgentMemoryEntryCard } from './components/AgentMemoryEntryCard';
 export { SharedLearningsPanel } from './components/SharedLearningsPanel';
 
@@ -30,7 +29,6 @@ export { contextApi } from './api/contextApi';
 
 // Hooks
 export { useContexts, useContext, useEntries, useEntry } from './hooks/useContext';
-export { useAgentMemory } from './hooks/useAgentMemory';
 
 // Types - Memory
 export type {

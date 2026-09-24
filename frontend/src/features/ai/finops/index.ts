@@ -38,5 +38,4 @@ export { FinOpsPage, FinOpsContent } from './pages/FinOpsPage';
 export { CostOverviewPanel } from './components/CostOverviewPanel';
 export { CostTrendChart } from './components/CostTrendChart';
 export { BudgetUtilizationPanel } from './components/BudgetUtilizationPanel';
-export { ModelTierSelector } from './components/ModelTierSelector';
 export { OptimizationRecommendations } from './components/OptimizationRecommendations';

@@ -5,8 +5,6 @@ import {
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { TeamBuilderModal } from '@/features/ai/agent-teams/components/TeamBuilderModal';
-import { ExecuteTeamModal } from '@/features/ai/agent-teams/components/ExecuteTeamModal';
 import { CreateAgentModal } from '@/features/ai/agents/components/CreateAgentModal';
 import { ExpandableStatsHeader } from '@/features/ai/agents/components/ExpandableStatsHeader';
 import { AgentsIndexTable } from '@/features/ai/agents/components/AgentsIndexTable';
@@ -173,21 +171,6 @@ export const AIAgentsPage: React.FC = () => {
         </TabPanel>
 
       </TabContainer>
-
-      {/* Team Builder Modal */}
-      <TeamBuilderModal
-        isOpen={teamsList.isBuilderOpen}
-        onClose={teamsList.handleCloseBuilder}
-        onSave={teamsList.handleSaveTeam}
-      />
-
-      {/* Execute Team Modal */}
-      <ExecuteTeamModal
-        isOpen={!!teamsList.executeModalTeam}
-        team={teamsList.executeModalTeam}
-        onClose={() => teamsList.setExecuteModalTeam(null)}
-        onExecute={teamsList.handleExecuteTeam}
-      />
 
       {/* Create Agent Modal */}
       <CreateAgentModal

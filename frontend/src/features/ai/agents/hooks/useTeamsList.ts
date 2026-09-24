@@ -3,8 +3,6 @@ import { useDispatch } from 'react-redux';
 import {
   agentTeamsApi,
   AgentTeam,
-  CreateTeamParams,
-  ExecuteTeamParams,
 } from '@/features/ai/agent-teams/services/agentTeamsApi';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { getErrorMessage } from '@/shared/utils/apiErrors';
@@ -26,8 +24,6 @@ export function useTeamsList() {
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
   const [teamViewMode, setTeamViewMode] = useState<'grid' | 'list'>('grid');
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
-  const [isBuilderOpen, setIsBuilderOpen] = useState(false);
-  const [executeModalTeam, setExecuteModalTeam] = useState<AgentTeam | null>(null);
 
   const loadTeams = useCallback(async () => {
     try {
@@ -52,17 +48,6 @@ export function useTeamsList() {
     setExpandedTeamId(prev => prev === teamId ? null : teamId);
   }, []);
 
-  const handleCreateTeam = useCallback(async (params: CreateTeamParams) => {
-    try {
-      await agentTeamsApi.createTeam(params);
-      dispatch(addNotification({ type: 'success', message: 'Team created successfully' }));
-      await loadTeams();
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to create team') }));
-      throw error;
-    }
-  }, [dispatch, loadTeams]);
-
   const handleDeleteTeam = useCallback(async (team: AgentTeam) => {
     if (!confirm(`Are you sure you want to delete "${team.name}"?`)) return;
     setExpandedTeamId(null);
@@ -75,20 +60,6 @@ export function useTeamsList() {
     }
   }, [dispatch, loadTeams]);
 
-  const handleRequestExecute = useCallback((team: AgentTeam) => {
-    setExecuteModalTeam(team);
-  }, []);
-
-  const handleExecuteTeam = useCallback(async (team: AgentTeam, params?: ExecuteTeamParams) => {
-    try {
-      const result = await agentTeamsApi.executeTeam(team.id, params);
-      setExecutingTeamIds(prev => prev.includes(team.id) ? prev : [...prev, team.id]);
-      dispatch(addNotification({ type: 'success', message: `Team "${team.name}" is now executing. Job ID: ${result.job_id}` }));
-    } catch (error) {
-      dispatch(addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to execute team') }));
-    }
-  }, [dispatch]);
-
   const handleExecutionComplete = useCallback((_teamId: string) => {
     loadTeams();
   }, [loadTeams]);
@@ -96,14 +67,6 @@ export function useTeamsList() {
   const handleDismissMonitor = useCallback((teamId: string) => {
     setExecutingTeamIds(prev => prev.filter(id => id !== teamId));
   }, []);
-
-  const handleCloseBuilder = useCallback(() => {
-    setIsBuilderOpen(false);
-  }, []);
-
-  const handleSaveTeam = useCallback(async (params: CreateTeamParams | Partial<CreateTeamParams>) => {
-    await handleCreateTeam(params as CreateTeamParams);
-  }, [handleCreateTeam]);
 
   const filteredTeams = useMemo(() => {
     if (!teamSearchQuery) return teams;
@@ -139,21 +102,12 @@ export function useTeamsList() {
     setTeamViewMode,
     teamSearchQuery,
     setTeamSearchQuery,
-    isBuilderOpen,
-    setIsBuilderOpen,
-    executeModalTeam,
-    setExecuteModalTeam,
     loadTeams,
     filteredTeams,
     teamStats,
     handleToggleExpand,
-    handleCreateTeam,
     handleDeleteTeam,
-    handleRequestExecute,
-    handleExecuteTeam,
     handleExecutionComplete,
     handleDismissMonitor,
-    handleCloseBuilder,
-    handleSaveTeam,
   };
 }

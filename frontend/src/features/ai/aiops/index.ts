@@ -20,7 +20,6 @@ export { OverviewSection } from './components/sections/OverviewSection';
 export { TrendsSection } from './components/sections/TrendsSection';
 export { ProvidersSection } from './components/sections/ProvidersSection';
 export { AgentsSection } from './components/sections/AgentsSection';
-export { CostSection } from './components/sections/CostSection';
 export { ReliabilitySection } from './components/sections/ReliabilitySection';
 
 // Query hooks + key factory (shared fetch surface for the sections).
