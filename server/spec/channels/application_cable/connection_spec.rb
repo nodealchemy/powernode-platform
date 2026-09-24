@@ -8,15 +8,6 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, status: "active") }
 
-  def impersonation_token(impersonator:, impersonated_user:)
-    session = ImpersonationSession.create_session!(impersonator: impersonator, impersonated_user: impersonated_user)
-    payload = {
-      type: "impersonation", session_id: session.id, sub: impersonated_user.id,
-      account_id: impersonated_user.account_id, version: Security::JwtService::CURRENT_TOKEN_VERSION
-    }
-    Security::JwtService.encode(payload)
-  end
-
   describe "happy path with a fresh access token" do
     it "connects and identifies the user" do
       tokens = Security::JwtService.generate_user_tokens(user)
@@ -100,26 +91,40 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
       Admin::MaintenanceMode.invalidate_cache!
     end
 
-    # N2: a maintenance-mode block now closes with a distinct reason
-    # (reason: "maintenance_mode", reconnect: false) rather than raising
+    # N2: a maintenance-mode block closes with a distinct reason
+    # (reason: "maintenance_mode", reconnect: false) rather than JUST raising
     # reject_unauthorized_connection's UnauthorizedError — see
-    # Connection#close_for_maintenance! for why (a WebSocketManager
-    # reconnect-storm bug on the frontend, reason: "unauthorized" specifically
-    # is misread as an expired session). `have_rejected_connection` only
-    # matches that raise, so these assert the OBSERVABLE state instead: the
-    # connection never authenticates. close_for_maintenance! itself is a
-    # no-op in this test harness (no real @coder/@websocket — see its own
-    # comment), which is why current_user is the only assertable signal here.
-    it "does not authenticate a plain user's JWT connection" do
+    # Connection#reject_for_maintenance! for why (a WebSocketManager
+    # reconnect-storm bug on the frontend: reason: "unauthorized" specifically
+    # is misread as an expired session). It STILL calls
+    # reject_unauthorized_connection right after, though (LOW item 6: #connect
+    # must not return normally for a connection with no user) — so
+    # have_rejected_connection matches here exactly as it did before N2.
+    it "rejects a plain user's JWT connection" do
       tokens = Security::JwtService.generate_user_tokens(user)
-      connect "/cable?token=#{tokens[:access_token]}"
-      expect(connection.current_user).to be_nil
+      expect { connect "/cable?token=#{tokens[:access_token]}" }.to have_rejected_connection
     end
 
-    it "does not authenticate a plain user's legacy UserToken connection" do
+    it "rejects a plain user's legacy UserToken connection" do
       minted = UserToken.create_token_for_user(user, type: "access")
-      connect "/cable?token=#{minted[:token]}"
-      expect(connection.current_user).to be_nil
+      expect { connect "/cable?token=#{minted[:token]}" }.to have_rejected_connection
+    end
+
+    # `connect "/cable?..."` (the DSL helper above) runs through
+    # ActionCable::Connection::TestCase's TestConnection module, which never
+    # sets @coder/@websocket — close_for_maintenance!'s test-safety guard
+    # means the real #close is never reached that way, so asserting on it
+    # needs a lower-level instance built by hand instead, with @coder set so
+    # the real branch runs and #close is actually invoked.
+    it "calls #close with the distinct maintenance_mode reason, not just reject_unauthorized_connection" do
+      conn = ApplicationCable::Connection.allocate
+      allow(conn).to receive(:request).and_return(double(remote_ip: "203.0.113.5")) # rubocop:disable RSpec/VerifiedDoubles
+      allow(conn).to receive(:logger).and_return(double(error: nil, info: nil, warn: nil)) # rubocop:disable RSpec/VerifiedDoubles
+      conn.instance_variable_set(:@coder, ActiveSupport::JSON)
+
+      expect(conn).to receive(:close).with(reason: "maintenance_mode", reconnect: false)
+      expect { conn.send(:reject_for_maintenance!, user) }
+        .to raise_error(ActionCable::Connection::Authorization::UnauthorizedError)
     end
 
     it "still connects a system.admin user" do
@@ -159,42 +164,20 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
       expect(connection.current_user).to eq(user)
     end
 
-    describe "impersonation — driver decision: an impersonating admin must not be trapped" do
-      it "exempts a session where the IMPERSONATOR holds an exempt permission" do
-        admin = create(:user, account: account, status: "active", permissions: [ "system.admin" ])
-        token = impersonation_token(impersonator: admin, impersonated_user: user)
-
-        connect "/cable?token=#{token}"
-
-        expect(connection.current_user).to eq(user)
-        expect(connection.impersonator).to eq(admin)
-      end
-
-      it "still blocks when NEITHER the impersonator nor the impersonated user is exempt" do
-        non_admin_impersonator = create(:user, account: account, status: "active", permissions: [])
-        token = impersonation_token(impersonator: non_admin_impersonator, impersonated_user: user)
-
-        connect "/cable?token=#{token}"
-
-        expect(connection.current_user).to be_nil
-      end
-    end
   end
 
-  describe "impersonation" do
-    it "authenticates as the impersonated user and tracks the impersonator" do
+  # Dropped for this round (review decision): cable had no impersonation
+  # support before N2 either — an impersonation JWT hit the generic
+  # "Invalid token type" branch and was rejected outright. A prior draft
+  # added real impersonation-JWT support so the impersonator exemption could
+  # apply on cable too, but that's new auth surface with real gaps (checked
+  # only at connect, not on every subsequent action; identified_by :impersonator
+  # collided with the anonymize disconnect key) for a benefit nobody asked
+  # for. This pins the ORIGINAL behavior: impersonation tokens are rejected.
+  describe "impersonation tokens are rejected on cable, same as any other unrecognized type" do
+    it "rejects an impersonation-typed JWT outright" do
       admin = create(:user, account: account, status: "active", permissions: [ "system.admin" ])
-      token = impersonation_token(impersonator: admin, impersonated_user: user)
-
-      connect "/cable?token=#{token}"
-
-      expect(connection.current_user).to eq(user)
-      expect(connection.impersonator).to eq(admin)
-    end
-
-    it "rejects an unknown/expired impersonation session" do
-      session = ImpersonationSession.create_session!(impersonator: create(:user, :admin, account: account), impersonated_user: user)
-      session.update!(ended_at: 1.hour.ago)
+      session = ImpersonationSession.create_session!(impersonator: admin, impersonated_user: user)
       payload = {
         type: "impersonation", session_id: session.id, sub: user.id,
         account_id: user.account_id, version: Security::JwtService::CURRENT_TOKEN_VERSION
