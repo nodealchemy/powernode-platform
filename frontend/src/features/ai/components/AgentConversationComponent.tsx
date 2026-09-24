@@ -3,7 +3,6 @@ import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { agentsApi, conversationsApi, workspacesApi } from '@/shared/services/ai';
-import { apiClient } from '@/shared/services/apiClient';
 import { MessageThread } from '@/features/ai/chat/components/MessageThread';
 import type {
   AiConversation,
@@ -12,6 +11,7 @@ import type {
 import type { ConversationBase } from '@/shared/services/ai/ConversationsApiService';
 import { cleanStreamingContent, mapBackendMessage } from './conversation/utils';
 import { useConversationSocket } from './conversation/useConversationSocket';
+import { gatherMentionMembers } from './conversation/mentionMembers';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { useMessageActions } from './conversation/useMessageActions';
 import { MessageList } from './conversation/MessageList';
@@ -409,34 +409,14 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
   // Ref to track whether this conversation is a workspace (set after first verification)
   const isWorkspaceRef = useRef(false);
 
-  // Refresh workspace members for mention autocomplete. Parallel-fetches
-  // workspace team members + extension-provided mention sources (system
-  // extension peer-mirror agents — see Phase 10.7). Each source is
-  // best-effort; a 404 from a missing extension doesn't break the picker.
+  // Refresh workspace members for mention autocomplete: the workspace's team
+  // members plus any members extensions contribute through registered
+  // mention sources. Every source is best-effort.
   const refreshWorkspaceMembers = useCallback(async () => {
-    const sources = await Promise.allSettled([
-      workspacesApi.getWorkspace(conversation.id).then((r) => r.members || []),
-      // System extension peer-mirror agents (operators of node-instance peers).
-      // Loaded only when the extension serves the endpoint; 404/network error
-      // is silently dropped so non-system installs aren't affected.
-      apiClient
-        .get<{ data?: { members?: unknown[] }; members?: unknown[] }>(
-          '/system/node_instance_peers/mentionable'
-        )
-        .then((res: { data: { data?: { members?: unknown[] }; members?: unknown[] } }) => {
-          const inner = res.data.data ?? res.data;
-          const members = (inner as { members?: unknown[] }).members;
-          return Array.isArray(members) ? members : [];
-        }),
-    ]);
-
-    const merged = sources.flatMap((s) =>
-      s.status === 'fulfilled' ? (s.value as unknown[]) : []
-    );
-    // Cast: the parent's MentionMember shape is the lowest-common-denominator
-    // we receive — both sources return {id, name, role, agent_type}.
     setWorkspaceMembers(
-      merged as Array<{ id: string; name: string; role: string; agent_type: string; is_lead: boolean }>
+      await gatherMentionMembers(() =>
+        workspacesApi.getWorkspace(conversation.id).then((r) => r.members || [])
+      )
     );
   }, [conversation.id]);
 

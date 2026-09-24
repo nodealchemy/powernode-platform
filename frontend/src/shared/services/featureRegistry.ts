@@ -126,6 +126,21 @@ export interface ProviderCategoryHandlers {
   testCredential(request: ProviderCredentialTestRequest): Promise<ProviderCredentialTestResult>;
 }
 
+/** A member the chat @-mention picker can offer. */
+export interface MentionMember {
+  id: string;
+  name: string;
+  role: string;
+  agent_type: string;
+  is_lead: boolean;
+}
+
+/**
+ * Extra members an extension contributes to the chat @-mention picker (e.g.
+ * operators it knows about). Best-effort: a source that rejects is dropped.
+ */
+export type MentionSource = () => Promise<MentionMember[]>;
+
 interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
   publicRoutes: Map<string, FeatureRoute[]>;
@@ -137,6 +152,7 @@ interface FeatureRegistryState {
   setupStepComponents: Map<string, SetupStepComponent>;
   componentSlots: Map<string, ComponentSlot>;
   providerCategoryHandlers: Map<string, ProviderCategoryHandlers>;
+  mentionSources: Map<string, MentionSource[]>;
   version: number;
   listeners: Set<() => void>;
 }
@@ -152,6 +168,7 @@ const state: FeatureRegistryState = {
   setupStepComponents: new Map(),
   componentSlots: new Map(),
   providerCategoryHandlers: new Map(),
+  mentionSources: new Map(),
   version: 0,
   listeners: new Set(),
 };
@@ -220,6 +237,18 @@ export const featureRegistry = {
   registerProviderCategoryHandlers(category: string, handlers: ProviderCategoryHandlers): void {
     state.providerCategoryHandlers.set(category, handlers);
     notifyListeners();
+  },
+
+  /** Register sources of extra @-mention members for a namespace. */
+  registerMentionSources(namespace: string, sources: MentionSource[]): void {
+    const existing = state.mentionSources.get(namespace) || [];
+    state.mentionSources.set(namespace, [...existing, ...sources]);
+    notifyListeners();
+  },
+
+  /** Every registered @-mention source, across namespaces. */
+  getMentionSources(): MentionSource[] {
+    return Array.from(state.mentionSources.values()).flat();
   },
 
   /** The handlers registered for a provider category, or undefined. */
@@ -428,5 +457,6 @@ export const featureRegistry = {
     state.setupStepComponents.clear();
     state.componentSlots.clear();
     state.providerCategoryHandlers.clear();
+    state.mentionSources.clear();
   },
 };
