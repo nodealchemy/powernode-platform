@@ -14,7 +14,7 @@ const tabs = [
   { id: 'pipelines', label: 'Pipelines', icon: <Workflow size={16} />, path: '/pipelines' },
   { id: 'runners', label: 'Runners', icon: <Server size={16} />, path: '/runners' },
   { id: 'module-builds', label: 'Module Builds', icon: <Package size={16} />, path: '/module-builds' },
-  { id: 'templates', label: 'Templates', icon: <FileText size={16} />, path: '/templates' },
+  { id: 'templates', label: 'Templates', icon: <FileText size={16} />, path: '/templates', permissions: ['ai.devops.read'] },
 ];
 
 export const CiCdPage: React.FC = () => {

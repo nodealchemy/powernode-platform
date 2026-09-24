@@ -1,6 +1,8 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { configureStore } from '@reduxjs/toolkit';
 import { TabContainer, TabPanel } from './TabContainer';
 
 const mockNavigate = jest.fn();
@@ -16,14 +18,30 @@ describe('TabContainer', () => {
     { id: 'tab3', label: 'Third Tab', path: '/third', disabled: true }
   ];
 
+  // fc-26 review: TabContainer now reads state.auth.user (hasAccess), so
+  // every render needs a Provider — a plain reducer stub is enough, no
+  // action ever needs to fire. Defaults to a permission-free user so every
+  // PRE-EXISTING test (none of whose mockTabs declare `permissions`) keeps
+  // passing unchanged; tests that care about filtering pass their own
+  // permissions array.
+  const storeWithUser = (permissions: string[] = []) =>
+    configureStore({
+      // Only `user.permissions` is ever read (hasAccess) — the rest of
+      // AuthState is irrelevant here, so it's cast rather than fully typed.
+      reducer: { auth: (state = { user: { id: 'u1', permissions } } as unknown) => state },
+    });
+
   const renderWithRouter = (
     component: React.ReactElement,
-    initialPath: string = '/app'
+    initialPath: string = '/app',
+    permissions: string[] = []
   ) => {
     return render(
-      <MemoryRouter initialEntries={[initialPath]}>
-        {component}
-      </MemoryRouter>
+      <Provider store={storeWithUser(permissions)}>
+        <MemoryRouter initialEntries={[initialPath]}>
+          {component}
+        </MemoryRouter>
+      </Provider>
     );
   };
 
@@ -117,6 +135,54 @@ describe('TabContainer', () => {
       fireEvent.click(screen.getByText('Third Tab'));
 
       expect(onTabChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('permission filtering (fc-26 review item 5)', () => {
+    const gatedTabs = [
+      { id: 'tab1', label: 'Open Tab', path: '/' },
+      { id: 'tab2', label: 'Gated Tab', path: '/gated', permissions: ['reports.read'] },
+    ];
+
+    it('hides a tab whose permissions the user lacks', () => {
+      renderWithRouter(<TabContainer tabs={gatedTabs} />, '/app', []);
+
+      expect(screen.getByText('Open Tab')).toBeInTheDocument();
+      expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
+      expect(screen.getAllByRole('tab').length).toBe(1);
+    });
+
+    it('shows a tab whose exact permission the user holds', () => {
+      renderWithRouter(<TabContainer tabs={gatedTabs} />, '/app', ['reports.read']);
+
+      expect(screen.getByText('Gated Tab')).toBeInTheDocument();
+      expect(screen.getAllByRole('tab').length).toBe(2);
+    });
+
+    it('shows a gated tab via a resource wildcard, same as the nav sidebar', () => {
+      renderWithRouter(<TabContainer tabs={gatedTabs} />, '/app', ['reports.*']);
+
+      expect(screen.getByText('Gated Tab')).toBeInTheDocument();
+    });
+
+    it('shows a gated tab for system.admin, same as the nav sidebar', () => {
+      renderWithRouter(<TabContainer tabs={gatedTabs} />, '/app', ['system.admin']);
+
+      expect(screen.getByText('Gated Tab')).toBeInTheDocument();
+    });
+
+    it('always shows a tab with no permissions declared, regardless of user', () => {
+      renderWithRouter(<TabContainer tabs={gatedTabs} />, '/app', []);
+
+      expect(screen.getByText('Open Tab')).toBeInTheDocument();
+    });
+
+    // fc-26 mutation: the filter must be sensitive to the ONE permission
+    // that matters, not just to "any array at all".
+    it('mutation: an unrelated held permission does not unhide a gated tab', () => {
+      renderWithRouter(<TabContainer tabs={gatedTabs} />, '/app', ['unrelated.read']);
+
+      expect(screen.queryByText('Gated Tab')).not.toBeInTheDocument();
     });
   });
 

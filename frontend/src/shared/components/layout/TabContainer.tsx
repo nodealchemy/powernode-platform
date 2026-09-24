@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { ReactReduxContext } from 'react-redux';
+import { RootState } from '@/shared/services';
+import { hasAccess } from '@/shared/utils/permissionUtils';
 import { Badge } from '@/shared/components/ui/Badge';
 
 export interface Tab {
@@ -44,7 +47,23 @@ export const TabContainer: React.FC<TabContainerProps> = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [localActiveTab, setLocalActiveTab] = useState(tabs[0]?.id || '');
+  // fc-26 review: `permissions` was declared on Tab but never read — every
+  // tab rendered regardless. Filters with the SAME hasAccess() the nav
+  // sidebar uses (NavigationContext.tsx), so system.admin and the
+  // resource-wildcard/`*` shapes hide a tab exactly the way they'd hide a
+  // nav item, rather than a second, possibly-divergent permission check.
+  //
+  // Reads the store via the raw ReactReduxContext instead of useSelector —
+  // useSelector throws when mounted with no <Provider> ancestor, and
+  // TabContainer is a widely-reused presentational component with dozens
+  // of pre-existing test suites (core and every extension) that render it
+  // bare. None of those suites' tabs declare `permissions`, so they don't
+  // need a store at all; useContext just returns null with no Provider,
+  // where useSelector would crash the whole render tree.
+  const reduxContext = useContext(ReactReduxContext);
+  const user = reduxContext ? (reduxContext.store.getState() as RootState).auth.user : null;
+  const visibleTabs = tabs.filter((tab) => !tab.permissions || tab.permissions.length === 0 || hasAccess(user, tab.permissions));
+  const [localActiveTab, setLocalActiveTab] = useState(visibleTabs[0]?.id || '');
 
   // Determine active tab from URL or props
   const activeTab = controlledActiveTab || localActiveTab;
@@ -140,7 +159,7 @@ export const TabContainer: React.FC<TabContainerProps> = ({
     <div className={className}>
       {/* Tab Navigation */}
       <div className={`${getContainerClass()} ${fullWidth ? 'w-full' : ''} overflow-x-auto scrollbar-hide`}>
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.id;
           
           return (
