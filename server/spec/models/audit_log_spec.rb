@@ -90,6 +90,19 @@ RSpec.describe AuditLog, type: :model do
         expect(audit.metadata).to eq({})
       end
     end
+
+    # IMP-e65877b85163: the model-layer half of the same coverage gap the
+    # identity_read_tool_spec.rb oracle closed. `metadata` has no filter of
+    # its own on write EXCEPT this one (Ai::SensitiveParams.filter, added for
+    # IMP-4fdae24c24a3) — a key named "api_key" matches its DEFAULT_KEY_PATTERNS
+    # substring list and must be masked before the row is ever persisted.
+    describe "#redact_secret_values" do
+      it "filters a secret-looking metadata key to [FILTERED] before persisting" do
+        audit = create(:audit_log, metadata: { "context" => { "api_key" => "sk-live-x" } })
+
+        expect(audit.reload.metadata.dig("context", "api_key")).to eq("[FILTERED]")
+      end
+    end
   end
 
   describe "class methods" do

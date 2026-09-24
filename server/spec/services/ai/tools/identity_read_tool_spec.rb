@@ -312,11 +312,27 @@ RSpec.describe Ai::Tools::IdentityReadTool do
     end
 
     # THE SECRET ORACLE FOR THE AUDIT LOG. `metadata` has no redaction filter
-    # of its own (only old_values/new_values do), so it is withheld entirely.
-    # Asserted by planting a real secret in it and grepping the response.
+    # of its own IN THIS TOOL — the tool withholds it structurally (see
+    # identity_read_tool.rb's `serialize_audit_log` comment). Asserted by
+    # planting a real secret in it and grepping the response.
+    #
+    # IMP-e65877b85163: creating the row with `metadata: { ... "api_key" =>
+    # planted }` via the factory does NOT plant the secret — AuditLog itself
+    # runs `before_validation :redact_secret_values`, which passes `metadata`
+    # through `Ai::SensitiveParams.filter` (added for IMP-4fdae24c24a3); a key
+    # named "api_key" matches that filter's DEFAULT_KEY_PATTERNS and is masked
+    # to "[FILTERED]" before the row is ever saved. The column therefore never
+    # holds the raw secret via the normal create path — this oracle covers a
+    # SEPARATE, tool-level defense (never return `metadata` structurally,
+    # regardless of what the column holds), so it must plant the secret past
+    # the model's own write-time filter: `update_column` skips all callbacks
+    # and validations and writes the raw value directly, simulating a future
+    # writer that bypasses redact_secret_values (exactly the "arrives later
+    # via a call site nobody re-reads" risk the tool's comment names).
     it "never returns the unredacted metadata column" do
       planted = "sk-live-#{SecureRandom.hex(16)}"
-      row = audit_row(resource_id: "leaky-row", metadata: { "context" => { "api_key" => planted } })
+      row = audit_row(resource_id: "leaky-row")
+      row.update_column(:metadata, { "context" => { "api_key" => planted } })
       expect(row.reload.metadata.dig("context", "api_key")).to eq(planted),
                                                                "the row did not store the planted secret — this oracle would pass vacuously"
 
