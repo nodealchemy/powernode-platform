@@ -252,11 +252,6 @@ describe('AdminSettingsTabs', () => {
                 ...mockUsers.adminUser,
                 permissions: ['admin.settings.read']
               }
-            },
-            config: {
-              loadedExtensions: [],
-              coreMode: true,
-              isLoaded: true,
             }
           }
         }
@@ -303,11 +298,6 @@ describe('AdminSettingsTabs', () => {
                 ...mockUsers.adminUser,
                 permissions: ['admin.settings.read']
               }
-            },
-            config: {
-              loadedExtensions: [],
-              coreMode: true,
-              isLoaded: true,
             }
           }
         }

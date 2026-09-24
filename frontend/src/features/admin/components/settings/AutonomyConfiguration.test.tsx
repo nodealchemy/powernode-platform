@@ -333,8 +333,7 @@ describe('AutonomyConfiguration reachability through the settings shell', () => 
   const store = () =>
     configureStore({
       reducer: {
-        auth: (state = { user: MANAGER, isAuthenticated: true }) => state,
-        config: (state = { loadedExtensions: [] }) => state
+        auth: (state = { user: MANAGER, isAuthenticated: true }) => state
       }
     });
 

@@ -20,9 +20,6 @@ interface AdminSettingsTab {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
   description: string;
   requiredPermissions?: string[];
-  // Hide this tab unless the named extension is loaded (filtered generically
-  // against the config store's loadedExtensions — core names no extension here).
-  extensionSlug?: string;
 }
 
 const adminSettingsTabs: AdminSettingsTab[] = [
@@ -122,7 +119,6 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { loadedExtensions } = useSelector((state: RootState) => state.config);
 
   // Re-render when an extension registers a settings tab.
   const [, setRegistryVersion] = useState(() => featureRegistry.getVersion());
@@ -145,12 +141,8 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
 
   const mergedTabs = [...adminSettingsTabs, ...registeredTabs];
 
-  // Filter tabs based on user permissions and extension availability
+  // Filter tabs based on user permissions
   const availableTabs = mergedTabs.filter(tab => {
-    // Hide extension-specific tabs when the required extension is not loaded
-    if (tab.extensionSlug && !loadedExtensions.includes(tab.extensionSlug)) {
-      return false;
-    }
     if (!tab.requiredPermissions || tab.requiredPermissions.length === 0) {
       return true; // No specific permissions required
     }

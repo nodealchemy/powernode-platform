@@ -3,7 +3,6 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect, u
 import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import type { NavigationItem, NavigationSection } from '@/shared/types/navigation';
 import { NavigationContext, NavigationConfig, MenuState, NavigationTheme } from '@/shared/types/navigation';
 import { hasAccess } from '@/shared/utils/permissionUtils';
 import { defaultNavigationConfig, adminNavigationOverrides } from '@/shared/utils/navigation';
@@ -68,7 +67,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
 }) => {
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { loadedExtensions } = useSelector((state: RootState) => state.config);
   const [menuState, dispatch] = useReducer(menuReducer, initialMenuState);
   const [registryVersion, setRegistryVersion] = React.useState(() => featureRegistry.getVersion());
 
@@ -81,21 +79,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
   const hasAdminPermissions = hasAccess(user, ['admin.access']) ||
                              hasAccess(user, ['users.manage']) ||
                              hasAccess(user, ['admin.workers.read']);
-
-  // Helper: filter items whose extensionSlug is not loaded
-  const filterExtensionItems = useCallback((items: NavigationItem[]): NavigationItem[] => {
-    return items.filter(item => !item.extensionSlug || loadedExtensions.includes(item.extensionSlug));
-  }, [loadedExtensions]);
-
-  // Helper: filter sections and their items by extensionSlug
-  const filterExtensionSections = useCallback((sections: NavigationSection[]): NavigationSection[] => {
-    return sections
-      .filter(section => !section.extensionSlug || loadedExtensions.includes(section.extensionSlug))
-      .map(section => ({
-        ...section,
-        items: section.items.filter(item => !item.extensionSlug || loadedExtensions.includes(item.extensionSlug))
-      }));
-  }, [loadedExtensions]);
 
   // Build navigation config based on user permissions
   const buildNavigationConfig = useCallback((): NavigationConfig => {
@@ -176,29 +159,21 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
       }
     }
 
-    // Filter extension-gated items at all levels
-    if (config.sections) {
-      config.sections = filterExtensionSections(config.sections);
-    }
-    config.items = filterExtensionItems(config.items);
-    config.userMenuItems = filterExtensionItems(config.userMenuItems);
-    config.quickActions = filterExtensionItems(config.quickActions);
+    // Sort copies so the shared defaultNavigationConfig arrays are never
+    // mutated across renders.
+    config.items = [...config.items].sort((a, b) => (a.order || 99) - (b.order || 99));
 
-    // Sort items by order
-    config.items.sort((a, b) => (a.order || 99) - (b.order || 99));
-
-    // Sort sections by order
     if (config.sections) {
-      config.sections.sort((a, b) => (a.order || 99) - (b.order || 99));
+      config.sections = [...config.sections].sort((a, b) => (a.order || 99) - (b.order || 99));
     }
 
     // Sort quick actions by order (extension-contributed actions interleave
     // with core ones deterministically). User-menu order is positional in
     // UserMenu, so it is intentionally left in registration order.
-    config.quickActions.sort((a, b) => (a.order || 99) - (b.order || 99));
+    config.quickActions = [...config.quickActions].sort((a, b) => (a.order || 99) - (b.order || 99));
 
     return config;
-  }, [hasAdminPermissions, filterExtensionItems, filterExtensionSections, registryVersion]);
+  }, [hasAdminPermissions, registryVersion]);
 
   // Permission checker - ONLY use permissions, ignore roles
   const hasPermission = useCallback((permissions?: string[]): boolean => {

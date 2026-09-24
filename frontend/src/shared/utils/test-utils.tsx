@@ -150,10 +150,7 @@ export const mockAuthenticatedState = {
     notifications: [],
   },
   config: {
-    loadedExtensions: [],
-    coreMode: true,
     registrationEnabled: false,
-    isLoaded: true,
   },
 };
 
@@ -186,10 +183,7 @@ export const mockUnauthenticatedState = {
     notifications: [],
   },
   config: {
-    loadedExtensions: [],
-    coreMode: true,
     registrationEnabled: false,
-    isLoaded: true,
   },
 };
 
