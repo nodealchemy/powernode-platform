@@ -8,7 +8,7 @@ import {
   Key, Shield, Webhook, Cpu
 } from 'lucide-react';
 import { type PageAction } from '@/shared/components/layout/PageContainer';
-import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
+import { providersApi, credentialsApi } from '@/features/devops/git/services/git';
 import { GitProviderModal } from '@/features/devops/git/components/GitProviderModal';
 import { CredentialModal } from '@/features/devops/git/components/CredentialModal';
 import { GitProviderDetail, GitCredential, AvailableProvider } from '@/features/devops/git/types';
@@ -109,7 +109,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
   const fetchProviders = async () => {
     try {
       setLoading(true);
-      const gitProviders = await gitProvidersApi.getProviders();
+      const gitProviders = await providersApi.getProviders();
 
       const mappedProviders: GitProvider[] = gitProviders.map((p: {
         id: string;
@@ -180,7 +180,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
 
       if (id && id !== 'new') {
         try {
-          const provider = await gitProvidersApi.getProvider(id);
+          const provider = await providersApi.getProvider(id);
           setEditingProvider(provider);
           setIsModalOpen(true);
         } catch (_error) {
@@ -198,7 +198,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
   const fetchCredentialsForProvider = async (providerId: string) => {
     setLoadingCredentials(providerId);
     try {
-      const credentials = await gitProvidersApi.getCredentials(providerId);
+      const credentials = await credentialsApi.getCredentials(providerId);
       setProviderCredentials(prev => ({ ...prev, [providerId]: credentials }));
     } catch (_error) {
       showNotification('Failed to load credentials', 'error');
@@ -242,7 +242,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
 
   const handleEditProvider = async (providerId: string) => {
     try {
-      const provider = await gitProvidersApi.getProvider(providerId);
+      const provider = await providersApi.getProvider(providerId);
       setEditingProvider(provider);
       setIsModalOpen(true);
     } catch (_error) {
@@ -254,9 +254,9 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
     setTesting(providerId);
     setOpenMenuId(null);
     try {
-      const credentials = providerCredentials[providerId] || await gitProvidersApi.getCredentials(providerId);
+      const credentials = providerCredentials[providerId] || await credentialsApi.getCredentials(providerId);
       if (credentials.length > 0) {
-        const result = await gitProvidersApi.testCredential(providerId, credentials[0].id);
+        const result = await credentialsApi.testCredential(providerId, credentials[0].id);
         if (result.success) {
           showNotification('Connection test successful', 'success');
         } else {
@@ -281,7 +281,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await gitProvidersApi.deleteProvider(providerId);
+          await providersApi.deleteProvider(providerId);
           showNotification('Provider deleted successfully', 'success');
           setProviders(providers.filter(p => p.id !== providerId));
           if (expandedProviderId === providerId) {
@@ -351,7 +351,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
   const handleTestCredential = async (providerId: string, credentialId: string) => {
     setCredentialActionLoading(`test-${credentialId}`);
     try {
-      const result = await gitProvidersApi.testCredential(providerId, credentialId);
+      const result = await credentialsApi.testCredential(providerId, credentialId);
       if (result.success) {
         showNotification('Connection test successful', 'success');
       } else {
@@ -367,7 +367,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
   const handleMakeDefaultCredential = async (providerId: string, credentialId: string) => {
     setCredentialActionLoading(`default-${credentialId}`);
     try {
-      await gitProvidersApi.makeDefaultCredential(providerId, credentialId);
+      await credentialsApi.makeDefaultCredential(providerId, credentialId);
       showNotification('Credential set as default', 'success');
       await fetchCredentialsForProvider(providerId);
     } catch (_error) {
@@ -386,7 +386,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
       onConfirm: async () => {
         setCredentialActionLoading(`delete-${credentialId}`);
         try {
-          await gitProvidersApi.deleteCredential(providerId, credentialId);
+          await credentialsApi.deleteCredential(providerId, credentialId);
           showNotification('Credential deleted', 'success');
           await fetchCredentialsForProvider(providerId);
           await fetchProviders();

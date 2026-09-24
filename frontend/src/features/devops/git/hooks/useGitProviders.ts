@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { gitProvidersApi } from '../services/gitProvidersApi';
+import { providersApi, credentialsApi } from '../services/git';
 import { logger } from '@/shared/utils/logger';
 import {
   GitProvider,
@@ -19,7 +19,7 @@ export function useGitProviders() {
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getProviders();
+      const data = await providersApi.getProviders();
       setProviders(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch providers');
@@ -30,7 +30,7 @@ export function useGitProviders() {
 
   const fetchAvailableProviders = useCallback(async () => {
     try {
-      const data = await gitProvidersApi.getAvailableProviders();
+      const data = await providersApi.getAvailableProviders();
       setAvailableProviders(data);
     } catch (err) {
       logger.error('Failed to fetch available providers', err);
@@ -63,7 +63,7 @@ export function useGitCredentials(providerId: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getCredentials(providerId);
+      const data = await credentialsApi.getCredentials(providerId);
       setCredentials(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch credentials');
@@ -80,7 +80,7 @@ export function useGitCredentials(providerId: string | null) {
     async (data: CreateCredentialData) => {
       if (!providerId) throw new Error('No provider selected');
 
-      const credential = await gitProvidersApi.createCredential(
+      const credential = await credentialsApi.createCredential(
         providerId,
         data
       );
@@ -94,7 +94,7 @@ export function useGitCredentials(providerId: string | null) {
     async (credentialId: string) => {
       if (!providerId) throw new Error('No provider selected');
 
-      await gitProvidersApi.deleteCredential(providerId, credentialId);
+      await credentialsApi.deleteCredential(providerId, credentialId);
       await fetchCredentials();
     },
     [providerId, fetchCredentials]
@@ -104,7 +104,7 @@ export function useGitCredentials(providerId: string | null) {
     async (credentialId: string): Promise<ConnectionTestResult> => {
       if (!providerId) throw new Error('No provider selected');
 
-      return gitProvidersApi.testCredential(providerId, credentialId);
+      return credentialsApi.testCredential(providerId, credentialId);
     },
     [providerId]
   );
@@ -116,7 +116,7 @@ export function useGitCredentials(providerId: string | null) {
     ) => {
       if (!providerId) throw new Error('No provider selected');
 
-      const credential = await gitProvidersApi.updateCredential(
+      const credential = await credentialsApi.updateCredential(
         providerId,
         credentialId,
         data
@@ -131,7 +131,7 @@ export function useGitCredentials(providerId: string | null) {
     async (credentialId: string) => {
       if (!providerId) throw new Error('No provider selected');
 
-      await gitProvidersApi.makeDefaultCredential(providerId, credentialId);
+      await credentialsApi.makeDefaultCredential(providerId, credentialId);
       await fetchCredentials();
     },
     [providerId, fetchCredentials]

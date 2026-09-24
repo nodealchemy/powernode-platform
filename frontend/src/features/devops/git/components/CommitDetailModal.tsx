@@ -5,7 +5,7 @@ import {
   ChevronDown, ChevronRight
 } from 'lucide-react';
 import { GitCommitDetail, GitCommitFile } from '../types';
-import { gitProvidersApi } from '../services/gitProvidersApi';
+import { repositoriesApi } from '../services/git';
 
 interface CommitDetailModalProps {
   isOpen: boolean;
@@ -140,7 +140,7 @@ export function CommitDetailModal({
     setLoading(true);
     setError(null);
     try {
-      const data = await gitProvidersApi.getCommit(repositoryId, sha);
+      const data = await repositoriesApi.getCommit(repositoryId, sha);
       setCommit(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load commit');

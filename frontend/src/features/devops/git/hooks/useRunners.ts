@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { gitProvidersApi } from '../services/gitProvidersApi';
+import { runnersApi } from '../services/git';
 import type { GitRunner, GitRunnerDetail, RunnerStats, PaginationInfo } from '../types';
 
 interface UseRunnersParams {
@@ -23,7 +23,7 @@ export function useRunners(params: UseRunnersParams = {}) {
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getRunners({
+      const data = await runnersApi.getRunners({
         page: params.page,
         per_page: params.perPage,
         search: params.search,
@@ -56,7 +56,7 @@ export function useRunners(params: UseRunnersParams = {}) {
 
   const syncRunners = useCallback(
     async (credentialId?: string, repositoryId?: string) => {
-      const result = await gitProvidersApi.syncRunners({
+      const result = await runnersApi.syncRunners({
         credential_id: credentialId,
         repository_id: repositoryId,
       });
@@ -68,7 +68,7 @@ export function useRunners(params: UseRunnersParams = {}) {
 
   const deleteRunner = useCallback(
     async (id: string) => {
-      await gitProvidersApi.deleteRunner(id);
+      await runnersApi.deleteRunner(id);
       await fetchRunners();
     },
     [fetchRunners]
@@ -97,7 +97,7 @@ export function useRunner(id: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getRunner(id);
+      const data = await runnersApi.getRunner(id);
       setRunner(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch runner');
@@ -113,7 +113,7 @@ export function useRunner(id: string | null) {
   const updateLabels = useCallback(
     async (labels: string[]) => {
       if (!id) return;
-      const updated = await gitProvidersApi.updateRunnerLabels(id, labels);
+      const updated = await runnersApi.updateRunnerLabels(id, labels);
       setRunner(updated);
       return updated;
     },

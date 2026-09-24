@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { gitProvidersApi } from '../services/gitProvidersApi';
+import { pipelinesApi } from '../services/git';
 import {
   GitPipeline,
   GitPipelineDetail,
@@ -28,7 +28,7 @@ export function usePipelines(params: UsePipelinesParams) {
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getPipelines(params.repositoryId, {
+      const data = await pipelinesApi.getPipelines(params.repositoryId, {
         page: params.page,
         per_page: params.perPage,
         status: params.status,
@@ -64,7 +64,7 @@ export function usePipelines(params: UsePipelinesParams) {
       workflow_id?: string;
       inputs?: Record<string, string>;
     }) => {
-      const result = await gitProvidersApi.triggerPipeline(
+      const result = await pipelinesApi.triggerPipeline(
         params.repositoryId,
         options
       );
@@ -76,7 +76,7 @@ export function usePipelines(params: UsePipelinesParams) {
 
   const cancelPipeline = useCallback(
     async (pipelineId: string) => {
-      const result = await gitProvidersApi.cancelPipeline(
+      const result = await pipelinesApi.cancelPipeline(
         params.repositoryId,
         pipelineId
       );
@@ -88,7 +88,7 @@ export function usePipelines(params: UsePipelinesParams) {
 
   const retryPipeline = useCallback(
     async (pipelineId: string) => {
-      const result = await gitProvidersApi.retryPipeline(
+      const result = await pipelinesApi.retryPipeline(
         params.repositoryId,
         pipelineId
       );
@@ -122,7 +122,7 @@ export function usePipeline(repositoryId: string, pipelineId: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getPipeline(repositoryId, pipelineId);
+      const data = await pipelinesApi.getPipeline(repositoryId, pipelineId);
       setPipeline(data);
     } catch (err) {
       setError(
@@ -159,7 +159,7 @@ export function usePipelineJobs(
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getPipelineJobs(
+      const data = await pipelinesApi.getPipelineJobs(
         repositoryId,
         pipelineId
       );
@@ -199,7 +199,7 @@ export function useJobLogs(
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getJobLogs(
+      const data = await pipelinesApi.getJobLogs(
         repositoryId,
         pipelineId,
         jobId

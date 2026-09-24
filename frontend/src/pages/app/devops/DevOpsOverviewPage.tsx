@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { logger } from '@/shared/utils/logger';
-import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
+import { providersApi, repositoriesApi, runnersApi } from '@/features/devops/git/services/git';
 import { webhooksApi } from '@/features/devops/webhooks/services/webhooksApi';
 import { integrationsApi } from '@/features/devops/integrations/services/integrationsApi';
 import { apiKeysApi } from '@/features/devops/api-keys/services/apiKeysApi';
@@ -176,9 +176,9 @@ export function DevOpsOverviewPage() {
         integrationsData,
         apiKeysData
       ] = await Promise.all([
-        gitProvidersApi.getProviders().catch(() => []),
-        gitProvidersApi.getRepositories({ per_page: 1 }).catch(() => ({ repositories: [], pagination: { total_count: 0 } })),
-        gitProvidersApi.getRunners({ per_page: 1 }).catch(() => ({ runners: [], stats: null, pagination: { total_count: 0 } })),
+        providersApi.getProviders().catch(() => []),
+        repositoriesApi.getRepositories({ per_page: 1 }).catch(() => ({ repositories: [], pagination: { total_count: 0 } })),
+        runnersApi.getRunners({ per_page: 1 }).catch(() => ({ runners: [], stats: null, pagination: { total_count: 0 } })),
         webhooksApi.getWebhooks(1, 1).catch(() => ({ success: false, data: null })),
         integrationsApi.getInstances(1, 1).catch(() => ({ success: false, data: null })),
         apiKeysApi.getApiKeys(1, 1).catch(() => ({ success: false, data: null }))
@@ -238,7 +238,7 @@ export function DevOpsOverviewPage() {
       setLoadingActivity(true);
       try {
         // Get first few repositories to sample activity
-        const reposResult = await gitProvidersApi.getRepositories({ per_page: 5 }) as {
+        const reposResult = await repositoriesApi.getRepositories({ per_page: 5 }) as {
           repositories: { id: string }[]
         };
 
@@ -248,7 +248,7 @@ export function DevOpsOverviewPage() {
         // Fetch commits from each repository
         for (const repo of reposResult.repositories || []) {
           try {
-            const commits = await gitProvidersApi.getCommits(repo.id, { per_page: 30 }) as Array<{
+            const commits = await repositoriesApi.getCommits(repo.id, { per_page: 30 }) as Array<{
               sha?: string;
               created_at?: string;
               commit?: { author?: { date?: string } };

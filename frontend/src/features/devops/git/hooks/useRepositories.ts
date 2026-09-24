@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { gitProvidersApi } from '../services/gitProvidersApi';
+import { repositoriesApi } from '../services/git';
 import { GitRepository, GitRepositoryDetail, PaginationInfo } from '../types';
 
 interface UseRepositoriesParams {
@@ -25,7 +25,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getRepositories({
+      const data = await repositoriesApi.getRepositories({
         page: params.page,
         per_page: params.perPage,
         search: params.search,
@@ -65,7 +65,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 
   const deleteRepository = useCallback(
     async (id: string) => {
-      await gitProvidersApi.deleteRepository(id);
+      await repositoriesApi.deleteRepository(id);
       await fetchRepositories();
     },
     [fetchRepositories]
@@ -73,7 +73,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 
   const configureWebhook = useCallback(
     async (id: string) => {
-      const result = await gitProvidersApi.configureWebhook(id);
+      const result = await repositoriesApi.configureWebhook(id);
       await fetchRepositories();
       return result;
     },
@@ -82,7 +82,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
 
   const removeWebhook = useCallback(
     async (id: string) => {
-      const result = await gitProvidersApi.removeWebhook(id);
+      const result = await repositoriesApi.removeWebhook(id);
       await fetchRepositories();
       return result;
     },
@@ -90,7 +90,7 @@ export function useRepositories(params: UseRepositoriesParams = {}) {
   );
 
   const syncPipelines = useCallback(async (id: string) => {
-    return gitProvidersApi.syncPipelines(id);
+    return repositoriesApi.syncPipelines(id);
   }, []);
 
   return {
@@ -119,7 +119,7 @@ export function useRepository(id: string | null) {
     try {
       setLoading(true);
       setError(null);
-      const data = await gitProvidersApi.getRepository(id);
+      const data = await repositoriesApi.getRepository(id);
       setRepository(data);
     } catch (err) {
       setError(

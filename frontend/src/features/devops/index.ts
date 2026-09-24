@@ -10,7 +10,6 @@ export {
   CredentialModal,
   RepositoryList,
   CommitDetailModal,
-  gitProvidersApi,
   useGitProviders,
   useGitCredentials,
 } from './git';

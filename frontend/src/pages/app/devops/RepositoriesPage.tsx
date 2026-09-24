@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
-import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
+import { providersApi, repositoriesApi } from '@/features/devops/git/services/git';
 import { CommitDetailModal } from '@/features/devops/git/components/CommitDetailModal';
 import { ImportRepositoriesModal } from '@/features/devops/git/components/ImportRepositoriesModal';
 import type { GitRepository, GitProvider, PaginationInfo } from '@/features/devops/git/types';
@@ -77,7 +77,7 @@ const RepositoryCard: React.FC<{
       const fetchBranches = async () => {
         setLoadingBranches(true);
         try {
-          const data = await gitProvidersApi.getBranches(repository.id) as Array<{ name?: string; is_default?: boolean; protected?: boolean }>;
+          const data = await repositoriesApi.getBranches(repository.id) as Array<{ name?: string; is_default?: boolean; protected?: boolean }>;
           const branchList = (data || []).map((b) => ({
             name: b.name || '',
             is_default: b.is_default || false,
@@ -105,7 +105,7 @@ const RepositoryCard: React.FC<{
         setLoadingCommits(true);
         setCommits([]);
         try {
-          const data = await gitProvidersApi.getCommits(repository.id, { sha: selectedBranch }) as Array<{
+          const data = await repositoriesApi.getCommits(repository.id, { sha: selectedBranch }) as Array<{
             sha?: string;
             message?: string;
             commit?: { message?: string; author?: { name?: string; date?: string } };
@@ -143,7 +143,7 @@ const RepositoryCard: React.FC<{
       const fetchPRs = async () => {
         setLoadingPRs(true);
         try {
-          const data = await gitProvidersApi.getPullRequests(repository.id) as Array<{ id?: string; number?: number; title?: string; state?: string; author?: string }>;
+          const data = await repositoriesApi.getPullRequests(repository.id) as Array<{ id?: string; number?: number; title?: string; state?: string; author?: string }>;
           setPullRequests((data || []).map((pr) => ({
             id: pr.id || '',
             number: pr.number || 0,
@@ -168,7 +168,7 @@ const RepositoryCard: React.FC<{
         setLoadingActivity(true);
         try {
           // First fetch branches
-          const branchData = await gitProvidersApi.getBranches(repository.id) as Array<{ name?: string }>;
+          const branchData = await repositoriesApi.getBranches(repository.id) as Array<{ name?: string }>;
           const branchNames = (branchData || []).map(b => b.name).filter(Boolean).slice(0, 5); // Limit to 5 branches
 
           // Aggregate commits by date from all branches
@@ -178,7 +178,7 @@ const RepositoryCard: React.FC<{
           // Fetch commits from each branch
           for (const branch of branchNames) {
             try {
-              const data = await gitProvidersApi.getCommits(repository.id, { sha: branch, per_page: 50 }) as Array<{
+              const data = await repositoriesApi.getCommits(repository.id, { sha: branch, per_page: 50 }) as Array<{
                 sha?: string;
                 created_at?: string;
                 commit?: { author?: { date?: string } };
@@ -795,7 +795,7 @@ export function RepositoriesPage({ onActionsReady }: RepositoriesPageProps) {
   const fetchRepositories = async () => {
     try {
       setLoading(true);
-      const data = await gitProvidersApi.getRepositories({
+      const data = await repositoriesApi.getRepositories({
         page,
         per_page: 20,
         search: filters.search,
@@ -814,7 +814,7 @@ export function RepositoriesPage({ onActionsReady }: RepositoriesPageProps) {
 
   const fetchProviders = async () => {
     try {
-      const data = await gitProvidersApi.getProviders();
+      const data = await providersApi.getProviders();
       setProviders(data);
     } catch (_error) {
       // Silently fail
@@ -846,7 +846,7 @@ export function RepositoriesPage({ onActionsReady }: RepositoriesPageProps) {
 
   const handleConfigureWebhook = async (repoId: string) => {
     try {
-      await gitProvidersApi.configureWebhook(repoId);
+      await repositoriesApi.configureWebhook(repoId);
       showNotification('Webhook configured successfully', 'success');
       fetchRepositories();
     } catch (_error) {
@@ -862,7 +862,7 @@ export function RepositoriesPage({ onActionsReady }: RepositoriesPageProps) {
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await gitProvidersApi.deleteRepository(repoId);
+          await repositoriesApi.deleteRepository(repoId);
           showNotification('Repository removed', 'success');
           setRepositories(repositories.filter(r => r.id !== repoId));
         } catch (_error) {

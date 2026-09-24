@@ -14,7 +14,7 @@ import {
   Download,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import { gitProvidersApi } from '../services/gitProvidersApi';
+import { providersApi, credentialsApi } from '../services/git';
 import type {
   GitProvider,
   GitCredential,
@@ -91,7 +91,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
 
   const loadProviders = async () => {
     try {
-      const data = await gitProvidersApi.getProviders();
+      const data = await providersApi.getProviders();
       setProviders(data);
       if (data.length === 1) {
         setSelectedProviderId(data[0].id);
@@ -103,7 +103,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
 
   const loadCredentials = async (providerId: string) => {
     try {
-      const data = await gitProvidersApi.getCredentials(providerId);
+      const data = await credentialsApi.getCredentials(providerId);
       setCredentials(data);
       if (data.length === 1) {
         setSelectedCredentialId(data[0].id);
@@ -118,7 +118,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
 
     setLoading(true);
     try {
-      const data = await gitProvidersApi.getAvailableRepositories(
+      const data = await credentialsApi.getAvailableRepositories(
         selectedProviderId,
         selectedCredentialId,
         {
@@ -163,7 +163,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
     setImportResult(null);
 
     try {
-      const result = await gitProvidersApi.importRepositories(
+      const result = await credentialsApi.importRepositories(
         selectedProviderId,
         selectedCredentialId,
         Array.from(selectedIds),

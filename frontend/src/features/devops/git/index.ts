@@ -13,7 +13,6 @@ export { WebhookEventActions } from './components/WebhookEventActions';
 export { AccountWebhooksList } from './components/AccountWebhooksList';
 
 // Services
-export { gitProvidersApi } from './services/gitProvidersApi';
 export { repositoriesApi } from './services/git/repositoriesApi';
 export { webhooksApi } from './services/git/webhooksApi';
 export { accountWebhooksApi } from './services/git/accountWebhooksApi';

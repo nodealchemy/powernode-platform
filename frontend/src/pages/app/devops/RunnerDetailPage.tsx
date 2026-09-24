@@ -7,7 +7,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useAuth } from '@/shared/hooks/useAuth';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
-import { gitProvidersApi } from '@/features/devops/git/services/gitProvidersApi';
+import { runnersApi } from '@/features/devops/git/services/git';
 import { useRunner } from '@/features/devops/git/hooks/useRunners';
 import { RunnerLabelEditor } from '@/features/devops/git/components/RunnerLabelEditor';
 
@@ -68,7 +68,7 @@ export const RunnerDetailPage: React.FC = () => {
       onConfirm: async () => {
         setDeleting(true);
         try {
-          await gitProvidersApi.deleteRunner(runner.id);
+          await runnersApi.deleteRunner(runner.id);
           showNotification('Runner deleted successfully', 'success');
           navigate('/app/devops/ci-cd/runners');
         } catch (_error) {
@@ -91,7 +91,7 @@ export const RunnerDetailPage: React.FC = () => {
     if (!runner) return;
 
     try {
-      const result = await gitProvidersApi.getRunnerRemovalToken(runner.id);
+      const result = await runnersApi.getRunnerRemovalToken(runner.id);
       navigator.clipboard.writeText(result.token);
       showNotification('Removal token copied to clipboard', 'success');
     } catch (_error) {
@@ -103,7 +103,7 @@ export const RunnerDetailPage: React.FC = () => {
     if (!runner) return;
 
     try {
-      const result = await gitProvidersApi.getRunnerRegistrationToken(runner.id);
+      const result = await runnersApi.getRunnerRegistrationToken(runner.id);
       navigator.clipboard.writeText(result.token);
       showNotification('Registration token copied to clipboard', 'success');
     } catch (_error) {

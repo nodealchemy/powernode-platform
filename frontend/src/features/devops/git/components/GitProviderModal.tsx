@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Globe, Server } from 'lucide-react';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
-import { gitProvidersApi } from '../services/gitProvidersApi';
+import { providersApi } from '../services/git';
 import { GitProviderDetail, CreateProviderData, UpdateProviderData } from '../types';
 
 interface GitProviderModalProps {
@@ -131,7 +131,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
           web_base_url: formData.web_base_url || undefined,
           is_active: formData.is_active,
         };
-        await gitProvidersApi.updateProvider(provider.id, updateData);
+        await providersApi.updateProvider(provider.id, updateData);
       } else {
         const createData: CreateProviderData = {
           name: formData.name,
@@ -145,7 +145,7 @@ export const GitProviderModal: React.FC<GitProviderModalProps> = ({
           supports_webhooks: formData.supports_webhooks,
           supports_devops: formData.supports_devops,
         };
-        await gitProvidersApi.createProvider(createData);
+        await providersApi.createProvider(createData);
       }
 
       onSuccess();

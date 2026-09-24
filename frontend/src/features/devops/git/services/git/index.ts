@@ -1,50 +1,12 @@
 /**
- * Git Services - Unified API Module
+ * Git Services - Modular API Module
  *
- * This module combines all Git-related API services into a single unified export
- * while also allowing direct imports of individual domain APIs.
+ * Re-exports each Git domain API individually. The unified `gitProvidersApi`
+ * spread-barrel (a pure `{...providersApi, ...credentialsApi, ...}` merge
+ * with no behaviour of its own) was deleted fc-24 — every former caller now
+ * imports the specific domain API it actually uses from here.
  */
 
-import { providersApi } from './providersApi';
-import { credentialsApi } from './credentialsApi';
-import { repositoriesApi } from './repositoriesApi';
-import { pipelinesApi } from './pipelinesApi';
-import { webhooksApi } from './webhooksApi';
-import { runnersApi } from './runnersApi';
-import { schedulesApi } from './schedulesApi';
-import { approvalsApi } from './approvalsApi';
-
-/**
- * Unified Git Providers API
- * Combines all domain-specific APIs for backward compatibility
- */
-export const gitProvidersApi = {
-  // Providers
-  ...providersApi,
-
-  // Credentials
-  ...credentialsApi,
-
-  // Repositories
-  ...repositoriesApi,
-
-  // Pipelines
-  ...pipelinesApi,
-
-  // Webhooks
-  ...webhooksApi,
-
-  // Runners
-  ...runnersApi,
-
-  // Schedules
-  ...schedulesApi,
-
-  // Approvals
-  ...approvalsApi,
-};
-
-// Export individual APIs for direct imports
 export { providersApi } from './providersApi';
 export { credentialsApi } from './credentialsApi';
 export { repositoriesApi } from './repositoriesApi';

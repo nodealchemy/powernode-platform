@@ -1,4 +1,4 @@
-import { gitProvidersApi } from '../services/gitProvidersApi';
+import { providersApi, credentialsApi, repositoriesApi, pipelinesApi, webhooksApi } from '../services/git';
 import { apiClient } from '@/shared/services/apiClient';
 import { AxiosHeaders } from 'axios';
 
@@ -16,7 +16,12 @@ const mockAxiosResponse = <T>(data: T) => ({
   config: { headers: new AxiosHeaders() },
 });
 
-describe('gitProvidersApi', () => {
+// fc-24: was gitProvidersApi.test.ts, testing the unified spread-barrel of
+// the same name. The barrel was a shim (a pure `{...providersApi,
+// ...credentialsApi, ...}` merge with no behaviour of its own) and is
+// deleted; these assertions carry the same HTTP-contract coverage forward
+// against each domain API directly — nothing here is new or lost.
+describe('git domain APIs (providers/credentials/repositories/pipelines/webhooks)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -40,7 +45,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getProviders();
+      const result = await providersApi.getProviders();
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/providers');
       expect(result).toHaveLength(2);
@@ -52,7 +57,7 @@ describe('gitProvidersApi', () => {
         mockAxiosResponse({ success: true, data: { providers: null, count: 0 } })
       );
 
-      const result = await gitProvidersApi.getProviders();
+      const result = await providersApi.getProviders();
 
       expect(result).toEqual([]);
     });
@@ -74,7 +79,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getProvider('provider-1');
+      const result = await providersApi.getProvider('provider-1');
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/providers/provider-1');
       expect(result.name).toBe('GitHub');
@@ -97,7 +102,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getAvailableProviders();
+      const result = await providersApi.getAvailableProviders();
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/providers/available');
       expect(result).toHaveLength(3);
@@ -123,7 +128,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getCredentials('provider-1');
+      const result = await credentialsApi.getCredentials('provider-1');
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/providers/provider-1/credentials');
       expect(result).toHaveLength(2);
@@ -145,7 +150,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.createCredential('provider-1', {
+      const result = await credentialsApi.createCredential('provider-1', {
         name: 'New Token',
         auth_type: 'personal_access_token',
         credentials: { access_token: 'ghp_test123' },
@@ -175,7 +180,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.testCredential('provider-1', 'cred-1');
+      const result = await credentialsApi.testCredential('provider-1', 'cred-1');
 
       expect(mockApiClient.post).toHaveBeenCalledWith(
         '/git/providers/provider-1/credentials/cred-1/test'
@@ -195,7 +200,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.makeDefaultCredential('provider-1', 'cred-1');
+      const result = await credentialsApi.makeDefaultCredential('provider-1', 'cred-1');
 
       expect(mockApiClient.post).toHaveBeenCalledWith(
         '/git/providers/provider-1/credentials/cred-1/make_default'
@@ -208,7 +213,7 @@ describe('gitProvidersApi', () => {
     it('deletes a credential', async () => {
       mockApiClient.delete.mockResolvedValue(mockAxiosResponse({ success: true, data: {} }));
 
-      await gitProvidersApi.deleteCredential('provider-1', 'cred-1');
+      await credentialsApi.deleteCredential('provider-1', 'cred-1');
 
       expect(mockApiClient.delete).toHaveBeenCalledWith(
         '/git/providers/provider-1/credentials/cred-1'
@@ -235,7 +240,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getRepositories();
+      const result = await repositoriesApi.getRepositories();
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/repositories', { params: undefined });
       expect(result.repositories).toHaveLength(2);
@@ -252,7 +257,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      await gitProvidersApi.getRepositories({ credential_id: 'cred-1' });
+      await repositoriesApi.getRepositories({ credential_id: 'cred-1' });
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/repositories', {
         params: { credential_id: 'cred-1' },
@@ -272,7 +277,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.configureWebhook('repo-1');
+      const result = await repositoriesApi.configureWebhook('repo-1');
 
       expect(mockApiClient.post).toHaveBeenCalledWith('/git/repositories/repo-1/configure_webhook', undefined);
       expect(result.repository.webhook_configured).toBe(true);
@@ -291,7 +296,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.removeWebhook('repo-1');
+      const result = await repositoriesApi.removeWebhook('repo-1');
 
       expect(mockApiClient.delete).toHaveBeenCalledWith('/git/repositories/repo-1/remove_webhook');
       expect(result.repository.webhook_configured).toBe(false);
@@ -300,9 +305,9 @@ describe('gitProvidersApi', () => {
 
   describe('repository import (IMP-93dffbd1868c)', () => {
     it('offers only the available + import flow, not the deleted syncRepositories', () => {
-      expect('syncRepositories' in gitProvidersApi).toBe(false);
-      expect(typeof gitProvidersApi.getAvailableRepositories).toBe('function');
-      expect(typeof gitProvidersApi.importRepositories).toBe('function');
+      expect('syncRepositories' in credentialsApi).toBe(false);
+      expect(typeof credentialsApi.getAvailableRepositories).toBe('function');
+      expect(typeof credentialsApi.importRepositories).toBe('function');
     });
   });
 
@@ -326,7 +331,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getPipelines('repo-1');
+      const result = await pipelinesApi.getPipelines('repo-1');
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/repositories/repo-1/pipelines', {
         params: undefined,
@@ -346,7 +351,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      await gitProvidersApi.getPipelines('repo-1', { status: 'running' });
+      await pipelinesApi.getPipelines('repo-1', { status: 'running' });
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/repositories/repo-1/pipelines', {
         params: { status: 'running' },
@@ -360,7 +365,7 @@ describe('gitProvidersApi', () => {
         mockAxiosResponse({ success: true, data: { message: 'Pipeline cancelled successfully' } })
       );
 
-      const result = await gitProvidersApi.cancelPipeline('repo-1', 'pipeline-1');
+      const result = await pipelinesApi.cancelPipeline('repo-1', 'pipeline-1');
 
       expect(mockApiClient.post).toHaveBeenCalledWith(
         '/git/repositories/repo-1/pipelines/pipeline-1/cancel'
@@ -378,7 +383,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.retryPipeline('repo-1', 'pipeline-1');
+      const result = await pipelinesApi.retryPipeline('repo-1', 'pipeline-1');
 
       expect(mockApiClient.post).toHaveBeenCalledWith(
         '/git/repositories/repo-1/pipelines/pipeline-1/retry'
@@ -402,7 +407,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getPipelineJobs('repo-1', 'pipeline-1');
+      const result = await pipelinesApi.getPipelineJobs('repo-1', 'pipeline-1');
 
       expect(mockApiClient.get).toHaveBeenCalledWith(
         '/git/repositories/repo-1/pipelines/pipeline-1/jobs'
@@ -424,7 +429,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getJobLogs('repo-1', 'pipeline-1', 'job-1');
+      const result = await pipelinesApi.getJobLogs('repo-1', 'pipeline-1', 'job-1');
 
       expect(mockApiClient.get).toHaveBeenCalledWith(
         '/git/repositories/repo-1/pipelines/pipeline-1/jobs/job-1/logs'
@@ -454,7 +459,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getWebhookEvents();
+      const result = await webhooksApi.getWebhookEvents();
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/webhook_events', { params: undefined });
       expect(result.events).toHaveLength(2);
@@ -472,7 +477,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      await gitProvidersApi.getWebhookEvents({ event_type: 'push', status: 'processed' });
+      await webhooksApi.getWebhookEvents({ event_type: 'push', status: 'processed' });
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/webhook_events', {
         params: { event_type: 'push', status: 'processed' },
@@ -496,7 +501,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.getWebhookEvent('event-1');
+      const result = await webhooksApi.getWebhookEvent('event-1');
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/webhook_events/event-1');
       expect(result.event_type).toBe('push');
@@ -515,7 +520,7 @@ describe('gitProvidersApi', () => {
         })
       );
 
-      const result = await gitProvidersApi.retryWebhookEvent('event-1');
+      const result = await webhooksApi.retryWebhookEvent('event-1');
 
       expect(mockApiClient.post).toHaveBeenCalledWith('/git/webhook_events/event-1/retry');
       expect(result.event.status).toBe('pending');
