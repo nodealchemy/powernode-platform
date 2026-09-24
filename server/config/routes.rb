@@ -1648,16 +1648,6 @@ Rails.application.routes.draw do
           put "violations/:id/acknowledge", action: :acknowledge_violation
           put "violations/:id/resolve", action: :resolve_violation
 
-          # Approval chains
-          get "approval_chains", action: :approval_chains
-          post "approval_chains", action: :create_approval_chain
-
-          # Approval requests
-          get "approval_requests", action: :approval_requests
-          get "approval_requests/pending", action: :pending_approvals
-          get "approval_requests/:id", action: :show_approval_request
-          post "approval_requests/:id/decide", action: :decide_approval
-
           # Data classifications
           get "classifications", action: :classifications
           post "classifications", action: :create_classification

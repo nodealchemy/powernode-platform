@@ -5,25 +5,19 @@ module Api
     module Ai
       class GovernanceController < ApplicationController
         include Paginatable
-        # IMP-550e44e24220 — shared approval-payload core, also included by
-        # Ai::AutonomyApprovalActions so both read surfaces cannot drift.
-        include ::Ai::ApprovalRequestSerialization
-        # The door a decision here came through (MCP identity plan D1, guard c).
-        include ::HumanSession
         # Authorization on the dedicated ai.governance.* family: reads gate on
         # `ai.governance.read`, writes on `ai.governance.manage` (both catalog-
         # defined). Decoupled from the coarse `ai.manage` gate so AI-operator
         # tokens without governance authority cannot mutate governance state.
         READ_ACTIONS = %i[
-          policies violations approval_chains approval_requests
-          pending_approvals show_approval_request classifications
+          policies violations classifications
           reports summary audit_log
         ].freeze
 
         WRITE_ACTIONS = %i[
           create_policy activate_policy evaluate_policies
-          acknowledge_violation resolve_violation create_approval_chain
-          decide_approval create_classification scan_data mask_data
+          acknowledge_violation resolve_violation
+          create_classification scan_data mask_data
           generate_report
         ].freeze
 
@@ -118,114 +112,6 @@ module Api
           )
 
           render_success(violation: violation_json(violation))
-        end
-
-        # Approval Chains
-        # GET /api/v1/ai/governance/approval_chains
-        def approval_chains
-          chains = current_account.ai_approval_chains
-                                 .order(created_at: :desc)
-                                 .page(params[:page])
-                                 .per(params[:per_page] || 20)
-
-          render_success(
-            approval_chains: chains.map { |c| approval_chain_json(c) },
-            pagination: pagination_meta(chains)
-          )
-        end
-
-        # POST /api/v1/ai/governance/approval_chains
-        def create_approval_chain
-          chain = @service.create_approval_chain(
-            name: params[:name],
-            trigger_type: params[:trigger_type],
-            steps: params[:steps] || [],
-            user: current_user,
-            description: params[:description],
-            timeout_hours: params[:timeout_hours]
-          )
-
-          render_success(approval_chain: approval_chain_json(chain), status: :created)
-        end
-
-        # Approval Requests
-        # GET /api/v1/ai/governance/approval_requests
-        def approval_requests
-          requests = current_account.ai_approval_requests
-                                   .includes(:approval_chain)
-                                   .order(created_at: :desc)
-                                   .page(params[:page])
-                                   .per(params[:per_page] || 20)
-
-          requests = requests.where(status: params[:status]) if params[:status].present?
-
-          # One pattern resolution per page, not per row — approval_request_json
-          # filters request_data on every one (IMP-77645b94151e).
-          rows = ::Ai::SensitiveParams.batch { requests.map { |r| approval_request_json(r) } }
-
-          render_success(
-            approval_requests: rows,
-            pagination: pagination_meta(requests)
-          )
-        end
-
-        # GET /api/v1/ai/governance/approval_requests/pending
-        def pending_approvals
-          requests = current_account.ai_approval_requests.active
-                                   .includes(:approval_chain)
-                                   .order(created_at: :desc)
-
-          render_success(
-            approval_requests: ::Ai::SensitiveParams.batch { requests.map { |r| approval_request_json(r) } }
-          )
-        end
-
-        # GET /api/v1/ai/governance/approval_requests/:id
-        def show_approval_request
-          request = current_account.ai_approval_requests
-                                   .includes(:approval_chain, decisions: :approver)
-                                   .find(params[:id])
-
-          render_success(approval_request: approval_request_json(request, detailed: true))
-        rescue ActiveRecord::RecordNotFound
-          render_error("Approval request not found", :not_found)
-        end
-
-        # POST /api/v1/ai/governance/approval_requests/:id/decide
-        def decide_approval
-          request = current_account.ai_approval_requests.find(params[:id])
-          # The reason the approval queue gives (HumanSession#human_session_refusal),
-          # never a bare refusal (secreview §21).
-          refusal = human_session_refusal(request, params[:decision].to_s == "rejected" ? "reject" : "approve")
-          return render_error(refusal, :forbidden) if refusal
-
-          result = @service.process_approval_decision(
-            request: request,
-            user: current_user,
-            decision: params[:decision],
-            comments: params[:comments],
-            conditions: params[:conditions] || {},
-            origin: human_decision_origin
-          )
-
-          if result[:success]
-            # Reveal-once handoff (IMP-7b81ca22f661), in parity with
-            # Ai::AutonomyApprovalActions#approve_action: this is the OTHER
-            # human surface that resolves an approval, so it runs the same
-            # executors and would otherwise be the other place a minted secret
-            # is destroyed. `process_approval_decision` returns the very object
-            # the decision cascade fired on (#reload returns self), which is
-            # what makes the in-memory slot reachable from here.
-            payload = approval_request_json(result[:request])
-            revealed = result[:request].take_revealed_result!
-            payload = payload.merge(revealed_result: revealed) if revealed.present?
-            render_success(approval_request: payload)
-          else
-            # L9: a completing approval refused for the decider is named.
-            return render_error(request.decision_refusal, :forbidden) if request.decision_refusal
-
-            render_error(result[:error], :unprocessable_content)
-          end
         end
 
         # Data Classifications
@@ -390,60 +276,6 @@ module Api
             policy: {
               id: violation.policy.id,
               name: violation.policy.name
-            }
-          }
-        end
-
-        def approval_chain_json(chain)
-          {
-            id: chain.id,
-            name: chain.name,
-            description: chain.description,
-            trigger_type: chain.trigger_type,
-            trigger_conditions: chain.trigger_conditions,
-            steps: chain.steps,
-            status: chain.status,
-            is_sequential: chain.is_sequential,
-            timeout_hours: chain.timeout_hours,
-            usage_count: chain.usage_count,
-            created_at: chain.created_at
-          }
-        end
-
-        # IMP-550e44e24220 — the shared fields come from
-        # Ai::ApprovalRequestSerialization#approval_request_core, which is the
-        # single definition both approval read surfaces build on. Only this
-        # endpoint's own additions are listed here.
-        def approval_request_json(request, detailed: false)
-          base = approval_request_core(request).merge(
-            step_statuses: request.step_statuses,
-            approval_chain: {
-              id: request.approval_chain.id,
-              name: request.approval_chain.name
-            }
-          )
-          return base unless detailed
-
-          base.merge(
-            updated_at: request.updated_at,
-            approval_chain: approval_chain_json(request.approval_chain),
-            decisions: request.decisions.map { |d| approval_decision_json(d) }
-          )
-        end
-
-        def approval_decision_json(decision)
-          {
-            id: decision.id,
-            step_number: decision.step_number,
-            decision: decision.decision,
-            comments: decision.comments,
-            conditions: decision.conditions,
-            origin: decision.origin,
-            created_at: decision.created_at,
-            approver: {
-              id: decision.approver_id,
-              name: decision.approver&.name,
-              email: decision.approver&.email
             }
           }
         end

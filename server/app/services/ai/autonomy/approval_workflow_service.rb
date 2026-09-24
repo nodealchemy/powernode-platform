@@ -12,13 +12,15 @@ module Ai
     #   - DECISION (#pending_approvals, #approve, #reject, #expire_overdue!) works
     #     on any request that EXISTS, capability or not. Ai::ApprovalChain and
     #     Ai::ApprovalRequest are core models; Ai::AutonomyGate parks every
-    #     require_approval action behind one on every deployment, and the
-    #     governance decide endpoint (Ai::GovernanceService#process_approval_decision)
-    #     already decides them with no capability check. Gating the decision on
-    #     the capability produced the 2026-09-08 core-mode hub incident: the
-    #     operator saw the card, POST .../approvals/:id/approve answered 422
-    #     "Cannot approve this request", and the deferred operation was stranded
-    #     until its timeout. A request nobody can decide is worse than no request.
+    #     require_approval action behind one on every deployment, and this
+    #     service is now the sole decision path (the governance door's own
+    #     decide endpoint, Ai::GovernanceService#process_approval_decision, was
+    #     deleted in fc-12) — it already decided them with no capability check,
+    #     and this one still does. Gating the decision on the capability
+    #     produced the 2026-09-08 core-mode hub incident: the operator saw the
+    #     card, POST .../approvals/:id/approve answered 422 "Cannot approve
+    #     this request", and the deferred operation was stranded until its
+    #     timeout. A request nobody can decide is worse than no request.
     class ApprovalWorkflowService
       attr_reader :account
 
