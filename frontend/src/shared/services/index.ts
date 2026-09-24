@@ -116,5 +116,4 @@ export {
 } from '@/shared/services/slices/uiSlice';
 
 export { default as configSlice } from '@/shared/services/slices/configSlice';
-export { fetchPlatformConfig } from '@/shared/services/slices/configSlice';
 
