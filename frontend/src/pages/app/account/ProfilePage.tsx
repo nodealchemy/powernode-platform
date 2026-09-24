@@ -12,6 +12,7 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { Save, RefreshCw } from 'lucide-react';
 import { UsersContent } from '@/pages/app/account/UsersPage';
 import { EntityLink } from '@/shared/components/entity';
+import { TwoFactorSettings } from '@/features/account/components/TwoFactorSettings';
 
 // Type guard for settings update data
 const isSettingsUpdateData = (data: unknown): data is Partial<UserSettings> => {
@@ -704,6 +705,13 @@ export const ProfilePage: React.FC = () => {
 
         <TabPanel tabId="security" activeTab={activeTab}>
           <div className="space-y-6">
+            {/* Two-Factor Authentication */}
+            <div className="card-theme">
+              <div className="p-6">
+                <TwoFactorSettings />
+              </div>
+            </div>
+
             {/* Change Password */}
             <div className="card-theme">
               <div className="px-6 py-4 border-b border-theme">
