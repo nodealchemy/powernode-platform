@@ -147,26 +147,33 @@ export interface DelegationResponse {
 }
 
 export const delegationApi = {
-  // List all delegations for the current account
-  async getDelegations(filters?: { status?: string; role_id?: string }): Promise<DelegationsResponse> {
+  // List all delegations for an account. `accountId` MUST be the caller's real
+  // account id (User.account.id) -- never the literal "current". The API is
+  // nested under /accounts/:account_id (routes.rb), and
+  // DelegationsController#set_account only recognises "current" implicitly:
+  // it falls back to current_user.account for anyone WITHOUT admin.access, so
+  // a literal "current" happened to work for a plain accounts.manage holder
+  // by coincidence, never by design. An admin.access holder (including
+  // core-mode's first user, who holds system.admin and therefore every
+  // permission) takes the explicit branch that does
+  // `Account.find(params[:account_id])`, and "current" is not a valid id
+  // there -- every call 404'd for that audience. There is no server-side
+  // "current" sentinel to add; that would just be a second alias for the same
+  // account id the client already has.
+  async getDelegations(accountId: string, filters?: { status?: string; role_id?: string }): Promise<DelegationsResponse> {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.role_id) params.append('role_id', filters.role_id);
 
     const queryString = params.toString();
-    const endpoint = `/accounts/current/delegations${queryString ? `?${queryString}` : ''}`;
+    const endpoint = `/accounts/${accountId}/delegations${queryString ? `?${queryString}` : ''}`;
 
     return apiRequest(endpoint);
   },
 
-  // Get a specific delegation by ID
-  async getDelegation(delegationId: string): Promise<DelegationResponse> {
-    return apiRequest(`/accounts/current/delegations/${delegationId}`);
-  },
-
   // Create a new delegation
-  async createDelegation(data: DelegationFormData): Promise<DelegationResponse> {
-    return apiRequest('/accounts/current/delegations', {
+  async createDelegation(accountId: string, data: DelegationFormData): Promise<DelegationResponse> {
+    return apiRequest(`/accounts/${accountId}/delegations`, {
       method: 'POST',
       body: JSON.stringify({ delegation: data }),
     });
@@ -180,37 +187,30 @@ export const delegationApi = {
   // role's whole permission set, so that removal WIDENS). Note the API treats an EMPTY
   // `permission_names` as absent (`permission_names.present?`), so submitting [] is a
   // silent no-op, never a clear — callers must never offer it as one.
-  async updateDelegation(delegationId: string, updates: Partial<DelegationFormData>): Promise<DelegationResponse> {
-    return apiRequest(`/accounts/current/delegations/${delegationId}`, {
+  async updateDelegation(accountId: string, delegationId: string, updates: Partial<DelegationFormData>): Promise<DelegationResponse> {
+    return apiRequest(`/accounts/${accountId}/delegations/${delegationId}`, {
       method: 'PATCH',
       body: JSON.stringify({ delegation: updates }),
     });
   },
 
-  // Delete a delegation (revoke it)
-  async deleteDelegation(delegationId: string): Promise<{ message: string }> {
-    return apiRequest(`/accounts/current/delegations/${delegationId}`, {
-      method: 'DELETE',
-    });
-  },
-
   // Activate a delegation
-  async activateDelegation(delegationId: string): Promise<DelegationResponse> {
-    return apiRequest(`/accounts/current/delegations/${delegationId}/activate`, {
+  async activateDelegation(accountId: string, delegationId: string): Promise<DelegationResponse> {
+    return apiRequest(`/accounts/${accountId}/delegations/${delegationId}/activate`, {
       method: 'PATCH',
     });
   },
 
   // Deactivate a delegation
-  async deactivateDelegation(delegationId: string): Promise<DelegationResponse> {
-    return apiRequest(`/accounts/current/delegations/${delegationId}/deactivate`, {
+  async deactivateDelegation(accountId: string, delegationId: string): Promise<DelegationResponse> {
+    return apiRequest(`/accounts/${accountId}/delegations/${delegationId}/deactivate`, {
       method: 'PATCH',
     });
   },
 
   // Revoke a delegation
-  async revokeDelegation(delegationId: string): Promise<DelegationResponse> {
-    return apiRequest(`/accounts/current/delegations/${delegationId}/revoke`, {
+  async revokeDelegation(accountId: string, delegationId: string): Promise<DelegationResponse> {
+    return apiRequest(`/accounts/${accountId}/delegations/${delegationId}/revoke`, {
       method: 'PATCH',
     });
   },
@@ -244,23 +244,23 @@ export const delegationApi = {
   // The endpoint returns `{ permissions, role_id }`
   // (Api::V1::DelegationsController#available_permissions); only the array is
   // useful to callers here, so this unwraps that one level further.
-  async getAvailablePermissions(roleId?: string): Promise<Permission[]> {
+  async getAvailablePermissions(accountId: string, roleId?: string): Promise<Permission[]> {
     const params = roleId ? `?role_id=${roleId}` : '';
-    const data = await apiRequest(`/accounts/current/delegations/available_permissions${params}`);
+    const data = await apiRequest(`/accounts/${accountId}/delegations/available_permissions${params}`);
     return data.permissions || [];
   },
 
   // Add permission to delegation (by permission NAME)
-  async addPermissionToDelegation(delegationId: string, permissionName: string): Promise<DelegationResponse> {
-    return apiRequest(`/accounts/current/delegations/${delegationId}/permissions`, {
+  async addPermissionToDelegation(accountId: string, delegationId: string, permissionName: string): Promise<DelegationResponse> {
+    return apiRequest(`/accounts/${accountId}/delegations/${delegationId}/permissions`, {
       method: 'POST',
       body: JSON.stringify({ permission_name: permissionName }),
     });
   },
 
   // Remove permission from delegation (by permission NAME)
-  async removePermissionFromDelegation(delegationId: string, permissionName: string): Promise<DelegationResponse> {
-    return apiRequest(`/accounts/current/delegations/${delegationId}/permissions/${encodeURIComponent(permissionName)}`, {
+  async removePermissionFromDelegation(accountId: string, delegationId: string, permissionName: string): Promise<DelegationResponse> {
+    return apiRequest(`/accounts/${accountId}/delegations/${delegationId}/permissions/${encodeURIComponent(permissionName)}`, {
       method: 'DELETE',
     });
   },
@@ -293,9 +293,3 @@ export const deriveDelegationPermissions = (
       description: permission.description,
     };
   });
-
-// Back-compat export retained for callers/tests that import this symbol. The catalog is
-// the source of truth, so the static list is intentionally empty here (no hardcoded
-// permission names); consumers fetch the catalog via `rolesApi.getPermissions()` and map
-// it through `deriveDelegationPermissions` at runtime.
-export const DELEGATION_PERMISSIONS: DelegationPermissionOption[] = [];

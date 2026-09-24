@@ -14,6 +14,8 @@ jest.mock('@/shared/services/api', () => ({
   },
 }));
 
+const ACCOUNT_ID = 'acct-1';
+
 /**
  * THE REASON LIVES IN `details`, NOT IN `error`.
  *
@@ -46,12 +48,12 @@ describe('delegationApi error mapping', () => {
       success: false,
       error: 'Failed to remove permission',
       details: [
-        'Removing this permission would widen the delegation to the full Finance role, granting: business.billing.refund. Update the delegation\'s permissions or revoke it instead.',
+        'Removing this permission would widen the delegation to the full Finance role, granting: reports.refund. Update the delegation\'s permissions or revoke it instead.',
       ],
     });
 
     await expect(
-      delegationApi.removePermissionFromDelegation('del-1', 'business.billing.read')
+      delegationApi.removePermissionFromDelegation(ACCOUNT_ID, 'del-1', 'reports.read')
     ).rejects.toThrow(/would widen the delegation to the full Finance role/);
   });
 
@@ -59,12 +61,12 @@ describe('delegationApi error mapping', () => {
     rejectWith(mockPost, {
       success: false,
       error: 'Failed to add permission',
-      details: ['business.billing.refund is not granted by the Finance role'],
+      details: ['reports.refund is not granted by the Finance role'],
     });
 
     await expect(
-      delegationApi.addPermissionToDelegation('del-1', 'business.billing.refund')
-    ).rejects.toThrow(/Failed to add permission: business\.billing\.refund is not granted by the Finance role/);
+      delegationApi.addPermissionToDelegation(ACCOUNT_ID, 'del-1', 'reports.refund')
+    ).rejects.toThrow(/Failed to add permission: reports\.refund is not granted by the Finance role/);
   });
 
   it('joins every reason when the service reports more than one', async () => {
@@ -75,7 +77,7 @@ describe('delegationApi error mapping', () => {
     });
 
     await expect(
-      delegationApi.updateDelegation('del-1', { permission_names: ['a'] })
+      delegationApi.updateDelegation(ACCOUNT_ID, 'del-1', { permission_names: ['a'] })
     ).rejects.toThrow(/first reason; second reason/);
   });
 
@@ -87,7 +89,7 @@ describe('delegationApi error mapping', () => {
     });
 
     await expect(
-      delegationApi.removePermissionFromDelegation('del-1', 'business.billing.read')
+      delegationApi.removePermissionFromDelegation(ACCOUNT_ID, 'del-1', 'reports.read')
     ).rejects.toThrow(/the only reason/);
   });
 
@@ -95,7 +97,7 @@ describe('delegationApi error mapping', () => {
     rejectWith(mockDelete, { success: false, error: 'Failed to remove permission' });
 
     await expect(
-      delegationApi.removePermissionFromDelegation('del-1', 'business.billing.read')
+      delegationApi.removePermissionFromDelegation(ACCOUNT_ID, 'del-1', 'reports.read')
     ).rejects.toThrow('Failed to remove permission');
   });
 
@@ -103,7 +105,7 @@ describe('delegationApi error mapping', () => {
     rejectWith(mockDelete, { message: 'A plain message', error: 'ignored' });
 
     await expect(
-      delegationApi.removePermissionFromDelegation('del-1', 'business.billing.read')
+      delegationApi.removePermissionFromDelegation(ACCOUNT_ID, 'del-1', 'reports.read')
     ).rejects.toThrow('A plain message');
   });
 });
@@ -120,6 +122,12 @@ describe('delegationApi error mapping', () => {
  *    resolved value was one level too deep relative to what the exported
  *    types (DelegationsResponse, DelegationResponse, ...) declare. Pinned by
  *    asserting the RESOLVED value is the inner payload, not the envelope.
+ *
+ * fc-20 re-review BLOCKER fix: every method takes the caller's real account
+ * id as its first argument, never the literal "current" -- see the doc
+ * comment on delegationApi.getDelegations for why "current" 404'd for any
+ * admin.access holder (including core-mode's first user, who holds
+ * system.admin).
  */
 describe('delegationApi — real endpoint paths and envelope unwrapping', () => {
   beforeEach(() => {
@@ -128,86 +136,86 @@ describe('delegationApi — real endpoint paths and envelope unwrapping', () => 
 
   const envelope = (data: unknown) => ({ data: { success: true, data } });
 
-  it('getDelegations hits the real path with no doubled prefix, and unwraps the envelope', async () => {
+  it('getDelegations hits the real account-scoped path with no doubled prefix, and unwraps the envelope', async () => {
     mockGet.mockResolvedValue(envelope({ delegations: [ { id: 'del-1' } ], meta: { total_count: 1 } }));
 
-    const result = await delegationApi.getDelegations();
+    const result = await delegationApi.getDelegations(ACCOUNT_ID);
 
-    expect(mockGet).toHaveBeenCalledWith('/accounts/current/delegations');
+    expect(mockGet).toHaveBeenCalledWith(`/accounts/${ACCOUNT_ID}/delegations`);
     expect(result).toEqual({ delegations: [ { id: 'del-1' } ], meta: { total_count: 1 } });
   });
 
   it('getDelegations appends filters as a query string on the same real path', async () => {
     mockGet.mockResolvedValue(envelope({ delegations: [], meta: { total_count: 0 } }));
 
-    await delegationApi.getDelegations({ status: 'active' });
+    await delegationApi.getDelegations(ACCOUNT_ID, { status: 'active' });
 
-    expect(mockGet).toHaveBeenCalledWith('/accounts/current/delegations?status=active');
+    expect(mockGet).toHaveBeenCalledWith(`/accounts/${ACCOUNT_ID}/delegations?status=active`);
   });
 
-  it('getDelegation hits the real per-id path and unwraps the envelope', async () => {
-    mockGet.mockResolvedValue(envelope({ delegation: { id: 'del-1' } }));
-
-    const result = await delegationApi.getDelegation('del-1');
-
-    expect(mockGet).toHaveBeenCalledWith('/accounts/current/delegations/del-1');
-    expect(result).toEqual({ delegation: { id: 'del-1' } });
-  });
-
-  it('createDelegation POSTs the real path with a `delegation` envelope param', async () => {
+  it('createDelegation POSTs the real account-scoped path with a `delegation` envelope param', async () => {
     mockPost.mockResolvedValue(envelope({ delegation: { id: 'del-1' }, message: 'Delegation created successfully' }));
 
-    const result = await delegationApi.createDelegation({ delegated_user_email: 'a@example.com' });
+    const result = await delegationApi.createDelegation(ACCOUNT_ID, { delegated_user_email: 'a@example.com' });
 
-    expect(mockPost).toHaveBeenCalledWith('/accounts/current/delegations', {
+    expect(mockPost).toHaveBeenCalledWith(`/accounts/${ACCOUNT_ID}/delegations`, {
       delegation: { delegated_user_email: 'a@example.com' },
     });
     expect(result).toEqual({ delegation: { id: 'del-1' }, message: 'Delegation created successfully' });
   });
 
+  it('activateDelegation PATCHes the real /activate path and unwraps the envelope', async () => {
+    mockPatch.mockResolvedValue(envelope({ delegation: { id: 'del-1', status: 'active' }, message: 'Delegation activated successfully' }));
+
+    const result = await delegationApi.activateDelegation(ACCOUNT_ID, 'del-1');
+
+    expect(mockPatch).toHaveBeenCalledWith(`/accounts/${ACCOUNT_ID}/delegations/del-1/activate`, undefined);
+    expect(result).toEqual({ delegation: { id: 'del-1', status: 'active' }, message: 'Delegation activated successfully' });
+  });
+
+  it('deactivateDelegation PATCHes the real /deactivate path and unwraps the envelope', async () => {
+    mockPatch.mockResolvedValue(envelope({ delegation: { id: 'del-1', status: 'inactive' }, message: 'Delegation deactivated successfully' }));
+
+    const result = await delegationApi.deactivateDelegation(ACCOUNT_ID, 'del-1');
+
+    expect(mockPatch).toHaveBeenCalledWith(`/accounts/${ACCOUNT_ID}/delegations/del-1/deactivate`, undefined);
+    expect(result).toEqual({ delegation: { id: 'del-1', status: 'inactive' }, message: 'Delegation deactivated successfully' });
+  });
+
   it('revokeDelegation PATCHes the real /revoke path and unwraps the envelope', async () => {
     mockPatch.mockResolvedValue(envelope({ delegation: { id: 'del-1', status: 'revoked' }, message: 'Delegation revoked successfully' }));
 
-    const result = await delegationApi.revokeDelegation('del-1');
+    const result = await delegationApi.revokeDelegation(ACCOUNT_ID, 'del-1');
 
-    expect(mockPatch).toHaveBeenCalledWith('/accounts/current/delegations/del-1/revoke', undefined);
+    expect(mockPatch).toHaveBeenCalledWith(`/accounts/${ACCOUNT_ID}/delegations/del-1/revoke`, undefined);
     expect(result).toEqual({ delegation: { id: 'del-1', status: 'revoked' }, message: 'Delegation revoked successfully' });
   });
 
-  it('deleteDelegation DELETEs the real per-id path and unwraps a message-only envelope', async () => {
-    mockDelete.mockResolvedValue(envelope({ message: 'Delegation revoked successfully' }));
+  it('getAvailablePermissions hits the real account-scoped /available_permissions path and unwraps to the bare array', async () => {
+    mockGet.mockResolvedValue(envelope({ permissions: [ { name: 'reports.read', key: 'reports.read', resource: 'reports', action: 'read', description: 'View reports' } ], role_id: 'r-1' }));
 
-    const result = await delegationApi.deleteDelegation('del-1');
+    const result = await delegationApi.getAvailablePermissions(ACCOUNT_ID, 'r-1');
 
-    expect(mockDelete).toHaveBeenCalledWith('/accounts/current/delegations/del-1');
-    expect(result).toEqual({ message: 'Delegation revoked successfully' });
+    expect(mockGet).toHaveBeenCalledWith(`/accounts/${ACCOUNT_ID}/delegations/available_permissions?role_id=r-1`);
+    expect(result).toEqual([ { name: 'reports.read', key: 'reports.read', resource: 'reports', action: 'read', description: 'View reports' } ]);
   });
 
-  it('getAvailablePermissions hits the real /available_permissions path and unwraps to the bare array', async () => {
-    mockGet.mockResolvedValue(envelope({ permissions: [ { name: 'business.billing.read', key: 'business.billing.read', resource: 'business.billing', action: 'read', description: 'View billing' } ], role_id: 'r-1' }));
-
-    const result = await delegationApi.getAvailablePermissions('r-1');
-
-    expect(mockGet).toHaveBeenCalledWith('/accounts/current/delegations/available_permissions?role_id=r-1');
-    expect(result).toEqual([ { name: 'business.billing.read', key: 'business.billing.read', resource: 'business.billing', action: 'read', description: 'View billing' } ]);
-  });
-
-  it('addPermissionToDelegation POSTs the real /permissions path', async () => {
+  it('addPermissionToDelegation POSTs the real account-scoped /permissions path', async () => {
     mockPost.mockResolvedValue(envelope({ delegation: { id: 'del-1' }, message: 'Permission added successfully' }));
 
-    await delegationApi.addPermissionToDelegation('del-1', 'business.billing.read');
+    await delegationApi.addPermissionToDelegation(ACCOUNT_ID, 'del-1', 'reports.read');
 
-    expect(mockPost).toHaveBeenCalledWith('/accounts/current/delegations/del-1/permissions', {
-      permission_name: 'business.billing.read',
+    expect(mockPost).toHaveBeenCalledWith(`/accounts/${ACCOUNT_ID}/delegations/del-1/permissions`, {
+      permission_name: 'reports.read',
     });
   });
 
-  it('removePermissionFromDelegation DELETEs the real /permissions/:name path', async () => {
+  it('removePermissionFromDelegation DELETEs the real account-scoped /permissions/:name path', async () => {
     mockDelete.mockResolvedValue(envelope({ delegation: { id: 'del-1' }, message: 'Permission removed successfully' }));
 
-    await delegationApi.removePermissionFromDelegation('del-1', 'business.billing.read');
+    await delegationApi.removePermissionFromDelegation(ACCOUNT_ID, 'del-1', 'reports.read');
 
-    expect(mockDelete).toHaveBeenCalledWith('/accounts/current/delegations/del-1/permissions/business.billing.read');
+    expect(mockDelete).toHaveBeenCalledWith(`/accounts/${ACCOUNT_ID}/delegations/del-1/permissions/reports.read`);
   });
 
   it('getAvailableRoles fetches through rolesApi.getRoles() and excludes only the owner role', async () => {

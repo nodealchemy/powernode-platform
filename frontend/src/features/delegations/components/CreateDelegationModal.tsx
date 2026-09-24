@@ -1,13 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { delegationApi, Role, Permission, DelegationFormData } from '@/features/delegations/services/delegationApi';
 import { PermissionSelector } from '@/features/account/components/PermissionSelector';
+import { useAuth } from '@/shared/hooks/useAuth';
 
 interface CreateDelegationModalProps {
   onClose: () => void;
-  onCreate: (data: DelegationFormData) => void;
+  // Awaited: a rejection is caught here and shown INSIDE this modal (its own
+  // z-50 overlay sits above the parent's banner, which a caller-side error
+  // would render behind and never be seen).
+  onCreate: (data: DelegationFormData) => Promise<void>;
 }
 
+const errorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
+
 export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ onClose, onCreate }) => {
+  const { currentUser } = useAuth();
+  const accountId = currentUser?.account?.id;
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     delegated_user_email: '',
@@ -19,23 +28,29 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
   const [availableRoles, setAvailableRoles] = useState<Role[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     loadInitialData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountId]);
 
   const loadInitialData = async () => {
+    if (!accountId) return;
     try {
       setLoading(true);
+      setLoadError(null);
       const [rolesData, permissionsData] = await Promise.all([
         delegationApi.getAvailableRoles(),
-        delegationApi.getAvailablePermissions()
+        delegationApi.getAvailablePermissions(accountId)
       ]);
       setAvailableRoles(rolesData);
       setAvailablePermissions(permissionsData);
-    } catch (_error) {
-    // Error silently ignored
-  } finally {
+    } catch (error) {
+      setLoadError(errorMessage(error, 'Failed to load roles and permissions.'));
+    } finally {
       setLoading(false);
     }
   };
@@ -48,9 +63,21 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
     setFormData(prev => ({ ...prev, permission_names: permissionNames }));
   };
 
+  const submit = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      await onCreate(formData);
+    } catch (error) {
+      setSubmitError(errorMessage(error, 'Failed to create delegation.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onCreate(formData);
+    submit();
   };
 
   const isStepValid = () => {
@@ -80,7 +107,7 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
               </svg>
             </button>
           </div>
-          
+
           {/* Step Indicator */}
           <div className="flex items-center justify-center mt-6 space-x-2">
             {[1, 2].map((s) => (
@@ -107,6 +134,18 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          {loadError && (
+            <div role="alert" className="mb-6 bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
+              <p className="text-sm text-theme-error-fg">{loadError}</p>
+            </div>
+          )}
+
+          {submitError && (
+            <div role="alert" className="mb-6 bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
+              <p className="text-sm text-theme-error-fg">{submitError}</p>
+            </div>
+          )}
+
           {/* Step 1: Delegation Details */}
           {step === 1 && (
             <div className="space-y-6">
@@ -162,7 +201,7 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
                 <p className="text-sm text-theme-secondary mb-6">
                   Select a role or specific permissions to delegate to the user
                 </p>
-                
+
                 <PermissionSelector
                   selectedRoleId={formData.role_id}
                   selectedPermissionIds={formData.permission_names}
@@ -193,13 +232,13 @@ export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ on
                 if (step < 2 && isStepValid()) {
                   setStep(step + 1);
                 } else if (step === 2 && isStepValid()) {
-                  onCreate(formData);
+                  submit();
                 }
               }}
-              disabled={!isStepValid() || loading}
+              disabled={!isStepValid() || loading || submitting}
               className="px-4 py-2 bg-theme-interactive-primary text-white rounded-lg hover:bg-theme-interactive-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? 'Loading...' : step === 2 ? 'Create Delegation' : 'Next'}
+              {submitting ? 'Creating...' : loading ? 'Loading...' : step === 2 ? 'Create Delegation' : 'Next'}
             </button>
           </div>
         </div>

@@ -19,7 +19,7 @@ const mockUpdateDelegation = jest.fn();
 // only -- never roles.
 let mockPermissions: string[] = [];
 jest.mock('@/shared/hooks/useAuth', () => ({
-  useAuth: () => ({ currentUser: { permissions: mockPermissions } }),
+  useAuth: () => ({ currentUser: { permissions: mockPermissions, account: { id: 'acct-1' } } }),
 }));
 
 jest.mock('@/features/delegations/services/delegationApi', () => ({
@@ -29,11 +29,13 @@ jest.mock('@/features/delegations/services/delegationApi', () => ({
     removePermissionFromDelegation: (...args: unknown[]) => mockRemovePermissionFromDelegation(...args),
     updateDelegation: (...args: unknown[]) => mockUpdateDelegation(...args),
   },
-  DELEGATION_PERMISSIONS: [
-    { key: 'business.billing.read', label: 'View Billing', description: 'View billing information' },
-    { key: 'business.billing.manage', label: 'Manage Billing', description: 'Manage billing settings' },
+  // Catalog labels the real catalog fetch (rolesApi.getPermissions ->
+  // deriveDelegationPermissions) would derive at runtime -- no back-compat seed
+  // constant to fall back on now (fc-20 review item 7 removed it).
+  deriveDelegationPermissions: () => [
+    { key: 'reports.read', label: 'View Reports', description: 'View reports information' },
+    { key: 'reports.manage', label: 'Manage Reports', description: 'Manage reports settings' },
   ],
-  deriveDelegationPermissions: () => [],
 }));
 
 jest.mock('@/features/admin/roles/services/rolesApi', () => ({
@@ -43,7 +45,7 @@ jest.mock('@/features/admin/roles/services/rolesApi', () => ({
 }));
 
 // A delegation whose stored custom permission set has drifted from its role: the API
-// resolves `permissions` against the role LIVE, so `business.billing.export` is carried
+// resolves `permissions` against the role LIVE, so `reports.export` is carried
 // by the stored row but confers nothing and is reported in `stale_permission_names`.
 const delegation = {
   id: 'del-1',
@@ -52,10 +54,10 @@ const delegation = {
   delegated_by: { id: 'u-2', email: 'b@example.com', full_name: 'B User' },
   role: { id: 'r-1', name: 'Finance', description: 'Finance role' },
   permissions: [
-    { name: 'business.billing.read', key: 'business.billing.read', resource: 'business.billing', action: 'read', description: 'View billing' },
-    { name: 'business.billing.manage', key: 'business.billing.manage', resource: 'business.billing', action: 'manage', description: 'Manage billing' },
+    { name: 'reports.read', key: 'reports.read', resource: 'reports', action: 'read', description: 'View reports' },
+    { name: 'reports.manage', key: 'reports.manage', resource: 'reports', action: 'manage', description: 'Manage reports' },
   ],
-  stale_permission_names: ['business.billing.export'],
+  stale_permission_names: ['reports.export'],
   permission_source: 'custom',
   status: 'active',
   expires_at: null,
@@ -74,6 +76,8 @@ const renderModal = (overrides: Partial<Delegation> = {}) =>
       delegation={{ ...delegation, ...overrides }}
       onClose={jest.fn()}
       onRevoke={jest.fn()}
+      onActivate={jest.fn()}
+      onDeactivate={jest.fn()}
       onUpdate={jest.fn()}
     />
   );
@@ -126,6 +130,8 @@ describe('DelegationDetailsModal header and details', () => {
         delegation={{ ...delegation, notes: null }}
         onClose={jest.fn()}
         onRevoke={jest.fn()}
+      onActivate={jest.fn()}
+      onDeactivate={jest.fn()}
         onUpdate={jest.fn()}
       />
     );
@@ -148,7 +154,7 @@ describe('DelegationDetailsModal permission disclosure', () => {
     renderModal();
 
     expect(screen.getByText('Stale Stored Permissions')).toBeInTheDocument();
-    expect(screen.getByText('business.billing.export')).toBeInTheDocument();
+    expect(screen.getByText('reports.export')).toBeInTheDocument();
   });
 
   it('omits the stale section when every stored name still resolves', () => {
@@ -157,14 +163,15 @@ describe('DelegationDetailsModal permission disclosure', () => {
     expect(screen.queryByText('Stale Stored Permissions')).not.toBeInTheDocument();
   });
 
-  it('renders stale names in the same vocabulary as the resolved list', () => {
+  it('renders stale names in the same vocabulary as the resolved list', async () => {
     // The two lists sit side by side; showing a catalog label in one and the raw
     // dotted key in the other makes one permission look like two different things.
-    renderModal({ permissions: [], stale_permission_names: ['business.billing.manage'] } as unknown as Partial<Delegation>);
+    // The label resolves from the async catalog fetch, so this awaits it settling.
+    renderModal({ permissions: [], stale_permission_names: ['reports.manage'] } as unknown as Partial<Delegation>);
 
-    expect(screen.getByText('Manage Billing')).toBeInTheDocument();
-    expect(screen.queryByText('business.billing.manage')).not.toBeInTheDocument();
-    expect(screen.getByTitle('business.billing.manage')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Manage Reports')).toBeInTheDocument());
+    expect(screen.queryByText('reports.manage')).not.toBeInTheDocument();
+    expect(screen.getByTitle('reports.manage')).toBeInTheDocument();
   });
 
   it('names the delegations permission, not a missing editor, for a viewer who cannot edit', () => {
@@ -191,9 +198,9 @@ describe('DelegationDetailsModal permission-set editor', () => {
   beforeEach(() => {
     mockPermissions = ['accounts.manage'];
     mockGetAvailablePermissions.mockResolvedValue([
-      { name: 'business.billing.read', key: 'business.billing.read', resource: 'business.billing', action: 'read', description: 'View billing' },
-      { name: 'business.billing.manage', key: 'business.billing.manage', resource: 'business.billing', action: 'manage', description: 'Manage billing' },
-      { name: 'business.billing.refund', key: 'business.billing.refund', resource: 'business.billing', action: 'refund', description: 'Refund' },
+      { name: 'reports.read', key: 'reports.read', resource: 'reports', action: 'read', description: 'View reports' },
+      { name: 'reports.manage', key: 'reports.manage', resource: 'reports', action: 'manage', description: 'Manage reports' },
+      { name: 'reports.refund', key: 'reports.refund', resource: 'reports', action: 'refund', description: 'Refund' },
     ]);
     mockAddPermissionToDelegation.mockResolvedValue({});
     mockRemovePermissionFromDelegation.mockResolvedValue({});
@@ -221,9 +228,9 @@ describe('DelegationDetailsModal permission-set editor', () => {
 
     // The stored set is what a removal acts on, so it must include the stale name
     // that resolves to nothing as well as the two that still resolve.
-    expect(screen.getByRole('button', { name: 'Remove business.billing.read' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Remove business.billing.manage' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Remove business.billing.export' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove reports.read' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove reports.manage' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remove reports.export' })).toBeInTheDocument();
   });
 
   it('removes a stored name through the API and refreshes the delegation', async () => {
@@ -233,14 +240,16 @@ describe('DelegationDetailsModal permission-set editor', () => {
         delegation={delegation}
         onClose={jest.fn()}
         onRevoke={jest.fn()}
+      onActivate={jest.fn()}
+      onDeactivate={jest.fn()}
         onUpdate={onUpdate}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove business.billing.export' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove reports.export' }));
 
     await waitFor(() => {
-      expect(mockRemovePermissionFromDelegation).toHaveBeenCalledWith('del-1', 'business.billing.export');
+      expect(mockRemovePermissionFromDelegation).toHaveBeenCalledWith('acct-1', 'del-1', 'reports.export');
     });
     await waitFor(() => expect(onUpdate).toHaveBeenCalled());
   });
@@ -249,9 +258,9 @@ describe('DelegationDetailsModal permission-set editor', () => {
     // Account::Delegation#configured_permissions_for falls back to the ROLE's full
     // set on an empty custom set, so dropping the last stored name WIDENS the
     // delegation -- DelegationService#remove_permission_from_delegation refuses it.
-    renderModal({ permissions: [], stale_permission_names: ['business.billing.export'] } as unknown as Partial<Delegation>);
+    renderModal({ permissions: [], stale_permission_names: ['reports.export'] } as unknown as Partial<Delegation>);
 
-    const remove = screen.getByRole('button', { name: 'Remove business.billing.export' });
+    const remove = screen.getByRole('button', { name: 'Remove reports.export' });
     expect(remove).toBeDisabled();
     expect(screen.getByText(/would widen this delegation to the full Finance role/i)).toBeInTheDocument();
 
@@ -262,17 +271,17 @@ describe('DelegationDetailsModal permission-set editor', () => {
   it('adds a permission the role grants and that is not stored yet', async () => {
     renderModal();
 
-    await waitFor(() => expect(mockGetAvailablePermissions).toHaveBeenCalledWith('r-1'));
+    await waitFor(() => expect(mockGetAvailablePermissions).toHaveBeenCalledWith('acct-1', 'r-1'));
 
     const select = await screen.findByLabelText('Add a permission');
     // Already-stored names must not be offered again.
     expect(screen.queryByRole('option', { name: /business\.billing\.read/ })).not.toBeInTheDocument();
 
-    fireEvent.change(select, { target: { value: 'business.billing.refund' } });
+    fireEvent.change(select, { target: { value: 'reports.refund' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add Permission' }));
 
     await waitFor(() => {
-      expect(mockAddPermissionToDelegation).toHaveBeenCalledWith('del-1', 'business.billing.refund');
+      expect(mockAddPermissionToDelegation).toHaveBeenCalledWith('acct-1', 'del-1', 'reports.refund');
     });
   });
 
@@ -282,8 +291,8 @@ describe('DelegationDetailsModal permission-set editor', () => {
     fireEvent.click(screen.getByRole('button', { name: /Drop 1 stale name/i }));
 
     await waitFor(() => {
-      expect(mockUpdateDelegation).toHaveBeenCalledWith('del-1', {
-        permission_names: ['business.billing.read', 'business.billing.manage'],
+      expect(mockUpdateDelegation).toHaveBeenCalledWith('acct-1', 'del-1', {
+        permission_names: ['reports.read', 'reports.manage'],
       });
     });
   });
@@ -292,7 +301,7 @@ describe('DelegationDetailsModal permission-set editor', () => {
     // Every stored name is stale: PATCHing permission_names: [] is a no-op on the
     // API (`permission_names.present?`), so offering it would promise a clear that
     // never happens.
-    renderModal({ permissions: [], stale_permission_names: ['business.billing.export'] } as unknown as Partial<Delegation>);
+    renderModal({ permissions: [], stale_permission_names: ['reports.export'] } as unknown as Partial<Delegation>);
 
     expect(screen.queryByRole('button', { name: /Drop .* stale name/i })).not.toBeInTheDocument();
   });
@@ -308,7 +317,7 @@ describe('DelegationDetailsModal permission-set editor', () => {
 
     renderModal();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove business.billing.export' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove reports.export' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/would widen the delegation/i);
   });
@@ -343,7 +352,7 @@ describe('DelegationDetailsModal permission-set editor: the API refuses only a W
   const rolelessSingleName = {
     role: null,
     permissions: [
-      { name: 'business.billing.read', key: 'business.billing.read', resource: 'business.billing', action: 'read', description: 'View billing' },
+      { name: 'reports.read', key: 'reports.read', resource: 'reports', action: 'read', description: 'View reports' },
     ],
     stale_permission_names: [],
     permission_source: 'custom',
@@ -352,7 +361,7 @@ describe('DelegationDetailsModal permission-set editor: the API refuses only a W
   it('ENABLES the last removal on a role-less delegation, which the service permits', () => {
     renderModal(rolelessSingleName);
 
-    expect(screen.getByRole('button', { name: 'Remove business.billing.read' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Remove reports.read' })).toBeEnabled();
   });
 
   it('never claims a role fallback on a delegation that HAS no role', () => {
@@ -366,17 +375,17 @@ describe('DelegationDetailsModal permission-set editor: the API refuses only a W
   it('sends the removal through the API rather than blocking it in the client', async () => {
     renderModal(rolelessSingleName);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove business.billing.read' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove reports.read' }));
 
     await waitFor(() => {
-      expect(mockRemovePermissionFromDelegation).toHaveBeenCalledWith('del-1', 'business.billing.read');
+      expect(mockRemovePermissionFromDelegation).toHaveBeenCalledWith('acct-1', 'del-1', 'reports.read');
     });
   });
 
   it('still refuses the emptying removal when a ROLE is there to fall back to', () => {
-    renderModal({ permissions: [], stale_permission_names: ['business.billing.export'] } as unknown as Partial<Delegation>);
+    renderModal({ permissions: [], stale_permission_names: ['reports.export'] } as unknown as Partial<Delegation>);
 
-    expect(screen.getByRole('button', { name: 'Remove business.billing.export' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Remove reports.export' })).toBeDisabled();
     expect(screen.getByText(/would widen this delegation to the full Finance role/i)).toBeInTheDocument();
   });
 });
@@ -402,18 +411,20 @@ describe('DelegationDetailsModal permission-set editor: staleness windows', () =
         delegation={delegation}
         onClose={jest.fn()}
         onRevoke={jest.fn()}
+      onActivate={jest.fn()}
+      onDeactivate={jest.fn()}
         onUpdate={onUpdate}
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove business.billing.export' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove reports.export' }));
 
     await waitFor(() => expect(onUpdate).toHaveBeenCalled());
-    expect(screen.getByRole('button', { name: 'Remove business.billing.read' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Remove reports.read' })).toBeDisabled();
 
     releaseParentRefresh();
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Remove business.billing.read' })).toBeEnabled()
+      expect(screen.getByRole('button', { name: 'Remove reports.read' })).toBeEnabled()
     );
   });
 
@@ -424,11 +435,92 @@ describe('DelegationDetailsModal permission-set editor: staleness windows', () =
     // which is listing stored names.
     const { container } = renderModal({
       permission_source: undefined,
-      stale_permission_names: ['business.billing.export'],
+      stale_permission_names: ['reports.export'],
     } as unknown as Partial<Delegation>);
 
     expect(screen.getByText('Stale Stored Permissions')).toBeInTheDocument();
     expect(screen.queryByText(/stores no custom permissions/i)).not.toBeInTheDocument();
     expect(container.textContent).toMatch(/does not report/i);
+  });
+});
+
+// fc-20 review item 3: activate/deactivate wired into the modal so the flow works end
+// to end. Availability mirrors Accounts::DelegationService's own refusal rules
+// (activate refuses on revoked OR expired; deactivate refuses only on revoked; revoke
+// is always offered unless already revoked).
+describe('DelegationDetailsModal action buttons', () => {
+  beforeEach(() => {
+    mockPermissions = [];
+  });
+
+  it('shows Deactivate (not Activate) and Revoke for an active delegation', () => {
+    renderModal({ is_active: true, is_expired: false, status: 'active' });
+
+    expect(screen.getByRole('button', { name: 'Deactivate' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Activate' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Revoke Delegation' })).toBeInTheDocument();
+  });
+
+  it('shows Activate (not Deactivate) and Revoke for an inactive, non-expired delegation', () => {
+    renderModal({ is_active: false, is_expired: false, status: 'inactive' });
+
+    expect(screen.getByRole('button', { name: 'Activate' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Revoke Delegation' })).toBeInTheDocument();
+  });
+
+  it('shows neither Activate nor Deactivate for an expired delegation, only Revoke', () => {
+    renderModal({ is_active: false, is_expired: true, status: 'active' });
+
+    expect(screen.queryByRole('button', { name: 'Activate' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Revoke Delegation' })).toBeInTheDocument();
+  });
+
+  it('shows no action buttons at all for an already-revoked delegation', () => {
+    renderModal({ is_active: false, is_expired: false, status: 'revoked' });
+
+    expect(screen.queryByRole('button', { name: 'Activate' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Deactivate' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Revoke Delegation' })).not.toBeInTheDocument();
+  });
+
+  it('calls onActivate with the delegation id when Activate is clicked', () => {
+    const onActivate = jest.fn();
+    render(
+      <DelegationDetailsModal
+        delegation={{ ...delegation, is_active: false, is_expired: false, status: 'inactive' }}
+        onClose={jest.fn()}
+        onRevoke={jest.fn()}
+        onActivate={onActivate}
+        onDeactivate={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Activate' }));
+
+    expect(onActivate).toHaveBeenCalledWith('del-1');
+  });
+
+  it('calls onDeactivate with the delegation id when Deactivate is clicked', () => {
+    // The confirm-before-deactivate UX (fc-20 item 3) lives one level up, in
+    // DelegationsManagement's handleDeactivateDelegation -- this modal just
+    // forwards the click to whatever onDeactivate it was given.
+    const onDeactivate = jest.fn();
+    render(
+      <DelegationDetailsModal
+        delegation={{ ...delegation, is_active: true, is_expired: false, status: 'active' }}
+        onClose={jest.fn()}
+        onRevoke={jest.fn()}
+        onActivate={jest.fn()}
+        onDeactivate={onDeactivate}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
+
+    expect(onDeactivate).toHaveBeenCalledWith('del-1');
   });
 });

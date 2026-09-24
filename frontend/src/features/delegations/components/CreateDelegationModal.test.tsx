@@ -13,13 +13,23 @@ jest.mock('@/features/delegations/services/delegationApi', () => ({
   }
 }));
 
+// The component reads the caller's real account id from useAuth() (fc-20
+// BLOCKER fix: never a "current" sentinel), so a bare render() without this
+// mock throws on the missing react-redux Provider context.
+jest.mock('@/shared/hooks/useAuth', () => ({
+  useAuth: () => ({ currentUser: { permissions: [], account: { id: 'acct-1' } } }),
+}));
+
 // Mock PermissionSelector
 jest.mock('@/features/account/components/PermissionSelector', () => ({
   PermissionSelector: ({ onRoleChange, onPermissionChange, selectedRoleId, selectedPermissionIds, loading }: { onRoleChange: (roleId: string) => void; onPermissionChange: (permissionIds: string[]) => void; selectedRoleId?: string | null; selectedPermissionIds: string[]; loading?: boolean }) => (
     <div data-testid="permission-selector">
       {loading && <span>Loading permissions...</span>}
-      <button onClick={() => onRoleChange('role-1')}>Select Role</button>
-      <button onClick={() => onPermissionChange(['perm-1', 'perm-2'])}>Select Permissions</button>
+      {/* type="button": these live inside CreateDelegationModal's <form>, where a
+          bare <button> defaults to type="submit" and would fire handleSubmit as
+          a side effect of merely selecting a role/permission. */}
+      <button type="button" onClick={() => onRoleChange('role-1')}>Select Role</button>
+      <button type="button" onClick={() => onPermissionChange(['perm-1', 'perm-2'])}>Select Permissions</button>
       <span data-testid="selected-role">{selectedRoleId || 'none'}</span>
       <span data-testid="selected-permissions">{selectedPermissionIds.join(',') || 'none'}</span>
     </div>
@@ -38,8 +48,8 @@ describe('CreateDelegationModal', () => {
   ];
 
   const mockPermissions = [
-    { id: 'perm-1', resource: 'billing', action: 'read', description: 'View billing', key: 'business.billing.read' },
-    { id: 'perm-2', resource: 'billing', action: 'manage', description: 'Manage billing', key: 'business.billing.manage' }
+    { id: 'perm-1', resource: 'reports', action: 'read', description: 'View reports', key: 'reports.read' },
+    { id: 'perm-2', resource: 'reports', action: 'manage', description: 'Manage reports', key: 'reports.manage' }
   ];
 
   beforeEach(() => {
@@ -353,13 +363,90 @@ describe('CreateDelegationModal', () => {
       expect(screen.getByText('Loading...')).toBeInTheDocument();
     });
 
-    it('loads initial data on mount', async () => {
+    it('loads initial data on mount, scoped to the real account id', async () => {
       render(<CreateDelegationModal {...defaultProps} />);
 
       await waitFor(() => {
         expect(mockGetAvailableRoles).toHaveBeenCalled();
-        expect(mockGetAvailablePermissions).toHaveBeenCalled();
+        expect(mockGetAvailablePermissions).toHaveBeenCalledWith('acct-1');
       });
+    });
+  });
+
+  describe('error surfacing (fc-20 item 4)', () => {
+    it('shows a load error banner INSIDE the modal when roles/permissions fail to load', async () => {
+      mockGetAvailableRoles.mockRejectedValue(new Error('Failed to fetch roles'));
+      render(<CreateDelegationModal {...defaultProps} />);
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('Failed to fetch roles');
+    });
+
+    it('shows a generic load error when the rejection carries no message', async () => {
+      mockGetAvailableRoles.mockRejectedValue('boom');
+      render(<CreateDelegationModal {...defaultProps} />);
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('Failed to load roles and permissions.');
+    });
+
+    it('shows a create error banner INSIDE the modal when onCreate rejects', async () => {
+      const onCreate = jest.fn().mockRejectedValue(new Error('Email already delegated'));
+      render(<CreateDelegationModal {...defaultProps} onCreate={onCreate} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Next')).toBeInTheDocument();
+      });
+
+      const emailInput = screen.getByPlaceholderText('Enter the email address of the user to delegate to');
+      fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+      fireEvent.click(screen.getByText('Next'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Back')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Select Role'));
+
+      const createButtons = screen.getAllByText('Create Delegation');
+      const submitButton = createButtons.find(el => el.tagName === 'BUTTON');
+      fireEvent.click(submitButton!);
+
+      const alert = await screen.findByRole('alert');
+      expect(alert).toHaveTextContent('Email already delegated');
+    });
+
+    it('shows "Creating..." and disables the submit button while onCreate is pending', async () => {
+      let resolveCreate: () => void;
+      const onCreate = jest.fn().mockImplementation(() => new Promise<void>((resolve) => {
+        resolveCreate = resolve;
+      }));
+      render(<CreateDelegationModal {...defaultProps} onCreate={onCreate} />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Next')).toBeInTheDocument();
+      });
+
+      const emailInput = screen.getByPlaceholderText('Enter the email address of the user to delegate to');
+      fireEvent.change(emailInput, { target: { value: 'test@example.com' } });
+      fireEvent.click(screen.getByText('Next'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Back')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Select Role'));
+
+      const createButtons = screen.getAllByText('Create Delegation');
+      const submitButton = createButtons.find(el => el.tagName === 'BUTTON')!;
+      fireEvent.click(submitButton);
+
+      await waitFor(() => {
+        expect(screen.getByText('Creating...')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Creating...').closest('button')).toBeDisabled();
+
+      resolveCreate!();
     });
   });
 

@@ -5,11 +5,12 @@ import {
   DelegationFormData,
   DelegationPermissionOption,
   deriveDelegationPermissions,
-  DELEGATION_PERMISSIONS
 } from '@/features/delegations/services/delegationApi';
 import { rolesApi } from '@/features/admin/roles/services/rolesApi';
 import { formatDate } from '@/shared/utils/formatters';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { useAuth } from '@/shared/hooks/useAuth';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { CreateDelegationModal } from './CreateDelegationModal';
 import { DelegationDetailsModal } from './DelegationDetailsModal';
 
@@ -19,7 +20,14 @@ import { DelegationDetailsModal } from './DelegationDetailsModal';
 const errorMessage = (error: unknown, fallback: string): string =>
   error instanceof Error ? error.message : fallback;
 
+// A row is EXPIRED independently of its stored `status`: Account::Delegation#active?
+// is `status == "active" && !expired?`, so a row can sit at status "active" past its
+// expires_at and still be inactive. `is_expired` is the only field that says so.
+const statusLabel = (delegation: Delegation): string =>
+  delegation.is_expired ? 'Expired' : delegation.status.charAt(0).toUpperCase() + delegation.status.slice(1);
+
 export const DelegationsManagement: React.FC = () => {
+  const { currentUser } = useAuth();
   const { confirm, ConfirmationDialog } = useConfirmation();
   const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [selectedDelegation, setSelectedDelegation] = useState<Delegation | null>(null);
@@ -29,13 +37,22 @@ export const DelegationsManagement: React.FC = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   // Delegatable permissions shown in the reference section, sourced from the catalog at
-  // runtime (seeded from the back-compat constant so the list is never extension-coupled).
-  const [permissionRefs, setPermissionRefs] = useState<DelegationPermissionOption[]>(DELEGATION_PERMISSIONS);
+  // runtime -- empty until the first successful fetch resolves.
+  const [permissionRefs, setPermissionRefs] = useState<DelegationPermissionOption[]>([]);
+
+  const accountId = currentUser?.account?.id;
+  // Mirrors Api::V1::DelegationsController#authorize_delegation_management!
+  // exactly (accounts.manage OR admin.access), through the same hasPermissions
+  // helper the sidebar nav item uses -- so system.admin and wildcard grants
+  // behave identically in both places.
+  const canManageDelegations = hasPermissions(currentUser ?? null, [ 'accounts.manage', 'admin.access' ]);
 
   useEffect(() => {
+    if (!canManageDelegations || !accountId) return;
     loadDelegations();
     loadPermissionRefs();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManageDelegations, accountId]);
 
   const loadPermissionRefs = async () => {
     try {
@@ -50,10 +67,11 @@ export const DelegationsManagement: React.FC = () => {
   };
 
   const loadDelegations = async (): Promise<Delegation[]> => {
+    if (!accountId) return [];
     try {
       setLoading(true);
       setLoadError(null);
-      const data = await delegationApi.getDelegations();
+      const data = await delegationApi.getDelegations(accountId);
       const list = data.delegations || [];
       setDelegations(list);
       return list;
@@ -80,14 +98,10 @@ export const DelegationsManagement: React.FC = () => {
   };
 
   const handleCreateDelegation = async (data: DelegationFormData) => {
-    try {
-      setActionError(null);
-      await delegationApi.createDelegation(data);
-      await loadDelegations();
-      setShowCreateModal(false);
-    } catch (error) {
-      setActionError(errorMessage(error, 'Failed to create delegation.'));
-    }
+    if (!accountId) return;
+    await delegationApi.createDelegation(accountId, data);
+    await loadDelegations();
+    setShowCreateModal(false);
   };
 
   const handleRevokeDelegation = (delegationId: string) => {
@@ -97,9 +111,10 @@ export const DelegationsManagement: React.FC = () => {
       confirmLabel: 'Revoke',
       variant: 'danger',
       onConfirm: async () => {
+        if (!accountId) return;
         try {
           setActionError(null);
-          await delegationApi.revokeDelegation(delegationId);
+          await delegationApi.revokeDelegation(accountId, delegationId);
           await loadDelegations();
           setShowDetailsModal(false);
         } catch (error) {
@@ -109,23 +124,69 @@ export const DelegationsManagement: React.FC = () => {
     });
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusClasses = {
-      active: 'bg-theme-success-bg text-theme-success-fg',
-      expired: 'bg-theme-error-bg text-theme-error-fg',
-      revoked: 'bg-theme-surface text-theme-tertiary',
-      inactive: 'bg-theme-surface text-theme-tertiary',
-    };
+  const handleActivateDelegation = async (delegationId: string) => {
+    if (!accountId) return;
+    try {
+      setActionError(null);
+      await delegationApi.activateDelegation(accountId, delegationId);
+      await handleDelegationUpdated();
+    } catch (error) {
+      setActionError(errorMessage(error, 'Failed to activate delegation.'));
+    }
+  };
+
+  const handleDeactivateDelegation = (delegationId: string) => {
+    confirm({
+      title: 'Deactivate Delegation',
+      message: 'Are you sure you want to deactivate this delegation? The delegated user will lose the access it grants until it is reactivated.',
+      confirmLabel: 'Deactivate',
+      variant: 'danger',
+      onConfirm: async () => {
+        if (!accountId) return;
+        try {
+          setActionError(null);
+          await delegationApi.deactivateDelegation(accountId, delegationId);
+          await handleDelegationUpdated();
+        } catch (error) {
+          setActionError(errorMessage(error, 'Failed to deactivate delegation.'));
+        }
+      },
+    });
+  };
+
+  const getStatusBadge = (delegation: Delegation) => {
+    const variant = delegation.is_expired
+      ? 'bg-theme-error-bg text-theme-error-fg'
+      : delegation.is_active
+      ? 'bg-theme-success-bg text-theme-success-fg'
+      : 'bg-theme-surface text-theme-tertiary';
 
     return (
-      <span className={`text-xs px-2 py-1 rounded-full ${statusClasses[status as keyof typeof statusClasses] || statusClasses.inactive}`}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <span className={`text-xs px-2 py-1 rounded-full ${variant}`}>
+        {statusLabel(delegation)}
       </span>
     );
   };
 
   const delegatedUserLabel = (delegation: Delegation) =>
     delegation.delegated_user.full_name || delegation.delegated_user.email;
+
+  const openDetails = (delegation: Delegation) => {
+    setSelectedDelegation(delegation);
+    setShowDetailsModal(true);
+  };
+
+  if (!canManageDelegations) {
+    return (
+      <div className="bg-theme-surface rounded-lg p-8 text-center">
+        <span className="text-4xl">🔒</span>
+        <p className="text-theme-secondary mt-2">You don&apos;t have permission to manage delegations</p>
+        <p className="text-theme-tertiary text-sm mt-1">
+          Managing delegations requires the accounts.manage permission.
+        </p>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -135,8 +196,8 @@ export const DelegationsManagement: React.FC = () => {
     );
   }
 
-  const activeDelegations = delegations.filter(d => d.status === 'active');
-  const inactiveDelegations = delegations.filter(d => d.status !== 'active');
+  const activeDelegations = delegations.filter(d => d.is_active);
+  const inactiveDelegations = delegations.filter(d => !d.is_active);
 
   return (
     <div className="space-y-6">
@@ -175,13 +236,10 @@ export const DelegationsManagement: React.FC = () => {
                 <div
                   key={delegation.id}
                   className="bg-theme-background rounded-lg p-4 border border-theme hover:border-theme-focus transition-colors cursor-pointer"
-                  onClick={() => {
-                    setSelectedDelegation(delegation);
-                    setShowDetailsModal(true);
-                  }}>
+                  onClick={() => openDetails(delegation)}>
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-theme-primary">{delegatedUserLabel(delegation)}</h4>
-                    {getStatusBadge(delegation.status)}
+                    {getStatusBadge(delegation)}
                   </div>
                   <p className="text-sm text-theme-secondary mb-3">
                     {delegation.role ? delegation.role.name : 'Custom permissions'}
@@ -243,24 +301,25 @@ export const DelegationsManagement: React.FC = () => {
             </div>
           </div>
 
-          {/* Expired/Revoked Delegations */}
+          {/* Expired/Inactive/Revoked Delegations */}
           <div>
             <h3 className="text-lg font-medium text-theme-primary mb-4">Inactive Delegations</h3>
             <div className="space-y-3">
               {inactiveDelegations.map((delegation) => (
                 <div
                   key={delegation.id}
-                  className="bg-theme-background rounded-lg p-4 border border-theme opacity-75"
+                  className="bg-theme-background rounded-lg p-4 border border-theme opacity-75 hover:border-theme-focus hover:opacity-100 transition-colors cursor-pointer"
+                  onClick={() => openDetails(delegation)}
                 >
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-theme-primary">{delegatedUserLabel(delegation)}</h4>
-                    {getStatusBadge(delegation.status)}
+                    {getStatusBadge(delegation)}
                   </div>
                   <p className="text-sm text-theme-secondary">
                     {delegation.role ? delegation.role.name : 'Custom permissions'}
                   </p>
                   <div className="mt-2 text-xs text-theme-tertiary">
-                    {delegation.is_expired ? 'Expired' : 'Revoked'} on {formatDate(delegation.updated_at)}
+                    {statusLabel(delegation)} — last updated {formatDate(delegation.updated_at)}
                   </div>
                 </div>
               ))}
@@ -270,7 +329,7 @@ export const DelegationsManagement: React.FC = () => {
                   <span className="text-4xl">📋</span>
                   <p className="text-theme-secondary mt-2">No inactive delegations</p>
                   <p className="text-theme-tertiary text-sm mt-1">
-                    Expired and revoked delegations will appear here
+                    Expired, deactivated and revoked delegations will appear here
                   </p>
                 </div>
               )}
@@ -310,6 +369,8 @@ export const DelegationsManagement: React.FC = () => {
             setSelectedDelegation(null);
           }}
           onRevoke={handleRevokeDelegation}
+          onActivate={handleActivateDelegation}
+          onDeactivate={handleDeactivateDelegation}
           onUpdate={handleDelegationUpdated}
         />
       )}

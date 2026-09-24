@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { DelegationsManagement } from './DelegationsManagement';
 import type { Delegation } from '@/features/delegations/services/delegationApi';
 
@@ -10,6 +10,14 @@ jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
   }),
 }));
 
+// The component reads the caller's real account id, and gates itself, through
+// useAuth() -- mutable per-test so the no-access-state case (fc-20 item 6) can
+// render with a currentUser that lacks accounts.manage/admin.access.
+const mockUseAuth = jest.fn();
+jest.mock('@/shared/hooks/useAuth', () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
 // Mock delegation API. fc-20 review: getDelegationRequests/approveDelegationRequest/
 // rejectDelegationRequest and the "outgoing/incoming" split were built against a
 // `/api/v1/delegation-requests` surface that never existed server-side (no route, no
@@ -17,18 +25,24 @@ jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
 const mockGetDelegations = jest.fn();
 const mockCreateDelegation = jest.fn();
 const mockRevokeDelegation = jest.fn();
+const mockActivateDelegation = jest.fn();
+const mockDeactivateDelegation = jest.fn();
 
 jest.mock('@/features/delegations/services/delegationApi', () => ({
   delegationApi: {
     getDelegations: (...args: unknown[]) => mockGetDelegations(...args),
     createDelegation: (...args: unknown[]) => mockCreateDelegation(...args),
-    revokeDelegation: (...args: unknown[]) => mockRevokeDelegation(...args)
+    revokeDelegation: (...args: unknown[]) => mockRevokeDelegation(...args),
+    activateDelegation: (...args: unknown[]) => mockActivateDelegation(...args),
+    deactivateDelegation: (...args: unknown[]) => mockDeactivateDelegation(...args),
   },
-  DELEGATION_PERMISSIONS: [
-    { key: 'business.billing.read', label: 'View Billing', description: 'View billing information' },
-    { key: 'business.billing.manage', label: 'Manage Billing', description: 'Manage billing settings' },
-    { key: 'users.read', label: 'View Users', description: 'View team members' }
-  ]
+  // Catalog labels the real catalog fetch (rolesApi.getPermissions ->
+  // deriveDelegationPermissions) would derive at runtime -- no back-compat seed
+  // constant to fall back on (fc-20 review item 7 removed DELEGATION_PERMISSIONS).
+  deriveDelegationPermissions: () => [
+    { key: 'reports.read', label: 'View Reports', description: 'View reports information' },
+    { key: 'reports.manage', label: 'Manage Reports', description: 'Manage reports settings' },
+  ],
 }));
 
 jest.mock('@/features/admin/roles/services/rolesApi', () => ({
@@ -48,12 +62,14 @@ jest.mock('./CreateDelegationModal', () => ({
 }));
 
 jest.mock('./DelegationDetailsModal', () => ({
-  DelegationDetailsModal: ({ delegation, onClose, onRevoke, onUpdate }: { delegation: { id: string; delegated_user: { email: string }; stale_permission_names?: string[] }; onClose: () => void; onRevoke: (id: string) => void; onUpdate: () => void }) => (
+  DelegationDetailsModal: ({ delegation, onClose, onRevoke, onActivate, onDeactivate, onUpdate }: { delegation: { id: string; delegated_user: { email: string }; stale_permission_names?: string[] }; onClose: () => void; onRevoke: (id: string) => void; onActivate: (id: string) => void; onDeactivate: (id: string) => void; onUpdate: () => void }) => (
     <div data-testid="delegation-details-modal">
       <span>Details: {delegation.delegated_user.email}</span>
       <span data-testid="details-stale">{(delegation.stale_permission_names || []).join(',')}</span>
       <button onClick={onClose}>Close Details</button>
       <button onClick={() => onRevoke(delegation.id)}>Revoke</button>
+      <button onClick={() => onActivate(delegation.id)}>Activate</button>
+      <button onClick={() => onDeactivate(delegation.id)}>Deactivate</button>
       <button onClick={onUpdate}>Signal Update</button>
     </div>
   )
@@ -72,10 +88,10 @@ describe('DelegationsManagement', () => {
       // actually confers); `stale_permission_names` are stored rows the role no
       // longer grants and that therefore resolve to nothing.
       permissions: [
-        { name: 'business.billing.read', key: 'business.billing.read', resource: 'business.billing', action: 'read', description: 'View billing' },
-        { name: 'business.billing.manage', key: 'business.billing.manage', resource: 'business.billing', action: 'manage', description: 'Manage billing' },
+        { name: 'reports.read', key: 'reports.read', resource: 'reports', action: 'read', description: 'View reports' },
+        { name: 'reports.manage', key: 'reports.manage', resource: 'reports', action: 'manage', description: 'Manage reports' },
       ],
-      stale_permission_names: ['business.billing.export'],
+      stale_permission_names: ['reports.export'],
       permission_source: 'custom',
       expires_at: '2025-12-31T00:00:00Z',
       revoked_at: null,
@@ -106,12 +122,16 @@ describe('DelegationsManagement', () => {
       updated_at: '2025-01-10T00:00:00Z',
     },
     {
+      // Account::Delegation#active? is `status == "active" && !expired?`, so an
+      // expired row's stored `status` STAYS "active" -- this is the exact case
+      // fc-20 review item 2 named: bucketing on `status` alone mislabeled this
+      // row as Active with a Revoke button.
       id: 'del-3',
       account: { id: 'acct-1', name: 'Acme', subdomain: 'acme' },
       delegated_user: { id: 'u-3', email: 'old@example.com', full_name: 'Old User' },
       delegated_by: { id: 'u-owner', email: 'owner@example.com', full_name: 'Owner User' },
       role: { id: 'r-1', name: 'Finance', description: 'Finance role' },
-      status: 'expired',
+      status: 'active',
       permissions: [],
       stale_permission_names: [],
       permission_source: 'custom',
@@ -124,13 +144,76 @@ describe('DelegationsManagement', () => {
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-12-01T00:00:00Z',
     },
+    {
+      // Deactivated, not expired, not revoked: `status` is genuinely "inactive".
+      id: 'del-4',
+      account: { id: 'acct-1', name: 'Acme', subdomain: 'acme' },
+      delegated_user: { id: 'u-4', email: 'paused@example.com', full_name: 'Paused User' },
+      delegated_by: { id: 'u-owner', email: 'owner@example.com', full_name: 'Owner User' },
+      role: { id: 'r-1', name: 'Finance', description: 'Finance role' },
+      status: 'inactive',
+      permissions: [],
+      stale_permission_names: [],
+      permission_source: 'custom',
+      expires_at: null,
+      revoked_at: null,
+      revoked_by: null,
+      notes: null,
+      is_active: false,
+      is_expired: false,
+      created_at: '2024-02-01T00:00:00Z',
+      updated_at: '2024-02-15T00:00:00Z',
+    },
+    {
+      id: 'del-5',
+      account: { id: 'acct-1', name: 'Acme', subdomain: 'acme' },
+      delegated_user: { id: 'u-5', email: 'gone@example.com', full_name: 'Gone User' },
+      delegated_by: { id: 'u-owner', email: 'owner@example.com', full_name: 'Owner User' },
+      role: null,
+      status: 'revoked',
+      permissions: [],
+      stale_permission_names: [],
+      permission_source: 'custom',
+      expires_at: null,
+      revoked_at: '2024-03-01T00:00:00Z',
+      revoked_by: { id: 'u-owner', email: 'owner@example.com', full_name: 'Owner User' },
+      notes: null,
+      is_active: false,
+      is_expired: false,
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-03-01T00:00:00Z',
+    },
   ];
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetDelegations.mockResolvedValue({ delegations: mockDelegations, meta: { total_count: 3, active_count: 2, expired_count: 1 } });
+    mockUseAuth.mockReturnValue({ currentUser: { permissions: ['accounts.manage'], account: { id: 'acct-1' } } });
+    mockGetDelegations.mockResolvedValue({ delegations: mockDelegations, meta: { total_count: 5, active_count: 2, expired_count: 1 } });
     mockCreateDelegation.mockResolvedValue({ delegation: mockDelegations[0], message: 'Delegation created successfully' });
     mockRevokeDelegation.mockResolvedValue({ delegation: { ...mockDelegations[0], status: 'revoked' }, message: 'Delegation revoked successfully' });
+    mockActivateDelegation.mockResolvedValue({ delegation: { ...mockDelegations[3], status: 'active', is_active: true }, message: 'Delegation activated successfully' });
+    mockDeactivateDelegation.mockResolvedValue({ delegation: { ...mockDelegations[0], status: 'inactive', is_active: false }, message: 'Delegation deactivated successfully' });
+  });
+
+  describe('no access', () => {
+    it('shows a no-access state instead of the panel when the user lacks accounts.manage/admin.access', async () => {
+      mockUseAuth.mockReturnValue({ currentUser: { permissions: [], account: { id: 'acct-1' } } });
+
+      render(<DelegationsManagement />);
+
+      expect(screen.getByText("You don't have permission to manage delegations")).toBeInTheDocument();
+      expect(mockGetDelegations).not.toHaveBeenCalled();
+    });
+
+    it('renders the panel for a wildcard grant, same as the sidebar nav gate', async () => {
+      mockUseAuth.mockReturnValue({ currentUser: { permissions: ['accounts.*'], account: { id: 'acct-1' } } });
+
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Account Delegations')).toBeInTheDocument();
+      });
+    });
   });
 
   describe('loading state', () => {
@@ -160,14 +243,22 @@ describe('DelegationsManagement', () => {
       });
     });
 
+    it('loads delegations scoped to the real account id, not a "current" sentinel', async () => {
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(mockGetDelegations).toHaveBeenCalledWith('acct-1');
+      });
+    });
+
     it('shows permissions reference section', async () => {
       render(<DelegationsManagement />);
 
       await waitFor(() => {
         expect(screen.getByText('Available Permissions')).toBeInTheDocument();
       });
-      expect(screen.getByText('View Billing')).toBeInTheDocument();
-      expect(screen.getByText('Manage Billing')).toBeInTheDocument();
+      expect(screen.getByText('View Reports')).toBeInTheDocument();
+      expect(screen.getByText('Manage Reports')).toBeInTheDocument();
     });
   });
 
@@ -194,7 +285,8 @@ describe('DelegationsManagement', () => {
       await waitFor(() => {
         expect(screen.getAllByText('Finance').length).toBeGreaterThan(0);
       });
-      expect(screen.getByText('Custom permissions')).toBeInTheDocument();
+      const activeSection = screen.getByText('Active Delegations').closest('div')!;
+      expect(within(activeSection).getByText('Custom permissions')).toBeInTheDocument();
     });
 
     it('labels the permission count as the RESOLVED set, not the stored rows', async () => {
@@ -211,7 +303,7 @@ describe('DelegationsManagement', () => {
       await waitFor(() => {
         expect(screen.getByText(/1 stored permission is no longer granted/i, { selector: 'p' })).toBeInTheDocument();
       });
-      expect(screen.getByText('business.billing.export')).toBeInTheDocument();
+      expect(screen.getByText('reports.export')).toBeInTheDocument();
     });
 
     it('points at the details modal, where the permission-set editor lives', async () => {
@@ -247,9 +339,25 @@ describe('DelegationsManagement', () => {
         expect(screen.getAllByText('Manage →').length).toBeGreaterThan(0);
       });
     });
+
+    it('buckets by `is_active`, never by `status` alone', async () => {
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Finance User')).toBeInTheDocument();
+      });
+
+      // del-1 and del-2 are the only genuinely active rows.
+      const activeSection = screen.getByText('Active Delegations').closest('div')!;
+      expect(within(activeSection).getByText('Finance User')).toBeInTheDocument();
+      expect(within(activeSection).getByText('viewer@example.com')).toBeInTheDocument();
+      expect(within(activeSection).queryByText('Old User')).not.toBeInTheDocument();
+      expect(within(activeSection).queryByText('Paused User')).not.toBeInTheDocument();
+      expect(within(activeSection).queryByText('Gone User')).not.toBeInTheDocument();
+    });
   });
 
-  describe('inactive delegations', () => {
+  describe('inactive delegations (fc-20 item 2)', () => {
     it('shows inactive delegations section', async () => {
       render(<DelegationsManagement />);
 
@@ -258,13 +366,54 @@ describe('DelegationsManagement', () => {
       });
     });
 
-    it('shows expired delegations with status', async () => {
+    it('buckets a `status: "active"` row that has actually expired as INACTIVE, labeled Expired', async () => {
       render(<DelegationsManagement />);
 
       await waitFor(() => {
         expect(screen.getByText('Old User')).toBeInTheDocument();
       });
-      expect(screen.getByText('Expired')).toBeInTheDocument();
+
+      const inactiveSection = screen.getByText('Inactive Delegations').closest('div')!;
+      expect(within(inactiveSection).getByText('Old User')).toBeInTheDocument();
+      expect(within(inactiveSection).getByText('Expired')).toBeInTheDocument();
+      // Never mislabeled as Active just because `status` still reads "active".
+      const activeSection = screen.getByText('Active Delegations').closest('div')!;
+      expect(within(activeSection).queryByText('Old User')).not.toBeInTheDocument();
+    });
+
+    it('labels a genuinely deactivated (non-expired) row as Inactive', async () => {
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Paused User')).toBeInTheDocument();
+      });
+
+      const inactiveSection = screen.getByText('Inactive Delegations').closest('div')!;
+      expect(within(inactiveSection).getByText('Inactive')).toBeInTheDocument();
+    });
+
+    it('labels a revoked row as Revoked, not "Revoked on…"', async () => {
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Gone User')).toBeInTheDocument();
+      });
+
+      const inactiveSection = screen.getByText('Inactive Delegations').closest('div')!;
+      expect(within(inactiveSection).getByText('Revoked')).toBeInTheDocument();
+    });
+
+    it('makes inactive rows clickable, opening the details modal', async () => {
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Paused User')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Paused User').closest('div[class*="cursor-pointer"]')!);
+
+      expect(screen.getByTestId('delegation-details-modal')).toBeInTheDocument();
+      expect(screen.getByText('Details: paused@example.com')).toBeInTheDocument();
     });
   });
 
@@ -294,7 +443,7 @@ describe('DelegationsManagement', () => {
       await waitFor(() => {
         expect(screen.getByText('No inactive delegations')).toBeInTheDocument();
       });
-      expect(screen.getByText('Expired and revoked delegations will appear here')).toBeInTheDocument();
+      expect(screen.getByText('Expired, deactivated and revoked delegations will appear here')).toBeInTheDocument();
     });
   });
 
@@ -334,7 +483,7 @@ describe('DelegationsManagement', () => {
       expect(screen.queryByTestId('create-delegation-modal')).not.toBeInTheDocument();
     });
 
-    it('calls createDelegation and reloads on create', async () => {
+    it('calls createDelegation with the real account id and reloads on create', async () => {
       render(<DelegationsManagement />);
 
       await waitFor(() => {
@@ -345,26 +494,11 @@ describe('DelegationsManagement', () => {
       fireEvent.click(screen.getByText('Create'));
 
       await waitFor(() => {
-        expect(mockCreateDelegation).toHaveBeenCalledWith({ delegated_user_email: 'new@example.com' });
+        expect(mockCreateDelegation).toHaveBeenCalledWith('acct-1', { delegated_user_email: 'new@example.com' });
       });
       await waitFor(() => {
         expect(mockGetDelegations).toHaveBeenCalledTimes(2);
       });
-    });
-
-    it('surfaces a create failure instead of failing silently', async () => {
-      mockCreateDelegation.mockRejectedValue(new Error('Failed to create delegation: unknown email'));
-
-      render(<DelegationsManagement />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Create Delegation')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('Create Delegation'));
-      fireEvent.click(screen.getByText('Create'));
-
-      expect(await screen.findByRole('alert')).toHaveTextContent(/unknown email/i);
     });
   });
 
@@ -403,7 +537,7 @@ describe('DelegationsManagement', () => {
       });
 
       fireEvent.click(screen.getByText('Finance User').closest('div[class*="cursor-pointer"]')!);
-      expect(screen.getByTestId('details-stale')).toHaveTextContent('business.billing.export');
+      expect(screen.getByTestId('details-stale')).toHaveTextContent('reports.export');
 
       mockGetDelegations.mockResolvedValue({
         delegations: [ { ...mockDelegations[0], stale_permission_names: [] }, mockDelegations[1] ],
@@ -435,7 +569,7 @@ describe('DelegationsManagement', () => {
       expect(screen.getByText('Details: finance@example.com')).toBeInTheDocument();
     });
 
-    it('calls revokeDelegation when Revoke clicked, after confirmation', async () => {
+    it('calls revokeDelegation with the real account id when Revoke clicked, after confirmation', async () => {
       render(<DelegationsManagement />);
 
       await waitFor(() => {
@@ -449,7 +583,7 @@ describe('DelegationsManagement', () => {
       // routes every revoke through useConfirmation()'s confirm(), so this
       // pins the plumbing without needing a real dialog interaction.
       await waitFor(() => {
-        expect(mockRevokeDelegation).toHaveBeenCalledWith('del-1');
+        expect(mockRevokeDelegation).toHaveBeenCalledWith('acct-1', 'del-1');
       });
     });
 
@@ -464,6 +598,66 @@ describe('DelegationsManagement', () => {
 
       fireEvent.click(screen.getByText('Finance User').closest('div[class*="cursor-pointer"]')!);
       fireEvent.click(screen.getByText('Revoke'));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/already revoked/i);
+    });
+
+    it('calls activateDelegation with the real account id when Activate clicked', async () => {
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Paused User')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Paused User').closest('div[class*="cursor-pointer"]')!);
+      fireEvent.click(screen.getByText('Activate'));
+
+      await waitFor(() => {
+        expect(mockActivateDelegation).toHaveBeenCalledWith('acct-1', 'del-4');
+      });
+    });
+
+    it('surfaces an activate failure instead of failing silently', async () => {
+      mockActivateDelegation.mockRejectedValue(new Error('Failed to activate delegation: already revoked'));
+
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Paused User')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Paused User').closest('div[class*="cursor-pointer"]')!);
+      fireEvent.click(screen.getByText('Activate'));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/already revoked/i);
+    });
+
+    it('calls deactivateDelegation with the real account id when Deactivate clicked, after confirmation', async () => {
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Finance User')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Finance User').closest('div[class*="cursor-pointer"]')!);
+      fireEvent.click(screen.getByText('Deactivate'));
+
+      await waitFor(() => {
+        expect(mockDeactivateDelegation).toHaveBeenCalledWith('acct-1', 'del-1');
+      });
+    });
+
+    it('surfaces a deactivate failure instead of failing silently', async () => {
+      mockDeactivateDelegation.mockRejectedValue(new Error('Failed to deactivate delegation: already revoked'));
+
+      render(<DelegationsManagement />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Finance User')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Finance User').closest('div[class*="cursor-pointer"]')!);
+      fireEvent.click(screen.getByText('Deactivate'));
 
       expect(await screen.findByRole('alert')).toHaveTextContent(/already revoked/i);
     });
