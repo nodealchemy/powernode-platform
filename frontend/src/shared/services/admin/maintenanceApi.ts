@@ -161,6 +161,31 @@ class MaintenanceApiService {
     });
   }
 
+  // PATCH /admin/maintenance/mode (Admin::MaintenanceMode.update_fields!) —
+  // updates message/estimated_completion/bypass_ips WITHOUT toggling
+  // `enabled`. Deliberately a SEPARATE call from setMaintenanceMode above:
+  // routing a plain field edit through the toggle (POST, enable!/disable!)
+  // used to wipe the fields when maintenance was OFF (disable! resets them
+  // to defaults) and reset `enabled_at` to now on every edit when it was ON.
+  async updateMaintenanceSettings(message?: string, estimatedCompletion?: string, bypassIps: string[] = []): Promise<MaintenanceStatus> {
+    const response = await apiRequest('/admin/maintenance/mode', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        message,
+        estimated_completion: estimatedCompletion,
+        bypass_ips: bypassIps
+      })
+    });
+    const data = response.data;
+    return {
+      mode: data.enabled,
+      message: data.message,
+      estimated_completion: data.estimated_completion,
+      bypass_ips: data.bypass_ips,
+      bypass_ips_supported: data.bypass_ips_supported
+    };
+  }
+
   // Database Backups
   async getBackups(): Promise<BackupInfo[]> {
     const response = await apiRequest('/admin/maintenance/backups', {

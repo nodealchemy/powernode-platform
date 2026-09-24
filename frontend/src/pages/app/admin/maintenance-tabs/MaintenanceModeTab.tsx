@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { maintenanceApi } from '@/shared/services/admin/maintenanceApi';
 import { SettingsCard, ToggleSwitch } from '@/features/admin/components/settings/SettingsComponents';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { MaintenanceModeTabProps } from './types';
 
 export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, onUpdate }) => {
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(status.message || '');
   const [estimatedCompletion, setEstimatedCompletion] = useState(status.estimated_completion || '');
@@ -24,49 +26,67 @@ export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, 
       .map((entry) => entry.trim())
       .filter(Boolean);
 
-  const applyChange = async (enabled: boolean) => {
-    setSubmitting(true);
-    try {
-      await maintenanceApi.setMaintenanceMode(enabled, message, estimatedCompletion || undefined, parseBypassIps());
-      showNotification(
-        enabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
-        'success'
-      );
-      onUpdate();
-    } catch (error) {
-      // Surface the SERVER's own message (e.g. Admin::MaintenanceMode's
-      // InvalidBypassIp 422 explaining a rejected bypass-IP write) rather
-      // than a generic string — an admin editing the bypass list needs to
-      // know WHY the write was rejected, not just that it was.
-      const errorMessage = error instanceof Error && error.message
-        ? error.message
-        : 'Failed to update maintenance mode';
-      showNotification(errorMessage, 'error');
-    } finally {
-      setSubmitting(false);
-    }
+  const reportError = (error: unknown, fallback: string) => {
+    // Surface the SERVER's own message (e.g. Admin::MaintenanceMode's
+    // InvalidBypassIp 422 explaining a rejected bypass-IP write) rather than
+    // a generic string — an admin editing the bypass list needs to know WHY
+    // the write was rejected, not just that it was.
+    const errorMessage = error instanceof Error && error.message ? error.message : fallback;
+    showNotification(errorMessage, 'error');
   };
 
   const handleToggleMode = async () => {
     // Confirm only on the OFF -> ON transition: enabling maintenance mode is
     // disruptive (blocks every non-exempt, non-bypassed user immediately);
-    // disabling it is not, so it needs no confirmation.
+    // disabling it is not, so it needs no confirmation. Uses the shared
+    // ConfirmationModal (not window.confirm) for a consistent, themeable,
+    // accessible dialog.
     if (!status.mode) {
-      const confirmed = window.confirm(
-        'Enable maintenance mode? This will block access for all non-admin users immediately.'
-      );
-      if (!confirmed) return;
+      confirm({
+        title: 'Enable Maintenance Mode',
+        message: 'This will block access for all non-admin users immediately.',
+        confirmLabel: 'Enable',
+        variant: 'warning',
+        onConfirm: () => toggle(true)
+      });
+      return;
     }
 
-    await applyChange(!status.mode);
+    await toggle(false);
+  };
+
+  const toggle = async (enabled: boolean) => {
+    setSubmitting(true);
+    try {
+      await maintenanceApi.setMaintenanceMode(enabled, message, estimatedCompletion || undefined, parseBypassIps());
+      showNotification(enabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled', 'success');
+      onUpdate();
+    } catch (error) {
+      reportError(error, 'Failed to update maintenance mode');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // Saves message/ETA/bypass IPs WITHOUT flipping `mode` — lets an admin
   // update the maintenance message or bypass list while maintenance is
-  // already on (or stage them before turning it on), without a disable +
-  // re-enable round trip.
+  // already on, or stage them before turning it on, without a disable +
+  // re-enable round trip. Routes to PATCH /admin/maintenance/mode
+  // (Admin::MaintenanceMode.update_fields!), NOT the POST toggle endpoint:
+  // the toggle's enable!/disable! either wipe these fields (when off) or
+  // reset enabled_at (when on) as a side effect of toggling `enabled`, which
+  // Save must never do since it isn't toggling anything.
   const handleSave = async () => {
-    await applyChange(status.mode);
+    setSubmitting(true);
+    try {
+      await maintenanceApi.updateMaintenanceSettings(message, estimatedCompletion || undefined, parseBypassIps());
+      showNotification('Maintenance settings saved', 'success');
+      onUpdate();
+    } catch (error) {
+      reportError(error, 'Failed to save maintenance settings');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -170,6 +190,7 @@ export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, 
           </div>
         </div>
       </SettingsCard>
+      {ConfirmationDialog}
     </div>
   );
 };
