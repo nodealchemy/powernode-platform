@@ -8,6 +8,7 @@ require_relative "../lib/powernode/extension_registry"
 # registry: engines register gate mechanisms into it at boot, and a Zeitwerk
 # reload of the module would silently drop those registrations in dev.
 require_relative "../lib/powernode/gate_registry"
+require_relative "../lib/powernode/trusted_proxy_cidrs"
 require_relative "../lib/devops/step_handler_registry"
 
 # Only require necessary Rails components for API-only application
@@ -93,9 +94,10 @@ module Server
     # Purely additive: with TRUSTED_PROXY_CIDRS unset (the default for every
     # existing deployment), config.action_dispatch.trusted_proxies is left
     # alone and Rails' own default applies exactly as before.
-    if ENV["TRUSTED_PROXY_CIDRS"].present?
-      config.action_dispatch.trusted_proxies = ENV["TRUSTED_PROXY_CIDRS"].split(",").map { |cidr| IPAddr.new(cidr.strip) }
-    end
+    # Parsing (blank-entry filtering, invalid-entry log-and-skip) lives in
+    # Powernode::TrustedProxyCidrs — see spec/lib/powernode/trusted_proxy_cidrs_spec.rb.
+    cidrs = Powernode::TrustedProxyCidrs.parse(ENV["TRUSTED_PROXY_CIDRS"])
+    config.action_dispatch.trusted_proxies = cidrs if cidrs.any?
 
     # Application version configuration
     config.version = Powernode::Version.current
