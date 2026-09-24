@@ -108,6 +108,7 @@ const PrivacyDashboardPage: React.FC = () => {
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
+    { label: 'Account', href: '/app/profile/account' },
     { label: 'Privacy Center' }
   ];
 

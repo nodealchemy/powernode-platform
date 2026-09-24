@@ -337,7 +337,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           // dashboard at /app/privacy), but "Account" is where an operator
           // looking for consent/export/deletion controls would expect it.
           id: 'privacy',
-          name: 'Privacy',
+          name: 'Privacy Center',
           href: '/app/privacy',
           icon: Lock,
           description: 'Consent preferences, data export, and data deletion requests',
