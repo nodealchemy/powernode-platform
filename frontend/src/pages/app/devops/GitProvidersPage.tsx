@@ -91,11 +91,15 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
     {
       id: 'add-provider',
       label: 'Add Provider',
-      // fc-26: navigate to the /providers/new URL (which the id==='new' effect
-      // below already opens the modal for) rather than opening it directly,
-      // so this button is the discoverable path to that route instead of a
-      // page reachable only by typing the URL.
-      onClick: () => navigate('/app/devops/source-control/providers/new'),
+      // fc-26 review: /providers/new (a route with no destination of its
+      // own — the modal, not the URL, is the real UI) was deleted rather
+      // than made this button's target. Opens the modal in place, like
+      // Add Vendor/Add Template elsewhere.
+      onClick: () => {
+        setEditingProvider(null);
+        setSelectedProviderType(undefined);
+        setIsModalOpen(true);
+      },
       variant: 'primary',
       icon: Plus
     }
@@ -178,7 +182,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
       // Skip if modal is already open (user clicked a button)
       if (isModalOpen) return;
 
-      if (id && id !== 'new') {
+      if (id) {
         try {
           const provider = await providersApi.getProvider(id);
           setEditingProvider(provider);
@@ -187,9 +191,6 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
           showNotification('Failed to load provider', 'error');
           navigate('/app/devops/source-control');
         }
-      } else if (id === 'new') {
-        setEditingProvider(null);
-        setIsModalOpen(true);
       }
     };
     loadProviderForEdit();

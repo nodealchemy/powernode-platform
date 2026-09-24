@@ -235,7 +235,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops" element={<DevOpsHubPage />} />
 
         {/* Source Control - detail routes before catch-all */}
-        <Route path="/devops/source-control/providers/new" element={<GitProvidersPage />} />
         <Route path="/devops/source-control/providers/:id" element={<GitProvidersPage />} />
         <Route path="/devops/source-control/*" element={<SourceControlPage />} />
 
