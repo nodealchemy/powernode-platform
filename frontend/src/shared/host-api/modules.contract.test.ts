@@ -1,7 +1,8 @@
 import { execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { HOST_EXPOSED_IDS } from './modules';
+import { CORE_UI_API_VERSION, HOST_EXPOSED_IDS } from './modules';
+import * as apiClientModule from '@/shared/services/apiClient';
 
 /**
  * Guards the core<->extension coupling contract.
@@ -104,5 +105,14 @@ describe('host UI API contract', () => {
       );
     }
     expect(true).toBe(true);
+  });
+
+  it('bumped the host UI API version for the removed apiClient default export', () => {
+    // '@/shared/services/apiClient' is an exposed id; a bundle built against 2
+    // may still do `import apiClient from ...`, which no longer links. The
+    // version gate makes the loader skip it until the extension is rebuilt.
+    expect(HOST_EXPOSED_IDS as readonly string[]).toContain('@/shared/services/apiClient');
+    expect('default' in apiClientModule).toBe(false);
+    expect(CORE_UI_API_VERSION).toBeGreaterThanOrEqual(3);
   });
 });

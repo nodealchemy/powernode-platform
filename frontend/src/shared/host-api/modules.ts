@@ -45,8 +45,12 @@
  * ids in favour of `@/shared/components/layout/TabContainer` (IMP-efa22f08cb32). A
  * bundle built against 1 still imports the removed id; the loader now skips it
  * instead of letting the import fail, until the extension is rebuilt.
+ *
+ * 3: `@/shared/services/apiClient` lost its default export; only the named
+ * `apiClient` remains. A bundle built against 2 may still default-import it,
+ * which no longer links, so the loader skips it until the extension is rebuilt.
  */
-export const CORE_UI_API_VERSION = 2;
+export const CORE_UI_API_VERSION = 3;
 
 /**
  * Core `@/…` modules exposed to extension frontends. Derived empirically from
