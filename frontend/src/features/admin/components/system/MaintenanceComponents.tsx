@@ -2,166 +2,16 @@ import React, { useState } from 'react';
 import {
   Download,
   Trash2,
-  RefreshCw,
-  Database,
-  HardDrive,
-  Cpu,
-  MemoryStick,
-  Activity,
-  AlertTriangle,
-  CheckCircle,
-  Info
+  RefreshCw
 } from 'lucide-react';
 import {
   maintenanceApi,
   BackupInfo,
-  SystemHealth,
-  CleanupStats,
-  MaintenanceSystemMetrics
+  CleanupStats
 } from '@/shared/services/admin/maintenanceApi';
 import { SettingsCard } from '../settings/SettingsComponents';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-
-// System Health Component
-interface SystemHealthProps {
-  health: SystemHealth;
-  metrics: MaintenanceSystemMetrics;
-  onRefresh: () => void;
-}
-
-export const SystemHealthMonitor: React.FC<SystemHealthProps> = ({ health, metrics, onRefresh }) => {
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'healthy': return <CheckCircle className="w-5 h-5 text-theme-success-fg" />;
-      case 'warning': return <AlertTriangle className="w-5 h-5 text-theme-warning-fg" />;
-      case 'critical': return <AlertTriangle className="w-5 h-5 text-theme-error-fg" />;
-      default: return <Info className="w-5 h-5 text-theme-secondary" />;
-    }
-  };
-
-  return (
-    <SettingsCard
-      title="System Health"
-      description="Monitor system performance and resource usage"
-      icon="🏥"
-    >
-      <div className="space-y-6">
-        {/* Overall Status */}
-        <div className={`p-4 rounded-lg border ${maintenanceApi.getStatusBgColor(health.overall_status)}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {getStatusIcon(health.overall_status)}
-              <div>
-                <h4 className="font-medium text-theme-primary">System Status</h4>
-                <p className="text-sm text-theme-secondary capitalize">{health.overall_status}</p>
-              </div>
-            </div>
-            <button
-              onClick={onRefresh}
-              className="btn-theme btn-theme-secondary p-2"
-              title="Refresh status"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* System Metrics */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-4 bg-theme-background rounded-lg border border-theme">
-            <Cpu className="w-8 h-8 text-theme-interactive-primary mx-auto mb-2" />
-            <div className="text-2xl font-bold text-theme-primary">{metrics.cpu_usage}%</div>
-            <div className="text-sm text-theme-secondary">CPU Usage</div>
-          </div>
-          <div className="text-center p-4 bg-theme-background rounded-lg border border-theme">
-            <MemoryStick className="w-8 h-8 text-theme-interactive-primary mx-auto mb-2" />
-            <div className="text-2xl font-bold text-theme-primary">{metrics.memory_usage}%</div>
-            <div className="text-sm text-theme-secondary">Memory</div>
-          </div>
-          <div className="text-center p-4 bg-theme-background rounded-lg border border-theme">
-            <HardDrive className="w-8 h-8 text-theme-interactive-primary mx-auto mb-2" />
-            <div className="text-2xl font-bold text-theme-primary">{metrics.disk_usage}%</div>
-            <div className="text-sm text-theme-secondary">Disk Usage</div>
-          </div>
-          <div className="text-center p-4 bg-theme-background rounded-lg border border-theme">
-            <Activity className="w-8 h-8 text-theme-interactive-primary mx-auto mb-2" />
-            <div className="text-2xl font-bold text-theme-primary">{metrics.active_users}</div>
-            <div className="text-sm text-theme-secondary">Active Users</div>
-          </div>
-        </div>
-
-        {/* Component Status */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="p-4 bg-theme-background rounded-lg border border-theme">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <Database className="w-5 h-5 text-theme-interactive-primary" />
-                <span className="font-medium text-theme-primary">Database</span>
-              </div>
-              {getStatusIcon(health.database.status)}
-            </div>
-            <div className="space-y-1 text-sm text-theme-secondary">
-              <div>Size: {maintenanceApi.formatBytes(health.database.size)}</div>
-              <div>Response: {health.database.connection_time}ms</div>
-            </div>
-          </div>
-
-          <div className="p-4 bg-theme-background rounded-lg border border-theme">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <MemoryStick className="w-5 h-5 text-theme-interactive-primary" />
-                <span className="font-medium text-theme-primary">Redis</span>
-              </div>
-              {getStatusIcon(health.redis.status)}
-            </div>
-            <div className="space-y-1 text-sm text-theme-secondary">
-              <div>Memory: {maintenanceApi.formatBytes(health.redis.memory_usage)}</div>
-              <div>Clients: {health.redis.connected_clients}</div>
-            </div>
-          </div>
-
-          <div className="p-4 bg-theme-background rounded-lg border border-theme">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <HardDrive className="w-5 h-5 text-theme-interactive-primary" />
-                <span className="font-medium text-theme-primary">Storage</span>
-              </div>
-              {getStatusIcon(health.storage.status)}
-            </div>
-            <div className="space-y-1 text-sm text-theme-secondary">
-              <div>Used: {maintenanceApi.formatBytes(health.storage.used_space)}</div>
-              <div>Free: {maintenanceApi.formatBytes(health.storage.available_space)}</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Services Status */}
-        {health.services.length > 0 && (
-          <div>
-            <h5 className="font-medium text-theme-primary mb-3">Services</h5>
-            <div className="space-y-2">
-              {health.services.map((service, index) => (
-                <div key={index} className="flex items-center justify-between p-3 bg-theme-background rounded border border-theme">
-                  <div className="flex items-center gap-3">
-                    {getStatusIcon(service.status)}
-                    <div>
-                      <div className="font-medium text-theme-primary">{service.name}</div>
-                      <div className="text-sm text-theme-secondary">
-                        Uptime: {maintenanceApi.formatUptime(service.uptime)} | 
-                        Memory: {maintenanceApi.formatBytes(service.memory_usage)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    </SettingsCard>
-  );
-};
 
 // Database Backup Component
 interface DatabaseBackupProps {

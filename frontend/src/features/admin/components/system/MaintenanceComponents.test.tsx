@@ -1,13 +1,10 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import type {
   BackupInfo,
-  SystemHealth,
   CleanupStats,
-  MaintenanceSystemMetrics,
 } from '@/shared/services/admin/maintenanceApi';
 import type { UseConfirmationOptions } from '@/shared/components/ui/ConfirmationModal';
 import {
-  SystemHealthMonitor,
   DatabaseBackupManager,
   DataCleanupManager,
 } from './MaintenanceComponents';
@@ -18,7 +15,7 @@ const mockDeleteBackup = jest.fn();
 const mockDownloadBackup = jest.fn();
 const mockRunCleanup = jest.fn();
 
-// Pure formatting/colour helpers are reproduced (not stubbed away) so render
+// Pure formatting helper is reproduced (not stubbed away) so render
 // assertions reflect real component output.
 const realFormatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
@@ -28,28 +25,6 @@ const realFormatBytes = (bytes: number): string => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
-const realFormatUptime = (seconds: number): string => {
-  const days = Math.floor(seconds / (24 * 3600));
-  const hours = Math.floor((seconds % (24 * 3600)) / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
-  if (hours > 0) return `${hours}h ${minutes}m`;
-  return `${minutes}m`;
-};
-
-const realGetStatusBgColor = (status: string): string => {
-  switch (status) {
-    case 'healthy':
-      return 'bg-theme-success-bg';
-    case 'warning':
-      return 'bg-theme-warning-bg';
-    case 'critical':
-      return 'bg-theme-error-bg';
-    default:
-      return 'bg-theme-background-secondary';
-  }
-};
-
 jest.mock('@/shared/services/admin/maintenanceApi', () => ({
   maintenanceApi: {
     createBackup: (...args: unknown[]) => mockCreateBackup(...args),
@@ -57,8 +32,6 @@ jest.mock('@/shared/services/admin/maintenanceApi', () => ({
     downloadBackup: (...args: unknown[]) => mockDownloadBackup(...args),
     runCleanup: (...args: unknown[]) => mockRunCleanup(...args),
     formatBytes: (bytes: number) => realFormatBytes(bytes),
-    formatUptime: (seconds: number) => realFormatUptime(seconds),
-    getStatusBgColor: (status: string) => realGetStatusBgColor(status),
   },
 }));
 
@@ -86,26 +59,6 @@ jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
 }));
 
 // --- fixtures ---------------------------------------------------------------
-const healthyHealth: SystemHealth = {
-  overall_status: 'healthy',
-  database: { status: 'healthy', connection_time: 12, size: 1048576, last_backup: '2026-01-01T00:00:00Z' },
-  redis: { status: 'healthy', memory_usage: 2048, connected_clients: 7 },
-  storage: { status: 'healthy', total_space: 10485760, used_space: 5242880, available_space: 5242880 },
-  services: [],
-};
-
-const healthyMetrics: MaintenanceSystemMetrics = {
-  cpu_usage: 23,
-  memory_usage: 41,
-  disk_usage: 67,
-  active_users: 9,
-  database_connections: 5,
-  queue_size: 2,
-  response_time_avg: 120,
-  error_rate: 0.1,
-  uptime: 90000,
-};
-
 const completedBackup: BackupInfo = {
   id: 'backup-1',
   filename: 'db_2026_06_05.sql.gz',
@@ -127,66 +80,6 @@ const cleanupStats: CleanupStats = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockShouldAutoConfirm = true;
-});
-
-// ===========================================================================
-describe('SystemHealthMonitor', () => {
-  it('renders overall status, metric tiles and component sub-status', () => {
-    render(<SystemHealthMonitor health={healthyHealth} metrics={healthyMetrics} onRefresh={jest.fn()} />);
-
-    expect(screen.getByText('System Health')).toBeInTheDocument();
-    expect(screen.getByText('healthy')).toBeInTheDocument();
-    // Metric tiles
-    expect(screen.getByText('23%')).toBeInTheDocument(); // CPU
-    expect(screen.getByText('41%')).toBeInTheDocument(); // Memory
-    expect(screen.getByText('67%')).toBeInTheDocument(); // Disk
-    expect(screen.getByText('9')).toBeInTheDocument(); // Active users
-    // Component cards
-    expect(screen.getByText('Database')).toBeInTheDocument();
-    expect(screen.getByText('Redis')).toBeInTheDocument();
-    expect(screen.getByText('Storage')).toBeInTheDocument();
-    // Formatted bytes via the util
-    expect(screen.getByText('Size: 1 MB')).toBeInTheDocument();
-    expect(screen.getByText('Response: 12ms')).toBeInTheDocument();
-  });
-
-  it('applies the warning background tone for a degraded system', () => {
-    const { container } = render(
-      <SystemHealthMonitor
-        health={{ ...healthyHealth, overall_status: 'warning' }}
-        metrics={healthyMetrics}
-        onRefresh={jest.fn()}
-      />
-    );
-    expect(container.querySelector('.bg-theme-warning-bg')).toBeInTheDocument();
-  });
-
-  it('invokes onRefresh when the refresh button is clicked', () => {
-    const onRefresh = jest.fn();
-    render(<SystemHealthMonitor health={healthyHealth} metrics={healthyMetrics} onRefresh={onRefresh} />);
-
-    fireEvent.click(screen.getByTitle('Refresh status'));
-    expect(onRefresh).toHaveBeenCalledTimes(1);
-  });
-
-  it('omits the Services section when there are no services', () => {
-    render(<SystemHealthMonitor health={healthyHealth} metrics={healthyMetrics} onRefresh={jest.fn()} />);
-    expect(screen.queryByText('Services')).not.toBeInTheDocument();
-  });
-
-  it('lists services with formatted uptime when present', () => {
-    const withServices: SystemHealth = {
-      ...healthyHealth,
-      services: [{ name: 'sidekiq', status: 'warning', uptime: 90000, memory_usage: 524288 }],
-    };
-    render(<SystemHealthMonitor health={withServices} metrics={healthyMetrics} onRefresh={jest.fn()} />);
-
-    expect(screen.getByText('Services')).toBeInTheDocument();
-    expect(screen.getByText('sidekiq')).toBeInTheDocument();
-    // 90000s => 1d 1h 0m, 524288 bytes => 512 KB
-    expect(screen.getByText(/Uptime: 1d 1h 0m/)).toBeInTheDocument();
-    expect(screen.getByText(/Memory: 512 KB/)).toBeInTheDocument();
-  });
 });
 
 // ===========================================================================
