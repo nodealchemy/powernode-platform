@@ -151,30 +151,12 @@ const ALLOWED_UNBUILT: readonly string[] = [
   // — the social-connect OAuth flow has no landing page for the provider's
   // redirect to return to.
   '/app/marketing/social/callback',
-  // supply-chain extension: ContainerImagesPage.tsx navigates here, and
-  // ContainerImageDetailPage.tsx's breadcrumb links back here, but the
-  // registered route is /app/supply-chain/containers (ContainerImagesPage /
-  // ContainerImageDetailPage) -- "container-images" vs "containers" is a
-  // stale rename, not a missing page. The second entry is the same template
-  // literal's detail-page form (`.../container-images/${image.id}`); the
-  // trailing char is the INTERP_PLACEHOLDER sentinel (U+0001) standing in
-  // for ${image.id} -- inlined as \u0001 here rather than referenced, since
-  // this array is initialized before INTERP_PLACEHOLDER further down.
-  '/app/supply-chain/container-images',
-  '/app/supply-chain/container-images/\u0001',
-  // supply-chain extension: SupplyChainDashboardPage.tsx links here, but the
-  // registered routes are /app/supply-chain/licenses (fc-25 deleted the
-  // /licenses/policies alias) and /app/supply-chain/licenses/violations
-  // (LicensePoliciesPage / LicenseViolationsPage) — same stale-rename shape
-  // as container-images.
-  '/app/supply-chain/license-policies',
-  '/app/supply-chain/license-violations',
-  // supply-chain extension: SupplyChainDashboardPage.tsx links here, but no
-  // route or page anywhere registers a dedicated vulnerabilities destination
-  // — vulnerability data today only surfaces inside container/SBOM detail
-  // components (ContainerVulnerabilitiesTable, VulnerabilityDetailModal).
-  // Genuinely missing, not a rename.
-  '/app/supply-chain/vulnerabilities',
+  // fc-26: the 4 supply-chain entries formerly here (container-images stale
+  // rename x2, license-policies/-violations stale renames, and the
+  // genuinely-missing vulnerabilities destination) were fixed at their
+  // source in the supply-chain extension (its own fc-26 branch) rather than
+  // listed here — see that extension's SupplyChainDashboardPage.tsx,
+  // ContainerImagesPage.tsx, ContainerImageDetailPage.tsx.
 ];
 
 function walkSourceFiles(dir: string, acc: string[] = []): string[] {
