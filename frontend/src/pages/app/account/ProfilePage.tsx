@@ -14,6 +14,7 @@ import { UsersContent } from '@/pages/app/account/UsersPage';
 import { EntityLink } from '@/shared/components/entity';
 import { TwoFactorSettings } from '@/features/account/components/TwoFactorSettings';
 import { DelegationsManagement } from '@/features/delegations';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
 
 // Type guard for settings update data
 const isSettingsUpdateData = (data: unknown): data is Partial<UserSettings> => {
@@ -436,11 +437,12 @@ export const ProfilePage: React.FC = () => {
       baseTabs.push({ id: 'users', label: 'Users', icon: '👥', path: '/users' });
     }
 
-    // Same gate as the sidebar's Delegations nav item, and the one
+    // Same gate as the sidebar's Delegations nav item (through the same
+    // hasPermissions helper, so system.admin and wildcard grants behave
+    // identically in both places), and the one
     // Api::V1::DelegationsController#authorize_delegation_management! itself
     // enforces server-side (permissions only, never roles).
-    const canManageDelegations =
-      user?.permissions?.includes('accounts.manage') || user?.permissions?.includes('admin.access');
+    const canManageDelegations = hasPermissions(user, [ 'accounts.manage', 'admin.access' ]);
     if (canManageDelegations) {
       baseTabs.push({ id: 'delegations', label: 'Delegations', icon: '🔗', path: '/delegations' });
     }

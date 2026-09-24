@@ -303,7 +303,7 @@ describe('ProfilePage - Delegations tab', () => {
   const renderProfileAt = (path: string, permissions: string[]) => {
     const store = configureStore({
       reducer: {
-        auth: (state = { user: { id: 'u1', name: 'Test User', email: 'test@example.com', permissions }, isAuthenticated: true }) => state
+        auth: (state = { user: { id: 'u1', name: 'Test User', email: 'test@example.com', permissions, account: { id: 'acct-1', name: 'Acme', status: 'active' } }, isAuthenticated: true }) => state
       }
     });
 
