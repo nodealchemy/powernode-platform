@@ -20,6 +20,31 @@ maintenance-mode gate refuses to configure or match ANY bypass IP/CIDR — publi
 or private — with a 422 explaining why, because a bypass decision keyed on an
 unpinned `remote_ip` cannot be trusted either way.
 
+**It REPLACES Rails' default list, it does not extend it.** Once set, the
+default trusted-proxy list (every loopback/private/link-local range) no
+longer applies at all — only the hops you list are trusted. If a reverse
+proxy (e.g. Traefik) runs **on the same host** as this app and connects over
+loopback or a Docker-bridge private address, that hop's address (or its
+containing CIDR) MUST be included explicitly, or its own forwarded-for
+header stops being honored and `request.remote_ip` resolves to the proxy
+itself instead of the real client.
+
+**A restart is required.** This is read once, in `server/config/application.rb`,
+during `Rails::Application` class-body evaluation at boot — changing it in a
+running deployment's environment has no effect until the Rails process
+(`powernode-*-rails.service`) restarts.
+
+## All-invalid behavior
+
+If every entry fails to parse (e.g. `TRUSTED_PROXY_CIDRS=garbage`), boot does
+not crash (see `server/lib/powernode/trusted_proxy_cidrs.rb`), but the result
+is the SAME as leaving the variable unset entirely: nothing gets pinned, and
+Rails' own default list applies. `Admin::MaintenanceMode.status.bypass_ips_supported`
+reports `false` in this state (checked against the PARSED result, not the raw
+env var's presence — see `trusted_proxies_configured?`), and any bypass-IP
+write is rejected with a 422 explaining why. Boot-time logs (STDERR) name
+each invalid entry it skipped.
+
 ## Value shape
 
 **Every reverse-proxy hop, comma-separated** — one entry per hop between the
