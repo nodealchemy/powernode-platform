@@ -7,7 +7,7 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
   Play, Rocket, DollarSign, Code2, Gauge, Building2, Megaphone,
-  Shield, Route, ClipboardCheck, MessageSquare, Share2
+  Shield, Route, ClipboardCheck, MessageSquare, Share2, Lock
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -314,6 +314,19 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Password, SSH keys, and security status',
           permissions: [],
           order: 9
+        },
+        {
+          // fc-26: routed but previously unlinked — reachable only by typing
+          // the URL. Not a ProfilePage tab like its Account siblings (its own
+          // dashboard at /app/privacy), but "Account" is where an operator
+          // looking for consent/export/deletion controls would expect it.
+          id: 'privacy',
+          name: 'Privacy',
+          href: '/app/privacy',
+          icon: Lock,
+          description: 'Consent preferences, data export, and data deletion requests',
+          permissions: [],
+          order: 10
         }
         // 'Billing' (order 4) is registered by the business extension via
         // featureRegistry.registerNavItems('business', [{ section: 'account', ... }]),
