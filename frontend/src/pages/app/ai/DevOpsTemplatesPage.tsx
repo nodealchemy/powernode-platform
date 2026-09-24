@@ -1,7 +1,7 @@
 // DevOps Templates Page - AI Pipeline Templates for CI/CD
 import React, { useState, useEffect } from 'react';
 import { Plus, GitBranch, Play, Search, Filter, Code, AlertTriangle, CheckCircle, BarChart3, RefreshCw, Pencil, Trash2, Tag, Shield, Clock, Download, Star, FileText } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import DevopsTemplateFormModal, { TemplateFormData } from '@/features/ai/devops/components/DevopsTemplateFormModal';
@@ -44,12 +44,15 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'templates' | 'installations' | 'executions' | 'risks' | 'reviews';
 
-// Extracted content component (without PageContainer) for embedding in other pages
-export const TemplatesContent: React.FC = () => {
-  return <DevOpsTemplatesInner standalone={false} />;
+// fc-26: extracted content component (without PageContainer) for embedding
+// in another page's own tab (CiCdPage's "Templates" tab) — reports its
+// Refresh/Create Template actions up via onActionsReady, same contract as
+// CiCdPage's other embedded tabs (PipelinesPage, RunnersPage, ModuleBuildsPage).
+export const TemplatesContent: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
+  return <DevOpsTemplatesInner standalone={false} onActionsReady={onActionsReady} />;
 };
 
-const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone }) => {
+const DevOpsTemplatesInner: React.FC<{ standalone: boolean; onActionsReady?: (actions: PageAction[]) => void }> = ({ standalone, onActionsReady }) => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('templates');
   const [templates, setTemplates] = useState<DevopsTemplate[]>([]);
@@ -78,6 +81,14 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (standalone) return;
+    onActionsReady?.([
+      { label: 'Refresh', onClick: () => loadData(), icon: RefreshCw, variant: 'secondary' as const },
+      { label: 'Create Template', onClick: () => setCreateModal(true), icon: Plus, variant: 'primary' as const },
+    ]);
+  }, [standalone, onActionsReady]);
 
   const loadData = async () => {
     try {

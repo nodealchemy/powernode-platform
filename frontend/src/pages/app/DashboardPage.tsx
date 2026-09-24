@@ -33,7 +33,6 @@ const AdminStoragePage = React.lazy(() => import('@/pages/app/admin/StorageProvi
 const AdminStorageAssignmentsPage = React.lazy(() => import('@/pages/app/admin/StorageProviderAssignmentsPage'));
 const AdminMaintenancePage = React.lazy(() => import('@/pages/app/admin/AdminMaintenancePage').then(m => ({ default: m.AdminMaintenancePage })));
 // AI Providers
-const AIProvidersPage = React.lazy(() => import('./ai/AIProvidersPage').then(m => ({ default: m.AIProvidersPage })));
 const GitProvidersPage = React.lazy(() => import('./devops/GitProvidersPage').then(m => ({ default: m.GitProvidersPage })));
 
 // AI Primary navigation
@@ -54,7 +53,6 @@ const InfrastructurePage = React.lazy(() => import('./ai/InfrastructurePage').th
 const DeveloperPortal = React.lazy(() => import('@/features/developer/pages/DeveloperPortal').then(m => ({ default: m.DeveloperPortal })));
 
 // AI Sub-pages
-const AIDebugPage = React.lazy(() => import('./ai').then(m => ({ default: m.AIDebugPage })));
 const AgentDetailPage = React.lazy(() => import('./ai/AgentDetailPage').then(m => ({ default: m.AgentDetailPage })));
 const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m => ({ default: m.AIAnalyticsPage })));
 const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
@@ -69,10 +67,11 @@ const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then
 const AIConversationsPage = React.lazy(() => import('./ai/AIConversationsPage').then(m => ({ default: m.AIConversationsPage })));
 const ChatChannelsPage = React.lazy(() => import('@/features/ai/chat-channels/pages/ChatChannelsPage'));
 
-// AI Hidden pages
 // SelfHealingDashboard absorbed into Observability Overview
-const RecommendationsDashboard = React.lazy(() => import('@/features/ai/learning/RecommendationsDashboard').then(m => ({ default: m.RecommendationsDashboard })));
-const TrajectoryInsights = React.lazy(() => import('@/features/ai/learning/TrajectoryInsights').then(m => ({ default: m.TrajectoryInsights })));
+// fc-26: RecommendationsDashboard + TrajectoryInsights were each their own
+// undiscoverable standalone route (no nav entry, no in-app link) — merged
+// into LearningPage as two tabs of one hub (see that file).
+const LearningPage = React.lazy(() => import('@/pages/app/ai/LearningPage'));
 
 // AI Orchestration
 // SandboxDashboardPage → Execution/Containers, AutonomyDashboardPage → Agents/Autonomy, CompoundLearningPage → Knowledge/Learning
@@ -99,7 +98,6 @@ const ContainerDetailPage = React.lazy(() => import('@/features/devops/docker/pa
 
 // AI Feature Pages (standalone)
 const TeamsPage = React.lazy(() => import('./ai/TeamsPage'));
-const DevOpsTemplatesPage = React.lazy(() => import('./ai/DevOpsTemplatesPage'));
 // Integration pages
 const IntegrationDetailPage = React.lazy(() => import('@/pages/app/devops/integrations').then(m => ({ default: m.IntegrationDetailPage })));
 const NewIntegrationPage = React.lazy(() => import('@/pages/app/devops/integrations').then(m => ({ default: m.NewIntegrationPage })));
@@ -180,8 +178,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/execution/*" element={<ExecutionPage />} />
         <Route path="/ai/knowledge/contexts/:id" element={<ContextDetailPage />} />
         <Route path="/ai/knowledge/*" element={<KnowledgePage />} />
-        <Route path="/ai/infrastructure/providers/new" element={<AIProvidersPage />} />
-        <Route path="/ai/infrastructure/providers/:id" element={<AIProvidersPage />} />
         <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
         {/* Observability = monitoring only; Operations = AiOps/alerts/traces; Cost = billing/finops/roi. */}
         <Route path="/ai/observability/*" element={<ObservabilityPage />} />
@@ -196,11 +192,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/campaigns" element={<ProtectedRoute requiredPermissions={['ai.campaigns.read']}><CampaignsPageWrapper /></ProtectedRoute>} />
 
         {/* AI Pages - Additional standalone routes */}
-        <Route path="/ai/learning/recommendations" element={<RecommendationsDashboard />} />
-        <Route path="/ai/learning/insights" element={<TrajectoryInsights />} />
+        <Route path="/ai/learning" element={<LearningPage />} />
+        <Route path="/ai/learning/recommendations" element={<LearningPage />} />
+        <Route path="/ai/learning/insights" element={<LearningPage />} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
-        <Route path="/ai/devops/templates" element={<DevOpsTemplatesPage />} />
-        <Route path="/ai/debug" element={<AIDebugPage />} />
         <Route path="/ai/conversations" element={<ProtectedRoute requiredPermissions={['ai.conversations.read']}><AIConversationsPage /></ProtectedRoute>} />
         <Route path="/ai/chat-channels" element={<ProtectedRoute requiredPermissions={['chat.channels.read']}><ChatChannelsPage /></ProtectedRoute>} />
 

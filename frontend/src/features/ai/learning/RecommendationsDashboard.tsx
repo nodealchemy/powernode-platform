@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { Lightbulb, CheckCircle, TrendingUp, ArrowRight } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
@@ -30,7 +29,7 @@ const TYPE_LABELS: Record<string, string> = {
   cost_optimization: 'Cost Optimization',
 };
 
-export const RecommendationsDashboard: React.FC = () => {
+export const RecommendationsContent: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const { addNotification } = useNotifications();
@@ -76,11 +75,7 @@ export const RecommendationsDashboard: React.FC = () => {
   const applied = recommendations.filter((r) => r.status === 'applied');
 
   return (
-    <PageContainer
-      title="Improvement Recommendations"
-      description="AI-generated recommendations based on trajectory analysis"
-    >
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center gap-3">
@@ -193,7 +188,6 @@ export const RecommendationsDashboard: React.FC = () => {
             </CardContent>
           </Card>
         )}
-      </div>
-    </PageContainer>
+    </div>
   );
 };
