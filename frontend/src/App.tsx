@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { RootState, AppDispatch } from '@/shared/services';
 import { store } from '@/shared/services';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
+import { fetchPlatformConfig } from '@/shared/services/slices/configSlice';
 import { isTokenInvalidError, isValidTokenFormat } from '@/shared/utils/tokenUtils';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 import { registerCoreEntities } from '@/shared/entity/registerCoreEntities';
@@ -147,6 +148,10 @@ const AppContent: React.FC = () => {
     }
 
     initializingRef.current = true;
+
+    // Public platform config (e.g. registration_enabled for the login and
+    // welcome pages) is unauthenticated, so fetch it in parallel with auth.
+    void dispatch(fetchPlatformConfig());
 
     // Try to restore user session if we have a token
     const initializeAuth = async () => {
