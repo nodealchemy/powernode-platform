@@ -20,6 +20,32 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
 
         expect_success_response
       end
+
+      # settings_summary used to dump AdminSetting#value RAW (a string), so a
+      # disabled "false" read back as a non-empty — therefore truthy — JS
+      # string. settings_summary.maintenance_mode must be the typed
+      # Admin::MaintenanceMode reading, not the raw AdminSetting row.
+      it 'reports maintenance_mode as a real boolean, not a truthy string' do
+        # admin_user (not user_with_settings_view): once maintenance mode is
+        # enabled, only an admin.access/system.admin holder is exempt from
+        # the request gate itself — a plain admin.settings.read user would
+        # get 503 before ever reaching this controller.
+        admin_headers = auth_headers_for(admin_user)
+
+        Admin::MaintenanceMode.enable!(message: 'Upgrading')
+        Admin::MaintenanceMode.invalidate_cache!
+
+        get '/api/v1/admin_settings', headers: admin_headers, as: :json
+
+        expect(json_response_data.dig('settings_summary', 'maintenance_mode')).to eq(true)
+
+        Admin::MaintenanceMode.disable!
+        Admin::MaintenanceMode.invalidate_cache!
+
+        get '/api/v1/admin_settings', headers: admin_headers, as: :json
+
+        expect(json_response_data.dig('settings_summary', 'maintenance_mode')).to eq(false)
+      end
     end
 
     context 'without required permission' do

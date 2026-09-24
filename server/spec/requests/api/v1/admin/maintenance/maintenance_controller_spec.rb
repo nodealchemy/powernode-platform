@@ -11,7 +11,7 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
 
   before do
     # Reset maintenance mode before each test
-    Rails.application.config.maintenance_mode = false
+    Admin::MaintenanceMode.disable!
 
     # Stub Database::Backup which the backups-list action references.
     unless defined?(Database::Backup)
@@ -51,45 +51,67 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
   end
 
   describe 'POST /api/v1/admin/maintenance/mode' do
-    before do
-      # Stub AuditLog.create! since enable/disable_maintenance_mode creates audit logs
-      # that may fail due to current_account being nil in test context
-      allow(AuditLog).to receive(:create!).and_return(true)
-    end
-
     context 'enabling maintenance mode' do
-      it 'enables maintenance mode successfully' do
-        post '/api/v1/admin/maintenance/mode',
-            params: {
-              enabled: true,
-              message: 'System upgrade in progress',
-              estimated_completion: '2025-01-25T12:00:00Z',
-              bypass_ips: [ '127.0.0.1' ]
-            },
-            headers: headers,
-            as: :json
+      it 'enables maintenance mode successfully and writes a real audit row' do
+        expect {
+          post '/api/v1/admin/maintenance/mode',
+              params: {
+                enabled: true,
+                message: 'System upgrade in progress',
+                estimated_completion: '2025-01-25T12:00:00Z',
+                bypass_ips: [ '127.0.0.1' ]
+              },
+              headers: headers,
+              as: :json
+        }.to change(AuditLog, :count).by(1)
 
         expect_success_response
         data = json_response_data
         expect(data['enabled']).to be true
         expect(data['message']).to eq('System upgrade in progress')
+
+        audit_log = AuditLog.last
+        expect(audit_log.action).to eq('maintenance_mode_enabled')
+        expect(audit_log.user).to eq(admin_user)
+      end
+
+      it 'rejects an unparseable bypass IP with 422 and writes no audit row' do
+        expect {
+          post '/api/v1/admin/maintenance/mode',
+              params: { enabled: true, message: 'Upgrading', bypass_ips: [ 'not-an-ip' ] },
+              headers: headers,
+              as: :json
+        }.not_to change(AuditLog, :count)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(Admin::MaintenanceMode.enabled?).to be false
+      end
+
+      it 'requires the enabled param' do
+        post '/api/v1/admin/maintenance/mode', params: { message: 'Upgrading' }, headers: headers, as: :json
+
+        expect(response).to have_http_status(:bad_request)
       end
     end
 
     context 'disabling maintenance mode' do
       before do
-        Rails.application.config.maintenance_mode = true
+        Admin::MaintenanceMode.enable!(message: 'System upgrade in progress')
       end
 
-      it 'disables maintenance mode successfully' do
-        post '/api/v1/admin/maintenance/mode',
-            params: { enabled: false },
-            headers: headers,
-            as: :json
+      it 'disables maintenance mode successfully and writes a real audit row' do
+        expect {
+          post '/api/v1/admin/maintenance/mode',
+              params: { enabled: false },
+              headers: headers,
+              as: :json
+        }.to change(AuditLog, :count).by(1)
 
         expect_success_response
         data = json_response_data
         expect(data['enabled']).to be false
+
+        expect(AuditLog.last.action).to eq('maintenance_mode_disabled')
       end
     end
   end

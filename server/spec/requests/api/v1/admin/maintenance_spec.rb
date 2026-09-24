@@ -58,39 +58,46 @@ RSpec.describe 'Api::V1::Admin::Maintenance', type: :request do
     let(:headers) { auth_headers_for(user_with_maintenance_permission) }
 
     before do
-      # Stub AuditLog.create! since enable/disable_maintenance_mode creates audit logs
-      # that may fail due to current_account being nil in test context
-      allow(AuditLog).to receive(:create!).and_return(true)
-      # Reset maintenance mode before each test
-      Rails.application.config.maintenance_mode = false rescue nil
+      # Reset maintenance mode before each test. Admin::MaintenanceMode.disable!
+      # is the real store write (not a config attribute) — no rescue needed,
+      # it cannot raise for a fresh/never-enabled store.
+      Admin::MaintenanceMode.disable!
     end
 
     context 'with admin.maintenance.mode permission' do
-      it 'enables maintenance mode' do
-        post '/api/v1/admin/maintenance/mode',
-             params: { enabled: true, message: 'Scheduled maintenance' },
-             headers: headers,
-             as: :json
+      it 'enables maintenance mode and writes a real audit row' do
+        expect {
+          post '/api/v1/admin/maintenance/mode',
+               params: { enabled: true, message: 'Scheduled maintenance' },
+               headers: headers,
+               as: :json
+        }.to change(AuditLog, :count).by(1)
 
         expect_success_response
         data = json_response_data
 
         expect(data['enabled']).to be true
+        expect(AuditLog.last.action).to eq('maintenance_mode_enabled')
       end
 
-      it 'disables maintenance mode' do
-        post '/api/v1/admin/maintenance/mode',
-             params: { enabled: false },
-             headers: headers,
-             as: :json
+      it 'disables maintenance mode and writes a real audit row' do
+        Admin::MaintenanceMode.enable!(message: 'Scheduled maintenance')
+
+        expect {
+          post '/api/v1/admin/maintenance/mode',
+               params: { enabled: false },
+               headers: headers,
+               as: :json
+        }.to change(AuditLog, :count).by(1)
 
         expect_success_response
         data = json_response_data
 
         expect(data['enabled']).to be false
+        expect(AuditLog.last.action).to eq('maintenance_mode_disabled')
       end
 
-      it 'accepts estimated_completion parameter' do
+      it 'accepts estimated_completion parameter as a plain string' do
         post '/api/v1/admin/maintenance/mode',
              params: {
                enabled: true,
@@ -101,7 +108,36 @@ RSpec.describe 'Api::V1::Admin::Maintenance', type: :request do
              as: :json
 
         expect_success_response
+        expect(json_response_data['estimated_completion']).to be_a(String)
       end
+
+      it 'requires the enabled param' do
+        post '/api/v1/admin/maintenance/mode', params: { message: 'Upgrading' }, headers: headers, as: :json
+
+        expect(response).to have_http_status(:bad_request)
+      end
+
+      it 'rejects an invalid bypass IP with 422' do
+        post '/api/v1/admin/maintenance/mode',
+             params: { enabled: true, message: 'Upgrading', bypass_ips: [ 'not-an-ip' ] },
+             headers: headers,
+             as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+      end
+    end
+  end
+
+  describe 'a legacy AdminSetting row under the OLD "maintenance_mode" key' do
+    # Regression guard for the migration in
+    # db/migrate/20260924000001_delete_legacy_maintenance_mode_admin_settings.rb:
+    # Admin::MaintenanceMode reads a FRESH key namespace ("maintenance.enabled"
+    # etc), so a leftover row from either of the two dead writers this replaced
+    # must never switch maintenance on.
+    it 'is never read by Admin::MaintenanceMode.enabled?' do
+      AdminSetting.create!(key: 'maintenance_mode', value: 'true')
+
+      expect(Admin::MaintenanceMode.enabled?).to be false
     end
   end
 
