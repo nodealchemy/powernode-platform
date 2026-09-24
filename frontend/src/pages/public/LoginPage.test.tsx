@@ -383,7 +383,12 @@ describe('LoginPage', () => {
           });
         }
         if (url === '/auth/verify-2fa') {
-          return Promise.resolve({ data: { success: false, error: 'Invalid verification token. Please try again.' } });
+          // render_error responds with a non-2xx status (sessions_controller.rb's
+          // verify_2fa rescues StandardError with :unauthorized), so axios REJECTS
+          // — it never resolves with {success:false}. Mirror that.
+          return Promise.reject({
+            response: { status: 401, data: { success: false, error: 'Authentication verification failed' } }
+          });
         }
         return Promise.reject(new Error(`unexpected POST ${url}`));
       });
@@ -404,7 +409,7 @@ describe('LoginPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /Verify/i }));
 
       await waitFor(() => {
-        expect(screen.getByText('Invalid verification token. Please try again.')).toBeInTheDocument();
+        expect(screen.getByText('Authentication verification failed')).toBeInTheDocument();
       });
       expect(mockNavigate).not.toHaveBeenCalled();
     });

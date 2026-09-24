@@ -89,7 +89,6 @@ const emptyUserSettings = {
 const ok = (data: Record<string, unknown> = {}, message?: string) => ({
   data: { success: true, data, ...(message ? { message } : {}) }
 });
-const fail = (error: string) => ({ data: { success: false, error } });
 
 // Per-endpoint handlers the mocked api.get/post/delete dispatch to by URL —
 // each test configures only the handlers it exercises.
@@ -278,7 +277,11 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
 
   it('surfaces a server error message on disable failure', async () => {
     statusHandler.mockResolvedValue(ok({ two_factor_enabled: true, backup_codes_count: 2 }));
-    disableHandler.mockResolvedValue(fail('Two-factor authentication is not enabled for this account'));
+    // render_error responds with a non-2xx status (:bad_request here), so axios
+    // REJECTS — it never resolves with {success:false}. Mirror that.
+    disableHandler.mockRejectedValue({
+      response: { status: 400, data: { success: false, error: 'Two-factor authentication is not enabled for this account' } }
+    });
 
     renderProfileSecurity();
 

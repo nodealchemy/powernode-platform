@@ -5,6 +5,7 @@ import { TwoFactorSetup } from '@/features/account/auth/components/TwoFactorSetu
 import Modal from '@/shared/components/ui/Modal';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { isErrorWithResponse, getErrorMessage } from '@/shared/utils/errorHandling';
 
 export const TwoFactorSettings: React.FC = () => {
   const [status, setStatus] = useState<{
@@ -64,8 +65,11 @@ export const TwoFactorSettings: React.FC = () => {
       } else {
         setError(response.error || 'Failed to disable two-factor authentication');
       }
-    } catch (_error) {
-      setError('Failed to disable two-factor authentication');
+    } catch (error) {
+      // render_error responds with a non-2xx status, so axios rejects here
+      // rather than resolving {success: false} — surface the server's
+      // message when the rejection carries one, falling back otherwise.
+      setError(isErrorWithResponse(error) ? getErrorMessage(error) : 'Failed to disable two-factor authentication');
     } finally {
       setIsDisabling(false);
     }

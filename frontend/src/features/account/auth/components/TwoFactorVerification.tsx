@@ -5,6 +5,7 @@ import { FormField } from '@/shared/components/ui/FormField';
 import { AuthResponse } from '@/features/account/auth/services/authAPI';
 import { Lock } from 'lucide-react';
 import ErrorAlert from '@/shared/components/ui/ErrorAlert';
+import { isErrorWithResponse, getErrorMessage } from '@/shared/utils/errorHandling';
 
 interface TwoFactorVerificationProps {
   verificationToken: string;
@@ -47,9 +48,13 @@ export const TwoFactorVerification: React.FC<TwoFactorVerificationProps> = ({
       } else {
         setError(response.error || 'Invalid verification code');
       }
-    } catch (_error) {
-      setError('Failed to verify code. Please try again.');
-      onError('Failed to verify code. Please try again.');
+    } catch (error) {
+      // render_error responds with a non-2xx status, so axios rejects here
+      // rather than resolving {success: false} — surface the server's
+      // message when the rejection carries one, falling back otherwise.
+      const message = isErrorWithResponse(error) ? getErrorMessage(error) : 'Failed to verify code. Please try again.';
+      setError(message);
+      onError(message);
     } finally {
       setIsVerifying(false);
     }
