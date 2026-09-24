@@ -223,7 +223,7 @@ export const knowledgeBaseApi = {
 };
 
 // Editing/Admin methods (integrated into main API)
-const createEditingApi = () => ({
+export const knowledgeBaseAdminApi = {
   // Categories (Editing mode)
   getCategories: (params?: { search?: string; page?: number; per_page?: number }) => {
     const searchParams = new URLSearchParams();
@@ -412,7 +412,4 @@ const createEditingApi = () => ({
 
   deleteComment: (id: string) =>
     api.delete<{ message: string }>(`/kb/comments/${id}`)
-});
-
-// Export admin API as main knowledgeBaseAdminApi for backward compatibility
-export const knowledgeBaseAdminApi = createEditingApi();
+};
