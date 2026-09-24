@@ -7,7 +7,6 @@ import { PageContainer, PageAction } from '@/shared/components/layout/PageContai
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { UserPlus, RefreshCw, Filter, Download, Copy, Check, Key } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { UserRolesModal } from '@/features/account/users/components/UserRolesModal';
@@ -29,14 +28,6 @@ const AdminUsersPage: React.FC = () => {
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
-
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'admin',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
-  });
 
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);

@@ -61,7 +61,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
           <div className="flex-1 flex flex-col min-w-0">
             <div className="flex-1 relative overflow-hidden">
               {hasNoTabs || (!activeConv && !activeTab?.isChannel) ? (
-                <ConversationCreator onComplete={() => {}} />
+                <ConversationCreator />
               ) : activeTab?.isChannel && activeTab.channelId && activeTab.teamId ? (
                 <ChannelConversationComponent
                   key={activeTab.channelId}
@@ -78,7 +78,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ onDragStart }) => {
                   isPending={activeTab?.isPending}
                 />
               ) : (
-                <ConversationCreator onComplete={() => {}} />
+                <ConversationCreator />
               )}
             </div>
           </div>

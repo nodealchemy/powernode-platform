@@ -156,11 +156,6 @@ export const ProfilePage: React.FC = () => {
     onSettingsUpdate: handleSettingsUpdate,
     onPreferencesUpdate: handlePreferencesUpdate,
     onNotificationsUpdate: handleNotificationsUpdate,
-    onProfileUpdate: (_data) => {
-      // Handle profile updates if needed
-    },
-    onError: (_error) => {
-    }
   });
 
   const loadSettings = useCallback(async () => {

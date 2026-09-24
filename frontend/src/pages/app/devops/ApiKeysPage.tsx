@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { apiKeysApi } from '@/features/devops/api-keys/services/apiKeysApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
@@ -12,13 +11,6 @@ import type { ApiKey } from '@/features/devops/api-keys/services/apiKeysApi';
 export const ApiKeysPage: React.FC = () => {
   const { addNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'devops',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
-  });
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

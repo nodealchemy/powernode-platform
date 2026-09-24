@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { ArrowLeft, Save, Plus, Trash2, GripVertical, RefreshCw } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
@@ -23,13 +22,6 @@ export const PipelineEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'devops',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
-  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [pipeline, setPipeline] = useState<DevopsPipeline | null>(null);

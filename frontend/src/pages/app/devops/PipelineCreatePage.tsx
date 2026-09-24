@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { ArrowLeft, Save, Plus, Trash2, GripVertical } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
@@ -22,13 +21,6 @@ const STEP_TYPES: { value: DevopsStepType; label: string; description: string }[
 export const PipelineCreatePage: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'devops',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
-  });
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState<DevopsPipelineFormData>({

@@ -214,20 +214,6 @@ class DevopsApiService extends BaseApiService {
     return this.get<PaginatedResponse<PipelineExecution>>(`${this.basePath}/executions${queryString}`);
   }
 
-  async createExecution(data: {
-    pipeline_type: string;
-    installation_id?: string;
-    input_data?: Record<string, unknown>;
-    trigger_source?: string;
-    trigger_event?: string;
-    repository_id?: string;
-    branch?: string;
-    commit_sha?: string;
-    pull_request_number?: string;
-  }): Promise<{ execution: PipelineExecution }> {
-    return this.post(`${this.basePath}/executions`, data);
-  }
-
   async getExecution(id: string): Promise<{ execution: PipelineExecution }> {
     return this.get(`${this.basePath}/executions/${id}`);
   }

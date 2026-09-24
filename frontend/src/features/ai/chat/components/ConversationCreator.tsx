@@ -13,7 +13,7 @@ interface AgentInfo {
 }
 
 interface ConversationCreatorProps {
-  onComplete: () => void;
+  onComplete?: () => void;
 }
 
 export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComplete }) => {
@@ -71,7 +71,7 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
     setStarting(true);
     try {
       await openConversation(selectedAgentId, '');
-      onComplete();
+      onComplete?.();
     } finally {
       setStarting(false);
     }
@@ -81,7 +81,7 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
     setConciergeLoading(true);
     try {
       await openConcierge();
-      onComplete();
+      onComplete?.();
     } finally {
       setConciergeLoading(false);
     }

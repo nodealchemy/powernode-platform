@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { SkillsPage as SkillsComponent } from '@/features/ai/skills/SkillsPage';
 
 interface SkillsContentProps {
@@ -8,10 +7,6 @@ interface SkillsContentProps {
 }
 
 export const SkillsContent: React.FC<SkillsContentProps> = ({ onActionsReady }) => {
-  usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {},
-  });
 
   return <SkillsComponent onActionsReady={onActionsReady} />;
 };
@@ -19,10 +14,6 @@ export const SkillsContent: React.FC<SkillsContentProps> = ({ onActionsReady }) 
 export const SkillsPage: React.FC = () => {
   const [actions, setActions] = useState<PageAction[]>([]);
 
-  usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {},
-  });
 
   const handleActionsReady = useCallback((newActions: PageAction[]) => {
     setActions(newActions);

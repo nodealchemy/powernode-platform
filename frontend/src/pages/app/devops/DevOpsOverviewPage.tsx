@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import {
   GitBranch,
   FolderGit2,
@@ -149,13 +148,6 @@ interface WeeklyActivity {
 
 export function DevOpsOverviewPage() {
   const navigate = useNavigate();
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'devops',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
-  });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState<DevOpsStats>({

@@ -142,7 +142,7 @@ export const StackCard: React.FC<StackCardProps> = ({
               {expandedData?.details?.compose_file && (
                 <div>
                   <h4 className="text-xs font-semibold text-theme-secondary uppercase tracking-wider mb-2">Compose File</h4>
-                  <StackComposeEditor value={expandedData.details.compose_file} onChange={() => {}} readOnly />
+                  <StackComposeEditor value={expandedData.details.compose_file} readOnly />
                 </div>
               )}
             </>

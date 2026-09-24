@@ -2,7 +2,8 @@ import React from 'react';
 
 interface StackComposeEditorProps {
   value: string;
-  onChange: (value: string) => void;
+  // Optional so a readOnly display use doesn't need a caller-supplied no-op.
+  onChange?: (value: string) => void;
   readOnly?: boolean;
 }
 
@@ -25,7 +26,7 @@ export const StackComposeEditor: React.FC<StackComposeEditorProps> = ({ value, o
       <textarea
         className="input-theme w-full font-mono text-sm leading-relaxed min-h-[300px] resize-y"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange?.(e.target.value)}
         placeholder={COMPOSE_PLACEHOLDER}
         readOnly={readOnly}
         spellCheck={false}

@@ -150,7 +150,7 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
                   label=""
                   type="text"
                   value={formatManualKey(manualKey)}
-                  onChange={() => {}}
+                  readOnly
                   disabled={true}
                   className="flex-1 font-mono text-sm"
                 />

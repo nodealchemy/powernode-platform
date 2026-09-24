@@ -10,7 +10,7 @@ interface AutonomyPolicyGroupProps {
   actionLabels?: Record<string, string>;
   getPolicy: (agentName: string, action: string) => AutonomyLevel;
   updatePolicy: (agentName: string, action: string, level: AutonomyLevel) => void;
-  onDirty: () => void;
+  onDirty?: () => void;
   onSave?: () => Promise<void>;
   isDirty?: boolean;
 }
@@ -59,7 +59,7 @@ export function AutonomyPolicyGroup({
               if (!e.target.value) return;
               const level = e.target.value as AutonomyLevel;
               actions.forEach((action) => updatePolicy(agentName, action, level));
-              onDirty();
+              onDirty?.();
               e.target.value = '';
             }}
             className="text-[10px] px-1.5 py-0.5 rounded border border-theme bg-theme-background text-theme-info-fg w-[80px]"
@@ -93,7 +93,7 @@ export function AutonomyPolicyGroup({
                 value={getPolicy(agentName, action)}
                 onChange={(e) => {
                   updatePolicy(agentName, action, e.target.value as AutonomyLevel);
-                  onDirty();
+                  onDirty?.();
                 }}
                 className="text-[11px] px-1.5 py-0.5 rounded border border-theme bg-theme-background text-theme-primary shrink-0 w-[100px]"
               >

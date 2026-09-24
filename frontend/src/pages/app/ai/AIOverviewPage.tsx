@@ -1,20 +1,11 @@
 import React, { useRef, useState, useCallback } from 'react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { EnhancedAIOverview, EnhancedAIOverviewHandle } from '@/features/ai/orchestration/components/EnhancedAIOverview';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 
 export const AIOverviewPage: React.FC = () => {
   const overviewRef = useRef<EnhancedAIOverviewHandle>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
-  });
 
   const handleRefresh = useCallback(async () => {
     if (overviewRef.current) {

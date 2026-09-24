@@ -6,7 +6,6 @@ import { MemoryViewer } from '@/features/ai/memory/components/MemoryViewer';
 import { EntryEditor } from '@/features/ai/memory/components/EntryEditor';
 import { contextApi } from '@/features/ai/memory/api/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { memoryApiService } from '@/shared/services/ai/MemoryApiService';
 import { agentsApi } from '@/shared/services/ai';
 import type { AiContextEntry, AiAgentSummary, AiPersistentContextSummary } from '@/features/ai/memory/types/context';
@@ -94,14 +93,6 @@ export function AgentMemoryPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { showNotification } = useNotifications();
-
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
-  });
 
   const [agent, setAgent] = useState<AiAgentSummary | null>(null);
   const [context, setContext] = useState<AiPersistentContextSummary | null>(null);

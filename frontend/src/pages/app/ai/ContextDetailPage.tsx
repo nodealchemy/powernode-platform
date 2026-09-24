@@ -6,7 +6,6 @@ import { SearchResults } from '@/features/ai/memory/components/SearchResults';
 import { ImportExportModal } from '@/features/ai/memory/components/ImportExportModal';
 import { contextApi } from '@/features/ai/memory/api/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import type {
   AiPersistentContext,
   AiContextEntrySummary,
@@ -19,14 +18,6 @@ export function ContextDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { showNotification } = useNotifications();
-
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'ai',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
-  });
 
   const [context, setContext] = useState<AiPersistentContext | null>(null);
   const [entries, setEntries] = useState<AiContextEntrySummary[]>([]);

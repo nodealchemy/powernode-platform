@@ -4,7 +4,6 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
-import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { AdminSettingsTabs } from '@/features/admin/components/settings/AdminSettingsTabs';
 import { featureRegistry } from '@/shared/services/featureRegistry';
@@ -51,14 +50,6 @@ export const AdminSettingsPage: React.FC = () => {
   // Extension-contributed tabs (e.g. business Payment Gateways) rendered inside
   // this tabbed shell. Keyed by namespace in the registry — core names none.
   const extensionTabs = featureRegistry.getSettingsTabs();
-
-  // WebSocket for real-time updates
-  usePageWebSocket({
-    pageType: 'admin',
-    onDataUpdate: () => {
-      // Trigger data refresh if needed
-    }
-  });
 
   // Check if user has admin settings permission
   const canAccessAdminSettings = hasPermissions(user, ['admin.settings.read']);

@@ -128,7 +128,7 @@ export const SplitPanelContainer: React.FC = () => {
               {/* Panel content */}
               <div className="flex-1 relative overflow-hidden">
                 {hasNoTabs || (!conv && !activeTabInPanel?.isChannel) || !activeTabInPanel ? (
-                  <ConversationCreator onComplete={() => {}} />
+                  <ConversationCreator />
                 ) : activeTabInPanel.isChannel && activeTabInPanel.channelId && activeTabInPanel.teamId ? (
                   <ChannelConversationComponent
                     key={activeTabInPanel.channelId}
@@ -145,7 +145,7 @@ export const SplitPanelContainer: React.FC = () => {
                     isPending={activeTabInPanel.isPending}
                   />
                 ) : (
-                  <ConversationCreator onComplete={() => {}} />
+                  <ConversationCreator />
                 )}
               </div>
             </div>

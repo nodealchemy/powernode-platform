@@ -274,7 +274,6 @@ export const MentionDropdown: React.FC<MentionDropdownProps> = ({
           key={member.id}
           type="button"
           onClick={() => onSelect(member)}
-          onMouseEnter={() => {/* selectedIndex is managed by hook */}}
           className={`w-full text-left px-3 py-2.5 transition-colors ${
             index === selectedIndex
               ? 'bg-theme-interactive-primary/10'

@@ -42,7 +42,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-type TabType = 'templates' | 'installations' | 'executions' | 'risks' | 'reviews' | 'analytics';
+type TabType = 'templates' | 'installations' | 'executions' | 'risks' | 'reviews';
 
 // Extracted content component (without PageContainer) for embedding in other pages
 export const TemplatesContent: React.FC = () => {
@@ -251,8 +251,7 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
     { id: 'installations' as TabType, label: 'Installations', icon: GitBranch },
     { id: 'executions' as TabType, label: 'Executions', icon: Play },
     { id: 'risks' as TabType, label: 'Risk Assessments', icon: AlertTriangle },
-    { id: 'reviews' as TabType, label: 'Code Reviews', icon: CheckCircle },
-    { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 }
+    { id: 'reviews' as TabType, label: 'Code Reviews', icon: CheckCircle }
   ];
 
   const innerContent = (
@@ -620,14 +619,6 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
             </div>
           )}
 
-          {/* Analytics Tab */}
-          {activeTab === 'analytics' && (
-            <div className="text-center py-12 bg-theme-surface border border-theme rounded-lg">
-              <BarChart3 size={48} className="mx-auto text-theme-secondary mb-4" />
-              <h3 className="text-lg font-semibold text-theme-primary mb-2">DevOps Analytics</h3>
-              <p className="text-theme-secondary">Detailed analytics and insights coming soon</p>
-            </div>
-          )}
         </>
       )}
       {/* Create Template Modal */}
@@ -938,12 +929,6 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean }> = ({ standalone })
           label: 'Refresh',
           onClick: () => loadData(),
           icon: RefreshCw,
-          variant: 'secondary' as const
-        },
-        {
-          label: 'New Execution',
-          onClick: () => {},
-          icon: Play,
           variant: 'secondary' as const
         },
         {

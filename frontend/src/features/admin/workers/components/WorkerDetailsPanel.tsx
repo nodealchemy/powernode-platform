@@ -710,13 +710,10 @@ export const WorkerDetailsPanel: React.FC<WorkerDetailsPanelProps> = ({
           )}
 
           {activeTab === 'settings' && (
-            <WorkerSettings
-              worker={worker}
-              onUpdate={async (_workerId, _config) => {
-                // Callback triggered after WorkerSettings saves config to backend
-                // Refresh is handled by the WorkerSettings component itself
-              }}
-            />
+            // onUpdate omitted: WorkerSettings persists to the backend itself
+            // and only calls onUpdate (optional) if a caller supplies one —
+            // this panel doesn't need a post-save notification.
+            <WorkerSettings worker={worker} />
           )}
         </div>
       </div>

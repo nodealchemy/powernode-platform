@@ -197,12 +197,6 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                       Pricing
                     </Link>
                   </li>
-                  <li>
-                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">Integrations</span>
-                  </li>
-                  <li>
-                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">API Documentation</span>
-                  </li>
                 </ul>
               </div>
 
@@ -236,12 +230,6 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                     <Link to="/pages/about" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm" data-testid="footer-about">
                       About Us
                     </Link>
-                  </li>
-                  <li>
-                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">Careers</span>
-                  </li>
-                  <li>
-                    <span className="text-theme-quaternary text-sm cursor-default" title="Coming Soon">Blog</span>
                   </li>
                 </ul>
               </div>

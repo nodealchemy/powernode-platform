@@ -31,7 +31,6 @@ import {
   Shield,
   Plus,
   RefreshCw,
-  Download,
   CheckCircle,
   UserCheck,
   Eye
@@ -375,17 +374,6 @@ export const WorkersPage: React.FC = () => {
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
-            </Button>
-
-            <Button
-              onClick={() => {
-                // Implement export functionality
-              }}
-              variant="secondary"
-              size="sm"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export
             </Button>
 
             {canManageWorkers && (

@@ -9,10 +9,17 @@ import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { Button } from '@/shared/components/ui/Button';
+import { Modal } from '@/shared/components/ui/Modal';
+import { Input } from '@/shared/components/ui/Input';
+import { Select } from '@/shared/components/ui/Select';
+import { Textarea } from '@/shared/components/ui/Textarea';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePermissions } from '@/shared/hooks/usePermissions';
+import { getErrorMessage } from '@/shared/utils/apiErrors';
 import {
   governanceApi,
   CompliancePolicy,
@@ -43,7 +50,13 @@ function getStatusColor(status: string): string {
   }
 }
 
-const PoliciesContent: React.FC<{ policies: CompliancePolicy[]; loading: boolean }> = ({ policies, loading }) => {
+const PoliciesContent: React.FC<{
+  policies: CompliancePolicy[];
+  loading: boolean;
+  canManage: boolean;
+  onActivate: (id: string) => void;
+  activatingId: string | null;
+}> = ({ policies, loading, canManage, onActivate, activatingId }) => {
   if (loading) return <LoadingSpinner size="sm" className="py-8" />;
   if (policies.length === 0) {
     return (
@@ -64,7 +77,18 @@ const PoliciesContent: React.FC<{ policies: CompliancePolicy[]; loading: boolean
               <span className={`px-2 py-1 text-xs rounded ${getStatusColor(policy.status)}`}>{policy.status}</span>
               <span className="px-2 py-1 text-xs bg-theme-interactive-primary/10 text-theme-interactive-primary rounded">{policy.enforcement_level}</span>
             </div>
-            <span className="text-sm text-theme-secondary">{policy.violation_count} violations</span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-theme-secondary">{policy.violation_count} violations</span>
+              {canManage && policy.status === 'draft' && (
+                <button
+                  onClick={() => onActivate(policy.id)}
+                  disabled={activatingId === policy.id}
+                  className="btn-theme btn-theme-success btn-theme-sm"
+                >
+                  {activatingId === policy.id ? 'Activating...' : 'Activate'}
+                </button>
+              )}
+            </div>
           </div>
           <p className="text-sm text-theme-secondary">{policy.description}</p>
         </div>
@@ -370,6 +394,93 @@ const CoordinationContent: React.FC<{
   );
 };
 
+const POLICY_TYPES = [
+  'data_access', 'model_usage', 'output_filter', 'rate_limit',
+  'cost_limit', 'approval_required', 'retention', 'audit', 'custom',
+] as const;
+
+const ENFORCEMENT_LEVELS = ['log', 'warn', 'block', 'require_approval'] as const;
+
+interface CreatePolicyFormData {
+  name: string;
+  policy_type: typeof POLICY_TYPES[number];
+  enforcement_level: typeof ENFORCEMENT_LEVELS[number];
+  category: string;
+  description: string;
+}
+
+const emptyCreatePolicyForm: CreatePolicyFormData = {
+  name: '',
+  policy_type: 'data_access',
+  enforcement_level: 'log',
+  category: '',
+  description: '',
+};
+
+const CreatePolicyModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (data: CreatePolicyFormData) => void;
+  submitting: boolean;
+}> = ({ isOpen, onClose, onSubmit, submitting }) => {
+  const [form, setForm] = useState<CreatePolicyFormData>(emptyCreatePolicyForm);
+
+  useEffect(() => {
+    if (isOpen) setForm(emptyCreatePolicyForm);
+  }, [isOpen]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="Create Compliance Policy" maxWidth="lg">
+      <div className="space-y-4">
+        <Input
+          label="Name"
+          type="text"
+          value={form.name}
+          onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+          placeholder="e.g., PII Access Restriction"
+        />
+        <div className="grid grid-cols-2 gap-4">
+          <Select
+            label="Policy Type"
+            value={form.policy_type}
+            onChange={(value) => setForm((prev) => ({ ...prev, policy_type: value as CreatePolicyFormData['policy_type'] }))}
+            options={POLICY_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, ' ') }))}
+          />
+          <Select
+            label="Enforcement"
+            value={form.enforcement_level}
+            onChange={(value) => setForm((prev) => ({ ...prev, enforcement_level: value as CreatePolicyFormData['enforcement_level'] }))}
+            options={ENFORCEMENT_LEVELS.map((l) => ({ value: l, label: l.replace(/_/g, ' ') }))}
+          />
+        </div>
+        <Input
+          label="Category (optional)"
+          type="text"
+          value={form.category}
+          onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
+        />
+        <Textarea
+          label="Description (optional)"
+          value={form.description}
+          onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+          rows={3}
+        />
+        <div className="flex justify-end gap-3 pt-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            disabled={!form.name.trim() || submitting}
+            loading={submitting}
+            onClick={() => onSubmit(form)}
+          >
+            Create Policy
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 const governanceTabs = [
   { id: 'policies', label: 'Policies', icon: <Shield size={16} />, path: '/' },
   { id: 'violations', label: 'Violations', icon: <AlertTriangle size={16} />, path: '/violations' },
@@ -384,6 +495,8 @@ export const GovernancePage: React.FC = () => {
   const location = useLocation();
   const { addNotification } = useNotifications();
   const queryClient = useQueryClient();
+  const { hasPermission } = usePermissions();
+  const canManageGovernance = hasPermission('ai.governance.manage');
 
   const getActiveTab = () => {
     const path = location.pathname;
@@ -443,6 +556,40 @@ export const GovernancePage: React.FC = () => {
     },
   });
 
+  const [showCreatePolicy, setShowCreatePolicy] = useState(false);
+  const createPolicyMutation = useMutation({
+    mutationFn: (data: CreatePolicyFormData) =>
+      governanceApi.createPolicy({
+        name: data.name,
+        policy_type: data.policy_type,
+        enforcement_level: data.enforcement_level,
+        category: data.category || undefined,
+        description: data.description || undefined,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['governance'] });
+      addNotification({ type: 'success', message: 'Policy created' });
+      setShowCreatePolicy(false);
+    },
+    onError: (error) => {
+      addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to create policy') });
+    },
+  });
+
+  const [activatingPolicyId, setActivatingPolicyId] = useState<string | null>(null);
+  const activatePolicyMutation = useMutation({
+    mutationFn: (id: string) => governanceApi.activatePolicy(id),
+    onMutate: (id: string) => setActivatingPolicyId(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['governance'] });
+      addNotification({ type: 'success', message: 'Policy activated' });
+    },
+    onError: (error) => {
+      addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to activate policy') });
+    },
+    onSettled: () => setActivatingPolicyId(null),
+  });
+
   usePageWebSocket({ pageType: 'ai', onDataUpdate: () => { refetch(); } });
   const { refreshAction } = useRefreshAction({ onRefresh: () => { refetch(); }, loading: isLoading });
 
@@ -475,7 +622,9 @@ export const GovernancePage: React.FC = () => {
       breadcrumbs={getBreadcrumbs()}
       actions={[
         refreshAction,
-        { id: 'create-policy', label: 'Create Policy', onClick: () => {}, icon: Plus, variant: 'primary' as const },
+        ...(canManageGovernance
+          ? [{ id: 'create-policy', label: 'Create Policy', onClick: () => setShowCreatePolicy(true), icon: Plus, variant: 'primary' as const }]
+          : []),
       ]}
     >
       {summary && !isLoading && (
@@ -527,7 +676,13 @@ export const GovernancePage: React.FC = () => {
         variant="underline"
       >
         <TabPanel tabId="policies" activeTab={activeTab}>
-          <PoliciesContent policies={data?.policies || []} loading={isLoading} />
+          <PoliciesContent
+            policies={data?.policies || []}
+            loading={isLoading}
+            canManage={canManageGovernance}
+            onActivate={(id) => activatePolicyMutation.mutate(id)}
+            activatingId={activatingPolicyId}
+          />
         </TabPanel>
         <TabPanel tabId="violations" activeTab={activeTab}>
           <ViolationsContent violations={data?.violations || []} loading={isLoading} />
@@ -558,6 +713,13 @@ export const GovernancePage: React.FC = () => {
           <AuditLogList />
         </TabPanel>
       </TabContainer>
+
+      <CreatePolicyModal
+        isOpen={showCreatePolicy}
+        onClose={() => setShowCreatePolicy(false)}
+        onSubmit={(data) => createPolicyMutation.mutate(data)}
+        submitting={createPolicyMutation.isPending}
+      />
     </PageContainer>
   );
 };

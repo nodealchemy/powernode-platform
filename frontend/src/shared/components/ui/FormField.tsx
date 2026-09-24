@@ -23,7 +23,11 @@ export interface FormFieldProps {
   id?: string;
   type?: 'text' | 'email' | 'password' | 'tel' | 'url' | 'number' | 'select' | 'textarea' | 'date' | 'time' | 'datetime-local';
   value: string | undefined;
-  onChange: (value: string) => void;
+  // Optional so a read-only display field (readOnly below) never needs a
+  // caller-supplied no-op just to satisfy this prop.
+  onChange?: (value: string) => void;
+  /** Native readOnly, forwarded to the underlying control (text/textarea inputs). */
+  readOnly?: boolean;
   placeholder?: string;
   /**
    * Marks the field as required IN THE LABEL only. It has never set the
@@ -157,7 +161,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
                 ref={ref as React.Ref<HTMLSelectElement>}
                 id={fieldId}
                 value={value || ''}
-                onChange={(e) => onChange(e.target.value)}
+                onChange={(e) => onChange?.(e.target.value)}
                 disabled={disabled}
                 required={nativeRequired}
                 autoFocus={autoFocus}
@@ -190,7 +194,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               ref={ref as React.Ref<HTMLTextAreaElement>}
               id={fieldId}
               value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => onChange?.(e.target.value)}
               placeholder={placeholder}
               disabled={disabled}
               required={nativeRequired}
@@ -213,7 +217,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
                 id={fieldId}
                 type={actualType}
                 value={value || ''}
-                onChange={(e) => onChange(e.target.value)}
+                onChange={(e) => onChange?.(e.target.value)}
                 placeholder={placeholder}
                 disabled={disabled}
                 required={nativeRequired}
@@ -253,7 +257,7 @@ export const FormField = forwardRef<HTMLInputElement | HTMLSelectElement | HTMLT
               id={fieldId}
               type={actualType}
               value={value || ''}
-              onChange={(e) => onChange(e.target.value)}
+              onChange={(e) => onChange?.(e.target.value)}
               placeholder={placeholder}
               disabled={disabled}
               required={nativeRequired}
