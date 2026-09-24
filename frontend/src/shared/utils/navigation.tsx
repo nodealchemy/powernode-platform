@@ -7,7 +7,7 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
   Play, Rocket, DollarSign, Code2, Gauge, Building2, Megaphone,
-  Shield, Route, ClipboardCheck, MessageSquare, Share2, Lock
+  Shield, Route, ClipboardCheck, MessageSquare, Share2, Lock, Lightbulb
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -114,6 +114,22 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Manage agent knowledge, prompts, skills, and memory tiers',
           permissions: ['ai.context.read'],
           order: 7
+        },
+        {
+          // fc-26: routed but previously unlinked — reachable only by
+          // typing the URL, and the guard's own basePath declaration was
+          // the sole thing satisfying its own discoverability check.
+          // Named "Learning Insights" rather than "Learning" — Knowledge's
+          // own tab is already "Compound Learning", easy to confuse
+          // otherwise. Gated on the same permission the route (DashboardPage
+          // .tsx) and the backend (LearningController) both enforce.
+          id: 'ai-learning-insights',
+          name: 'Learning Insights',
+          href: '/app/ai/learning',
+          icon: Lightbulb,
+          description: 'Improvement recommendations and trajectory insights from agent execution history',
+          permissions: ['ai.analytics.read'],
+          order: 7.5
         },
         {
           id: 'ai-infrastructure',

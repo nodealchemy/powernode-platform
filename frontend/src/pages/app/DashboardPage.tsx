@@ -192,9 +192,13 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/campaigns" element={<ProtectedRoute requiredPermissions={['ai.campaigns.read']}><CampaignsPageWrapper /></ProtectedRoute>} />
 
         {/* AI Pages - Additional standalone routes */}
-        <Route path="/ai/learning" element={<LearningPage />} />
-        <Route path="/ai/learning/recommendations" element={<LearningPage />} />
-        <Route path="/ai/learning/insights" element={<LearningPage />} />
+        {/* Learning Insights — gated on ai.analytics.read (defense-in-depth;
+            backend LearningController#validate_permissions also enforces it
+            for recommendations/agent_trends/cache_metrics). No standalone
+            /ai/learning/recommendations route: recommendations is the
+            default tab at the bare hub path. */}
+        <Route path="/ai/learning" element={<ProtectedRoute requiredPermissions={['ai.analytics.read']}><LearningPage /></ProtectedRoute>} />
+        <Route path="/ai/learning/insights" element={<ProtectedRoute requiredPermissions={['ai.analytics.read']}><LearningPage /></ProtectedRoute>} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/conversations" element={<ProtectedRoute requiredPermissions={['ai.conversations.read']}><AIConversationsPage /></ProtectedRoute>} />
         <Route path="/ai/chat-channels" element={<ProtectedRoute requiredPermissions={['chat.channels.read']}><ChatChannelsPage /></ProtectedRoute>} />

@@ -459,12 +459,14 @@ const ALLOWLIST: readonly string[] = [
   // Docker hub's static tab paths, each `ProtectedRoute`-gated on
   // devops.docker.read, plus the `/*` fallback.
   'DashboardPage.tsx: DockerHubPage -> /devops/docker/*, /devops/docker/containers, /devops/docker/images, /devops/docker/monitoring, /devops/docker/networks, /devops/docker/volumes',
-  // AI ▸ Learning's two genuinely different tabs (Recommendations default,
-  // Insights) plus the bare index — fc-26 merged the two previously-
-  // unlinked standalone routes /ai/learning/recommendations and
-  // /ai/learning/insights into one hub page (same basePath+tabs shape as
-  // Docker/Swarm/Agents above), rather than deleting either.
-  'DashboardPage.tsx: LearningPage -> /ai/learning, /ai/learning/insights, /ai/learning/recommendations',
+  // AI ▸ Learning's two genuinely different tabs — Recommendations is the
+  // default tab at the bare hub path (not its own /recommendations route,
+  // which would have been the same duplicate-mount shape one level down),
+  // Insights is the other. fc-26 merged the two previously-unlinked
+  // standalone routes /ai/learning/recommendations and /ai/learning/insights
+  // into one hub page (same basePath+tabs shape as Docker/Swarm/Agents
+  // above), rather than deleting either.
+  'DashboardPage.tsx: LearningPage -> /ai/learning, /ai/learning/insights',
   // AI ▸ Missions' two genuinely different tabs (Missions default, Code
   // Factory) — not an alias pair; fc-25 review item 3 deleted the
   // /ai/missions/all and /ai/missions/completed aliases (both were byte-

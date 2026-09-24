@@ -11,9 +11,19 @@ import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
 // reachable only by typing the URL. Folded into one hub page (same
 // basePath+tabs convention as DockerHubPage/SwarmHubPage/AIAgentsPage) so
 // each is a click away from the other, rather than deleting either — both
-// render real data off the `/ai/learning/*` API.
+// render real data off the `/ai/learning/*` API (gated on ai.analytics.read
+// server-side; DashboardPage.tsx's ProtectedRoute mirrors it).
+//
+// Named "Learning Insights" throughout (nav label, page title, breadcrumb)
+// rather than plain "Learning" — Knowledge's own tab is already named
+// "Compound Learning" and the two are easy to confuse in a sidebar.
+//
+// Recommendations is the default tab, at the bare hub path ('/', not
+// '/recommendations') — a route registered at /ai/learning/recommendations
+// AND one at /ai/learning would have been the same duplicate-mount shape
+// fc-25's guard exists to catch, just one level down.
 const tabs = [
-  { id: 'recommendations', label: 'Recommendations', icon: <Lightbulb size={16} />, path: '/recommendations' },
+  { id: 'recommendations', label: 'Recommendations', icon: <Lightbulb size={16} />, path: '/' },
   { id: 'insights', label: 'Insights', icon: <BarChart3 size={16} />, path: '/insights' },
 ];
 
@@ -35,14 +45,14 @@ export const LearningPage: React.FC = () => {
       { label: 'AI', href: '/app/ai' },
     ];
     const activeTabInfo = tabs.find((t) => t.id === activeTab);
-    base.push({ label: 'Learning' });
+    base.push({ label: 'Learning Insights' });
     if (activeTabInfo) base.push({ label: activeTabInfo.label });
     return base;
   };
 
   return (
     <PageContainer
-      title="Learning"
+      title="Learning Insights"
       description="Improvement recommendations and trajectory insights from agent execution history"
       breadcrumbs={getBreadcrumbs()}
     >
