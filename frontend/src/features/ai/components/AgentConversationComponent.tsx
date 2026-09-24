@@ -421,7 +421,7 @@ export const AgentConversationComponent: React.FC<AgentConversationComponentProp
       // is silently dropped so non-system installs aren't affected.
       apiClient
         .get<{ data?: { members?: unknown[] }; members?: unknown[] }>(
-          '/api/v1/system/node_instance_peers/mentionable'
+          '/system/node_instance_peers/mentionable'
         )
         .then((res: { data: { data?: { members?: unknown[] }; members?: unknown[] } }) => {
           const inner = res.data.data ?? res.data;

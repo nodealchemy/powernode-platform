@@ -541,7 +541,7 @@ class AgentsApiService extends BaseApiService {
       search?: string;
     }
   ): Promise<PaginatedResponse<AiConversation>> {
-    const path = '/api/v1/ai/conversations';
+    const path = '/ai/conversations';
     const params = new URLSearchParams();
 
     if (filters?.page) params.append('page', filters.page.toString());
@@ -562,7 +562,7 @@ class AgentsApiService extends BaseApiService {
    * GET /api/v1/ai/conversations/:id
    */
   async getGlobalConversation(conversationId: string): Promise<AiConversation> {
-    const path = `/api/v1/ai/conversations/${conversationId}`;
+    const path = `/ai/conversations/${conversationId}`;
     return this.get<AiConversation>(path);
   }
 
@@ -579,7 +579,7 @@ class AgentsApiService extends BaseApiService {
       participants?: string[];
     }
   ): Promise<AiConversation> {
-    const path = `/api/v1/ai/conversations/${conversationId}`;
+    const path = `/ai/conversations/${conversationId}`;
     return this.patch<AiConversation>(path, { conversation: data });
   }
 
@@ -588,7 +588,7 @@ class AgentsApiService extends BaseApiService {
    * DELETE /api/v1/ai/conversations/:id
    */
   async deleteGlobalConversation(conversationId: string): Promise<void> {
-    const path = `/api/v1/ai/conversations/${conversationId}`;
+    const path = `/ai/conversations/${conversationId}`;
     return this.delete<void>(path);
   }
 
@@ -597,7 +597,7 @@ class AgentsApiService extends BaseApiService {
    * POST /api/v1/ai/conversations/:id/archive
    */
   async archiveGlobalConversation(conversationId: string): Promise<AiConversation> {
-    const path = `/api/v1/ai/conversations/${conversationId}/archive`;
+    const path = `/ai/conversations/${conversationId}/archive`;
     return this.post<AiConversation>(path, {});
   }
 
@@ -606,7 +606,7 @@ class AgentsApiService extends BaseApiService {
    * POST /api/v1/ai/conversations/:id/unarchive
    */
   async unarchiveGlobalConversation(conversationId: string): Promise<AiConversation> {
-    const path = `/api/v1/ai/conversations/${conversationId}/unarchive`;
+    const path = `/ai/conversations/${conversationId}/unarchive`;
     return this.post<AiConversation>(path, {});
   }
 
@@ -621,7 +621,7 @@ class AgentsApiService extends BaseApiService {
       include_messages?: boolean;
     }
   ): Promise<AiConversation> {
-    const path = `/api/v1/ai/conversations/${conversationId}/duplicate`;
+    const path = `/ai/conversations/${conversationId}/duplicate`;
     return this.post<AiConversation>(path, options || {});
   }
 

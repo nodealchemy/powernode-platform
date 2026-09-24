@@ -53,7 +53,7 @@ export const ApprovalResponsePage: React.FC = () => {
 
     try {
       const response = await apiClient.get<{ success: boolean; data?: ApprovalDetails; error?: string }>(
-        `/api/v1/devops/approval_tokens/${token}`
+        `/devops/approval_tokens/${token}`
       );
       const result = response.data;
 
@@ -92,7 +92,7 @@ export const ApprovalResponsePage: React.FC = () => {
 
     try {
       const response = await apiClient.post<{ success: boolean; data?: { message?: string }; error?: string }>(
-        `/api/v1/devops/approval_tokens/${token}/${approvalAction}`,
+        `/devops/approval_tokens/${token}/${approvalAction}`,
         { comment: comment.trim() || undefined }
       );
       const result = response.data;
