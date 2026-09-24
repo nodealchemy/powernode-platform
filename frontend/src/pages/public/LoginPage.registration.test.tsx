@@ -6,6 +6,7 @@ import uiReducer from '@/shared/services/slices/uiSlice';
 import configReducer, { fetchPlatformConfig } from '@/shared/services/slices/configSlice';
 import { api } from '@/shared/services/api';
 import { renderWithProviders } from '@/shared/utils/test-utils';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
 jest.mock('@/shared/services/api', () => ({
   api: { get: jest.fn(), post: jest.fn() },
@@ -22,6 +23,15 @@ const buildStore = () =>
   configureStore({ reducer: { auth: authReducer, ui: uiReducer, config: configReducer } });
 
 describe('LoginPage sign-up block driven by GET /config', () => {
+  beforeEach(() => {
+    featureRegistry.clear();
+    featureRegistry.registerPublicRoutes('test-ext', [
+      { path: '/ext-pricing', component: () => null, role: 'pricing' },
+    ]);
+  });
+
+  afterAll(() => featureRegistry.clear());
+
   it('shows the sign-up block once the server reports registration enabled', async () => {
     (api.get as jest.Mock).mockResolvedValue({
       data: { success: true, data: { features: { registration_enabled: true } } },

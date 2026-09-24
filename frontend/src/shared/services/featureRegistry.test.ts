@@ -34,3 +34,19 @@ describe('featureRegistry.getComponentSlotIds', () => {
     expect(featureRegistry.getComponentSlotIds('host.kind.')).toEqual([]);
   });
 });
+
+describe('featureRegistry public route roles', () => {
+  afterEach(() => featureRegistry.clear());
+
+  it('resolves no path for a role nothing registered', () => {
+    expect(featureRegistry.getPublicRoutePath('pricing')).toBeUndefined();
+  });
+
+  it('resolves the path of the public route registered for a role', () => {
+    featureRegistry.registerPublicRoutes('ext', [
+      { path: '/register', component: () => null },
+      { path: '/ext-pricing', component: () => null, role: 'pricing' },
+    ]);
+    expect(featureRegistry.getPublicRoutePath('pricing')).toBe('/ext-pricing');
+  });
+});

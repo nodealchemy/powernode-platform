@@ -124,4 +124,12 @@ describe('host UI API contract', () => {
     expect(HOST_EXPOSED_IDS as readonly string[]).toContain('@/features/onboarding/ProviderCredentialForm');
     expect(CORE_UI_API_VERSION).toBeGreaterThanOrEqual(4);
   });
+
+  it('bumped the host UI API version for public route roles', () => {
+    // '@/shared/services/featureRegistry' gained FeatureRoute.role and
+    // getPublicRoutePath: core's public pages link to the 'pricing' role, so a
+    // bundle built against 4 that registers no role leaves those links absent.
+    expect(HOST_EXPOSED_IDS as readonly string[]).toContain('@/shared/services/featureRegistry');
+    expect(CORE_UI_API_VERSION).toBeGreaterThanOrEqual(5);
+  });
 });

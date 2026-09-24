@@ -14,6 +14,7 @@ import { EyeIcon, EyeSlashIcon, LockClosedIcon, EnvelopeIcon } from '@heroicons/
 
 import { ErrorHandler } from '@/shared/utils/errorHandling';
 import { settingsApi } from '@/shared/services/settings/settingsApi';
+import { usePublicRoutePath } from '@/shared/hooks/usePublicRoutePath';
 
 import { TwoFactorVerification } from '@/features/account/auth/components/TwoFactorVerification';
 import { DomainChangeNotice } from '@/shared/components/ui/DomainChangeNotice';
@@ -31,6 +32,9 @@ export const LoginPage: React.FC = () => {
   
   const { error } = useSelector((state: RootState) => state.auth);
   const registrationEnabled = useSelector((state: RootState) => state.config.registrationEnabled);
+  // Sign-up leads to whatever public route an extension registered for
+  // pricing; with none there is nowhere to send a new visitor.
+  const pricingPath = usePublicRoutePath('pricing');
   
   const [formData, setFormData] = useState({
     email: '',
@@ -317,7 +321,7 @@ export const LoginPage: React.FC = () => {
                 </div>
           </form>
 
-            {registrationEnabled && (
+            {registrationEnabled && pricingPath && (
               <>
                 {/* Modern Divider */}
                 <div className="mt-8">
@@ -335,7 +339,7 @@ export const LoginPage: React.FC = () => {
 
                 <div className="mt-6 text-center">
                   <Link
-                    to="/plans"
+                    to={pricingPath}
                     className="btn-theme btn-theme-secondary w-full inline-flex justify-center items-center space-x-2 py-3 px-4 border border-theme rounded-xl text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
                   >
                     <span>Create your account</span>

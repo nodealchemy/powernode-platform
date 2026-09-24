@@ -1,6 +1,15 @@
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import { LoginPage } from './LoginPage';
 import { renderWithProviders, mockUnauthenticatedState } from '@/shared/utils/test-utils';
+import { featureRegistry } from '@/shared/services/featureRegistry';
+
+// Core names no pricing route: an extension registers the public route that
+// fills the 'pricing' role, and the sign-up link follows it.
+const PricingPage = () => null;
+const registerPricing = () =>
+  featureRegistry.registerPublicRoutes('test-ext', [
+    { path: '/ext-pricing', component: PricingPage, role: 'pricing' },
+  ]);
 
 // Mock React Router hooks
 const mockNavigate = jest.fn();
@@ -42,7 +51,10 @@ jest.mock('@/shared/services/api', () => ({
 describe('LoginPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    featureRegistry.clear();
   });
+
+  afterAll(() => featureRegistry.clear());
 
   describe('rendering', () => {
     it('renders the login form', () => {
@@ -75,12 +87,25 @@ describe('LoginPage', () => {
         },
       };
 
+      registerPricing();
       renderWithProviders(<LoginPage />, {
         preloadedState: stateWithRegistration,
       });
 
       expect(screen.getByText('Create your account')).toBeInTheDocument();
-      expect(screen.getByText('Create your account').closest('a')).toHaveAttribute('href', '/plans');
+      expect(screen.getByText('Create your account').closest('a')).toHaveAttribute('href', '/ext-pricing');
+    });
+
+    it('shows no create account link when no extension registers a pricing route', () => {
+      renderWithProviders(<LoginPage />, {
+        preloadedState: {
+          ...mockUnauthenticatedState,
+          config: { ...mockUnauthenticatedState.config, registrationEnabled: true },
+        },
+      });
+
+      expect(screen.queryByText('Create your account')).not.toBeInTheDocument();
+      expect(screen.queryByText('New to Powernode?')).not.toBeInTheDocument();
     });
 
     it('hides create account link when registration disabled', () => {
@@ -228,7 +253,7 @@ describe('LoginPage', () => {
       expect(logoLink).toHaveAttribute('href', '/welcome');
     });
 
-    it('links to plans page from create account', () => {
+    it('links create account to the registered pricing route', () => {
       const stateWithRegistration = {
         ...mockUnauthenticatedState,
         config: {
@@ -237,12 +262,13 @@ describe('LoginPage', () => {
         },
       };
 
+      registerPricing();
       renderWithProviders(<LoginPage />, {
         preloadedState: stateWithRegistration,
       });
 
       const createAccountLink = screen.getByText('Create your account').closest('a');
-      expect(createAccountLink).toHaveAttribute('href', '/plans');
+      expect(createAccountLink).toHaveAttribute('href', '/ext-pricing');
     });
   });
 

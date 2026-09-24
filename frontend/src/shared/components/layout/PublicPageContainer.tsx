@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { ArrowLeft, User, Users, MessageCircle, Briefcase, Camera, Video } from 'lucide-react';
 import { useFooter } from '@/shared/contexts/FooterContext';
+import { usePublicRoutePath } from '@/shared/hooks/usePublicRoutePath';
 
 interface PublicPageContainerProps {
   children: React.ReactNode;
@@ -26,6 +27,8 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
 }) => {
   const { isAuthenticated, user } = useSelector((state: RootState) => state.auth);
   const { footerData } = useFooter();
+  // Registered by whichever extension serves plans; absent, no pricing links.
+  const pricingPath = usePublicRoutePath('pricing');
 
   // Update document title if provided
   React.useEffect(() => {
@@ -85,12 +88,14 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
                   >
                     Sign in
                   </Link>
-                  <Link
-                    to="/plans"
-                    className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info-fg hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
-                  >
-                    <span>Get Started</span>
-                  </Link>
+                  {pricingPath && (
+                    <Link
+                      to={pricingPath}
+                      className="inline-flex items-center space-x-2 px-6 py-3 bg-theme-info-fg hover:bg-theme-interactive-primary-hover text-white font-semibold rounded-xl transition-all duration-200 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                    >
+                      <span>Get Started</span>
+                    </Link>
+                  )}
                 </>
               )}
             </div>
@@ -184,21 +189,23 @@ export const PublicPageContainer: React.FC<PublicPageContainerProps> = ({
               </div>
 
               {/* Product Links */}
-              <div>
-                <h4 className="text-theme-primary font-semibold mb-6">Product</h4>
-                <ul className="space-y-4">
-                  <li>
-                    <Link to="/plans" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
-                      Features
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/plans" className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
-                      Pricing
-                    </Link>
-                  </li>
-                </ul>
-              </div>
+              {pricingPath && (
+                <div>
+                  <h4 className="text-theme-primary font-semibold mb-6">Product</h4>
+                  <ul className="space-y-4">
+                    <li>
+                      <Link to={pricingPath} className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
+                        Features
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to={pricingPath} className="text-theme-secondary hover:text-theme-primary transition-colors duration-200 text-sm">
+                        Pricing
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+              )}
 
               {/* Support Links */}
               <div>

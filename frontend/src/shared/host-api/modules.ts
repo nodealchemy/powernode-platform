@@ -56,8 +56,13 @@
  * registration (the extension now registers its cloud credential create/test).
  * A bundle built against 3 would render the form with no Test button and
  * register no handlers, so the loader skips it until it is rebuilt.
+ *
+ * 5: `@/shared/services/featureRegistry` gained public route roles
+ * (`FeatureRoute.role`, `getPublicRoutePath`). Core's public pages now link to
+ * the 'pricing' role instead of a hard-coded path, so a bundle built against 4
+ * registers no role and those links would silently vanish.
  */
-export const CORE_UI_API_VERSION = 4;
+export const CORE_UI_API_VERSION = 5;
 
 /**
  * Core `@/…` modules exposed to extension frontends. Derived empirically from

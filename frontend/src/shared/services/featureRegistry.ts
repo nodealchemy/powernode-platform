@@ -1,9 +1,19 @@
 import { ComponentType, LazyExoticComponent } from 'react';
 
+/**
+ * A part a registered PUBLIC route can play on core's own public pages. Core
+ * links to a role, never to a path: the extension that serves the role says
+ * where it lives, and with no such registration core renders no link.
+ * `pricing`: where a visitor picks a plan and signs up.
+ */
+export type PublicRouteRole = 'pricing';
+
 export interface FeatureRoute {
   path: string;
   component: LazyExoticComponent<ComponentType<unknown>> | ComponentType<unknown>;
   permission?: string;
+  /** Public routes only: the role this route fills on core's public pages. */
+  role?: PublicRouteRole;
 }
 
 export interface FeatureNavItem {
@@ -251,6 +261,15 @@ export const featureRegistry = {
     const existing = state.publicRoutes.get(namespace) || [];
     state.publicRoutes.set(namespace, [...existing, ...routes]);
     notifyListeners();
+  },
+
+  /** The path of the public route registered for `role`, or undefined. */
+  getPublicRoutePath(role: PublicRouteRole): string | undefined {
+    for (const routes of state.publicRoutes.values()) {
+      const match = routes.find((r) => r.role === role);
+      if (match) return match.path;
+    }
+    return undefined;
   },
 
   /**
