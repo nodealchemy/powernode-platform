@@ -26,6 +26,7 @@ module Authentication
   included do
     before_action :authenticate_request
     attr_reader :current_user, :current_account, :current_worker, :current_jwt_payload
+    class_attribute :maintenance_gate_exempt_actions, default: [].freeze
 
     # HOW the current worker identity was established. Nil when there is no
     # worker, otherwise one of:
@@ -49,6 +50,23 @@ module Authentication
     # rescue_from StandardError is irrelevant — only this handler matches it.
     rescue_from PermissionDenied do |exception|
       render_forbidden(exception.message) unless performed?
+    end
+  end
+
+  class_methods do
+    # N1: mark specific actions exempt from the maintenance-mode gate even
+    # though they resolve a normal, non-exempt @current_user. Logout
+    # (Api::V1::Auth::SessionsController#destroy) is the motivating case: it
+    # runs authenticate_request like any other action, so a gated user's
+    # logout used to 503 before ever reaching the action body — the access
+    # token was never blacklisted, the refresh cookie was never cleared, and
+    # the client was left holding tokens it could never revoke through the
+    # one endpoint that revokes them. Exempting the ACTION (not the
+    # permission) is deliberate: logout must succeed for a gated user
+    # specifically BECAUSE they are gated, not because they hold some
+    # maintenance-mode-exempt permission.
+    def exempt_from_maintenance_gate(*actions)
+      self.maintenance_gate_exempt_actions = (maintenance_gate_exempt_actions + actions.map(&:to_s)).freeze
     end
   end
 
@@ -90,7 +108,7 @@ module Authentication
         return render_unauthorized("No account associated") unless @current_account
         return render_unauthorized("Account suspended") unless @current_account.active?
         @current_user.record_login! if should_record_login?
-        return render_maintenance_mode_response if Admin::MaintenanceMode.blocked?(request.remote_ip) { |perm| maintenance_exempt_permission?(perm) }
+        return render_maintenance_mode_response if maintenance_gate_applies? && Admin::MaintenanceMode.blocked?(request.remote_ip) { |perm| maintenance_exempt_permission?(perm) }
       elsif @current_worker
         # Worker tokens are long-lived (30d). Re-validate the worker and its
         # account are still active on every request so a revoked/suspended worker
@@ -408,6 +426,12 @@ module Authentication
   # delegation scope) when an impersonation session is active.
   def maintenance_exempt_permission?(perm)
     has_permission?(perm) || (impersonating? && impersonator&.has_permission?(perm))
+  end
+
+  # True unless THIS action was explicitly opted out via
+  # exempt_from_maintenance_gate — see there for why (N1: logout).
+  def maintenance_gate_applies?
+    !self.class.maintenance_gate_exempt_actions.include?(action_name)
   end
 
   # The REST shape for a blocked request — see Admin::MaintenanceMode.blocked?

@@ -62,6 +62,17 @@ RSpec.describe 'Maintenance mode request gate', type: :request do
       end
     end
 
+    # N1: logout runs authenticate_request (unlike login/refresh/2FA above),
+    # so without an explicit opt-out a gated user could never sign out —
+    # their token would never be blacklisted and the refresh cookie would
+    # never be cleared. See Authentication#exempt_from_maintenance_gate and
+    # Api::V1::Auth::SessionsController's `exempt_from_maintenance_gate :destroy`.
+    it 'lets a non-exempt, gated user log out (POST /auth/logout is exempt from the gate)' do
+      post '/api/v1/auth/logout', headers: auth_headers_for(plain_user), as: :json
+
+      expect(response).to have_http_status(:ok)
+    end
+
     it 'returns 503 with the standard error envelope for a non-exempt authenticated request' do
       get_me(plain_user)
 

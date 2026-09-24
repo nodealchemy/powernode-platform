@@ -7,6 +7,13 @@ class Api::V1::Auth::SessionsController < ApplicationController
 
   skip_before_action :authenticate_request, only: [ :create, :refresh, :verify_2fa ]
 
+  # N1: logout must succeed for a maintenance-gated user — it's the one
+  # endpoint that revokes their token and clears the refresh cookie. Gating
+  # it left a blocked user stuck holding tokens they could never invalidate,
+  # and the frontend's maintenance overlay unable to actually sign them out.
+  # See Authentication#exempt_from_maintenance_gate.
+  exempt_from_maintenance_gate :destroy
+
   # POST /api/v1/sessions
   def create
     user = User.find_by(email: login_params[:email]&.downcase)
