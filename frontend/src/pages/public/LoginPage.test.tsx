@@ -20,6 +20,23 @@ jest.mock('@/shared/services/settings/settingsApi', () => ({
   },
 }));
 
+// Mock the raw api client (not authAPI/twoFactorApi) so the real login ->
+// 2FA -> getCurrentUser thunk chain runs against the real server envelope
+// { success, data: {...}, message? } — see the 'two-factor authentication
+// flow' describe block below.
+const mockApiGet = jest.fn();
+const mockApiPost = jest.fn();
+
+jest.mock('@/shared/services/api', () => ({
+  api: {
+    get: (...args: unknown[]) => mockApiGet(...args),
+    post: (...args: unknown[]) => mockApiPost(...args),
+    put: jest.fn(),
+    patch: jest.fn(),
+    delete: jest.fn(),
+  },
+}));
+
 // No need to mock slices - let actual reducers handle state
 
 describe('LoginPage', () => {
@@ -265,6 +282,131 @@ describe('LoginPage', () => {
         const copyrightElement = screen.getByText(/© \d{4}/);
         expect(copyrightElement).toBeInTheDocument();
       });
+    });
+  });
+
+  // Traces the real login -> 2FA -> getCurrentUser consumer chain against
+  // the actual server envelope, to answer: does twoFactorApi's un-unwrapped
+  // /auth/verify-2fa reply (the same shape bug fixed for /two_factor in
+  // twoFactorApi.ts) actually block a 2FA user from finishing sign-in?
+  //
+  // It does not. TwoFactorVerification only reads the envelope's top-level
+  // `success`/`error` (unaffected by the nesting bug, since render_success
+  // /render_error put those at the top level) and forwards the raw response
+  // to onSuccess. LoginPage.handle2FASuccess ignores that payload entirely
+  // and re-fetches the user via getCurrentUser() instead — so the nested
+  // user/account/access_token fields twoFactorApi.verifyLogin never unwraps
+  // are simply never read by the code that runs today.
+  describe('two-factor authentication flow', () => {
+    beforeEach(() => {
+      mockApiPost.mockImplementation((url: string) => {
+        if (url === '/auth/login') {
+          return Promise.resolve({
+            data: {
+              success: true,
+              data: { requires_2fa: true, verification_token: 'verify-token-abc' },
+              message: 'Two-factor authentication required. Please provide your verification code.'
+            }
+          });
+        }
+        if (url === '/auth/verify-2fa') {
+          // The real, un-unwrapped envelope: user/account/access_token/expires_at
+          // sit under `data`, exactly as sessions_controller.rb's verify_2fa
+          // action (~line 256) renders them.
+          return Promise.resolve({
+            data: {
+              success: true,
+              data: {
+                user: { id: 'u1', email: 'test@example.com', name: 'Test User', permissions: [] },
+                account: { id: 'a1', name: 'Acme' },
+                access_token: 'fresh-access-token',
+                expires_at: '2026-01-01T00:00:00Z'
+              }
+            }
+          });
+        }
+        return Promise.reject(new Error(`unexpected POST ${url}`));
+      });
+
+      mockApiGet.mockImplementation((url: string) => {
+        if (url === '/auth/me') {
+          return Promise.resolve({
+            data: {
+              success: true,
+              data: { user: { id: 'u1', email: 'test@example.com', name: 'Test User', permissions: [] } }
+            }
+          });
+        }
+        return Promise.reject(new Error(`unexpected GET ${url}`));
+      });
+    });
+
+    it('finishes signing the user in after 2FA even though verifyLogin never unwraps its envelope', async () => {
+      const { store } = renderWithProviders(<LoginPage />, {
+        preloadedState: mockUnauthenticatedState,
+      });
+
+      fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'test@example.com' } });
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct-password' } });
+      fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Two-Factor Authentication Required')).toBeInTheDocument();
+      });
+      // Confirms the requires_2fa/verification_token unwrap in authSlice's
+      // `login` thunk (response.data.data) is what got us here.
+      expect(mockApiPost).toHaveBeenCalledWith('/auth/login', expect.objectContaining({ email: 'test@example.com' }));
+
+      fireEvent.change(screen.getByPlaceholderText(/Enter 6-digit code/i), { target: { value: '123456' } });
+      fireEvent.click(screen.getByRole('button', { name: /Verify/i }));
+
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith('/app', { replace: true });
+      });
+
+      // The user in Redux state came from getCurrentUser's /auth/me response,
+      // not from verifyLogin's (unread) nested payload — proving the login
+      // flow completes correctly regardless of the /auth/verify-2fa unwrap gap.
+      expect(store.getState().auth.user).toEqual(
+        expect.objectContaining({ id: 'u1', email: 'test@example.com' })
+      );
+    });
+
+    it('surfaces the server error message when 2FA verification fails', async () => {
+      mockApiPost.mockImplementation((url: string) => {
+        if (url === '/auth/login') {
+          return Promise.resolve({
+            data: {
+              success: true,
+              data: { requires_2fa: true, verification_token: 'verify-token-abc' }
+            }
+          });
+        }
+        if (url === '/auth/verify-2fa') {
+          return Promise.resolve({ data: { success: false, error: 'Invalid verification token. Please try again.' } });
+        }
+        return Promise.reject(new Error(`unexpected POST ${url}`));
+      });
+
+      renderWithProviders(<LoginPage />, {
+        preloadedState: mockUnauthenticatedState,
+      });
+
+      fireEvent.change(screen.getByLabelText('Email address'), { target: { value: 'test@example.com' } });
+      fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'correct-password' } });
+      fireEvent.click(screen.getByRole('button', { name: /sign in/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Two-Factor Authentication Required')).toBeInTheDocument();
+      });
+
+      fireEvent.change(screen.getByPlaceholderText(/Enter 6-digit code/i), { target: { value: '000000' } });
+      fireEvent.click(screen.getByRole('button', { name: /Verify/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Invalid verification token. Please try again.')).toBeInTheDocument();
+      });
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
   });
 });

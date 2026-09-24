@@ -136,13 +136,17 @@ export const twoFactorApi = {
   },
 
   // Verify 2FA code during login.
-  // NOTE: /auth/verify-2fa (server/app/controllers/api/v1/auth/sessions_controller.rb)
-  // wraps its reply the same way and has the identical unwrap bug this file just
-  // fixed for /two_factor — but it drives the LOGIN flow (TwoFactorVerification.tsx
-  // -> onSuccess -> caller dispatches auth state), which fc-02 (Profile -> Security
-  // mount) never touches and has no red-first coverage for here. Left as-is
-  // deliberately; flag alongside fc-39's authAPI/twoFactorApi duplication rather
-  // than fixing blind.
+  // Traced (see LoginPage.test.tsx "two-factor authentication flow"): /auth/verify-2fa
+  // (server/app/controllers/api/v1/auth/sessions_controller.rb ~256) wraps its reply
+  // the same way /two_factor does, so `response.user`/`.account`/`.access_token` here
+  // are always undefined — but nothing reads them. TwoFactorVerification.tsx only
+  // checks the envelope's top-level `success`/`error` (unaffected by the nesting,
+  // since render_success/render_error put those at the top level) and forwards the
+  // raw response to onSuccess; LoginPage.handle2FASuccess ignores that payload and
+  // re-fetches the user via getCurrentUser() instead. So this does NOT block 2FA
+  // login today. Left unwrapped deliberately to avoid touching the login/auth-state
+  // path for a field nothing consumes; revisit only if a future caller starts
+  // reading these fields directly.
   async verifyLogin(verificationToken: string, code: string): Promise<Verify2FAResponse> {
     const response = await api.post('/auth/verify-2fa', {
       verification_token: verificationToken,
