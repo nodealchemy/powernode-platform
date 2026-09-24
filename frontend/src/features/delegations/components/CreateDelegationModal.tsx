@@ -1,25 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { delegationApi, Role, Permission, CreateDelegationData } from '@/features/delegations/services/delegationApi';
+import { delegationApi, Role, Permission, DelegationFormData } from '@/features/delegations/services/delegationApi';
 import { PermissionSelector } from '@/features/account/components/PermissionSelector';
 
 interface CreateDelegationModalProps {
   onClose: () => void;
-  onCreate: (data: CreateDelegationData) => void;
+  onCreate: (data: DelegationFormData) => void;
 }
-
-// interface Account {
-//   id: string;
-//   name: string;
-//   domain?: string;
-// }
-
-// interface User {
-//   id: string;
-//   email: string;
-//   firstName: string;
-//   lastName: string;
-//   roles: string[];
-// }
 
 export const CreateDelegationModal: React.FC<CreateDelegationModalProps> = ({ onClose, onCreate }) => {
   const [step, setStep] = useState(1);

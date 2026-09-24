@@ -9,7 +9,6 @@ jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
   }),
 }));
 
-const mockGetDelegationActivity = jest.fn();
 const mockGetAvailablePermissions = jest.fn();
 const mockAddPermissionToDelegation = jest.fn();
 const mockRemovePermissionFromDelegation = jest.fn();
@@ -25,10 +24,6 @@ jest.mock('@/shared/hooks/useAuth', () => ({
 
 jest.mock('@/features/delegations/services/delegationApi', () => ({
   delegationApi: {
-    getDelegationActivity: (...args: unknown[]) => mockGetDelegationActivity(...args),
-    getAvailableUsers: jest.fn(),
-    addUsersToDelegation: jest.fn(),
-    removeUserFromDelegation: jest.fn(),
     getAvailablePermissions: (...args: unknown[]) => mockGetAvailablePermissions(...args),
     addPermissionToDelegation: (...args: unknown[]) => mockAddPermissionToDelegation(...args),
     removePermissionFromDelegation: (...args: unknown[]) => mockRemovePermissionFromDelegation(...args),
@@ -71,11 +66,6 @@ const delegation = {
   is_expired: false,
   created_at: '2025-01-01T00:00:00Z',
   updated_at: '2025-01-02T00:00:00Z',
-  name: 'Finance Access',
-  description: 'Access to financial reports',
-  targetAccountName: 'Beta Inc',
-  createdByName: 'B User',
-  users: [],
 } as unknown as Delegation;
 
 const renderModal = (overrides: Partial<Delegation> = {}) =>
@@ -88,10 +78,64 @@ const renderModal = (overrides: Partial<Delegation> = {}) =>
     />
   );
 
+// fc-20 review: the header and details grid used to read fields
+// (delegation.name/description/targetAccountName/createdByName) the real
+// API never sends -- they came from a legacy, never-implemented "delegation
+// requests" data model. Pins that the modal now reads the real payload
+// (delegated_user, delegated_by, role) instead of rendering blank.
+describe('DelegationDetailsModal header and details', () => {
+  beforeEach(() => {
+    mockPermissions = [];
+  });
+
+  it('titles the modal with who the delegation is TO, not a nonexistent name field', () => {
+    renderModal();
+
+    expect(screen.getByRole('heading', { name: 'A User' })).toBeInTheDocument();
+    expect(screen.getByText('a@example.com')).toBeInTheDocument();
+  });
+
+  it('falls back to the email when the delegated user has no full name', () => {
+    renderModal({
+      delegated_user: { id: 'u-1', email: 'noname@example.com', full_name: '' },
+    } as unknown as Partial<Delegation>);
+
+    expect(screen.getByRole('heading', { name: 'noname@example.com' })).toBeInTheDocument();
+  });
+
+  it('shows the role, falling back to "Custom permissions" for a role-less delegation', () => {
+    renderModal();
+    expect(screen.getByText('Finance')).toBeInTheDocument();
+
+    renderModal({ role: null });
+    expect(screen.getByText('Custom permissions')).toBeInTheDocument();
+  });
+
+  it('shows who granted the delegation, not the nonexistent createdByName field', () => {
+    renderModal();
+
+    expect(screen.getByText('by B User')).toBeInTheDocument();
+  });
+
+  it('shows notes when present, and omits the section when absent', () => {
+    const { rerender } = renderModal({ notes: 'Renewed for Q3' });
+    expect(screen.getByText('Renewed for Q3')).toBeInTheDocument();
+
+    rerender(
+      <DelegationDetailsModal
+        delegation={{ ...delegation, notes: null }}
+        onClose={jest.fn()}
+        onRevoke={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+    expect(screen.queryByText('Notes')).not.toBeInTheDocument();
+  });
+});
+
 describe('DelegationDetailsModal permission disclosure', () => {
   beforeEach(() => {
     mockPermissions = [];
-    mockGetDelegationActivity.mockResolvedValue({ activities: [] });
   });
 
   it('labels the permission list as the RESOLVED set, not the stored rows', () => {
@@ -146,7 +190,6 @@ describe('DelegationDetailsModal permission disclosure', () => {
 describe('DelegationDetailsModal permission-set editor', () => {
   beforeEach(() => {
     mockPermissions = ['accounts.manage'];
-    mockGetDelegationActivity.mockResolvedValue({ activities: [] });
     mockGetAvailablePermissions.mockResolvedValue([
       { name: 'business.billing.read', key: 'business.billing.read', resource: 'business.billing', action: 'read', description: 'View billing' },
       { name: 'business.billing.manage', key: 'business.billing.manage', resource: 'business.billing', action: 'manage', description: 'Manage billing' },
@@ -284,7 +327,6 @@ describe('DelegationDetailsModal permission-set editor', () => {
 describe('DelegationDetailsModal permission-set editor: the API refuses only a WIDENING removal', () => {
   beforeEach(() => {
     mockPermissions = ['accounts.manage'];
-    mockGetDelegationActivity.mockResolvedValue({ activities: [] });
     mockGetAvailablePermissions.mockResolvedValue([]);
     mockAddPermissionToDelegation.mockResolvedValue({});
     mockRemovePermissionFromDelegation.mockResolvedValue({});
@@ -342,7 +384,6 @@ describe('DelegationDetailsModal permission-set editor: the API refuses only a W
 describe('DelegationDetailsModal permission-set editor: staleness windows', () => {
   beforeEach(() => {
     mockPermissions = ['accounts.manage'];
-    mockGetDelegationActivity.mockResolvedValue({ activities: [] });
     mockGetAvailablePermissions.mockResolvedValue([]);
     mockRemovePermissionFromDelegation.mockResolvedValue({});
   });

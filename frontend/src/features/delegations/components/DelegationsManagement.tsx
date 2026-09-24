@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   delegationApi,
   Delegation,
-  DelegationRequest,
-  CreateDelegationData,
+  DelegationFormData,
   DelegationPermissionOption,
   deriveDelegationPermissions,
   DELEGATION_PERMISSIONS
@@ -13,26 +12,28 @@ import { formatDate } from '@/shared/utils/formatters';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { CreateDelegationModal } from './CreateDelegationModal';
 import { DelegationDetailsModal } from './DelegationDetailsModal';
-import { DelegationRequestModal } from './DelegationRequestModal';
+
+// Extracts the API's actual refusal reason (delegationApi's error mapping
+// carries it through from ApiResponse#render_error's `details`), falling
+// back to a generic message for anything that never reached the server.
+const errorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback;
 
 export const DelegationsManagement: React.FC = () => {
   const { confirm, ConfirmationDialog } = useConfirmation();
-  const [activeDelegations, setActiveDelegations] = useState<Delegation[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<DelegationRequest[]>([]);
+  const [delegations, setDelegations] = useState<Delegation[]>([]);
   const [selectedDelegation, setSelectedDelegation] = useState<Delegation | null>(null);
-  const [selectedRequest, setSelectedRequest] = useState<DelegationRequest | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showRequestModal, setShowRequestModal] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'outgoing' | 'incoming'>('outgoing');
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   // Delegatable permissions shown in the reference section, sourced from the catalog at
   // runtime (seeded from the back-compat constant so the list is never extension-coupled).
   const [permissionRefs, setPermissionRefs] = useState<DelegationPermissionOption[]>(DELEGATION_PERMISSIONS);
 
   useEffect(() => {
     loadDelegations();
-    loadRequests();
     loadPermissionRefs();
   }, []);
 
@@ -51,12 +52,13 @@ export const DelegationsManagement: React.FC = () => {
   const loadDelegations = async (): Promise<Delegation[]> => {
     try {
       setLoading(true);
+      setLoadError(null);
       const data = await delegationApi.getDelegations();
-      const delegations = data.delegations || [];
-      setActiveDelegations(delegations);
-      return delegations;
-    } catch (_error) {
-      // Error silently ignored
+      const list = data.delegations || [];
+      setDelegations(list);
+      return list;
+    } catch (error) {
+      setLoadError(errorMessage(error, 'Failed to load delegations.'));
       return [];
     } finally {
       setLoading(false);
@@ -71,84 +73,59 @@ export const DelegationsManagement: React.FC = () => {
   // revoked, or a filter dropped it) KEEP the copy on screen rather than blanking the
   // modal out from under an operator mid-edit.
   const handleDelegationUpdated = async () => {
-    const delegations = await loadDelegations();
+    const list = await loadDelegations();
     setSelectedDelegation(current =>
-      current ? delegations.find(delegation => delegation.id === current.id) || current : current
+      current ? list.find(delegation => delegation.id === current.id) || current : current
     );
   };
 
-  const loadRequests = async () => {
+  const handleCreateDelegation = async (data: DelegationFormData) => {
     try {
-      const data = await delegationApi.getDelegationRequests('pending');
-      setPendingRequests(data.requests || []);
-    } catch (_error) {
-    // Error silently ignored
-  }
-  };
-
-  const handleCreateDelegation = async (data: CreateDelegationData) => {
-    try {
+      setActionError(null);
       await delegationApi.createDelegation(data);
-      loadDelegations();
+      await loadDelegations();
       setShowCreateModal(false);
-    } catch (_error) {
-    // Error silently ignored
-  }
+    } catch (error) {
+      setActionError(errorMessage(error, 'Failed to create delegation.'));
+    }
   };
 
   const handleRevokeDelegation = (delegationId: string) => {
     confirm({
       title: 'Revoke Delegation',
-      message: 'Are you sure you want to revoke this delegation?',
+      message: 'Are you sure you want to revoke this delegation? The delegated user will immediately lose the access it grants.',
       confirmLabel: 'Revoke',
       variant: 'danger',
       onConfirm: async () => {
         try {
+          setActionError(null);
           await delegationApi.revokeDelegation(delegationId);
-          loadDelegations();
+          await loadDelegations();
           setShowDetailsModal(false);
-        } catch (_error) {
-          // Error silently ignored
+        } catch (error) {
+          setActionError(errorMessage(error, 'Failed to revoke delegation.'));
         }
       },
     });
   };
 
-  const handleApproveRequest = async (requestId: string, note?: string) => {
-    try {
-      await delegationApi.approveDelegationRequest(requestId, note);
-      loadRequests();
-      loadDelegations();
-      setShowRequestModal(false);
-    } catch (_error) {
-    // Error silently ignored
-  }
-  };
-
-  const handleRejectRequest = async (requestId: string, reason: string) => {
-    try {
-      await delegationApi.rejectDelegationRequest(requestId, reason);
-      loadRequests();
-      setShowRequestModal(false);
-    } catch (_error) {
-    // Error silently ignored
-  }
-  };
-
   const getStatusBadge = (status: string) => {
     const statusClasses = {
       active: 'bg-theme-success-bg text-theme-success-fg',
-      pending: 'bg-theme-warning-bg text-theme-warning-fg',
       expired: 'bg-theme-error-bg text-theme-error-fg',
       revoked: 'bg-theme-surface text-theme-tertiary',
+      inactive: 'bg-theme-surface text-theme-tertiary',
     };
 
     return (
-      <span className={`text-xs px-2 py-1 rounded-full ${statusClasses[status as keyof typeof statusClasses] || statusClasses.pending}`}>
+      <span className={`text-xs px-2 py-1 rounded-full ${statusClasses[status as keyof typeof statusClasses] || statusClasses.inactive}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
   };
+
+  const delegatedUserLabel = (delegation: Delegation) =>
+    delegation.delegated_user.full_name || delegation.delegated_user.email;
 
   if (loading) {
     return (
@@ -158,15 +135,18 @@ export const DelegationsManagement: React.FC = () => {
     );
   }
 
+  const activeDelegations = delegations.filter(d => d.status === 'active');
+  const inactiveDelegations = delegations.filter(d => d.status !== 'active');
+
   return (
     <div className="space-y-6">
       <div className="bg-theme-surface rounded-lg p-6">
         <div className="flex justify-between items-center mb-6">
           <div>
             <h2 className="text-xl font-semibold text-theme-primary">Account Delegations</h2>
-            <p className="text-theme-secondary mt-1">Manage cross-account access and delegations</p>
+            <p className="text-theme-secondary mt-1">Grant another user access to this account, scoped to a role or specific permissions</p>
           </div>
-          <button 
+          <button
             onClick={() => setShowCreateModal(true)}
             className="btn-theme btn-theme-primary"
           >
@@ -174,160 +154,89 @@ export const DelegationsManagement: React.FC = () => {
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex space-x-1 mb-6 border-b border-theme">
-          <button
-            onClick={() => setActiveTab('outgoing')}
-            className={`px-4 py-2 font-medium text-sm transition-colors ${
-              activeTab === 'outgoing'
-                ? 'text-theme-primary border-b-2 border-theme-interactive-primary'
-                : 'text-theme-secondary hover:text-theme-primary'
-            }`}
-          >
-            Outgoing Delegations
-            {activeDelegations.filter(d => d.sourceAccountId === 'current').length > 0 && (
-              <span className="ml-2 bg-theme-surface px-2 py-0.5 rounded-full text-xs">
-                {activeDelegations.filter(d => d.sourceAccountId === 'current').length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab('incoming')}
-            className={`px-4 py-2 font-medium text-sm transition-colors ${
-              activeTab === 'incoming'
-                ? 'text-theme-primary border-b-2 border-theme-interactive-primary'
-                : 'text-theme-secondary hover:text-theme-primary'
-            }`}
-          >
-            Incoming Access
-            {activeDelegations.filter(d => d.targetAccountId === 'current').length > 0 && (
-              <span className="ml-2 bg-theme-surface px-2 py-0.5 rounded-full text-xs">
-                {activeDelegations.filter(d => d.targetAccountId === 'current').length}
-              </span>
-            )}
-          </button>
-        </div>
+        {loadError && (
+          <div role="alert" className="mb-6 bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
+            <p className="text-sm text-theme-error-fg">{loadError}</p>
+          </div>
+        )}
 
-        {/* Pending Requests Alert */}
-        {pendingRequests.length > 0 && (
-          <div className="mb-6 bg-theme-warning-bg border border-theme-warning-border rounded-lg p-4">
-            <div className="flex items-start space-x-3">
-              <span className="text-theme-warning-fg text-xl">⚠️</span>
-              <div className="flex-1">
-                <h3 className="font-medium text-theme-warning-fg">Pending Delegation Requests</h3>
-                <p className="text-sm text-theme-warning-fg opacity-80 mt-1">
-                  You have {pendingRequests.length} pending delegation request{pendingRequests.length > 1 ? 's' : ''} awaiting your review.
-                </p>
-                <div className="mt-3 space-y-2">
-                  {pendingRequests.slice(0, 3).map((request) => (
-                    <button
-                      key={request.id}
-                      onClick={() => {
-                        setSelectedRequest(request);
-                        setShowRequestModal(true);
-                      }}className="block w-full text-left bg-theme-surface rounded-lg p-3 hover:bg-theme-surface-hover transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-medium text-theme-primary">{request.requestedByName}</span>
-                          <span className="text-theme-secondary text-sm ml-2">from {request.delegation.sourceAccountName}</span>
-                        </div>
-                        <span className="text-theme-link text-sm">Review →</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+        {actionError && (
+          <div role="alert" className="mb-6 bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
+            <p className="text-sm text-theme-error-fg">{actionError}</p>
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Active Delegations */}
           <div>
-            <h3 className="text-lg font-medium text-theme-primary mb-4">
-              {activeTab === 'outgoing' ? 'Active Delegations' : 'Granted Access'}
-            </h3>
+            <h3 className="text-lg font-medium text-theme-primary mb-4">Active Delegations</h3>
             <div className="space-y-3">
-              {activeDelegations
-                .filter(d => d.status === 'active')
-                .filter(d => activeTab === 'outgoing' ? d.sourceAccountId === 'current' : d.targetAccountId === 'current')
-                .map((delegation) => (
-                  <div
-                    key={delegation.id}
-                    className="bg-theme-background rounded-lg p-4 border border-theme hover:border-theme-focus transition-colors cursor-pointer"
-                    onClick={() => {
-                      setSelectedDelegation(delegation);
-                      setShowDetailsModal(true);
-                    }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-theme-primary">{delegation.name}</h4>
-                      {getStatusBadge(delegation.status)}
-                    </div>
-                    <p className="text-sm text-theme-secondary mb-3">
-                      {delegation.description}
-                    </p>
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center space-x-4">
-                        <span className="text-theme-tertiary">
-                          {delegation.users?.length || 0} user{(delegation.users?.length || 0) !== 1 ? 's' : ''}
-                        </span>
-                        <span
-                          className="text-theme-tertiary"
-                          title="Permissions this delegation currently confers. The API resolves the stored permission rows against the role LIVE, so this is the resolved set, not a count of stored rows."
-                        >
-                          {delegation.permissions?.length || 0} resolved permission{(delegation.permissions?.length || 0) !== 1 ? 's' : ''}
-                        </span>
+              {activeDelegations.map((delegation) => (
+                <div
+                  key={delegation.id}
+                  className="bg-theme-background rounded-lg p-4 border border-theme hover:border-theme-focus transition-colors cursor-pointer"
+                  onClick={() => {
+                    setSelectedDelegation(delegation);
+                    setShowDetailsModal(true);
+                  }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-theme-primary">{delegatedUserLabel(delegation)}</h4>
+                    {getStatusBadge(delegation.status)}
+                  </div>
+                  <p className="text-sm text-theme-secondary mb-3">
+                    {delegation.role ? delegation.role.name : 'Custom permissions'}
+                  </p>
+                  <div className="flex items-center justify-between text-sm">
+                    <span
+                      className="text-theme-tertiary"
+                      title="Permissions this delegation currently confers. The API resolves the stored permission rows against the role LIVE, so this is the resolved set, not a count of stored rows."
+                    >
+                      {delegation.permissions?.length || 0} resolved permission{(delegation.permissions?.length || 0) !== 1 ? 's' : ''}
+                    </span>
+                    <span className="text-theme-link hover:text-theme-link-hover">
+                      Manage →
+                    </span>
+                  </div>
+                  {(delegation.stale_permission_names?.length || 0) > 0 && (
+                    <div className="mt-2 pt-2 border-t border-theme">
+                      <p className="text-xs text-theme-warning-fg">
+                        {delegation.stale_permission_names?.length} stored permission
+                        {(delegation.stale_permission_names?.length || 0) !== 1 ? 's are' : ' is'} no longer
+                        granted by this delegation&apos;s role and confer
+                        {(delegation.stale_permission_names?.length || 0) !== 1 ? ' ' : 's '}nothing.
+                      </p>
+                      <p className="mt-1 text-xs text-theme-tertiary">
+                        Clearing {(delegation.stale_permission_names?.length || 0) !== 1 ? 'them' : 'it'} means
+                        rewriting the stored permission set in this delegation&apos;s details.
+                      </p>
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {(delegation.stale_permission_names || []).map((name) => (
+                          <span
+                            key={name}
+                            className="text-xs px-2 py-0.5 rounded-full bg-theme-warning-bg text-theme-warning-fg"
+                          >
+                            {name}
+                          </span>
+                        ))}
                       </div>
-                      <span className="text-theme-link hover:text-theme-link-hover">
-                        Manage →
+                    </div>
+                  )}
+                  {delegation.expires_at && (
+                    <div className="mt-2 pt-2 border-t border-theme">
+                      <span className="text-xs text-theme-tertiary">
+                        Expires: {formatDate(delegation.expires_at)}
                       </span>
                     </div>
-                    {(delegation.stale_permission_names?.length || 0) > 0 && (
-                      <div className="mt-2 pt-2 border-t border-theme">
-                        <p className="text-xs text-theme-warning-fg">
-                          {delegation.stale_permission_names?.length} stored permission
-                          {(delegation.stale_permission_names?.length || 0) !== 1 ? 's are' : ' is'} no longer
-                          granted by this delegation&apos;s role and confer
-                          {(delegation.stale_permission_names?.length || 0) !== 1 ? ' ' : 's '}nothing.
-                        </p>
-                        {/* Names WHERE the editor is, not that the reader may use it. This
-                            card also renders on the incoming tab, where the viewer is the
-                            grantee, and the editor in the details modal is gated on the
-                            delegations permission -- so promising an edit here would be
-                            wrong for two different readers. */}
-                        <p className="mt-1 text-xs text-theme-tertiary">
-                          Clearing {(delegation.stale_permission_names?.length || 0) !== 1 ? 'them' : 'it'} means
-                          rewriting the stored permission set in this delegation&apos;s details.
-                        </p>
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {(delegation.stale_permission_names || []).map((name) => (
-                            <span
-                              key={name}
-                              className="text-xs px-2 py-0.5 rounded-full bg-theme-warning-bg text-theme-warning-fg"
-                            >
-                              {name}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {delegation.expiresAt && (
-                      <div className="mt-2 pt-2 border-t border-theme">
-                        <span className="text-xs text-theme-tertiary">
-                          Expires: {formatDate(delegation.expiresAt)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  )}
+                </div>
+              ))}
 
-              {activeDelegations.filter(d => d.status === 'active').length === 0 && (
+              {activeDelegations.length === 0 && (
                 <div className="bg-theme-background rounded-lg p-8 text-center border border-theme">
                   <span className="text-4xl">🔐</span>
                   <p className="text-theme-secondary mt-2">No active delegations</p>
                   <p className="text-theme-tertiary text-sm mt-1">
-                    Create a delegation to grant access to other accounts
+                    Create a delegation to grant another user access to this account
                   </p>
                 </div>
               )}
@@ -338,28 +247,25 @@ export const DelegationsManagement: React.FC = () => {
           <div>
             <h3 className="text-lg font-medium text-theme-primary mb-4">Inactive Delegations</h3>
             <div className="space-y-3">
-              {activeDelegations
-                .filter(d => d.status !== 'active' && d.status !== 'pending')
-                .filter(d => activeTab === 'outgoing' ? d.sourceAccountId === 'current' : d.targetAccountId === 'current')
-                .map((delegation) => (
-                  <div
-                    key={delegation.id}
-                    className="bg-theme-background rounded-lg p-4 border border-theme opacity-75"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium text-theme-primary">{delegation.name}</h4>
-                      {getStatusBadge(delegation.status)}
-                    </div>
-                    <p className="text-sm text-theme-secondary">
-                      {delegation.description}
-                    </p>
-                    <div className="mt-2 text-xs text-theme-tertiary">
-                      {delegation.status === 'expired' ? 'Expired' : 'Revoked'} on {formatDate(delegation.updatedAt || delegation.updated_at)}
-                    </div>
+              {inactiveDelegations.map((delegation) => (
+                <div
+                  key={delegation.id}
+                  className="bg-theme-background rounded-lg p-4 border border-theme opacity-75"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-theme-primary">{delegatedUserLabel(delegation)}</h4>
+                    {getStatusBadge(delegation.status)}
                   </div>
-                ))}
+                  <p className="text-sm text-theme-secondary">
+                    {delegation.role ? delegation.role.name : 'Custom permissions'}
+                  </p>
+                  <div className="mt-2 text-xs text-theme-tertiary">
+                    {delegation.is_expired ? 'Expired' : 'Revoked'} on {formatDate(delegation.updated_at)}
+                  </div>
+                </div>
+              ))}
 
-              {activeDelegations.filter(d => d.status !== 'active' && d.status !== 'pending').length === 0 && (
+              {inactiveDelegations.length === 0 && (
                 <div className="bg-theme-background rounded-lg p-8 text-center border border-theme">
                   <span className="text-4xl">📋</span>
                   <p className="text-theme-secondary mt-2">No inactive delegations</p>
@@ -407,19 +313,6 @@ export const DelegationsManagement: React.FC = () => {
           onUpdate={handleDelegationUpdated}
         />
       )}
-
-      {showRequestModal && selectedRequest && (
-        <DelegationRequestModal
-          request={selectedRequest}
-          onClose={() => {
-            setShowRequestModal(false);
-            setSelectedRequest(null);
-          }}
-          onApprove={handleApproveRequest}
-          onReject={handleRejectRequest}
-        />
-      )}
     </div>
   );
 };
-

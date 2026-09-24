@@ -7,7 +7,6 @@
 // Components
 export { CreateDelegationModal } from './components/CreateDelegationModal';
 export { DelegationDetailsModal } from './components/DelegationDetailsModal';
-export { DelegationRequestModal } from './components/DelegationRequestModal';
 export { DelegationsManagement } from './components/DelegationsManagement';
 
 // Services
