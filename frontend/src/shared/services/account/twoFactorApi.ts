@@ -6,10 +6,10 @@ type AccountInfo = AuthUser['account'];
 
 export interface TwoFactorSetupResponse {
   success: boolean;
-  message: string;
+  message?: string;
   qr_code?: string;
   manual_entry_key?: string;
-  backup_codes?: string[];
+  expires_at?: string;
   error?: string;
 }
 
@@ -20,16 +20,19 @@ export interface TwoFactorStatusResponse {
   enabled_at?: string;
 }
 
+// verify_setup is also where backup codes are handed back, exactly once — the
+// server never lets them be re-fetched (GET /two_factor/backup_codes is gone;
+// see IMP-99e8e4701150).
 export interface TwoFactorVerificationResponse {
   success: boolean;
   message?: string;
+  backup_codes?: string[];
   error?: string;
 }
 
 export interface BackupCodesResponse {
   success: boolean;
   backup_codes: string[];
-  generated_at: string;
   message?: string;
   error?: string;
 }
@@ -94,44 +97,45 @@ export const twoFactorApi = {
     return unwrapTwoFactorEnvelope(response.data);
   },
 
-  // Enable 2FA and get setup information
+  // Start (or restart) 2FA enrolment. Returns only the QR code and manual
+  // entry key for a PENDING secret — 2FA is not active yet and no backup
+  // codes exist until verifySetup succeeds (IMP-99e8e4701150).
   async enable(): Promise<TwoFactorSetupResponse> {
     const response = await api.post<TwoFactorEnvelope<{
       qr_code: string;
       manual_entry_key: string;
-      backup_codes: string[];
+      expires_at: string;
     }>>('/two_factor/enable');
     return unwrapTwoFactorEnvelope(response.data);
   },
 
-  // Verify 2FA setup with a token
+  // Verify the pending secret with a code from the authenticator app. This
+  // is the call that actually activates 2FA and returns backup codes —
+  // exactly once, never retrievable again afterward.
   async verifySetup(token: string): Promise<TwoFactorVerificationResponse> {
-    const response = await api.post<TwoFactorEnvelope<Record<string, never>>>('/two_factor/verify_setup', {
+    const response = await api.post<TwoFactorEnvelope<{
+      backup_codes: string[];
+    }>>('/two_factor/verify_setup', {
       token
     });
     return unwrapTwoFactorEnvelope(response.data);
   },
 
-  // Disable 2FA
-  async disable(): Promise<TwoFactorVerificationResponse> {
-    const response = await api.delete<TwoFactorEnvelope<Record<string, never>>>('/two_factor/disable');
+  // Disable 2FA. Requires re-authentication: a current TOTP code or an
+  // unused backup code.
+  async disable(code: string): Promise<TwoFactorVerificationResponse> {
+    const response = await api.delete<TwoFactorEnvelope<Record<string, never>>>('/two_factor/disable', {
+      data: { code }
+    });
     return unwrapTwoFactorEnvelope(response.data);
   },
 
-  // Get backup codes
-  async getBackupCodes(): Promise<BackupCodesResponse> {
-    const response = await api.get<TwoFactorEnvelope<{
-      backup_codes: string[];
-      generated_at: string;
-    }>>('/two_factor/backup_codes');
-    return unwrapTwoFactorEnvelope(response.data);
-  },
-
-  // Regenerate backup codes
-  async regenerateBackupCodes(): Promise<BackupCodesResponse> {
+  // Regenerate backup codes. Requires the same re-authentication as disable,
+  // and invalidates every previously issued code (used or not).
+  async regenerateBackupCodes(code: string): Promise<BackupCodesResponse> {
     const response = await api.post<TwoFactorEnvelope<{
       backup_codes: string[];
-    }>>('/two_factor/regenerate_backup_codes');
+    }>>('/two_factor/regenerate_backup_codes', { code });
     return unwrapTwoFactorEnvelope(response.data);
   },
 

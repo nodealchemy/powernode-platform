@@ -96,7 +96,6 @@ const statusHandler = jest.fn();
 const enableHandler = jest.fn();
 const verifySetupHandler = jest.fn();
 const disableHandler = jest.fn();
-const backupCodesHandler = jest.fn();
 const regenerateHandler = jest.fn();
 
 const renderProfileSecurity = () => {
@@ -124,7 +123,6 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
 
     mockGet.mockImplementation((url: string) => {
       if (url === '/two_factor/status') return statusHandler();
-      if (url === '/two_factor/backup_codes') return backupCodesHandler();
       return Promise.reject(new Error(`unexpected GET ${url}`));
     });
     mockPost.mockImplementation((url: string, body?: unknown) => {
@@ -168,15 +166,20 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
   });
 
   it('runs the enable -> verify -> enabled flow end to end against the real envelope', async () => {
+    // IMP-99e8e4701150: enable() only starts a PENDING enrolment (qr_code /
+    // manual_entry_key / expires_at) — no backup codes yet. They come back
+    // from verify_setup, exactly once, when the pending secret is confirmed.
     statusHandler
       .mockResolvedValueOnce(ok({ two_factor_enabled: false, backup_codes_count: 0 }))
       .mockResolvedValueOnce(ok({ two_factor_enabled: true, backup_codes_count: 3, enabled_at: '2026-01-01T00:00:00Z' }));
     enableHandler.mockResolvedValue(ok({
       qr_code: '<svg>qr</svg>',
       manual_entry_key: 'ABCD1234EFGH5678',
+      expires_at: '2026-01-01T00:15:00Z'
+    }, 'Scan the QR code with your authenticator app, then verify a code to finish enabling two-factor authentication'));
+    verifySetupHandler.mockResolvedValue(ok({
       backup_codes: ['code1', 'code2', 'code3']
     }, 'Two-factor authentication has been enabled'));
-    verifySetupHandler.mockResolvedValue(ok({}, 'Two-factor authentication setup verified successfully'));
 
     renderProfileSecurity();
 
@@ -200,11 +203,14 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
       expect(verifySetupHandler).toHaveBeenCalledWith({ token: '123456' });
       expect(screen.getByText(/Two-Factor Authentication Enabled!/i)).toBeInTheDocument();
     });
-    // Backup codes shown at completion came from the enable() response.
+    // Backup codes shown at completion came from the verify_setup() response.
     expect(screen.getByText('code1')).toBeInTheDocument();
     expect(screen.getByText('code2')).toBeInTheDocument();
     expect(screen.getByText('code3')).toBeInTheDocument();
 
+    // Done is gated behind the "I have saved these" acknowledgement.
+    expect(screen.getByText('Done').closest('button')).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox'));
     fireEvent.click(screen.getByText('Done'));
 
     await waitFor(() => {
@@ -223,6 +229,9 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
     });
 
     fireEvent.click(screen.getByText('Disable'));
+    // Disable now requires re-authentication: a current TOTP code or an
+    // unused backup code (IMP-99e8e4701150).
+    fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '654321' } });
     fireEvent.click(screen.getByText('Disable 2FA'));
 
     await waitFor(() => {
@@ -231,27 +240,8 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
     });
   });
 
-  it('views backup codes fetched through the real envelope', async () => {
-    statusHandler.mockResolvedValue(ok({ two_factor_enabled: true, backup_codes_count: 3 }));
-    backupCodesHandler.mockResolvedValue(ok({
-      backup_codes: ['AAA111', 'BBB222', 'CCC333'],
-      generated_at: '2026-01-01T00:00:00Z'
-    }));
-
-    renderProfileSecurity();
-
-    await waitFor(() => {
-      expect(screen.getByText('View Codes')).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByText('View Codes'));
-
-    await waitFor(() => {
-      expect(screen.getByText('AAA111')).toBeInTheDocument();
-      expect(screen.getByText('BBB222')).toBeInTheDocument();
-      expect(screen.getByText('CCC333')).toBeInTheDocument();
-    });
-  });
+  // GET /two_factor/backup_codes is gone (IMP-99e8e4701150) — codes are never
+  // re-fetchable after generation, so there is no "View Codes" action to test.
 
   it('regenerates backup codes through the real envelope', async () => {
     statusHandler.mockResolvedValue(ok({ two_factor_enabled: true, backup_codes_count: 2 }));
@@ -265,13 +255,19 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
       expect(screen.getByText('You have 2 backup codes remaining')).toBeInTheDocument();
     });
 
+    // Regenerate now requires re-authentication and shows the new codes
+    // once, in their own modal (IMP-99e8e4701150).
     fireEvent.click(screen.getByText('Regenerate'));
+    fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '654321' } });
+    fireEvent.click(screen.getAllByText('Regenerate')[1]);
 
     // The new count comes from unwrapping `backup_codes` off the real
     // envelope — a flat-shape mock of twoFactorApi can't exercise this.
     await waitFor(() => {
       expect(regenerateHandler).toHaveBeenCalled();
       expect(screen.getByText('You have 5 backup codes remaining')).toBeInTheDocument();
+      expect(screen.getByText('New Backup Codes')).toBeInTheDocument();
+      expect(screen.getByText('NEW111')).toBeInTheDocument();
     });
   });
 
@@ -290,6 +286,7 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
     });
 
     fireEvent.click(screen.getByText('Disable'));
+    fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '654321' } });
     fireEvent.click(screen.getByText('Disable 2FA'));
 
     await waitFor(() => {

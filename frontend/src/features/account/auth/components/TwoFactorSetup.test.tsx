@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TwoFactorSetup } from './TwoFactorSetup';
 
@@ -28,14 +29,23 @@ describe('TwoFactorSetup', () => {
   const mockEnableResponse = {
     success: true,
     qr_code: '<svg>QR Code</svg>',
-    manual_entry_key: 'ABCD1234EFGH5678',
+    manual_entry_key: 'ABCD1234EFGH5678'
+  };
+  const mockVerifySetupResponse = {
+    success: true,
     backup_codes: ['code1', 'code2', 'code3']
   };
 
   beforeEach(() => {
     jest.clearAllMocks();
     (twoFactorApi.enable as jest.Mock).mockResolvedValue(mockEnableResponse);
-    (twoFactorApi.verifySetup as jest.Mock).mockResolvedValue({ success: true });
+    (twoFactorApi.verifySetup as jest.Mock).mockResolvedValue(mockVerifySetupResponse);
+    // jest.config.js sets resetMocks: true, which wipes a mock's
+    // IMPLEMENTATION (not just its call history) before every test — jsdom
+    // does not implement Blob URL creation/revocation at all, so these must
+    // be (re)assigned per-test, after that reset has run.
+    URL.createObjectURL = jest.fn(() => 'blob:mock');
+    URL.revokeObjectURL = jest.fn();
   });
 
   describe('loading state', () => {
@@ -166,6 +176,26 @@ describe('TwoFactorSetup', () => {
       });
     });
 
+    it('downloading backup codes creates and revokes an object URL', async () => {
+      render(<TwoFactorSetup />);
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('123456')).toBeInTheDocument();
+      });
+
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '123456' } });
+      fireEvent.click(screen.getByText('Verify & Enable'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Download Backup Codes')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Download Backup Codes'));
+
+      expect(URL.createObjectURL).toHaveBeenCalled();
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+    });
+
     it('shows done button after completion', async () => {
       render(<TwoFactorSetup />);
 
@@ -179,6 +209,27 @@ describe('TwoFactorSetup', () => {
       await waitFor(() => {
         expect(screen.getByText('Done')).toBeInTheDocument();
       });
+    });
+
+    it('disables Done until the backup codes acknowledgement is checked', async () => {
+      render(<TwoFactorSetup />);
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText('123456')).toBeInTheDocument();
+      });
+
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '123456' } });
+      fireEvent.click(screen.getByText('Verify & Enable'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Done')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('Done').closest('button')).toBeDisabled();
+
+      fireEvent.click(screen.getByRole('checkbox'));
+
+      expect(screen.getByText('Done').closest('button')).not.toBeDisabled();
     });
   });
 
@@ -211,6 +262,7 @@ describe('TwoFactorSetup', () => {
         expect(screen.getByText('Done')).toBeInTheDocument();
       });
 
+      fireEvent.click(screen.getByRole('checkbox'));
       fireEvent.click(screen.getByText('Done'));
 
       expect(onComplete).toHaveBeenCalled();
@@ -224,6 +276,23 @@ describe('TwoFactorSetup', () => {
       await waitFor(() => {
         expect(twoFactorApi.enable).toHaveBeenCalled();
       });
+    });
+
+    // IMP-99e8e4701150 review L5 — enable() replaces the pending secret on
+    // every call, so React 18 StrictMode's dev-only double-invoke of a mount
+    // effect must not double-call it.
+    it('calls enable exactly once even under StrictMode\'s double-invoked effect', async () => {
+      render(
+        <React.StrictMode>
+          <TwoFactorSetup />
+        </React.StrictMode>
+      );
+
+      await waitFor(() => {
+        expect(screen.getByText(/Set Up Two-Factor Authentication/i)).toBeInTheDocument();
+      });
+
+      expect(twoFactorApi.enable).toHaveBeenCalledTimes(1);
     });
 
     it('handles network error on verify', async () => {

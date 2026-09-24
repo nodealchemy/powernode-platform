@@ -1,22 +1,33 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TwoFactorSettings } from './TwoFactorSettings';
 
-// Mock the API
-const mockGetStatus = jest.fn();
-const mockDisable = jest.fn();
-const mockGetBackupCodes = jest.fn();
-const mockRegenerateBackupCodes = jest.fn();
+// Mock ONE LAYER BELOW twoFactorApi — the raw api client — with the real
+// {success, data} envelope, so these tests exercise twoFactorApi's own
+// unwrap logic instead of assuming it away (IMP-99e8e4701150).
+const mockGet = jest.fn();
+const mockPost = jest.fn();
+const mockDelete = jest.fn();
 
-jest.mock('@/shared/services/account/twoFactorApi', () => ({
-  twoFactorApi: {
-    getStatus: (...args: unknown[]) => mockGetStatus(...args),
-    disable: (...args: unknown[]) => mockDisable(...args),
-    getBackupCodes: (...args: unknown[]) => mockGetBackupCodes(...args),
-    regenerateBackupCodes: (...args: unknown[]) => mockRegenerateBackupCodes(...args)
+jest.mock('@/shared/services/api', () => ({
+  api: {
+    get: (...args: unknown[]) => mockGet(...args),
+    post: (...args: unknown[]) => mockPost(...args),
+    delete: (...args: unknown[]) => mockDelete(...args)
   }
 }));
 
-// Mock TwoFactorSetup component
+function envelope(data?: Record<string, unknown>, error?: string, success = true) {
+  return {
+    data: {
+      success,
+      ...(data ? { data } : {}),
+      ...(error ? { error } : {})
+    }
+  };
+}
+
+// Mock TwoFactorSetup component — its own enable/verify_setup flow is covered
+// by TwoFactorSetup.test.tsx; here we only need its onComplete/onCancel wiring.
 jest.mock('@/features/account/auth/components/TwoFactorSetup', () => ({
   TwoFactorSetup: ({ onComplete, onCancel }: { onComplete: () => void; onCancel: () => void }) => (
     <div data-testid="two-factor-setup">
@@ -39,22 +50,27 @@ jest.mock('@/shared/components/ui/Modal', () => ({
     ) : null
 }));
 
-// Mock clipboard
+// Mock clipboard and the download helper's Blob/URL usage (unavailable in jsdom)
 const mockWriteText = jest.fn();
 Object.assign(navigator, {
   clipboard: {
     writeText: mockWriteText
   }
 });
-
 describe('TwoFactorSettings', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // jest.config.js sets resetMocks: true, which wipes a mock's
+    // IMPLEMENTATION (not just its call history) before every test — a
+    // beforeAll assignment here would only ever take effect for the first
+    // example. Must be (re)assigned per-test, after that reset has run.
+    URL.createObjectURL = jest.fn(() => 'blob:mock');
+    URL.revokeObjectURL = jest.fn();
   });
 
   describe('loading state', () => {
     it('shows loading spinner while fetching status', () => {
-      mockGetStatus.mockImplementation(() => new Promise(() => {})); // Never resolves
+      mockGet.mockImplementation(() => new Promise(() => {})); // Never resolves
 
       render(<TwoFactorSettings />);
 
@@ -64,11 +80,7 @@ describe('TwoFactorSettings', () => {
 
   describe('when 2FA is disabled', () => {
     beforeEach(() => {
-      mockGetStatus.mockResolvedValue({
-        success: true,
-        two_factor_enabled: false,
-        backup_codes_count: 0
-      });
+      mockGet.mockResolvedValue(envelope({ two_factor_enabled: false, backup_codes_count: 0 }));
     });
 
     it('displays disabled status', async () => {
@@ -126,19 +138,17 @@ describe('TwoFactorSettings', () => {
 
   describe('when 2FA is enabled', () => {
     beforeEach(() => {
-      mockGetStatus.mockResolvedValue({
-        success: true,
+      mockGet.mockResolvedValue(envelope({
         two_factor_enabled: true,
         backup_codes_count: 8,
         enabled_at: '2025-01-15T10:00:00Z'
-      });
+      }));
     });
 
     it('displays enabled status', async () => {
       render(<TwoFactorSettings />);
 
       await waitFor(() => {
-        // The text includes "Enabled" followed by the date
         expect(screen.getByText(/Enabled.*Enabled on/)).toBeInTheDocument();
       });
     });
@@ -160,12 +170,14 @@ describe('TwoFactorSettings', () => {
       expect(screen.getByText('You have 8 backup codes remaining')).toBeInTheDocument();
     });
 
-    it('shows View Codes button', async () => {
+    it('does not show a View Codes action (codes are never re-fetchable)', async () => {
       render(<TwoFactorSettings />);
 
       await waitFor(() => {
-        expect(screen.getByText('View Codes')).toBeInTheDocument();
+        expect(screen.getByText('Backup Codes')).toBeInTheDocument();
       });
+
+      expect(screen.queryByText('View Codes')).not.toBeInTheDocument();
     });
 
     it('shows Regenerate button', async () => {
@@ -179,11 +191,7 @@ describe('TwoFactorSettings', () => {
 
   describe('disable 2FA', () => {
     beforeEach(() => {
-      mockGetStatus.mockResolvedValue({
-        success: true,
-        two_factor_enabled: true,
-        backup_codes_count: 8
-      });
+      mockGet.mockResolvedValue(envelope({ two_factor_enabled: true, backup_codes_count: 8 }));
     });
 
     it('opens confirmation modal when Disable clicked', async () => {
@@ -211,9 +219,7 @@ describe('TwoFactorSettings', () => {
       expect(screen.getByText(/Disabling 2FA will remove the additional security layer/)).toBeInTheDocument();
     });
 
-    it('calls disable API when confirmed', async () => {
-      mockDisable.mockResolvedValue({ success: true });
-
+    it('refuses to submit without a code', async () => {
       render(<TwoFactorSettings />);
 
       await waitFor(() => {
@@ -224,12 +230,13 @@ describe('TwoFactorSettings', () => {
       fireEvent.click(screen.getByText('Disable 2FA'));
 
       await waitFor(() => {
-        expect(mockDisable).toHaveBeenCalled();
+        expect(screen.getByText(/an unused backup code/)).toBeInTheDocument();
       });
+      expect(mockDelete).not.toHaveBeenCalled();
     });
 
-    it('closes modal after successful disable', async () => {
-      mockDisable.mockResolvedValue({ success: true });
+    it('calls disable API with the entered code when confirmed', async () => {
+      mockDelete.mockResolvedValue(envelope());
 
       render(<TwoFactorSettings />);
 
@@ -238,6 +245,25 @@ describe('TwoFactorSettings', () => {
       });
 
       fireEvent.click(screen.getByText('Disable'));
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '654321' } });
+      fireEvent.click(screen.getByText('Disable 2FA'));
+
+      await waitFor(() => {
+        expect(mockDelete).toHaveBeenCalledWith('/two_factor/disable', { data: { code: '654321' } });
+      });
+    });
+
+    it('closes modal after successful disable', async () => {
+      mockDelete.mockResolvedValue(envelope());
+
+      render(<TwoFactorSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Disable')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Disable'));
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '654321' } });
       fireEvent.click(screen.getByText('Disable 2FA'));
 
       await waitFor(() => {
@@ -246,7 +272,7 @@ describe('TwoFactorSettings', () => {
     });
 
     it('shows disabling state', async () => {
-      mockDisable.mockImplementation(() => new Promise(() => {})); // Never resolves
+      mockDelete.mockImplementation(() => new Promise(() => {})); // Never resolves
 
       render(<TwoFactorSettings />);
 
@@ -255,96 +281,37 @@ describe('TwoFactorSettings', () => {
       });
 
       fireEvent.click(screen.getByText('Disable'));
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '654321' } });
       fireEvent.click(screen.getByText('Disable 2FA'));
 
       expect(screen.getByText('Disabling...')).toBeInTheDocument();
     });
+
+    it('shows a server error when the code is rejected', async () => {
+      mockDelete.mockResolvedValue(envelope(undefined, 'A valid authentication code or backup code is required to disable two-factor authentication', false));
+
+      render(<TwoFactorSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Disable')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Disable'));
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '000000' } });
+      fireEvent.click(screen.getByText('Disable 2FA'));
+
+      await waitFor(() => {
+        expect(screen.getByText(/A valid authentication code or backup code is required/)).toBeInTheDocument();
+      });
+    });
   });
 
-  describe('backup codes', () => {
+  describe('regenerate backup codes', () => {
     beforeEach(() => {
-      mockGetStatus.mockResolvedValue({
-        success: true,
-        two_factor_enabled: true,
-        backup_codes_count: 8
-      });
-      mockGetBackupCodes.mockResolvedValue({
-        success: true,
-        backup_codes: ['ABC123', 'DEF456', 'GHI789']
-      });
+      mockGet.mockResolvedValue(envelope({ two_factor_enabled: true, backup_codes_count: 8 }));
     });
 
-    it('opens backup codes modal when View Codes clicked', async () => {
-      render(<TwoFactorSettings />);
-
-      await waitFor(() => {
-        expect(screen.getByText('View Codes')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('View Codes'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Backup Codes')).toBeInTheDocument();
-      });
-    });
-
-    it('displays backup codes in modal', async () => {
-      render(<TwoFactorSettings />);
-
-      await waitFor(() => {
-        expect(screen.getByText('View Codes')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('View Codes'));
-
-      await waitFor(() => {
-        expect(screen.getByText('ABC123')).toBeInTheDocument();
-      });
-      expect(screen.getByText('DEF456')).toBeInTheDocument();
-      expect(screen.getByText('GHI789')).toBeInTheDocument();
-    });
-
-    it('copies backup codes to clipboard', async () => {
-      render(<TwoFactorSettings />);
-
-      await waitFor(() => {
-        expect(screen.getByText('View Codes')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('View Codes'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Copy Codes')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('Copy Codes'));
-
-      expect(mockWriteText).toHaveBeenCalledWith('ABC123\nDEF456\nGHI789');
-    });
-
-    it('regenerates backup codes', async () => {
-      mockRegenerateBackupCodes.mockResolvedValue({
-        success: true,
-        backup_codes: ['NEW111', 'NEW222', 'NEW333']
-      });
-
-      render(<TwoFactorSettings />);
-
-      await waitFor(() => {
-        expect(screen.getByText('View Codes')).toBeInTheDocument();
-      });
-
-      // Click regenerate from the main section
-      fireEvent.click(screen.getByText('Regenerate'));
-
-      await waitFor(() => {
-        expect(mockRegenerateBackupCodes).toHaveBeenCalled();
-      });
-    });
-
-    it('shows regenerating state', async () => {
-      mockRegenerateBackupCodes.mockImplementation(() => new Promise(() => {})); // Never resolves
-
+    it('opens a confirmation modal requiring a code', async () => {
       render(<TwoFactorSettings />);
 
       await waitFor(() => {
@@ -353,67 +320,147 @@ describe('TwoFactorSettings', () => {
 
       fireEvent.click(screen.getByText('Regenerate'));
 
-      expect(screen.getByText('Regenerating...')).toBeInTheDocument();
+      expect(screen.getByText('Regenerate Backup Codes')).toBeInTheDocument();
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+
+    it('refuses to submit without a code', async () => {
+      render(<TwoFactorSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Regenerate')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Regenerate'));
+      fireEvent.click(screen.getAllByText('Regenerate')[1]);
+
+      await waitFor(() => {
+        expect(screen.getByText(/an unused backup code/)).toBeInTheDocument();
+      });
+      expect(mockPost).not.toHaveBeenCalled();
+    });
+
+    it('regenerates with a valid code and shows the new codes once', async () => {
+      mockPost.mockResolvedValue(envelope({ backup_codes: ['NEW111', 'NEW222', 'NEW333'] }));
+
+      render(<TwoFactorSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Regenerate')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Regenerate'));
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '111111' } });
+      fireEvent.click(screen.getAllByText('Regenerate')[1]);
+
+      await waitFor(() => {
+        expect(mockPost).toHaveBeenCalledWith('/two_factor/regenerate_backup_codes', { code: '111111' });
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('New Backup Codes')).toBeInTheDocument();
+        expect(screen.getByText('NEW111')).toBeInTheDocument();
+        expect(screen.getByText('NEW222')).toBeInTheDocument();
+        expect(screen.getByText('NEW333')).toBeInTheDocument();
+      });
+    });
+
+    it('copies the new backup codes to clipboard', async () => {
+      mockPost.mockResolvedValue(envelope({ backup_codes: ['NEW111', 'NEW222'] }));
+
+      render(<TwoFactorSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Regenerate')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Regenerate'));
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '111111' } });
+      fireEvent.click(screen.getAllByText('Regenerate')[1]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Copy Codes')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Copy Codes'));
+
+      expect(mockWriteText).toHaveBeenCalledWith('NEW111\nNEW222');
+    });
+
+    it('downloading the new backup codes creates and revokes an object URL', async () => {
+      mockPost.mockResolvedValue(envelope({ backup_codes: ['NEW111', 'NEW222'] }));
+
+      render(<TwoFactorSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Regenerate')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Regenerate'));
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '111111' } });
+      fireEvent.click(screen.getAllByText('Regenerate')[1]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Download')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Download'));
+
+      expect(URL.createObjectURL).toHaveBeenCalled();
+      expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:mock');
+    });
+
+    it('disables Done until the acknowledgement is checked', async () => {
+      mockPost.mockResolvedValue(envelope({ backup_codes: ['NEW111', 'NEW222'] }));
+
+      render(<TwoFactorSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Regenerate')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Regenerate'));
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '111111' } });
+      fireEvent.click(screen.getAllByText('Regenerate')[1]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Done')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('Done').closest('button')).toBeDisabled();
+
+      fireEvent.click(screen.getByRole('checkbox'));
+
+      expect(screen.getByText('Done').closest('button')).not.toBeDisabled();
+    });
+
+    it('shows regenerating state', async () => {
+      mockPost.mockImplementation(() => new Promise(() => {})); // Never resolves
+
+      render(<TwoFactorSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Regenerate')).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByText('Regenerate'));
+      fireEvent.change(screen.getByPlaceholderText('123456'), { target: { value: '111111' } });
+      fireEvent.click(screen.getAllByText('Regenerate')[1]);
+
+      // Both the card's Regenerate button and the modal's submit button
+      // reflect isRegenerating, so this is intentionally plural.
+      expect(screen.getAllByText('Regenerating...').length).toBeGreaterThan(0);
     });
   });
 
   describe('error handling', () => {
     it('shows error when status fetch fails', async () => {
-      mockGetStatus.mockResolvedValue({ success: false });
+      mockGet.mockResolvedValue(envelope(undefined, undefined, false));
 
       render(<TwoFactorSettings />);
 
       await waitFor(() => {
         expect(screen.getByText('Failed to load two-factor authentication status')).toBeInTheDocument();
-      });
-    });
-
-    it('shows error when disable fails', async () => {
-      mockGetStatus.mockResolvedValue({
-        success: true,
-        two_factor_enabled: true,
-        backup_codes_count: 8
-      });
-      mockDisable.mockResolvedValue({
-        success: false,
-        error: 'Disable failed'
-      });
-
-      render(<TwoFactorSettings />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Disable')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('Disable'));
-      fireEvent.click(screen.getByText('Disable 2FA'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Disable failed')).toBeInTheDocument();
-      });
-    });
-
-    it('shows error when backup codes fetch fails', async () => {
-      mockGetStatus.mockResolvedValue({
-        success: true,
-        two_factor_enabled: true,
-        backup_codes_count: 8
-      });
-      mockGetBackupCodes.mockResolvedValue({
-        success: false,
-        error: 'Failed to load'
-      });
-
-      render(<TwoFactorSettings />);
-
-      await waitFor(() => {
-        expect(screen.getByText('View Codes')).toBeInTheDocument();
-      });
-
-      fireEvent.click(screen.getByText('View Codes'));
-
-      await waitFor(() => {
-        expect(screen.getByText('Failed to load')).toBeInTheDocument();
       });
     });
   });
@@ -423,11 +470,7 @@ describe('TwoFactorSettings', () => {
   // sibling cards) — this component owns only the status row and its label.
   describe('status label', () => {
     beforeEach(() => {
-      mockGetStatus.mockResolvedValue({
-        success: true,
-        two_factor_enabled: false,
-        backup_codes_count: 0
-      });
+      mockGet.mockResolvedValue(envelope({ two_factor_enabled: false, backup_codes_count: 0 }));
     });
 
     it('labels the status row', async () => {

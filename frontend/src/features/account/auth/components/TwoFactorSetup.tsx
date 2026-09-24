@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { twoFactorApi } from '@/shared/services/account/twoFactorApi';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Button } from '@/shared/components/ui/Button';
@@ -21,22 +21,33 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [verificationCode, setVerificationCode] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
+  const [codesSaved, setCodesSaved] = useState(false);
+
+  // POST /two_factor/enable REPLACES the pending secret on every call (see
+  // User#start_two_factor_setup!) — it is not an idempotent no-op. React 18
+  // StrictMode double-invokes a mount effect in development, which would
+  // otherwise fire this twice: two real secret rotations, and the QR code
+  // shown from the first response is stale (or racing the second) the
+  // instant the second resolves. A ref survives that double-invoke (unlike
+  // component state, it isn't reset by the effect's own cleanup+remount).
+  const hasStartedEnrollment = useRef(false);
 
   useEffect(() => {
+    if (hasStartedEnrollment.current) return;
+    hasStartedEnrollment.current = true;
     handleEnable2FA();
   }, []);
 
   const handleEnable2FA = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await twoFactorApi.enable();
 
       if (response.success) {
         setQrCode(response.qr_code || null);
         setManualKey(response.manual_entry_key || null);
-        setBackupCodes(response.backup_codes || []);
         setStep('setup');
       } else {
         setError(response.error || 'Failed to enable two-factor authentication');
@@ -59,8 +70,11 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
 
     try {
       const response = await twoFactorApi.verifySetup(verificationCode);
-      
+
       if (response.success) {
+        // Backup codes are returned here, exactly once — they can never be
+        // fetched again after this response.
+        setBackupCodes(response.backup_codes || []);
         setStep('complete');
       } else {
         setError(response.error || 'Invalid verification code');
@@ -78,6 +92,18 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const downloadBackupCodes = (codes: string[]) => {
+    const blob = new Blob([codes.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'backup-codes.txt';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -231,13 +257,33 @@ export const TwoFactorSetup: React.FC<TwoFactorSetupProps> = ({ onComplete, onCa
                   <Copy className="w-4 h-4 mr-1" />
                   Copy Backup Codes
                 </Button>
+                <Button
+                  type="button"
+                  onClick={() => downloadBackupCodes(backupCodes)}
+                  variant="outline"
+                  size="sm"
+                  fullWidth
+                >
+                  Download Backup Codes
+                </Button>
               </div>
+
+              <label className="flex items-start space-x-2 text-sm text-theme-secondary">
+                <input
+                  type="checkbox"
+                  checked={codesSaved}
+                  onChange={(e) => setCodesSaved(e.target.checked)}
+                  className="mt-0.5"
+                />
+                <span>I have saved these backup codes. I understand they will not be shown again.</span>
+              </label>
             </div>
           )}
 
           <Button
             type="button"
             onClick={onComplete}
+            disabled={backupCodes.length > 0 && !codesSaved}
             variant="primary"
             fullWidth
           >

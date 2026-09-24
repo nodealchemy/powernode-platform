@@ -16,11 +16,21 @@ export const TwoFactorSettings: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
-  const [showBackupCodes, setShowBackupCodes] = useState(false);
-  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [disableCode, setDisableCode] = useState('');
+  const [disableError, setDisableError] = useState<string | null>(null);
   const [isDisabling, setIsDisabling] = useState(false);
+
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false);
+  const [regenerateCode, setRegenerateCode] = useState('');
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
+
+  // New backup codes are shown ONLY here, right after regenerating — the
+  // server never lets them be fetched again afterward.
+  const [newBackupCodes, setNewBackupCodes] = useState<string[]>([]);
+  const [codesSaved, setCodesSaved] = useState(false);
 
   useEffect(() => {
     fetchStatus();
@@ -29,10 +39,10 @@ export const TwoFactorSettings: React.FC = () => {
   const fetchStatus = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await twoFactorApi.getStatus();
-      
+
       if (response.success) {
         setStatus({
           enabled: response.two_factor_enabled,
@@ -49,13 +59,24 @@ export const TwoFactorSettings: React.FC = () => {
     }
   };
 
+  const openDisableConfirm = () => {
+    setDisableCode('');
+    setDisableError(null);
+    setShowDisableConfirm(true);
+  };
+
   const handleDisable2FA = async () => {
+    if (!disableCode.trim()) {
+      setDisableError('Enter a code from your authenticator app or an unused backup code');
+      return;
+    }
+
     setIsDisabling(true);
-    setError(null);
+    setDisableError(null);
 
     try {
-      const response = await twoFactorApi.disable();
-      
+      const response = await twoFactorApi.disable(disableCode.trim());
+
       if (response.success) {
         setStatus({
           enabled: false,
@@ -63,55 +84,69 @@ export const TwoFactorSettings: React.FC = () => {
         });
         setShowDisableConfirm(false);
       } else {
-        setError(response.error || 'Failed to disable two-factor authentication');
+        setDisableError(response.error || 'Failed to disable two-factor authentication');
       }
     } catch (error) {
       // render_error responds with a non-2xx status, so axios rejects here
       // rather than resolving {success: false} — surface the server's
       // message when the rejection carries one, falling back otherwise.
-      setError(isErrorWithResponse(error) ? getErrorMessage(error) : 'Failed to disable two-factor authentication');
+      // Scoped to disableError (shown in the confirm modal), not the
+      // page-level `error`, since the user is looking at the modal.
+      setDisableError(isErrorWithResponse(error) ? getErrorMessage(error) : 'Failed to disable two-factor authentication');
     } finally {
       setIsDisabling(false);
     }
   };
 
-  const handleViewBackupCodes = async () => {
-    try {
-      const response = await twoFactorApi.getBackupCodes();
-      
-      if (response.success) {
-        setBackupCodes(response.backup_codes);
-        setShowBackupCodes(true);
-      } else {
-        setError(response.error || 'Failed to load backup codes');
-      }
-    } catch (_error) {
-      setError('Failed to load backup codes');
-    }
+  const openRegenerateConfirm = () => {
+    setRegenerateCode('');
+    setRegenerateError(null);
+    setShowRegenerateConfirm(true);
   };
 
   const handleRegenerateBackupCodes = async () => {
+    if (!regenerateCode.trim()) {
+      setRegenerateError('Enter a code from your authenticator app or an unused backup code');
+      return;
+    }
+
     setIsRegenerating(true);
-    setError(null);
+    setRegenerateError(null);
 
     try {
-      const response = await twoFactorApi.regenerateBackupCodes();
-      
+      const response = await twoFactorApi.regenerateBackupCodes(regenerateCode.trim());
+
       if (response.success) {
-        setBackupCodes(response.backup_codes);
-        setStatus(prev => prev ? { ...prev, backupCodesCount: response.backup_codes.length } : null);
+        const codes = response.backup_codes || [];
+        setNewBackupCodes(codes);
+        setCodesSaved(false);
+        setStatus(prev => prev ? { ...prev, backupCodesCount: codes.length } : null);
+        setShowRegenerateConfirm(false);
       } else {
-        setError(response.error || 'Failed to regenerate backup codes');
+        setRegenerateError(response.error || 'Failed to regenerate backup codes');
       }
-    } catch (_error) {
-      setError('Failed to regenerate backup codes');
+    } catch (error) {
+      // Same axios-rejects-on-non-2xx shape as handleDisable2FA above.
+      setRegenerateError(isErrorWithResponse(error) ? getErrorMessage(error) : 'Failed to regenerate backup codes');
     } finally {
       setIsRegenerating(false);
     }
   };
 
   const copyBackupCodes = () => {
-    navigator.clipboard.writeText(backupCodes.join('\n'));
+    navigator.clipboard.writeText(newBackupCodes.join('\n'));
+  };
+
+  const downloadBackupCodes = () => {
+    const blob = new Blob([newBackupCodes.join('\n')], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'backup-codes.txt';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const formatDate = (dateString: string) => {
@@ -152,10 +187,10 @@ export const TwoFactorSettings: React.FC = () => {
               </p>
             </div>
           </div>
-          
+
           {status?.enabled ? (
             <button
-              onClick={() => setShowDisableConfirm(true)}
+              onClick={openDisableConfirm}
               className="btn-theme btn-theme-outline border-theme-error-border text-theme-error-fg hover:bg-theme-error-bg text-sm"
             >
               Disable
@@ -181,21 +216,13 @@ export const TwoFactorSettings: React.FC = () => {
                   You have {status.backupCodesCount} backup codes remaining
                 </p>
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={handleViewBackupCodes}
-                  className="px-3 py-1 text-xs border border-theme rounded text-theme-primary hover:bg-theme-surface"
-                >
-                  View Codes
-                </button>
-                <button
-                  onClick={handleRegenerateBackupCodes}
-                  disabled={isRegenerating}
-                  className="px-3 py-1 text-xs bg-theme-interactive-primary text-white rounded hover:bg-theme-interactive-primary-hover disabled:opacity-50"
-                >
-                  {isRegenerating ? 'Regenerating...' : 'Regenerate'}
-                </button>
-              </div>
+              <button
+                onClick={openRegenerateConfirm}
+                disabled={isRegenerating}
+                className="px-3 py-1 text-xs bg-theme-interactive-primary text-white rounded hover:bg-theme-interactive-primary-hover disabled:opacity-50"
+              >
+                {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+              </button>
             </div>
           </div>
         )}
@@ -229,12 +256,27 @@ export const TwoFactorSettings: React.FC = () => {
           <p className="text-theme-secondary">
             Are you sure you want to disable two-factor authentication? This will make your account less secure.
           </p>
-          
+
           <div className="p-3 bg-theme-warning-bg border border-theme-warning-border rounded-md">
             <p className="text-theme-warning-fg text-sm">
               <strong>Warning:</strong> Disabling 2FA will remove the additional security layer from your account.
             </p>
           </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-theme-primary">
+              Enter a code from your authenticator app or a backup code to confirm:
+            </label>
+            <input
+              type="text"
+              value={disableCode}
+              onChange={(e) => setDisableCode(e.target.value)}
+              placeholder="123456"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary font-mono"
+            />
+          </div>
+
+          {disableError && <ErrorAlert message={disableError} />}
 
           <div className="flex space-x-3">
             <button
@@ -255,20 +297,66 @@ export const TwoFactorSettings: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Backup Codes Modal */}
+      {/* Regenerate Confirmation Modal */}
       <Modal
-        isOpen={showBackupCodes}
-        onClose={() => setShowBackupCodes(false)}
-        title="Backup Codes"
+        isOpen={showRegenerateConfirm}
+        onClose={() => setShowRegenerateConfirm(false)}
+        title="Regenerate Backup Codes"
         icon={<Key className="w-6 h-6" />}
       >
         <div className="space-y-4">
           <p className="text-theme-secondary text-sm">
-            Use these codes to access your account if you lose your authenticator device. Each code can only be used once.
+            Regenerating will invalidate all existing backup codes, including any unused ones.
+          </p>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-theme-primary">
+              Enter a code from your authenticator app or a backup code to confirm:
+            </label>
+            <input
+              type="text"
+              value={regenerateCode}
+              onChange={(e) => setRegenerateCode(e.target.value)}
+              placeholder="123456"
+              className="w-full px-3 py-2 border border-theme rounded-md bg-theme-surface text-theme-primary font-mono"
+            />
+          </div>
+
+          {regenerateError && <ErrorAlert message={regenerateError} />}
+
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowRegenerateConfirm(false)}
+              disabled={isRegenerating}
+              className="flex-1 px-4 py-2 border border-theme rounded-md text-theme-primary hover:bg-theme-surface disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleRegenerateBackupCodes}
+              disabled={isRegenerating}
+              className="flex-1 px-4 py-2 bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50"
+            >
+              {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* New Backup Codes Modal — shown ONCE, immediately after regenerating */}
+      <Modal
+        isOpen={newBackupCodes.length > 0}
+        onClose={() => { setNewBackupCodes([]); setCodesSaved(false); }}
+        title="New Backup Codes"
+        icon={<Key className="w-6 h-6" />}
+      >
+        <div className="space-y-4">
+          <p className="text-theme-secondary text-sm">
+            Save these codes now — they will not be shown again. Each code can only be used once.
           </p>
 
           <div className="p-4 bg-theme-surface border border-theme rounded-md">
-            {backupCodes.map((code, index) => (
+            {newBackupCodes.map((code, index) => (
               <div key={index} className="font-mono text-sm text-theme-primary py-1">
                 {code}
               </div>
@@ -283,22 +371,32 @@ export const TwoFactorSettings: React.FC = () => {
               Copy Codes
             </button>
             <button
-              onClick={handleRegenerateBackupCodes}
-              disabled={isRegenerating}
-              className="flex-1 px-4 py-2 bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50"
+              onClick={downloadBackupCodes}
+              className="flex-1 px-4 py-2 border border-theme rounded-md text-theme-primary hover:bg-theme-surface"
             >
-              {isRegenerating ? 'Regenerating...' : 'Regenerate'}
+              Download
             </button>
           </div>
 
-          <div className="p-3 bg-theme-warning-bg border border-theme-warning-border rounded-md">
-            <p className="text-theme-warning-fg text-xs">
-              <strong>Important:</strong> Store these codes in a safe place. If you regenerate codes, the old ones will no longer work.
-            </p>
-          </div>
+          <label className="flex items-start space-x-2 text-sm text-theme-secondary">
+            <input
+              type="checkbox"
+              checked={codesSaved}
+              onChange={(e) => setCodesSaved(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>I have saved these backup codes.</span>
+          </label>
+
+          <button
+            onClick={() => { setNewBackupCodes([]); setCodesSaved(false); }}
+            disabled={!codesSaved}
+            className="w-full px-4 py-2 bg-theme-interactive-primary text-white rounded-md hover:bg-theme-interactive-primary-hover disabled:opacity-50"
+          >
+            Done
+          </button>
         </div>
       </Modal>
     </div>
   );
 };
-
