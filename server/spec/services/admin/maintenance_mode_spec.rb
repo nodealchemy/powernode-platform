@@ -233,6 +233,32 @@ RSpec.describe Admin::MaintenanceMode do
         described_class.update_fields!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
       }.to raise_error(described_class::InvalidBypassIp, /TRUSTED_PROXY_CIDRS/)
     end
+
+    # Item 7a: a caller that omits a keyword entirely (not "passes it as
+    # blank") must leave that field completely untouched.
+    it 'leaves bypass_ips and estimated_completion untouched when only message is given' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        described_class.update_fields!(message: 'first', estimated_completion: '10 minutes', bypass_ips: [ '203.0.113.5' ])
+
+        status = described_class.update_fields!(message: 'second')
+
+        expect(status[:message]).to eq('second')
+        expect(status[:estimated_completion]).to eq('10 minutes')
+        expect(status[:bypass_ips]).to eq([ '203.0.113.5' ])
+      end
+    end
+
+    it 'leaves message and estimated_completion untouched when only bypass_ips is given' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        described_class.update_fields!(message: 'Keep me', estimated_completion: '10 minutes')
+
+        status = described_class.update_fields!(bypass_ips: [ '198.51.100.9' ])
+
+        expect(status[:message]).to eq('Keep me')
+        expect(status[:estimated_completion]).to eq('10 minutes')
+        expect(status[:bypass_ips]).to eq([ '198.51.100.9' ])
+      end
+    end
   end
 
   describe '.bypass_ip?' do

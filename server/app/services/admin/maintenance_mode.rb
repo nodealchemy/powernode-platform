@@ -56,6 +56,12 @@ module Admin
 
     InvalidBypassIp = Class.new(ArgumentError)
 
+    # Sentinel distinguishing "this keyword was not passed at all" from
+    # "passed as nil/blank" — update_fields! must leave an OMITTED field
+    # completely untouched (a message-only PATCH must not wipe bypass_ips or
+    # the ETA), and a plain `nil` default can't tell those two cases apart.
+    UNSET = Object.new.freeze
+
     class << self
       # -- Gate ---------------------------------------------------------------
 
@@ -190,13 +196,23 @@ module Admin
       #     edit reset "maintenance has been on since" to now.
       # Neither of those fields is touched here, so neither defect can recur
       # regardless of which action a future caller adds.
-      def update_fields!(message:, estimated_completion: nil, bypass_ips: [])
-        bypass_ips = Array(bypass_ips).map(&:to_s)
-        validate_bypass_ips!(bypass_ips)
+      #
+      # Each keyword defaults to UNSET (not nil/[]) and is only written when
+      # the caller actually passed it — a message-only PATCH must not wipe
+      # bypass_ips back to [] or the ETA back to nil just because they weren't
+      # part of THIS request. The controller only forwards keys present in
+      # params (params.key?), so "the field is absent from the request" and
+      # "the field was explicitly cleared" stay distinguishable end to end.
+      def update_fields!(message: UNSET, estimated_completion: UNSET, bypass_ips: UNSET)
+        if bypass_ips != UNSET
+          ips = Array(bypass_ips).map(&:to_s)
+          validate_bypass_ips!(ips)
+          AdminSetting.set(BYPASS_IPS_KEY, ips)
+        end
 
-        set_raw_string(MESSAGE_KEY, message.presence || DEFAULT_MESSAGE)
-        set_raw_string(ESTIMATED_COMPLETION_KEY, estimated_completion)
-        AdminSetting.set(BYPASS_IPS_KEY, bypass_ips)
+        set_raw_string(MESSAGE_KEY, message.presence || DEFAULT_MESSAGE) if message != UNSET
+        set_raw_string(ESTIMATED_COMPLETION_KEY, estimated_completion) if estimated_completion != UNSET
+
         run_after_commit { invalidate_cache! }
         read_from_store
       end

@@ -213,6 +213,26 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
         expect_error_response('not-an-ip', 422)
       end
     end
+
+    # Item 7a: a caller (e.g. a lighter-weight future control, or a plain
+    # curl PATCH) that sends only `message` must not wipe the other fields —
+    # the controller only forwards params.key?-present keys.
+    it 'a message-only PATCH does not wipe bypass_ips or estimated_completion' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        patch '/api/v1/admin/maintenance/mode',
+            params: { message: 'first', estimated_completion: '10 minutes', bypass_ips: [ '203.0.113.5' ] },
+            headers: headers, as: :json
+        expect_success_response
+
+        patch '/api/v1/admin/maintenance/mode', params: { message: 'second' }, headers: headers, as: :json
+
+        expect_success_response
+        data = json_response_data
+        expect(data['message']).to eq('second')
+        expect(data['estimated_completion']).to eq('10 minutes')
+        expect(data['bypass_ips']).to eq([ '203.0.113.5' ])
+      end
+    end
   end
 
   describe 'GET /api/v1/admin/maintenance/backups' do

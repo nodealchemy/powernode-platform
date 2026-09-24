@@ -56,13 +56,18 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # split fixes.
   def update_fields
     status = nil
+    # Only forward keys ACTUALLY PRESENT in the request — Admin::MaintenanceMode
+    # .update_fields! defaults every keyword to UNSET, so a key this hash
+    # never mentions is left completely untouched. Without this, a
+    # message-only PATCH (e.g. bypass_ips simply not sent) would previously
+    # wipe bypass_ips back to [] and the ETA back to nil.
+    updates = {}
+    updates[:message] = params[:message] if params.key?(:message)
+    updates[:estimated_completion] = params[:estimated_completion] if params.key?(:estimated_completion)
+    updates[:bypass_ips] = params[:bypass_ips] if params.key?(:bypass_ips)
 
     ActiveRecord::Base.transaction do
-      status = Admin::MaintenanceMode.update_fields!(
-        message: params[:message],
-        estimated_completion: params[:estimated_completion],
-        bypass_ips: params[:bypass_ips] || []
-      )
+      status = Admin::MaintenanceMode.update_fields!(**updates)
       Rails.logger.info "Maintenance mode settings updated by #{current_user.email}"
       audit_maintenance_change("maintenance_mode_updated", status)
     end
