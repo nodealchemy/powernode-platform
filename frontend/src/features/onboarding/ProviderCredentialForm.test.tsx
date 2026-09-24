@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ProviderCredentialForm } from './ProviderCredentialForm';
+import { logger } from '@/shared/utils/logger';
 
 // The form never names an API: the caller hands it the test function.
 const mockTest = jest.fn();
@@ -174,5 +175,37 @@ describe('ProviderCredentialForm', () => {
     });
     expect(screen.queryByTestId('provider-cred-test-success')).toBeNull();
     expect(onTestStatus).toHaveBeenLastCalledWith('idle');
+  });
+
+  it('logs a failed test without the credential values the request carried', async () => {
+    const logSpy = jest.spyOn(logger, 'error').mockImplementation(() => undefined);
+    // An axios error carries the request body (the plaintext credentials) in
+    // config.data; a non-Error rejection is logged whole.
+    const axiosLike = Object.assign(new Error('Request failed with status code 500'), {
+      config: { data: JSON.stringify({ credentials: { api_token: 'PLANTED-SECRET' } }) },
+      response: { status: 500, data: {} },
+    });
+    mockTest.mockRejectedValueOnce(axiosLike).mockRejectedValueOnce({
+      message: 'boom',
+      config: { data: '{"api_token":"PLANTED-SECRET"}' },
+    });
+    render(<ProviderCredentialForm category="cloud" providerType="hetzner" testCredentials={mockTest} />);
+    fireEvent.change(screen.getByTestId('provider-cred-field-api_token'), {
+      target: { value: 'PLANTED-SECRET' },
+    });
+
+    fireEvent.click(screen.getByTestId('provider-cred-test-btn'));
+    await waitFor(() => expect(logSpy).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId('provider-cred-test-btn'));
+    await waitFor(() => expect(logSpy).toHaveBeenCalledTimes(2));
+
+    const logged = JSON.stringify(logSpy.mock.calls, (_k, v) =>
+      v instanceof Error ? { ...v, message: v.message, stack: v.stack } : v
+    );
+    expect(logged).not.toContain('PLANTED-SECRET');
+    expect(logSpy.mock.calls[0][2]).toEqual(
+      expect.objectContaining({ errorMessage: 'Request failed with status code 500', status: 500, providerType: 'hetzner', category: 'cloud' })
+    );
+    logSpy.mockRestore();
   });
 });

@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { logger } from '@/shared/utils/logger';
+import { getErrorMessage, getErrorStatus } from '@/shared/utils/errorHandling';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 import { onboardingApi } from '@/features/onboarding/services/onboardingApi';
 import {
@@ -121,7 +122,14 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
       }
       setSaveStatus('saved');
     } catch (err) {
-      logger.error('ProviderStep: failed to persist credentials', err, { category });
+      // Never the raw error: an axios error carries the request body, i.e. the
+      // plaintext credentials, in config.data.
+      logger.error('ProviderStep: failed to persist credentials', undefined, {
+        category,
+        providerType,
+        errorMessage: getErrorMessage(err),
+        status: getErrorStatus(err),
+      });
       setSaveError(err instanceof Error ? err.message : 'Failed to save credentials. Please retry.');
       setSaveStatus('error');
     }

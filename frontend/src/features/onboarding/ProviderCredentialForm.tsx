@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { logger } from '@/shared/utils/logger';
+import { getErrorMessage, getErrorStatus } from '@/shared/utils/errorHandling';
 import type {
   ProviderCredentialTestRequest,
   ProviderCredentialTestResult,
@@ -537,9 +538,13 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
         setTestMessage(inner.error ?? 'Credentials were rejected by the provider.');
       }
     } catch (err) {
-      logger.error('ProviderCredentialForm: credential test failed', err, {
+      // Never the raw error: an axios error carries the request body, i.e. the
+      // plaintext credentials, in config.data.
+      logger.error('ProviderCredentialForm: credential test failed', undefined, {
         category,
         providerType,
+        errorMessage: getErrorMessage(err),
+        status: getErrorStatus(err),
       });
       setTestStatus('invalid');
       setTestMessage(

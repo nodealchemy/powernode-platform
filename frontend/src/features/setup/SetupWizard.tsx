@@ -63,6 +63,9 @@ type Phase = 'loading' | 'ready' | 'already_complete';
 
 interface SetupState {
   phase: Phase;
+  /** The server's step list, before availability filtering. */
+  allSteps: SetupStep[];
+  /** The steps shown: allSteps filtered by isSetupStepAvailable. */
   steps: SetupStep[];
   index: number;
   values: Record<string, Record<string, string>>;
@@ -73,12 +76,13 @@ interface SetupState {
 
 type SetupAction =
   | { type: 'INIT_ADMIN' }
-  | { type: 'INIT_STEPS'; steps: SetupStep[]; index: number }
+  | { type: 'INIT_STEPS'; allSteps: SetupStep[] }
   | { type: 'INIT_COMPLETE' }
   | { type: 'SET_VALUES'; key: string; values: Record<string, string>; valid: boolean }
   | { type: 'SUBMIT_START' }
   | { type: 'SUBMIT_ERROR'; error: string }
-  | { type: 'REPLACE_STEPS'; steps: SetupStep[]; index: number }
+  | { type: 'REPLACE_STEPS'; allSteps: SetupStep[]; afterKey: string | undefined }
+  | { type: 'REFILTER' }
   | { type: 'GOTO'; index: number };
 
 const firstIncomplete = (steps: SetupStep[]): number => {
@@ -97,6 +101,28 @@ const nextIncompleteFrom = (steps: SetupStep[], from: number): number => {
   return steps.length;
 };
 
+// Where `key` sits in the visible list: its own index when visible, otherwise
+// the index it would take (the count of visible steps ahead of it in the
+// server's order). Keeps positioning keyed by step, not by index, so a list
+// that grew or shrank around the current step cannot skip or repeat one.
+const positionOf = (all: SetupStep[], visible: SetupStep[], key: string | undefined): number => {
+  if (!key) return 0;
+  const own = visible.findIndex((s) => s.key === key);
+  if (own !== -1) return own;
+  const at = all.findIndex((s) => s.key === key);
+  if (at === -1) return 0;
+  const ahead = new Set(all.slice(0, at).map((s) => s.key));
+  return visible.filter((s) => ahead.has(s.key)).length;
+};
+
+// The index to advance to after submitting `key`: past it, skipping any
+// already-completed steps (e.g. provider steps whose credentials already
+// exist), or steps.length when none remain.
+const nextIndexAfter = (all: SetupStep[], steps: SetupStep[], key: string | undefined): number => {
+  const current = steps.findIndex((s) => s.key === key);
+  return nextIncompleteFrom(steps, current === -1 ? positionOf(all, steps, key) : current + 1);
+};
+
 const errorMessage = (err: unknown, fallback: string): string => {
   if (err && typeof err === 'object') {
     const e = err as { response?: { data?: { error?: string } }; message?: string };
@@ -107,6 +133,7 @@ const errorMessage = (err: unknown, fallback: string): string => {
 
 const initialState: SetupState = {
   phase: 'loading',
+  allSteps: [],
   steps: [],
   index: 0,
   values: {},
@@ -119,8 +146,18 @@ function reducer(state: SetupState, action: SetupAction): SetupState {
   switch (action.type) {
     case 'INIT_ADMIN':
       return { ...state, phase: 'ready', steps: [ADMIN_STEP], index: 0, submitting: false, error: null };
-    case 'INIT_STEPS':
-      return { ...state, phase: 'ready', steps: action.steps, index: action.index, submitting: false, error: null };
+    case 'INIT_STEPS': {
+      const steps = action.allSteps.filter(isSetupStepAvailable);
+      return {
+        ...state,
+        phase: 'ready',
+        allSteps: action.allSteps,
+        steps,
+        index: firstIncomplete(steps),
+        submitting: false,
+        error: null,
+      };
+    }
     case 'INIT_COMPLETE':
       return { ...state, phase: 'already_complete' };
     case 'SET_VALUES':
@@ -133,8 +170,25 @@ function reducer(state: SetupState, action: SetupAction): SetupState {
       return { ...state, submitting: true, error: null };
     case 'SUBMIT_ERROR':
       return { ...state, submitting: false, error: action.error };
-    case 'REPLACE_STEPS':
-      return { ...state, submitting: false, error: null, steps: action.steps, index: action.index };
+    case 'REPLACE_STEPS': {
+      const steps = action.allSteps.filter(isSetupStepAvailable);
+      return {
+        ...state,
+        submitting: false,
+        error: null,
+        allSteps: action.allSteps,
+        steps,
+        index: nextIndexAfter(action.allSteps, steps, action.afterKey),
+      };
+    }
+    case 'REFILTER': {
+      // A late-registering extension can change which steps are available;
+      // stay on the step the operator is on.
+      if (state.allSteps.length === 0) return state;
+      const steps = state.allSteps.filter(isSetupStepAvailable);
+      const index = positionOf(state.allSteps, steps, state.steps[state.index]?.key);
+      return { ...state, steps, index: Math.min(index, steps.length) };
+    }
     case 'GOTO':
       return { ...state, submitting: false, error: null, index: Math.min(action.index, state.steps.length) };
     default:
@@ -171,9 +225,9 @@ export const SetupWizard: React.FC = () => {
     const load = async () => {
       try {
         if (isAuthenticated) {
-          const steps = (await setupApi.getSteps()).filter(isSetupStepAvailable);
+          const allSteps = await setupApi.getSteps();
           if (cancelled) return;
-          dispatchLocal({ type: 'INIT_STEPS', steps, index: firstIncomplete(steps) });
+          dispatchLocal({ type: 'INIT_STEPS', allSteps });
           return;
         }
         const status = await setupApi.getStatus();
@@ -190,6 +244,9 @@ export const SetupWizard: React.FC = () => {
       cancelled = true;
     };
   }, [isAuthenticated]);
+
+  // Step availability depends on what extensions have registered.
+  useEffect(() => featureRegistry.subscribe(() => dispatchLocal({ type: 'REFILTER' })), []);
 
   const currentStep = state.steps[state.index];
 
@@ -251,11 +308,10 @@ export const SetupWizard: React.FC = () => {
         } else {
           await setupApi.submitStep(step.key, values);
         }
-        const steps = (await setupApi.getSteps()).filter(isSetupStepAvailable);
-        // Skip any already-completed steps ahead (e.g. provider steps whose
-        // credentials already exist) so we never re-ask for configured providers.
-        const nextIdx = nextIncompleteFrom(steps, state.index + 1);
-        dispatchLocal({ type: 'REPLACE_STEPS', steps, index: nextIdx });
+        const allSteps = await setupApi.getSteps();
+        const steps = allSteps.filter(isSetupStepAvailable);
+        const nextIdx = nextIndexAfter(allSteps, steps, step.key);
+        dispatchLocal({ type: 'REPLACE_STEPS', allSteps, afterKey: step.key });
         if (nextIdx >= steps.length) {
           void finishSetup();
         }
@@ -263,7 +319,7 @@ export const SetupWizard: React.FC = () => {
         dispatchLocal({ type: 'SUBMIT_ERROR', error: errorMessage(err, 'Failed to save this step.') });
       }
     },
-    [state.values, state.index, finishSetup]
+    [state.values, finishSetup]
   );
 
   const skipStep = useCallback(() => {

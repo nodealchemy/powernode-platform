@@ -14,6 +14,7 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
 
 import { onboardingApi } from '@/features/onboarding/services/onboardingApi';
 import { featureRegistry } from '@/shared/services/featureRegistry';
+import { logger } from '@/shared/utils/logger';
 
 // Cloud credentials are not served by core: the category's create/test handlers
 // come from whichever extension registered them.
@@ -141,5 +142,30 @@ describe('ProviderStep', () => {
     );
     // base_url must not leak into the credential payload — it's provider config.
     expect(mockCreateGitCredential.mock.calls[0][0].credentials).not.toHaveProperty('base_url');
+  });
+
+  it('logs a failed save without the credential values the request carried', async () => {
+    const logSpy = jest.spyOn(logger, 'error').mockImplementation(() => undefined);
+    mockCreateAiProvider.mockResolvedValue('prov-ai-1');
+    mockCreateAiCredential.mockRejectedValue(
+      Object.assign(new Error('Request failed with status code 422'), {
+        config: { data: JSON.stringify({ credential: { credentials: { api_key: 'PLANTED-SECRET' } } }) },
+        response: { status: 422, data: {} },
+      })
+    );
+    render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+    fireEvent.click(screen.getByTestId('setup-provider-anthropic'));
+    fireEvent.change(screen.getByTestId('provider-cred-field-api_key'), {
+      target: { value: 'PLANTED-SECRET' },
+    });
+    fireEvent.click(screen.getByTestId('setup-save-btn'));
+
+    await waitFor(() => expect(logSpy).toHaveBeenCalled());
+    const logged = JSON.stringify(logSpy.mock.calls, (_k, v) =>
+      v instanceof Error ? { ...v, message: v.message } : v
+    );
+    expect(logged).not.toContain('PLANTED-SECRET');
+    expect(logSpy.mock.calls[0][2]).toEqual(expect.objectContaining({ status: 422, category: 'ai' }));
+    logSpy.mockRestore();
   });
 });

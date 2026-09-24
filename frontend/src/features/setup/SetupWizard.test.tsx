@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '@/test-utils';
 import { SetupWizard } from './SetupWizard';
 
@@ -197,6 +197,33 @@ describe('SetupWizard', () => {
       await waitFor(() => expect(screen.getByTestId('setup-git-step')).toBeInTheDocument());
       expect(screen.queryByTestId('setup-cloud-step')).toBeNull();
       expect(screen.queryByText('Cloud provider')).toBeNull();
+    });
+
+    it('re-applies availability when an extension registers late, staying on the same step', async () => {
+      setUrl('/setup');
+      featureRegistry.clear();
+      mockGetSteps.mockResolvedValue(cloudThenAi);
+
+      renderWithProviders(<SetupWizard />, {
+        preloadedState: { auth: { isAuthenticated: true, user: { id: '1' }, isLoading: false } },
+      });
+      await waitFor(() => expect(screen.getByTestId('setup-git-step')).toBeInTheDocument());
+      expect(screen.getByTestId('setup-step-progress')).not.toHaveTextContent('Cloud provider');
+
+      act(() => {
+        featureRegistry.registerProviderCategoryHandlers('cloud', {
+          createCredential: jest.fn(),
+          testCredential: jest.fn(),
+        });
+      });
+
+      // The cloud step now exists (ahead of git), but the operator stays on git:
+      // no jump back to index 0, no skip.
+      await waitFor(() =>
+        expect(screen.getByTestId('setup-step-progress')).toHaveTextContent('Cloud provider')
+      );
+      expect(screen.getByTestId('setup-git-step')).toBeInTheDocument();
+      expect(screen.queryByTestId('setup-cloud-step')).toBeNull();
     });
 
     it('is shown when an extension registers cloud credential handlers', async () => {
