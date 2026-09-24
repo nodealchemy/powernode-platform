@@ -61,4 +61,18 @@ describe('defaultNavigationConfig — DevOps nav permission alignment', () => {
     expect(allPerms).not.toContain('docker.hosts.read');
     expect(allPerms).not.toContain('kubernetes.clusters.read');
   });
+
+  // fc-25 review item 7: the section-level `permissions` aggregate is an
+  // OR gate (NavigationSection only hides the section header if the user
+  // has NONE of these) — every entry in it must be pulled by at least one
+  // child item, or it is dead weight left over from a deleted child (here,
+  // Connections' File Storage tab, deleted in fc-25, which used to need
+  // admin.storage.read; that permission belongs solely to Admin ▸ Storage
+  // now, a different section entirely).
+  it('the DevOps section aggregate carries exactly the union of its own items\' permissions', () => {
+    const devops = section('devops');
+    const childPerms = new Set((devops?.items ?? []).flatMap((i) => i.permissions ?? []));
+    expect(new Set(devops?.permissions ?? [])).toEqual(childPerms);
+    expect(devops?.permissions).not.toContain('admin.storage.read');
+  });
 });

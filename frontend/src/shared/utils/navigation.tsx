@@ -396,7 +396,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 9
         }
       ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'git.runners.read', 'system.module_builds.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'admin.storage.read', 'devops.containers.read', 'devops.swarm.read', 'devops.docker.read', 'devops.kubernetes.read'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'git.runners.read', 'system.module_builds.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'devops.containers.read', 'devops.swarm.read', 'devops.docker.read', 'devops.kubernetes.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 11
