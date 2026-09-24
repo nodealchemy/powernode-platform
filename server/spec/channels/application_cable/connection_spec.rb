@@ -8,6 +8,15 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, status: "active") }
 
+  def impersonation_token(impersonator:, impersonated_user:)
+    session = ImpersonationSession.create_session!(impersonator: impersonator, impersonated_user: impersonated_user)
+    payload = {
+      type: "impersonation", session_id: session.id, sub: impersonated_user.id,
+      account_id: impersonated_user.account_id, version: Security::JwtService::CURRENT_TOKEN_VERSION
+    }
+    Security::JwtService.encode(payload)
+  end
+
   describe "happy path with a fresh access token" do
     it "connects and identifies the user" do
       tokens = Security::JwtService.generate_user_tokens(user)
@@ -91,14 +100,26 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
       Admin::MaintenanceMode.invalidate_cache!
     end
 
-    it "rejects a plain user's JWT connection" do
+    # N2: a maintenance-mode block now closes with a distinct reason
+    # (reason: "maintenance_mode", reconnect: false) rather than raising
+    # reject_unauthorized_connection's UnauthorizedError — see
+    # Connection#close_for_maintenance! for why (a WebSocketManager
+    # reconnect-storm bug on the frontend, reason: "unauthorized" specifically
+    # is misread as an expired session). `have_rejected_connection` only
+    # matches that raise, so these assert the OBSERVABLE state instead: the
+    # connection never authenticates. close_for_maintenance! itself is a
+    # no-op in this test harness (no real @coder/@websocket — see its own
+    # comment), which is why current_user is the only assertable signal here.
+    it "does not authenticate a plain user's JWT connection" do
       tokens = Security::JwtService.generate_user_tokens(user)
-      expect { connect "/cable?token=#{tokens[:access_token]}" }.to have_rejected_connection
+      connect "/cable?token=#{tokens[:access_token]}"
+      expect(connection.current_user).to be_nil
     end
 
-    it "rejects a plain user's legacy UserToken connection" do
+    it "does not authenticate a plain user's legacy UserToken connection" do
       minted = UserToken.create_token_for_user(user, type: "access")
-      expect { connect "/cable?token=#{minted[:token]}" }.to have_rejected_connection
+      connect "/cable?token=#{minted[:token]}"
+      expect(connection.current_user).to be_nil
     end
 
     it "still connects a system.admin user" do
@@ -136,6 +157,51 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
       connect "/cable?token=#{tokens[:access_token]}"
 
       expect(connection.current_user).to eq(user)
+    end
+
+    describe "impersonation — driver decision: an impersonating admin must not be trapped" do
+      it "exempts a session where the IMPERSONATOR holds an exempt permission" do
+        admin = create(:user, account: account, status: "active", permissions: [ "system.admin" ])
+        token = impersonation_token(impersonator: admin, impersonated_user: user)
+
+        connect "/cable?token=#{token}"
+
+        expect(connection.current_user).to eq(user)
+        expect(connection.impersonator).to eq(admin)
+      end
+
+      it "still blocks when NEITHER the impersonator nor the impersonated user is exempt" do
+        non_admin_impersonator = create(:user, account: account, status: "active", permissions: [])
+        token = impersonation_token(impersonator: non_admin_impersonator, impersonated_user: user)
+
+        connect "/cable?token=#{token}"
+
+        expect(connection.current_user).to be_nil
+      end
+    end
+  end
+
+  describe "impersonation" do
+    it "authenticates as the impersonated user and tracks the impersonator" do
+      admin = create(:user, account: account, status: "active", permissions: [ "system.admin" ])
+      token = impersonation_token(impersonator: admin, impersonated_user: user)
+
+      connect "/cable?token=#{token}"
+
+      expect(connection.current_user).to eq(user)
+      expect(connection.impersonator).to eq(admin)
+    end
+
+    it "rejects an unknown/expired impersonation session" do
+      session = ImpersonationSession.create_session!(impersonator: create(:user, :admin, account: account), impersonated_user: user)
+      session.update!(ended_at: 1.hour.ago)
+      payload = {
+        type: "impersonation", session_id: session.id, sub: user.id,
+        account_id: user.account_id, version: Security::JwtService::CURRENT_TOKEN_VERSION
+      }
+      token = Security::JwtService.encode(payload)
+
+      expect { connect "/cable?token=#{token}" }.to have_rejected_connection
     end
   end
 

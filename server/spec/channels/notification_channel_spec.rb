@@ -63,6 +63,53 @@ RSpec.describe NotificationChannel, type: :channel do
     end
   end
 
+  # N2: a socket opened BEFORE maintenance mode was enabled is otherwise
+  # never re-checked once its initial handshake passes — these chokepoints
+  # (before_subscribe + ApplicationCable::Channel#perform_action) exist so
+  # every channel that inherits from it stops being usable once maintenance
+  # turns on mid-session, with no per-channel code required.
+  describe 'maintenance mode (ApplicationCable::Channel base-class gate)' do
+    after do
+      Admin::MaintenanceMode.disable!
+      Admin::MaintenanceMode.invalidate_cache!
+    end
+
+    it 'rejects a NEW subscription attempt while maintenance is on' do
+      Admin::MaintenanceMode.enable!(message: 'Upgrading')
+      Admin::MaintenanceMode.invalidate_cache!
+
+      subscribe(account_id: account.id)
+
+      expect(subscription).to be_rejected
+    end
+
+    it 'stops an ALREADY-SUBSCRIBED (grandfathered) connection from performing further actions once maintenance turns on' do
+      subscribe(account_id: account.id)
+      expect(subscription).to be_confirmed
+
+      Admin::MaintenanceMode.enable!(message: 'Upgrading')
+      Admin::MaintenanceMode.invalidate_cache!
+
+      perform :ping
+
+      expect(subscription).to be_rejected
+    end
+
+    it 'exempts a system.admin holder from both the subscribe-time and perform-time checks' do
+      admin = create(:user, account: account, permissions: [ 'system.admin' ])
+      stub_connection current_user: admin
+      Admin::MaintenanceMode.enable!(message: 'Upgrading')
+      Admin::MaintenanceMode.invalidate_cache!
+
+      subscribe(account_id: account.id)
+      expect(subscription).to be_confirmed
+
+      perform :ping
+
+      expect(subscription).not_to be_rejected
+    end
+  end
+
   describe 'a new notification' do
     it 'is delivered to its owner' do
       expect {

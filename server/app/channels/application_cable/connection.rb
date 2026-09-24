@@ -4,6 +4,11 @@ module ApplicationCable
   class Connection < ActionCable::Connection::Base
     identified_by :current_user
     identified_by :current_worker
+    # Set only for an impersonation-JWT connection — see #authenticate_impersonation.
+    # `identified_by` (not a plain attr_accessor) so Channel instances get it
+    # delegated automatically (delegate_connection_identifiers), consistent
+    # with current_user/current_worker.
+    identified_by :impersonator
 
     def connect
       find_verified_identity
@@ -35,6 +40,8 @@ module ApplicationCable
             case payload[:type]
             when "access"
               authenticate_user(payload)
+            when "impersonation"
+              authenticate_impersonation(payload)
             else
               Rails.logger.warn "ActionCable: Invalid token type for WebSocket: #{payload[:type]}"
               reject_unauthorized_connection
@@ -174,18 +181,87 @@ module ApplicationCable
       end
     end
 
+    # Mirrors Authentication#handle_impersonation_jwt_token (REST) — resolves
+    # the impersonated user as the connection's identity, and tracks the
+    # impersonator separately so reject_for_maintenance! can apply the same
+    # impersonator exemption the REST/MCP gates already do (an impersonating
+    # admin must not be trapped by a maintenance window either).
+    def authenticate_impersonation(payload)
+      session = ImpersonationSession.find_by(id: payload[:session_id])
+
+      unless session&.active?
+        Rails.logger.warn "ActionCable: invalid or inactive impersonation session"
+        reject_unauthorized_connection
+        return
+      end
+
+      if session.expired?
+        session.end_session!
+        Rails.logger.warn "ActionCable: impersonation session expired"
+        reject_unauthorized_connection
+        return
+      end
+
+      unless session.impersonator_currently_authorized?
+        session.end_session!
+        Rails.logger.warn "ActionCable: impersonator no longer authorized"
+        reject_unauthorized_connection
+        return
+      end
+
+      user = session.impersonated_user
+      impersonator_user = session.impersonator
+
+      unless user&.active? && user.account&.active?
+        Rails.logger.warn "ActionCable: impersonated user inactive"
+        reject_unauthorized_connection
+        return
+      end
+
+      return if reject_for_maintenance!(user, impersonator: impersonator_user)
+
+      Rails.logger.info "ActionCable: impersonation authentication successful for #{user.email} (by #{impersonator_user&.email})"
+      self.current_user = user
+      self.impersonator = impersonator_user
+    end
+
     # Mirrors Authentication#authenticate_request's REST gate and
     # McpTokenAuthentication's MCP gate — see Admin::MaintenanceMode.blocked?.
     # No delegation concept applies to a cable connection (unlike the REST
     # path), so User#has_permission? directly is correct here, same as the
-    # MCP/doorkeeper path. Returns true (and rejects the connection) when the
-    # user must not connect during a maintenance window.
-    def reject_for_maintenance!(user)
-      return false unless Admin::MaintenanceMode.blocked?(request.remote_ip) { |perm| user.has_permission?(perm) }
+    # MCP/doorkeeper path. `impersonator`, when present, gets the same
+    # exemption Authentication#maintenance_exempt_permission? applies on the
+    # REST path — an impersonating admin must not be trapped either.
+    #
+    # N2: rejects via close(reason: "maintenance_mode", reconnect: false) —
+    # NOT reject_unauthorized_connection (raises UnauthorizedError, which the
+    # server reports as {type: "disconnect", reason: "unauthorized"}).
+    # WebSocketManager (frontend) treats "unauthorized" as an expired-session
+    # signal: it silently refreshes the token and reconnects — succeeding
+    # immediately, since refresh is never itself maintenance-gated — then
+    # gets rejected again on the new connection, looping roughly once a
+    # second for as long as maintenance mode stays on. A distinct reason
+    # lets the frontend recognize "the server is deliberately closing this
+    # and reconnecting is pointless right now" instead.
+    def reject_for_maintenance!(user, impersonator: nil)
+      return false unless Admin::MaintenanceMode.blocked?(request.remote_ip) { |perm| user.has_permission?(perm) || (impersonator && impersonator.has_permission?(perm)) }
 
-      Rails.logger.info "ActionCable: rejecting #{user.email} — maintenance mode"
-      reject_unauthorized_connection
+      Rails.logger.info "ActionCable: closing #{user.email} — maintenance mode"
+      close_for_maintenance!
       true
+    end
+
+    # Guarded the same way #transmit_minted_tokens! is: ActionCable::
+    # Connection::TestCase's TestConnection module (used by `connect` in
+    # connection_spec.rb) never runs the real Base#initialize, so @coder
+    # (and @websocket, which the real #close transmits through) are never
+    # set — calling the real #close there would raise on a nil websocket.
+    # Skipping it in that harness is safe: the meaningful, tested behavior
+    # is that current_user is never set, not the wire frame itself.
+    def close_for_maintenance!
+      return unless instance_variable_defined?(:@coder) && @coder
+
+      close(reason: "maintenance_mode", reconnect: false)
     end
 
     def extract_token_from_headers
