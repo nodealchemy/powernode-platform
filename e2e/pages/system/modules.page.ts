@@ -3,7 +3,7 @@ import { Page, Locator } from '@playwright/test';
 /**
  * System Modules Page Object Model
  *
- * Routes the operator UI for /app/system/modules where module list +
+ * Routes the operator UI for /app/system/catalog/modules where module list +
  * detail modals + autonomy controls (consent budget + canary marker)
  * are exercised.
  *
@@ -35,7 +35,7 @@ export class ModulesPage {
   }
 
   async goto() {
-    await this.page.goto('/app/system/modules');
+    await this.page.goto('/app/system/catalog/modules');
     await this.waitForPageReady();
   }
 

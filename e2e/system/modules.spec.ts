@@ -5,7 +5,7 @@ import { expectOrAlternateState } from '../fixtures/assertions';
 /**
  * System Modules E2E Tests
  *
- * Smoke coverage for /app/system/modules — the operator UI for the system
+ * Smoke coverage for /app/system/catalog/modules — the operator UI for the system
  * extension's NodeModule resource. Specifically guards against regressions
  * like the CanaryMarker undefined-import bug that slipped past the platform's
  * tsc gate (extensions slug frontend trees were not being type-checked) and
