@@ -144,161 +144,6 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/governance/approval_chains' do
-    let!(:chain) { create(:ai_approval_chain, account: account) }
-
-    it 'returns list of approval chains' do
-      get '/api/v1/ai/governance/approval_chains', headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['approval_chains']).to be_an(Array)
-    end
-  end
-
-  describe 'POST /api/v1/ai/governance/approval_chains' do
-    let(:chain_params) do
-      {
-        name: 'New Approval Chain',
-        trigger_type: 'manual',
-        steps: [ { order: 1, approver_role: 'manager' } ]
-      }
-    end
-
-    it 'creates a new approval chain' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:create_approval_chain)
-        .and_return(create(:ai_approval_chain, account: account))
-
-      post '/api/v1/ai/governance/approval_chains', params: chain_params, headers: headers, as: :json
-
-      expect(response).to have_http_status(:created)
-      data = json_response_data
-      expect(data['approval_chain']).to be_present
-    end
-  end
-
-  describe 'GET /api/v1/ai/governance/approval_requests' do
-    let!(:approval_req) { create(:ai_approval_request, account: account) }
-
-    it 'returns list of approval requests' do
-      get '/api/v1/ai/governance/approval_requests', headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['approval_requests']).to be_an(Array)
-    end
-
-    it 'filters by status' do
-      get "/api/v1/ai/governance/approval_requests?status=pending", headers: headers, as: :json
-
-      expect_success_response
-    end
-  end
-
-  describe 'GET /api/v1/ai/governance/approval_requests/pending' do
-    let!(:pending_request) { create(:ai_approval_request, account: account, status: 'pending') }
-
-    it 'returns pending approval requests' do
-      get '/api/v1/ai/governance/approval_requests/pending', headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['approval_requests']).to be_an(Array)
-    end
-  end
-
-  describe 'GET /api/v1/ai/governance/approval_requests/:id' do
-    let!(:approval_req) { create(:ai_approval_request, account: account) }
-
-    it 'returns the approval request with chain and decisions' do
-      get "/api/v1/ai/governance/approval_requests/#{approval_req.id}", headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['approval_request']).to be_present
-      expect(data['approval_request']['id']).to eq(approval_req.id)
-      expect(data['approval_request']).to have_key('decisions')
-      expect(data['approval_request']['decisions']).to be_an(Array)
-      expect(data['approval_request']['approval_chain']['id']).to eq(approval_req.approval_chain_id)
-    end
-
-    it 'includes recorded decisions with approver info' do
-      approver = create(:user, account: account)
-      create(:ai_approval_decision, approval_request: approval_req, approver: approver,
-                                    step_number: 0, decision: 'approved', comments: 'LGTM')
-
-      get "/api/v1/ai/governance/approval_requests/#{approval_req.id}", headers: headers, as: :json
-
-      expect_success_response
-      decisions = json_response_data['approval_request']['decisions']
-      expect(decisions.size).to eq(1)
-      expect(decisions.first['decision']).to eq('approved')
-      expect(decisions.first['approver']['id']).to eq(approver.id)
-    end
-
-    it 'returns 404 for an unknown id' do
-      get "/api/v1/ai/governance/approval_requests/#{SecureRandom.uuid}", headers: headers, as: :json
-
-      expect_error_response('Approval request not found', 404)
-    end
-
-    it 'does not expose approval requests from another account' do
-      other = create(:ai_approval_request, account: create(:account))
-
-      get "/api/v1/ai/governance/approval_requests/#{other.id}", headers: headers, as: :json
-
-      expect_error_response('Approval request not found', 404)
-    end
-
-    it 'requires authentication' do
-      get "/api/v1/ai/governance/approval_requests/#{approval_req.id}", as: :json
-
-      expect(response).to have_http_status(:unauthorized)
-    end
-  end
-
-  describe 'POST /api/v1/ai/governance/approval_requests/:id/decide' do
-    let(:approval_request) { create(:ai_approval_request, account: account, status: 'pending') }
-
-    it 'approves the request' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:process_approval_decision)
-        .and_return({ success: true, request: approval_request })
-
-      post "/api/v1/ai/governance/approval_requests/#{approval_request.id}/decide",
-           params: { decision: 'approve', comments: 'Approved' },
-           headers: headers,
-           as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['approval_request']).to be_present
-    end
-
-    it 'rejects the request' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:process_approval_decision)
-        .and_return({ success: true, request: approval_request })
-
-      post "/api/v1/ai/governance/approval_requests/#{approval_request.id}/decide",
-           params: { decision: 'reject', comments: 'Rejected' },
-           headers: headers,
-           as: :json
-
-      expect_success_response
-    end
-
-    it 'returns error when decision fails' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:process_approval_decision)
-        .and_return({ success: false, error: 'Decision failed' })
-
-      post "/api/v1/ai/governance/approval_requests/#{approval_request.id}/decide",
-           params: { decision: 'approve' },
-           headers: headers,
-           as: :json
-
-      expect_error_response('Decision failed', 422)
-    end
-  end
-
   describe 'GET /api/v1/ai/governance/classifications' do
     let!(:classification) { create(:ai_data_classification, account: account) }
 
@@ -471,13 +316,6 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
         expect(response).to have_http_status(:forbidden)
       end
 
-      it 'forbids deciding an approval request' do
-        approval_request = create(:ai_approval_request, account: account, status: 'pending')
-        post "/api/v1/ai/governance/approval_requests/#{approval_request.id}/decide",
-             params: { decision: 'approve' }, headers: unprivileged_headers, as: :json
-        expect(response).to have_http_status(:forbidden)
-      end
-
       it 'forbids resolving a violation' do
         violation = create(:ai_policy_violation, account: account, status: 'acknowledged')
         put "/api/v1/ai/governance/violations/#{violation.id}/resolve",
@@ -520,7 +358,7 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
 
     # Governance writes are DECOUPLED from the coarse manage-all-AI gate: holding
     # only ai.manage (e.g. an AI operator without governance authority) must no
-    # longer be able to create policies, decide approvals, or resolve violations.
+    # longer be able to create policies or resolve violations.
     context 'with only the coarse ai.manage permission (decoupled from governance writes)' do
       let(:coarse) { create(:user, account: account, permissions: %w[ai.manage]) }
 
@@ -528,13 +366,6 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
         post '/api/v1/ai/governance/policies',
              params: { name: 'X', policy_type: 'retention', enforcement_level: 'strict' },
              headers: auth_headers_for(coarse), as: :json
-        expect(response).to have_http_status(:forbidden)
-      end
-
-      it 'forbids deciding an approval request' do
-        approval_request = create(:ai_approval_request, account: account, status: 'pending')
-        post "/api/v1/ai/governance/approval_requests/#{approval_request.id}/decide",
-             params: { decision: 'approve' }, headers: auth_headers_for(coarse), as: :json
         expect(response).to have_http_status(:forbidden)
       end
     end

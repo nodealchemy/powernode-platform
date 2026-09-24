@@ -204,36 +204,6 @@ RSpec.describe 'Approval decisions reveal a minted secret exactly once', type: :
     end
   end
 
-  # The OTHER human surface that resolves an approval and therefore runs the
-  # same executors. Ai::GovernanceService#process_approval_decision returns the
-  # object the cascade fired on (#reload returns self), which is what makes the
-  # in-memory slot reachable from a second controller.
-  describe 'POST /api/v1/ai/governance/approval_requests/:id/decide' do
-    let(:governor) do
-      create(:user, account: account,
-                    permissions: %w[ai.agents.read ai.governance.read ai.governance.manage])
-    end
-    let(:governance_headers) { auth_headers_for(governor) }
-
-    it 'carries the minted secret on the governance decision response' do
-      post "/api/v1/ai/governance/approval_requests/#{approval_request.id}/decide",
-           params: { decision: 'approved' }, headers: governance_headers, as: :json
-
-      expect(response).to have_http_status(:ok)
-      expect(json_response_data.dig('approval_request', 'revealed_result', 'acceptance_token_plaintext'))
-        .to eq(minted_secret)
-    end
-
-    it 'still redacts at rest and reveals nothing on a rejection' do
-      post "/api/v1/ai/governance/approval_requests/#{approval_request.id}/decide",
-           params: { decision: 'rejected' }, headers: governance_headers, as: :json
-
-      expect(response).to have_http_status(:ok)
-      expect(json_response_data['approval_request']).not_to have_key('revealed_result')
-      expect(deferred.reload.status).to eq('rejected')
-    end
-  end
-
   # Not an oversight — a decision, pinned. Ai::AgentToolBridgeService persists a
   # 200-byte preview of every tool return to ai_messages.processing_metadata and
   # forwards the full JSON to the model provider as a role:"tool" message, so

@@ -3,9 +3,13 @@
 require "rails_helper"
 
 # Separation of duty: one person, one decision per step of an approval request.
-# Against the REAL services that decide requests: a second "approved" from the
-# same approver used to count toward required_approvals, so one person could
-# turn both keys of a two-approval step.
+# Against the REAL service that decides requests, Ai::Autonomy::
+# ApprovalWorkflowService — the sole decision path since
+# Ai::GovernanceService#process_approval_decision was deleted (fc-12; this
+# file used to mirror the same race coverage against BOTH services to prove
+# they enforced the same invariant). A second "approved" from the same
+# approver used to count toward required_approvals, so one person could turn
+# both keys of a two-approval step.
 RSpec.describe "Approval decisions: one per approver per step" do
   let(:account) { create(:account) }
   let(:perm) { "system.infra_tasks.control" }
@@ -118,22 +122,4 @@ RSpec.describe "Approval decisions: one per approver per step" do
     end
   end
 
-  describe Ai::GovernanceService do
-    let(:service) { described_class.new(account) }
-
-    it "refuses the same approver's second decision" do
-      expect(service.process_approval_decision(request: request, user: first_key, decision: "approved")[:success]).to be(true)
-
-      expect(service.process_approval_decision(request: request.reload, user: first_key, decision: "approved")[:success]).to be(false)
-      expect(request.decisions.where(approver_id: first_key.id).count).to eq(1)
-    end
-
-    it "reports a same-approver race past the check as a refusal, never as a success" do
-      service.process_approval_decision(request: request, user: first_key, decision: "approved")
-
-      result = service.process_approval_decision(request: racing_copy, user: first_key, decision: "approved")
-      expect(result[:success]).to be(false)
-      expect(request.decisions.where(approver_id: first_key.id).count).to eq(1)
-    end
-  end
 end

@@ -39,10 +39,11 @@ RSpec.describe Ai::Autonomy::ApprovalWorkflowService do
 
     # IMP-27e2f8e59ce0 — the DECISION side must work on any request that
     # exists, capability or not. Ai::AutonomyGate creates requests in core
-    # mode (Ai::ApprovalChain is a core model) and the governance decide
-    # endpoint already decides them without a capability check; refusing here
-    # produced 422 "Cannot approve this request" on a core-mode hub and left
-    # the deferred operation stranded. Only request CREATION stays gated.
+    # mode (Ai::ApprovalChain is a core model), and this service decides them
+    # without a capability check (the governance door's own decide endpoint,
+    # which once did the same, was deleted in fc-12); refusing here produced
+    # 422 "Cannot approve this request" on a core-mode hub and left the
+    # deferred operation stranded. Only request CREATION stays gated.
     context "on a request that exists (created by the gate in core mode)" do
       let(:chain) do
         Ai::ApprovalChain.create!(
