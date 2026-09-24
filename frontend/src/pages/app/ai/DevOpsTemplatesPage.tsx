@@ -1,7 +1,7 @@
 // DevOps Templates Page - AI Pipeline Templates for CI/CD
 import React, { useState, useEffect } from 'react';
 import { Plus, GitBranch, Play, Search, Filter, Code, AlertTriangle, CheckCircle, BarChart3, RefreshCw, Pencil, Trash2, Tag, Shield, Clock, Download, Star, FileText } from 'lucide-react';
-import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
+import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import DevopsTemplateFormModal, { TemplateFormData } from '@/features/ai/devops/components/DevopsTemplateFormModal';
@@ -44,15 +44,14 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'templates' | 'installations' | 'executions' | 'risks' | 'reviews';
 
-// fc-26: extracted content component (without PageContainer) for embedding
-// in another page's own tab (CiCdPage's "Templates" tab) — reports its
-// Refresh/Create Template actions up via onActionsReady, same contract as
-// CiCdPage's other embedded tabs (PipelinesPage, RunnersPage, ModuleBuildsPage).
+// fc-26 review item 7: this used to be DevOpsTemplatesInner, wrapped by a
+// standalone default-export page (its own PageContainer + Refresh/Create
+// Template actions) that /ai/devops/templates pointed to. That route was
+// deleted and the standalone branch along with it — CiCdPage's "Templates"
+// tab is the only mount left, reporting its actions up via onActionsReady,
+// same contract as CiCdPage's other embedded tabs (PipelinesPage,
+// RunnersPage, ModuleBuildsPage).
 export const TemplatesContent: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
-  return <DevOpsTemplatesInner standalone={false} onActionsReady={onActionsReady} />;
-};
-
-const DevOpsTemplatesInner: React.FC<{ standalone: boolean; onActionsReady?: (actions: PageAction[]) => void }> = ({ standalone, onActionsReady }) => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('templates');
   const [templates, setTemplates] = useState<DevopsTemplate[]>([]);
@@ -83,12 +82,11 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean; onActionsReady?: (ac
   }, []);
 
   useEffect(() => {
-    if (standalone) return;
     onActionsReady?.([
       { label: 'Refresh', onClick: () => loadData(), icon: RefreshCw, variant: 'secondary' as const },
       { label: 'Create Template', onClick: () => setCreateModal(true), icon: Plus, variant: 'primary' as const },
     ]);
-  }, [standalone, onActionsReady]);
+  }, [onActionsReady]);
 
   const loadData = async () => {
     try {
@@ -250,12 +248,6 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean; onActionsReady?: (ac
   const isInstalled = (templateId: string): boolean => {
     return installations.some(i => i.template.id === templateId && i.status === 'active');
   };
-
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
-    { label: 'DevOps Templates' }
-  ];
 
   const tabs = [
     { id: 'templates' as TabType, label: 'Templates', icon: Code },
@@ -926,37 +918,5 @@ const DevOpsTemplatesInner: React.FC<{ standalone: boolean; onActionsReady?: (ac
     </>
   );
 
-  if (!standalone) {
-    return innerContent;
-  }
-
-  return (
-    <PageContainer
-      title="DevOps AI Templates"
-      description="Pre-built AI workflow templates for DevOps pipelines, code review, and deployment validation"
-      breadcrumbs={breadcrumbs}
-      actions={[
-        {
-          label: 'Refresh',
-          onClick: () => loadData(),
-          icon: RefreshCw,
-          variant: 'secondary' as const
-        },
-        {
-          label: 'Create Template',
-          onClick: () => setCreateModal(true),
-          icon: Plus,
-          variant: 'primary' as const
-        }
-      ]}
-    >
-      {innerContent}
-    </PageContainer>
-  );
+  return innerContent;
 };
-
-const DevOpsTemplatesPage: React.FC = () => {
-  return <DevOpsTemplatesInner standalone={true} />;
-};
-
-export default DevOpsTemplatesPage;
