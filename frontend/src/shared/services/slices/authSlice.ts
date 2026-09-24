@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, isAnyOf } from '@reduxjs/toolkit';
 import { authApi, AuthResponse } from '@/features/account/auth/services/authAPI';
 import { impersonationApi } from '@/shared/services/account/impersonationApi';
 import { setAuthDomain, clearAuthDomain } from '@/shared/utils/domainUtils';
@@ -392,15 +392,6 @@ const authSlice = createSlice({
         state.error = errorMessage;
       })
       
-      // Logout
-      .addCase(logout.fulfilled, (state) => {
-        state.user = null;
-        state.access_token = null;
-        state.refresh_token = null;
-        state.isAuthenticated = false;
-        // Server will delete the refresh HttpOnly cookie
-      })
-
       // Refresh token
       .addCase(refreshAccessToken.pending, (state) => {
         state.error = null;
@@ -635,6 +626,22 @@ const authSlice = createSlice({
       .addCase(verify2FA.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string || '2FA verification failed';
+      })
+
+      // Logout — clears local auth state on EITHER outcome. N1: logout's
+      // own request can itself come back gated (a maintenance-window race,
+      // or any other 503/network failure) — if only .fulfilled cleared
+      // state, a failed logout call left the user "signed out" in the UI's
+      // intent but still fully authenticated locally, tokens and all. The
+      // server being unreachable is not a reason to keep local credentials.
+      .addMatcher(isAnyOf(logout.fulfilled, logout.rejected), (state) => {
+        state.user = null;
+        state.access_token = null;
+        state.refresh_token = null;
+        state.isAuthenticated = false;
+        // Server will delete the refresh HttpOnly cookie on success; on
+        // failure it may still be set, but there is no local token left to
+        // pair it with, so the next request is unauthenticated either way.
       });
   },
 });

@@ -304,6 +304,36 @@ describe('authSlice', () => {
       expect(state.isAuthenticated).toBe(false);
       // Tokens are no longer stored in localStorage (WP8: HttpOnly cookies)
     });
+
+    // N1: a gated/failed logout call must still clear LOCAL auth state — the
+    // server being unreachable (a maintenance 503, a network error) is not a
+    // reason to leave the client holding tokens it believes are already
+    // signed out of.
+    it('clears local auth state even when the logout call itself fails', async () => {
+      store.dispatch({
+        type: 'auth/login/fulfilled',
+        payload: {
+          user: { id: '1', email: 'test@example.com' },
+          access_token: 'token',
+          refresh_token: 'refresh',
+        },
+      });
+
+      mockedAuthAPI.logout.mockRejectedValueOnce({
+        response: {
+          status: 503,
+          data: { error: 'Upgrading the database', code: 'maintenance_mode' },
+        },
+      });
+
+      await store.dispatch(logout());
+
+      const state = store.getState().auth;
+      expect(state.user).toBeNull();
+      expect(state.access_token).toBeNull();
+      expect(state.refresh_token).toBeNull();
+      expect(state.isAuthenticated).toBe(false);
+    });
   });
 
   describe('getCurrentUser async thunk', () => {
