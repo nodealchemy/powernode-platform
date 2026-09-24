@@ -145,13 +145,14 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
           continue;
         }
 
-        // Items with a section property get injected into matching sections
-        if (item.section && config.sections) {
-          const targetSection = config.sections.find(s => s.id === item.section);
-          if (targetSection) {
-            targetSection.items.push(converted);
-            continue;
-          }
+        // Items with a section property get injected into matching sections.
+        // The section objects are shared with defaultNavigationConfig, so
+        // replace the target with a copy rather than pushing into it.
+        if (item.section && config.sections?.some(s => s.id === item.section)) {
+          config.sections = config.sections.map(s =>
+            s.id === item.section ? { ...s, items: [...s.items, converted] } : s
+          );
+          continue;
         }
 
         // Top-level items (no section, or section not found)
@@ -159,8 +160,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
       }
     }
 
-    // Sort copies so the shared defaultNavigationConfig arrays are never
-    // mutated across renders.
+    // Sort copies: the arrays may still be the shared defaultNavigationConfig
+    // ones, and this runs on every location change.
     config.items = [...config.items].sort((a, b) => (a.order || 99) - (b.order || 99));
 
     if (config.sections) {
