@@ -155,9 +155,16 @@ function discoverPageFiles(srcDirs: string[]): string[] {
 // the lead at commit time. Re-add an entry only for a newly discovered orphan —
 // never to make a red run green for one already fixed.
 const ALLOWED_ORPHANED: readonly string[] = [
-  // 611 lines, substantial. DashboardPage.tsx:156 routes /ai/agents/marketplace to
-  // AIAgentsPage instead — possibly superseded (same shape as C15's F12: an old
-  // page whose functionality moved into a tab of a newer one), possibly a real gap.
+  // 611 lines, substantial. Before fc-25, DashboardPage.tsx routed
+  // /ai/agents/marketplace to plain AIAgentsPage instead — which has no
+  // "marketplace" tab of its own (its tabs are agents/cards/community/
+  // autonomy), so the path just fell through to the default "agents" tab.
+  // That alias is now deleted (review item 3): it rendered nothing
+  // marketplace-shaped and shadowed the private business extension's own,
+  // real /ai/agents/marketplace route (same array, core's hardcoded entry
+  // came first). Possibly superseded (same shape as C15's F12: an old page
+  // whose functionality moved into a tab of a newer one), possibly a real
+  // gap — AgentMarketplacePage itself is still unrouted either way.
   'AgentMarketplacePage',
   // Small wrapper around a real DailySummariesPanel — no /app/content/... route
   // registers it anywhere.

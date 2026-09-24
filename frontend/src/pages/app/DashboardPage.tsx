@@ -153,7 +153,6 @@ const DashboardPage: React.FC = () => {
         {/* AI Pages - Primary navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
         <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
-        <Route path="/ai/agents/marketplace" element={<AIAgentsPage />} />
         <Route path="/ai/agents/community" element={<AIAgentsPage />} />
         {/* `/*` so an Autonomy section (`/ai/agents/autonomy/approvals`, etc.) is
             URL-addressable. This DOES win over `/ai/agents/:agentId/*` below —
@@ -190,8 +189,6 @@ const DashboardPage: React.FC = () => {
 
         {/* AI Missions - code-factory before :missionId, static tabs before dynamic */}
         <Route path="/ai/missions/code-factory/*" element={<MissionsPageWrapper />} />
-        <Route path="/ai/missions/completed" element={<MissionsPageWrapper />} />
-        <Route path="/ai/missions/all" element={<MissionsPageWrapper />} />
         <Route path="/ai/missions/:missionId" element={<MissionsPageWrapper />} />
         <Route path="/ai/missions" element={<MissionsPageWrapper />} />
 
