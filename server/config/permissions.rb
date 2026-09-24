@@ -1022,8 +1022,8 @@ module Permissions
 
     # CI worker role — narrowly scoped for Gitea/GitHub Actions runners
     # that publish disk images. Operators provision one of these per
-    # CI pipeline via the /app/system/ci-workers UI; the returned token
-    # is stored as a secret in the operator's CI configuration.
+    # CI pipeline via the /app/system/operations/ci-workers UI; the returned
+    # token is stored as a secret in the operator's CI configuration.
     #
     # Scope is deliberately minimal — `system.platforms.publish_disk_image`
     # only. A leaked CI token can register disk images but cannot read
