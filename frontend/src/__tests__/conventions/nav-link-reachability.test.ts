@@ -163,9 +163,10 @@ const ALLOWED_UNBUILT: readonly string[] = [
   '/app/supply-chain/container-images',
   '/app/supply-chain/container-images/\u0001',
   // supply-chain extension: SupplyChainDashboardPage.tsx links here, but the
-  // registered routes are /app/supply-chain/licenses/policies and
-  // /app/supply-chain/licenses/violations (LicensePoliciesPage /
-  // LicenseViolationsPage) — same stale-rename shape as container-images.
+  // registered routes are /app/supply-chain/licenses (fc-25 deleted the
+  // /licenses/policies alias) and /app/supply-chain/licenses/violations
+  // (LicensePoliciesPage / LicenseViolationsPage) — same stale-rename shape
+  // as container-images.
   '/app/supply-chain/license-policies',
   '/app/supply-chain/license-violations',
   // supply-chain extension: SupplyChainDashboardPage.tsx links here, but no
