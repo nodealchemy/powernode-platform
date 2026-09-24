@@ -25,11 +25,10 @@ import { join, relative, sep } from 'path';
  *     `apiClient\n  .get<...>(` chain, which is exactly why a call-site-only
  *     regex missed it — see below)
  *
- * features/delegations/services/delegationApi.ts has the identical defect
+ * features/delegations/services/delegationApi.ts had the identical defect
  * (21 methods, all hardcoding '/api/v1' through a local `apiRequest` helper
- * that forwards to `api.<verb>`) but is NOT fixed here: the operator has
- * decided to delete the whole delegations feature (frontend + server) in
- * fc-20, so it is allowlisted below rather than patched.
+ * that forwards to `api.<verb>`) and is now fixed too (fc-20), not
+ * allowlisted — it carries no entry below.
  *
  * SCOPE, widened from the fix's first pass: this guard does NOT require the
  * literal to appear directly inside an `api.<verb>(...)` /
@@ -191,10 +190,6 @@ const ALLOWED_OFFENDER_COUNTS: Readonly<Record<string, number>> = {
   // baked into the baseURL every other file must never repeat.
   'frontend/src/shared/services/api.ts': 2,
 
-  // fc-20 deletes the delegations feature (frontend + server) — same
-  // double-prefix defect across all 21 methods, allowlisted rather than
-  // fixed because the whole file is being deleted.
-  'frontend/src/features/delegations/services/delegationApi.ts': 21,
 
   // Feeds `new EventSource(url)` directly, never `api`/`apiClient` — an
   // EventSource has no axios baseURL to double up against, so the full

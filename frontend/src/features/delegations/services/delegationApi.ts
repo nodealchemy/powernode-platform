@@ -1,11 +1,20 @@
 import { api } from '@/shared/services/api';
+import { rolesApi } from '@/features/admin/roles/services/rolesApi';
 
-// Helper function for making API requests
+// Helper function for making API requests. Endpoints here are relative
+// (never '/api/v1/...') -- `api`'s baseURL already carries that prefix, and
+// doubling it 404s (P16, frontend/src/__tests__/conventions/no-double-api-v1-prefix.test.ts).
+//
+// Every server action wraps its payload in ApiResponse#render_success as
+// `{ success, data }` (server/app/controllers/concerns/api_response.rb) --
+// this unwraps to `.data` so the return types below (DelegationsResponse,
+// DelegationResponse, ...) describe the actual resolved value, not the
+// envelope around it.
 const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   try {
     const method = (options.method || 'GET').toLowerCase();
     const data = options.body ? JSON.parse(options.body as string) : undefined;
-    
+
     let response;
     switch (method) {
       case 'get':
@@ -26,8 +35,8 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
       default:
         response = await api.get(endpoint);
     }
-    
-    return response.data;
+
+    return response.data.data;
   } catch (error) {
     const apiError = error as {
       response?: { data?: { message?: string; error?: string; details?: string[] | string } };
@@ -54,7 +63,8 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   }
 };
 
-// Types matching the new role-based delegation system
+// Types matching the real role-based delegation system
+// (Api::V1::DelegationsController#delegation_json).
 export interface Role {
   id: string;
   name: string;
@@ -102,27 +112,6 @@ export interface Delegation {
   is_expired: boolean;
   created_at: string;
   updated_at: string;
-  // Legacy properties for backward compatibility with old components
-  name?: string;
-  description?: string;
-  sourceAccountId?: string;
-  sourceAccountName?: string;
-  targetAccountId?: string;
-  targetAccountName?: string;
-  users?: Array<{ 
-    userId?: string;
-    id?: string;
-    email: string;
-    name?: string;
-    role?: string;
-    addedAt?: string;
-  }>;
-  createdAt?: string; // camelCase alias for created_at
-  updatedAt?: string; // camelCase alias for updated_at
-  expiresAt?: string; // camelCase alias for expires_at
-  createdByName?: string;
-  revokedByName?: string;
-  revokedAt?: string; // camelCase alias for revoked_at
 }
 
 export interface Permission {
@@ -157,81 +146,27 @@ export interface DelegationResponse {
   message?: string;
 }
 
-export interface DelegationActivity {
-  id: string;
-  action: string;
-  description: string;
-  performed_by: string;
-  performed_at: string;
-  // Legacy camelCase properties for backward compatibility
-  performedBy?: string;
-  performedByName?: string;
-  performedAt?: string;
-  details?: string;
-  timestamp?: string;
-}
-
-export interface DelegationRequest {
-  id: string;
-  requesterEmail: string;
-  requestedByName?: string;
-  requestedByEmail?: string;
-  targetAccountId: string;
-  permissions: string[];
-  status: 'pending' | 'approved' | 'rejected';
-  message?: string;
-  createdAt: string;
-  delegation: {
-    name: string;
-    description: string;
-    sourceAccountName?: string;
-    expiresAt?: string;
-    permissions: string[];
-    users?: Array<{
-      id?: string;
-      name?: string;
-      email: string;
-      roles?: string[];
-    }>;
-  };
-}
-
-export interface CreateDelegationData {
-  delegated_user_email: string;
-  role_id: string;
-  permission_names: string[];
-  expires_at: string;
-  notes: string;
-}
-
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  roles: string[];
-}
-
 export const delegationApi = {
   // List all delegations for the current account
   async getDelegations(filters?: { status?: string; role_id?: string }): Promise<DelegationsResponse> {
     const params = new URLSearchParams();
     if (filters?.status) params.append('status', filters.status);
     if (filters?.role_id) params.append('role_id', filters.role_id);
-    
+
     const queryString = params.toString();
-    const endpoint = `/api/v1/accounts/current/delegations${queryString ? `?${queryString}` : ''}`;
-    
+    const endpoint = `/accounts/current/delegations${queryString ? `?${queryString}` : ''}`;
+
     return apiRequest(endpoint);
   },
 
   // Get a specific delegation by ID
   async getDelegation(delegationId: string): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}`);
+    return apiRequest(`/accounts/current/delegations/${delegationId}`);
   },
 
   // Create a new delegation
   async createDelegation(data: DelegationFormData): Promise<DelegationResponse> {
-    return apiRequest('/api/v1/accounts/current/delegations', {
+    return apiRequest('/accounts/current/delegations', {
       method: 'POST',
       body: JSON.stringify({ delegation: data }),
     });
@@ -246,7 +181,7 @@ export const delegationApi = {
   // `permission_names` as absent (`permission_names.present?`), so submitting [] is a
   // silent no-op, never a clear — callers must never offer it as one.
   async updateDelegation(delegationId: string, updates: Partial<DelegationFormData>): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}`, {
+    return apiRequest(`/accounts/current/delegations/${delegationId}`, {
       method: 'PATCH',
       body: JSON.stringify({ delegation: updates }),
     });
@@ -254,33 +189,36 @@ export const delegationApi = {
 
   // Delete a delegation (revoke it)
   async deleteDelegation(delegationId: string): Promise<{ message: string }> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}`, {
+    return apiRequest(`/accounts/current/delegations/${delegationId}`, {
       method: 'DELETE',
     });
   },
 
   // Activate a delegation
   async activateDelegation(delegationId: string): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/activate`, {
+    return apiRequest(`/accounts/current/delegations/${delegationId}/activate`, {
       method: 'PATCH',
     });
   },
 
   // Deactivate a delegation
   async deactivateDelegation(delegationId: string): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/deactivate`, {
+    return apiRequest(`/accounts/current/delegations/${delegationId}/deactivate`, {
       method: 'PATCH',
     });
   },
 
   // Revoke a delegation
   async revokeDelegation(delegationId: string): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/revoke`, {
+    return apiRequest(`/accounts/current/delegations/${delegationId}/revoke`, {
       method: 'PATCH',
     });
   },
 
   // Get available roles that can be delegated.
+  //
+  // Delegates to rolesApi.getRoles() (the same /roles GET every other role
+  // consumer in the app uses) rather than duplicating a raw fetch here.
   //
   // Filters on the CANONICAL role key. Role#name is the lowercase key
   // ('owner', 'manager'); the human string lives in display_name ('Account
@@ -298,19 +236,23 @@ export const delegationApi = {
   // SHOULD be offered is a product decision, not something to change silently
   // while fixing a string comparison.
   async getAvailableRoles(): Promise<Role[]> {
-    const response = await apiRequest('/api/v1/roles');
-    return response.filter((role: Role) => role.name !== 'owner');
+    const response = await rolesApi.getRoles();
+    return (response.data || []).filter((role) => role.name !== 'owner');
   },
 
-  // Get available permissions for delegation (optionally filtered by role)
+  // Get available permissions for delegation (optionally filtered by role).
+  // The endpoint returns `{ permissions, role_id }`
+  // (Api::V1::DelegationsController#available_permissions); only the array is
+  // useful to callers here, so this unwraps that one level further.
   async getAvailablePermissions(roleId?: string): Promise<Permission[]> {
     const params = roleId ? `?role_id=${roleId}` : '';
-    return apiRequest(`/api/v1/accounts/current/delegations/available_permissions${params}`);
+    const data = await apiRequest(`/accounts/current/delegations/available_permissions${params}`);
+    return data.permissions || [];
   },
 
   // Add permission to delegation (by permission NAME)
   async addPermissionToDelegation(delegationId: string, permissionName: string): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions`, {
+    return apiRequest(`/accounts/current/delegations/${delegationId}/permissions`, {
       method: 'POST',
       body: JSON.stringify({ permission_name: permissionName }),
     });
@@ -318,69 +260,8 @@ export const delegationApi = {
 
   // Remove permission from delegation (by permission NAME)
   async removePermissionFromDelegation(delegationId: string, permissionName: string): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/permissions/${encodeURIComponent(permissionName)}`, {
+    return apiRequest(`/accounts/current/delegations/${delegationId}/permissions/${encodeURIComponent(permissionName)}`, {
       method: 'DELETE',
-    });
-  },
-
-  // Get delegation activity log
-  async getDelegationActivity(delegationId: string): Promise<{ activities: DelegationActivity[] }> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/activity`);
-  },
-
-  // Search accounts (placeholder - implement based on backend)
-  async searchAccounts(query: string): Promise<{ accounts: unknown[] }> {
-    return apiRequest(`/api/v1/accounts/search?q=${encodeURIComponent(query)}`);
-  },
-
-  // Get available users for an account (placeholder - implement based on backend)
-  async getAvailableUsers(accountId: string): Promise<{ users: User[] }> {
-    return apiRequest(`/api/v1/accounts/${accountId}/users`);
-  },
-
-
-  // Create delegation request (placeholder - implement based on backend)
-  async createDelegationRequest(data: CreateDelegationData): Promise<{ request: DelegationRequest }> {
-    return apiRequest('/api/v1/delegation-requests', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  // Add users to delegation (placeholder - implement based on backend)
-  async addUsersToDelegation(delegationId: string, userIds: string[]): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/users`, {
-      method: 'POST',
-      body: JSON.stringify({ user_ids: userIds }),
-    });
-  },
-
-  // Remove user from delegation (placeholder - implement based on backend)
-  async removeUserFromDelegation(delegationId: string, userId: string): Promise<DelegationResponse> {
-    return apiRequest(`/api/v1/accounts/current/delegations/${delegationId}/users/${userId}`, {
-      method: 'DELETE',
-    });
-  },
-
-  // Get delegation requests with optional status filter
-  async getDelegationRequests(status?: string): Promise<{ requests: DelegationRequest[] }> {
-    const params = status ? `?status=${status}` : '';
-    return apiRequest(`/api/v1/delegation-requests${params}`);
-  },
-
-  // Approve delegation request
-  async approveDelegationRequest(requestId: string, note?: string): Promise<{ request: DelegationRequest }> {
-    return apiRequest(`/api/v1/delegation-requests/${requestId}/approve`, {
-      method: 'POST',
-      body: JSON.stringify({ note }),
-    });
-  },
-
-  // Reject delegation request
-  async rejectDelegationRequest(requestId: string, reason: string): Promise<{ request: DelegationRequest }> {
-    return apiRequest(`/api/v1/delegation-requests/${requestId}/reject`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
     });
   },
 };
