@@ -133,6 +133,68 @@ RSpec.describe "Rack::Attack API-key lookups" do
       expect { result = Rack::Attack.extract_account_from_request(request) }.not_to raise_error
       expect(result).to be_nil
     end
+
+    # IMP-99e8e4701150 re-review (post-approval) — extract_user_from_request
+    # is called directly by several throttles/safelists
+    # (impersonation_by_user, admin_users, two_factor_reauth_by_user) AND
+    # indirectly via extract_account_from_request, so one authenticated
+    # request can reach it up to ~4 times. Each call now does a REAL
+    # Security::JwtService.decode — a blacklist lookup (DB or Redis), not
+    # the free in-memory JWT.decode this replaced (B1/N1 above) — so
+    # re-running it per call is real, repeated cost. Same env-keyed
+    # memoization pattern as extract_account_from_request below, and the
+    # same "cache the nil too" requirement.
+    describe "memoization of extract_user_from_request" do
+      it "decodes the token only once per request even when called multiple times" do
+        request = request_with_bearer_token(valid_token)
+        expect(Security::JwtService).to receive(:decode).once.and_call_original
+
+        first = Rack::Attack.extract_user_from_request(request)
+        second = Rack::Attack.extract_user_from_request(request)
+
+        expect(first).to eq(user)
+        expect(second).to eq(user)
+      end
+
+      it "caches a fail-open nil result too, rather than re-decoding on every call" do
+        request = request_with_bearer_token("garbage-not-a-real-token")
+        expect(Security::JwtService).to receive(:decode).once.and_call_original
+
+        first = Rack::Attack.extract_user_from_request(request)
+        second = Rack::Attack.extract_user_from_request(request)
+
+        expect(first).to be_nil
+        expect(second).to be_nil
+      end
+
+      it "does not leak the memoized result across two different requests" do
+        request1 = request_with_bearer_token(valid_token)
+        request2 = request_with_bearer_token(valid_token)
+
+        Rack::Attack.extract_user_from_request(request1)
+
+        expect(Security::JwtService).to receive(:decode).once.and_call_original
+        Rack::Attack.extract_user_from_request(request2)
+      end
+
+      # The property the review asked for directly: a request that actually
+      # hits several user-keyed call sites in the same pass still decodes
+      # once. admin_users' safelist calls extract_user_from_request directly
+      # (as impersonation_by_user and two_factor_reauth_by_user do too, not
+      # exercised here since both are path-gated to routes this generic mock
+      # request doesn't match); extract_account_from_request reaches it
+      # indirectly via #resolve_account_from_request. All three against the
+      # SAME request object, as Rack::Attack itself would run them for one
+      # real request.
+      it "a request hitting multiple user-keyed safelists/throttles still decodes only once" do
+        request = request_with_bearer_token(valid_token)
+        expect(Security::JwtService).to receive(:decode).once.and_call_original
+
+        Rack::Attack.safelists.fetch("admin_users").matched_by?(request)
+        Rack::Attack.extract_user_from_request(request)
+        Rack::Attack.extract_account_from_request(request)
+      end
+    end
   end
 
   # Review follow-up — every account-keyed throttle calls

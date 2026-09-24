@@ -75,7 +75,26 @@ class Rack::Attack
   # would ever surface. This method is called directly by several throttles
   # below (not only via #extract_account_from_request), so a rescue scoped
   # to one caller would not cover the others.
+  # Memoized per REQUEST (env), same pattern as #extract_account_from_request
+  # below — and for the identical reason. This is called directly by several
+  # throttles/safelists (impersonation_by_user, admin_users,
+  # two_factor_reauth_by_user, ...) AND indirectly via
+  # #extract_account_from_request, so a single request can reach it up to
+  # several times. #resolve_user_from_request now does a real
+  # Security::JwtService.decode (blacklist check included — a DB or Redis
+  # round trip, not the free in-memory JWT.decode this replaced), so
+  # re-running it per call is real, repeated cost, not just repeated work.
+  # `env.key?` distinguishes "resolved to nil" (cached) from "not yet
+  # resolved", so a request with no/invalid token isn't re-decoded on every
+  # subsequent call either.
   def self.extract_user_from_request(request)
+    env = request.env
+    return env["rack_attack.user"] if env.key?("rack_attack.user")
+
+    env["rack_attack.user"] = resolve_user_from_request(request)
+  end
+
+  def self.resolve_user_from_request(request)
     auth_header = request.get_header("HTTP_AUTHORIZATION")
     return nil if auth_header.blank?
 
@@ -103,6 +122,7 @@ class Rack::Attack
     )
     nil
   end
+  private_class_method :resolve_user_from_request
 
   # Extract account from request (via user or API key)
   #
