@@ -455,7 +455,7 @@ const ALLOWLIST: readonly string[] = [
   // fallback — fc-13/fc-10 own this surface's tab consolidation.
   // fc-25 review item 3 deleted the /ai/agents/marketplace alias (it also
   // collided with a private extension's own /ai/agents/marketplace route).
-  'DashboardPage.tsx: AIAgentsPage -> /ai/agents/*, /ai/agents/autonomy, /ai/agents/cards, /ai/agents/community',
+  'DashboardPage.tsx: AIAgentsPage -> /ai/agents/*, /ai/agents/autonomy/*, /ai/agents/cards, /ai/agents/community',
   // Docker hub's static tab paths, each `ProtectedRoute`-gated on
   // devops.docker.read, plus the `/*` fallback.
   'DashboardPage.tsx: DockerHubPage -> /devops/docker/*, /devops/docker/containers, /devops/docker/images, /devops/docker/monitoring, /devops/docker/networks, /devops/docker/volumes',
