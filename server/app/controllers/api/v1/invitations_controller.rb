@@ -11,12 +11,19 @@ module Api
       # seeded `manager` among them — could mint an invitation carrying
       # `super_admin` and redeem a grant-all user out of it.
       include RoleAssignmentGuard
+      include RateLimiting
 
-      before_action :authenticate_request, except: [ :accept ]
+      before_action :authenticate_request, except: [ :accept, :lookup ]
       before_action :set_invitation, only: [ :show, :update, :destroy, :resend, :cancel ]
       before_action :authorize_invitations_access!, only: [ :index, :create, :resend ]
       before_action :authorize_invitation_management!, only: [ :update, :destroy, :cancel ]
       before_action :authorize_role_conferral!, only: [ :create, :update ]
+      # accept/lookup are the two token-only, unauthenticated actions — the
+      # same shape as a password reset, so they get the same defense: count
+      # only FAILED attempts (a legitimate invitee polling lookup while a
+      # slow page loads, or retyping a password, must not burn their own
+      # budget), keyed by IP, same as Api::V1::Auth::PasswordsController.
+      after_action :increment_rate_limit_count, only: [ :accept, :lookup ], if: -> { response.status >= 400 }
 
       # GET /api/v1/invitations
       def index
@@ -159,7 +166,63 @@ module Api
         render_error("Failed to create user: #{e.message}", status: :unprocessable_content)
       end
 
+      # GET /api/v1/invitations/lookup?token=...
+      # Public endpoint — the invitee has no account yet, so this looks up an
+      # invitation by its opaque token ONLY (never by :id — no enumeration
+      # surface) and returns just what the accept-invitation page needs to
+      # render the invite. Never the token/token_digest, and never another
+      # invitation's data.
+      #
+      # A non-existent OR non-pending (accepted/cancelled) token collapses to
+      # the same 404 "Invitation not found" as a wrong token — the possessor
+      # of a used/cancelled link learns nothing a bad guess wouldn't also
+      # tell them. Expired gets its own 410 because the page's UI benefits
+      # from telling "this link expired" apart from "this link is wrong",
+      # and a token whose real state IS "it expired" is not a more sensitive
+      # fact than the token itself.
+      def lookup
+        token = params[:token]
+        return render_error("Token is required", status: :bad_request) if token.blank?
+
+        invitation = Invitation.find_by_token(token)
+        return render_not_found("Invitation") unless invitation
+
+        # `pending?` FIRST: an accepted/cancelled invitation's `expires_at`
+        # is frequently already in the past (it was sent 7+ days before
+        # acceptance/cancellation) — checking `expired?` first would leak
+        # that distinction as a 410 instead of the uniform 404 an
+        # accepted/cancelled token is supposed to get.
+        return render_not_found("Invitation") unless invitation.pending?
+        return render_error("Invitation has expired", status: :gone) if invitation.expired?
+
+        render_success(
+          email: invitation.email,
+          role_names: invitation.role_names,
+          expires_at: invitation.expires_at,
+          account: { name: invitation.account.name },
+          inviter: { name: invitation.inviter.name }
+        )
+      end
+
       private
+
+      def should_rate_limit?
+        action_name.in?(%w[accept lookup])
+      end
+
+      # 10 failed attempts/hour by IP — looser than password-reset's 3/15min
+      # (that endpoint only ever needs one legitimate hit; a slow-loading
+      # invite page or a mistyped password can legitimately retry a few
+      # times), but still tight enough to make token guessing (a 32-byte
+      # SecureRandom value, astronomically unguessable on its own, but this
+      # is defense in depth, not the only defense) economically pointless.
+      def rate_limit_max_attempts
+        10
+      end
+
+      def rate_limit_window_seconds
+        3600
+      end
 
       def set_invitation
         @invitation = current_user.account.invitations.find_by(id: params[:id])

@@ -342,4 +342,139 @@ RSpec.describe 'API::V1::Invitations', type: :request do
       expect(response).to have_http_status(:unprocessable_content)
     end
   end
+
+  # fc-01: the invitee has no account yet when they land on the
+  # accept-invitation page, so the page cannot use any of the authenticated
+  # `show`/`index` routes to display the invite before the user submits the
+  # accept form. This is the public, token-only lookup that page calls.
+  describe 'GET /api/v1/invitations/lookup' do
+    let(:invitation) { create(:invitation, account: account, inviter: manager_user, role_names: [ 'member' ]) }
+
+    it 'does not require authentication' do
+      get '/api/v1/invitations/lookup', params: { token: invitation.token }
+      expect(response).not_to have_http_status(:unauthorized)
+    end
+
+    it 'returns the minimal fields the accept page needs' do
+      get '/api/v1/invitations/lookup', params: { token: invitation.token }
+
+      expect(response).to have_http_status(:success)
+      json = JSON.parse(response.body)
+      expect(json['success']).to be true
+      expect(json['data']).to eq(
+        'email' => invitation.email,
+        'role_names' => [ 'member' ],
+        'expires_at' => invitation.expires_at.as_json,
+        'account' => { 'name' => account.name },
+        'inviter' => { 'name' => manager_user.name }
+      )
+    end
+
+    it 'never returns the token or token_digest' do
+      get '/api/v1/invitations/lookup', params: { token: invitation.token }
+
+      body = response.body
+      expect(body).not_to include(invitation.token)
+      expect(JSON.parse(body)['data']).not_to have_key('token')
+      expect(JSON.parse(body)['data']).not_to have_key('token_digest')
+      expect(JSON.parse(body)['data']).not_to have_key('id')
+    end
+
+    it 'requires a token param' do
+      get '/api/v1/invitations/lookup'
+      expect(response).to have_http_status(:bad_request)
+    end
+
+    it 'returns 404 for a token that matches no invitation — no :id enumeration surface' do
+      get '/api/v1/invitations/lookup', params: { token: 'not-a-real-token' }
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'returns 410 Gone for an expired invitation, with an "expired" message' do
+      expired = create(:invitation, :expired, account: account, inviter: manager_user)
+      get '/api/v1/invitations/lookup', params: { token: expired.token }
+
+      expect(response).to have_http_status(:gone)
+      expect(JSON.parse(response.body)['error']).to include('expired')
+    end
+
+    it 'returns 404 (not a distinguishable state) for an already-accepted invitation' do
+      accepted = create(:invitation, :accepted, account: account, inviter: manager_user)
+      get '/api/v1/invitations/lookup', params: { token: accepted.token }
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'returns 404 (not a distinguishable state) for a cancelled invitation' do
+      cancelled = create(:invitation, :cancelled, account: account, inviter: manager_user)
+      get '/api/v1/invitations/lookup', params: { token: cancelled.token }
+      expect(response).to have_http_status(:not_found)
+    end
+
+    # pending? is checked BEFORE expired? in the controller specifically so
+    # this case (accepted a while after being sent, well past its original
+    # 7-day expires_at) still gets the uniform 404 an accepted invitation is
+    # supposed to get, not a 410 that would leak "this token used to be
+    # valid" beyond what the plain 404 already could mean.
+    it 'returns 404, not 410, for an accepted invitation that is also past its expires_at' do
+      accepted_and_expired = create(:invitation, :accepted, account: account, inviter: manager_user, expires_at: 1.day.ago)
+      get '/api/v1/invitations/lookup', params: { token: accepted_and_expired.token }
+      expect(response).to have_http_status(:not_found)
+    end
+
+    context 'rate limiting' do
+      before do
+        # Same regression class as rack_attack_enabled_spec.rb's "stays
+        # disabled..." example: RateLimiting#check_and_increment_rate_limit
+        # reads ENV["DISABLE_RATE_LIMITING"] directly, so a developer box
+        # with a gitignored .env setting it true would silently never see
+        # these specs throttle, while a machine with no .env would. Pin it
+        # explicitly rather than depend on what's on disk.
+        allow(ENV).to receive(:[]).and_call_original
+        allow(ENV).to receive(:[]).with('DISABLE_RATE_LIMITING').and_return(nil)
+      end
+
+      it 'rate-limits repeated failed lookups by IP' do
+        10.times do
+          get '/api/v1/invitations/lookup', params: { token: 'never-matches' }
+          expect(response).to have_http_status(:not_found)
+        end
+
+        get '/api/v1/invitations/lookup', params: { token: 'never-matches' }
+        expect(response).to have_http_status(:too_many_requests)
+      end
+
+      it 'does not count a successful lookup toward the rate limit' do
+        10.times do
+          get '/api/v1/invitations/lookup', params: { token: invitation.token }
+          expect(response).to have_http_status(:success)
+        end
+
+        # If the 10 successes above had counted toward the same 10/hour
+        # budget, this 11th request -- a genuine failure, on a bad token --
+        # would already be AT the limit and come back 429 instead of the 404
+        # its own bad token deserves. Only a 404 here proves the successes
+        # didn't spend any of the budget.
+        get '/api/v1/invitations/lookup', params: { token: 'never-matches' }
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+  end
+
+  # fc-01: accept's own rate limit, same mechanism as lookup above.
+  describe 'POST /api/v1/invitations/accept rate limiting' do
+    before do
+      allow(ENV).to receive(:[]).and_call_original
+      allow(ENV).to receive(:[]).with('DISABLE_RATE_LIMITING').and_return(nil)
+    end
+
+    it 'rate-limits repeated failed accept attempts by IP' do
+      10.times do
+        post '/api/v1/invitations/accept', params: { token: 'never-matches' }, as: :json
+        expect(response).to have_http_status(:not_found)
+      end
+
+      post '/api/v1/invitations/accept', params: { token: 'never-matches' }, as: :json
+      expect(response).to have_http_status(:too_many_requests)
+    end
+  end
 end

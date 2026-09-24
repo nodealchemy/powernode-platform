@@ -915,6 +915,7 @@ Rails.application.routes.draw do
 
         collection do
           post :accept    # Public endpoint - accept invitation via token
+          get :lookup     # Public endpoint - look up an invitation by token only (no :id, no enumeration)
         end
       end
 

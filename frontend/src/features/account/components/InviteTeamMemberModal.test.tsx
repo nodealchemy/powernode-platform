@@ -271,12 +271,4 @@ describe('InviteTeamMemberModal', () => {
       expect(mockSetValue).toHaveBeenCalledWith('role', 'account.manager');
     });
   });
-
-  describe('accountId prop', () => {
-    it('accepts accountId prop', () => {
-      render(<InviteTeamMemberModal {...defaultProps} accountId="account-123" />);
-
-      expect(screen.getByTestId('modal')).toBeInTheDocument();
-    });
-  });
 });

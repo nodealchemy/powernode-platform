@@ -10,16 +10,28 @@ interface InviteTeamMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
   onInviteSent: () => void;
-  accountId?: string;
+}
+
+// This form only collects an email and a single role today; the real
+// InviteUserRequest also requires first_name/last_name (the server's
+// Invitation model validates their presence) and role_names as an array.
+// Kept as its own type rather than reusing InviteUserRequest directly so
+// the form's fields don't have to lie about collecting names it doesn't
+// ask for -- handleInvite below maps this onto the real request shape.
+// fc-06 adds the name fields and a multi-role selector when it mounts this
+// modal for real.
+interface InviteFormValues {
+  email: string;
+  role: string;
+  message: string;
 }
 
 export const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
   isOpen,
   onClose,
-  onInviteSent,
-  accountId
+  onInviteSent
 }) => {
-  const defaultValues: InviteUserRequest = {
+  const defaultValues: InviteFormValues = {
     email: '',
     role: 'account.member',
     message: ''
@@ -38,9 +50,15 @@ export const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
     }
   };
 
-  const handleInvite = async (formData: InviteUserRequest) => {
-    const response = await invitationsApi.inviteUser(formData, accountId);
-    
+  const handleInvite = async (formData: InviteFormValues) => {
+    const request: InviteUserRequest = {
+      email: formData.email,
+      first_name: '',
+      last_name: '',
+      role_names: [ formData.role ],
+    };
+    const response = await invitationsApi.inviteUser(request);
+
     if (response.success) {
       onInviteSent();
       onClose();
@@ -49,7 +67,7 @@ export const InviteTeamMemberModal: React.FC<InviteTeamMemberModalProps> = ({
     }
   };
 
-  const form = useForm<InviteUserRequest>({
+  const form = useForm<InviteFormValues>({
     initialValues: defaultValues,
     validationRules,
     onSubmit: handleInvite,

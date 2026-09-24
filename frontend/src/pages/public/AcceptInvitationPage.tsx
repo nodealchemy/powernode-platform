@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 import { useParams, useNavigate, Link } from 'react-router-dom';
 
-import { invitationsApi, Invitation } from '@/shared/services/account/invitationsApi';
+import { invitationsApi, PublicInvitationLookup } from '@/shared/services/account/invitationsApi';
 
 import { FormField } from '@/shared/components/ui/FormField';
 
@@ -14,7 +14,7 @@ export const AcceptInvitationPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   
-  const [invitation, setInvitation] = useState<Invitation | null>(null);
+  const [invitation, setInvitation] = useState<PublicInvitationLookup | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitting = isSubmitting;
@@ -33,12 +33,14 @@ export const AcceptInvitationPage: React.FC = () => {
     try {
       setIsLoading(true);
       const response = await invitationsApi.getInvitationByToken(token);
-      
+
       if (response.success) {
+        // The lookup endpoint only ever returns 200 for a pending,
+        // unexpired invitation (Api::V1::InvitationsController#lookup) --
+        // an expired/accepted/cancelled/nonexistent token comes back as an
+        // error response instead (410/404), handled in the else branch
+        // below. So a success response never needs a further status check.
         setInvitation(response.data);
-        if (response.data.status !== 'pending') {
-          setError(`This invitation has been ${response.data.status}`);
-        }
       } else {
         setError(response.message || 'Invitation not found or expired');
       }
@@ -173,7 +175,7 @@ export const AcceptInvitationPage: React.FC = () => {
               Join the Team!
             </h1>
             <p className="text-theme-secondary">
-              You've been invited to join <strong className="text-theme-primary">Powernode</strong>
+              You've been invited to join <strong className="text-theme-primary">{invitation.account.name}</strong>
             </p>
           </div>
 
@@ -181,9 +183,14 @@ export const AcceptInvitationPage: React.FC = () => {
           <div className="bg-theme-background rounded-lg p-4 mb-6">
             <div className="text-center">
               <p className="text-sm text-theme-secondary mb-1">You're being invited as:</p>
-              <span className="inline-block bg-theme-interactive-primary/10 text-theme-interactive-primary px-3 py-1 rounded-full text-sm font-medium">
-                {invitation.role.charAt(0).toUpperCase() + invitation.role.slice(1)}
-              </span>
+              {invitation.role_names.map((role) => (
+                <span
+                  key={role}
+                  className="inline-block bg-theme-interactive-primary/10 text-theme-interactive-primary px-3 py-1 rounded-full text-sm font-medium mx-1"
+                >
+                  {role.charAt(0).toUpperCase() + role.slice(1)}
+                </span>
+              ))}
             </div>
           </div>
 
