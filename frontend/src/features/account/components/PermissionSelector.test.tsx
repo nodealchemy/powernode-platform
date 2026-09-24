@@ -16,8 +16,8 @@ describe('PermissionSelector', () => {
     { resource: 'users', action: 'read', description: 'View users', key: 'users.read' },
     { resource: 'users', action: 'create', description: 'Create users', key: 'users.create' },
     { resource: 'users', action: 'delete', description: 'Delete users', key: 'users.delete' },
-    { resource: 'billing', action: 'read', description: 'View billing', key: 'business.billing.read' },
-    { resource: 'billing', action: 'update', description: 'Update billing', key: 'business.billing.update' },
+    { resource: 'reports', action: 'read', description: 'View reports', key: 'reports.read' },
+    { resource: 'reports', action: 'update', description: 'Update reports', key: 'reports.update' },
     { resource: 'analytics', action: 'export', description: 'Export analytics', key: 'analytics.export' }
   ];
 
@@ -162,10 +162,10 @@ describe('PermissionSelector', () => {
       render(<PermissionSelector {...defaultProps} />);
 
       const searchInput = screen.getByPlaceholderText('Search permissions...');
-      fireEvent.change(searchInput, { target: { value: 'billing' } });
+      fireEvent.change(searchInput, { target: { value: 'reports' } });
 
-      expect(screen.getByText('business.billing.read')).toBeInTheDocument();
-      expect(screen.getByText('business.billing.update')).toBeInTheDocument();
+      expect(screen.getByText('reports.read')).toBeInTheDocument();
+      expect(screen.getByText('reports.update')).toBeInTheDocument();
       expect(screen.queryByText('users.read')).not.toBeInTheDocument();
     });
 
@@ -189,9 +189,9 @@ describe('PermissionSelector', () => {
       render(<PermissionSelector {...defaultProps} />);
 
       const resourceFilter = screen.getAllByRole('combobox')[1];
-      fireEvent.change(resourceFilter, { target: { value: 'billing' } });
+      fireEvent.change(resourceFilter, { target: { value: 'reports' } });
 
-      expect(screen.getByText('business.billing.read')).toBeInTheDocument();
+      expect(screen.getByText('reports.read')).toBeInTheDocument();
       expect(screen.queryByText('users.read')).not.toBeInTheDocument();
     });
 
@@ -217,7 +217,7 @@ describe('PermissionSelector', () => {
 
       // Check resource headers
       expect(screen.getByText('users')).toBeInTheDocument();
-      expect(screen.getByText('billing')).toBeInTheDocument();
+      expect(screen.getByText('reports')).toBeInTheDocument();
       expect(screen.getByText('analytics')).toBeInTheDocument();
     });
 
@@ -225,7 +225,7 @@ describe('PermissionSelector', () => {
       render(<PermissionSelector {...defaultProps} />);
 
       expect(screen.getByText('(3)')).toBeInTheDocument(); // users has 3
-      expect(screen.getByText('(2)')).toBeInTheDocument(); // billing has 2
+      expect(screen.getByText('(2)')).toBeInTheDocument(); // reports has 2
       expect(screen.getByText('(1)')).toBeInTheDocument(); // analytics has 1
     });
 
@@ -244,7 +244,7 @@ describe('PermissionSelector', () => {
 
       expect(screen.getByText('users.read')).toBeInTheDocument();
       expect(screen.getByText('users.create')).toBeInTheDocument();
-      expect(screen.getByText('business.billing.read')).toBeInTheDocument();
+      expect(screen.getByText('reports.read')).toBeInTheDocument();
     });
 
     it('displays permission descriptions', () => {
@@ -333,7 +333,7 @@ describe('PermissionSelector', () => {
       render(
         <PermissionSelector
           {...defaultProps}
-          selectedPermissionIds={['business.billing.read']}
+          selectedPermissionIds={['reports.read']}
           onPermissionChange={onPermissionChange}
         />
       );
@@ -341,7 +341,7 @@ describe('PermissionSelector', () => {
       const usersHeader = screen.getByText('users').closest('div[class*="cursor-pointer"]');
       fireEvent.click(usersHeader!);
 
-      expect(onPermissionChange).toHaveBeenCalledWith(['business.billing.read', 'users.read', 'users.create', 'users.delete']);
+      expect(onPermissionChange).toHaveBeenCalledWith(['reports.read', 'users.read', 'users.create', 'users.delete']);
     });
 
     it('does not toggle when disabled', () => {
