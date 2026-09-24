@@ -120,6 +120,24 @@ RSpec.describe "Human-only approvals: who decides, and where", type: :request do
     expect(sightings).to be_empty
   end
 
+  # fc-12 review: REJECT's own-session guard (autonomy_approval_actions.rb's
+  # reject_action) had no direct coverage of its own — only APPROVE's, above —
+  # after the governance decide door (which used to carry the reject case) was
+  # deleted.
+  it "refuses an impersonation session's REJECT by name, and leaves the request undecided" do
+    request = park_human_only!
+
+    post "/api/v1/ai/autonomy/approvals/#{request.id}/reject", headers: impersonation_headers_for(confirmer),
+                                                               as: :json
+
+    expect(response).to have_http_status(:forbidden)
+    expect(json_response["error"]).to include("Cannot reject this request")
+    expect(json_response["error"]).to include("own session")
+    expect(request.reload.status).to eq("pending")
+    expect(request.decisions.count).to eq(0)
+    expect(sightings).to be_empty
+  end
+
   it "is refused by name by the MCP approve and reject verbs, even for a different eligible user" do
     request = park_human_only!
 
