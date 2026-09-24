@@ -8,6 +8,7 @@ class User < ApplicationRecord
   encrypts :email, deterministic: true, downcase: true
   encrypts :name
   encrypts :two_factor_secret
+  encrypts :two_factor_pending_secret
   encrypts :backup_codes
   encrypts :last_login_ip
 
@@ -45,7 +46,8 @@ class User < ApplicationRecord
   #
   # `+=`, NEVER `=`. Rails' `encrypts` APPENDS each attribute to
   # filter_attributes itself, so this list already carries email / name /
-  # two_factor_secret / backup_codes / last_login_ip before this line runs.
+  # two_factor_secret / two_factor_pending_secret / backup_codes /
+  # last_login_ip before this line runs.
   # Assigning would drop them — and because the list matches by SUBSTRING, that
   # silently un-masks the six columns "email" and "backup_codes" cover by
   # prefix (email_verification_token, email_verified, ...). Caught by
@@ -153,7 +155,7 @@ class User < ApplicationRecord
   def as_json(options = {})
     super(options.merge(except: [
       :password_digest, :failed_login_attempts, :locked_until, :password_changed_at,
-      :two_factor_secret, :backup_codes
+      :two_factor_secret, :two_factor_pending_secret, :backup_codes
     ]))
   end
 
@@ -590,18 +592,111 @@ class User < ApplicationRecord
   end
 
   # Two-factor authentication
+  #
+  # PENDING vs CONFIRMED (IMP-99e8e4701150). #two_factor_enabled? used to read
+  # `two_factor_secret.present?` — true the instant #enable_two_factor! ran,
+  # before the caller had proven their authenticator app could produce a
+  # valid code. Login enforcement, #verify_two_factor_token and every
+  # settings/serializer reader all went through that same predicate, so a
+  # dropped connection mid-setup left an account 2FA-ENFORCED with no working
+  # authenticator. The `two_factor_enabled` boolean column existed the whole
+  # time (set alongside the secret) but nothing read it — it does now: this
+  # predicate is the ONLY thing that means "confirmed", and enrollment lives
+  # in `two_factor_pending_secret` / `two_factor_pending_expires_at` until
+  # #confirm_two_factor_setup! proves the pending secret and promotes it.
+  TWO_FACTOR_PENDING_TTL = 15.minutes
+
   def two_factor_enabled?
-    two_factor_secret.present?
+    two_factor_enabled
   end
 
+  # A pending secret exists and has not expired. False once confirmed
+  # (pending fields are cleared) or once the TTL lapses.
+  def two_factor_pending?
+    two_factor_pending_secret.present? &&
+      two_factor_pending_expires_at.present? &&
+      two_factor_pending_expires_at > Time.current
+  end
+
+  def two_factor_pending_expired?
+    two_factor_pending_secret.present? && !two_factor_pending?
+  end
+
+  # Starts (or restarts) enrollment: stores a PENDING secret with a fresh TTL
+  # and returns it. Never touches `two_factor_secret` / `two_factor_enabled`
+  # — only #confirm_two_factor_setup! does that, once the pending secret is
+  # proven. Calling this again while already pending REPLACES the pending
+  # secret (the old one, and anything scanned into an authenticator app from
+  # it, stops being valid).
+  def start_two_factor_setup!
+    new_secret = ROTP::Base32.random
+    update!(
+      two_factor_pending_secret: new_secret,
+      two_factor_pending_expires_at: TWO_FACTOR_PENDING_TTL.from_now
+    )
+    new_secret
+  end
+
+  # QR provisioning URI for the PENDING secret only — the confirmed secret is
+  # never redisplayed once setup completes.
+  def two_factor_pending_qr_code
+    return nil unless two_factor_pending_secret.present?
+
+    ROTP::TOTP.new(two_factor_pending_secret, issuer: "Powernode").provisioning_uri(email)
+  end
+
+  # Verifies `token` against the PENDING secret and, on success, activates
+  # 2FA: promotes the pending secret to the confirmed one, flips
+  # `two_factor_enabled`, mints backup codes, and clears the pending fields.
+  # Returns the plaintext backup codes (shown to the caller exactly once —
+  # only the bcrypt digest is persisted) or `false` when there is no
+  # unexpired pending secret or the token does not verify against it.
+  # LOCKED (with_lock): two concurrent confirms racing the same pending
+  # secret must not both win — the SECOND must see the pending fields
+  # already cleared by the first and refuse, never minting a second set of
+  # backup codes for the same enrolment. `with_lock` reloads this record
+  # under `SELECT ... FOR UPDATE` before the block runs, so every read below
+  # (two_factor_pending?, two_factor_pending_secret) is re-checked against
+  # the freshest row, not whatever was read before the lock was acquired.
+  def confirm_two_factor_setup!(token)
+    return false if token.blank?
+
+    result = false
+    with_lock do
+      next unless two_factor_pending?
+      next unless ROTP::TOTP.new(two_factor_pending_secret).verify(token, drift_behind: 30, drift_ahead: 30)
+
+      plain_codes = generate_backup_codes
+      update!(
+        two_factor_secret: two_factor_pending_secret,
+        two_factor_enabled: true,
+        two_factor_enabled_at: Time.current,
+        two_factor_pending_secret: nil,
+        two_factor_pending_expires_at: nil,
+        backup_codes: hash_backup_codes(plain_codes),
+        two_factor_backup_codes_generated_at: Time.current
+      )
+      result = plain_codes
+    end
+    result
+  end
+
+  # Full activation in ONE call — confirmed 2FA with backup codes minted
+  # immediately, no pending step. This is a TEST/INTERNAL convenience (used
+  # throughout the suite to put an account in an already-2FA-enabled state),
+  # not the path POST /two_factor/enable drives — that endpoint calls
+  # #start_two_factor_setup! and requires #confirm_two_factor_setup! before
+  # 2FA actually activates. `secret` lets a caller pin a known value.
   def enable_two_factor!(secret = nil)
     new_secret = secret || ROTP::Base32.random
-    new_codes = generate_backup_codes
+    plain_codes = generate_backup_codes
     update!(
       two_factor_secret: new_secret,
       two_factor_enabled: true,
       two_factor_enabled_at: Time.current,
-      backup_codes: new_codes,
+      two_factor_pending_secret: nil,
+      two_factor_pending_expires_at: nil,
+      backup_codes: hash_backup_codes(plain_codes),
       two_factor_backup_codes_generated_at: Time.current
     )
     new_secret
@@ -612,6 +707,8 @@ class User < ApplicationRecord
       two_factor_secret: nil,
       two_factor_enabled: false,
       two_factor_enabled_at: nil,
+      two_factor_pending_secret: nil,
+      two_factor_pending_expires_at: nil,
       backup_codes: nil,
       two_factor_backup_codes_generated_at: nil
     )
@@ -619,40 +716,69 @@ class User < ApplicationRecord
 
   def verify_two_factor_token(token)
     return false unless two_factor_enabled?
+    return false if token.blank?
 
     totp = ROTP::TOTP.new(two_factor_secret)
     totp.verify(token, drift_behind: 30, drift_ahead: 30)
   end
 
+  # Verifies `code` against the stored backup-code DIGESTS and, on a match,
+  # CONSUMES it (the matched digest is removed — one-time use). One-way:
+  # `backup_codes` holds bcrypt digests, never the plaintext codes, so this
+  # can only confirm a match, never recover a code.
+  #
+  # LOCKED (with_lock): two requests racing the SAME backup code must not
+  # both succeed. Without the lock, both could read `backup_codes` still
+  # containing the code before either writes the consumed set, and both
+  # would find a match — a genuine double-spend of a single-use code.
+  # `with_lock` reloads under `SELECT ... FOR UPDATE` first, so the second
+  # caller re-reads `backup_codes` AFTER the first caller's removal commits
+  # and correctly fails to find the (already-consumed) digest.
   def verify_backup_code(code)
-    return false unless backup_codes&.include?(code)
+    return false if code.blank?
 
-    remaining_codes = backup_codes - [ code ]
-    update!(backup_codes: remaining_codes)
-    true
+    matched = false
+    with_lock do
+      codes = backup_codes
+      match = codes&.find { |digest| BCrypt::Password.new(digest).is_password?(code) }
+      next unless match
+
+      update!(backup_codes: codes - [ match ])
+      matched = true
+    end
+    matched
   end
 
-  # Generate QR code URI for authenticator apps
-  def two_factor_qr_code
-    return nil unless two_factor_secret.present?
+  # True if EITHER a confirmed TOTP code or an unused backup code verifies —
+  # the re-authentication check disabling 2FA or regenerating backup codes
+  # requires. A matching backup code is consumed as a side effect of the
+  # check, same as using one to log in.
+  def verify_two_factor_or_backup_code(code)
+    return false if code.blank?
 
-    totp = ROTP::TOTP.new(two_factor_secret, issuer: "Powernode")
-    totp.provisioning_uri(email)
+    verify_two_factor_token(code) || verify_backup_code(code)
   end
 
-  # Alias for controller compatibility
-  def two_factor_backup_codes
-    backup_codes || []
+  def two_factor_backup_codes_count
+    (backup_codes || []).size
   end
 
-  # Regenerate backup codes
+  # Regenerate backup codes. Returns the new codes in PLAINTEXT, once — only
+  # their digests are persisted. Every previously issued code (including any
+  # unused ones) stops working immediately.
+  # LOCKED (with_lock): serializes concurrent regenerations of the same
+  # account's backup codes so two racing writers can't interleave and leave
+  # a torn/overwritten set — same reasoning as #verify_backup_code and
+  # #confirm_two_factor_setup! above.
   def regenerate_backup_codes!
-    new_codes = generate_backup_codes
-    update!(
-      backup_codes: new_codes,
-      two_factor_backup_codes_generated_at: Time.current
-    )
-    new_codes
+    plain_codes = generate_backup_codes
+    with_lock do
+      update!(
+        backup_codes: hash_backup_codes(plain_codes),
+        two_factor_backup_codes_generated_at: Time.current
+      )
+    end
+    plain_codes
   end
 
   private
@@ -689,6 +815,24 @@ class User < ApplicationRecord
 
   def generate_backup_codes
     Array.new(10) { SecureRandom.hex(4).upcase }
+  end
+
+  # bcrypt-digests each plaintext code, mirroring how password_digest /
+  # reset_token_digest are never stored reversibly. Same reasoning as
+  # #verify_backup_code above: comparison only, never recovery.
+  # Cost 10, not BCrypt's default 12: a backup code is a random 32-bit value
+  # (`SecureRandom.hex(4)`, #generate_backup_codes) behind the 2FA rate
+  # throttle (config/initializers/rack_attack.rb), not a user-chosen secret
+  # carrying meaningfully more entropy an attacker could feasibly recover
+  # offline either way — the throttle, not the hash cost, is what makes an
+  # online guess of one of these expensive. Cost 12 buys no real resistance
+  # here and doubles the bcrypt work on every enable/regenerate for up to 10
+  # codes at once; 10 matches this column's actual threat model (operator
+  # decision, IMP-99e8e4701150 review M1).
+  BACKUP_CODE_BCRYPT_COST = 10
+
+  def hash_backup_codes(codes)
+    codes.map { |code| BCrypt::Password.create(code, cost: BACKUP_CODE_BCRYPT_COST) }
   end
 
   # Permission-cache invalidation is STRUCTURAL, not a deletion: every input the

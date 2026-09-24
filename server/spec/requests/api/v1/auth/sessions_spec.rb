@@ -119,6 +119,27 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       end
     end
 
+    # IMP-99e8e4701150 review L4 — a PENDING (never confirmed) enrolment must
+    # not enforce 2FA at login. Real model state (no stubbing of
+    # #two_factor_enabled?), unlike the confirmed-2FA context above, so this
+    # actually exercises the pending/confirmed split rather than assuming it.
+    context 'with two-factor authentication only pending (not confirmed)' do
+      let(:pending_user) { create(:user, account: account, password: password) }
+
+      before { pending_user.start_two_factor_setup! }
+
+      it 'logs in normally, with no requires_2fa' do
+        post '/api/v1/auth/login',
+             params: { email: pending_user.email, password: password },
+             as: :json
+
+        expect_success_response
+        response_data = json_response
+        expect(response_data['data']).not_to have_key('requires_2fa')
+        expect(response_data['data']['access_token']).to be_present
+      end
+    end
+
     context 'with invalid password' do
       it 'returns unauthorized error' do
         post '/api/v1/auth/login',
@@ -424,6 +445,29 @@ RSpec.describe 'Api::V1::Auth::Sessions', type: :request do
       it 'returns unauthorized error' do
         post '/api/v1/auth/verify-2fa',
              params: { verification_token: verification_token, code: 'wrong-code' },
+             as: :json
+
+        expect_error_response('Authentication verification failed', 401)
+      end
+    end
+
+    # IMP-99e8e4701150 review L4 — a PENDING secret must never satisfy
+    # verify-2fa, even given a perfectly valid TOTP code FOR that secret. Real
+    # model + real JwtService end to end (no stubbing of verify_2fa_token),
+    # so this exercises #verify_two_factor_token's actual confirmed-only
+    # check rather than assuming it.
+    context 'with a code valid only for a pending (unconfirmed) secret' do
+      let(:pending_user) { create(:user, account: account, password: password) }
+      let(:pending_secret) { pending_user.start_two_factor_setup! }
+      let(:real_verification_token) do
+        Security::JwtService.generate_2fa_token(pending_user)[:token]
+      end
+
+      it 'refuses even a code that verifies against the pending secret' do
+        pending_code = ROTP::TOTP.new(pending_secret).now
+
+        post '/api/v1/auth/verify-2fa',
+             params: { verification_token: real_verification_token, code: pending_code },
              as: :json
 
         expect_error_response('Authentication verification failed', 401)

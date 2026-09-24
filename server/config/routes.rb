@@ -755,7 +755,6 @@ Rails.application.routes.draw do
           delete :disable
           get :status
           post :regenerate_backup_codes
-          get :backup_codes
         end
       end
 

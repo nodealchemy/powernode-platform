@@ -100,8 +100,9 @@ class SettingsSerializer
     {
       email_verified: @user.email_verified?,
       password_last_changed: @user.password_changed_at,
-      # Live predicate (two_factor_secret.present?), never a literal — the
-      # write half used to hardcode false here.
+      # Live predicate (the confirmed `two_factor_enabled` column — a pending,
+      # unconfirmed secret does not count, IMP-99e8e4701150), never a literal
+      # — the write half used to hardcode false here.
       two_factor_enabled: @user.two_factor_enabled?,
       two_factor_enabled_at: @user.two_factor_enabled_at,
       backup_codes_generated_at: @user.two_factor_backup_codes_generated_at,

@@ -176,6 +176,16 @@ class Rack::Attack
     config[limit_type.to_sym] || 999_999
   end
 
+  # IMP-99e8e4701150 review M1. Matches the two 2FA "re-authentication" writes
+  # — disabling 2FA and regenerating backup codes — which both accept a
+  # TOTP/backup code from an ALREADY-authenticated session. `auth_2fa_by_ip`
+  # below only matches POST, so it never saw DELETE /two_factor/disable at
+  # all; a wrong-code guess there was unthrottled by IP or by user.
+  def self.two_factor_reauth_path?(request)
+    (request.path.end_with?("/two_factor/disable") && request.delete?) ||
+      (request.path.end_with?("/two_factor/regenerate_backup_codes") && request.post?)
+  end
+
   # =========================================================================
   # THROTTLE RULES
   # =========================================================================
@@ -193,6 +203,32 @@ class Rack::Attack
   # stubbing get_rate_limit.
   throttle("system_node_claim_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("node_claim_attempts_per_minute", Rails.env.test? ? 999_999 : 20) : 999_999 }, period: 1.minute) do |request|
     client_ip(request) if request.path == "/api/v1/system/node_api/claim" && request.post?
+  end
+
+  # 2FA re-auth (disable / regenerate_backup_codes) — IMP-99e8e4701150 review
+  # M1. Tight and short-windowed: these actions gate turning 2FA off and
+  # invalidating every existing backup code, so a caller grinding TOTP/backup
+  # codes against them is exactly what this must stop. TWO throttles, IP and
+  # per-USER: an attacker holding a stolen access token (but not the 2FA
+  # code) can rotate IPs, so the IP throttle alone would not stop them from
+  # grinding a single victim account — the user-keyed throttle closes that
+  # gap; the IP throttle in turn stops one source hammering many accounts.
+  #
+  # Registered OUTSIDE the `unless Rails.env.test?` guard below (same
+  # rationale as system_node_claim_by_ip just above, and its sibling spec
+  # extensions/system/.../claim_throttle_spec.rb) so these two rules are
+  # directly testable: the test-env fallback (999_999) below leaves every
+  # other request spec that exercises disable/regenerate unaffected, and the
+  # throttle spec opts in by stubbing rate_limiting_enabled?.
+  throttle("two_factor_reauth_by_ip", limit: proc { rate_limiting_enabled? ? 5 : 999_999 }, period: 5.minutes) do |request|
+    client_ip(request) if two_factor_reauth_path?(request)
+  end
+
+  throttle("two_factor_reauth_by_user", limit: proc { rate_limiting_enabled? ? 5 : 999_999 }, period: 5.minutes) do |request|
+    if two_factor_reauth_path?(request)
+      user = extract_user_from_request(request)
+      "user:#{user.id}" if user
+    end
   end
 
   unless Rails.env.test?

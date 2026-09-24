@@ -36,7 +36,7 @@ module AuditActions
     user_login user_logout user_registration login_failed password_reset
     login_2fa_required
     account_locked account_unlocked account_switch password_changed email_verified
-    two_factor_enabled two_factor_disabled backup_codes_generated
+    two_factor_setup_started two_factor_enabled two_factor_disabled backup_codes_generated
   ].freeze
 
   # =============================================================================

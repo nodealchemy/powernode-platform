@@ -169,14 +169,22 @@ The endpoint catalogue below summarises the surfaces the React frontend consumes
 
 ### Two-Factor Authentication
 
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/two_factor/status` | GET | Check 2FA enrolment status |
-| `/two_factor/enable` | POST | Generate 2FA secret and QR code |
-| `/two_factor/verify_setup` | POST | Verify 2FA setup with code |
-| `/two_factor/disable` | DELETE | Disable 2FA with verification |
-| `/two_factor/backup_codes` | GET | Retrieve backup codes |
-| `/two_factor/regenerate_backup_codes` | POST | Generate new backup codes |
+Enrolment is two-step: `enable` only starts a PENDING secret (no backup
+codes yet); `verify_setup` confirms it against a real authenticator code and
+is the one call that returns backup codes — in plaintext, exactly once. They
+are never retrievable again afterward (there is no `GET backup_codes`
+endpoint). `disable` and `regenerate_backup_codes` both require a `code`
+param (a current TOTP code or an unused backup code) as re-authentication;
+a wrong, empty or missing code returns `422`, not `401` — a `401` here would
+make a client's token-refresh interceptor treat it as an expired session.
+
+| Endpoint | Method | Purpose | Params |
+|----------|--------|---------|--------|
+| `/two_factor/status` | GET | Check 2FA enrolment status (confirmed only — a pending, unconfirmed secret reports `two_factor_enabled: false`) | |
+| `/two_factor/enable` | POST | Start (or restart) enrolment: returns `qr_code`, `manual_entry_key`, `expires_at` for a PENDING secret. No backup codes yet. | |
+| `/two_factor/verify_setup` | POST | Confirm the pending secret; activates 2FA and returns `backup_codes` once. | `token` |
+| `/two_factor/disable` | DELETE | Disable 2FA. Requires re-authentication. | `code` |
+| `/two_factor/regenerate_backup_codes` | POST | Generate new backup codes, returned once; invalidates every previous code. Requires re-authentication. | `code` |
 
 ### Accounts & Users
 

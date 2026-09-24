@@ -86,6 +86,7 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
       email name preferences notification_preferences authorized_keys
       last_login_ip email_verification_token status two_factor_enabled
       two_factor_enabled_at reset_token_expires_at password_changed_at
+      two_factor_pending_secret two_factor_pending_expires_at
     ]
 
     @user.transaction do
@@ -99,6 +100,8 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
         two_factor_secret: nil,
         two_factor_enabled: false,
         two_factor_enabled_at: nil,
+        two_factor_pending_secret: nil,
+        two_factor_pending_expires_at: nil,
         backup_codes: nil,
         two_factor_backup_codes_generated_at: nil,
         last_login_ip: nil,
