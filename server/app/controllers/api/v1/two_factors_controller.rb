@@ -161,6 +161,18 @@ class Api::V1::TwoFactorsController < ApplicationController
     end
 
     backup_codes = current_user.regenerate_backup_codes!
+
+    # false means 2FA was disabled by a concurrent request between the check
+    # above and #regenerate_backup_codes!'s own re-check inside its with_lock
+    # (review N2) — the account is no longer 2FA-enabled, so there is nothing
+    # to regenerate.
+    unless backup_codes
+      return render_error(
+        "Two-factor authentication must be enabled to regenerate backup codes",
+        :bad_request
+      )
+    end
+
     log_audit_event("backup_codes_generated", current_user)
 
     render_success(

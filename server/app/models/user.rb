@@ -770,15 +770,24 @@ class User < ApplicationRecord
   # account's backup codes so two racing writers can't interleave and leave
   # a torn/overwritten set — same reasoning as #verify_backup_code and
   # #confirm_two_factor_setup! above.
+  # Returns the new plaintext codes, or `false` if 2FA is no longer confirmed
+  # by the time the lock is acquired (a concurrent #disable_two_factor! won
+  # the race) — re-checked INSIDE the lock (review N2), not just by the
+  # caller before this runs, so a disable racing a regenerate can never leave
+  # a disabled account holding a freshly-minted set of working backup codes.
   def regenerate_backup_codes!
     plain_codes = generate_backup_codes
+    result = false
     with_lock do
+      next unless two_factor_enabled?
+
       update!(
         backup_codes: hash_backup_codes(plain_codes),
         two_factor_backup_codes_generated_at: Time.current
       )
+      result = plain_codes
     end
-    plain_codes
+    result
   end
 
   private

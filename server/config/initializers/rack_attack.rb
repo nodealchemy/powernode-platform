@@ -41,35 +41,60 @@ class Rack::Attack
 
   # Extract user from JWT token
   #
-  # IMP-24df1ec74489 review follow-up — the pre-existing `rescue
-  # JWT::DecodeError, ActiveRecord::RecordNotFound` clause below is
-  # unchanged; only JWT::DecodeError actually fires from this body (a bad
-  # or expired token). `User.find_by` returns nil rather than raising
-  # RecordNotFound — that's `.find`, not `.find_by` — so a since-deleted
-  # user already resolves to nil with no rescue involved at all.
-  # RecordNotFound is vestigial here; left in place rather than removed
-  # (avoid unrelated churn), but don't read it as what makes a deleted
-  # user resolve quietly.
+  # IMP-99e8e4701150 review B1/N1 — TWO bugs, fixed together (fixing either
+  # alone leaves the same class of gap open the other way):
   #
-  # What IS new: `User.find_by` can still raise on a transient DB error,
-  # and this method is called directly by other throttles below (e.g.
-  # "impersonation_by_user"), not only via #extract_account_from_request —
-  # so a rescue scoped to that caller alone would not have covered this
-  # call site. The added `rescue StandardError` below fails open but logs
-  # at ERROR naming why, same principle as #extract_account_from_request.
+  # B1 — header parsing required a literal `"Bearer "` prefix
+  # (`start_with?("Bearer ")`), but the app's own auth
+  # (Authentication#authenticate_request, app/controllers/concerns/
+  # authentication.rb) parses with `header.split(" ").last` — no scheme
+  # check at all. A request carrying the bare JWT with no `"Bearer "` prefix
+  # authenticates NORMALLY (the app's parser returns the whole string when
+  # there's no space to split on) while resolving to NO user here — every
+  # throttle/safelist keyed on this method (impersonation_by_user,
+  # admin_users, two_factor_reauth_by_user, extract_account_from_request's
+  # JWT branch) silently treated a real, authenticated caller as anonymous.
+  # That is precisely how the per-user 2FA re-auth throttle was bypassed:
+  # omit "Bearer " and the IP throttle is the only one left standing.
+  #
+  # N1 — `JWT.decode(..., algorithm: "HS256")` hardcoded the algorithm
+  # instead of going through Security::JwtService, which already resolves
+  # the CONFIGURED algorithm (JWT_ALGORITHM; HS256 is only the default) and
+  # replays the exact rotation-grace-key and issuer/audience handling real
+  # requests get. Deploy the app with JWT_ALGORITHM=RS256 and this hardcoded
+  # HS256 verify fails for every token — silently, back to the SAME
+  # no-user-resolved gap as B1, just triggered by config instead of a
+  # missing header prefix.
+  #
+  # QUIET vs LOUD, preserved from before this fix: a token that fails to
+  # DECODE (bad signature, expired, blacklisted, malformed — the ordinary
+  # shape of anonymous/stale-token traffic) resolves to nil silently. Only a
+  # failure AFTER a token decodes successfully (i.e., the `User.find_by`
+  # lookup itself raising — a transient DB error, not a bad token) fails
+  # open LOUDLY, logged at ERROR, because that is the case nothing else
+  # would ever surface. This method is called directly by several throttles
+  # below (not only via #extract_account_from_request), so a rescue scoped
+  # to one caller would not cover the others.
   def self.extract_user_from_request(request)
     auth_header = request.get_header("HTTP_AUTHORIZATION")
-    return nil unless auth_header&.start_with?("Bearer ")
+    return nil if auth_header.blank?
 
-    token = auth_header.split(" ")[1]
-    decoded = JWT.decode(token, Rails.application.config.jwt_secret_key, true, algorithm: "HS256")
+    token = auth_header.split(" ").last
+    return nil if token.blank?
+
+    begin
+      payload = Security::JwtService.decode(token)
+    rescue StandardError
+      return nil
+    end
+
     # The access token carries the user id in the standard "sub" claim; older
     # tokens used "user_id". Without reading "sub", every authenticated request
     # resolves to no user → no account → the strict anonymous throttles apply.
-    user_id = decoded[0]["sub"] || decoded[0]["user_id"]
-    User.find_by(id: user_id) if user_id
-  rescue JWT::DecodeError, ActiveRecord::RecordNotFound
-    nil
+    user_id = payload[:sub] || payload[:user_id]
+    return nil if user_id.blank?
+
+    User.find_by(id: user_id)
   rescue StandardError => e
     Rails.logger.error(
       "[RackAttack] extract_user_from_request failed to look up user — failing open " \

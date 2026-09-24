@@ -353,6 +353,20 @@ RSpec.describe 'Api::V1::TwoFactors', type: :request do
 
         expect(user.reload.verify_backup_code(old_codes.first)).to be false
       end
+
+      # IMP-99e8e4701150 review N2 — a concurrent disable winning the race
+      # inside User#regenerate_backup_codes!'s with_lock returns false; the
+      # controller must not report success for that.
+      it 'returns bad_request if 2FA was disabled by a concurrent request' do
+        allow_any_instance_of(User).to receive(:regenerate_backup_codes!).and_return(false)
+
+        post '/api/v1/two_factor/regenerate_backup_codes',
+             params: { code: totp_for(secret) },
+             headers: headers,
+             as: :json
+
+        expect_error_response('Two-factor authentication must be enabled to regenerate backup codes', 400)
+      end
     end
 
     context 'when 2FA is not enabled' do

@@ -134,6 +134,27 @@ describe('TwoFactorSettings', () => {
 
       expect(screen.queryByTestId('two-factor-setup')).not.toBeInTheDocument();
     });
+
+    // IMP-99e8e4701150 review N3 — closing the setup modal via its own
+    // close affordance (X / backdrop — "Close Modal" in the mocked Modal
+    // above), not just the Done button's onComplete, must refresh status:
+    // otherwise a user who verifies successfully and then closes out before
+    // clicking Done sees a stale "Disabled" card.
+    it('refreshes status when the setup modal is closed via its own close button', async () => {
+      render(<TwoFactorSettings />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Enable 2FA')).toBeInTheDocument();
+      });
+      expect(mockGet).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByText('Enable 2FA'));
+      fireEvent.click(screen.getByText('Close Modal'));
+
+      await waitFor(() => {
+        expect(mockGet).toHaveBeenCalledTimes(2);
+      });
+    });
   });
 
   describe('when 2FA is enabled', () => {
@@ -288,7 +309,16 @@ describe('TwoFactorSettings', () => {
     });
 
     it('shows a server error when the code is rejected', async () => {
-      mockDelete.mockResolvedValue(envelope(undefined, 'A valid authentication code or backup code is required to disable two-factor authentication', false));
+      // render_error responds with a non-2xx status (422 here — a wrong
+      // re-auth code, never 401; review H2), so axios REJECTS — it never
+      // resolves with {success:false}. mockResolvedValue({success:false})
+      // describes a response shape disable() cannot actually receive.
+      mockDelete.mockRejectedValue({
+        response: {
+          status: 422,
+          data: { success: false, error: 'A valid authentication code or backup code is required to disable two-factor authentication' }
+        }
+      });
 
       render(<TwoFactorSettings />);
 

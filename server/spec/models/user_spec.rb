@@ -421,6 +421,22 @@ RSpec.describe User, type: :model do
         expect(user).to receive(:with_lock).and_call_original
         user.regenerate_backup_codes!
       end
+
+      # IMP-99e8e4701150 review N2 — re-checks two_factor_enabled? INSIDE
+      # the lock, not just relying on the controller's check before calling
+      # this: a #disable_two_factor! that wins a race after that check but
+      # before the lock is acquired must not leave a disabled account with a
+      # freshly-minted set of working backup codes.
+      it 'returns false and writes nothing when 2FA is no longer enabled' do
+        secret = user.start_two_factor_setup!
+        user.confirm_two_factor_setup!(totp_for(secret))
+        stored_digests = user.reload.backup_codes
+        user.disable_two_factor!
+
+        expect(user.regenerate_backup_codes!).to be false
+        expect(user.reload.backup_codes).to be_nil
+        expect(stored_digests).to be_present # sanity: there was something to protect
+      end
     end
 
     describe '#disable_two_factor!' do

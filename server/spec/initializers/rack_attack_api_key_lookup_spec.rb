@@ -94,7 +94,20 @@ RSpec.describe "Rack::Attack API-key lookups" do
       Rack::Attack::Request.new(env)
     end
 
-    let(:valid_token) { JWT.encode({ sub: user.id }, Rails.application.config.jwt_secret_key, "HS256") }
+    # IMP-99e8e4701150 review B1 — a real Security::JwtService.encode token,
+    # not a hand-rolled JWT.encode with only `sub`: extract_user_from_request
+    # now decodes via Security::JwtService (issuer/audience/rotation-aware,
+    # not a hardcoded HS256 verify), which a minimal token missing iss/aud/iat
+    # fails against.
+    let(:valid_token) do
+      Security::JwtService.encode({
+        sub: user.id,
+        account_id: user.account_id,
+        email: user.email,
+        type: "access",
+        version: Security::JwtService::CURRENT_TOKEN_VERSION
+      })
+    end
 
     # Calls #extract_user_from_request DIRECTLY (as "impersonation_by_user"
     # does below, not only via #extract_account_from_request) so this pins

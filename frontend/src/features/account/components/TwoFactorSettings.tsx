@@ -231,7 +231,13 @@ export const TwoFactorSettings: React.FC = () => {
       {/* Setup Modal */}
       <Modal
         isOpen={showSetup}
-        onClose={() => setShowSetup(false)}
+        // Refreshes status on EVERY close path, not just the "Done" button
+        // (onComplete below): the X / backdrop close reachable from here
+        // would otherwise leave a stale "Disabled" status showing after a
+        // successful verify that the user closed out of before clicking
+        // Done (IMP-99e8e4701150 review N3). Harmless to call twice when
+        // Done was clicked — fetchStatus is idempotent.
+        onClose={() => { setShowSetup(false); fetchStatus(); }}
         title="Enable Two-Factor Authentication"
         icon={<ShieldCheck className="w-6 h-6" />}
         maxWidth="lg"

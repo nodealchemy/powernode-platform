@@ -45,17 +45,51 @@ RSpec.describe "Rack::Attack throttling for 2FA re-auth", type: :request do
       expect(response).to have_http_status(:too_many_requests)
     end
 
-    it "throttles by user even across different-looking requests to the same account" do
-      5.times do
-        delete "/api/v1/two_factor/disable", params: { code: "000000" }, headers: headers, as: :json
+    # IMP-99e8e4701150 review B2 — varies REMOTE_ADDR on every request so the
+    # IP throttle (a distinct rule, 5/5min per IP) never itself accumulates
+    # past 1 hit from any single address and cannot be what trips here. Only
+    # two_factor_reauth_by_user is IP-independent, so a trip proves THAT rule
+    # specifically, not just "some throttle fired."
+    it "throttles by user even when every request comes from a different IP" do
+      5.times do |i|
+        delete "/api/v1/two_factor/disable",
+               params: { code: "000000" },
+               headers: headers.merge("REMOTE_ADDR" => "10.0.0.#{i}"),
+               as: :json
       end
 
-      delete "/api/v1/two_factor/disable", params: { code: "000000" }, headers: headers, as: :json
+      delete "/api/v1/two_factor/disable",
+             params: { code: "000000" },
+             headers: headers.merge("REMOTE_ADDR" => "10.0.0.99"),
+             as: :json
 
       expect(response).to have_http_status(:too_many_requests)
       # Confirmed 2FA survives — the throttle blocked the request before it
       # ever reached the controller's own wrong-code check.
       expect(user.reload.two_factor_enabled?).to be true
+    end
+
+    # IMP-99e8e4701150 review B1/B2 — the header parse bug this fixed
+    # (start_with?("Bearer ") instead of the app's own `.split(" ").last`)
+    # meant a bare JWT with no "Bearer " prefix authenticated the request
+    # NORMALLY but resolved to no user here, so the per-user throttle never
+    # saw it at all — omitting "Bearer " was a complete bypass of this rule.
+    it "still throttles by user when the Authorization header omits the Bearer prefix" do
+      bare_headers = headers.merge("Authorization" => token_for(user))
+
+      5.times do |i|
+        delete "/api/v1/two_factor/disable",
+               params: { code: "000000" },
+               headers: bare_headers.merge("REMOTE_ADDR" => "10.0.1.#{i}"),
+               as: :json
+      end
+
+      delete "/api/v1/two_factor/disable",
+             params: { code: "000000" },
+             headers: bare_headers.merge("REMOTE_ADDR" => "10.0.1.99"),
+             as: :json
+
+      expect(response).to have_http_status(:too_many_requests)
     end
   end
 
