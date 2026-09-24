@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowUpRight, Sparkles, ShieldAlert, CreditCard, BarChart3 } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
+import { usePublicRoutePath } from '@/shared/hooks/usePublicRoutePath';
 
 export type UpgradeReason =
   | 'max_active_instances_exceeded'
@@ -154,8 +155,11 @@ export const UpgradeRequiredCard: React.FC<UpgradeRequiredCardProps> = ({
   className = '',
 }) => {
   const copy = REASON_COPY[reason] ?? FALLBACK;
+  // With no upgrade_url, fall back to the public route an extension registered
+  // for pricing; with neither there is nowhere to send the user, so no CTA.
   // `??` not a default parameter: the backend sends an explicit null.
-  const ctaHref = upgradeUrl ?? '/checkout';
+  const pricingPath = usePublicRoutePath('pricing');
+  const ctaHref = upgradeUrl ?? pricingPath;
   const Icon = copy.icon;
 
   return (
@@ -176,7 +180,7 @@ export const UpgradeRequiredCard: React.FC<UpgradeRequiredCardProps> = ({
         <div className="flex-1 min-w-0 space-y-2">
           <h4 className="text-sm font-semibold text-theme-primary">{copy.heading}</h4>
           {copy.body({ reason, spent, cap, upgradeUrl: ctaHref })}
-          {!copy.hideCta && (
+          {!copy.hideCta && ctaHref && (
             <div className="pt-1">
               <a
                 href={ctaHref}

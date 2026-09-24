@@ -1,7 +1,15 @@
 import { render, screen } from '@testing-library/react';
 import { UpgradeRequiredCard } from './UpgradeRequiredCard';
+import { featureRegistry } from '@/shared/services/featureRegistry';
+
+const registerPricing = () =>
+  featureRegistry.registerPublicRoutes('test-ext', [
+    { path: '/ext-pricing', component: () => null, role: 'pricing' },
+  ]);
 
 describe('UpgradeRequiredCard', () => {
+  afterEach(() => featureRegistry.clear());
+
   it('renders the instance-cap variant with the dedicated heading', () => {
     render(<UpgradeRequiredCard reason="max_active_instances_exceeded" />);
 
@@ -39,10 +47,12 @@ describe('UpgradeRequiredCard', () => {
     expect(screen.getByText(/plan's limit/i)).toBeInTheDocument();
   });
 
-  it("links the CTA to /checkout by default and accepts an override", () => {
+  // Without an upgrade_url the CTA follows the public route an extension
+  // registered for the 'pricing' role; core names no checkout path.
+  it('links the CTA to the registered pricing route by default and accepts an override', () => {
+    registerPricing();
     const { rerender } = render(<UpgradeRequiredCard reason="no_subscription" />);
-    const cta = screen.getByTestId('upgrade-required-cta');
-    expect(cta).toHaveAttribute('href', '/checkout');
+    expect(screen.getByTestId('upgrade-required-cta')).toHaveAttribute('href', '/ext-pricing');
 
     rerender(<UpgradeRequiredCard reason="no_subscription" upgradeUrl="/billing/plans" />);
     expect(screen.getByTestId('upgrade-required-cta')).toHaveAttribute('href', '/billing/plans');
@@ -51,10 +61,18 @@ describe('UpgradeRequiredCard', () => {
   // The backend contract always SENDS cap / upgrade_url, null when unknown.
   // A default parameter does not fire on null, so this is the shape that
   // silently produced an <a> with no href.
-  it('falls back to /checkout when the backend sends an explicit null upgrade_url', () => {
+  it('falls back to the pricing route when the backend sends an explicit null upgrade_url', () => {
+    registerPricing();
     render(<UpgradeRequiredCard reason="no_subscription" upgradeUrl={null} cap={null} />);
 
-    expect(screen.getByTestId('upgrade-required-cta')).toHaveAttribute('href', '/checkout');
+    expect(screen.getByTestId('upgrade-required-cta')).toHaveAttribute('href', '/ext-pricing');
+  });
+
+  it('renders no CTA, but still explains, when there is no upgrade_url and no pricing route', () => {
+    render(<UpgradeRequiredCard reason="no_subscription" upgradeUrl={null} />);
+
+    expect(screen.queryByTestId('upgrade-required-cta')).toBeNull();
+    expect(screen.getByTestId('upgrade-required-card').textContent).not.toBe('');
   });
 
   // The cost-cap copy formats spent/cap as currency. The denial contract sends
@@ -82,6 +100,7 @@ describe('UpgradeRequiredCard', () => {
     });
 
     it('still renders the CTA for real plan-limit reasons', () => {
+      registerPricing();
       render(<UpgradeRequiredCard reason="max_active_instances_exceeded" />);
 
       expect(screen.getByTestId('upgrade-required-cta')).toBeInTheDocument();
