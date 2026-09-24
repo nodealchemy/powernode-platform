@@ -227,7 +227,16 @@ export const useWebSocket = (): UseWebSocketReturn => {
           // (HTTP or cable) noticed first. wsManager itself already stopped
           // reconnecting (see WebSocketManager#connect's guard); the
           // maintenance-cleared effect below is what resumes it.
-          if (mountedRef.current) {
+          //
+          // Item 7b: skip the dispatch when HTTP already set the flag —
+          // Rails' Connection#close(reason:, reconnect:) can't carry a
+          // custom message/estimated_completion, so this callback's own
+          // args are currently always undefined; overwriting an
+          // HTTP-sourced message with `undefined` would blank it out for no
+          // reason. wasMaintenanceActiveRef mirrors the latest known
+          // ui.maintenance.active (kept in sync by the effect below), not a
+          // stale value closed over at mount.
+          if (mountedRef.current && !wasMaintenanceActiveRef.current) {
             dispatch(setMaintenanceMode({ message, estimatedCompletion }));
           }
         }

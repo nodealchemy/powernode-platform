@@ -479,5 +479,52 @@ describe('useWebSocket', () => {
 
       expect(mockReconnect).not.toHaveBeenCalled();
     });
+
+    // Item 7b: the cable path's own message/estimatedCompletion args are
+    // currently always undefined (Rails' Connection#close(reason:,
+    // reconnect:) can't carry custom fields) — dispatching unconditionally
+    // would blank out a message the HTTP interceptor already set.
+    it('sets the maintenance flag from the cable disconnect when nothing had set it yet', () => {
+      const store = createTestStore({
+        auth: {
+          user: mockUser,
+          access_token: 'test-token',
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        },
+      });
+
+      renderHook(() => useWebSocket(), { wrapper: createWrapper(store) });
+      const config = mockInitialize.mock.calls[mockInitialize.mock.calls.length - 1][0];
+
+      act(() => {
+        config.onMaintenanceMode(undefined, undefined);
+      });
+
+      expect(store.getState().ui.maintenance?.active).toBe(true);
+    });
+
+    it('does NOT overwrite an already-active maintenance flag (e.g. one the HTTP interceptor already set)', () => {
+      const store = createTestStore({
+        auth: {
+          user: mockUser,
+          access_token: 'test-token',
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        },
+        ui: { maintenance: { active: true, message: 'Upgrading the database' } },
+      });
+
+      renderHook(() => useWebSocket(), { wrapper: createWrapper(store) });
+      const config = mockInitialize.mock.calls[mockInitialize.mock.calls.length - 1][0];
+
+      act(() => {
+        config.onMaintenanceMode(undefined, undefined);
+      });
+
+      expect(store.getState().ui.maintenance?.message).toBe('Upgrading the database');
+    });
   });
 });
