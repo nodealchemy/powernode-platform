@@ -10,7 +10,6 @@ export type {
   CapabilityPolicy,
   CapabilityMatrix,
   AgentCapabilities,
-  ApprovalRequest,
   BehavioralFingerprint,
   ShadowExecution,
   TelemetryEvent,
@@ -29,7 +28,6 @@ export {
   useAgentCapabilities,
   useCircuitBreakers,
   useAgentCircuitBreakers,
-  useApprovalQueue,
   useShadowExecutions,
   useAgentShadowExecutions,
   useTelemetryEvents,
@@ -48,8 +46,6 @@ export {
   useUpdateBudget,
   useDeleteBudget,
   useAllocateChildBudget,
-  useApproveAction,
-  useRejectAction,
   useResetCircuitBreaker,
   useCreateDelegationPolicy,
   useUpdateDelegationPolicy,
@@ -60,7 +56,6 @@ export {
 export { TrustScoreCard } from './components/TrustScoreCard';
 export { AgentLineageTree } from './components/AgentLineageTree';
 export { BudgetAllocationPanel } from './components/BudgetAllocationPanel';
-export { ApprovalQueuePanel } from './components/ApprovalQueuePanel';
 export { BudgetRegimeIndicator } from './components/BudgetRegimeIndicator';
 export { CircuitBreakerStatusPanel } from './components/CircuitBreakerStatusPanel';
 export { CapabilityMatrixViewer } from './components/CapabilityMatrixViewer';

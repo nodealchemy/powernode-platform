@@ -10,7 +10,7 @@ import { ExpandableStatsHeader } from '@/features/ai/agents/components/Expandabl
 import { AgentsIndexTable } from '@/features/ai/agents/components/AgentsIndexTable';
 import { CardsTab } from '@/features/ai/agents/components/tabs/CardsTab';
 import { CommunityAgentsContent } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
-import { AutonomyContent } from '@/features/ai/autonomy/pages/AutonomyDashboardPage';
+import { AutonomyContent, autonomySectionLabel } from '@/features/ai/autonomy/pages/AutonomyDashboardPage';
 import { useAgentsList } from '@/features/ai/agents/hooks/useAgentsList';
 import { useTeamsList } from '@/features/ai/agents/hooks/useTeamsList';
 import { useAgentCards } from '@/features/ai/agents/hooks/useAgentCards';
@@ -91,8 +91,19 @@ export const AIAgentsPage: React.FC = () => {
     } else {
       base.push({ label: 'Agents', href: '/app/ai/agents' });
       const activeTabInfo = tabs.find(t => t.id === activeTab);
+      // Autonomy's own sections are URL-addressable now, so a deep link's
+      // breadcrumb must name the section, not just the "Autonomy" tab it
+      // sits under.
+      const sectionLabel = activeTab === 'autonomy' ? autonomySectionLabel(location.pathname) : null;
       if (activeTabInfo) {
-        base.push({ label: activeTabInfo.label });
+        base.push(
+          sectionLabel
+            ? { label: activeTabInfo.label, href: '/app/ai/agents/autonomy' }
+            : { label: activeTabInfo.label }
+        );
+      }
+      if (sectionLabel) {
+        base.push({ label: sectionLabel });
       }
     }
     return base;

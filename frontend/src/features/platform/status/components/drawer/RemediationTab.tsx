@@ -224,8 +224,7 @@ export const RemediationTab: React.FC<RemediationTabProps> = ({
       // approval link on a component nobody is waiting on would invite a click
       // that leads nowhere.
       <Link
-        to="/app/ai/agents/autonomy"
-        state={{ approvalRequestId: remediation.approval_request_id }}
+        to={`/app/ai/agents/autonomy/approvals?request=${encodeURIComponent(remediation.approval_request_id)}`}
         className="text-sm text-theme-info-fg underline"
       >
         Open the approval request

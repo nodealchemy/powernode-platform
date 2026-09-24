@@ -155,7 +155,12 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
         <Route path="/ai/agents/marketplace" element={<AIAgentsPage />} />
         <Route path="/ai/agents/community" element={<AIAgentsPage />} />
-        <Route path="/ai/agents/autonomy" element={<AIAgentsPage />} />
+        {/* `/*` so an Autonomy section (`/ai/agents/autonomy/approvals`, etc.) is
+            URL-addressable. Must stay ABOVE `/ai/agents/:agentId/*` in specificity
+            terms — it is, because React Router ranks this literal "autonomy"
+            segment over that route's dynamic `:agentId` segment at the same
+            depth, so a sub-path here never falls through to AgentDetailPage. */}
+        <Route path="/ai/agents/autonomy/*" element={<AIAgentsPage />} />
         <Route path="/ai/agents/:agentId/memory/*" element={<AgentMemoryPage />} />
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />

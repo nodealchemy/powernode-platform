@@ -46,19 +46,21 @@ import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useDashboardStats } from '@/shared/hooks/useDashboardStats';
 import { DashboardAIOverview } from '@/features/ai/monitoring/components/DashboardAIOverview';
 import { BudgetRegimeIndicator } from '@/features/ai/autonomy/components/BudgetRegimeIndicator';
-import { useApprovalQueue, useAutonomyStats } from '@/features/ai/autonomy/api/autonomyApi';
+import { useAutonomyStats } from '@/features/ai/autonomy/api/autonomyApi';
+import { useApprovalQueue } from '@/features/ai/approvals/api/approvalsApi';
 import type { AutonomyStats, BudgetRegime } from '@/features/ai/autonomy/types/autonomy';
 import { useMissions } from '@/features/missions';
 import type { Mission } from '@/features/missions';
 
 // --- Route contract -------------------------------------------------------
 // Every path below is copied from the routes block in `DashboardPage.tsx`.
-// `/app/ai/agents/autonomy` is the deepest addressable autonomy entry point:
-// the autonomy sidebar (approvals, budgets, trust, kill switch) is component
-// state, not URL state, so a section cannot be linked directly today.
+// The autonomy sidebar's sections (approvals, budgets, trust, kill switch) are
+// URL-addressable at `${PATHS.autonomy}/<section>`, so a tile can link
+// straight into the one it names instead of only the dashboard's Overview.
 const PATHS = {
   agents: '/app/ai/agents',
   autonomy: '/app/ai/agents/autonomy',
+  autonomyApprovals: '/app/ai/agents/autonomy/approvals',
   approvalChains: '/app/ai/approval-chains',
   governance: '/app/ai/governance',
   missions: '/app/ai/missions',
@@ -230,7 +232,7 @@ const GovernanceChips: React.FC<{ onNavigate: (path: string) => void }> = ({ onN
         label="Approvals waiting"
         value={approvalsUnavailable ? PLACEHOLDER : pendingApprovals}
         tone={!approvalsUnavailable && pendingApprovals > 0 ? 'warning' : 'default'}
-        onClick={() => onNavigate(PATHS.autonomy)}
+        onClick={() => onNavigate(PATHS.autonomyApprovals)}
       />
       <StatusChip
         icon={Wallet}
@@ -275,7 +277,7 @@ const GovernanceTiles: React.FC<{ onNavigate: (path: string) => void }> = ({ onN
               ? 'Agents are blocked on a human decision'
               : 'Nothing blocked on a human'
         }
-        onClick={() => onNavigate(PATHS.autonomy)}
+        onClick={() => onNavigate(PATHS.autonomyApprovals)}
       />
 
       <StatTile

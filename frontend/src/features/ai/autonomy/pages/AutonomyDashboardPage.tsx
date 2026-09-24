@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Shield, Users, TrendingUp, TrendingDown, Eye, Bot,
   Zap, GitBranch, Radio, ShieldCheck, ClipboardCheck,
@@ -16,7 +17,7 @@ import { BudgetRegimeIndicator } from '../components/BudgetRegimeIndicator';
 import { CapabilityMatrixViewer } from '../components/CapabilityMatrixViewer';
 import { CircuitBreakerStatusPanel } from '../components/CircuitBreakerStatusPanel';
 import { BehavioralFingerprintChart } from '../components/BehavioralFingerprintChart';
-import { ApprovalQueuePanel } from '../components/ApprovalQueuePanel';
+import { ApprovalQueuePanel } from '@/features/ai/approvals/components/ApprovalQueuePanel';
 import { DelegationPolicyPanel } from '../components/DelegationPolicyPanel';
 import { TelemetryEventStream } from '../components/TelemetryEventStream';
 import { KillSwitchPanel } from '../components/KillSwitchPanel';
@@ -233,8 +234,43 @@ const SIDEBAR_ITEMS = [
 
 type SectionId = typeof SIDEBAR_ITEMS[number]['id'];
 
+// The one route this content is mounted under (DashboardPage's
+// `/ai/agents/autonomy/*`). Overview stays at this bare path; every other
+// section is addressable at `${AUTONOMY_BASE_PATH}/<section>`, so a link, a
+// bookmark or the browser's back button all land on the same section a click
+// would have.
+const AUTONOMY_BASE_PATH = '/app/ai/agents/autonomy';
+const AUTONOMY_SECTION_MARKER = '/agents/autonomy';
+
+/** The section named by the URL's segment right after `/agents/autonomy`, or
+ * 'overview' for the bare path and for a segment no sidebar item owns — an
+ * unknown or stale link falls back to the dashboard rather than rendering
+ * nothing. */
+function sectionFromPath(pathname: string): SectionId {
+  const markerIndex = pathname.indexOf(AUTONOMY_SECTION_MARKER);
+  if (markerIndex === -1) return 'overview';
+  const rest = pathname.slice(markerIndex + AUTONOMY_SECTION_MARKER.length).replace(/^\//, '');
+  const segment = rest.split('/')[0];
+  const match = SIDEBAR_ITEMS.find((item) => item.id === segment);
+  return match ? (match.id as SectionId) : 'overview';
+}
+
+/** The active section's breadcrumb label, or null at the base (Overview)
+ * path — AIAgentsPage's breadcrumb trail appends this after "Autonomy" so a
+ * shared link shows where it actually lands, not just the tab it is under. */
+export function autonomySectionLabel(pathname: string): string | null {
+  const section = sectionFromPath(pathname);
+  if (section === 'overview') return null;
+  return SIDEBAR_ITEMS.find((item) => item.id === section)?.label ?? null;
+}
+
 export const AutonomyContent: React.FC = () => {
-  const [activeSection, setActiveSection] = useState<SectionId>('overview');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeSection = sectionFromPath(location.pathname);
+  const setActiveSection = (section: SectionId) => {
+    navigate(section === 'overview' ? AUTONOMY_BASE_PATH : `${AUTONOMY_BASE_PATH}/${section}`);
+  };
   const [selectedAgentId, setSelectedAgentId] = useState('');
 
   const { data: stats, isLoading: statsLoading } = useAutonomyStats();
