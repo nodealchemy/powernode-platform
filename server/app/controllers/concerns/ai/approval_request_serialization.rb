@@ -2,36 +2,31 @@
 
 module Ai
   # IMP-550e44e24220 — the single definition of the Ai::ApprovalRequest fields
-  # that BOTH approval read surfaces emit:
+  # the approval read surface emits: Ai::AutonomyApprovalActions#serialize_approval_request.
   #
-  #   Api::V1::Ai::GovernanceController#approval_request_json
-  #   Ai::AutonomyApprovalActions#serialize_approval_request
+  # This module originally shared its core payload with a second, independently
+  # maintained serializer — Api::V1::Ai::GovernanceController#approval_request_json
+  # — kept aligned only by "in parity with ..." comments. Two separate changes
+  # (the request_data redaction and the execution_status/execution_error pair)
+  # each had to be hand-applied to both copies, which was exactly the drift
+  # vector this extraction closed: a redaction rule added to one copy would
+  # leave the other endpoint serving secret-bearing request_data to an audience
+  # defined by the approval permissions rather than by the permission that made
+  # the original gated call. The governance approval_requests endpoints —
+  # including that second serializer — were deleted in fc-12, so
+  # Ai::AutonomyApprovalActions is now this module's sole consumer; there is no
+  # longer a second surface to drift against.
   #
-  # Before this, the two were independent hash literals kept aligned by "in
-  # parity with ..." comments. Two separate changes — the request_data
-  # redaction and the execution_status/execution_error pair — each had to be
-  # hand-applied to both copies. That is the drift vector the redaction work
-  # exists to close: a redaction rule added to one copy leaves the other
-  # endpoint serving secret-bearing request_data to an audience defined by the
-  # approval permissions rather than by the permission that made the original
-  # gated call.
+  # SCOPE — this owns the fields the autonomy surface's own additions build on
+  # top of (the agent_*/action_* denormalisations, requested_by_id, total_steps,
+  # deferred_operation, current_step_can_approve, and an approval_chain subset).
+  # Kept as its own module rather than inlined, so the shared core stays a
+  # single definition if a second approval read surface is ever added again.
   #
-  # SCOPE — this owns the shared core only, NOT the whole payload. The two
-  # surfaces legitimately differ beyond it and are not being unified:
-  #
-  #   governance only : updated_at, and the full approval_chain (trigger_type,
-  #                     trigger_conditions, usage_count, ...)
-  #   autonomy only   : the agent_*/action_* denormalisations, requested_by_id,
-  #                     total_steps, deferred_operation, current_step_can_approve,
-  #                     and an approval_chain subset carrying timeout_action
-  #
-  # Those differences are pre-existing and consumer-visible, so collapsing them
-  # would change both endpoints' responses. Each controller therefore merges its
-  # own extras onto this core.
-  #
-  # CORE_KEYS is public on purpose: the parity spec derives its oracle from it
-  # instead of hand-listing the fields, so a field added to the core here is
-  # covered without touching the spec.
+  # CORE_KEYS is public on purpose: the autonomy key-set pin spec
+  # (spec/requests/api/v1/ai/autonomy_approval_key_set_spec.rb) derives its
+  # oracle from it instead of hand-listing the fields, so a field added to the
+  # core here is covered without touching that spec.
   module ApprovalRequestSerialization
     extend ActiveSupport::Concern
 
@@ -54,9 +49,8 @@ module Ai
 
     private
 
-    # Keep in step with CORE_KEYS — the parity spec asserts both read surfaces
-    # emit every key listed there, so a field added to one must be added to the
-    # other.
+    # Keep in step with CORE_KEYS — the autonomy key-set pin spec asserts the
+    # read surface emits every key listed there.
     def approval_request_core(request)
       {
         id: request.id,
