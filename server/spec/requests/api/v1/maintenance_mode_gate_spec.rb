@@ -105,17 +105,24 @@ RSpec.describe 'Maintenance mode request gate', type: :request do
       expect(response).to have_http_status(:service_unavailable)
     end
 
-    it 'exempts a request from a bypass IP even with no admin permission' do
-      # A PUBLIC bypass target: a private/loopback one (like 127.0.0.1, the
-      # default request.remote_ip in this test env) is deliberately refused
-      # without TRUSTED_PROXY_CIDRS configured — see
-      # Admin::MaintenanceMode#bypass_entry_matches? and its own spec.
-      Admin::MaintenanceMode.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
-      Admin::MaintenanceMode.invalidate_cache!
+    it 'exempts a request from a bypass IP once TRUSTED_PROXY_CIDRS is configured' do
+      # Driver decision: EVERY bypass entry, public or private, is refused
+      # outright without TRUSTED_PROXY_CIDRS configured — see
+      # Admin::MaintenanceMode#validate_bypass_ips!/#bypass_ip? and their spec.
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        Admin::MaintenanceMode.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+        Admin::MaintenanceMode.invalidate_cache!
 
-      get '/api/v1/auth/me', headers: auth_headers_for(plain_user), as: :json, env: { 'REMOTE_ADDR' => '203.0.113.5' }
+        get '/api/v1/auth/me', headers: auth_headers_for(plain_user), as: :json, env: { 'REMOTE_ADDR' => '203.0.113.5' }
 
-      expect(response).not_to have_http_status(:service_unavailable)
+        expect(response).not_to have_http_status(:service_unavailable)
+      end
+    end
+
+    it 'refuses a bypass-IP write when TRUSTED_PROXY_CIDRS is unset, even for a public target' do
+      expect {
+        Admin::MaintenanceMode.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+      }.to raise_error(Admin::MaintenanceMode::InvalidBypassIp, /TRUSTED_PROXY_CIDRS/)
     end
 
     describe 'machine principals are never gated — they never resolve a @current_user' do
@@ -195,6 +202,35 @@ RSpec.describe 'Maintenance mode request gate', type: :request do
 
       get '/api/v1/settings/public', as: :json
       expect(response).not_to have_http_status(:service_unavailable)
+    end
+
+    describe 'impersonation — driver decision: an impersonating admin must not be trapped' do
+      def impersonation_headers(impersonator:, impersonated_user:)
+        session = ImpersonationSession.create_session!(impersonator: impersonator, impersonated_user: impersonated_user)
+        payload = {
+          type: 'impersonation', session_id: session.id, sub: impersonated_user.id,
+          account_id: impersonated_user.account_id, version: Security::JwtService::CURRENT_TOKEN_VERSION
+        }
+        { 'Authorization' => "Bearer #{Security::JwtService.encode(payload)}", 'Content-Type' => 'application/json' }
+      end
+
+      it 'exempts a session where the IMPERSONATOR (not the impersonated user) holds an exempt permission' do
+        admin = create(:user, :admin, account: account)
+        headers = impersonation_headers(impersonator: admin, impersonated_user: plain_user)
+
+        get '/api/v1/auth/me', headers: headers, as: :json
+
+        expect(response).not_to have_http_status(:service_unavailable)
+      end
+
+      it 'still blocks when NEITHER the impersonator nor the impersonated user is exempt' do
+        non_admin_impersonator = create(:user, account: account, permissions: [])
+        headers = impersonation_headers(impersonator: non_admin_impersonator, impersonated_user: plain_user)
+
+        get '/api/v1/auth/me', headers: headers, as: :json
+
+        expect(response).to have_http_status(:service_unavailable)
+      end
     end
 
     it 'lets an admin.maintenance.mode holder reach the maintenance controller itself to disable it' do

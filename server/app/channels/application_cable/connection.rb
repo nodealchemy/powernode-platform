@@ -144,6 +144,8 @@ module ApplicationCable
       user = User.find(payload[:sub])
 
       if user&.active? && user.account&.active?
+        return if reject_for_maintenance!(user)
+
         Rails.logger.info "ActionCable: JWT authentication successful for #{user.email}"
         self.current_user = user
       else
@@ -157,6 +159,8 @@ module ApplicationCable
       user_token = UserToken.authenticate(token)
 
       if user_token&.user&.active?
+        return if reject_for_maintenance!(user_token.user)
+
         user_token.touch_last_used!(
           ip: request.remote_ip,
           user_agent: request.headers["User-Agent"]
@@ -168,6 +172,20 @@ module ApplicationCable
         Rails.logger.warn "ActionCable: Invalid UserToken or inactive user"
         reject_unauthorized_connection
       end
+    end
+
+    # Mirrors Authentication#authenticate_request's REST gate and
+    # McpTokenAuthentication's MCP gate — see Admin::MaintenanceMode.blocked?.
+    # No delegation concept applies to a cable connection (unlike the REST
+    # path), so User#has_permission? directly is correct here, same as the
+    # MCP/doorkeeper path. Returns true (and rejects the connection) when the
+    # user must not connect during a maintenance window.
+    def reject_for_maintenance!(user)
+      return false unless Admin::MaintenanceMode.blocked?(request.remote_ip) { |perm| user.has_permission?(perm) }
+
+      Rails.logger.info "ActionCable: rejecting #{user.email} — maintenance mode"
+      reject_unauthorized_connection
+      true
     end
 
     def extract_token_from_headers

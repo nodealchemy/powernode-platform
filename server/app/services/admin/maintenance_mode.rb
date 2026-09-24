@@ -23,7 +23,7 @@ module Admin
   # Backed by AdminSetting (the platform's DB-driven "System configuration
   # key-value store", docs/concepts/data-model.md) under a FRESH key
   # namespace ("maintenance.*", not the legacy "maintenance_mode" etc that the
-  # first dead writer above used) — see db/migrate/20260924000001_... for why
+  # first dead writer above used) — see db/migrate/20260924020000_... for why
   # reusing the old keys would have let a leftover "true" row from that dead
   # writer switch maintenance on the moment this shipped, on ANY deployment
   # that had ever touched the old (broken) admin-settings toggle.
@@ -49,13 +49,10 @@ module Admin
     # itself can never enable it and then be locked out of disabling it again.
     EXEMPT_PERMISSIONS = %w[system.admin admin.access admin.maintenance.mode].freeze
 
-    # RFC 1918 + loopback + link-local, v4 and v6. See #bypass_entry_matches?
-    # for why these specifically are refused as bypass-IP TARGETS by default.
-    PRIVATE_RANGES = [
-      IPAddr.new("0.0.0.0/8"), IPAddr.new("127.0.0.0/8"), IPAddr.new("10.0.0.0/8"),
-      IPAddr.new("172.16.0.0/12"), IPAddr.new("192.168.0.0/16"), IPAddr.new("169.254.0.0/16"),
-      IPAddr.new("::1/128"), IPAddr.new("fc00::/7"), IPAddr.new("fe80::/10")
-    ].freeze
+    TRUSTED_PROXIES_MESSAGE =
+      "Bypass IPs require TRUSTED_PROXY_CIDRS to be configured (see docs/operations/trusted-proxy-cidrs.md). " \
+      "Without a pinned reverse-proxy list, request.remote_ip cannot be trusted for a bypass decision — " \
+      "any caller reaching this app directly (bypassing the real proxy) could forge X-Forwarded-For."
 
     InvalidBypassIp = Class.new(ArgumentError)
 
@@ -108,9 +105,13 @@ module Admin
       #   - The Doorkeeper OAuth token endpoint itself (/oauth/token, minting a
       #     new access token) — issues tokens, never resolves a request-scoped
       #     Powernode @current_user.
-      #   - A2A tasks and BaaS surfaces that authenticate as a worker or
-      #     federation partner rather than a User — same reasoning as the
-      #     worker/MCP-instance bullets above; they never touch either call site.
+      #   - A2A tasks that authenticate as a worker or federation partner
+      #     rather than a User — same reasoning as the worker/MCP-instance
+      #     bullets above; they never touch either call site. BaaS is
+      #     DIFFERENT: it authenticates by tenant API key, not as a worker or
+      #     federation partner, and is intentionally ungated — a tenant's BaaS
+      #     traffic is not a Powernode operator session and must keep working
+      #     through a platform maintenance window.
       #   - Login/refresh/verify_2fa, inbound webhooks, health/status endpoints,
       #     and the public boot endpoints (config, extensions/ui, settings/public)
       #     — all `skip_before_action :authenticate_request`, so no @current_user
@@ -127,8 +128,13 @@ module Admin
 
       # -- Bypass IPs -----------------------------------------------------------
 
+      # False whenever TRUSTED_PROXY_CIDRS is unset — see #trusted_proxies_configured?
+      # and TRUSTED_PROXIES_MESSAGE. Not just a write-time check: if the env var
+      # is ever removed after bypass IPs were configured, matching fails closed
+      # immediately rather than continuing to honor a now-untrustworthy remote_ip.
       def bypass_ip?(remote_ip)
         return false if remote_ip.blank?
+        return false unless trusted_proxies_configured?
 
         addr = safe_addr(remote_ip)
         return false unless addr
@@ -139,21 +145,25 @@ module Admin
       # -- Writes ---------------------------------------------------------------
 
       # Raises InvalidBypassIp (caller renders 422) rather than silently
-      # dropping an unparseable entry — a bypass list an admin believes is
-      # active but that silently lost an entry is a worse failure mode than a
-      # rejected write.
+      # dropping an unparseable entry or accepting a bypass list that can never
+      # take effect — a bypass list an admin believes is active but that
+      # silently lost an entry, or can never match, is a worse failure mode
+      # than a rejected write.
       def enable!(message:, estimated_completion: nil, bypass_ips: [])
         bypass_ips = Array(bypass_ips).map(&:to_s)
-        invalid = bypass_ips.reject { |entry| valid_ip_or_cidr?(entry) }
-        raise InvalidBypassIp, "invalid bypass IP/CIDR: #{invalid.join(', ')}" if invalid.any?
+        validate_bypass_ips!(bypass_ips)
 
         AdminSetting.set(ENABLED_KEY, true)
         set_raw_string(MESSAGE_KEY, message.presence || DEFAULT_MESSAGE)
         set_raw_string(ENABLED_AT_KEY, Time.current.iso8601)
         set_raw_string(ESTIMATED_COMPLETION_KEY, estimated_completion)
         AdminSetting.set(BYPASS_IPS_KEY, bypass_ips)
-        invalidate_cache!
-        status
+        run_after_commit { invalidate_cache! }
+        # read_from_store, not status: the cache invalidation above is
+        # deferred to commit (see run_after_commit), so `status`'s cached
+        # read could still return the PRE-write value here — the caller
+        # (the controller's response body) must see what was just written.
+        read_from_store
       end
 
       def disable!
@@ -162,8 +172,8 @@ module Admin
         set_raw_string(ENABLED_AT_KEY, nil)
         set_raw_string(ESTIMATED_COMPLETION_KEY, nil)
         AdminSetting.set(BYPASS_IPS_KEY, [])
-        invalidate_cache!
-        status
+        run_after_commit { invalidate_cache! }
+        read_from_store
       end
 
       def invalidate_cache!
@@ -172,13 +182,30 @@ module Admin
 
       private
 
+      # Runs `block` once the SURROUNDING transaction commits (the maintenance
+      # controller wraps state + audit-log writes in one), or immediately when
+      # there is none (e.g. called directly from a spec). Deferring matters:
+      # invalidating mid-transaction lets a concurrent reader repopulate the
+      # cache with the PRE-write value before the transaction commits, leaving
+      # that stale value cached for the rest of the TTL even after a
+      # successful commit. ActiveRecord::Base.current_transaction returns a
+      # NullTransaction (whose #after_commit runs the block synchronously)
+      # when nothing is open, so this never silently no-ops.
+      def run_after_commit(&block)
+        ActiveRecord::Base.current_transaction.after_commit(&block)
+      end
+
       def read_from_store
         {
           enabled: AdminSetting.get(ENABLED_KEY, false) == true,
           message: raw_string(MESSAGE_KEY).presence || DEFAULT_MESSAGE,
           enabled_at: raw_string(ENABLED_AT_KEY).presence,
           estimated_completion: raw_string(ESTIMATED_COMPLETION_KEY).presence,
-          bypass_ips: Array(AdminSetting.get(BYPASS_IPS_KEY, [])).map(&:to_s)
+          bypass_ips: Array(AdminSetting.get(BYPASS_IPS_KEY, [])).map(&:to_s),
+          # Surfaced so the Maintenance Mode tab can disable/explain the
+          # bypass-IP field instead of accepting input that enable! will
+          # always reject with InvalidBypassIp.
+          bypass_ips_supported: trusted_proxies_configured?
         }
       end
 
@@ -201,6 +228,27 @@ module Admin
 
       # -- Bypass IP internals ----------------------------------------------
 
+      # Driver decision: while TRUSTED_PROXY_CIDRS is unset, refuse EVERY
+      # bypass entry outright — public or private — with a 422 explaining why,
+      # rather than silently accepting a list that can never actually match
+      # (bypass_ip? also refuses unconditionally in that state; see there).
+      # Rails' DEFAULT trusted-proxy list (ActionDispatch::RemoteIp::TRUSTED_PROXIES)
+      # trusts every loopback/private/link-local hop as a proxy, so left at
+      # that default, request.remote_ip cannot be trusted for ANY bypass
+      # decision: anything reaching this app directly from a private
+      # address (another container on the same host/VPC, bypassing the real
+      # reverse proxy) is treated as a trusted hop, and Rails honors its
+      # X-Forwarded-For verbatim — which could forge a PUBLIC target just as
+      # easily as a private one. Pinning trusted_proxies is what makes
+      # request.remote_ip trustworthy at all, for any target.
+      def validate_bypass_ips!(bypass_ips)
+        return if bypass_ips.empty?
+        raise InvalidBypassIp, TRUSTED_PROXIES_MESSAGE unless trusted_proxies_configured?
+
+        invalid = bypass_ips.reject { |entry| valid_ip_or_cidr?(entry) }
+        raise InvalidBypassIp, "invalid bypass IP/CIDR: #{invalid.join(', ')}" if invalid.any?
+      end
+
       def valid_ip_or_cidr?(entry)
         IPAddr.new(entry)
         true
@@ -221,24 +269,9 @@ module Admin
         ENV["TRUSTED_PROXY_CIDRS"].present?
       end
 
-      # Rails' DEFAULT trusted-proxy list (ActionDispatch::RemoteIp::TRUSTED_PROXIES)
-      # trusts every loopback/private/link-local hop as a proxy. Left at that
-      # default, anything reaching this app directly from a private address —
-      # another container on the same host/VPC, bypassing the real reverse
-      # proxy entirely — is treated as a trusted hop, and Rails honors its
-      # X-Forwarded-For verbatim as request.remote_ip. A PRIVATE-range bypass
-      # entry is exactly the shape that vector can forge, so it is refused
-      # UNLESS the operator has pinned trusted_proxies (TRUSTED_PROXY_CIDRS),
-      # at which point request.remote_ip only reflects what the real,
-      # explicitly-trusted proxy forwarded. A public-range bypass entry is not
-      # subject to this restriction: forging it requires the attacker's own
-      # path to the app to already run through a trusted hop, which pinning
-      # trusted_proxies (or the default's much narrower real-world blast
-      # radius for a public target) already constrains.
       def bypass_entry_matches?(entry, addr)
         range = safe_addr(entry)
         return false unless range
-        return false if !trusted_proxies_configured? && PRIVATE_RANGES.any? { |r| r.include?(range) }
 
         range.include?(normalize_ipv4_mapped(addr))
       rescue IPAddr::Error

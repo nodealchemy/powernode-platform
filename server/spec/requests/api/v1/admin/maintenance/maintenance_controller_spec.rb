@@ -6,6 +6,7 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
   let(:account) { create(:account) }
   let(:admin_user) { create(:user, account: account, permissions: [ 'admin.maintenance.mode' ]) }
   let(:non_admin_user) { create(:user, account: account, permissions: []) }
+  let(:backup_only_user) { create(:user, account: account, permissions: [ 'admin.maintenance.backup' ]) }
   let(:headers) { auth_headers_for(admin_user) }
   let(:non_admin_headers) { auth_headers_for(non_admin_user) }
 
@@ -48,9 +49,26 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
         expect_error_response('Permission denied: requires admin maintenance permissions', 403)
       end
     end
+
+    context 'with only a backup/cleanup/restore/tasks permission (no admin.maintenance.mode, no system.admin)' do
+      it 'returns forbidden — this is a narrower gate than the controller-wide one' do
+        get '/api/v1/admin/maintenance/mode', headers: auth_headers_for(backup_only_user), as: :json
+
+        expect_error_response('Permission denied: requires admin.maintenance.mode or system.admin', 403)
+      end
+    end
   end
 
   describe 'POST /api/v1/admin/maintenance/mode' do
+    context 'with only a backup permission' do
+      it 'cannot enable maintenance mode — it would have no way to disable it again' do
+        post '/api/v1/admin/maintenance/mode', params: { enabled: true, message: 'Upgrading' }, headers: auth_headers_for(backup_only_user), as: :json
+
+        expect_error_response('Permission denied: requires admin.maintenance.mode or system.admin', 403)
+        expect(Admin::MaintenanceMode.enabled?).to be false
+      end
+    end
+
     context 'enabling maintenance mode' do
       it 'enables maintenance mode successfully and writes a real audit row' do
         expect {
@@ -58,8 +76,7 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
               params: {
                 enabled: true,
                 message: 'System upgrade in progress',
-                estimated_completion: '2025-01-25T12:00:00Z',
-                bypass_ips: [ '127.0.0.1' ]
+                estimated_completion: '2025-01-25T12:00:00Z'
               },
               headers: headers,
               as: :json
@@ -75,16 +92,42 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
         expect(audit_log.user).to eq(admin_user)
       end
 
-      it 'rejects an unparseable bypass IP with 422 and writes no audit row' do
+      it 'rejects ANY bypass IP with 422 when TRUSTED_PROXY_CIDRS is unset — even a well-formed one' do
         expect {
           post '/api/v1/admin/maintenance/mode',
-              params: { enabled: true, message: 'Upgrading', bypass_ips: [ 'not-an-ip' ] },
+              params: { enabled: true, message: 'Upgrading', bypass_ips: [ '203.0.113.5' ] },
               headers: headers,
               as: :json
         }.not_to change(AuditLog, :count)
 
-        expect(response).to have_http_status(:unprocessable_content)
+        expect_error_response('TRUSTED_PROXY_CIDRS', 422)
         expect(Admin::MaintenanceMode.enabled?).to be false
+      end
+
+      it 'rejects an unparseable bypass IP with 422 once TRUSTED_PROXY_CIDRS is configured' do
+        with_trusted_proxy_cidrs('10.10.10.10/32') do
+          expect {
+            post '/api/v1/admin/maintenance/mode',
+                params: { enabled: true, message: 'Upgrading', bypass_ips: [ 'not-an-ip' ] },
+                headers: headers,
+                as: :json
+          }.not_to change(AuditLog, :count)
+
+          expect_error_response('not-an-ip', 422)
+          expect(Admin::MaintenanceMode.enabled?).to be false
+        end
+      end
+
+      it 'accepts a valid bypass IP once TRUSTED_PROXY_CIDRS is configured' do
+        with_trusted_proxy_cidrs('10.10.10.10/32') do
+          post '/api/v1/admin/maintenance/mode',
+              params: { enabled: true, message: 'Upgrading', bypass_ips: [ '203.0.113.5' ] },
+              headers: headers,
+              as: :json
+
+          expect_success_response
+          expect(json_response_data['bypass_ips']).to eq([ '203.0.113.5' ])
+        end
       end
 
       it 'requires the enabled param' do

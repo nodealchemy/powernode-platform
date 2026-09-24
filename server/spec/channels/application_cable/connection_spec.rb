@@ -85,6 +85,60 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
     end
   end
 
+  describe "maintenance mode" do
+    before do
+      Admin::MaintenanceMode.enable!(message: "Upgrading")
+      Admin::MaintenanceMode.invalidate_cache!
+    end
+
+    it "rejects a plain user's JWT connection" do
+      tokens = Security::JwtService.generate_user_tokens(user)
+      expect { connect "/cable?token=#{tokens[:access_token]}" }.to have_rejected_connection
+    end
+
+    it "rejects a plain user's legacy UserToken connection" do
+      minted = UserToken.create_token_for_user(user, type: "access")
+      expect { connect "/cable?token=#{minted[:token]}" }.to have_rejected_connection
+    end
+
+    it "still connects a system.admin user" do
+      admin = create(:user, account: account, status: "active", permissions: [ "system.admin" ])
+      tokens = Security::JwtService.generate_user_tokens(admin)
+
+      connect "/cable?token=#{tokens[:access_token]}"
+
+      expect(connection.current_user).to eq(admin)
+    end
+
+    it "still connects an admin.maintenance.mode holder" do
+      admin = create(:user, account: account, status: "active", permissions: [ "admin.maintenance.mode" ])
+      tokens = Security::JwtService.generate_user_tokens(admin)
+
+      connect "/cable?token=#{tokens[:access_token]}"
+
+      expect(connection.current_user).to eq(admin)
+    end
+
+    it "does not gate the mTLS worker arm" do
+      worker = create(:worker, :system_worker, status: "active")
+      mtls_header = { "X-Forwarded-Tls-Client-Cert-Info" => CGI.escape(%(Subject="CN=#{worker.node_instance_id}")) }
+
+      connect "/cable", headers: mtls_header
+
+      expect(connection.current_worker).to eq(worker)
+    end
+
+    it "connects normally again once maintenance mode is disabled" do
+      Admin::MaintenanceMode.disable!
+      Admin::MaintenanceMode.invalidate_cache!
+
+      tokens = Security::JwtService.generate_user_tokens(user)
+      connect "/cable?token=#{tokens[:access_token]}"
+
+      expect(connection.current_user).to eq(user)
+    end
+  end
+
   describe "mTLS worker arm" do
     let(:worker) { create(:worker, :system_worker, status: "active") }
     let(:mtls_header) do

@@ -4,6 +4,12 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   include Authentication
 
   before_action :require_admin_maintenance_permission
+  # Narrower than the controller-wide gate above: a backup/cleanup/restore/
+  # tasks-only holder can reach cleanup_stats etc, but must NOT be able to
+  # enable maintenance mode (and then have no permission left to disable it —
+  # admin.maintenance.mode is the one EXEMPT_PERMISSIONS entry that exists
+  # specifically so its holder can't lock itself out, see Admin::MaintenanceMode).
+  before_action :require_maintenance_mode_permission, only: %i[show_mode update_mode]
 
   # Maintenance Mode endpoints
   def show_mode
@@ -275,6 +281,12 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def require_admin_maintenance_permission
     unless current_user&.has_any_permission?("admin.maintenance.mode", "admin.maintenance.backup", "admin.maintenance.restore", "admin.maintenance.cleanup", "admin.maintenance.tasks", "system.admin")
       render_error("Permission denied: requires admin maintenance permissions", status: :forbidden)
+    end
+  end
+
+  def require_maintenance_mode_permission
+    unless current_user&.has_any_permission?("admin.maintenance.mode", "system.admin")
+      render_error("Permission denied: requires admin.maintenance.mode or system.admin", status: :forbidden)
     end
   end
 

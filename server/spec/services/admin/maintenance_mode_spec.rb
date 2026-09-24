@@ -24,7 +24,9 @@ RSpec.describe Admin::MaintenanceMode do
 
   describe '.enable!' do
     it 'persists a typed boolean row under the fresh key, not the legacy one' do
-      described_class.enable!(message: 'Upgrading', estimated_completion: '2026-01-01T00:00:00Z', bypass_ips: [ '10.0.0.1' ])
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        described_class.enable!(message: 'Upgrading', estimated_completion: '2026-01-01T00:00:00Z', bypass_ips: [ '10.0.0.1' ])
+      end
 
       row = AdminSetting.find_by(key: described_class::ENABLED_KEY)
       expect(row.value).to eq('true') # AdminSetting.set JSON-serializes non-String values
@@ -66,6 +68,11 @@ RSpec.describe Admin::MaintenanceMode do
 
     it 'caches the status for CACHE_TTL so a write is not immediately visible without invalidation' do
       described_class.enable!(message: 'Upgrading')
+      # Seed the cache with an explicit read (enable! itself no longer does
+      # this — see run_after_commit — so simulate a request that read the
+      # status right after the write).
+      expect(described_class.enabled?).to be true
+
       # Overwrite the DB row directly, bypassing the service, to prove the
       # NEXT .status call is serving the cache rather than re-querying.
       AdminSetting.find_by(key: described_class::ENABLED_KEY).update!(value: 'false')
@@ -77,24 +84,68 @@ RSpec.describe Admin::MaintenanceMode do
       expect(described_class.enabled?).to be false # now re-read from the DB
     end
 
-    it 'raises InvalidBypassIp and writes nothing for an unparseable entry' do
+    it 'invalidates the cache immediately when called outside a transaction (no deferral to commit)' do
+      described_class.enable!(message: 'Upgrading')
+      expect(described_class.enabled?).to be true # seeds the cache
+
+      described_class.disable!
+      # No explicit invalidate_cache! call here: disable! ran with no open
+      # transaction, so run_after_commit's NullTransaction fires immediately.
+      expect(described_class.enabled?).to be false
+    end
+
+    it 'defers cache invalidation until the surrounding transaction commits' do
+      described_class.enable!(message: 'Upgrading')
+      expect(described_class.enabled?).to be true # seeds the cache
+
+      ActiveRecord::Base.transaction do
+        described_class.disable!
+        # Still inside the transaction: the cache has NOT been invalidated
+        # yet, so a concurrent reader would still see the old (cached) value.
+        expect(described_class.enabled?).to be true
+      end
+
+      # Transaction committed: the deferred invalidation has now run.
+      expect(described_class.enabled?).to be false
+    end
+
+    it 'raises InvalidBypassIp explaining TRUSTED_PROXY_CIDRS when unset, for a well-formed public IP' do
       expect {
-        described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5', 'not-an-ip' ])
-      }.to raise_error(described_class::InvalidBypassIp, /not-an-ip/)
+        described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+      }.to raise_error(described_class::InvalidBypassIp, /TRUSTED_PROXY_CIDRS/)
 
       expect(described_class.enabled?).to be false
     end
 
-    it 'accepts a CIDR bypass entry' do
-      status = described_class.enable!(message: 'Upgrading', bypass_ips: [ '198.51.100.0/24' ])
+    it 'raises InvalidBypassIp for an unparseable entry once TRUSTED_PROXY_CIDRS is configured' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        expect {
+          described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5', 'not-an-ip' ])
+        }.to raise_error(described_class::InvalidBypassIp, /not-an-ip/)
+      end
+
+      expect(described_class.enabled?).to be false
+    end
+
+    it 'accepts a CIDR bypass entry once TRUSTED_PROXY_CIDRS is configured' do
+      status = with_trusted_proxy_cidrs('10.10.10.10/32') do
+        described_class.enable!(message: 'Upgrading', bypass_ips: [ '198.51.100.0/24' ])
+      end
 
       expect(status[:bypass_ips]).to eq([ '198.51.100.0/24' ])
+    end
+
+    it 'does not raise when bypass_ips is empty, TRUSTED_PROXY_CIDRS unset or not' do
+      expect { described_class.enable!(message: 'Upgrading', bypass_ips: []) }.not_to raise_error
+      expect { described_class.enable!(message: 'Upgrading') }.not_to raise_error
     end
   end
 
   describe '.disable!' do
     it 'clears every field back to defaults' do
-      described_class.enable!(message: 'Upgrading', estimated_completion: '2026-01-01T00:00:00Z', bypass_ips: [ '10.0.0.1' ])
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        described_class.enable!(message: 'Upgrading', estimated_completion: '2026-01-01T00:00:00Z', bypass_ips: [ '10.0.0.1' ])
+      end
 
       status = described_class.disable!
 
@@ -108,27 +159,9 @@ RSpec.describe Admin::MaintenanceMode do
 
   describe '.bypass_ip?' do
     it 'is false with no bypass list' do
-      expect(described_class.bypass_ip?('203.0.113.5')).to be false
-    end
-
-    it 'matches a public IP on the configured bypass list' do
-      described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
-
-      expect(described_class.bypass_ip?('203.0.113.5')).to be true
-      expect(described_class.bypass_ip?('203.0.113.6')).to be false
-    end
-
-    it 'matches a CIDR bypass entry' do
-      described_class.enable!(message: 'Upgrading', bypass_ips: [ '198.51.100.0/24' ])
-
-      expect(described_class.bypass_ip?('198.51.100.42')).to be true
-      expect(described_class.bypass_ip?('198.51.101.1')).to be false
-    end
-
-    it 'matches an IPv4-mapped IPv6 peer against a bare IPv4 bypass entry' do
-      described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
-
-      expect(described_class.bypass_ip?('::ffff:203.0.113.5')).to be true
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        expect(described_class.bypass_ip?('203.0.113.5')).to be false
+      end
     end
 
     it 'is false for a blank IP' do
@@ -136,25 +169,50 @@ RSpec.describe Admin::MaintenanceMode do
       expect(described_class.bypass_ip?('')).to be false
     end
 
-    context 'when the configured bypass entry is itself a private/loopback range' do
-      around do |example|
-        original = ENV['TRUSTED_PROXY_CIDRS']
-        example.run
-        original.nil? ? ENV.delete('TRUSTED_PROXY_CIDRS') : (ENV['TRUSTED_PROXY_CIDRS'] = original)
+    context 'without TRUSTED_PROXY_CIDRS configured' do
+      it 'refuses to match ANY bypass entry — public or private — even one already configured' do
+        with_trusted_proxy_cidrs('10.10.10.10/32') do
+          described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+        end
+
+        # TRUSTED_PROXY_CIDRS is unset again here (with_trusted_proxy_cidrs restores it).
+        expect(described_class.bypass_ip?('203.0.113.5')).to be false
+      end
+    end
+
+    context 'with TRUSTED_PROXY_CIDRS configured' do
+      it 'matches a public IP on the configured bypass list' do
+        with_trusted_proxy_cidrs('10.10.10.10/32') do
+          described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+
+          expect(described_class.bypass_ip?('203.0.113.5')).to be true
+          expect(described_class.bypass_ip?('203.0.113.6')).to be false
+        end
       end
 
-      it 'refuses the match without TRUSTED_PROXY_CIDRS configured (default: any private hop is a trusted proxy)' do
-        ENV.delete('TRUSTED_PROXY_CIDRS')
-        described_class.enable!(message: 'Upgrading', bypass_ips: [ '10.0.0.5' ])
+      it 'matches a private-range bypass entry too — the public/private split was dropped' do
+        with_trusted_proxy_cidrs('10.10.10.10/32') do
+          described_class.enable!(message: 'Upgrading', bypass_ips: [ '10.0.0.5' ])
 
-        expect(described_class.bypass_ip?('10.0.0.5')).to be false
+          expect(described_class.bypass_ip?('10.0.0.5')).to be true
+        end
       end
 
-      it 'honors the match once TRUSTED_PROXY_CIDRS is configured' do
-        ENV['TRUSTED_PROXY_CIDRS'] = '10.10.10.10/32'
-        described_class.enable!(message: 'Upgrading', bypass_ips: [ '10.0.0.5' ])
+      it 'matches a CIDR bypass entry' do
+        with_trusted_proxy_cidrs('10.10.10.10/32') do
+          described_class.enable!(message: 'Upgrading', bypass_ips: [ '198.51.100.0/24' ])
 
-        expect(described_class.bypass_ip?('10.0.0.5')).to be true
+          expect(described_class.bypass_ip?('198.51.100.42')).to be true
+          expect(described_class.bypass_ip?('198.51.101.1')).to be false
+        end
+      end
+
+      it 'matches an IPv4-mapped IPv6 peer against a bare IPv4 bypass entry' do
+        with_trusted_proxy_cidrs('10.10.10.10/32') do
+          described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+
+          expect(described_class.bypass_ip?('::ffff:203.0.113.5')).to be true
+        end
       end
     end
   end
@@ -178,16 +236,13 @@ RSpec.describe Admin::MaintenanceMode do
       end
     end
 
-    it 'is false for a bypass-listed remote IP even with no exempt permission' do
-      described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+    it 'is false for a bypass-listed remote IP even with no exempt permission, once TRUSTED_PROXY_CIDRS is configured' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
 
-      expect(described_class.blocked?('203.0.113.5') { false }).to be false
-    end
-
-    it 'is true for a non-exempt, non-bypassed request' do
-      described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
-
-      expect(described_class.blocked?('198.51.100.1') { false }).to be true
+        expect(described_class.blocked?('203.0.113.5') { false }).to be false
+        expect(described_class.blocked?('198.51.100.1') { false }).to be true
+      end
     end
   end
 end

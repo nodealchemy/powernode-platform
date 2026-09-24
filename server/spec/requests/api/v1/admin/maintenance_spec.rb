@@ -130,7 +130,7 @@ RSpec.describe 'Api::V1::Admin::Maintenance', type: :request do
 
   describe 'a legacy AdminSetting row under the OLD "maintenance_mode" key' do
     # Regression guard for the migration in
-    # db/migrate/20260924000001_delete_legacy_maintenance_mode_admin_settings.rb:
+    # db/migrate/20260924020000_delete_legacy_maintenance_mode_admin_settings.rb:
     # Admin::MaintenanceMode reads a FRESH key namespace ("maintenance.enabled"
     # etc), so a leftover row from either of the two dead writers this replaced
     # must never switch maintenance on.

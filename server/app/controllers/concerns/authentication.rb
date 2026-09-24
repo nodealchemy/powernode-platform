@@ -90,7 +90,7 @@ module Authentication
         return render_unauthorized("No account associated") unless @current_account
         return render_unauthorized("Account suspended") unless @current_account.active?
         @current_user.record_login! if should_record_login?
-        return render_maintenance_mode_response if Admin::MaintenanceMode.blocked?(request.remote_ip) { |perm| has_permission?(perm) }
+        return render_maintenance_mode_response if Admin::MaintenanceMode.blocked?(request.remote_ip) { |perm| maintenance_exempt_permission?(perm) }
       elsif @current_worker
         # Worker tokens are long-lived (30d). Re-validate the worker and its
         # account are still active on every request so a revoked/suspended worker
@@ -396,6 +396,19 @@ module Authentication
 
   # Note: render_unauthorized and render_forbidden are provided by ApiResponse concern
   # ApplicationController includes ApiResponse after Authentication, so those methods take precedence
+
+  # Driver decision: an admin impersonating a plain user must not be trapped
+  # by maintenance mode. has_permission? alone checks the IMPERSONATED user's
+  # (delegation-aware) authority — during impersonation that's deliberately
+  # the target's own permissions, not the impersonator's, everywhere else in
+  # the app. Maintenance mode is the one place that would strand the
+  # impersonator mid-session, so it ALSO checks the impersonator's own
+  # permission (User#has_permission? — not delegation-aware, since an
+  # impersonator's own authority is what's in question here, not a
+  # delegation scope) when an impersonation session is active.
+  def maintenance_exempt_permission?(perm)
+    has_permission?(perm) || (impersonating? && impersonator&.has_permission?(perm))
+  end
 
   # The REST shape for a blocked request — see Admin::MaintenanceMode.blocked?
   # for exactly which requests reach this (a resolved, non-exempt @current_user).
