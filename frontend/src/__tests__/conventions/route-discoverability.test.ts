@@ -170,15 +170,36 @@ function stripComments(src: string): string {
 
 const INTERP_PLACEHOLDER = '\u0001';
 
-// Identical to nav-link-reachability.test.ts's extractLinkLiterals — see
-// its comments there for why this is a manual char-by-char scan rather than
-// a single regex (query strings, hashes, and `${...}` interpolation all
-// break a naive approach).
+// A `basePath="..."` (TabContainer's own prop, declaring where a hub's tabs
+// live) or a JSX `<Route path="...">`'s path value are DECLARATIONS of a
+// route, not evidence that something LINKS to it — blanked out (same-length,
+// so surrounding offsets are unaffected) before the literal scan below runs,
+// so a hub can never satisfy its own discoverability requirement just by
+// declaring its own basePath, and a route registered in App.tsx can never
+// satisfy itself just by being registered. This is exactly how the Learning
+// hub passed the guard while orphaned: LearningPage.tsx's own
+// `basePath="/app/ai/learning"` was the ONLY /app/ai/learning literal
+// anywhere, and extractLinkLiterals could not tell a declaration from a
+// link. Scoped to the `path=` (JSX-attribute, equals-sign) shape only —
+// register.ts's `{ path: '/foo', ... }` route-table entries use a colon and
+// never carry the `/app/` prefix directly, so they were never picked up by
+// the literal scan in the first place.
+function stripRouteDeclarationLiterals(text: string): string {
+  const blank = (m: string) => ' '.repeat(m.length);
+  return text
+    .replace(/\bbasePath\s*=\s*(["'])(?:(?!\1)[^\\]|\\.)*\1/g, blank)
+    .replace(/\bpath\s*=\s*(["'])(?:(?!\1)[^\\]|\\.)*\1/g, blank);
+}
+
+// Identical to nav-link-reachability.test.ts's extractLinkLiterals, plus the
+// stripRouteDeclarationLiterals pass above — see its comments there for why
+// this is a manual char-by-char scan rather than a single regex (query
+// strings, hashes, and `${...}` interpolation all break a naive approach).
 function extractLinkLiterals(files: string[]): string[] {
   const found = new Set<string>();
   const openQuoteRe = /['"`](?=\/app\/)/g;
   for (const file of files) {
-    const text = stripComments(readFileSync(file, 'utf8'));
+    const text = stripRouteDeclarationLiterals(stripComments(readFileSync(file, 'utf8')));
     openQuoteRe.lastIndex = 0;
     let om: RegExpExecArray | null;
     while ((om = openQuoteRe.exec(text))) {
@@ -221,47 +242,73 @@ function extractLinkLiterals(files: string[]): string[] {
 // TabContainer.tsx) — a route reached this way has no single `/app/...`
 // string literal anywhere in source (it's built by concatenation), so the
 // plain quoted-literal scan above can never see it, even though a user CAN
-// click straight to it. Scoped per-file: a file's `path: '...'` entries
-// only combine with a `basePath` resolved IN THAT SAME FILE, so an
-// unrelated file's unrelated `path:` property (most of which are not
-// TabContainer tabs at all) can never pair with the wrong base. This can
-// only ADD discoverable routes on top of extractLinkLiterals's output —
-// never remove one — so it cannot introduce a false pass for a route that
-// truly has no path to it.
-function extractTabContainerRoutes(files: string[]): string[] {
+// click straight to it. Reads the RAW (unstripped) text deliberately — this
+// is the one place that NEEDS to see a `basePath="..."` declaration, to know
+// what a hub's tabs resolve to; extractLinkLiterals's stripped copy of the
+// same file would hide it.
+function extractTabContainerRoutesFromText(src: string): string[] {
   const routes: string[] = [];
   const basePathRe = /basePath\s*=\s*(?:"([^"]+)"|'([^']+)'|\{\s*`([^`$]+)`\s*\}|\{\s*([A-Z][A-Z0-9_]*)\s*\})/g;
   const pathRe = /\bpath:\s*(?:"([^"]*)"|'([^']*)')/g;
 
-  for (const file of files) {
-    const src = stripComments(readFileSync(file, 'utf8'));
-    const bases = new Set<string>();
-    let bm: RegExpExecArray | null;
-    basePathRe.lastIndex = 0;
-    while ((bm = basePathRe.exec(src))) {
-      const [, dq, sq, tpl, constName] = bm;
-      let value = dq ?? sq ?? tpl;
-      if (!value && constName) {
-        const cm = src.match(
-          new RegExp(`const\\s+${constName}\\s*(?::[^=]+)?=\\s*(?:"([^"]+)"|'([^']+)'|\`([^\`$]+)\`)`)
-        );
-        if (cm) value = cm[1] ?? cm[2] ?? cm[3];
-      }
-      if (value && value.startsWith('/app/')) bases.add(value);
+  const bases = new Set<string>();
+  let bm: RegExpExecArray | null;
+  basePathRe.lastIndex = 0;
+  while ((bm = basePathRe.exec(src))) {
+    const [, dq, sq, tpl, constName] = bm;
+    let value = dq ?? sq ?? tpl;
+    if (!value && constName) {
+      const cm = src.match(
+        new RegExp(`const\\s+${constName}\\s*(?::[^=]+)?=\\s*(?:"([^"]+)"|'([^']+)'|\`([^\`$]+)\`)`)
+      );
+      if (cm) value = cm[1] ?? cm[2] ?? cm[3];
     }
-    if (bases.size === 0) continue;
+    if (value && value.startsWith('/app/')) bases.add(value);
+  }
+  if (bases.size === 0) return routes;
 
-    const tabPaths = new Set<string>();
-    let pm: RegExpExecArray | null;
-    pathRe.lastIndex = 0;
-    while ((pm = pathRe.exec(src))) {
-      tabPaths.add(pm[1] ?? pm[2] ?? '');
+  const tabPaths = new Set<string>();
+  let pm: RegExpExecArray | null;
+  pathRe.lastIndex = 0;
+  while ((pm = pathRe.exec(src))) {
+    tabPaths.add(pm[1] ?? pm[2] ?? '');
+  }
+  for (const base of bases) {
+    routes.push(base);
+    for (const p of tabPaths) {
+      if (p !== '' && p !== '/') routes.push(base + p);
     }
-    for (const base of bases) {
-      for (const p of tabPaths) {
-        routes.push(p === '' || p === '/' ? base : base + p);
-      }
+  }
+  return routes;
+}
+
+// Aggregates extractTabContainerRoutesFromText across FILES, but — unlike a
+// bare merge — only credits a hub's tab-composed routes as discoverable when
+// the hub's own base (or one of its tab URLs) is ALSO linked from a
+// DIFFERENT file. A hub's `basePath` declaration living in the hub's own
+// file is not evidence that anything links to it; without this check, a
+// hub with a real nav entry (Docker, Swarm, Agents — all linked from
+// navigation.tsx) and an ORPHANED hub with none (Learning, before this fix)
+// were indistinguishable, because both files "prove" their own tabs exist.
+// This is what makes an all-self-referencing fixture hub RED — see the unit
+// tests below — where the OLD unconditional-merge version scored it green.
+function extractVouchedTabContainerRoutes(files: string[]): string[] {
+  const literalsPerFile = new Map<string, string[]>();
+  for (const file of files) {
+    literalsPerFile.set(file, extractLinkLiterals([file]));
+  }
+
+  const routes: string[] = [];
+  for (const file of files) {
+    const hubRoutes = extractTabContainerRoutesFromText(stripComments(readFileSync(file, 'utf8')));
+    if (hubRoutes.length === 0) continue;
+
+    const externalLiterals: string[] = [];
+    for (const [f, lits] of literalsPerFile) {
+      if (f !== file) externalLiterals.push(...lits);
     }
+    const vouched = hubRoutes.some((r) => externalLiterals.some((lit) => routeToRegex(r).test(lit)));
+    if (vouched) routes.push(...hubRoutes);
   }
   return routes;
 }
@@ -392,7 +439,7 @@ describe('convention: every non-param, non-wildcard route is discoverable (fc-26
     );
 
     const files = [FRONTEND_SRC, ...publicExtensionSrcDirs].flatMap((dir) => walkSourceFiles(dir));
-    const linkLiterals = [...extractLinkLiterals(files), ...extractTabContainerRoutes(files)];
+    const linkLiterals = [...extractLinkLiterals(files), ...extractVouchedTabContainerRoutes(files)];
     const isDiscoverable = (route: string) => linkLiterals.some((lit) => routeToRegex(route).test(lit));
 
     const routeTable = extractRouteTable(publicRegisterFiles);
@@ -415,7 +462,7 @@ describe('convention: every non-param, non-wildcard route is discoverable (fc-26
     // register.ts nav entries, which live in the same src tree being walked.
     const allSrcDirs = [FRONTEND_SRC, ...extensionSrcDirs];
     const allFiles = allSrcDirs.flatMap((dir) => walkSourceFiles(dir));
-    const linkLiterals = [...extractLinkLiterals(allFiles), ...extractTabContainerRoutes(allFiles)];
+    const linkLiterals = [...extractLinkLiterals(allFiles), ...extractVouchedTabContainerRoutes(allFiles)];
     const isDiscoverable = (route: string) => linkLiterals.some((lit) => routeToRegex(route).test(lit));
 
     const privateRegisterFiles = discoverExtensionRegisterFiles().filter((f) =>
@@ -474,6 +521,28 @@ describe('route-discoverability matcher (unit)', () => {
       }
     });
 
+    it('extractLinkLiterals does NOT count a basePath= declaration as a link', () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), 'route-discoverability-'));
+      const tmpFile = join(tmpDir, 'HubPage.tsx');
+      try {
+        writeFileSync(tmpFile, 'const Hub = () => <TabContainer basePath="/app/ai/orphan" tabs={tabs} />;\n');
+        expect(extractLinkLiterals([tmpFile])).toEqual([]);
+      } finally {
+        rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it('extractLinkLiterals does NOT count a <Route path=...> declaration as a link', () => {
+      const tmpDir = mkdtempSync(join(tmpdir(), 'route-discoverability-'));
+      const tmpFile = join(tmpDir, 'App.tsx');
+      try {
+        writeFileSync(tmpFile, '<Route path="/app/orphan" element={<OrphanPage />} />;\n');
+        expect(extractLinkLiterals([tmpFile])).toEqual([]);
+      } finally {
+        rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
     it('a route is NOT discoverable when only an unrelated literal exists', () => {
       expect(isDiscoverable('/app/privacy', ['/app/profile'])).toBe(false);
     });
@@ -494,6 +563,69 @@ describe('route-discoverability matcher (unit)', () => {
       const after = isDiscoverable('/app/ai/debug', ['/app/profile', '/app/ai/debug']);
       expect(before).toBe(false);
       expect(after).toBe(true);
+    });
+  });
+
+  describe('extractVouchedTabContainerRoutes (a hub must be linked from elsewhere, not just itself)', () => {
+    let tmpDir: string;
+
+    beforeEach(() => {
+      tmpDir = mkdtempSync(join(tmpdir(), 'route-discoverability-vouch-'));
+    });
+
+    afterEach(() => {
+      rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    // fc-26 review: this is the fixture that must be RED against the OLD
+    // (pre-fix) extractTabContainerRoutes, which merged every file's tab
+    // routes unconditionally — a hub that links only to itself (no OTHER
+    // file references its basePath) was indistinguishable from a properly
+    // nav-linked one. This is exactly the shape that let the Learning hub
+    // pass while orphaned.
+    it('does NOT credit a hub whose basePath is referenced by no OTHER file', () => {
+      const hubFile = join(tmpDir, 'OrphanHubPage.tsx');
+      writeFileSync(
+        hubFile,
+        [
+          "const tabs = [{ id: 'a', path: '/' }, { id: 'b', path: '/other' }];",
+          'const OrphanHub = () => <TabContainer basePath="/app/ai/orphan" tabs={tabs} />;',
+        ].join('\n')
+      );
+
+      const routes = extractVouchedTabContainerRoutes([hubFile]);
+      expect(routes).toEqual([]);
+    });
+
+    it('DOES credit a hub whose basePath is linked from a DIFFERENT file', () => {
+      const hubFile = join(tmpDir, 'RealHubPage.tsx');
+      writeFileSync(
+        hubFile,
+        [
+          "const tabs = [{ id: 'a', path: '/' }, { id: 'b', path: '/other' }];",
+          'const RealHub = () => <TabContainer basePath="/app/ai/real" tabs={tabs} />;',
+        ].join('\n')
+      );
+      const navFile = join(tmpDir, 'navigation.tsx');
+      writeFileSync(navFile, "{ label: 'Real', href: '/app/ai/real' }");
+
+      const routes = extractVouchedTabContainerRoutes([hubFile, navFile]);
+      expect(routes).toEqual(expect.arrayContaining(['/app/ai/real', '/app/ai/real/other']));
+    });
+
+    it('a self-referencing breadcrumb in the hub\'s OWN file is not sufficient either', () => {
+      const hubFile = join(tmpDir, 'BreadcrumbOnlyHubPage.tsx');
+      writeFileSync(
+        hubFile,
+        [
+          "const tabs = [{ id: 'a', path: '/' }, { id: 'b', path: '/other' }];",
+          "const breadcrumb = { label: 'Hub', href: '/app/ai/breadcrumb-only' };",
+          'const Hub = () => <TabContainer basePath="/app/ai/breadcrumb-only" tabs={tabs} />;',
+        ].join('\n')
+      );
+
+      const routes = extractVouchedTabContainerRoutes([hubFile]);
+      expect(routes).toEqual([]);
     });
   });
 });
