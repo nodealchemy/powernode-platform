@@ -9,12 +9,9 @@ jest.mock('@tanstack/react-query', () => ({
     data: {
       policies: [],
       violations: [],
-      approvalChains: [],
-      pendingApprovals: [],
       summary: {
         policies: { total: 12, active: 8 },
         violations: { open: 2, total: 10 },
-        approvals: { pending: 3, approved: 20 },
       },
       reports: [],
       collusionIndicators: [],
@@ -43,9 +40,10 @@ describe('GovernancePage summary cards — semantic theme tokens (IMP-a8a05e69ef
   it('renders the "Total Policies" stat icon chip with a semantic status token, not the interactive-primary affordance token', () => {
     render(<GovernancePage />);
 
-    // The three sibling cards use semantic status tokens (Active Violations=error,
-    // Pending Approvals=warning, Security Score=success); this neutral count card must
-    // not be the interactive-primary odd-one-out (the "solid action-blue").
+    // The two sibling cards use semantic status tokens (Active Violations=error,
+    // Security Score=success; fc-11 dropped the Approvals tile with the tab it
+    // summarized); this neutral count card must not be the interactive-primary
+    // odd-one-out (the "solid action-blue").
     const label = screen.getByText('Total Policies');
     const row = label.closest('div.flex');
     expect(row).toBeTruthy();
@@ -55,5 +53,17 @@ describe('GovernancePage summary cards — semantic theme tokens (IMP-a8a05e69ef
 
     expect(iconChip!.className).not.toMatch(/theme-interactive-primary/);
     expect(iconChip!.className).toMatch(/bg-theme-info/);
+  });
+});
+
+describe('GovernancePage — Approvals tab removed (fc-11)', () => {
+  it('has no Approvals tab, no Pending Approvals tile, and defaults to Policies', () => {
+    render(<GovernancePage />);
+
+    expect(screen.queryByRole('tab', { name: /approvals/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Pending Approvals')).not.toBeInTheDocument();
+    // Policies stays the default (and only remaining) selected tab, unaffected
+    // by the removal.
+    expect(screen.getByRole('tab', { name: 'Policies' })).toHaveAttribute('aria-selected', 'true');
   });
 });

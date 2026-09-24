@@ -279,11 +279,6 @@ class GovernanceApiService extends BaseApiService {
   }
 
   // Approval Chains
-  async getApprovalChains(page = 1, perPage = 20): Promise<PaginatedResponse<ApprovalChain>> {
-    const queryString = this.buildQueryString({ page, per_page: perPage });
-    return this.get<PaginatedResponse<ApprovalChain>>(`${this.basePath}/approval_chains${queryString}`);
-  }
-
   async createApprovalChain(data: {
     name: string;
     trigger_type: string;
@@ -307,28 +302,6 @@ class GovernanceApiService extends BaseApiService {
   async getApprovalRequests(filters: ApprovalRequestFilters = {}): Promise<PaginatedResponse<ApprovalRequest>> {
     const queryString = this.buildQueryString(filters);
     return this.get<PaginatedResponse<ApprovalRequest>>(`${this.basePath}/approval_requests${queryString}`);
-  }
-
-  async getPendingApprovals(): Promise<{ approval_requests: ApprovalRequest[] }> {
-    return this.get(`${this.basePath}/approval_requests/pending`);
-  }
-
-  async getApprovalRequest(id: string): Promise<{ approval_request: ApprovalRequest }> {
-    return this.get(`${this.basePath}/approval_requests/${id}`);
-  }
-
-  /**
-   * The decide response is the other carrier of the server's one-shot reveal
-   * slot (IMP-7b81ca22f661): when the decision ran an executor that minted
-   * secret material, `revealed_result` holds it for exactly this response and
-   * the read empties the slot server-side. A caller that drops it destroys the
-   * material, and a caller that caches it keeps a plaintext secret alive.
-   */
-  async decideApproval(
-    id: string,
-    data: { decision: 'approved' | 'rejected'; comments?: string; conditions?: Record<string, unknown> }
-  ): Promise<{ approval_request: ApprovalRequest & { revealed_result?: Record<string, unknown> } }> {
-    return this.post(`${this.basePath}/approval_requests/${id}/decide`, data);
   }
 
   // Data Classifications

@@ -10,7 +10,6 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { OneShotRevealModal } from '@/shared/components/ui/OneShotRevealModal';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -18,8 +17,6 @@ import {
   governanceApi,
   CompliancePolicy,
   PolicyViolation,
-  ApprovalChain,
-  ApprovalRequest,
   GovernanceReport,
   CollusionIndicator,
 } from '@/shared/services/ai/GovernanceApiService';
@@ -28,8 +25,6 @@ import type { StigmergicSignal, PressureField, TeamRestructureEvent, Coordinatio
 import { SecurityContent } from '@/features/ai/security/pages/SecurityDashboardPage';
 import { AuditLogList } from '@/features/ai/audit/components/AuditLogList';
 import { EntityLink } from '@/shared/components/entity';
-import { resolveCoreEntityType } from '@/shared/entity/registerCoreEntities';
-import { takeRevealableResult } from '@/shared/utils/oneShotReveal';
 
 function getSeverityColor(severity: string): string {
   switch (severity) {
@@ -104,73 +99,6 @@ const ViolationsContent: React.FC<{ violations: PolicyViolation[]; loading: bool
           <p className="text-xs text-theme-secondary">Policy: {violation.policy.name}</p>
         </div>
       ))}
-    </div>
-  );
-};
-
-const ApprovalsContent: React.FC<{
-  pendingApprovals: ApprovalRequest[];
-  approvalChains: ApprovalChain[];
-  loading: boolean;
-  onDecision: (requestId: string, decision: 'approved' | 'rejected') => void;
-}> = ({ pendingApprovals, approvalChains, loading, onDecision }) => {
-  if (loading) return <LoadingSpinner size="sm" className="py-8" />;
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-theme-primary mb-4">Pending Approvals</h3>
-        {pendingApprovals.length === 0 ? (
-          <div className="text-center py-8 bg-theme-surface border border-theme rounded-lg">
-            <CheckCircle size={32} className="mx-auto text-theme-success-fg mb-2" />
-            <p className="text-theme-secondary">No pending approvals</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {pendingApprovals.map(request => (
-              <div key={request.id} className="bg-theme-surface border border-theme rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-theme-primary">{request.request_id}</span>
-                  <div className="flex gap-2">
-                    <button onClick={() => onDecision(request.id, 'approved')} className="btn-theme btn-theme-success btn-theme-sm">Approve</button>
-                    <button onClick={() => onDecision(request.id, 'rejected')} className="btn-theme btn-theme-danger btn-theme-sm">Reject</button>
-                  </div>
-                </div>
-                <p className="text-sm text-theme-secondary">{request.description}</p>
-                {request.source_type && request.source_id && resolveCoreEntityType(request.source_type) && (
-                  <p className="text-xs text-theme-secondary mt-1">
-                    Subject:{' '}
-                    <EntityLink
-                      type={resolveCoreEntityType(request.source_type) as string}
-                      id={request.source_id}
-                      label={`${request.source_type.split('::').pop()} ${request.source_id.slice(0, 8)}`}
-                    />
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-      <div>
-        <h3 className="text-lg font-semibold text-theme-primary mb-4">Approval Chains</h3>
-        {approvalChains.length === 0 ? (
-          <div className="text-center py-8 bg-theme-surface border border-theme rounded-lg">
-            <p className="text-theme-secondary">No approval chains configured</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {approvalChains.map(chain => (
-              <div key={chain.id} className="bg-theme-surface border border-theme rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-theme-primary">{chain.name}</h4>
-                  <span className={`px-2 py-1 text-xs rounded ${getStatusColor(chain.status)}`}>{chain.status}</span>
-                </div>
-                <p className="text-sm text-theme-secondary mt-1">{chain.description}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 };
@@ -445,7 +373,6 @@ const CoordinationContent: React.FC<{
 const governanceTabs = [
   { id: 'policies', label: 'Policies', icon: <Shield size={16} />, path: '/' },
   { id: 'violations', label: 'Violations', icon: <AlertTriangle size={16} />, path: '/violations' },
-  { id: 'approvals', label: 'Approvals', icon: <CheckCircle size={16} />, path: '/approvals' },
   { id: 'reports', label: 'Reports', icon: <FileText size={16} />, path: '/reports' },
   { id: 'collusion', label: 'Collusion', icon: <Eye size={16} />, path: '/collusion' },
   { id: 'coordination', label: 'Coordination', icon: <Radio size={16} />, path: '/coordination' },
@@ -461,7 +388,6 @@ export const GovernancePage: React.FC = () => {
   const getActiveTab = () => {
     const path = location.pathname;
     if (path.includes('/governance/violations')) return 'violations';
-    if (path.includes('/governance/approvals')) return 'approvals';
     if (path.includes('/governance/reports')) return 'reports';
     if (path.includes('/governance/collusion')) return 'collusion';
     if (path.includes('/governance/coordination')) return 'coordination';
@@ -480,11 +406,9 @@ export const GovernancePage: React.FC = () => {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['governance'],
     queryFn: async () => {
-      const [policiesRes, violationsRes, chainsRes, pendingRes, summaryRes, reportsRes, collusionRes, coordSummaryRes, signalsRes, fieldsRes, eventsRes] = await Promise.all([
+      const [policiesRes, violationsRes, summaryRes, reportsRes, collusionRes, coordSummaryRes, signalsRes, fieldsRes, eventsRes] = await Promise.all([
         governanceApi.getPolicies(),
         governanceApi.getViolations(),
-        governanceApi.getApprovalChains(),
-        governanceApi.getPendingApprovals(),
         governanceApi.getSummary(),
         governanceApi.getGovernanceReports().catch(() => ({ items: [] })),
         governanceApi.getCollusionIndicators().catch(() => ({ items: [] })),
@@ -496,8 +420,6 @@ export const GovernancePage: React.FC = () => {
       return {
         policies: policiesRes.items || [],
         violations: violationsRes.items || [],
-        approvalChains: chainsRes.items || [],
-        pendingApprovals: pendingRes.approval_requests || [],
         summary: summaryRes.summary || null,
         reports: reportsRes.items || [],
         collusionIndicators: collusionRes.items || [],
@@ -506,38 +428,6 @@ export const GovernancePage: React.FC = () => {
         pressureFields: fieldsRes.items || [],
         teamEvents: eventsRes.items || [],
       };
-    },
-  });
-
-  // A QUEUE, not a slot: nothing stops a second decision while a reveal is
-  // still open, and overwriting would destroy material the operator has not
-  // saved. Transient, page-scoped, dropped on acknowledgement — never stored.
-  const [revealQueue, setRevealQueue] = useState<Record<string, unknown>[]>([]);
-  const pushReveal = (values: Record<string, unknown>) => {
-    setRevealQueue((queue) => [...queue, values]);
-  };
-
-  const decisionMutation = useMutation({
-    // The decide response carries the server's one-shot reveal slot when the
-    // decision ran an executor that minted secret material. It is taken here
-    // and STRIPPED from what this resolves to: whatever a mutationFn returns
-    // becomes react-query mutation state, which the cache keeps for gcTime
-    // after the reveal is closed.
-    mutationFn: async ({ requestId, decision }: { requestId: string; decision: 'approved' | 'rejected' }) => {
-      const response = await governanceApi.decideApproval(requestId, { decision });
-      const { revealed_result: revealed, ...approvalRequest } = response.approval_request ?? {};
-      const shown = takeRevealableResult(revealed);
-      if (shown) {
-        pushReveal(shown);
-      }
-      return { approval_request: approvalRequest as ApprovalRequest };
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['governance'] });
-      addNotification({ type: 'success', message: `Request ${variables.decision}` });
-    },
-    onError: () => {
-      addNotification({ type: 'error', message: 'Failed to process approval' });
     },
   });
 
@@ -589,7 +479,7 @@ export const GovernancePage: React.FC = () => {
       ]}
     >
       {summary && !isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <Card className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -613,18 +503,6 @@ export const GovernancePage: React.FC = () => {
               </div>
             </div>
             <p className="text-xs text-theme-tertiary mt-2">{summary.violations.total} total</p>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-theme-tertiary">Pending Approvals</p>
-                <p className="text-2xl font-semibold text-theme-warning-fg">{summary.approvals.pending}</p>
-              </div>
-              <div className="h-10 w-10 bg-theme-warning-bg rounded-lg flex items-center justify-center">
-                <Clock className="h-5 w-5 text-theme-warning-fg" />
-              </div>
-            </div>
-            <p className="text-xs text-theme-tertiary mt-2">{summary.approvals.approved} approved</p>
           </Card>
           <Card className="p-4">
             <div className="flex items-center justify-between">
@@ -654,14 +532,6 @@ export const GovernancePage: React.FC = () => {
         <TabPanel tabId="violations" activeTab={activeTab}>
           <ViolationsContent violations={data?.violations || []} loading={isLoading} />
         </TabPanel>
-        <TabPanel tabId="approvals" activeTab={activeTab}>
-          <ApprovalsContent
-            pendingApprovals={data?.pendingApprovals || []}
-            approvalChains={data?.approvalChains || []}
-            loading={isLoading}
-            onDecision={(requestId, decision) => decisionMutation.mutate({ requestId, decision })}
-          />
-        </TabPanel>
         <TabPanel tabId="reports" activeTab={activeTab}>
           <ReportsContent
             reports={data?.reports || []}
@@ -688,18 +558,6 @@ export const GovernancePage: React.FC = () => {
           <AuditLogList />
         </TabPanel>
       </TabContainer>
-
-      {/* Rendered by the page, not the approvals panel: the decided row leaves
-          the pending list and unmounts its row while this is still open. */}
-      {revealQueue.length > 0 && (
-        <OneShotRevealModal
-          title="Decision applied — shown once"
-          values={revealQueue[0]}
-          note="This decision ran an operation that minted new material. It is not stored and cannot be shown again."
-          acknowledgeLabel="I have saved this somewhere safe"
-          onDone={() => setRevealQueue((queue) => queue.slice(1))}
-        />
-      )}
     </PageContainer>
   );
 };

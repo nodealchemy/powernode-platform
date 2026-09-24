@@ -54,6 +54,7 @@ import { executionTracesApi } from '@/features/ai/debugging/services/executionTr
 import { getAguiSession } from '@/features/ai/agui/api/aguiApi';
 import { swarmApi } from '@/features/devops/swarm/services/swarmApi';
 import { codeFactoryApi } from '@/features/ai/code-factory/api/codeFactoryApi';
+import { fetchApprovalRequestDetail } from '@/features/ai/approvals/api/approvalsApi';
 
 /**
  * Split a composite EntityLink id (e.g. "knowledgeBaseId:documentId") into its
@@ -438,16 +439,24 @@ export function registerCoreEntities(): void {
       fetchById: (id: string) => governanceApi.getApprovalChain(id),
     },
     {
-      // getApprovalRequest returns `{ approval_request }` (unwrapped from the
-      // outer `data`). GovernanceController#show_approval_request is
-      // authenticated and account-scoped (`current_account.ai_approval_requests`),
-      // with no resource permission. No `name`; `description` labels (falls back
-      // to the type label when null).
+      // fc-11: migrated off the retired Governance → Approvals tab's
+      // `GET /ai/governance/approval_requests/:id` (GovernanceController
+      // #show_approval_request, no resource permission) onto the surface that
+      // shares its serializer (IMP-550e44e24220) and already reads one request
+      // in detail: `Ai::AutonomyApprovalActions#show_approval`
+      // (`GET /ai/autonomy/approvals/:id`). That action renders the request
+      // FLAT under `data` — `fetchApprovalRequestDetail` already unwraps
+      // exactly that shape for the Approvals feature, so no `.then()` unwrap
+      // of a `{ approval_request }` envelope is needed here (there is none).
+      // Gated on `ai.agents.read`, per `AutonomyController#validate_permissions`
+      // — the retired read had no resource permission at all. No `name`;
+      // `description` labels (falls back to the type label when null).
       type: 'approval_request',
       label: 'Approval Request',
+      permission: 'ai.agents.read',
       icon: 'CheckSquare',
       labelField: 'description',
-      fetchById: (id: string) => governanceApi.getApprovalRequest(id).then((r) => r.approval_request),
+      fetchById: (id: string) => fetchApprovalRequestDetail(id),
     },
     {
       // getCluster returns `ApiResponse<{ cluster }>` — unwrap to the cluster.
