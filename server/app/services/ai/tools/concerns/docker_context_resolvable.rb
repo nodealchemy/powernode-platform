@@ -15,11 +15,22 @@ module Ai
         # docker_host_tool.rb, docker_image_tool.rb,
         # docker_network_volume_tool.rb, docker_service_tool.rb,
         # docker_stack_tool.rb) was found to have no OTHER raise site for
-        # either class. Those tools' rescue arms rely on that and forward
-        # e.message verbatim via `rescued_error_result(e, message: e.message)`
-        # rather than the generic default. A future raise site here that
-        # wraps an inner error's message must sanitize before raising, not
-        # after.
+        # either class. Those tools' rescue arms route ActiveRecord::
+        # RecordNotFound through BaseTool#not_found_result (IMP-f6f80b585b19)
+        # rather than forwarding e.message directly — today that's a no-op
+        # for THIS concern's own raises (raise_not_found never sets e.model/
+        # e.id, so the safe hand-authored text passes through unchanged, and
+        # the helper's WHERE-stripping fallback is a no-op on text that never
+        # carried that suffix). That protects a REAL scoped `.find` added
+        # directly to one of these tools (Rails sets e.model/e.id on that
+        # raise, so the helper authors the message from those instead of
+        # forwarding text). It does NOT protect a future raise_not_found
+        # call, or any other hand-raise here, that wraps an inner error's
+        # (e.g. a driver/PG exception's) message — that raise has no model/id
+        # to key off, so the helper passes its text through unchanged, `[WHERE`
+        # suffix and all if present. Any new raise site here still must
+        # author its own safe, static (or caller-echo-only) text — sanitize
+        # before raising, not after.
         private
 
         # Resolve a Docker host by identifier (UUID, slug, or name).

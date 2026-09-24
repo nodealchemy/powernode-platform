@@ -14,11 +14,20 @@ module Ai
         # exhaustively when this file's only three includers
         # (code_analysis_tool.rb, code_discovery_tool.rb, code_memory_tool.rb)
         # were found to have no OTHER raise site for either class. Those
-        # tools' rescue arms rely on that and forward e.message verbatim via
-        # `rescued_error_result(e, message: e.message)` rather than the
-        # generic default. If a future raise site here ever needs to wrap an
-        # inner error's message, it must keep that contract — sanitize
-        # before raising, not after.
+        # tools' rescue arms route ActiveRecord::RecordNotFound through
+        # BaseTool#not_found_result (IMP-f6f80b585b19) rather than forwarding
+        # e.message directly — today that's a no-op for THIS concern's own
+        # raises (raise_not_found never sets e.model/e.id, so the safe
+        # hand-authored text passes through unchanged, and the helper's
+        # WHERE-stripping fallback is a no-op on text that never carried that
+        # suffix). That protects a REAL scoped `.find` added directly to one
+        # of these tools (Rails sets e.model/e.id on that raise). It does NOT
+        # protect a future raise_not_found call, or any other hand-raise
+        # here, that wraps an inner error's message — that raise has no
+        # model/id to key off, so the helper passes its text through
+        # unchanged. Any new raise site here still must author its own safe,
+        # static (or caller-echo-only) text — sanitize before raising, not
+        # after.
         #
         # Maximum number of files to index in a single run
         MAX_INDEX_FILES = 5000

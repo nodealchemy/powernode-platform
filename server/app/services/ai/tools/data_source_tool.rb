@@ -647,16 +647,15 @@ module Ai
       # every current raise site here is static app-authored text or an echo
       # of the caller's own already-known identifier, never raw driver/model
       # internals). A single static `message:` can't serve 20 different
-      # legitimate texts, so — unlike the generic-default shape used
-      # elsewhere — this arm keeps forwarding e.message, verified safe today,
-      # while still logging server-side. This is the one shape the audit
-      # could not give blanket protection to: a FUTURE raise added anywhere
-      # in this file that wraps a raw inner error's message would flow
-      # through here unexamined. Any new raise site in this file must keep
-      # authoring its own safe, static (or caller-echo-only) text.
+      # legitimate texts. Routed through not_found_result (fc-12 sibling,
+      # IMP-f6f80b585b19): for a hand-raised RecordNotFound (model/id nil)
+      # the helper only strips a trailing `[WHERE ...]` suffix, which none of
+      # today's raises carry — it is NOT a general sanitizer. A FUTURE raise
+      # site here that wraps a raw inner error's (e.g. a PG/driver
+      # exception's) message still needs its own review and must author its
+      # own safe, static (or caller-echo-only) text before raising.
       rescue ActiveRecord::RecordNotFound => e
-        Rails.logger.info("[DataSourceTool] #{e.class}: #{e.message}")
-        error_result(e.message)
+        not_found_result(e)
       rescue ArgumentError => e
         Rails.logger.info("[DataSourceTool] #{e.class}: #{e.message}")
         error_result(e.message)

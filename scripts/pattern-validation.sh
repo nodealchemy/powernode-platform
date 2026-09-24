@@ -222,6 +222,26 @@ else
     security_critical_failed_checks+=("No new zero-authz controllers (authorization-coverage guard)")
 fi
 
+# RecordNotFound WHERE-clause leak guard (IMP-f6f80b585b19): an MCP tool's
+# `rescue ActiveRecord::RecordNotFound` must never forward e.message — for a
+# SCOPED relation it carries a ` [WHERE "table"."column" = $1]` suffix (Rails
+# 8.1) naming internal schema, and tool results replay to the model provider.
+# check-tool-not-found-leak.sh scans every .rb under services/ai/tools,
+# recursively (core + extensions, private included when checked out) for the
+# pattern; the fix routes through Ai::Tools::BaseTool#not_found_result(e).
+# Hard-fail, no baseline — every
+# known site was fixed alongside this guard, so any hit is a new regression.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No tool RecordNotFound WHERE-clause leaks (not-found-result guard)... "
+if bash scripts/check-tool-not-found-leak.sh >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Tool forwards a RecordNotFound message; run: bash scripts/check-tool-not-found-leak.sh)"
+    failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("No tool RecordNotFound WHERE-clause leaks (not-found-result guard)")
+fi
+
 # MCP catalog freshness guard: docs/reference/auto/mcp-tools.md is generated
 # FROM Ai::Tools::PlatformApiToolRegistry.all_tools action_definitions (rails
 # mcp:generate_tool_catalog). A commit that adds/changes an MCP tool action's

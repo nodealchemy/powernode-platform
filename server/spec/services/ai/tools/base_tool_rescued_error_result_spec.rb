@@ -55,6 +55,89 @@ RSpec.describe "BaseTool#rescued_error_result" do
     end
   end
 
+  # IMP-f6f80b585b19 — not_found_result/not_found_message, the RecordNotFound-
+  # specific sibling of rescued_error_result. Every case here uses a REAL
+  # ActiveRecord::RecordNotFound raised by a real finder (or a real hand-raise
+  # for the literal-message case), not a fabricated double, so a mismatch
+  # between what Rails actually sets on the exception and what this helper
+  # assumes cannot hide behind a stub.
+  describe "#not_found_message" do
+    it "(a) authors 'Couldn't find <Model> with '<primary_key>'=<id>' when model and id are both set" do
+      expect { account.ai_agents.find("nonexistent-id") }
+        .to raise_error(ActiveRecord::RecordNotFound) do |e|
+          expect(tool.send(:not_found_message, e)).to eq(%(Couldn't find Ai::Agent with 'id'="nonexistent-id"))
+        end
+    end
+
+    # (a) — model set, id NIL: find_by!/take!/first! on a scoped relation.
+    # Rails's own message here has no "with 'id'=..." segment at all, so the
+    # WHERE-stripping fallback would leave a dangling "with" if applied to it.
+    it "(a) authors 'Couldn't find <Model>' with no dangling 'with' when id is nil" do
+      expect { account.ai_agents.where(name: "definitely-not-a-real-agent-name").take! }
+        .to raise_error(ActiveRecord::RecordNotFound) do |e|
+          expect(e.id).to be_nil # premise: take! never sets id
+          message = tool.send(:not_found_message, e)
+          expect(message).to eq("Couldn't find Ai::Agent")
+          expect(message).not_to end_with("with")
+          expect(message).not_to include("WHERE")
+        end
+    end
+
+    # (b) — e.primary_key, not a hardcoded "id" literal.
+    it "(b) reads the primary key name from the exception rather than hardcoding 'id'" do
+      exception = ActiveRecord::RecordNotFound.new("boom", "Ai::Agent", "agent_uuid", "abc-123")
+      expect(tool.send(:not_found_message, exception)).to eq(%(Couldn't find Ai::Agent with 'agent_uuid'="abc-123"))
+    end
+
+    # (c) — the WHERE-clause fallback strips across a literal newline too.
+    it "(c) strips a multi-line WHERE suffix on a hand-raised exception with no model/id" do
+      exception = ActiveRecord::RecordNotFound.new("Couldn't find Thing with 'id'=1 [WHERE \"things\".\"a\" = $1\nAND \"things\".\"b\" = $2]")
+      message = tool.send(:not_found_message, exception)
+      expect(message).to eq("Couldn't find Thing with 'id'=1")
+      expect(message).not_to include("WHERE")
+    end
+
+    # (d) — the echoed id is capped, not unbounded caller-controlled text.
+    it "(d) truncates a long id to about 64 characters" do
+      expect { account.ai_agents.find("x" * 200) }
+        .to raise_error(ActiveRecord::RecordNotFound) do |e|
+          message = tool.send(:not_found_message, e)
+          expect(message.length).to be < 120
+          expect(message).to include("x" * 40)
+          expect(message).not_to include("x" * 100)
+          expect(message).to include("…")
+        end
+    end
+
+    it "passes a hand-raised literal message through unchanged (model/id nil, nothing to strip)" do
+      exception = ActiveRecord::RecordNotFound.new("Instance not found")
+      expect(tool.send(:not_found_message, exception)).to eq("Instance not found")
+    end
+  end
+
+  describe "#not_found_result" do
+    it "logs the real exception server-side and returns the authored message as the caller-facing error" do
+      expect { account.ai_agents.find("nonexistent-id") }
+        .to raise_error(ActiveRecord::RecordNotFound) do |e|
+          allow(Rails.logger).to receive(:info)
+          result = tool.send(:not_found_result, e)
+          expect(result).to eq(success: false, error: %(Couldn't find Ai::Agent with 'id'="nonexistent-id"))
+          expect(Rails.logger).to have_received(:info).with(a_string_including("Ai::Tools::BaseTool", "RecordNotFound"))
+        end
+    end
+
+    it "never lets the WHERE-clause suffix reach the returned result" do
+      expect { account.ai_agents.find("nonexistent-id") }
+        .to raise_error(ActiveRecord::RecordNotFound) do |e|
+          expect(e.message).to include("WHERE"), "premise: the scoped find's own message carries the suffix"
+          allow(Rails.logger).to receive(:info)
+          result = tool.send(:not_found_result, e)
+          expect(result[:error]).not_to include("WHERE")
+          expect(result[:error]).not_to include("ai_agents")
+        end
+    end
+  end
+
   # THE DEFECT, DIRECTLY (IMP-5ed95e651b80's representative arm). This is the
   # exact seam the survey started from: run_through_autonomy_gate's
   # gate_context rescue (base_tool.rb ~1020-1023). Before the fix, a raw

@@ -1478,6 +1478,54 @@ module Ai
         error_result(message)
       end
 
+      # ActiveRecord::RecordNotFound#message crosses the SAME trust boundary
+      # rescued_error_result exists to narrow (IMP-5ed95e651b80), and it has
+      # its own extra leak: for a SCOPED relation (`account.things.find(id)`,
+      # `.where(...).find`, any belongs_to/has_many finder) Rails 8.1 appends
+      # ` [WHERE "table"."column" = $1]` — a raw table and column name that
+      # must never reach the model provider. `rescue ... => e; error_result
+      # (e.message)` (or `rescued_error_result(e, message: e.message)`, which
+      # defeats the whole point of the `message:` override) forwards it
+      # verbatim.
+      #
+      # not_found_result is the ONE seam every tool's `rescue
+      # ActiveRecord::RecordNotFound` should route through. When e.model/e.id
+      # are set — true on every raise that came from a real finder,
+      # regardless of how deep the scope chain ran — it authors the message
+      # from those instead of matching Rails's current WHERE-clause format.
+      # That guarantee is SCOPED to that case: a hand-raised RecordNotFound
+      # (`raise ActiveRecord::RecordNotFound, "..."`, e.g. this file's own
+      # raise_not_found-style helpers) carries model/id nil, and the fallback
+      # below only strips a trailing `[WHERE ...]` suffix — it is NOT a
+      # general sanitizer. A raise site that wraps a raw inner error's
+      # message into that literal still leaks whatever that inner message
+      # contains; every such site must keep authoring its own safe, static
+      # (or caller-echo-only) text, same as before this helper existed.
+      def not_found_result(e)
+        Rails.logger.info("[#{self.class.name}] #{e.class}: #{e.message}")
+        error_result(not_found_message(e))
+      end
+
+      def not_found_message(e)
+        return "Couldn't find #{e.model} with '#{e.primary_key}'=#{truncated_id(e.id)}" if e.model.present? && e.id.present?
+        # model set but id nil — find_by!/take!/first! on a scoped relation:
+        # Rails's own message here has no "with 'id'=..." segment at all
+        # ("Couldn't find X with [WHERE ...]"), so stripping the WHERE
+        # suffix from THAT text would leave a dangling "with".
+        return "Couldn't find #{e.model}" if e.model.present?
+
+        e.message.sub(/\s*\[WHERE\b.*\z/m, "")
+      end
+
+      # Caps the echoed id in a not-found message — a caller-supplied id is
+      # otherwise unbounded (and could itself be a composite-key array).
+      def truncated_id(id)
+        repr = id.inspect
+        return repr if repr.length <= 64
+
+        "#{repr[0, 64]}…"
+      end
+
       # True only when the caller explicitly declared itself an in-process
       # system caller via `internal: true`.
       def internal?

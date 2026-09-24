@@ -252,12 +252,15 @@ module Ai
       # here (find_mission!, find_plan!, create_infrastructure_mission!) is
       # static app-authored text, at most interpolating a mission/plan id the
       # caller supplied or an app-internal constant (template name, seed
-      # path) — audited exhaustively for IMP-5ed95e651b80. Preserved via
-      # e.message rather than the generic default; a future raise site here
-      # wrapping a raw inner error's message would need its own review.
+      # path) — audited exhaustively for IMP-5ed95e651b80. Routed through
+      # not_found_result (fc-12 sibling, IMP-f6f80b585b19): for a hand-raised
+      # RecordNotFound (model/id nil) the helper only strips a trailing
+      # `[WHERE ...]` suffix, which none of today's raises carry — it is NOT
+      # a general sanitizer. A FUTURE raise site here that wraps a raw inner
+      # error's message still needs its own review and must author its own
+      # safe, static (or caller-echo-only) text before raising.
       rescue ActiveRecord::RecordNotFound => e
-        Rails.logger.info("[ProvisioningTool] #{e.class}: #{e.message}")
-        error_result(e.message)
+        not_found_result(e)
       rescue ArgumentError => e
         Rails.logger.info("[ProvisioningTool] #{e.class}: #{e.message}")
         error_result(e.message)
