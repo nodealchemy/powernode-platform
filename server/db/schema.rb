@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_20_182328) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_24_010100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -11537,6 +11537,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_20_182328) do
     t.datetime "two_factor_backup_codes_generated_at"
     t.boolean "two_factor_enabled", default: false, null: false
     t.datetime "two_factor_enabled_at"
+    t.datetime "two_factor_pending_expires_at"
+    t.string "two_factor_pending_secret"
     t.string "two_factor_secret"
     t.datetime "updated_at", null: false
     t.index ["account_id"], name: "index_users_on_account_id"
