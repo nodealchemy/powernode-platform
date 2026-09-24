@@ -91,11 +91,11 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
     {
       id: 'add-provider',
       label: 'Add Provider',
-      onClick: () => {
-        setEditingProvider(null);
-        setSelectedProviderType(undefined);
-        setIsModalOpen(true);
-      },
+      // fc-26: navigate to the /providers/new URL (which the id==='new' effect
+      // below already opens the modal for) rather than opening it directly,
+      // so this button is the discoverable path to that route instead of a
+      // page reachable only by typing the URL.
+      onClick: () => navigate('/app/devops/source-control/providers/new'),
       variant: 'primary',
       icon: Plus
     }
