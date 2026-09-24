@@ -333,6 +333,10 @@ describe('authSlice', () => {
       expect(state.access_token).toBeNull();
       expect(state.refresh_token).toBeNull();
       expect(state.isAuthenticated).toBe(false);
+      // LOW item 5: the HttpOnly refresh cookie SURVIVES a failed logout —
+      // surface a notice rather than silently pretending the sign-out was
+      // clean server-side too.
+      expect(state.error).toMatch(/session may still be active/i);
     });
   });
 

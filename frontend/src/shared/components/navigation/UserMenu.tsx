@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { logout } from '@/shared/services/slices/authSlice';
 import { useNavigation } from '@/shared/hooks/NavigationContext';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { getUserInitials } from '@/shared/utils/userUtils';
 
 interface UserMenuProps {
@@ -15,6 +16,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { config } = useNavigation();
+  const { showNotification } = useNotifications();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -38,7 +40,19 @@ export const UserMenu: React.FC<UserMenuProps> = ({ className = '' }) => {
   // Handle logout
   const handleLogout = () => {
     setShowUserMenu(false);
-    dispatch(logout());
+    // Local auth state is cleared either way (see authSlice's logout.rejected
+    // reducer) — but the HttpOnly refresh cookie only gets deleted by a
+    // SUCCESSFUL server round trip, so a failed call leaves the session
+    // possibly still usable server-side even though this client now looks
+    // signed out. Surface that rather than letting it pass silently.
+    dispatch(logout())
+      .unwrap()
+      .catch(() => {
+        showNotification(
+          "Could not reach the server to confirm sign-out — your session may still be active. Try again once you're back online.",
+          'warning'
+        );
+      });
   };
 
   // Group user-menu items by link type so the layout is independent of array

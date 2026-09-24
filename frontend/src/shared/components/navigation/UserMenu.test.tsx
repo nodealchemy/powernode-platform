@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
@@ -24,6 +24,18 @@ jest.mock('@/shared/hooks/NavigationContext', () => ({
 // Mock userUtils
 jest.mock('@/shared/utils/userUtils', () => ({
   getUserInitials: (user: { name?: string } | null | undefined) => user?.name ? user.name.charAt(0).toUpperCase() : '?'
+}));
+
+const mockLogoutApi = jest.fn();
+jest.mock('@/features/account/auth/services/authAPI', () => ({
+  authApi: {
+    logout: (...args: unknown[]) => mockLogoutApi(...args)
+  }
+}));
+
+const mockShowNotification = jest.fn();
+jest.mock('@/shared/hooks/useNotifications', () => ({
+  useNotifications: () => ({ showNotification: mockShowNotification })
 }));
 
 describe('UserMenu', () => {
@@ -277,6 +289,43 @@ describe('UserMenu', () => {
 
       const avatar = container.querySelector('.bg-gradient-to-br');
       expect(avatar).toBeInTheDocument();
+    });
+  });
+
+  // LOW item 5: local state is cleared either way (see authSlice.test.ts),
+  // but the HttpOnly refresh cookie SURVIVES a failed logout call, so the
+  // user is told their session may still be active rather than the failure
+  // passing silently.
+  describe('logout', () => {
+    beforeEach(() => {
+      mockLogoutApi.mockReset();
+      mockShowNotification.mockReset();
+    });
+
+    it('shows a notice when the logout call fails', async () => {
+      mockLogoutApi.mockRejectedValueOnce(new Error('Network error'));
+      renderComponent();
+
+      fireEvent.click(screen.getByRole('button'));
+      fireEvent.click(screen.getByText('Sign Out'));
+
+      await waitFor(() =>
+        expect(mockShowNotification).toHaveBeenCalledWith(
+          expect.stringMatching(/session may still be active/i),
+          'warning'
+        )
+      );
+    });
+
+    it('does not show a notice when logout succeeds', async () => {
+      mockLogoutApi.mockResolvedValueOnce({ data: { success: true } });
+      renderComponent();
+
+      fireEvent.click(screen.getByRole('button'));
+      fireEvent.click(screen.getByText('Sign Out'));
+
+      await waitFor(() => expect(mockLogoutApi).toHaveBeenCalled());
+      expect(mockShowNotification).not.toHaveBeenCalled();
     });
   });
 
