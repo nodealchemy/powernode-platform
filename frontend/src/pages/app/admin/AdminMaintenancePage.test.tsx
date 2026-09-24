@@ -16,7 +16,6 @@ jest.mock('@/shared/services/admin/maintenanceApi', () => ({
     getCleanupStats: jest.fn(),
     getMaintenanceSchedules: jest.fn(),
     setMaintenanceMode: jest.fn(),
-    scheduleMaintenanceMode: jest.fn(),
     createBackup: jest.fn(),
     deleteBackup: jest.fn(),
     restoreBackup: jest.fn(),

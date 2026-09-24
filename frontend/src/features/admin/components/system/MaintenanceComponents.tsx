@@ -3,7 +3,6 @@ import {
   Download,
   Trash2,
   RefreshCw,
-  Calendar,
   Database,
   HardDrive,
   Cpu,
@@ -18,167 +17,11 @@ import {
   BackupInfo,
   SystemHealth,
   CleanupStats,
-  MaintenanceSystemMetrics,
-  MaintenanceStatus
+  MaintenanceSystemMetrics
 } from '@/shared/services/admin/maintenanceApi';
-import { SettingsCard, ToggleSwitch } from '../settings/SettingsComponents';
-import { FormField } from '@/shared/components/ui/FormField';
+import { SettingsCard } from '../settings/SettingsComponents';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-
-// Maintenance Mode Control Component
-interface MaintenanceModeControlProps {
-  status: MaintenanceStatus;
-  onUpdate: () => void;
-}
-
-export const MaintenanceModeControl: React.FC<MaintenanceModeControlProps> = ({ status, onUpdate }) => {
-  const [loading, setLoading] = useState(false);
-  const [scheduled, setScheduled] = useState(false);
-  const [scheduledStart, setScheduledStart] = useState('');
-  const [scheduledEnd, setScheduledEnd] = useState('');
-  const [message, setMessage] = useState(status.message || '');
-  const { showNotification } = useNotifications();
-
-  const handleToggleMaintenanceMode = async (enabled: boolean) => {
-    try {
-      setLoading(true);
-      await maintenanceApi.setMaintenanceMode(enabled, message);
-      showNotification(
-        enabled ? 'Maintenance mode activated' : 'Maintenance mode deactivated',
-        'success'
-      );
-      onUpdate();
-    } catch (_error) {
-      showNotification('Failed to update maintenance mode', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleScheduleMaintenance = async () => {
-    try {
-      setLoading(true);
-      await maintenanceApi.scheduleMaintenanceMode(scheduledStart, scheduledEnd, message);
-      showNotification('Maintenance window scheduled successfully', 'success');
-      setScheduled(false);
-      onUpdate();
-    } catch (_error) {
-      showNotification('Failed to schedule maintenance', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <SettingsCard
-      title="Maintenance Mode"
-      description="Control system access during maintenance operations"
-      icon="🔧"
-    >
-      <div className="space-y-6">
-        {/* Current Status */}
-        <div className="flex items-center justify-between p-4 rounded-lg border border-theme bg-theme-background-secondary">
-          <div>
-            <h4 className="text-sm font-medium text-theme-primary">
-              System Access Control
-            </h4>
-            <p className="text-sm text-theme-secondary">
-              {status.mode ? 'System is in maintenance mode' : 'System is accessible to users'}
-            </p>
-          </div>
-          <ToggleSwitch
-            checked={status.mode}
-            onChange={handleToggleMaintenanceMode}
-            disabled={loading}
-            variant="error"
-          />
-        </div>
-
-        {/* Active Maintenance Alert */}
-        {status.mode && (
-          <div className="p-4 bg-theme-error-bg border border-theme-error-border rounded-lg">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-theme-error-fg" />
-              <h4 className="font-medium text-theme-error-fg">Maintenance Mode Active</h4>
-            </div>
-            <p className="text-sm text-theme-error-fg mt-1">
-              Users cannot access the application. Only administrators can use the system.
-            </p>
-          </div>
-        )}
-
-        {/* Scheduled Maintenance */}
-        {(status.scheduled_start || scheduled) && (
-          <div className="p-4 bg-theme-info-bg border border-theme-info-border rounded-lg">
-            <div className="flex items-center gap-2 mb-2">
-              <Calendar className="w-5 h-5 text-theme-info-fg" />
-              <h4 className="font-medium text-theme-info-fg">Scheduled Maintenance</h4>
-            </div>
-            {status.scheduled_start && (
-              <p className="text-sm text-theme-info-fg">
-                Scheduled from {new Date(status.scheduled_start).toLocaleString()} 
-                to {status.scheduled_end ? new Date(status.scheduled_end).toLocaleString() : 'TBD'}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Maintenance Message */}
-        <FormField
-          label="Maintenance Message"
-          helpText="Message displayed to users during maintenance"
-          type="text"
-          value={message}
-          onChange={setMessage}
-          placeholder="System is under maintenance. Please try again later."
-          disabled={loading}
-        />
-
-        {/* Schedule Maintenance */}
-        <div className="pt-4 border-t border-theme">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-medium text-theme-primary">Schedule Maintenance Window</h4>
-            <button
-              onClick={() => setScheduled(!scheduled)}
-              className="text-sm text-theme-link hover:text-theme-link-hover"
-            >
-              {scheduled ? 'Cancel' : 'Schedule'}
-            </button>
-          </div>
-
-          {scheduled && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField 
-                  label="Start Time"
-                  type="datetime-local"
-                  value={scheduledStart}
-                  onChange={setScheduledStart}
-                  disabled={loading}
-                />
-                <FormField 
-                  label="End Time"
-                  type="datetime-local"
-                  value={scheduledEnd}
-                  onChange={setScheduledEnd}
-                  disabled={loading}
-                />
-              </div>
-              <button
-                onClick={handleScheduleMaintenance}
-                disabled={loading || !scheduledStart || !scheduledEnd}
-                className="btn-theme btn-theme-primary w-full"
-              >
-                Schedule Maintenance Window
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </SettingsCard>
-  );
-};
 
 // System Health Component
 interface SystemHealthProps {

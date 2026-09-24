@@ -4,19 +4,15 @@ import type {
   SystemHealth,
   CleanupStats,
   MaintenanceSystemMetrics,
-  MaintenanceStatus,
 } from '@/shared/services/admin/maintenanceApi';
 import type { UseConfirmationOptions } from '@/shared/components/ui/ConfirmationModal';
 import {
-  MaintenanceModeControl,
   SystemHealthMonitor,
   DatabaseBackupManager,
   DataCleanupManager,
 } from './MaintenanceComponents';
 
 // --- maintenanceApi mock (module boundary) ---------------------------------
-const mockSetMaintenanceMode = jest.fn();
-const mockScheduleMaintenanceMode = jest.fn();
 const mockCreateBackup = jest.fn();
 const mockDeleteBackup = jest.fn();
 const mockDownloadBackup = jest.fn();
@@ -56,8 +52,6 @@ const realGetStatusBgColor = (status: string): string => {
 
 jest.mock('@/shared/services/admin/maintenanceApi', () => ({
   maintenanceApi: {
-    setMaintenanceMode: (...args: unknown[]) => mockSetMaintenanceMode(...args),
-    scheduleMaintenanceMode: (...args: unknown[]) => mockScheduleMaintenanceMode(...args),
     createBackup: (...args: unknown[]) => mockCreateBackup(...args),
     deleteBackup: (...args: unknown[]) => mockDeleteBackup(...args),
     downloadBackup: (...args: unknown[]) => mockDownloadBackup(...args),
@@ -92,11 +86,6 @@ jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
 }));
 
 // --- fixtures ---------------------------------------------------------------
-const baseStatus: MaintenanceStatus = {
-  mode: false,
-  message: 'Down for upgrades',
-};
-
 const healthyHealth: SystemHealth = {
   overall_status: 'healthy',
   database: { status: 'healthy', connection_time: 12, size: 1048576, last_backup: '2026-01-01T00:00:00Z' },
@@ -138,134 +127,6 @@ const cleanupStats: CleanupStats = {
 beforeEach(() => {
   jest.clearAllMocks();
   mockShouldAutoConfirm = true;
-});
-
-// ===========================================================================
-describe('MaintenanceModeControl', () => {
-  it('renders current accessible status with the maintenance message prefilled', () => {
-    render(<MaintenanceModeControl status={baseStatus} onUpdate={jest.fn()} />);
-
-    expect(screen.getByText('Maintenance Mode')).toBeInTheDocument();
-    expect(screen.getByText('System is accessible to users')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Down for upgrades')).toBeInTheDocument();
-    // Not in maintenance => no active alert
-    expect(screen.queryByText('Maintenance Mode Active')).not.toBeInTheDocument();
-  });
-
-  it('shows the active maintenance alert when mode is enabled', () => {
-    render(<MaintenanceModeControl status={{ mode: true }} onUpdate={jest.fn()} />);
-
-    expect(screen.getByText('System is in maintenance mode')).toBeInTheDocument();
-    expect(screen.getByText('Maintenance Mode Active')).toBeInTheDocument();
-    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
-  });
-
-  it('renders a scheduled-maintenance window from status', () => {
-    render(
-      <MaintenanceModeControl
-        status={{ mode: false, scheduled_start: '2026-07-01T08:00:00Z', scheduled_end: '2026-07-01T10:00:00Z' }}
-        onUpdate={jest.fn()}
-      />
-    );
-
-    expect(screen.getByText('Scheduled Maintenance')).toBeInTheDocument();
-    expect(screen.getByText(/Scheduled from/)).toBeInTheDocument();
-  });
-
-  it('enables maintenance mode and notifies success (passing the message)', async () => {
-    mockSetMaintenanceMode.mockResolvedValue(undefined);
-    const onUpdate = jest.fn();
-    render(<MaintenanceModeControl status={baseStatus} onUpdate={onUpdate} />);
-
-    fireEvent.click(screen.getByRole('switch'));
-
-    await waitFor(() => {
-      expect(mockSetMaintenanceMode).toHaveBeenCalledWith(true, 'Down for upgrades');
-    });
-    expect(mockShowNotification).toHaveBeenCalledWith('Maintenance mode activated', 'success');
-    expect(onUpdate).toHaveBeenCalledTimes(1);
-  });
-
-  it('deactivates maintenance mode when currently enabled', async () => {
-    mockSetMaintenanceMode.mockResolvedValue(undefined);
-    render(<MaintenanceModeControl status={{ mode: true, message: 'hi' }} onUpdate={jest.fn()} />);
-
-    fireEvent.click(screen.getByRole('switch'));
-
-    await waitFor(() => {
-      expect(mockSetMaintenanceMode).toHaveBeenCalledWith(false, 'hi');
-    });
-    expect(mockShowNotification).toHaveBeenCalledWith('Maintenance mode deactivated', 'success');
-  });
-
-  it('notifies error when toggling maintenance mode fails', async () => {
-    mockSetMaintenanceMode.mockRejectedValue(new Error('mock_rejection'));
-    const onUpdate = jest.fn();
-    render(<MaintenanceModeControl status={baseStatus} onUpdate={onUpdate} />);
-
-    fireEvent.click(screen.getByRole('switch'));
-
-    await waitFor(() => {
-      expect(mockShowNotification).toHaveBeenCalledWith('Failed to update maintenance mode', 'error');
-    });
-    expect(onUpdate).not.toHaveBeenCalled();
-  });
-
-  it('reveals scheduling fields and schedules a maintenance window', async () => {
-    mockScheduleMaintenanceMode.mockResolvedValue(undefined);
-    const onUpdate = jest.fn();
-    const { container } = render(<MaintenanceModeControl status={baseStatus} onUpdate={onUpdate} />);
-
-    // Scheduling fields hidden until "Schedule" toggle is clicked.
-    expect(container.querySelector('input[type="datetime-local"]')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Schedule' }));
-
-    const [start, end] = container.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]');
-    fireEvent.change(start, { target: { value: '2026-07-01T08:00' } });
-    fireEvent.change(end, { target: { value: '2026-07-01T10:00' } });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Schedule Maintenance Window' }));
-
-    await waitFor(() => {
-      expect(mockScheduleMaintenanceMode).toHaveBeenCalledWith(
-        '2026-07-01T08:00',
-        '2026-07-01T10:00',
-        'Down for upgrades'
-      );
-    });
-    expect(mockShowNotification).toHaveBeenCalledWith('Maintenance window scheduled successfully', 'success');
-    expect(onUpdate).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps the schedule submit disabled until both start and end are set', () => {
-    const { container } = render(<MaintenanceModeControl status={baseStatus} onUpdate={jest.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Schedule' }));
-
-    const submit = screen.getByRole('button', { name: 'Schedule Maintenance Window' });
-    expect(submit).toBeDisabled();
-
-    const [start, end] = container.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]');
-    fireEvent.change(start, { target: { value: '2026-07-01T08:00' } });
-    expect(submit).toBeDisabled(); // end still empty
-
-    fireEvent.change(end, { target: { value: '2026-07-01T10:00' } });
-    expect(submit).toBeEnabled();
-  });
-
-  it('notifies error when scheduling fails', async () => {
-    mockScheduleMaintenanceMode.mockRejectedValue(new Error('mock_rejection'));
-    const { container } = render(<MaintenanceModeControl status={baseStatus} onUpdate={jest.fn()} />);
-
-    fireEvent.click(screen.getByRole('button', { name: 'Schedule' }));
-    const [start, end] = container.querySelectorAll<HTMLInputElement>('input[type="datetime-local"]');
-    fireEvent.change(start, { target: { value: '2026-07-01T08:00' } });
-    fireEvent.change(end, { target: { value: '2026-07-01T10:00' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Schedule Maintenance Window' }));
-
-    await waitFor(() => {
-      expect(mockShowNotification).toHaveBeenCalledWith('Failed to schedule maintenance', 'error');
-    });
-  });
 });
 
 // ===========================================================================

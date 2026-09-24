@@ -70,9 +70,8 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
     else if (settings.password_complexity_level === 'medium') authScore += 20;
     else if (settings.password_complexity_level === 'low') authScore += 10;
     
-    let accessScore = settings.email_verification_required ? 80 : 60;
-    if (settings.maintenance_mode) accessScore += 10;
-    
+    const accessScore = settings.email_verification_required ? 80 : 60;
+
     const rateScore = settings.rate_limiting?.enabled ? 80 : 40;
     
     const avgScore = Math.round((authScore + accessScore + rateScore) / 3);
@@ -346,19 +345,6 @@ export const AdminSettingsSecurityTabPage: React.FC = () => {
         >
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-theme-primary">Maintenance Mode</p>
-                  <p className="text-sm text-theme-secondary">Enable maintenance mode for system updates</p>
-                </div>
-                <ToggleSwitch
-                  checked={systemSettings.maintenance_mode || false}
-                  onChange={(checked) => handleSettingsUpdate({ maintenance_mode: checked })}
-                  disabled={saving}
-                  variant="primary"
-                />
-              </div>
-              
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-theme-primary">User Registration</p>

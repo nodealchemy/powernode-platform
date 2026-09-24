@@ -9,7 +9,6 @@ interface PlatformSettings {
   copyright_text: string;
   system_email: string;
   support_email: string;
-  maintenance_mode: boolean;
   registration_enabled: boolean;
   require_email_verification: boolean;
   trial_period_days: number;
@@ -22,7 +21,6 @@ export const PlatformConfiguration: React.FC = () => {
     copyright_text: '© {year} Everett C. Haimes III',
     system_email: '',
     support_email: '',
-    maintenance_mode: false,
     registration_enabled: true,
     require_email_verification: true,
     trial_period_days: 14,
@@ -49,7 +47,6 @@ export const PlatformConfiguration: React.FC = () => {
         copyright_text: settingsSummary?.copyright_text || '© {year} Everett C. Haimes III',
         system_email: settingsSummary?.system_email || '',
         support_email: settingsSummary?.support_email || '',
-        maintenance_mode: settingsSummary?.maintenance_mode || false,
         registration_enabled: settingsSummary?.registration_enabled ?? true,
         require_email_verification: settingsSummary?.require_email_verification ?? true,
         trial_period_days: settingsSummary?.trial_period_days || 14,
@@ -264,19 +261,6 @@ export const PlatformConfiguration: React.FC = () => {
         <div className="border-t border-theme pt-6">
           <h3 className="text-lg font-medium text-theme-primary mb-4">System Settings</h3>
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <label className="text-sm font-medium text-theme-primary">Maintenance Mode</label>
-                <p className="text-xs text-theme-secondary">Temporarily disable access to the platform</p>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.maintenance_mode}
-                onChange={(e) => handleChange('maintenance_mode', e.target.checked)}
-                className="h-4 w-4 text-theme-interactive-primary border-theme rounded focus:ring-theme-interactive-primary"
-              />
-            </div>
-
             <div className="flex items-center justify-between">
               <div>
                 <label className="text-sm font-medium text-theme-primary">Registration Enabled</label>
