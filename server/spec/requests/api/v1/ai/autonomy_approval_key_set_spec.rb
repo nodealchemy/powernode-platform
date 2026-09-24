@@ -25,14 +25,14 @@ RSpec.describe "Autonomy approvals — serialized key set", type: :request do
 
   let!(:approval_request) { create(:ai_approval_request, account: account, status: "pending") }
 
-  # Present on both the list row and the detail payload.
-  LIST_ONLY_ADDITIONS = %w[
-    agent_id agent_name action_type action_category requested_by_id total_steps
-    current_step_can_approve
-  ].freeze
+  # This surface's own additions on top of the shared core — present on both
+  # the list row and the detail payload.
+  let(:autonomy_additions) do
+    %w[agent_id agent_name action_type action_category requested_by_id total_steps current_step_can_approve]
+  end
 
   # Present on the detail payload only.
-  DETAIL_ONLY_ADDITIONS = %w[approval_chain step_statuses decisions deferred_operation].freeze
+  let(:detail_only_additions) { %w[approval_chain step_statuses decisions deferred_operation] }
 
   def detail_payload
     get "/api/v1/ai/autonomy/approvals/#{approval_request.id}", headers: headers, as: :json
@@ -75,16 +75,16 @@ RSpec.describe "Autonomy approvals — serialized key set", type: :request do
   describe "response shape" do
     it "pins the detail key set" do
       expected = (::Ai::ApprovalRequestSerialization::CORE_KEYS.map(&:to_s) +
-                  LIST_ONLY_ADDITIONS + DETAIL_ONLY_ADDITIONS).sort
+                  autonomy_additions + detail_only_additions).sort
 
       expect(detail_payload.keys.sort).to eq(expected)
     end
 
     it "pins the list row key set (no detail-only fields)" do
-      expected = (::Ai::ApprovalRequestSerialization::CORE_KEYS.map(&:to_s) + LIST_ONLY_ADDITIONS).sort
+      expected = (::Ai::ApprovalRequestSerialization::CORE_KEYS.map(&:to_s) + autonomy_additions).sort
 
       expect(list_row.keys.sort).to eq(expected)
-      (DETAIL_ONLY_ADDITIONS).each do |key|
+      detail_only_additions.each do |key|
         expect(list_row).not_to have_key(key)
       end
     end

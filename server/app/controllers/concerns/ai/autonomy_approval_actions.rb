@@ -3,8 +3,10 @@
 module Ai
   module AutonomyApprovalActions
     extend ActiveSupport::Concern
-    # IMP-550e44e24220 — shared approval-payload core, also included by
-    # Api::V1::Ai::GovernanceController so both read surfaces cannot drift.
+    # IMP-550e44e24220 — the shared approval-payload core. Api::V1::Ai::
+    # GovernanceController used to include it too, so neither read surface
+    # could drift from the other; that controller's approval actions were
+    # deleted in fc-12, so this is now its sole includer.
     include ::Ai::ApprovalRequestSerialization
     include ::HumanSession
 
