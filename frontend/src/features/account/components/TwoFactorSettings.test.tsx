@@ -418,7 +418,10 @@ describe('TwoFactorSettings', () => {
     });
   });
 
-  describe('header', () => {
+  // The section title + description now live in the caller's card header
+  // (ProfilePage's Security tab uses the same px-6/py-4/border-b style as its
+  // sibling cards) — this component owns only the status row and its label.
+  describe('status label', () => {
     beforeEach(() => {
       mockGetStatus.mockResolvedValue({
         success: true,
@@ -427,21 +430,11 @@ describe('TwoFactorSettings', () => {
       });
     });
 
-    it('displays title', async () => {
+    it('labels the status row', async () => {
       render(<TwoFactorSettings />);
 
       await waitFor(() => {
-        // Multiple elements have this text, so use getAllByText
-        const titles = screen.getAllByText('Two-Factor Authentication');
-        expect(titles.length).toBeGreaterThan(0);
-      });
-    });
-
-    it('displays description', async () => {
-      render(<TwoFactorSettings />);
-
-      await waitFor(() => {
-        expect(screen.getByText(/Add an extra layer of security/)).toBeInTheDocument();
+        expect(screen.getByText('Two-Factor Authentication')).toBeInTheDocument();
       });
     });
   });

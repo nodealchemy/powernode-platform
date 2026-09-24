@@ -707,6 +707,10 @@ export const ProfilePage: React.FC = () => {
           <div className="space-y-6">
             {/* Two-Factor Authentication */}
             <div className="card-theme">
+              <div className="px-6 py-4 border-b border-theme">
+                <h3 className="text-lg font-medium text-theme-primary">Two-Factor Authentication</h3>
+                <p className="text-sm text-theme-secondary mt-1">Add an extra layer of security to your account with two-factor authentication</p>
+              </div>
               <div className="p-6">
                 <TwoFactorSettings />
               </div>

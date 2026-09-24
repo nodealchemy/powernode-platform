@@ -130,15 +130,6 @@ export const TwoFactorSettings: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-theme-primary mb-2">
-          Two-Factor Authentication
-        </h3>
-        <p className="text-theme-secondary text-sm">
-          Add an extra layer of security to your account with two-factor authentication.
-        </p>
-      </div>
-
       {error && <ErrorAlert message={error} />}
 
       <div className="border border-theme rounded-lg p-6">
