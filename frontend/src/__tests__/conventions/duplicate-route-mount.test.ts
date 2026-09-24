@@ -2,47 +2,70 @@ import { readFileSync, readdirSync } from 'fs';
 import { join, sep } from 'path';
 
 /**
- * Duplicate/alias-route mount guard (fc-25).
+ * Duplicate/alias/redirect-route mount guard (fc-25).
  *
  * fc-25 removed several routes that mounted the exact same page component at
  * two different top-level paths for no reason other than history — e.g.
  * `/app/content/kb/admin` and `/app/content/kb/manage` both rendered
  * `KnowledgeBaseAdminPage`, and `/system/overview` duplicated `/system`
- * (both `SystemOverviewPage`). This guard is the regression check: it scans
- * the two places top-level route tables are declared as static config —
- * `pages/app/DashboardPage.tsx`'s `<Routes>` and every checked-out
- * extension's `frontend/src/register.ts` `registerRoutes(...)` call — and
- * flags any component mounted at two or more distinct, NON-parameterised
- * paths within the same route list.
+ * (both `SystemOverviewPage`) — and, separately, a set of `redirectTo(...)`/
+ * `redirectBySubpath(...)` routes that forwarded an old path to its new one
+ * with `<Navigate replace>` instead of deleting it outright. This guard is
+ * the regression check for BOTH shapes: it scans the two places top-level
+ * route tables are declared as static config — `pages/app/DashboardPage.tsx`'s
+ * `<Routes>` and every checked-out extension's `frontend/src/register.ts`
+ * `registerRoutes(...)` call.
+ *
+ * Two independent checks live here:
+ *
+ * 1. DUPLICATE MOUNT — flags any component mounted at two or more distinct,
+ *    non-parameterised paths within the same route list (equality ratchet
+ *    against a named, reasoned allowlist).
+ * 2. REINTRODUCED REDIRECT — flags any non-index, non-`*` route/entry whose
+ *    own declaration contains the word `Navigate` or `redirectTo` anywhere
+ *    (a direct `element={<Navigate .../>}`, a `component: redirectTo(...)`
+ *    call, or an inline wrapper reproducing either shape) — asserted empty,
+ *    always. fc-25's whole point was deleting these outright, not aliasing;
+ *    this half exists so reintroducing the pattern fails loudly instead of
+ *    landing quietly as "a route that happens to redirect".
  *
  * Scope, deliberately narrow (matches what fc-25 actually touched):
  *  - Only DashboardPage.tsx's own <Routes> and each register.ts's
- *    registerRoutes array. A duplicate rendered by a nested <Routes> INSIDE
- *    a page component (e.g. the Cost hub's own "Overview" tab duplicating a
- *    FinOps sub-tab, or a tab list duplicating another tab) is invisible to
- *    a scan of these two files by construction — those were fixed by hand in
- *    fc-25 (CostPage/FinOpsPage, KnowledgeMemoryPage), not by this guard.
- *  - A path containing a `:param` segment is excluded from comparison
- *    entirely: a component legitimately reached via more than one
- *    parameterised path (or a mix of a parameterised and a static path) is
- *    not the "two identical static bookmarks" shape this guard targets.
- *  - A path ending in `/*` counts as ONE mount, like any other literal path
- *    — it is not expanded or treated specially, just compared as a string.
+ *    registerRoutes array. A duplicate or redirect rendered by a nested
+ *    <Routes> INSIDE a page component (e.g. the Cost hub's own "Overview"
+ *    tab, or a tab-default `<Route index element={<Navigate .../>} />`) is
+ *    invisible to a scan of these two files by construction. Those are a
+ *    DIFFERENT, allowed shape (a tab-default redirect within a page's own
+ *    tab set, or a generic `*` → default-tab fallback) — fc-25 review item 9
+ *    ruled explicitly that in-page tab-default Navigate fallbacks are fine
+ *    as long as none of them names a path this campaign deleted; that is a
+ *    per-page manual check, not this guard's job.
+ *  - A path containing a `:param` segment is excluded from the DUPLICATE
+ *    MOUNT comparison only: a component legitimately reached via more than
+ *    one parameterised path (or a mix of a parameterised and a static path)
+ *    is not the "two identical static bookmarks" shape that check targets.
+ *    The REDIRECT check has no such exclusion — a parameterised route that
+ *    is ALSO a bare redirect is exactly as wrong as a static one.
+ *  - A path ending in `/*` counts as ONE mount for duplicate-mount purposes,
+ *    like any other literal path — it is not expanded or treated specially,
+ *    just compared as a string.
  *  - Comparisons are PER FILE (per route list), not across files: two
  *    different extensions coincidentally importing/registering a
- *    same-named component is not what this guard is for.
+ *    same-named component is not what the duplicate-mount check is for.
  *
- * EQUALITY RATCHET (mirrors nav-link-reachability.test.ts): the assertion is
- * `toEqual(ALLOWLIST)` against the full, unfiltered computed finding set
- * (sorted), not a count and not a filter-then-assert-empty. A new duplicate
- * mount not yet in ALLOWLIST fails; an ALLOWLIST entry that stops
- * reproducing (fixed, or the component/route renamed away) ALSO fails,
- * so nothing here can go stale silently.
+ * EQUALITY RATCHET (mirrors nav-link-reachability.test.ts): the duplicate-
+ * mount assertion is `toEqual(ALLOWLIST)` against the full, unfiltered
+ * computed finding set (sorted), not a count and not a filter-then-assert-
+ * empty. A new duplicate mount not yet in ALLOWLIST fails; an ALLOWLIST
+ * entry that stops reproducing (fixed, or the component/route renamed away)
+ * ALSO fails, so nothing here can go stale silently. The redirect check's
+ * "allowlist" is the empty array — there is no legitimate top-level redirect
+ * route in this codebase, by design.
  *
  * PRIVATE EXTENSIONS ARE SCANNED BUT NOT RATCHETED — same reasoning as
  * nav-link-reachability.test.ts: a private extension is remote-only and
  * absent from most checkouts, so a finding there can't live in a portable
- * allowlist. Findings are only reported via console.warn.
+ * allowlist. Findings (both kinds) are only reported via console.warn.
  */
 
 const FRONTEND_SRC = join(__dirname, '..', '..');
@@ -93,6 +116,38 @@ function stripComments(src: string): string {
   return out;
 }
 
+// Replaces the CONTENTS of every quoted string with spaces (keeping the
+// quotes and everything else in place) — used only to make the `index`
+// boolean-prop test safe against a path literal that happens to contain the
+// substring "index" (e.g. `path="/foo/index"`).
+function blankQuotedContents(s: string): string {
+  let out = '';
+  let i = 0;
+  let inString: '"' | "'" | null = null;
+  while (i < s.length) {
+    const c = s[i];
+    if (inString) {
+      if (c === inString) {
+        inString = null;
+        out += c;
+      } else {
+        out += ' ';
+      }
+      i += 1;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      inString = c;
+      out += c;
+      i += 1;
+      continue;
+    }
+    out += c;
+    i += 1;
+  }
+  return out;
+}
+
 // Discovered generically, never hardcoded by name (core-purity-check.sh) —
 // mirrors nav-link-reachability.test.ts.
 function discoverExtensionRegisterFiles(): string[] {
@@ -132,6 +187,51 @@ function isPrivateExtensionFile(file: string): boolean {
   return file.startsWith(PRIVATE_EXTENSIONS_ROOT);
 }
 
+// ─── Route-table extraction (shared by both checks) ──────────────────────
+
+// Finds every `<Route ...>` block in `src`, MULTI-LINE SAFE: scans from each
+// `<Route` opening to the matching self-close `/>` (or bare `>`) at BRACE
+// DEPTH ZERO, so a nested `{...}` prop (e.g. `element={<Foo bar={{ x: 1 }} />}`)
+// or a nested JSX self-closing tag inside `element={...}` never terminates
+// the block early, and the block's own text is intact regardless of how many
+// lines the JSX is split across.
+function extractRouteBlocks(src: string): string[] {
+  const blocks: string[] = [];
+  const openRe = /<Route\b/g;
+  let m: RegExpExecArray | null;
+  while ((m = openRe.exec(src))) {
+    let depth = 0;
+    let j = m.index;
+    for (; j < src.length; j++) {
+      const c = src[j];
+      if (c === '{') depth++;
+      else if (c === '}') depth--;
+      else if (depth === 0 && c === '/' && src[j + 1] === '>') {
+        j += 2;
+        break;
+      } else if (depth === 0 && c === '>') {
+        j += 1;
+        break;
+      }
+    }
+    blocks.push(src.slice(m.index, j));
+    openRe.lastIndex = j;
+  }
+  return blocks;
+}
+
+function routeBlockPath(block: string): string | null {
+  const m = /\bpath=["']([^"']+)["']/.exec(block);
+  return m ? m[1] : null;
+}
+
+// True only for React Router's boolean `index` prop (`<Route index .../>`),
+// never for a path literal that happens to contain "index" as a substring
+// (quoted string contents are blanked before the word-boundary test).
+function isIndexRoute(block: string): boolean {
+  return /\bindex\b(?!\s*=)/.test(blankQuotedContents(block));
+}
+
 // Extracts the `[...]` array body of `featureRegistry.registerRoutes('<slug>',
 // [ ... ])`, by bracket-depth matching — these arrays are multi-line,
 // multi-property object literals (mirrors nav-link-reachability.test.ts).
@@ -157,14 +257,14 @@ function extractRegisterRoutesBodies(src: string): string[] {
 }
 
 // Splits an array body into its top-level `{ ... }` object entries by
-// brace-depth matching, then pulls `path:` and `component:` off each. The
-// component may be a bare identifier (`ComputePage`) or a call expression
-// (`redirectTo('/app/...')`, `withFooProviders(BarPage)`) — either way the
-// leading identifier is what stands in for "what actually renders here",
-// which is exactly the granularity this guard needs (two paths calling the
-// same wrapper/factory are still "the same thing mounted twice").
-function extractRouteEntries(body: string): RouteEntry[] {
-  const entries: RouteEntry[] = [];
+// brace-depth matching. Returns the RAW entry text — callers pull whatever
+// fields they need (path / component identifier / a word-search over the
+// whole entry) rather than this function deciding what counts as "enough"
+// to keep, so an entry with a non-identifier `component:` value (an inline
+// arrow function, say) is never silently dropped before a caller gets a
+// chance to look at it.
+function splitTopLevelEntries(body: string): string[] {
+  const entries: string[] = [];
   let depth = 0;
   let start = -1;
   for (let i = 0; i < body.length; i++) {
@@ -175,12 +275,7 @@ function extractRouteEntries(body: string): RouteEntry[] {
     } else if (c === '}') {
       depth--;
       if (depth === 0 && start !== -1) {
-        const entry = body.slice(start, i + 1);
-        const pathMatch = /path:\s*['"]([^'"]+)['"]/.exec(entry);
-        const componentMatch = /component:\s*([A-Za-z_$][A-Za-z0-9_$]*)/.exec(entry);
-        if (pathMatch && componentMatch) {
-          entries.push({ path: pathMatch[1], component: componentMatch[1] });
-        }
+        entries.push(body.slice(start, i + 1));
         start = -1;
       }
     }
@@ -188,35 +283,60 @@ function extractRouteEntries(body: string): RouteEntry[] {
   return entries;
 }
 
-function extractExtensionRoutes(file: string): RouteEntry[] {
-  const src = stripComments(readFileSync(file, 'utf8'));
-  return extractRegisterRoutesBodies(src).flatMap(extractRouteEntries);
+function entryPath(entry: string): string | null {
+  const m = /path:\s*['"]([^'"]+)['"]/.exec(entry);
+  return m ? m[1] : null;
 }
 
-// DashboardPage.tsx declares every <Route> on a single line (established
-// house style — every entry in the file already reads this way), so a
-// per-line scan is enough: find the path, then take the LAST capitalised
-// JSX tag opened on that line as the actually-rendered page (wrappers like
+// The component may be a bare identifier (`ComputePage`) or a call
+// expression (`redirectTo('/app/...')`, `withFooProviders(BarPage)`) —
+// either way the leading identifier is what stands in for "what actually
+// renders here", which is exactly the granularity the DUPLICATE MOUNT check
+// needs (two paths calling the same wrapper/factory are still "the same
+// thing mounted twice"). Returns null for anything that isn't a leading
+// identifier (e.g. an inline arrow function) — that shape is the REDIRECT
+// check's job, not this one's, so it is deliberately excluded here rather
+// than mis-parsed.
+function entryComponentIdentifier(entry: string): string | null {
+  const m = /component:\s*([A-Za-z_$][A-Za-z0-9_$]*)/.exec(entry);
+  return m ? m[1] : null;
+}
+
+// ─── Check 1: duplicate mount ─────────────────────────────────────────────
+
+// DashboardPage.tsx's own <Routes> — one entry per non-index route, keyed by
+// the LAST capitalised JSX tag opened in the block (wrappers like
 // `ProtectedRoute`/`ClusterProvider`/`HostProvider` always sit OUTSIDE the
 // real page component in this codebase, so the innermost/last-opened tag is
-// it).
-function extractDashboardRoutes(): RouteEntry[] {
-  const file = join(FRONTEND_SRC, 'pages/app/DashboardPage.tsx');
-  const src = stripComments(readFileSync(file, 'utf8'));
-  const routeLineRe = /<Route\s+path=["']([^"']+)["']/;
-  const tagRe = /<([A-Z][A-Za-z0-9]*)/g;
+// it). Block-based (not line-based), so a route split across lines is still
+// captured correctly.
+function extractDashboardRouteEntries(src: string): RouteEntry[] {
   const entries: RouteEntry[] = [];
-  for (const line of src.split('\n')) {
-    const pathMatch = routeLineRe.exec(line);
-    if (!pathMatch) continue;
+  const tagRe = /<([A-Z][A-Za-z0-9]*)/g;
+  for (const block of extractRouteBlocks(src)) {
+    if (isIndexRoute(block)) continue;
+    const path = routeBlockPath(block);
+    if (!path) continue;
     tagRe.lastIndex = 0;
     let lastTag: string | null = null;
     let tagMatch: RegExpExecArray | null;
-    while ((tagMatch = tagRe.exec(line))) {
+    while ((tagMatch = tagRe.exec(block))) {
       if (tagMatch[1] === 'Route') continue;
       lastTag = tagMatch[1];
     }
-    if (lastTag) entries.push({ path: pathMatch[1], component: lastTag });
+    if (lastTag) entries.push({ path, component: lastTag });
+  }
+  return entries;
+}
+
+function extractExtensionRouteEntries(src: string): RouteEntry[] {
+  const entries: RouteEntry[] = [];
+  for (const body of extractRegisterRoutesBodies(src)) {
+    for (const raw of splitTopLevelEntries(body)) {
+      const path = entryPath(raw);
+      const component = entryComponentIdentifier(raw);
+      if (path && component) entries.push({ path, component });
+    }
   }
   return entries;
 }
@@ -239,26 +359,76 @@ function findDuplicateMounts(entries: RouteEntry[], label: string): string[] {
   return findings.sort();
 }
 
-// Named, itemized exceptions — NOT a count-based baseline (see module doc
-// comment). Every entry below is the SAME pre-existing pattern: one hub/tab
-// component mounted at several static per-tab paths (each independently
-// permission-gated, or internally branching on the active path) plus, in
-// most cases, a `/*` wildcard fallback for anything else. That is a
-// deliberate navigation pattern already used throughout this codebase
-// (SwarmHubPage, DockerHubPage, MissionsPageWrapper, AIAgentsPage) — not an
-// accidental "two routes, one panel" duplicate like the ones fc-25 fixed.
-// Consolidating any of these into a single `/*` route is a design decision
-// for its own owning campaign, not fc-25's alias/redirect cleanup.
+// ─── Check 2: reintroduced redirect ───────────────────────────────────────
+
+// Deliberately coarse (a whole-block/whole-entry word search, not a full
+// parser): flags a non-index, non-`*` route/entry whenever the word
+// `Navigate` or `redirectTo` appears ANYWHERE in its own declaration. That
+// covers a direct `element={<Navigate .../>}`, a `component: redirectTo(...)`
+// call, a `component: () => <Navigate .../>` (or `redirectTo(...)`) inline
+// wrapper, and any of those spread across multiple lines — all four are the
+// same "this route secretly forwards somewhere else" shape fc-25 deleted.
+// It will NOT catch a helper defined elsewhere and referenced only by an
+// unrelated identifier (an inline wrapper is written IN the entry itself by
+// definition) — that dodge only works by giving the helper a name unrelated
+// to Navigate/redirectTo, at which point reusing it across 2+ routes is
+// exactly what the duplicate-mount check above already catches.
+const REDIRECT_WORD_RE = /\b(Navigate|redirectTo)\b/;
+
+function findRedirectRoutesInDashboardSrc(src: string, label: string): string[] {
+  const findings: string[] = [];
+  for (const block of extractRouteBlocks(src)) {
+    if (isIndexRoute(block)) continue;
+    const path = routeBlockPath(block);
+    if (path === null || path === '*') continue;
+    if (REDIRECT_WORD_RE.test(block)) {
+      findings.push(`${label}: ${path} -> redirect (Navigate/redirectTo)`);
+    }
+  }
+  return findings.sort();
+}
+
+function findRedirectEntriesInExtensionSrc(src: string, label: string): string[] {
+  const findings: string[] = [];
+  for (const body of extractRegisterRoutesBodies(src)) {
+    for (const raw of splitTopLevelEntries(body)) {
+      const path = entryPath(raw);
+      if (path === null) continue;
+      if (REDIRECT_WORD_RE.test(raw)) {
+        findings.push(`${label}: ${path} -> redirect (Navigate/redirectTo)`);
+      }
+    }
+  }
+  return findings.sort();
+}
+
+// ─── Named, itemized duplicate-mount exceptions ───────────────────────────
+//
+// NOT a count-based baseline (see module doc comment). Every entry below is
+// the SAME pre-existing pattern: one hub/tab component mounted at several
+// static per-tab paths (each independently permission-gated, or internally
+// branching on the active path) plus, in most cases, a `/*` wildcard
+// fallback for anything else. That is a deliberate navigation pattern
+// already used throughout this codebase (SwarmHubPage, DockerHubPage,
+// AIAgentsPage) — not an accidental "two routes, one panel" duplicate like
+// the ones fc-25 fixed. Consolidating any of these into a single `/*` route
+// is a design decision for its own owning campaign, not fc-25's
+// alias/redirect cleanup.
 const ALLOWLIST: readonly string[] = [
-  // AI ▸ Agents primary-nav tabs (cards/marketplace/community/autonomy) plus
-  // the `/*` fallback — fc-13/fc-10 own this surface's tab consolidation.
-  'DashboardPage.tsx: AIAgentsPage -> /ai/agents/*, /ai/agents/autonomy, /ai/agents/cards, /ai/agents/community, /ai/agents/marketplace',
+  // AI ▸ Agents primary-nav tabs (cards/community/autonomy) plus the `/*`
+  // fallback — fc-13/fc-10 own this surface's tab consolidation.
+  // fc-25 review item 3 deleted the /ai/agents/marketplace alias (it also
+  // collided with a private extension's own /ai/agents/marketplace route).
+  'DashboardPage.tsx: AIAgentsPage -> /ai/agents/*, /ai/agents/autonomy, /ai/agents/cards, /ai/agents/community',
   // Docker hub's static tab paths, each `ProtectedRoute`-gated on
   // devops.docker.read, plus the `/*` fallback.
   'DashboardPage.tsx: DockerHubPage -> /devops/docker/*, /devops/docker/containers, /devops/docker/images, /devops/docker/monitoring, /devops/docker/networks, /devops/docker/volumes',
-  // AI ▸ Missions static tabs (all/completed) plus the code-factory and
-  // bare-hub wildcards.
-  'DashboardPage.tsx: MissionsPageWrapper -> /ai/missions, /ai/missions/all, /ai/missions/code-factory/*, /ai/missions/completed',
+  // AI ▸ Missions' two genuinely different tabs (Missions default, Code
+  // Factory) — not an alias pair; fc-25 review item 3 deleted the
+  // /ai/missions/all and /ai/missions/completed aliases (both were byte-
+  // identical to bare /ai/missions: MissionsContent has no status-tab or
+  // query-param filtering of its own), leaving just these two real tabs.
+  'DashboardPage.tsx: MissionsPageWrapper -> /ai/missions, /ai/missions/code-factory/*',
   // Swarm hub's static tab paths, each `ProtectedRoute`-gated on
   // devops.swarm.read, plus the `/*` fallback.
   'DashboardPage.tsx: SwarmHubPage -> /devops/swarm/*, /devops/swarm/networks, /devops/swarm/operations, /devops/swarm/secrets, /devops/swarm/services, /devops/swarm/stacks',
@@ -268,7 +438,10 @@ describe('nav convention: no component is mounted at two non-parameterised paths
   it('the duplicate-mount set exactly matches the named exception list (equality ratchet)', () => {
     const findings: string[] = [];
 
-    findings.push(...findDuplicateMounts(extractDashboardRoutes(), 'DashboardPage.tsx'));
+    const dashboardSrc = stripComments(
+      readFileSync(join(FRONTEND_SRC, 'pages/app/DashboardPage.tsx'), 'utf8')
+    );
+    findings.push(...findDuplicateMounts(extractDashboardRouteEntries(dashboardSrc), 'DashboardPage.tsx'));
 
     const registerFiles = discoverExtensionRegisterFiles();
     const publicRegisterFiles = registerFiles.filter((f) => !isPrivateExtensionFile(f));
@@ -276,7 +449,8 @@ describe('nav convention: no component is mounted at two non-parameterised paths
 
     for (const file of publicRegisterFiles) {
       const label = file.slice(REPO_ROOT.length + 1);
-      findings.push(...findDuplicateMounts(extractExtensionRoutes(file), label));
+      const src = stripComments(readFileSync(file, 'utf8'));
+      findings.push(...findDuplicateMounts(extractExtensionRouteEntries(src), label));
     }
 
     expect([...ALLOWLIST].sort()).toEqual([...ALLOWLIST]); // sanity: list itself stays sorted
@@ -286,7 +460,8 @@ describe('nav convention: no component is mounted at two non-parameterised paths
     // can't live in a portable allowlist (see module doc comment).
     for (const file of privateRegisterFiles) {
       const label = file.slice(REPO_ROOT.length + 1);
-      const privateFindings = findDuplicateMounts(extractExtensionRoutes(file), label);
+      const src = stripComments(readFileSync(file, 'utf8'));
+      const privateFindings = findDuplicateMounts(extractExtensionRouteEntries(src), label);
       if (privateFindings.length > 0) {
         // eslint-disable-next-line no-console
         console.warn(
@@ -296,5 +471,108 @@ describe('nav convention: no component is mounted at two non-parameterised paths
         );
       }
     }
+  });
+});
+
+describe('nav convention: no reintroduced redirect route (fc-25 review item 2)', () => {
+  it('the real route tables (DashboardPage.tsx + every public extension register.ts) contain no redirect routes', () => {
+    const findings: string[] = [];
+
+    const dashboardSrc = stripComments(
+      readFileSync(join(FRONTEND_SRC, 'pages/app/DashboardPage.tsx'), 'utf8')
+    );
+    findings.push(...findRedirectRoutesInDashboardSrc(dashboardSrc, 'DashboardPage.tsx'));
+
+    const registerFiles = discoverExtensionRegisterFiles();
+    const publicRegisterFiles = registerFiles.filter((f) => !isPrivateExtensionFile(f));
+    const privateRegisterFiles = registerFiles.filter(isPrivateExtensionFile);
+
+    for (const file of publicRegisterFiles) {
+      const label = file.slice(REPO_ROOT.length + 1);
+      const src = stripComments(readFileSync(file, 'utf8'));
+      findings.push(...findRedirectEntriesInExtensionSrc(src, label));
+    }
+
+    expect(findings.sort()).toEqual([]);
+
+    for (const file of privateRegisterFiles) {
+      const label = file.slice(REPO_ROOT.length + 1);
+      const src = stripComments(readFileSync(file, 'utf8'));
+      const privateFindings = findRedirectEntriesInExtensionSrc(src, label);
+      if (privateFindings.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          'duplicate-route-mount: a checked-out private extension has a redirect route ' +
+            '(not enforced here — fix in that extension):',
+          privateFindings
+        );
+      }
+    }
+  });
+
+  // ── Mutation tests: fixture strings run through the same matchers ───────
+  // Proves the matcher actually FIRES on each named shape, independent of
+  // whatever the real tree currently contains.
+
+  it('flags a single top-level <Route> that redirects via <Navigate>', () => {
+    const fixture = `
+      <Routes>
+        <Route path="/" element={<DashboardOverview />} />
+        <Route path="/system/overview" element={<Navigate to="/system" replace />} />
+      </Routes>
+    `;
+    expect(findRedirectRoutesInDashboardSrc(fixture, 'Fixture.tsx')).toEqual([
+      'Fixture.tsx: /system/overview -> redirect (Navigate/redirectTo)',
+    ]);
+  });
+
+  it('flags a single register.ts entry whose component is redirectTo(...)', () => {
+    const fixture = `
+      featureRegistry.registerRoutes('system', [
+        { path: '/system/nodes', component: redirectTo('/app/system/compute/nodes') },
+        { path: '/system/compute/*', component: ComputePage },
+      ]);
+    `;
+    expect(findRedirectEntriesInExtensionSrc(fixture, 'Fixture/register.ts')).toEqual([
+      'Fixture/register.ts: /system/nodes -> redirect (Navigate/redirectTo)',
+    ]);
+  });
+
+  it('flags a redirect route whose JSX is split across multiple lines', () => {
+    const fixture = `
+      <Routes>
+        <Route
+          path="/system/overview"
+          element={
+            <Navigate to="/system" replace />
+          }
+        />
+      </Routes>
+    `;
+    expect(findRedirectRoutesInDashboardSrc(fixture, 'Fixture.tsx')).toEqual([
+      'Fixture.tsx: /system/overview -> redirect (Navigate/redirectTo)',
+    ]);
+  });
+
+  it('flags an inline wrapper (arrow function) that returns Navigate instead of calling redirectTo by name', () => {
+    const fixture = `
+      featureRegistry.registerRoutes('system', [
+        { path: '/system/nodes', component: () => <Navigate to="/app/system/compute/nodes" replace /> },
+      ]);
+    `;
+    expect(findRedirectEntriesInExtensionSrc(fixture, 'Fixture/register.ts')).toEqual([
+      'Fixture/register.ts: /system/nodes -> redirect (Navigate/redirectTo)',
+    ]);
+  });
+
+  it('does NOT flag an index-route tab default or a generic `*` fallback (fc-25 review item 8)', () => {
+    const fixture = `
+      <Routes>
+        <Route index element={<Navigate to={fallback} replace />} />
+        <Route path="overview" element={<CostOverview />} />
+        <Route path="*" element={<Navigate to={fallback} replace />} />
+      </Routes>
+    `;
+    expect(findRedirectRoutesInDashboardSrc(fixture, 'Fixture.tsx')).toEqual([]);
   });
 });
