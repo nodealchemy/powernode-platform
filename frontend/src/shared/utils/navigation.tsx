@@ -7,7 +7,7 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
   Play, Rocket, DollarSign, Code2, Gauge, Building2, Megaphone,
-  Shield, Route, ClipboardCheck, MessageSquare
+  Shield, Route, ClipboardCheck, MessageSquare, Share2
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -274,6 +274,20 @@ export const defaultNavigationConfig: NavigationConfig = {
           permissions: ['team.read'],
           order: 5
         },
+        // Delegations: grant another user account access scoped to a role or
+        // specific permissions. Placed right after Users -- both are "who has
+        // access to this account" concerns, and this is the resource-management
+        // permission Api::V1::DelegationsController#authorize_delegation_management!
+        // itself checks (permissions only, never roles).
+        {
+          id: 'delegations',
+          name: 'Delegations',
+          href: '/app/profile/delegations',
+          icon: Share2,
+          description: 'Grant other users delegated access to this account',
+          permissions: ['accounts.manage', 'admin.access'],
+          order: 6
+        },
         {
           id: 'preferences',
           name: 'Preferences',
@@ -281,7 +295,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Settings,
           description: 'Customize your experience',
           permissions: [],
-          order: 6
+          order: 7
         },
         {
           id: 'notifications',
@@ -290,7 +304,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: Bell,
           description: 'Notification preferences',
           permissions: [],
-          order: 7
+          order: 8
         },
         {
           id: 'security',
@@ -299,7 +313,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           icon: ShieldCheck,
           description: 'Password, SSH keys, and security status',
           permissions: [],
-          order: 8
+          order: 9
         }
         // 'Billing' (order 4) is registered by the business extension via
         // featureRegistry.registerNavItems('business', [{ section: 'account', ... }]),

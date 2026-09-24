@@ -294,3 +294,60 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
     });
   });
 });
+
+// fc-20: the delegations UI is now reachable as a Profile tab. This pins the
+// ROUTING/gating wiring (a permitted user reaches it at /app/profile/delegations,
+// with the breadcrumb agreeing with the nav label); DelegationsManagement's own
+// behaviour has its own full test suite and is not re-asserted here.
+describe('ProfilePage - Delegations tab', () => {
+  const renderProfileAt = (path: string, permissions: string[]) => {
+    const store = configureStore({
+      reducer: {
+        auth: (state = { user: { id: 'u1', name: 'Test User', email: 'test@example.com', permissions }, isAuthenticated: true }) => state
+      }
+    });
+
+    return render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={[path]}>
+          <BreadcrumbProvider>
+            <ProfilePage />
+          </BreadcrumbProvider>
+        </MemoryRouter>
+      </Provider>
+    );
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetUserSettings.mockResolvedValue(emptyUserSettings);
+    // Generic envelope for delegationApi.getDelegations() and rolesApi.getPermissions()
+    // (both are non-critical to this smoke test's assertions).
+    mockGet.mockResolvedValue(ok({ delegations: [], meta: { total_count: 0, active_count: 0, expired_count: 0 } }));
+  });
+
+  it('shows the Delegations tab, and its content, for a user who holds accounts.manage', async () => {
+    renderProfileAt('/app/profile/delegations', ['accounts.manage']);
+
+    await waitFor(() => {
+      expect(screen.getByText('Account Delegations')).toBeInTheDocument();
+    });
+  });
+
+  it('agrees with the sidebar nav label in the breadcrumb trail', async () => {
+    renderProfileAt('/app/profile/delegations', ['accounts.manage']);
+
+    await waitFor(() => {
+      expect(screen.getByText('Delegations')).toBeInTheDocument();
+    });
+  });
+
+  it('does not offer the tab to a user without accounts.manage or admin.access', async () => {
+    renderProfileAt('/app/profile', ['team.read']);
+
+    await waitFor(() => {
+      expect(screen.getByText('Profile Information')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Delegations')).not.toBeInTheDocument();
+  });
+});

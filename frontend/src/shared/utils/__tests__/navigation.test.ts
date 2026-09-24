@@ -43,6 +43,35 @@ describe('defaultNavigationConfig — AI category consolidation', () => {
   });
 });
 
+// fc-20: the delegations management UI is now linked into navigation rather
+// than orphaned. Placed in the Account section, right after Users (both are
+// "who has access to this account" concerns), gated on the same permissions
+// Api::V1::DelegationsController#authorize_delegation_management! itself
+// checks -- permissions only, never roles.
+describe('defaultNavigationConfig — Delegations (fc-20)', () => {
+  it('is in the account section, right after Users', () => {
+    const account = itemIds('account');
+    const usersIndex = account.indexOf('users');
+    const delegationsIndex = account.indexOf('delegations');
+
+    expect(usersIndex).toBeGreaterThanOrEqual(0);
+    expect(delegationsIndex).toBe(usersIndex + 1);
+  });
+
+  it('points at the URL-addressable Delegations tab on the Profile page', () => {
+    const delegations = section('account')?.items.find((i) => i.id === 'delegations');
+    expect(delegations?.href).toBe('/app/profile/delegations');
+  });
+
+  it('gates on the same permissions the server enforces, permissions only', () => {
+    const delegations = section('account')?.items.find((i) => i.id === 'delegations');
+    expect(delegations?.permissions).toEqual(
+      expect.arrayContaining(['accounts.manage', 'admin.access']),
+    );
+    expect(delegations).not.toHaveProperty('roles');
+  });
+});
+
 describe('defaultNavigationConfig — DevOps nav permission alignment', () => {
   const devopsItem = (id: string) =>
     (section('devops')?.items ?? []).find((i) => i.id === id);

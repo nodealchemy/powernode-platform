@@ -13,6 +13,7 @@ import { Save, RefreshCw } from 'lucide-react';
 import { UsersContent } from '@/pages/app/account/UsersPage';
 import { EntityLink } from '@/shared/components/entity';
 import { TwoFactorSettings } from '@/features/account/components/TwoFactorSettings';
+import { DelegationsManagement } from '@/features/delegations';
 
 // Type guard for settings update data
 const isSettingsUpdateData = (data: unknown): data is Partial<UserSettings> => {
@@ -40,11 +41,12 @@ export const ProfilePage: React.FC = () => {
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
     if (path === '/app/profile/users') return 'users';
+    if (path === '/app/profile/delegations') return 'delegations';
 
     // Default to profile for base settings path or any other case
     return 'profile';
   }, [location.pathname]);
-  
+
   const [activeTab, setActiveTab] = useState(() => {
     const path = location.pathname;
     // Use exact matches like in getActiveTabFromPath
@@ -54,6 +56,7 @@ export const ProfilePage: React.FC = () => {
     if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
     if (path === '/app/profile/users') return 'users';
+    if (path === '/app/profile/delegations') return 'delegations';
     return 'profile';
   });
 
@@ -431,6 +434,15 @@ export const ProfilePage: React.FC = () => {
     const canManageTeam = user?.permissions?.includes('team.read');
     if (canManageTeam) {
       baseTabs.push({ id: 'users', label: 'Users', icon: '👥', path: '/users' });
+    }
+
+    // Same gate as the sidebar's Delegations nav item, and the one
+    // Api::V1::DelegationsController#authorize_delegation_management! itself
+    // enforces server-side (permissions only, never roles).
+    const canManageDelegations =
+      user?.permissions?.includes('accounts.manage') || user?.permissions?.includes('admin.access');
+    if (canManageDelegations) {
+      baseTabs.push({ id: 'delegations', label: 'Delegations', icon: '🔗', path: '/delegations' });
     }
 
     baseTabs.push(
@@ -933,6 +945,10 @@ export const ProfilePage: React.FC = () => {
 
             <TabPanel tabId="users" activeTab={activeTab}>
               <UsersContent onActionsReady={handleActionsReady} />
+            </TabPanel>
+
+            <TabPanel tabId="delegations" activeTab={activeTab}>
+              <DelegationsManagement />
             </TabPanel>
       </TabContainer>
       </div>
