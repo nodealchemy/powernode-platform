@@ -16,6 +16,7 @@ const mockAddStateListener = jest.fn(() => jest.fn());
 const mockGetIsConnected = jest.fn(() => false);
 const mockReconnect = jest.fn();
 const mockResetTokenRefreshFlag = jest.fn();
+const mockSetMaintenanceActive = jest.fn();
 
 jest.mock('@/shared/services/WebSocketManager', () => ({
   wsManager: {
@@ -27,6 +28,7 @@ jest.mock('@/shared/services/WebSocketManager', () => ({
     getIsConnected: () => mockGetIsConnected(),
     reconnect: () => mockReconnect(),
     resetTokenRefreshFlag: () => mockResetTokenRefreshFlag(),
+    setMaintenanceActive: (...args: Parameters<typeof mockSetMaintenanceActive>) => mockSetMaintenanceActive(...args),
   },
 }));
 
@@ -388,6 +390,94 @@ describe('useWebSocket', () => {
       });
 
       expect(result.current.isConnected).toBe(true);
+    });
+  });
+
+  // N2: reason: 'unauthorized' silently refreshes+reconnects (see
+  // handleUnauthorized above), which is exactly wrong for a maintenance-mode
+  // disconnect — refresh itself is never gated, so it succeeds immediately
+  // and the new connection gets rejected again, looping. wsManager's own
+  // #connect() guard is what actually stops the loop; this hook's job is
+  // just to keep that guard in sync with ui.maintenance.active.
+  describe('maintenance mode', () => {
+    it('tells wsManager maintenance is active as soon as ui.maintenance.active is true', () => {
+      const store = createTestStore({
+        auth: {
+          user: mockUser,
+          access_token: 'test-token',
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        },
+        ui: { maintenance: { active: true, message: 'Upgrading' } },
+      });
+
+      renderHook(() => useWebSocket(), { wrapper: createWrapper(store) });
+
+      expect(mockSetMaintenanceActive).toHaveBeenCalledWith(true);
+    });
+
+    it('tells wsManager maintenance is inactive, and does NOT reconnect, when never active', () => {
+      const store = createTestStore({
+        auth: {
+          user: mockUser,
+          access_token: 'test-token',
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        },
+      });
+
+      renderHook(() => useWebSocket(), { wrapper: createWrapper(store) });
+
+      expect(mockSetMaintenanceActive).toHaveBeenCalledWith(false);
+      expect(mockReconnect).not.toHaveBeenCalled();
+    });
+
+    it('reconnects once maintenance clears, if a session is still held and not already connected', () => {
+      const store = createTestStore({
+        auth: {
+          user: mockUser,
+          access_token: 'test-token',
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        },
+        ui: { maintenance: { active: true, message: 'Upgrading' } },
+      });
+
+      renderHook(() => useWebSocket(), { wrapper: createWrapper(store) });
+      expect(mockReconnect).not.toHaveBeenCalled();
+
+      act(() => {
+        store.dispatch({ type: 'ui/clearMaintenanceMode' });
+      });
+
+      expect(mockSetMaintenanceActive).toHaveBeenCalledWith(false);
+      expect(mockReconnect).toHaveBeenCalled();
+    });
+
+    it('does not reconnect on clear when already connected', () => {
+      mockGetIsConnected.mockReturnValue(true);
+
+      const store = createTestStore({
+        auth: {
+          user: mockUser,
+          access_token: 'test-token',
+          isLoading: false,
+          isAuthenticated: true,
+          error: null,
+        },
+        ui: { maintenance: { active: true, message: 'Upgrading' } },
+      });
+
+      renderHook(() => useWebSocket(), { wrapper: createWrapper(store) });
+
+      act(() => {
+        store.dispatch({ type: 'ui/clearMaintenanceMode' });
+      });
+
+      expect(mockReconnect).not.toHaveBeenCalled();
     });
   });
 });

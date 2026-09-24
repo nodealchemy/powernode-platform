@@ -2,6 +2,7 @@ import { useEffect, useCallback, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/shared/services';
 import { refreshAccessToken, applyRefreshedTokens } from '@/shared/services/slices/authSlice';
+import { setMaintenanceMode } from '@/shared/services/slices/uiSlice';
 import { wsManager } from '@/shared/services/WebSocketManager';
 
 // WebSocket connection state
@@ -41,10 +42,17 @@ interface UseWebSocketReturn {
  */
 export const useWebSocket = (): UseWebSocketReturn => {
   const { user, access_token: accessToken, refresh_token: refreshToken } = useSelector((state: RootState) => state.auth);
+  const maintenanceActive = useSelector((state: RootState) => state.ui?.maintenance?.active ?? false);
   const dispatch = useDispatch<AppDispatch>();
 
   const mountedRef = useRef<boolean>(true);
   const refreshingTokenRef = useRef<boolean>(false);
+  // Tracks the PREVIOUS maintenanceActive value so the reconnect-on-clear
+  // effect below can tell "just transitioned true -> false" apart from
+  // "was already false at mount" — without this, every mount with an
+  // unconnected session (the common case, before the WS has connected at
+  // all) would call reconnect() unconditionally.
+  const wasMaintenanceActiveRef = useRef<boolean>(maintenanceActive);
 
   const [state, setState] = useState<WebSocketState>({
     isConnected: false,
@@ -211,6 +219,17 @@ export const useWebSocket = (): UseWebSocketReturn => {
               error: 'WebSocket connection error'
             }));
           }
+        },
+        onMaintenanceMode: (message, estimatedCompletion) => {
+          // N2: the server closed with reason: 'maintenance_mode' — set the
+          // SAME flag api.ts's HTTP interceptor sets on a 503, so
+          // MaintenanceScreen takes over regardless of which channel
+          // (HTTP or cable) noticed first. wsManager itself already stopped
+          // reconnecting (see WebSocketManager#connect's guard); the
+          // maintenance-cleared effect below is what resumes it.
+          if (mountedRef.current) {
+            dispatch(setMaintenanceMode({ message, estimatedCompletion }));
+          }
         }
       });
     }
@@ -256,6 +275,25 @@ export const useWebSocket = (): UseWebSocketReturn => {
       wsManager.disconnect();
     }
   }, [user?.account?.id, accessToken]);
+
+  /**
+   * N2: keep wsManager's reconnect guard in sync with ui.maintenance.active
+   * — the single source of truth, since a maintenance flag can be set by
+   * EITHER the HTTP interceptor (api.ts, on a 503) or the cable
+   * onMaintenanceMode callback above. When it clears, proactively reconnect
+   * if we still hold a session: wsManager's #connect() never scheduled
+   * itself while the guard was up, so nothing else will do this.
+   */
+  useEffect(() => {
+    wsManager.setMaintenanceActive(maintenanceActive);
+
+    const justCleared = wasMaintenanceActiveRef.current && !maintenanceActive;
+    wasMaintenanceActiveRef.current = maintenanceActive;
+
+    if (justCleared && user?.account?.id && accessToken && !wsManager.getIsConnected()) {
+      wsManager.reconnect();
+    }
+  }, [maintenanceActive, user?.account?.id, accessToken]);
 
   return {
     isConnected: state.isConnected,

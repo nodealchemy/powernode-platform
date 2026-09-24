@@ -24,6 +24,12 @@ interface WebSocketConfig {
   // access_token and minted fresh tokens. Consumers persist the new tokens
   // into the auth slice so subsequent HTTP calls + reconnects use them.
   onAuthRefreshed?: (tokens: { access_token: string; refresh_token: string; expires_at?: string; refresh_expires_at?: string }) => void;
+  // Called when the server closes the connection with
+  // {type: 'disconnect', reason: 'maintenance_mode'} — see
+  // Admin::MaintenanceMode / ApplicationCable::Connection#close_for_maintenance!.
+  // Consumers set the maintenance flag; reconnecting is suppressed internally
+  // (see #setMaintenanceActive) until it's told maintenance has cleared.
+  onMaintenanceMode?: (message?: string, estimatedCompletion?: string) => void;
 }
 
 interface ChannelSubscription {
@@ -64,6 +70,17 @@ export class WebSocketManager {
 
   // Token refresh flag
   private isRefreshingToken: boolean = false;
+
+  // N2: true from the moment the server closes with reason: 'maintenance_mode'
+  // until #setMaintenanceActive(false) is called (useWebSocket syncs this
+  // from ui.maintenance.active). #connect is the single chokepoint every
+  // reconnect path goes through (handleClose's backoff timer, the online/
+  // visibilitychange browser listeners, and #reconnect itself), so gating
+  // there — rather than in each caller — is what actually stops the
+  // reconnect-storm: reason: 'unauthorized' is treated as an expired session
+  // and silently refreshed+reconnected, but a maintenance-mode disconnect
+  // must not trigger that at all while the window is still open.
+  private maintenanceActive: boolean = false;
 
   // Browser event handlers for auto-reconnect
   private boundOnlineHandler: (() => void) | null = null;
@@ -158,6 +175,11 @@ export class WebSocketManager {
    */
   private connect(): void {
     if (!this.config) {
+      return;
+    }
+
+    if (this.maintenanceActive) {
+      logger.debug('[WebSocket] Skipping connect — maintenance mode is active');
       return;
     }
 
@@ -282,6 +304,28 @@ export class WebSocketManager {
           logger.debug('[WebSocket] auth_refreshed: tokens swapped on live connection');
         } catch (e) {
           logger.error('[WebSocket] auth_refreshed handler error', e);
+        }
+        return;
+      }
+
+      // Handle disconnect (maintenance mode) — MUST be checked before the
+      // 'unauthorized' branch below: both share type 'disconnect', and this
+      // reason must NEVER fall into the refresh-and-reconnect handling that
+      // branch does (that's exactly the reconnect-storm N2 exists to fix).
+      if (data.type === 'disconnect' && data.reason === 'maintenance_mode') {
+        this.maintenanceActive = true;
+        this.config?.onMaintenanceMode?.(data.message, data.estimated_completion);
+
+        if (this.ws) {
+          const oldWs = this.ws;
+          oldWs.onopen = null;
+          oldWs.onmessage = null;
+          oldWs.onclose = null;
+          oldWs.onerror = null;
+          this.ws = null;
+          this.isConnected = false;
+          this.isConnecting = false;
+          oldWs.close();
         }
         return;
       }
@@ -695,6 +739,23 @@ export class WebSocketManager {
     this.isRefreshingToken = false;
     this.reconnectAttempts = 0;
     this.connect();
+  }
+
+  /**
+   * N2: toggles the maintenance-mode reconnect guard. useWebSocket keeps
+   * this in sync with `ui.maintenance.active` — set true the moment the
+   * maintenance disconnect message arrives (see #handleMessage), and false
+   * once the operator lifts maintenance (Retry / the flag clearing some
+   * other way), at which point a caller should also try #reconnect() if it
+   * still holds a valid session, since #connect() never scheduled itself
+   * while this was true.
+   */
+  public setMaintenanceActive(active: boolean): void {
+    this.maintenanceActive = active;
+  }
+
+  public getMaintenanceActive(): boolean {
+    return this.maintenanceActive;
   }
 }
 
