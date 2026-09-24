@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, within, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderWithProviders } from '@/test-utils';
 import { DashboardOverview } from '@/pages/app/dashboard/DashboardOverview';
@@ -12,6 +12,7 @@ import type { Verdict } from '@/shared/types/platformStatus';
 
 const mockUseDashboardStats = jest.fn();
 const mockFetchMissions = jest.fn();
+const mockNavigate = jest.fn();
 
 jest.mock('@/shared/hooks/useDashboardStats', () => ({
   useDashboardStats: () => mockUseDashboardStats(),
@@ -19,6 +20,21 @@ jest.mock('@/shared/hooks/useDashboardStats', () => ({
 jest.mock('@/shared/hooks/usePageWebSocket', () => ({ usePageWebSocket: () => undefined }));
 jest.mock('@/features/missions', () => ({
   useMissions: () => ({ missions: [], loading: false, error: null, fetchMissions: mockFetchMissions }),
+}));
+// Everything else from react-router-dom (BrowserRouter, Link, ...) stays real;
+// only useNavigate is a spy, so a governance tile's onNavigate can be asserted
+// against the actual path it targets.
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+}));
+const mockUseAutonomyStats = jest.fn();
+const mockUseApprovalQueue = jest.fn();
+jest.mock('@/features/ai/autonomy/api/autonomyApi', () => ({
+  useAutonomyStats: () => mockUseAutonomyStats(),
+}));
+jest.mock('@/features/ai/approvals/api/approvalsApi', () => ({
+  useApprovalQueue: () => mockUseApprovalQueue(),
 }));
 
 const stats = (status: Verdict, score: number | null): DashboardStats => ({
@@ -122,5 +138,60 @@ describe('DashboardOverview — system health', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Could not load: Network Error');
     expect(screen.queryByRole('img', { name: /Not measured/ })).toBeNull();
     expect(screen.queryByText('No executions yet')).toBeNull();
+  });
+});
+
+// fc-10 review: the "Approvals waiting" chip and tile used to land on the
+// Autonomy tab's Overview — a click told the operator nothing had happened.
+// They now target the Approvals section directly.
+describe('DashboardOverview — governance tiles link straight to Approvals', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    mockUseAutonomyStats.mockReturnValue({
+      data: {
+        total_agents: 2, supervised: 1, monitored: 0, trusted: 1, autonomous: 0,
+        pending_promotions: 0, pending_demotions: 0,
+      },
+      isLoading: false,
+      isError: false,
+    });
+    mockUseApprovalQueue.mockReturnValue({
+      data: [{ id: 'ar-1', status: 'pending' }],
+      isLoading: false,
+      isError: false,
+    });
+  });
+
+  const renderWithGovernance = () => {
+    mockUseDashboardStats.mockReturnValue({
+      stats: stats('ok', 100), loading: false, error: null, monitoringError: null, refresh: jest.fn(),
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return renderWithProviders(
+      <QueryClientProvider client={client}>
+        <DashboardOverview />
+      </QueryClientProvider>,
+      {
+        preloadedState: {
+          auth: { user: { id: 'u1', name: 'Operator', permissions: ['ai.agents.read'] }, isAuthenticated: true, isLoading: false },
+        },
+      }
+    );
+  };
+
+  it('the "Approvals waiting" chip navigates to the Approvals section, not the Autonomy tab\'s Overview', () => {
+    renderWithGovernance();
+
+    fireEvent.click(chipFor('Approvals waiting'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/app/ai/agents/autonomy/approvals');
+  });
+
+  it('the "Approvals waiting" tile navigates to the Approvals section, not the Autonomy tab\'s Overview', () => {
+    renderWithGovernance();
+
+    fireEvent.click(tile('Approvals waiting'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/app/ai/agents/autonomy/approvals');
   });
 });

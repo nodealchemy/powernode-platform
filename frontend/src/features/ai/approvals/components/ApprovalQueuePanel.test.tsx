@@ -2,6 +2,7 @@ import React from 'react';
 import { screen, waitFor, within } from '@testing-library/react';
 import { renderWithProviders } from '@/test-utils';
 import userEvent from '@testing-library/user-event';
+import { useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ApprovalQueuePanel } from './ApprovalQueuePanel';
 
@@ -88,6 +89,38 @@ const renderPanel = (permissions: string[] = ['ai.agents.read', 'ai.autonomy.app
       }
     ),
   };
+};
+
+// A button that navigates within the SAME mounted router, to simulate a
+// second deep link arriving without remounting the panel (e.g. two toasts in
+// a row, or a link clicked while the queue is already open). `navigate()`
+// itself is what needs to work here, not raw `window.history` — a real
+// BrowserRouter reacts to its own navigate() synchronously; it only needs
+// `popstate` for OUTSIDE changes like back/forward.
+const DeepLinkNavigator: React.FC<{ to: string }> = ({ to }) => {
+  const navigate = useNavigate();
+  return (
+    <button type="button" onClick={() => navigate(to)}>
+      navigate-to-next-deep-link
+    </button>
+  );
+};
+
+const renderPanelWithNavigator = (permissions: string[] = ['ai.agents.read', 'ai.autonomy.approve']) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return renderWithProviders(
+    <QueryClientProvider client={queryClient}>
+      <DeepLinkNavigator to="/app/ai/agents/autonomy/approvals?request=req-2" />
+      <ApprovalQueuePanel />
+    </QueryClientProvider>,
+    {
+      preloadedState: {
+        auth: { user: { id: 'u-1', permissions }, isAuthenticated: true, isLoading: false },
+      },
+    }
+  );
 };
 
 const approveFirstRow = async (user: ReturnType<typeof userEvent.setup>) => {
@@ -434,6 +467,94 @@ describe('ApprovalQueuePanel deep link (?request=)', () => {
     await screen.findByText('action one');
     const rowOne = document.querySelector('[data-approval-card="req-1"]') as HTMLElement;
     expect(within(rowOne).queryByText('Approval chain')).not.toBeInTheDocument();
+  });
+
+  it('expands a new deep-link id that arrives while the queue is already mounted, not just on first load', async () => {
+    const user = userEvent.setup();
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/ai/autonomy/approvals') {
+        return Promise.resolve({
+          data: { data: [rowWithTitle('req-1', 'action one'), rowWithTitle('req-2', 'action two')] },
+        });
+      }
+      return Promise.resolve({
+        data: { data: { ...rowWithTitle('req-2', 'action two'), step_statuses: [], decisions: [] } },
+      });
+    });
+    // Mounted at req-1's deep link first — nothing about req-2 yet.
+    window.history.pushState({}, '', '/app/ai/agents/autonomy/approvals?request=req-1');
+
+    renderPanelWithNavigator();
+
+    await waitFor(() => expect(document.querySelector('[data-approval-card="req-1"]')).not.toBeNull());
+    const rowOneBefore = document.querySelector('[data-approval-card="req-1"]') as HTMLElement;
+    await within(rowOneBefore).findByText('Approval chain');
+    let rowTwo = document.querySelector('[data-approval-card="req-2"]') as HTMLElement;
+    expect(within(rowTwo).queryByText('Approval chain')).not.toBeInTheDocument();
+
+    // The SAME panel instance, a second deep link navigated to without a remount.
+    await user.click(screen.getByRole('button', { name: 'navigate-to-next-deep-link' }));
+
+    rowTwo = document.querySelector('[data-approval-card="req-2"]') as HTMLElement;
+    await within(rowTwo).findByText('Approval chain');
+  });
+});
+
+// fc-10 review: the deep-linked row must be brought into view, not just
+// expanded off-screen in a long queue. jsdom does not implement
+// `scrollIntoView` (unlike a real browser), so the guard around it is itself
+// under test, not incidental.
+describe('ApprovalQueuePanel deep link scrolls the row into view', () => {
+  const rowWithTitle = (id: string, actionType: string) => ({
+    ...PENDING_ROW,
+    id,
+    request_id: id,
+    action_type: actionType,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/ai/autonomy/approvals') {
+        return Promise.resolve({
+          data: { data: [rowWithTitle('req-1', 'action one'), rowWithTitle('req-2', 'action two')] },
+        });
+      }
+      return Promise.resolve({
+        data: { data: { ...rowWithTitle('req-2', 'action two'), step_statuses: [], decisions: [] } },
+      });
+    });
+    window.history.pushState({}, '', '/app/ai/agents/autonomy/approvals?request=req-2');
+  });
+
+  afterEach(() => {
+    window.history.replaceState({}, '', '/');
+    delete (window.HTMLElement.prototype as { scrollIntoView?: () => void }).scrollIntoView;
+  });
+
+  it('calls scrollIntoView on the deep-linked row once it renders, when the browser supports it', async () => {
+    const scrollIntoView = jest.fn();
+    // jsdom has no native scrollIntoView; a real browser does. Installing the
+    // stub is what makes this exercise the "supported" arm.
+    window.HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    renderPanel();
+
+    await screen.findByText('action one');
+    const rowTwo = document.querySelector('[data-approval-card="req-2"]') as HTMLElement;
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
+    expect(scrollIntoView.mock.instances[0]).toBe(rowTwo);
+  });
+
+  it('does not throw where scrollIntoView is unavailable (plain jsdom)', async () => {
+    renderPanel();
+
+    await screen.findByText('action one');
+    const rowTwo = document.querySelector('[data-approval-card="req-2"]') as HTMLElement;
+    await within(rowTwo).findByText('Approval chain');
+    // Reaching here without an uncaught exception IS the assertion: jsdom's
+    // Element.prototype has no scrollIntoView, so a call without the guard
+    // would throw "scrollIntoView is not a function" during the effect.
   });
 });
 

@@ -156,10 +156,17 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/agents/marketplace" element={<AIAgentsPage />} />
         <Route path="/ai/agents/community" element={<AIAgentsPage />} />
         {/* `/*` so an Autonomy section (`/ai/agents/autonomy/approvals`, etc.) is
-            URL-addressable. Must stay ABOVE `/ai/agents/:agentId/*` in specificity
-            terms — it is, because React Router ranks this literal "autonomy"
-            segment over that route's dynamic `:agentId` segment at the same
-            depth, so a sub-path here never falls through to AgentDetailPage. */}
+            URL-addressable. This DOES win over `/ai/agents/:agentId/*` below —
+            verified with `matchRoutes`: React Router ranks this literal
+            "autonomy" segment over that route's dynamic `:agentId` segment at
+            the same depth, so a sub-path here never falls through to
+            AgentDetailPage. It does NOT win over `/ai/agents/:agentId/memory/*`
+            for an `/autonomy/memory/...` path specifically — that route has one
+            MORE literal segment ("memory"), which outranks a shorter route
+            regardless of the dynamic `:agentId`, so such a path would route to
+            AgentMemoryPage instead (verified the same way). Harmless today: no
+            Autonomy sidebar item is named "memory" (AutonomyDashboardPage's
+            SIDEBAR_ITEMS). If one ever is, this collision needs revisiting. */}
         <Route path="/ai/agents/autonomy/*" element={<AIAgentsPage />} />
         <Route path="/ai/agents/:agentId/memory/*" element={<AgentMemoryPage />} />
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />

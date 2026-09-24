@@ -295,7 +295,11 @@ describe('ComponentStatusDrawer', () => {
       const { unmount } = renderDrawer();
       await screen.findByText('Reachable');
       fireEvent.click(screen.getByText('Remediation'));
-      expect(screen.getByRole('link', { name: 'Open the approval request' })).toBeInTheDocument();
+      const link = screen.getByRole('link', { name: 'Open the approval request' });
+      expect(link).toBeInTheDocument();
+      // Opens the Approvals section directly, with the request id, so the
+      // queue can expand it — not the Autonomy tab's Overview (fc-10).
+      expect(link).toHaveAttribute('href', '/app/ai/agents/autonomy/approvals?request=ar-9');
       unmount();
 
       mockedApi.fetchComponentStatus.mockResolvedValue({

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Clock, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
@@ -294,14 +294,41 @@ const ApprovalCard: React.FC<{
 const LiveApprovalQueue: React.FC<{ canDecide: boolean }> = ({ canDecide }) => {
   const { data: approvals, isLoading, lastPush } = useLiveApprovalQueue();
   // A deep link (RemediationTab, the system extension's pending-approval
-  // toast) names the request it wants opened via `?request=<id>`. Read once,
-  // into the initial state: this only needs to seed the starting expansion,
-  // never fight a click that later collapses the same row.
+  // toast) names the request it wants opened via `?request=<id>`.
   const [searchParams] = useSearchParams();
   const deepLinkRequestId = searchParams.get('request');
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(
-    () => new Set(deepLinkRequestId ? [deepLinkRequestId] : [])
-  );
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // The last id this effect already expanded, so a re-render for an unrelated
+  // reason (a poll tick, a push) does not re-run it — but a genuinely NEW id,
+  // whether it arrived on mount or the panel stayed mounted across a second
+  // deep link (another toast, a click while the queue was already open),
+  // always does.
+  const expandedDeepLinkId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!deepLinkRequestId || deepLinkRequestId === expandedDeepLinkId.current) return;
+    expandedDeepLinkId.current = deepLinkRequestId;
+    setExpandedIds((prev) => {
+      if (prev.has(deepLinkRequestId)) return prev;
+      const next = new Set(prev);
+      next.add(deepLinkRequestId);
+      return next;
+    });
+  }, [deepLinkRequestId]);
+  // Scrolled at most once per id, and only once it actually exists in the DOM
+  // — the row may still be loading (or on a later page) the first few times
+  // this runs, so it retries on every `approvals` change rather than giving up
+  // after one miss.
+  const scrolledDeepLinkId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!deepLinkRequestId || deepLinkRequestId === scrolledDeepLinkId.current) return;
+    const card = document.querySelector(`[data-approval-card="${deepLinkRequestId}"]`);
+    if (!card) return;
+    // jsdom (unlike every real browser) does not implement scrollIntoView.
+    if (typeof (card as HTMLElement).scrollIntoView === 'function') {
+      (card as HTMLElement).scrollIntoView({ block: 'center' });
+    }
+    scrolledDeepLinkId.current = deepLinkRequestId;
+  }, [deepLinkRequestId, approvals]);
   // Transient, panel-scoped, and dropped the moment the operator acknowledges:
   // the plaintext is never persisted, logged or sent anywhere from here.
   //

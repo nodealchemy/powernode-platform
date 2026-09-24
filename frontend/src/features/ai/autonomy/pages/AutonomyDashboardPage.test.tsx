@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { AutonomyContent } from './AutonomyDashboardPage';
 
 // fc-10: SIDEBAR_ITEMS used to be local useState, so a section could never be
@@ -51,9 +51,18 @@ jest.mock('../components/ShadowModeResultsPanel', () => ({
   ShadowModeResultsPanel: () => <div data-testid="section-shadow" />,
 }));
 
+// Renders alongside AutonomyContent so a click's effect on the URL — not just
+// on the rendered section — can be asserted directly, without reaching into
+// the MemoryRouter's internals.
+const LocationProbe = () => {
+  const location = useLocation();
+  return <div data-testid="location-probe">{location.pathname}</div>;
+};
+
 const renderAt = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
+      <LocationProbe />
       <AutonomyContent />
     </MemoryRouter>
   );
@@ -89,5 +98,15 @@ describe('AutonomyContent — URL-addressable sections', () => {
     renderAt('/app/ai/agents/autonomy/not-a-real-section');
 
     expect(screen.getByText('Total Agents')).toBeInTheDocument();
+  });
+
+  it("clicking a sidebar section changes the URL to that section's path, not just the rendered content", () => {
+    renderAt('/app/ai/agents/autonomy');
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/agents/autonomy');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Goals' }));
+
+    expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/agents/autonomy/goals');
+    expect(screen.getByTestId('section-goals')).toBeInTheDocument();
   });
 });
