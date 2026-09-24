@@ -159,6 +159,62 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
     end
   end
 
+  describe 'PATCH /api/v1/admin/maintenance/mode' do
+    context 'without admin.maintenance.mode (only a backup permission)' do
+      it 'returns forbidden' do
+        patch '/api/v1/admin/maintenance/mode', params: { message: 'Staged' }, headers: auth_headers_for(backup_only_user), as: :json
+
+        expect_error_response('Permission denied: requires admin.maintenance.mode or system.admin', 403)
+      end
+    end
+
+    context 'while maintenance is OFF' do
+      it 'persists the staged message/bypass IPs WITHOUT enabling maintenance mode (Save-while-OFF regression)' do
+        with_trusted_proxy_cidrs('10.10.10.10/32') do
+          expect {
+            patch '/api/v1/admin/maintenance/mode',
+                params: { message: 'Staged message', bypass_ips: [ '203.0.113.5' ] },
+                headers: headers,
+                as: :json
+          }.to change(AuditLog, :count).by(1)
+        end
+
+        expect_success_response
+        data = json_response_data
+        expect(data['enabled']).to be false
+        expect(data['message']).to eq('Staged message')
+        expect(data['bypass_ips']).to eq([ '203.0.113.5' ])
+        expect(AuditLog.last.action).to eq('maintenance_mode_updated')
+      end
+    end
+
+    context 'while maintenance is ON' do
+      before { Admin::MaintenanceMode.enable!(message: 'System upgrade in progress') }
+
+      it 'does not reset enabled_at (Save-while-ON regression)' do
+        original_enabled_at = Admin::MaintenanceMode.status[:enabled_at]
+
+        travel_to(1.hour.from_now) do
+          patch '/api/v1/admin/maintenance/mode', params: { message: 'Almost done' }, headers: headers, as: :json
+
+          expect_success_response
+          data = json_response_data
+          expect(data['enabled']).to be true
+          expect(data['message']).to eq('Almost done')
+          expect(data['enabled_at']).to eq(original_enabled_at)
+        end
+      end
+    end
+
+    it 'rejects an invalid bypass IP with 422, same as update_mode' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        patch '/api/v1/admin/maintenance/mode', params: { message: 'Upgrading', bypass_ips: [ 'not-an-ip' ] }, headers: headers, as: :json
+
+        expect_error_response('not-an-ip', 422)
+      end
+    end
+  end
+
   describe 'GET /api/v1/admin/maintenance/backups' do
     context 'with admin maintenance permission' do
       it 'returns list of backups' do

@@ -9,7 +9,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   # enable maintenance mode (and then have no permission left to disable it —
   # admin.maintenance.mode is the one EXEMPT_PERMISSIONS entry that exists
   # specifically so its holder can't lock itself out, see Admin::MaintenanceMode).
-  before_action :require_maintenance_mode_permission, only: %i[show_mode update_mode]
+  before_action :require_maintenance_mode_permission, only: %i[show_mode update_mode update_fields]
 
   # Maintenance Mode endpoints
   def show_mode
@@ -43,6 +43,31 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     end
 
     render_success(status, message: status[:enabled] ? "Maintenance mode enabled" : "Maintenance mode disabled")
+  rescue Admin::MaintenanceMode::InvalidBypassIp => e
+    render_error(e.message, status: :unprocessable_content)
+  end
+
+  # PATCH /admin/maintenance/mode — updates message/estimated_completion/
+  # bypass_ips WITHOUT toggling `enabled`. Separate action (and separate
+  # verb) from update_mode's POST specifically so the Mode tab's Save button
+  # can persist an edit made while maintenance is OFF (staging a message
+  # before turning it on) or ON (editing without resetting enabled_at) —
+  # see Admin::MaintenanceMode.update_fields! for the two regressions this
+  # split fixes.
+  def update_fields
+    status = nil
+
+    ActiveRecord::Base.transaction do
+      status = Admin::MaintenanceMode.update_fields!(
+        message: params[:message],
+        estimated_completion: params[:estimated_completion],
+        bypass_ips: params[:bypass_ips] || []
+      )
+      Rails.logger.info "Maintenance mode settings updated by #{current_user.email}"
+      audit_maintenance_change("maintenance_mode_updated", status)
+    end
+
+    render_success(status, message: "Maintenance settings updated")
   rescue Admin::MaintenanceMode::InvalidBypassIp => e
     render_error(e.message, status: :unprocessable_content)
   end

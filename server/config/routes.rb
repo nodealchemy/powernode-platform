@@ -1112,6 +1112,9 @@ Rails.application.routes.draw do
           # Maintenance mode
           get :mode, to: "maintenance#show_mode"
           post :mode, to: "maintenance#update_mode"
+          # Update message/ETA/bypass IPs WITHOUT toggling `enabled` — see
+          # Admin::MaintenanceMode.update_fields!
+          patch :mode, to: "maintenance#update_fields"
 
           # System health
           get "health/services", to: "maintenance#service_health"

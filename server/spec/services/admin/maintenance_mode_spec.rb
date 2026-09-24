@@ -22,6 +22,38 @@ RSpec.describe Admin::MaintenanceMode do
     end
   end
 
+  describe '#trusted_proxies_configured? (via .status[:bypass_ips_supported])' do
+    it 'is false when TRUSTED_PROXY_CIDRS is unset' do
+      expect(described_class.status[:bypass_ips_supported]).to be false
+    end
+
+    it 'is true when TRUSTED_PROXY_CIDRS parses to at least one valid entry' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        expect(described_class.status[:bypass_ips_supported]).to be true
+      end
+    end
+
+    # N3: an env var that IS set but entirely unparseable must not report
+    # supported — the predicate has to check the PARSED result, not the raw
+    # env var's mere presence, or bypass_ip?/validate_bypass_ips! would trust
+    # request.remote_ip when application.rb actually left NOTHING pinned
+    # (Rails' own default trusted-proxy list applies instead — see
+    # Powernode::TrustedProxyCidrs's N3 correction).
+    it 'is false when TRUSTED_PROXY_CIDRS is set but entirely garbage' do
+      with_trusted_proxy_cidrs('garbage, also-not-an-ip') do
+        expect(described_class.status[:bypass_ips_supported]).to be false
+      end
+    end
+
+    it 'raises InvalidBypassIp for a bypass-IP write when TRUSTED_PROXY_CIDRS is all-garbage' do
+      with_trusted_proxy_cidrs('garbage, also-not-an-ip') do
+        expect {
+          described_class.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+        }.to raise_error(described_class::InvalidBypassIp, /TRUSTED_PROXY_CIDRS/)
+      end
+    end
+  end
+
   describe '.enable!' do
     it 'persists a typed boolean row under the fresh key, not the legacy one' do
       with_trusted_proxy_cidrs('10.10.10.10/32') do
@@ -154,6 +186,52 @@ RSpec.describe Admin::MaintenanceMode do
       expect(status[:enabled_at]).to be_nil
       expect(status[:estimated_completion]).to be_nil
       expect(status[:bypass_ips]).to eq([])
+    end
+  end
+
+  describe '.update_fields!' do
+    it 'updates message/estimated_completion/bypass_ips without touching enabled' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        status = described_class.update_fields!(message: 'Staged message', estimated_completion: '30 minutes', bypass_ips: [ '203.0.113.5' ])
+
+        expect(status[:enabled]).to be false
+        expect(status[:message]).to eq('Staged message')
+        expect(status[:estimated_completion]).to eq('30 minutes')
+        expect(status[:bypass_ips]).to eq([ '203.0.113.5' ])
+      end
+    end
+
+    it 'does NOT wipe fields when maintenance is already OFF (the Save-while-OFF regression)' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        described_class.update_fields!(message: 'Staged message', bypass_ips: [ '203.0.113.5' ])
+        described_class.invalidate_cache!
+
+        expect(described_class.status[:message]).to eq('Staged message')
+        expect(described_class.status[:bypass_ips]).to eq([ '203.0.113.5' ])
+        expect(described_class.enabled?).to be false
+      end
+    end
+
+    it 'does NOT reset enabled_at when maintenance is already ON (the Save-while-ON regression)' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        described_class.enable!(message: 'Upgrading')
+        original_enabled_at = described_class.status[:enabled_at]
+
+        travel_to(1.hour.from_now) do
+          described_class.update_fields!(message: 'Almost done')
+          described_class.invalidate_cache!
+
+          expect(described_class.status[:message]).to eq('Almost done')
+          expect(described_class.status[:enabled_at]).to eq(original_enabled_at)
+          expect(described_class.enabled?).to be true
+        end
+      end
+    end
+
+    it 'still validates bypass IPs the same way enable! does' do
+      expect {
+        described_class.update_fields!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+      }.to raise_error(described_class::InvalidBypassIp, /TRUSTED_PROXY_CIDRS/)
     end
   end
 

@@ -13,9 +13,20 @@ module Powernode
   #
   # Deliberately forgiving on read: a blank entry (trailing/double comma) is
   # dropped silently, and an unparseable entry is logged and dropped rather
-  # than raising. A typo in this env var must never crash boot — the worst
-  # case is that one hop stays untrusted, which fails closed (identical to
-  # leaving the var unset for that hop).
+  # than raising. A typo in this env var must never crash boot.
+  #
+  # N3 CORRECTION: dropping one bad entry does NOT "fail closed" the way a
+  # previous version of this comment claimed. application.rb only assigns
+  # config.action_dispatch.trusted_proxies `if cidrs.any?` — so a value that
+  # is ENTIRELY invalid (parse returns []) leaves NOTHING pinned, and Rails'
+  # own default trusted-proxy list (which trusts every loopback/private/
+  # link-local hop) applies instead. That is the OPPOSITE of fail-closed: it
+  # silently reverts to the more permissive default the operator was trying
+  # to replace, for every hop, not just the malformed one. A PARTIALLY valid
+  # value (one bad entry among good ones) is the only case that narrows
+  # rather than reverts. Callers that need to know whether a real, non-empty
+  # pin is in effect (e.g. Admin::MaintenanceMode#trusted_proxies_configured?)
+  # must check the PARSED result's presence, never the raw env var's.
   module TrustedProxyCidrs
     module_function
 

@@ -176,6 +176,31 @@ module Admin
         read_from_store
       end
 
+      # Updates message/estimated_completion/bypass_ips WITHOUT touching
+      # `enabled` or `enabled_at` — the Save action in the Mode tab routes
+      # here (PATCH /admin/maintenance/mode), separate from the Toggle
+      # action's POST (enable!/disable!). Two defects this fixes by
+      # construction, not by special-casing:
+      #   - Saving edits while maintenance is OFF used to go through
+      #     disable!, which unconditionally wipes message/ETA/bypass_ips back
+      #     to defaults — an admin staging a message before turning
+      #     maintenance on would have it silently discarded.
+      #   - Saving edits while maintenance is ON used to go through enable!,
+      #     which unconditionally rewrites enabled_at to Time.current — every
+      #     edit reset "maintenance has been on since" to now.
+      # Neither of those fields is touched here, so neither defect can recur
+      # regardless of which action a future caller adds.
+      def update_fields!(message:, estimated_completion: nil, bypass_ips: [])
+        bypass_ips = Array(bypass_ips).map(&:to_s)
+        validate_bypass_ips!(bypass_ips)
+
+        set_raw_string(MESSAGE_KEY, message.presence || DEFAULT_MESSAGE)
+        set_raw_string(ESTIMATED_COMPLETION_KEY, estimated_completion)
+        AdminSetting.set(BYPASS_IPS_KEY, bypass_ips)
+        run_after_commit { invalidate_cache! }
+        read_from_store
+      end
+
       def invalidate_cache!
         Rails.cache.delete(CACHE_KEY)
       end
@@ -262,11 +287,27 @@ module Admin
         nil
       end
 
-      # Whether the operator has pinned config.action_dispatch.trusted_proxies
-      # to the real reverse proxy (server/config/application.rb, driven by this
-      # same env var) rather than leaving Rails' own default in place.
+      # Whether the operator has pinned a NON-EMPTY trusted-proxy list —
+      # checked against the PARSED result (Powernode::TrustedProxyCidrs.parse,
+      # the same parser application.rb uses to build
+      # config.action_dispatch.trusted_proxies), not the raw env var's mere
+      # presence.
+      #
+      # N3: a var that IS set but entirely unparseable (e.g. "garbage") must
+      # not report supported. application.rb only assigns
+      # config.action_dispatch.trusted_proxies `if cidrs.any?` (see there), so
+      # an all-invalid value leaves Rails' own default trusted-proxy list in
+      # place — request.remote_ip is exactly as untrustworthy as if the var
+      # were never set at all. Checking `.present?` on the raw env var missed
+      # this: it reported "configured" for a value that produced zero pinned
+      # proxies, which is the same false-open gap M3 exists to close, just
+      # reached through a malformed value instead of a missing one.
       def trusted_proxies_configured?
-        ENV["TRUSTED_PROXY_CIDRS"].present?
+        # Silent logger: this runs on every gated request while maintenance is
+        # on, not just at boot — application.rb already warns about invalid
+        # entries once, at startup; repeating that per-request would flood
+        # the log for the entire duration of an incident.
+        Powernode::TrustedProxyCidrs.parse(ENV["TRUSTED_PROXY_CIDRS"], logger: ->(_msg) {}).any?
       end
 
       def bypass_entry_matches?(entry, addr)
