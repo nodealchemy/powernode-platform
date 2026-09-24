@@ -56,19 +56,6 @@ module Ai
     end
 
     # Approval Chains
-    def create_approval_chain(name:, trigger_type:, steps:, user: nil, description: nil, timeout_hours: nil)
-      Ai::ApprovalChain.create!(
-        account: account,
-        created_by: user,
-        name: name,
-        trigger_type: trigger_type,
-        steps: steps,
-        description: description,
-        timeout_hours: timeout_hours,
-        status: "active"
-      )
-    end
-
     def request_approval(chain:, source_type:, source_id:, description:, request_data: {}, user: nil)
       request = chain.create_request!(
         source_type: source_type,

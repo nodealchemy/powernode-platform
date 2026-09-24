@@ -159,37 +159,13 @@ RSpec.describe Ai::GovernanceService, type: :service do
   end
 
   describe 'Approval Chains' do
-    describe '#create_approval_chain' do
-      it 'creates an approval chain' do
-        chain = service.create_approval_chain(
-          name: 'High Cost Approval',
-          trigger_type: 'high_cost',
-          steps: [
-            { 'name' => 'Manager Approval', 'approvers' => [user.id], 'required' => 1 },
-            { 'name' => 'Admin Approval', 'approvers' => [user.id], 'required' => 1 }
-          ],
-          user: user,
-          description: 'Required for operations over $100',
-          timeout_hours: 24
-        )
-
-        expect(chain).to be_persisted
-        expect(chain.name).to eq('High Cost Approval')
-        expect(chain.trigger_type).to eq('high_cost')
-        expect(chain.steps.length).to eq(2)
-        expect(chain.status).to eq('active')
-        expect(chain.timeout_hours).to eq(24)
-      end
-    end
-
     describe '#check_approval_required' do
+      # #create_approval_chain (the service method) was deleted in fc-12 — it
+      # had zero real callers, only this fixture. The chain it built is a
+      # plain Ai::ApprovalChain row; the factory replaces it directly.
       let!(:chain) do
-        service.create_approval_chain(
-          name: 'Deployment Approval',
-          trigger_type: 'workflow_deploy',
-          steps: [{ 'name' => 'Review', 'approvers' => [user.id] }],
-          user: user
-        )
+        create(:ai_approval_chain, account: account, name: 'Deployment Approval',
+               trigger_type: 'workflow_deploy', created_by: user)
       end
 
       it 'finds matching approval chain' do
