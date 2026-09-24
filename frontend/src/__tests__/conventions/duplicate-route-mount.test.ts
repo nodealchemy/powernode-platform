@@ -293,13 +293,49 @@ function entryPath(entry: string): string | null {
 // either way the leading identifier is what stands in for "what actually
 // renders here", which is exactly the granularity the DUPLICATE MOUNT check
 // needs (two paths calling the same wrapper/factory are still "the same
-// thing mounted twice"). Returns null for anything that isn't a leading
-// identifier (e.g. an inline arrow function) — that shape is the REDIRECT
-// check's job, not this one's, so it is deliberately excluded here rather
-// than mis-parsed.
+// thing mounted twice").
+//
+// An INLINE wrapper (`component: () => <ComputePage />`, with no leading
+// identifier at all) falls back to the first CAPITALISED identifier found in
+// the component field's own value — for JSX/component-returning code that is
+// virtually always the actual rendered component, and it is what lets two
+// routes wrapping the SAME component in an inline (non-factory, non-redirect)
+// wrapper still register as a duplicate mount. This deliberately does NOT
+// special-case `redirectTo`/`Navigate` (both lowercase-leading or not
+// "the component" in the relevant sense) — a route shaped like that is the
+// REDIRECT check's job, not this one's, and correctly resolves to null here.
 function entryComponentIdentifier(entry: string): string | null {
-  const m = /component:\s*([A-Za-z_$][A-Za-z0-9_$]*)/.exec(entry);
-  return m ? m[1] : null;
+  const bareMatch = /component:\s*([A-Za-z_$][A-Za-z0-9_$]*)/.exec(entry);
+  if (bareMatch) return bareMatch[1];
+
+  const startMatch = /component:\s*/.exec(entry);
+  if (!startMatch) return null;
+  const valueStart = startMatch.index + startMatch[0].length;
+
+  // Isolate the component field's own value: scan from just after
+  // `component:` to the next top-level `, key:` separator or the entry's
+  // own closing bracket — whichever comes first — so a later field (e.g.
+  // `, permission: 'AdminPage'`) can never be mistaken for the component.
+  let depth = 0;
+  let valueEnd = entry.length;
+  for (let i = valueStart; i < entry.length; i++) {
+    const c = entry[i];
+    if (c === '(' || c === '{' || c === '[') {
+      depth++;
+    } else if (c === ')' || c === '}' || c === ']') {
+      if (depth === 0) {
+        valueEnd = i;
+        break;
+      }
+      depth--;
+    } else if (c === ',' && depth === 0) {
+      valueEnd = i;
+      break;
+    }
+  }
+
+  const idMatch = /\b([A-Z][A-Za-z0-9_]*)\b/.exec(entry.slice(valueStart, valueEnd));
+  return idMatch ? idMatch[1] : null;
 }
 
 // ─── Check 1: duplicate mount ─────────────────────────────────────────────
@@ -471,6 +507,20 @@ describe('nav convention: no component is mounted at two non-parameterised paths
         );
       }
     }
+  });
+
+  // Mutation test: proves entryComponentIdentifier's inline-wrapper fallback
+  // actually fires, independent of what the real register.ts files contain.
+  it('resolves an inline (non-redirect) wrapper to its first capitalised identifier, catching a duplicate mount through it', () => {
+    const fixture = `
+      featureRegistry.registerRoutes('system', [
+        { path: '/system/foo', component: () => <ComputePage /> },
+        { path: '/system/bar', component: () => <ComputePage /> },
+      ]);
+    `;
+    expect(findDuplicateMounts(extractExtensionRouteEntries(fixture), 'Fixture/register.ts')).toEqual([
+      'Fixture/register.ts: ComputePage -> /system/bar, /system/foo',
+    ]);
   });
 });
 
