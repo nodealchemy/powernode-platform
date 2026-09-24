@@ -263,6 +263,118 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
     end
   end
 
+  describe 'alert acknowledge / resolve' do
+    let(:manager) { create(:user, account: account, permissions: [ 'ai.monitoring.read', 'ai.aiops.manage' ]) }
+    let(:manager_headers) { auth_headers_for(manager) }
+    let(:other_account) { create(:account) }
+    let(:redis) { Powernode::Redis.client }
+
+    def seed_alert(owner, id: SecureRandom.uuid)
+      redis.zadd("alerts:#{owner.id}", Time.current.to_i, {
+        id: id, alert_type: 'high_latency', severity: 'medium', message: 'Alert triggered: High latency',
+        timestamp: Time.current.iso8601, account_id: owner.id, acknowledged: false, resolved: false
+      }.to_json)
+      id
+    end
+
+    def stored_alert(owner, id)
+      redis.zrange("alerts:#{owner.id}", 0, -1).map { |raw| JSON.parse(raw) }.find { |a| a['id'] == id }
+    end
+
+    after do
+      redis.del("alerts:#{account.id}", "alerts:#{other_account.id}")
+    end
+
+    describe 'POST /api/v1/ai/monitoring/alerts/:id/acknowledge' do
+      it 'acknowledges the alert, records who and why, and persists it' do
+        id = seed_alert(account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", params: { note: 'looking' }, headers: manager_headers, as: :json
+
+        expect_success_response
+        alert = json_response_data['alert']
+        expect(alert).to include('id' => id, 'acknowledged' => true, 'acknowledged_by' => manager.id, 'acknowledgement_note' => 'looking')
+        expect(alert['acknowledged_at']).to be_present
+        expect(stored_alert(account, id)).to include('acknowledged' => true, 'resolved' => false)
+        expect(redis.zcard("alerts:#{account.id}")).to eq(1)
+      end
+
+      it 'is forbidden without ai.aiops.manage and leaves the alert untouched' do
+        id = seed_alert(account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", headers: limited_headers, as: :json
+
+        expect(response).to have_http_status(:forbidden)
+        expect(json_response['error']).to include('ai.aiops.manage')
+        expect(stored_alert(account, id)['acknowledged']).to be false
+      end
+
+      it 'is forbidden to a worker principal: the acknowledgement must name a user' do
+        worker = create(:worker, account: account, status: 'active')
+        id = seed_alert(account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", headers: {
+          'X-Forwarded-Tls-Client-Cert-Info' => CGI.escape(%(Subject="CN=#{worker.node_instance_id}")),
+          'Content-Type' => 'application/json'
+        }
+
+        expect(response).to have_http_status(:forbidden)
+        expect(stored_alert(account, id)['acknowledged']).to be false
+      end
+
+      it "returns not found for another account's alert and leaves it untouched" do
+        id = seed_alert(other_account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", headers: manager_headers, as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(json_response['error']).to eq('Alert not found')
+        expect(stored_alert(other_account, id)['acknowledged']).to be false
+      end
+    end
+
+    describe 'POST /api/v1/ai/monitoring/alerts/:id/resolve' do
+      it 'resolves the alert, records who and why, and persists it' do
+        id = seed_alert(account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/resolve", params: { note: 'fixed' }, headers: manager_headers, as: :json
+
+        expect_success_response
+        alert = json_response_data['alert']
+        expect(alert).to include('id' => id, 'resolved' => true, 'resolved_by' => manager.id, 'resolution_note' => 'fixed')
+        expect(alert['resolved_at']).to be_present
+        expect(stored_alert(account, id)).to include('resolved' => true)
+        expect(redis.zcard("alerts:#{account.id}")).to eq(1)
+      end
+
+      it 'is forbidden without ai.aiops.manage and leaves the alert untouched' do
+        id = seed_alert(account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/resolve", headers: limited_headers, as: :json
+
+        expect(response).to have_http_status(:forbidden)
+        expect(stored_alert(account, id)['resolved']).to be false
+      end
+
+      it "returns not found for another account's alert and leaves it untouched" do
+        id = seed_alert(other_account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/resolve", headers: manager_headers, as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(json_response['error']).to eq('Alert not found')
+        expect(stored_alert(other_account, id)['resolved']).to be false
+      end
+
+      it 'returns not found for an unknown id' do
+        post "/api/v1/ai/monitoring/alerts/#{SecureRandom.uuid}/resolve", headers: manager_headers, as: :json
+
+        expect(response).to have_http_status(:not_found)
+        expect(json_response['error']).to eq('Alert not found')
+      end
+    end
+  end
+
   describe 'GET /api/v1/ai/monitoring/circuit_breakers' do
     context 'with proper permissions' do
       it 'returns all circuit breaker states' do

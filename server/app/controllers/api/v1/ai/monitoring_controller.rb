@@ -130,6 +130,16 @@ module Api
           log_audit_event("ai.monitoring.alerts_check", current_user.account, triggered_count: triggered_alerts.count)
         end
 
+        # POST /api/v1/ai/monitoring/alerts/:alert_id/acknowledge
+        def alert_acknowledge
+          update_alert(:acknowledge_alert, "ai.monitoring.alert_acknowledged")
+        end
+
+        # POST /api/v1/ai/monitoring/alerts/:alert_id/resolve
+        def alert_resolve
+          update_alert(:resolve_alert, "ai.monitoring.alert_resolved")
+        end
+
         # =============================================================================
         # CIRCUIT BREAKERS
         # =============================================================================
@@ -274,6 +284,17 @@ module Api
           ::Platform::Status::Rollup.split(::Platform::Status::Query.new(account: account).rows.to_a)
         end
 
+        # Alerts are keyed by account, so an id from another account is simply
+        # not found here.
+        def update_alert(service_method, audit_action)
+          service = Monitoring::UnifiedService.new(account: current_user.account)
+          alert = service.public_send(service_method, params[:alert_id], user: current_user, note: params[:note])
+          return render_error("Alert not found", status: :not_found) unless alert
+
+          render_success(alert: alert)
+          log_audit_event(audit_action, current_user.account, alert_id: alert[:id])
+        end
+
         def health_service
           @health_service ||= ::Ai::MonitoringHealthService.new(account: current_user.account)
         end
@@ -297,14 +318,19 @@ module Api
           end
         end
 
+        # Alert acknowledge/resolve record the acting user, so a worker
+        # principal is not exempt from their permission check.
+        USER_ATTRIBUTED_ACTIONS = %w[alert_acknowledge alert_resolve].freeze
+
         def validate_permissions
-          return if current_worker
+          return if current_worker && !USER_ATTRIBUTED_ACTIONS.include?(action_name)
 
           permission_map = {
             %w[dashboard metrics overview health health_detailed health_connectivity alerts alerts_check
                circuit_breakers_index circuit_breaker_show circuit_breakers_category circuit_breakers_monitor] => "ai.monitoring.read",
             %w[circuit_breaker_reset circuit_breaker_open circuit_breaker_close circuit_breakers_reset_all
-               circuit_breakers_category_reset broadcast_metrics start_monitoring stop_monitoring] => "ai.monitoring.manage"
+               circuit_breakers_category_reset broadcast_metrics start_monitoring stop_monitoring] => "ai.monitoring.manage",
+            USER_ATTRIBUTED_ACTIONS => "ai.aiops.manage"
           }
 
           permission_map.each do |actions, permission|

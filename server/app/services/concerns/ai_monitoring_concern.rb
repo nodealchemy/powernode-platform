@@ -223,12 +223,15 @@ module AiMonitoringConcern
     severity = determine_alert_severity(alert_type, data)
 
     alert = {
+      id: UUID7.generate,
       alert_type: alert_type,
       severity: severity,
       message: build_alert_message(alert_type, data),
       data: data,
       timestamp: Time.current.iso8601,
-      account_id: @account&.id
+      account_id: @account&.id,
+      acknowledged: false,
+      resolved: false
     }
 
     # Store alert
@@ -260,6 +263,38 @@ module AiMonitoringConcern
     alerts = apply_alert_filters(alerts, filters)
 
     alerts
+  end
+
+  # Acknowledge one of this account's stored alerts
+  #
+  # @return [Hash, nil] The updated alert, or nil when the account has no alert with that id
+  def acknowledge_alert(alert_id, user:, note: nil)
+    update_stored_alert(alert_id) do |alert|
+      alert.merge(
+        acknowledged: true,
+        acknowledged_at: Time.current.iso8601,
+        acknowledged_by: user&.id,
+        acknowledgement_note: note.presence
+      )
+    end
+  end
+
+  # Resolve one of this account's stored alerts (resolving implies acknowledging)
+  #
+  # @return [Hash, nil] The updated alert, or nil when the account has no alert with that id
+  def resolve_alert(alert_id, user:, note: nil)
+    update_stored_alert(alert_id) do |alert|
+      now = Time.current.iso8601
+      alert.merge(
+        acknowledged: true,
+        acknowledged_at: alert[:acknowledged_at] || now,
+        acknowledged_by: alert[:acknowledged_by] || user&.id,
+        resolved: true,
+        resolved_at: now,
+        resolved_by: user&.id,
+        resolution_note: note.presence
+      )
+    end
   end
 
   # =============================================================================
@@ -413,6 +448,33 @@ module AiMonitoringConcern
     # Keep only last 7 days of alerts
     cutoff = 7.days.ago.to_i
     redis.zremrangebyscore(alerts_key, "-inf", cutoff)
+  end
+
+  # Swap a stored alert for the block's updated copy, keeping its score (the
+  # trigger time). The swap is a compare-and-set: it only happens if the member
+  # read is still present, so a concurrent update is retried rather than lost.
+  REPLACE_ALERT_SCRIPT = <<~LUA
+    local score = redis.call('ZSCORE', KEYS[1], ARGV[1])
+    if not score then return 0 end
+    redis.call('ZREM', KEYS[1], ARGV[1])
+    redis.call('ZADD', KEYS[1], score, ARGV[2])
+    return 1
+  LUA
+
+  def update_stored_alert(alert_id, attempts: 3)
+    return nil if alert_id.blank?
+
+    alerts_key = "alerts:#{@account&.id || 'system'}"
+    attempts.times do
+      member = redis.zrange(alerts_key, 0, -1).find do |raw|
+        JSON.parse(raw, symbolize_names: true)[:id] == alert_id
+      end
+      return nil unless member
+
+      updated = yield(JSON.parse(member, symbolize_names: true))
+      return updated if redis.eval(REPLACE_ALERT_SCRIPT, keys: [ alerts_key ], argv: [ member, updated.to_json ]) == 1
+    end
+    nil
   end
 
   def broadcast_alert(alert)

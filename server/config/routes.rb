@@ -1911,6 +1911,8 @@ Rails.application.routes.draw do
           get "health/connectivity", action: :health_connectivity
           get :alerts
           post "alerts/check", action: :alerts_check
+          post "alerts/:alert_id/acknowledge", action: :alert_acknowledge
+          post "alerts/:alert_id/resolve", action: :alert_resolve
 
           # Circuit breakers (replaces circuit_breakers_controller)
           get :circuit_breakers, action: :circuit_breakers_index
