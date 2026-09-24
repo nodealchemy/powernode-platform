@@ -517,7 +517,7 @@ export const adminNavigationOverrides = {
           href: '/app/admin/maintenance',
           icon: '🔧',
           description: 'System maintenance and health monitoring',
-          permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup'],
+          permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup', 'admin.maintenance.mode'],
           order: 6
         },
         {

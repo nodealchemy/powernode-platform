@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import { store } from '@/shared/services/index';
 import { refreshAccessToken, clearAuth, stopImpersonation } from '@/shared/services/slices/authSlice';
+import { setMaintenanceMode } from '@/shared/services/slices/uiSlice';
 import { getEnvVar } from '@/shared/utils/env';
 
 // Dynamic API base URL detection for remote access
@@ -133,6 +134,21 @@ class APIClient {
             url: originalRequest?.url,
             message: error.message
           });
+        }
+
+        // Admin::MaintenanceMode's request gate (server/app/controllers/concerns/
+        // authentication.rb) — a 503 carrying this code means the request never
+        // reached its controller action at all. Surface it globally (a
+        // full-page overlay, see MaintenanceScreen) rather than leaving each
+        // caller's own .catch to notice; still rejects below so a caller that
+        // wants to react locally (e.g. the Maintenance tab reading its own
+        // status) still can.
+        if (error.response?.status === 503 && error.response?.data?.code === 'maintenance_mode') {
+          const data = error.response.data as { error?: string; details?: { estimated_completion?: string } };
+          store.dispatch(setMaintenanceMode({
+            message: data.error,
+            estimatedCompletion: data.details?.estimated_completion
+          }));
         }
 
         // Auth endpoints establish or terminate a session. A 401 here means

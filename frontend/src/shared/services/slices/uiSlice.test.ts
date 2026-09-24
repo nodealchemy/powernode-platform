@@ -23,6 +23,7 @@ interface TestUIState {
   theme: 'light' | 'dark';
   loading: boolean;
   notifications: NotificationState[];
+  maintenance?: { active: boolean };
 }
 
 describe('uiSlice', () => {
@@ -31,7 +32,8 @@ describe('uiSlice', () => {
     sidebarCollapsed: false,
     theme: 'light' as const,
     loading: false,
-    notifications: []
+    notifications: [],
+    maintenance: { active: false }
   };
 
   it('should return the initial state', () => {

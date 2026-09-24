@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/adminSettingsApi';
 import { servicesApi, HealthStatus } from '@/features/admin/services/servicesApi';
 import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
@@ -12,6 +13,7 @@ import {
 } from '@/features/admin/components/admin-settings';
 
 export const AdminSettingsOverviewPage: React.FC = () => {
+  const navigate = useNavigate();
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -187,18 +189,13 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           status={settings_summary?.maintenance_mode ? 'maintenance' : 'healthy'}
           value={settings_summary?.maintenance_mode ? 'ACTIVE' : 'Disabled'}
           description={settings_summary?.maintenance_mode ? 'Users cannot access system' : 'System fully accessible'}
-          action={settings_summary?.maintenance_mode ? {
-            label: 'Disable Maintenance',
-            onClick: async () => {
-              try {
-                await adminSettingsApi.updateSettings({ maintenance_mode: false });
-                showNotification('Maintenance mode disabled successfully', 'success');
-                await loadOverviewData(); // Refresh the data
-              } catch (_error) {
-                showNotification('Failed to disable maintenance mode', 'error');
-              }
-            }
-          } : undefined}
+          action={{
+            // One control for maintenance mode: this badge links to the
+            // Maintenance tab, which is the only place that writes it
+            // (Api::V1::Admin::Maintenance::MaintenanceController#update_mode).
+            label: settings_summary?.maintenance_mode ? 'Manage Maintenance Mode' : 'Enable Maintenance Mode',
+            onClick: () => navigate('/app/admin/maintenance/mode')
+          }}
         />
 
         <SystemStatusCard

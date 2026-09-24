@@ -1,5 +1,11 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
+interface MaintenanceState {
+  active: boolean;
+  message?: string;
+  estimatedCompletion?: string;
+}
+
 interface UIState {
   sidebarOpen: boolean;
   sidebarCollapsed: boolean;
@@ -15,6 +21,14 @@ interface UIState {
      *  (e.g. "Review approvals" for operations parked pending approval). */
     link?: { label: string; to: string };
   }>;
+  // Set by api.ts's response interceptor on a 503 carrying
+  // { code: 'maintenance_mode' } (Admin::MaintenanceMode's gate) — never
+  // written directly by feature code. See MaintenanceScreen, the full-page
+  // overlay this drives. Optional (rather than required) so the many
+  // existing tests that hand-build a partial UIState for OTHER reducers
+  // don't all need updating; initialState below always provides it at
+  // runtime, and MaintenanceScreen guards with `maintenance?.active`.
+  maintenance?: MaintenanceState;
 }
 
 const initialState: UIState = {
@@ -23,6 +37,7 @@ const initialState: UIState = {
   theme: 'light',
   loading: false,
   notifications: [],
+  maintenance: { active: false },
 };
 
 const uiSlice = createSlice({
@@ -68,6 +83,12 @@ const uiSlice = createSlice({
     clearNotifications: (state) => {
       state.notifications = [];
     },
+    setMaintenanceMode: (state, action: PayloadAction<{ message?: string; estimatedCompletion?: string }>) => {
+      state.maintenance = { active: true, ...action.payload };
+    },
+    clearMaintenanceMode: (state) => {
+      state.maintenance = { active: false };
+    },
   },
 });
 
@@ -81,6 +102,8 @@ export const {
   addNotification,
   removeNotification,
   clearNotifications,
+  setMaintenanceMode,
+  clearMaintenanceMode,
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

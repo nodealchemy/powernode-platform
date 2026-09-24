@@ -20,6 +20,7 @@ import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
 import { PublicRoute } from '@/shared/components/ui/PublicRoute';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { NotificationContainer } from '@/shared/components/ui/NotificationContainer';
+import { MaintenanceScreen } from '@/shared/components/ui/MaintenanceScreen';
 
 // Pages
 import { LoginPage } from '@/pages/public/LoginPage';
@@ -456,6 +457,9 @@ const AppContent: React.FC = () => {
         
         {/* Global notification container */}
         <NotificationContainer />
+
+        {/* Full-page maintenance overlay — see MaintenanceScreen */}
+        <MaintenanceScreen />
       </div>
     </Router>
   );

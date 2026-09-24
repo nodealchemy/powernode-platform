@@ -41,9 +41,8 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
 export interface MaintenanceStatus {
   mode: boolean;
   message?: string;
-  scheduled_start?: string;
-  scheduled_end?: string;
-  scheduled_message?: string;
+  estimated_completion?: string;
+  bypass_ips?: string[];
 }
 
 export interface BackupInfo {
@@ -117,32 +116,41 @@ export interface MaintenanceSystemMetrics {
 
 class MaintenanceApiService {
   // Maintenance Mode
+  //
+  // Reads /admin/maintenance/mode (show_mode), NOT /admin/maintenance/status:
+  // the latter's `maintenance_mode` field never matched this service's
+  // `mode`/`message` shape, so the Mode tab's toggle and status badge were
+  // reading `undefined` (falsy) regardless of the real state. show_mode
+  // returns the fields Admin::MaintenanceMode's store actually tracks
+  // (`enabled`/`message`/`estimated_completion`/`bypass_ips`), mapped here to
+  // the shape this service's callers use.
   async getMaintenanceStatus(): Promise<MaintenanceStatus> {
-    const response = await apiRequest('/admin/maintenance/status', {
+    const response = await apiRequest('/admin/maintenance/mode', {
       method: 'GET'
     });
-    return response.data;
+    const data = response.data;
+    return {
+      mode: data.enabled,
+      message: data.message,
+      estimated_completion: data.estimated_completion,
+      bypass_ips: data.bypass_ips
+    };
   }
 
-  async setMaintenanceMode(enabled: boolean, message?: string, scheduledStart?: string, scheduledEnd?: string): Promise<void> {
+  // routes.rb registers `post :mode` only (no PUT) — Api::V1::Admin::Maintenance::
+  // MaintenanceController#update_mode. bypass_ips must be an array; an absent
+  // one is normalized to [] rather than sent as undefined, since the backend
+  // treats a present-but-empty array and "not sent" differently (the latter
+  // would leave any PREVIOUSLY configured bypass list untouched — see
+  // Admin::MaintenanceMode#enable!, which always overwrites bypass_ips).
+  async setMaintenanceMode(enabled: boolean, message?: string, estimatedCompletion?: string, bypassIps: string[] = []): Promise<void> {
     await apiRequest('/admin/maintenance/mode', {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify({
         enabled,
         message,
-        scheduled_start: scheduledStart,
-        scheduled_end: scheduledEnd
-      })
-    });
-  }
-
-  async scheduleMaintenanceMode(startTime: string, endTime: string, message: string): Promise<void> {
-    await apiRequest('/admin/maintenance/schedule', {
-      method: 'POST',
-      body: JSON.stringify({
-        scheduled_start: startTime,
-        scheduled_end: endTime,
-        message
+        estimated_completion: estimatedCompletion,
+        bypass_ips: bypassIps
       })
     });
   }

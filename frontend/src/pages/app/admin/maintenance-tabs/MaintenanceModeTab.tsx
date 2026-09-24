@@ -7,17 +7,22 @@ import { MaintenanceModeTabProps } from './types';
 export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, onUpdate }) => {
   const { showNotification } = useNotifications();
   const [submitting, setSubmitting] = useState(false);
-  const [scheduledMode, setScheduledMode] = useState({
-    enabled: false,
-    startTime: '',
-    endTime: '',
-    message: ''
-  });
+  const [message, setMessage] = useState(status.message || '');
+  const [estimatedCompletion, setEstimatedCompletion] = useState(status.estimated_completion || '');
+  // Comma/newline-separated in the UI; the API takes an array. Prefilled from
+  // the store's current list so re-saving the message doesn't drop it.
+  const [bypassIpsText, setBypassIpsText] = useState((status.bypass_ips || []).join(', '));
+
+  const parseBypassIps = () =>
+    bypassIpsText
+      .split(/[,\s]+/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
 
   const handleToggleMode = async () => {
     setSubmitting(true);
     try {
-      await maintenanceApi.setMaintenanceMode(!status.mode, status.message);
+      await maintenanceApi.setMaintenanceMode(!status.mode, message, estimatedCompletion || undefined, parseBypassIps());
       showNotification(
         status.mode ? 'Maintenance mode disabled' : 'Maintenance mode enabled',
         'success'
@@ -25,23 +30,6 @@ export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, 
       onUpdate();
     } catch (_error) {
       showNotification('Failed to update maintenance mode', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleScheduleMode = async () => {
-    setSubmitting(true);
-    try {
-      await maintenanceApi.scheduleMaintenanceMode(
-        scheduledMode.startTime,
-        scheduledMode.endTime,
-        scheduledMode.message
-      );
-      showNotification('Maintenance mode scheduled successfully', 'success');
-      onUpdate();
-    } catch (_error) {
-      showNotification('Failed to schedule maintenance mode', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -79,52 +67,53 @@ export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, 
               <p className="text-sm text-theme-primary mt-1">{status.message}</p>
             </div>
           )}
-        </div>
-      </SettingsCard>
 
-      {/* Schedule Maintenance */}
-      <SettingsCard
-        title="Schedule Maintenance Mode"
-        description="Schedule maintenance mode for future activation"
-        icon="📅"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-semibold text-theme-primary mb-2">Start Time</label>
+            <label htmlFor="maintenance-message" className="block text-sm font-semibold text-theme-primary mb-2">
+              Maintenance Message
+            </label>
             <input
-              type="datetime-local"
-              value={scheduledMode.startTime}
-              onChange={(e) => setScheduledMode(prev => ({ ...prev, startTime: e.target.value }))}
-              className="input-theme w-full"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-theme-primary mb-2">End Time</label>
-            <input
-              type="datetime-local"
-              value={scheduledMode.endTime}
-              onChange={(e) => setScheduledMode(prev => ({ ...prev, endTime: e.target.value }))}
-              className="input-theme w-full"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-theme-primary mb-2">Maintenance Message</label>
-            <input
+              id="maintenance-message"
               type="text"
               placeholder="System maintenance in progress..."
-              value={scheduledMode.message}
-              onChange={(e) => setScheduledMode(prev => ({ ...prev, message: e.target.value }))}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              disabled={submitting}
               className="input-theme w-full"
             />
           </div>
-          <div className="md:col-span-2">
-            <button
-              onClick={handleScheduleMode}
-              disabled={submitting || !scheduledMode.startTime || !scheduledMode.endTime}
-              className="btn-theme btn-theme-primary"
-            >
-              {submitting ? 'Scheduling...' : 'Schedule Maintenance'}
-            </button>
+
+          <div>
+            <label htmlFor="maintenance-estimated-completion" className="block text-sm font-semibold text-theme-primary mb-2">
+              Estimated Completion
+            </label>
+            <input
+              id="maintenance-estimated-completion"
+              type="text"
+              placeholder="e.g. 2026-01-01T12:00:00Z or '30 minutes'"
+              value={estimatedCompletion}
+              onChange={(e) => setEstimatedCompletion(e.target.value)}
+              disabled={submitting}
+              className="input-theme w-full"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="maintenance-bypass-ips" className="block text-sm font-semibold text-theme-primary mb-2">
+              Bypass IPs
+            </label>
+            <input
+              id="maintenance-bypass-ips"
+              type="text"
+              placeholder="203.0.113.5, 198.51.100.0/24"
+              value={bypassIpsText}
+              onChange={(e) => setBypassIpsText(e.target.value)}
+              disabled={submitting}
+              className="input-theme w-full"
+            />
+            <p className="text-xs text-theme-secondary mt-1">
+              Comma-separated IPs or CIDR ranges exempt from the maintenance gate.
+            </p>
           </div>
         </div>
       </SettingsCard>
