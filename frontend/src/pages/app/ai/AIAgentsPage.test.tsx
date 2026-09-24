@@ -13,8 +13,6 @@ import { AIAgentsPage } from './AIAgentsPage';
 // `AutonomyContent` is replaced; `autonomySectionLabel` stays real, since
 // that is the exact function the breadcrumb trail calls.
 
-jest.mock('@/features/ai/agent-teams/components/TeamBuilderModal', () => ({ TeamBuilderModal: () => null }));
-jest.mock('@/features/ai/agent-teams/components/ExecuteTeamModal', () => ({ ExecuteTeamModal: () => null }));
 jest.mock('@/features/ai/agents/components/CreateAgentModal', () => ({ CreateAgentModal: () => null }));
 jest.mock('@/features/ai/agents/components/ExpandableStatsHeader', () => ({ ExpandableStatsHeader: () => null }));
 jest.mock('@/features/ai/agents/components/AgentsIndexTable', () => ({ AgentsIndexTable: () => null }));
