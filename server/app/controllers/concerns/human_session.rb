@@ -16,8 +16,8 @@
 #     permissions (Authentication#delegated_permission?).
 #
 # Included where such a decision is made. It answers, and it words the one
-# refusal every REST decision door gives for it (#human_session_refusal), so
-# the approval queue and the governance door say the same thing.
+# refusal the REST decision door gives for it (#human_session_refusal). The
+# governance door's equivalent was deleted in fc-12; this is now the sole door.
 module HumanSession
   extend ActiveSupport::Concern
 

@@ -72,8 +72,8 @@ module Ai
 
     private
 
-    # #human_session_refusal is HumanSession's, shared with the governance
-    # door so both REST decision doors give the same reason.
+    # #human_session_refusal is HumanSession's. This is now the sole REST
+    # decision door — the governance door's equivalent was deleted in fc-12.
 
     def require_approval_permission
       return if current_worker
@@ -100,12 +100,12 @@ module Ai
     end
 
     # IMP-550e44e24220 — the shared fields come from
-    # Ai::ApprovalRequestSerialization#approval_request_core, which is the
-    # single definition both approval read surfaces build on. Only this
-    # surface's own additions are listed here: the agent_*/action_*
-    # denormalisations lifted out of request_data for the approvals UI, the
-    # requester, and the step count (this surface reports total_steps in the
-    # list payload and only adds step_statuses on detail).
+    # Ai::ApprovalRequestSerialization#approval_request_core, whose only
+    # consumer this now is (the governance door's equivalent surface was
+    # deleted in fc-12). Only this surface's own additions are listed here:
+    # the agent_*/action_* denormalisations lifted out of request_data for the
+    # approvals UI, the requester, and the step count (this surface reports
+    # total_steps in the list payload and only adds step_statuses on detail).
     def serialize_approval_request(request, detailed: false)
       base = approval_request_core(request).merge(
         agent_id: request.request_data&.dig("agent_id"),

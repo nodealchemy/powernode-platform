@@ -120,8 +120,8 @@ RSpec.describe 'Approval read surfaces do not disclose secret params', type: :re
   end
 
   # Everything above reaches request_data through Ai::AutonomyGate, so the
-  # gate's own redaction alone would satisfy it — which would leave the filters
-  # on the two READ surfaces certifying nothing. request_data has producers
+  # gate's own redaction alone would satisfy it — which would leave the filter
+  # on the read surface certifying nothing. request_data has producers
   # besides the gate (Ai::GovernanceService, Ai::Approvals::Gateway, the mission
   # orchestrator), and every row written before the gate started redacting still
   # holds plaintext. This block writes such a row directly and pins the read.
