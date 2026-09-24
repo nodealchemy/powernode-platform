@@ -7,7 +7,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
   describe('Page Navigation', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/content/kb/admin');
+      cy.assertPageReady('/app/content/kb/manage');
     });
 
     it('should navigate to Knowledge Base Admin page', () => {
@@ -29,7 +29,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
   describe('Search and Filters', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/content/kb/admin');
+      cy.assertPageReady('/app/content/kb/manage');
     });
 
     it('should display search input', () => {
@@ -70,7 +70,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
   describe('Statistics Overview', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/content/kb/admin');
+      cy.assertPageReady('/app/content/kb/manage');
     });
 
     it('should display Total Articles stat', () => {
@@ -96,7 +96,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
   describe('Quick Actions', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/content/kb/admin');
+      cy.assertPageReady('/app/content/kb/manage');
     });
 
     it('should display Quick Actions section', () => {
@@ -122,7 +122,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
   describe('Articles List', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/content/kb/admin');
+      cy.assertPageReady('/app/content/kb/manage');
     });
 
     it('should display Articles section', () => {
@@ -148,7 +148,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
   describe('Bulk Operations', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/content/kb/admin');
+      cy.assertPageReady('/app/content/kb/manage');
     });
 
     it('should have Select All button', () => {
@@ -162,7 +162,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
   describe('Page Actions', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/content/kb/admin');
+      cy.assertPageReady('/app/content/kb/manage');
     });
 
     it('should have Create Article button', () => {
@@ -180,7 +180,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
   describe('Pagination', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/content/kb/admin');
+      cy.assertPageReady('/app/content/kb/manage');
     });
 
     it('should display pagination controls when needed', () => {
@@ -194,7 +194,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
   describe('Permission Check', () => {
     it('should redirect unauthorized users', () => {
-      cy.visit('/app/content/kb/admin');
+      cy.visit('/app/content/kb/manage');
       cy.assertContainsAny(['Knowledge Base Admin', 'Knowledge Base', 'Access Denied']);
     });
   });
@@ -203,7 +203,7 @@ describe('Knowledge Base Admin Page Tests', () => {
     it('should handle API errors gracefully', () => {
       cy.testErrorHandling('**/api/**/kb/**', {
         statusCode: 500,
-        visitUrl: '/app/content/kb/admin'
+        visitUrl: '/app/content/kb/manage'
       });
     });
   });
@@ -217,7 +217,7 @@ describe('Knowledge Base Admin Page Tests', () => {
         });
       }).as('slowLoad');
 
-      cy.visit('/app/content/kb/admin');
+      cy.visit('/app/content/kb/manage');
       cy.assertHasElement([
         '[class*="animate-spin"]',
         '[class*="loading"]',
@@ -235,25 +235,25 @@ describe('Knowledge Base Admin Page Tests', () => {
         body: { articles: [], stats: { total: 0 } }
       }).as('emptyArticles');
 
-      cy.visit('/app/content/kb/admin');
+      cy.visit('/app/content/kb/manage');
       cy.assertContainsAny(['No articles yet', 'first article', 'Create First']);
     });
   });
 
   describe('Responsive Design', () => {
     it('should display properly on mobile viewport', () => {
-      cy.testViewport('mobile', '/app/content/kb/admin');
+      cy.testViewport('mobile', '/app/content/kb/manage');
       cy.assertContainsAny(['Knowledge Base', 'KB Admin', 'Articles']);
     });
 
     it('should display properly on tablet viewport', () => {
-      cy.testViewport('tablet', '/app/content/kb/admin');
+      cy.testViewport('tablet', '/app/content/kb/manage');
       cy.assertContainsAny(['Knowledge Base', 'KB Admin', 'Articles']);
     });
 
     it('should stack elements on small screens', () => {
       cy.viewport('iphone-x');
-      cy.visit('/app/content/kb/admin');
+      cy.visit('/app/content/kb/manage');
       cy.assertHasElement([
         '[class*="grid"]',
         '[class*="flex"]',
@@ -264,7 +264,7 @@ describe('Knowledge Base Admin Page Tests', () => {
 
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1920, 1080);
-      cy.visit('/app/content/kb/admin');
+      cy.visit('/app/content/kb/manage');
       cy.assertHasElement([
         '[class*="lg:grid-cols"]',
         '[class*="sm:grid-cols"]',

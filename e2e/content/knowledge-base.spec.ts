@@ -11,7 +11,7 @@ import { expectOrAlternateState } from '../fixtures/assertions';
  * Routes tested:
  *   /app/content/kb            - KnowledgeBasePage
  *   /app/content/kb/articles/new - KnowledgeBaseArticleEditor
- *   /app/content/kb/admin      - KnowledgeBaseAdminPage
+ *   /app/content/kb/manage      - KnowledgeBaseAdminPage
  */
 
 test.describe('Content Knowledge Base', () => {

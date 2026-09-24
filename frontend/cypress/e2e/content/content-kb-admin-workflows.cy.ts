@@ -19,7 +19,7 @@ describe('Knowledge Base Admin Workflows Tests', () => {
 
   describe('KB Admin Dashboard', () => {
     beforeEach(() => {
-      cy.navigateTo('/app/content/kb/admin');
+      cy.navigateTo('/app/content/kb/manage');
     });
 
     it('should display KB admin page with title', () => {
@@ -46,7 +46,7 @@ describe('Knowledge Base Admin Workflows Tests', () => {
 
   describe('Quick Actions', () => {
     beforeEach(() => {
-      cy.navigateTo('/app/content/kb/admin');
+      cy.navigateTo('/app/content/kb/manage');
     });
 
     it('should display quick actions section', () => {
@@ -70,7 +70,7 @@ describe('Knowledge Base Admin Workflows Tests', () => {
 
   describe('Articles List', () => {
     beforeEach(() => {
-      cy.navigateTo('/app/content/kb/admin');
+      cy.navigateTo('/app/content/kb/manage');
     });
 
     it('should display articles section heading', () => {
@@ -100,7 +100,7 @@ describe('Knowledge Base Admin Workflows Tests', () => {
 
   describe('Search and Filters', () => {
     beforeEach(() => {
-      cy.navigateTo('/app/content/kb/admin');
+      cy.navigateTo('/app/content/kb/manage');
     });
 
     it('should display search input', () => {
@@ -141,7 +141,7 @@ describe('Knowledge Base Admin Workflows Tests', () => {
 
   describe('Article Selection', () => {
     beforeEach(() => {
-      cy.navigateTo('/app/content/kb/admin');
+      cy.navigateTo('/app/content/kb/manage');
     });
 
     it('should have checkboxes for article selection when articles exist', () => {
@@ -161,7 +161,7 @@ describe('Knowledge Base Admin Workflows Tests', () => {
 
   describe('Bulk Operations', () => {
     beforeEach(() => {
-      cy.navigateTo('/app/content/kb/admin');
+      cy.navigateTo('/app/content/kb/manage');
     });
 
     it('should show bulk action buttons when articles are selected', () => {
@@ -190,7 +190,7 @@ describe('Knowledge Base Admin Workflows Tests', () => {
         }
       }).as('emptyArticles');
 
-      cy.navigateTo('/app/content/kb/admin');
+      cy.navigateTo('/app/content/kb/manage');
       cy.wait('@emptyArticles');
       cy.assertContainsAny(['No articles yet', 'Create First Article', 'Get started']);
     });
@@ -200,14 +200,14 @@ describe('Knowledge Base Admin Workflows Tests', () => {
     it('should handle API error gracefully', () => {
       cy.testErrorHandling('/api/v1/kb/articles*', {
         statusCode: 500,
-        visitUrl: '/app/content/kb/admin',
+        visitUrl: '/app/content/kb/manage',
       });
     });
   });
 
   describe('Responsive Design', () => {
     it('should display correctly across viewports', () => {
-      cy.testResponsiveDesign('/app/content/kb/admin', {
+      cy.testResponsiveDesign('/app/content/kb/manage', {
         checkContent: 'Knowledge Base',
       });
     });

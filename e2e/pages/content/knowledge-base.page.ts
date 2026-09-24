@@ -5,7 +5,7 @@ import { Page, Locator, expect } from '@playwright/test';
  *
  * Matches actual DOM structure:
  * - KnowledgeBasePage: /app/content/kb
- * - KnowledgeBaseAdminPage: /app/content/kb/admin
+ * - KnowledgeBaseAdminPage: /app/content/kb/manage
  * - KnowledgeBaseArticleEditor: /app/content/kb/articles/new
  * - KnowledgeBaseArticlePage: /app/content/kb/articles/:id
  */
@@ -90,7 +90,7 @@ export class KnowledgeBasePage {
   }
 
   async gotoAdmin() {
-    await this.page.goto('/app/content/kb/admin');
+    await this.page.goto('/app/content/kb/manage');
     await this.page.waitForLoadState('networkidle');
   }
 
