@@ -19,10 +19,6 @@ jest.mock('@/shared/services/apiClient', () => ({
     get: (...args: unknown[]) => mockGet(...args),
     post: (...args: unknown[]) => mockPost(...args),
   },
-  default: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: (...args: unknown[]) => mockPost(...args),
-  },
 }));
 
 jest.mock('@/shared/components/entity', () => ({

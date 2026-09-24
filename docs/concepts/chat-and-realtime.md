@@ -249,9 +249,7 @@ The Powernode frontend uses a **singleton WebSocket connection pattern** — one
    - `useAnalyticsWebSocket` — Analytics events
    - `useSettingsWebSocket` — Settings updates
    - `useNotificationWebSocket` — Notification events
-   - `useMcpWebSocket` — MCP protocol transport
    - `usePageWebSocket` — Page collaboration updates
-   - `useAiStreamingWebSocket` — AI token streaming
    - `useConversationSocket` — Chat conversation streaming (lives under `frontend/src/features/ai/components/conversation/`)
 
 ### Performance impact
