@@ -20,7 +20,6 @@ export function useTeamsList() {
   const [teamsLoading, setTeamsLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [executingTeamIds, setExecutingTeamIds] = useState<string[]>([]);
   const [expandedTeamId, setExpandedTeamId] = useState<string | null>(null);
   const [teamViewMode, setTeamViewMode] = useState<'grid' | 'list'>('grid');
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
@@ -60,14 +59,6 @@ export function useTeamsList() {
     }
   }, [dispatch, loadTeams]);
 
-  const handleExecutionComplete = useCallback((_teamId: string) => {
-    loadTeams();
-  }, [loadTeams]);
-
-  const handleDismissMonitor = useCallback((teamId: string) => {
-    setExecutingTeamIds(prev => prev.filter(id => id !== teamId));
-  }, []);
-
   const filteredTeams = useMemo(() => {
     if (!teamSearchQuery) return teams;
     const q = teamSearchQuery.toLowerCase();
@@ -96,7 +87,6 @@ export function useTeamsList() {
     setStatusFilter,
     typeFilter,
     setTypeFilter,
-    executingTeamIds,
     expandedTeamId,
     teamViewMode,
     setTeamViewMode,
@@ -107,7 +97,5 @@ export function useTeamsList() {
     teamStats,
     handleToggleExpand,
     handleDeleteTeam,
-    handleExecutionComplete,
-    handleDismissMonitor,
   };
 }

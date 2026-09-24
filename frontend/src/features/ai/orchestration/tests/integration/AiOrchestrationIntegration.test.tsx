@@ -51,7 +51,6 @@ jest.mock('@/shared/hooks/usePermissions', () => ({
 // The core component tests cover the main functionality:
 // - AiProvidersPage.test.tsx - Provider management
 // - WorkflowDetailModal.test.tsx - Workflow viewing and editing
-// - AiAgentDashboard.test.tsx - Agent management (if exists)
 // These tests verify the mock infrastructure is properly set up.
 
 describe('AI Orchestration Integration Tests', () => {
