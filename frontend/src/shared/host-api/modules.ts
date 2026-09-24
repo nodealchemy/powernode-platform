@@ -61,8 +61,14 @@
  * (`FeatureRoute.role`, `getPublicRoutePath`). Core's public pages now link to
  * the 'pricing' role instead of a hard-coded path, so a bundle built against 4
  * registers no role and those links would silently vanish.
+ *
+ * 6: `@/features/ai/provisioning/PlatformDeploymentWizardCard` is no longer
+ * exposed (the card moved into the extension that serves its routes, and core
+ * renders it through the 'ai.chat.card.<kind>' component slot), and
+ * `@/shared/services/featureRegistry` gained mention sources. A bundle built
+ * against 5 still imports the removed id, so the loader skips it.
  */
-export const CORE_UI_API_VERSION = 5;
+export const CORE_UI_API_VERSION = 6;
 
 /**
  * Core `@/…` modules exposed to extension frontends. Derived empirically from
@@ -71,7 +77,6 @@ export const CORE_UI_API_VERSION = 5;
  */
 const HOST_APP_IDS = [
   // Feature surfaces reused by extensions
-  '@/features/ai/provisioning/PlatformDeploymentWizardCard',
   '@/features/onboarding/ProviderCredentialForm',
   // Shared components
   '@/shared/components/approval-chains/ApprovalChainList',

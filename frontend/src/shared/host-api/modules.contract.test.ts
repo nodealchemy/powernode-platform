@@ -132,4 +132,14 @@ describe('host UI API contract', () => {
     expect(HOST_EXPOSED_IDS as readonly string[]).toContain('@/shared/services/featureRegistry');
     expect(CORE_UI_API_VERSION).toBeGreaterThanOrEqual(5);
   });
+
+  it('bumped the host UI API version for the moved deployment wizard card', () => {
+    // '@/features/ai/provisioning/PlatformDeploymentWizardCard' left core (the
+    // card now lives with the routes it calls); a bundle built against 5
+    // still imports it. featureRegistry also gained mention sources.
+    expect(HOST_EXPOSED_IDS as readonly string[]).not.toContain(
+      '@/features/ai/provisioning/PlatformDeploymentWizardCard'
+    );
+    expect(CORE_UI_API_VERSION).toBeGreaterThanOrEqual(6);
+  });
 });

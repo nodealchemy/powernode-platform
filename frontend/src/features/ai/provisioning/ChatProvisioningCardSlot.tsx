@@ -5,12 +5,12 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { logger } from '@/shared/utils/logger';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 import type { ChatCard } from '@/shared/types/ai';
 import { BriefCard } from './BriefCard';
 import { ProvisioningPlanReview } from './ProvisioningPlanReview';
 import { provisioningApi } from './services/provisioningApi';
 import type { ProjectBrief, ProvisioningPlan, PlanStep, RiskFactor } from './types';
-import { PlatformDeploymentWizardCard } from './PlatformDeploymentWizardCard';
 
 /**
  * Renders a single ChatCard (surfaced from a Concierge tool result via
@@ -302,13 +302,20 @@ function renderInner(card: ChatCard): React.ReactElement | null {
       );
     }
 
-    // D3 — Platform deployment wizard. Renders inline form (form phase)
-    // or done-summary with acceptance_token capture (done phase).
-    case 'platform_deployment_wizard':
-      return <PlatformDeploymentWizardCard card={card} />;
-
-    default:
-      return null;
+    default: {
+      // A kind core does not render itself: an extension may serve it through
+      // the 'ai.chat.card.<kind>' component slot. Unregistered, it renders
+      // nothing.
+      const ExtensionCard = featureRegistry.getComponentSlot(`ai.chat.card.${card.kind}`) as
+        | React.ComponentType<{ card: ChatCard }>
+        | undefined;
+      // Suspense here: an extension usually registers a lazy component.
+      return ExtensionCard ? (
+        <React.Suspense fallback={null}>
+          <ExtensionCard card={card} />
+        </React.Suspense>
+      ) : null;
+    }
   }
 }
 
