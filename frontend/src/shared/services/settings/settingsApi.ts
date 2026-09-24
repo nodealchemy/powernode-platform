@@ -4,7 +4,6 @@ import { isErrorWithResponse } from '@/shared/utils/errorHandling';
 export interface PublicSettings {
   system_name: string;
   copyright_text: string;
-  maintenance_mode: boolean;
   registration_enabled: boolean;
   require_email_verification: boolean;
 }
