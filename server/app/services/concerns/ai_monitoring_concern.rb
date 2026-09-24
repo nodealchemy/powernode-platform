@@ -23,6 +23,10 @@
 module AiMonitoringConcern
   extend ActiveSupport::Concern
 
+  # An alert update that cannot be applied as asked: it is already in the
+  # target state, or concurrent writers kept winning the compare-and-set.
+  class AlertConflictError < StandardError; end
+
   # Metric types
   METRIC_TYPES = %w[
     execution_count
@@ -265,11 +269,14 @@ module AiMonitoringConcern
     alerts
   end
 
-  # Acknowledge one of this account's stored alerts
+  # Acknowledge one of this account's stored alerts. The first acknowledger is
+  # kept: acknowledging again raises AlertConflictError.
   #
   # @return [Hash, nil] The updated alert, or nil when the account has no alert with that id
   def acknowledge_alert(alert_id, user:, note: nil)
     update_stored_alert(alert_id) do |alert|
+      raise AlertConflictError, "Alert already acknowledged" if alert[:acknowledged]
+
       alert.merge(
         acknowledged: true,
         acknowledged_at: Time.current.iso8601,
@@ -279,11 +286,14 @@ module AiMonitoringConcern
     end
   end
 
-  # Resolve one of this account's stored alerts (resolving implies acknowledging)
+  # Resolve one of this account's stored alerts (resolving implies acknowledging,
+  # and keeps an earlier acknowledger). Resolving again raises AlertConflictError.
   #
   # @return [Hash, nil] The updated alert, or nil when the account has no alert with that id
   def resolve_alert(alert_id, user:, note: nil)
     update_stored_alert(alert_id) do |alert|
+      raise AlertConflictError, "Alert already resolved" if alert[:resolved]
+
       now = Time.current.iso8601
       alert.merge(
         acknowledged: true,
@@ -452,7 +462,9 @@ module AiMonitoringConcern
 
   # Swap a stored alert for the block's updated copy, keeping its score (the
   # trigger time). The swap is a compare-and-set: it only happens if the member
-  # read is still present, so a concurrent update is retried rather than lost.
+  # read is still present, so a concurrent update is retried rather than lost;
+  # running out of attempts raises AlertConflictError rather than reporting the
+  # alert as missing.
   REPLACE_ALERT_SCRIPT = <<~LUA
     local score = redis.call('ZSCORE', KEYS[1], ARGV[1])
     if not score then return 0 end
@@ -474,7 +486,7 @@ module AiMonitoringConcern
       updated = yield(JSON.parse(member, symbolize_names: true))
       return updated if redis.eval(REPLACE_ALERT_SCRIPT, keys: [ alerts_key ], argv: [ member, updated.to_json ]) == 1
     end
-    nil
+    raise AlertConflictError, "Alert was modified concurrently; retry"
   end
 
   def broadcast_alert(alert)

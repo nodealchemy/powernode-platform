@@ -269,12 +269,18 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
     let(:other_account) { create(:account) }
     let(:redis) { Powernode::Redis.client }
 
-    def seed_alert(owner, id: SecureRandom.uuid)
-      redis.zadd("alerts:#{owner.id}", Time.current.to_i, {
+    let(:seed_score) { 1_780_000_000 }
+
+    def seed_alert(owner, id: SecureRandom.uuid, **state)
+      redis.zadd("alerts:#{owner.id}", seed_score, {
         id: id, alert_type: 'high_latency', severity: 'medium', message: 'Alert triggered: High latency',
         timestamp: Time.current.iso8601, account_id: owner.id, acknowledged: false, resolved: false
-      }.to_json)
+      }.merge(state).to_json)
       id
+    end
+
+    def stored_score(owner)
+      redis.zrange("alerts:#{owner.id}", 0, -1, with_scores: true).first&.last
     end
 
     def stored_alert(owner, id)
@@ -297,6 +303,7 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
         expect(alert['acknowledged_at']).to be_present
         expect(stored_alert(account, id)).to include('acknowledged' => true, 'resolved' => false)
         expect(redis.zcard("alerts:#{account.id}")).to eq(1)
+        expect(stored_score(account)).to eq(seed_score)
       end
 
       it 'is forbidden without ai.aiops.manage and leaves the alert untouched' do
@@ -309,8 +316,12 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
         expect(stored_alert(account, id)['acknowledged']).to be false
       end
 
-      it 'is forbidden to a worker principal: the acknowledgement must name a user' do
+      it 'is forbidden to a worker principal even when its role grants ai.aiops.manage' do
         worker = create(:worker, account: account, status: 'active')
+        role = Role.create!(name: 'aiops_alert_worker', display_name: 'AIOps alert worker', role_type: 'user', description: 'grants ai.aiops.manage')
+        role.role_permissions.create!(permission_name: 'ai.aiops.manage')
+        worker.worker_roles.create!(role: role)
+        expect(worker.reload.has_permission?('ai.aiops.manage')).to be true
         id = seed_alert(account)
 
         post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", headers: {
@@ -320,6 +331,44 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
 
         expect(response).to have_http_status(:forbidden)
         expect(stored_alert(account, id)['acknowledged']).to be false
+      end
+
+      it 'rejects a non-string note with 422 and leaves the alert untouched' do
+        id = seed_alert(account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", params: { note: { text: 'x' } }, headers: manager_headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(stored_alert(account, id)['acknowledged']).to be false
+      end
+
+      it 'rejects a note over 1000 characters with 422 and leaves the alert untouched' do
+        id = seed_alert(account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", params: { note: 'x' * 1001 }, headers: manager_headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(stored_alert(account, id)['acknowledged']).to be false
+      end
+
+      it 'refuses to re-acknowledge an acknowledged alert and keeps the first actor' do
+        id = seed_alert(account, acknowledged: true, acknowledged_by: 'first-actor')
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", headers: manager_headers, as: :json
+
+        expect(response).to have_http_status(:conflict)
+        expect(json_response['error']).to eq('Alert already acknowledged')
+        expect(stored_alert(account, id)['acknowledged_by']).to eq('first-actor')
+      end
+
+      it 'returns 409, not 404, when every compare-and-set attempt loses a race' do
+        id = seed_alert(account)
+        allow(Powernode::Redis.client).to receive(:eval).and_return(0)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", headers: manager_headers, as: :json
+
+        expect(response).to have_http_status(:conflict)
+        expect(Powernode::Redis.client).to have_received(:eval).exactly(3).times
       end
 
       it "returns not found for another account's alert and leaves it untouched" do
@@ -345,6 +394,7 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
         expect(alert['resolved_at']).to be_present
         expect(stored_alert(account, id)).to include('resolved' => true)
         expect(redis.zcard("alerts:#{account.id}")).to eq(1)
+        expect(stored_score(account)).to eq(seed_score)
       end
 
       it 'is forbidden without ai.aiops.manage and leaves the alert untouched' do
@@ -364,6 +414,34 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
         expect(response).to have_http_status(:not_found)
         expect(json_response['error']).to eq('Alert not found')
         expect(stored_alert(other_account, id)['resolved']).to be false
+      end
+
+      it 'resolves an alert that is already acknowledged, keeping the acknowledger' do
+        id = seed_alert(account, acknowledged: true, acknowledged_by: 'first-actor')
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/resolve", headers: manager_headers, as: :json
+
+        expect_success_response
+        expect(stored_alert(account, id)).to include('resolved' => true, 'acknowledged_by' => 'first-actor', 'resolved_by' => manager.id)
+      end
+
+      it 'refuses to re-resolve a resolved alert and keeps the first actor' do
+        id = seed_alert(account, acknowledged: true, resolved: true, resolved_by: 'first-actor')
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/resolve", headers: manager_headers, as: :json
+
+        expect(response).to have_http_status(:conflict)
+        expect(json_response['error']).to eq('Alert already resolved')
+        expect(stored_alert(account, id)['resolved_by']).to eq('first-actor')
+      end
+
+      it 'rejects a note over 1000 characters with 422' do
+        id = seed_alert(account)
+
+        post "/api/v1/ai/monitoring/alerts/#{id}/resolve", params: { note: 'x' * 1001 }, headers: manager_headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(stored_alert(account, id)['resolved']).to be false
       end
 
       it 'returns not found for an unknown id' do

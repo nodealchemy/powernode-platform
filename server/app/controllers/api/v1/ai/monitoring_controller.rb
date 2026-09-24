@@ -284,15 +284,24 @@ module Api
           ::Platform::Status::Rollup.split(::Platform::Status::Query.new(account: account).rows.to_a)
         end
 
+        ALERT_NOTE_MAX_LENGTH = 1000
+
         # Alerts are keyed by account, so an id from another account is simply
         # not found here.
         def update_alert(service_method, audit_action)
+          note = params[:note]
+          unless note.nil? || (note.is_a?(String) && note.length <= ALERT_NOTE_MAX_LENGTH)
+            return render_error("note must be a string of at most #{ALERT_NOTE_MAX_LENGTH} characters", status: :unprocessable_content)
+          end
+
           service = Monitoring::UnifiedService.new(account: current_user.account)
-          alert = service.public_send(service_method, params[:alert_id], user: current_user, note: params[:note])
+          alert = service.public_send(service_method, params[:alert_id], user: current_user, note: note)
           return render_error("Alert not found", status: :not_found) unless alert
 
           render_success(alert: alert)
           log_audit_event(audit_action, current_user.account, alert_id: alert[:id])
+        rescue AiMonitoringConcern::AlertConflictError => e
+          render_error(e.message, status: :conflict)
         end
 
         def health_service
@@ -319,11 +328,15 @@ module Api
         end
 
         # Alert acknowledge/resolve record the acting user, so a worker
-        # principal is not exempt from their permission check.
+        # principal is refused outright: its role may hold ai.aiops.manage, but
+        # there is no user to attribute the action to.
         USER_ATTRIBUTED_ACTIONS = %w[alert_acknowledge alert_resolve].freeze
 
         def validate_permissions
-          return if current_worker && !USER_ATTRIBUTED_ACTIONS.include?(action_name)
+          if current_worker && USER_ATTRIBUTED_ACTIONS.include?(action_name)
+            raise PermissionDenied.new("Permission denied: #{action_name} requires a user", permission: "ai.aiops.manage")
+          end
+          return if current_worker
 
           permission_map = {
             %w[dashboard metrics overview health health_detailed health_connectivity alerts alerts_check
