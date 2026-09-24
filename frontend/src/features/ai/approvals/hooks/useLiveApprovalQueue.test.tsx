@@ -15,9 +15,7 @@ import { featureRegistry } from '@/shared/services/featureRegistry';
 
 const mockGet = jest.fn();
 jest.mock('@/shared/services/apiClient', () => ({
-  __esModule: true,
   apiClient: { get: (...args: unknown[]) => mockGet(...args), post: jest.fn() },
-  default: { get: (...args: unknown[]) => mockGet(...args), post: jest.fn() },
 }));
 jest.mock('@/shared/hooks/useWebSocket');
 jest.mock('@/shared/hooks/usePolling', () => ({ usePolling: jest.fn() }));

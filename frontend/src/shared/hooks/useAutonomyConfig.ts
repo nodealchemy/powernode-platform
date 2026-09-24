@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 import type {
   AgentPoliciesMap,
   AutonomyConfigSource,

@@ -3,7 +3,7 @@ import { Search, Terminal, Sparkles, Users, X, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { workspacesApi } from '@/shared/services/ai/WorkspacesApiService';
 import type { McpSessionInfo } from '@/shared/services/ai/WorkspacesApiService';
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 import { logger } from '@/shared/utils/logger';
 
 interface AgentInfo {

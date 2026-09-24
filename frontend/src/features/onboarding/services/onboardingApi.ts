@@ -6,7 +6,7 @@
 // unwraps the axios response EXACTLY as the components did — returning the value
 // each component derived from `response.data`. This keeps the components' existing
 // apiClient mocks (which assert call paths/args) intercepting unchanged.
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 import type {
   ProviderCategory,
   ProviderCredentialValues,

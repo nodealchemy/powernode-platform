@@ -2,7 +2,7 @@
 // (Api::V1::SetupController). Mirrors the unwrap convention used elsewhere
 // (onboardingApi / OnboardingGate): the server wraps payloads under `data`
 // (render_success), so each method reads `response.data?.data ?? response.data`.
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 
 /** A single field within a step's schema (matches Setup::StepRegistry step `schema`). */
 export interface SetupFieldDef {

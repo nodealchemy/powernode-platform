@@ -1,4 +1,4 @@
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 import type { ProjectBrief, ProvisioningPlan } from '../types';
 
 /**

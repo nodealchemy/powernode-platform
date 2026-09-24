@@ -3,7 +3,7 @@ import { Users, Plus, Trash2, X, Loader2, Search } from 'lucide-react';
 import { workspacesApi } from '@/shared/services/ai';
 import { EntityLink } from '@/shared/components/entity';
 import type { WorkspaceMember } from '@/shared/services/ai/WorkspacesApiService';
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface Agent {

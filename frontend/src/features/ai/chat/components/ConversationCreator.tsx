@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2, Sparkles, Terminal, X, Search, MessageSquare } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { useChatWindow } from '../context/ChatWindowContext';
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 
 interface AgentInfo {
   id: string;

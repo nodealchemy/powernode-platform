@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 import { Button } from '@/shared/components/ui/Button';
 import { CheckIcon, XMarkIcon, ClockIcon } from '@heroicons/react/24/outline';
 import type { ApprovalRequest } from '@/shared/types/approval';

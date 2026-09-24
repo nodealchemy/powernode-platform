@@ -4,11 +4,6 @@ import { ProviderCredentialForm } from './ProviderCredentialForm';
 const mockPost = jest.fn();
 
 jest.mock('@/shared/services/apiClient', () => ({
-  __esModule: true,
-  default: {
-    get: jest.fn(),
-    post: (...args: unknown[]) => mockPost(...args),
-  },
   apiClient: {
     get: jest.fn(),
     post: (...args: unknown[]) => mockPost(...args),

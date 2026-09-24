@@ -3,10 +3,8 @@ import { provisioningApi } from './provisioningApi';
 const mockGet = jest.fn();
 const mockPost = jest.fn();
 
-// Default export, not a named one — provisioningApi imports it that way.
 jest.mock('@/shared/services/apiClient', () => ({
-  __esModule: true,
-  default: {
+  apiClient: {
     get: (...args: unknown[]) => mockGet(...args),
     post: (...args: unknown[]) => mockPost(...args),
   },

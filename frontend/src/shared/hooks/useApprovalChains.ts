@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 import type { ApprovalChain, ApprovalChainStep } from '@/shared/types/approval';
 import { logger } from '@/shared/utils/logger';
 

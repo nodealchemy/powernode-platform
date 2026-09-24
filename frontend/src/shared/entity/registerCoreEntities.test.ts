@@ -10,9 +10,7 @@ import { registerCoreEntities } from './registerCoreEntities';
 
 const mockGet = jest.fn();
 jest.mock('@/shared/services/apiClient', () => ({
-  __esModule: true,
   apiClient: { get: (...args: unknown[]) => mockGet(...args) },
-  default: { get: (...args: unknown[]) => mockGet(...args) },
 }));
 
 describe('approval_request entity — fetchById', () => {

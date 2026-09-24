@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Bot, ChevronDown, Search, Users, Terminal, Sparkles } from 'lucide-react';
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 
 interface Agent {
   id: string;

@@ -1,5 +1,5 @@
 import { logger } from '@/shared/utils/logger';
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 import { CORE_UI_API_VERSION } from '@/shared/host-api/modules';
 
 interface ExtensionModule {
@@ -110,15 +110,6 @@ function registerAllExtensions(): void {
 // Register at module import time — before any consumer (App.tsx) renders.
 // This is the line that fixes the catch-all-redirect race.
 registerAllExtensions();
-
-/**
- * Backward-compatible no-op kept so existing callers that do
- * `await loadAllExtensions()` continue to compile. The actual registration
- * happens at module load above (see {@link registerAllExtensions}).
- */
-export async function loadAllExtensions(): Promise<void> {
-  // No-op: extensions are registered synchronously at module import.
-}
 
 // ---------------------------------------------------------------------------
 // Runtime extension loading (dedicated-module frontends)

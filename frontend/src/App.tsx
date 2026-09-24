@@ -6,7 +6,6 @@ import type { RootState, AppDispatch } from '@/shared/services';
 import { store } from '@/shared/services';
 import { getCurrentUser, refreshAccessToken, clearAuth, forceTokenClear, checkImpersonationStatus } from '@/shared/services/slices/authSlice';
 import { isTokenInvalidError, isValidTokenFormat } from '@/shared/utils/tokenUtils';
-import { loadAllExtensions } from '@/shared/services/extensionLoader';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 import { registerCoreEntities } from '@/shared/entity/registerCoreEntities';
 
@@ -50,7 +49,7 @@ const ProvisioningPage = React.lazy(() => import('@/pages/ProvisioningPage'));
 const SetupWizard = React.lazy(() =>
   import('@/features/setup/SetupWizard').then((m) => ({ default: m.SetupWizard }))
 );
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 import { logger } from '@/shared/utils/logger';
 
 interface OnboardingStatusResponse {
@@ -138,13 +137,7 @@ const AppContent: React.FC = () => {
   // (see frontend/src/shared/services/extensionLoader.ts). By the time
   // this component renders, featureRegistry is already populated, so
   // there's no need to gate route resolution or subscribe for re-renders.
-  // The loadAllExtensions() call below is a backward-compat no-op kept
-  // in case future async loading is re-introduced.
-  useEffect(() => {
-    loadAllExtensions().catch(() => {
-      // Extension loading failure is non-fatal
-    });
-  }, []);
+  // Runtime (non-baked-in) extensions are loaded separately, from index.tsx.
 
   // Auth initialization with proper dependencies to prevent double execution
   useEffect(() => {

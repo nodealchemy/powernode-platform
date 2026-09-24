@@ -15,7 +15,7 @@ import type {
   PlanStepStatus,
 } from '@/features/ai/provisioning/types';
 import { logger } from '@/shared/utils/logger';
-import apiClient from '@/shared/services/apiClient';
+import { apiClient } from '@/shared/services/apiClient';
 
 type ViewMode = 'chat' | 'plan' | 'executing';
 
