@@ -93,29 +93,4 @@ RSpec.describe 'Approval cards keep non-secret control flags legible', type: :re
       expect(SiteSetting).to have_received(:get).with('ai_sensitive_param_keys').once
     end
   end
-
-  describe 'GET /api/v1/ai/governance/approval_requests' do
-    before { gate!(peer: 'peer-42') }
-
-    it 'renders the control flags and withholds the mint' do
-      get '/api/v1/ai/governance/approval_requests', headers: headers, as: :json
-
-      expect(response).to have_http_status(:ok)
-      params = json_response_data.dig('approval_requests', 0, 'request_data', 'params')
-      expect(params.dig('attributes', 'generate_token')).to be true
-      expect(params.dig('attributes', 'token_ttl_seconds')).to eq(900)
-      expect(params['acceptance_token']).to eq('[FILTERED]')
-    end
-
-    it 'resolves the sensitive-key setting once for the whole page' do
-      gate!(peer: 'peer-43')
-      gate!(peer: 'peer-44')
-      allow(SiteSetting).to receive(:get).and_call_original
-
-      get '/api/v1/ai/governance/approval_requests', headers: headers, as: :json
-
-      expect(json_response_data['approval_requests'].size).to eq(3)
-      expect(SiteSetting).to have_received(:get).with('ai_sensitive_param_keys').once
-    end
-  end
 end

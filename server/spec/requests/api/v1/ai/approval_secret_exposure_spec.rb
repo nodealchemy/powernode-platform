@@ -7,16 +7,19 @@ require 'rails_helper'
 #
 # Ai::AutonomyGate stores caller-supplied params verbatim (the executor has to
 # consume them after approval) and copies them into
-# Ai::ApprovalRequest#request_data. Four read surfaces then serialize that copy
-# — or the deferred operation's params directly — to an audience defined by the
-# approval permissions, not by the permission that authorised the original call:
+# Ai::ApprovalRequest#request_data. The autonomy read surfaces then serialize
+# that copy — or the deferred operation's params directly — to an audience
+# defined by the approval permissions, not by the permission that authorised
+# the original call:
 #
 #   GET /api/v1/ai/autonomy/approvals            → ai.agents.read
 #   GET /api/v1/ai/autonomy/approvals/:id        → ai.agents.read (also params:)
-#   GET /api/v1/ai/governance/approval_requests  → ai.governance.read
-#   GET /api/v1/ai/governance/approval_requests/:id → ai.governance.read
 #
-# The autonomy pair is the widest: `require_approval_permission` binds only
+# (The governance door's equivalent pair, ai.governance.read, was deleted in
+# fc-12 along with the rest of the governance approval_requests endpoints;
+# this file used to pin both doors to prove neither disclosed the secret.)
+#
+# This pair is the widest: `require_approval_permission` binds only
 # approve_action/reject_action, so the reads clear on `validate_permissions`
 # (ai.agents.read) alone — wider than the ai.autonomy.approve audience, and far
 # wider than the system.sdwan.federation.manage that mints a federation
@@ -116,31 +119,6 @@ RSpec.describe 'Approval read surfaces do not disclose secret params', type: :re
     end
   end
 
-  describe 'GET /api/v1/ai/governance/approval_requests' do
-    it 'does not disclose the secret param value' do
-      get '/api/v1/ai/governance/approval_requests', headers: headers, as: :json
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).not_to include(plaintext)
-    end
-
-    it 'still shows the non-secret params an approver needs' do
-      get '/api/v1/ai/governance/approval_requests', headers: headers, as: :json
-
-      expect(response.body).to include('peer-42')
-    end
-  end
-
-  describe 'GET /api/v1/ai/governance/approval_requests/:id' do
-    it 'does not disclose the secret param value' do
-      get "/api/v1/ai/governance/approval_requests/#{approval_request.id}",
-          headers: headers, as: :json
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).not_to include(plaintext)
-    end
-  end
-
   # Everything above reaches request_data through Ai::AutonomyGate, so the
   # gate's own redaction alone would satisfy it — which would leave the filters
   # on the two READ surfaces certifying nothing. request_data has producers
@@ -177,14 +155,6 @@ RSpec.describe 'Approval read surfaces do not disclose secret params', type: :re
       expect(response).to have_http_status(:ok)
       expect(response.body).not_to include(plaintext)
       expect(json_response_data.dig('request_data', 'action_type')).to eq('legacy')
-    end
-
-    it 'is redacted by the governance read surface' do
-      get "/api/v1/ai/governance/approval_requests/#{legacy_request.id}",
-          headers: headers, as: :json
-
-      expect(response).to have_http_status(:ok)
-      expect(response.body).not_to include(plaintext)
     end
   end
 end

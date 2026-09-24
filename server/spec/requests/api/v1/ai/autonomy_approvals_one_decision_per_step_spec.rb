@@ -43,35 +43,4 @@ RSpec.describe "POST /api/v1/ai/autonomy/approvals/:id/approve — one decision 
     expect(request_row.decisions.count).to eq(1)
     expect(request_row.reload.step_statuses[0]["current_approvals"]).to eq(1)
   end
-
-  context "through the governance decide door" do
-    let!(:approver) do
-      create(:user, account: account, permissions: [ "ai.governance.read", "ai.governance.manage", perm ])
-    end
-    let(:decide_path) { "/api/v1/ai/governance/approval_requests/#{request_row.id}/decide" }
-
-    def decide!
-      post decide_path, params: { decision: "approved" }, headers: auth_headers_for(approver), as: :json
-    end
-
-    it "answers the same approver's second decision with 422" do
-      decide!
-      expect(response).to have_http_status(:ok)
-
-      decide!
-      expect(response).to have_http_status(:unprocessable_content)
-      expect(request_row.decisions.count).to eq(1)
-      expect(request_row.reload.status).to eq("pending")
-    end
-
-    it "answers a same-approver race that got past the check with 422, not a 500" do
-      decide!
-      expect(response).to have_http_status(:ok)
-      allow_any_instance_of(Ai::ApprovalRequest).to receive(:decided_current_step?).and_return(false)
-
-      decide!
-      expect(response).to have_http_status(:unprocessable_content)
-      expect(request_row.decisions.count).to eq(1)
-    end
-  end
 end
