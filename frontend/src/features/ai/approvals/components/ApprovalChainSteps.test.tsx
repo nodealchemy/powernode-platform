@@ -4,7 +4,7 @@ import {
   ApprovalStepSummary,
   describeApprover,
 } from './ApprovalChainSteps';
-import type { ApprovalDecisionRecord, ApprovalStepStatus } from './approvalChainTypes';
+import type { ApprovalDecisionRecord, ApprovalStepStatus } from '../types/approvalChainTypes';
 
 // C3b oracle: "a two-step chain renders both steps". Plus the one rule the raw
 // wire gets wrong on its own — every step is written `pending` at creation, so

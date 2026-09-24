@@ -5,7 +5,7 @@ import type {
   ApprovalDecisionRecord,
   ApprovalStepStatus,
   ApproverSpec,
-} from '@/features/platform/status/components/approvals/approvalChainTypes';
+} from '../types/approvalChainTypes';
 
 // The approval CHAIN, step by step (C3b, checklist row 33). New capability: the
 // absorbed ApprovalQueuePanel never showed it, although every request has

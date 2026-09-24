@@ -378,3 +378,93 @@ describe('ApprovalQueuePanel card title', () => {
     expect(screen.getByText('system_fleet')).toBeInTheDocument();
   });
 });
+
+// fc-10: RemediationTab and the system extension's pending-approval toast both
+// deep-link into this surface with `?request=<id>`. The queue must expand that
+// row on its own — an operator should not have to find it among every other
+// pending request after the click.
+describe('ApprovalQueuePanel deep link (?request=)', () => {
+  const rowWithTitle = (id: string, actionType: string) => ({
+    ...PENDING_ROW,
+    id,
+    request_id: id,
+    action_type: actionType,
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    window.history.replaceState({}, '', '/');
+  });
+
+  it("opens already expanded on the row the URL names, and leaves the others collapsed", async () => {
+    mockGet.mockImplementation((url: string) => {
+      if (url === '/ai/autonomy/approvals') {
+        return Promise.resolve({
+          data: { data: [rowWithTitle('req-1', 'action one'), rowWithTitle('req-2', 'action two')] },
+        });
+      }
+      // The detail read for the pre-expanded row.
+      return Promise.resolve({
+        data: { data: { ...rowWithTitle('req-2', 'action two'), step_statuses: [], decisions: [] } },
+      });
+    });
+    window.history.pushState({}, '', '/app/ai/agents/autonomy/approvals?request=req-2');
+
+    renderPanel();
+
+    await screen.findByText('action one');
+
+    const rowTwo = document.querySelector('[data-approval-card="req-2"]') as HTMLElement;
+    await within(rowTwo).findByText('Approval chain');
+
+    const rowOne = document.querySelector('[data-approval-card="req-1"]') as HTMLElement;
+    expect(within(rowOne).queryByText('Approval chain')).not.toBeInTheDocument();
+  });
+
+  it('expands nothing extra when the URL names no request', async () => {
+    mockGet.mockResolvedValue({
+      data: { data: [rowWithTitle('req-1', 'action one')] },
+    });
+
+    renderPanel();
+
+    await screen.findByText('action one');
+    const rowOne = document.querySelector('[data-approval-card="req-1"]') as HTMLElement;
+    expect(within(rowOne).queryByText('Approval chain')).not.toBeInTheDocument();
+  });
+});
+
+// fc-10 D2: the hourly sweep (`check_expiration!`) is what actually flips a
+// timed-out row off "pending" — the server already refuses a decision on one
+// before that runs (`Ai::ApprovalRequest#can_approve?` checks `expired?`), so
+// the queue must say so rather than offering buttons that would 422.
+describe('ApprovalQueuePanel expired-but-not-yet-swept rows', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('shows an "Expired — awaiting sweep" badge and no decision buttons past expiry', async () => {
+    const past = new Date(Date.now() - 60_000).toISOString();
+    mockGet.mockResolvedValue({ data: { data: [{ ...PENDING_ROW, expires_at: past }] } });
+
+    renderPanel();
+
+    expect(await screen.findByText('Expired — awaiting sweep')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /approve/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reject/i })).not.toBeInTheDocument();
+  });
+
+  it('still offers decision buttons for a pending row that has not expired yet', async () => {
+    const future = new Date(Date.now() + 60_000).toISOString();
+    mockGet.mockResolvedValue({ data: { data: [{ ...PENDING_ROW, expires_at: future }] } });
+
+    renderPanel();
+
+    await screen.findByText(PENDING_ROW.action_type);
+    expect(screen.queryByText('Expired — awaiting sweep')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /approve/i })).toBeInTheDocument();
+  });
+});

@@ -1,9 +1,9 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useApprovalRequestDetail } from './useApprovalRequestDetail';
-import * as api from '@/features/platform/status/api/approvalsApi';
-import type { ApprovalRequestDetail } from '@/features/platform/status/components/approvals/approvalChainTypes';
+import * as api from '../api/approvalsApi';
+import type { ApprovalRequestDetail } from '../types/approvalChainTypes';
 
-jest.mock('@/features/platform/status/api/approvalsApi');
+jest.mock('../api/approvalsApi');
 
 const mockedApi = api as jest.Mocked<typeof api>;
 

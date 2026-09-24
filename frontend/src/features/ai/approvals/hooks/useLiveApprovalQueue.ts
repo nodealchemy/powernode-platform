@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useApprovalQueue } from '@/features/ai/autonomy/api/autonomyApi';
+import { useApprovalQueue } from '../api/approvalsApi';
 import { usePageWebSocket, type WebSocketDataUpdate } from '@/shared/hooks/usePageWebSocket';
 import { usePolling } from '@/shared/hooks/usePolling';
 

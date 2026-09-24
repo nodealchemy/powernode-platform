@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { logger } from '@/shared/utils/logger';
-import { fetchApprovalRequestDetail } from '@/features/platform/status/api/approvalsApi';
-import type { ApprovalRequestDetail } from '@/features/platform/status/components/approvals/approvalChainTypes';
+import { fetchApprovalRequestDetail } from '../api/approvalsApi';
+import type { ApprovalRequestDetail } from '../types/approvalChainTypes';
 
 // One approval request's chain detail, read when a card is expanded (C3b).
 //

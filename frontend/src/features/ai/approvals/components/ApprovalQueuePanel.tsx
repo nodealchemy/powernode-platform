@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Clock, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -6,14 +7,11 @@ import { OneShotRevealModal } from '@/shared/components/ui/OneShotRevealModal';
 import { EntityLink } from '@/shared/components/entity';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotification } from '@/shared/hooks/useNotification';
-import { useApproveAction, useRejectAction } from '../api/autonomyApi';
-import { useLiveApprovalQueue } from '@/features/platform/status/hooks/useLiveApprovalQueue';
-import { useApprovalRequestDetail } from '@/features/platform/status/hooks/useApprovalRequestDetail';
-import {
-  ApprovalChainSteps,
-  ApprovalStepSummary,
-} from '@/features/platform/status/components/approvals/ApprovalChainSteps';
-import type { ApprovalRequest } from '../types/autonomy';
+import { useApproveAction, useRejectAction } from '../api/approvalsApi';
+import { useLiveApprovalQueue } from '../hooks/useLiveApprovalQueue';
+import { useApprovalRequestDetail } from '../hooks/useApprovalRequestDetail';
+import { ApprovalChainSteps, ApprovalStepSummary } from './ApprovalChainSteps';
+import type { ApprovalRequest } from '../types/approval';
 
 // The approval queue (C3b part 2). Approvals keep their own surface by the
 // lead's C4 ruling; this panel gains what it never had: the chain, step by
@@ -101,11 +99,18 @@ const ApprovalCard: React.FC<{
   };
 
   const isPending = request.status === 'pending';
+  // The hourly sweep (`check_expiration!`) is what actually flips a timed-out
+  // row off "pending" — until it runs, an expired row still reads pending here
+  // although the server already refuses a decision on it (`can_approve?`
+  // returns false once `expired?`). Said explicitly rather than left to a
+  // silent 422: a row that LOOKS decidable but is not is worse than one that
+  // says so.
+  const isExpiredAwaitingSweep = isPending && !!request.expires_at && new Date(request.expires_at).getTime() < Date.now();
   // The server's answer for THIS viewer: the detail's once loaded (it is
   // re-read on every push for this request), otherwise the list row's.
   const canActOnStep = detail?.current_step_can_approve ?? request.current_step_can_approve;
-  const showDecisionButtons = isPending && canDecide && canActOnStep === true;
-  const viewerRefused = isPending && canDecide && canActOnStep === false;
+  const showDecisionButtons = isPending && !isExpiredAwaitingSweep && canDecide && canActOnStep === true;
+  const viewerRefused = isPending && !isExpiredAwaitingSweep && canDecide && canActOnStep === false;
   const requestDataKeys = Object.keys(request.request_data ?? {});
   const title = approvalTitle(request);
   // The description is the only operator-readable text on most rows; show it
@@ -134,7 +139,7 @@ const ApprovalCard: React.FC<{
   );
 
   return (
-    <div className="rounded-lg bg-theme-surface border border-theme overflow-hidden">
+    <div data-approval-card={request.id} className="rounded-lg bg-theme-surface border border-theme overflow-hidden">
       {/* Collapsed header */}
       <div
         onClick={onToggle}
@@ -156,6 +161,9 @@ const ApprovalCard: React.FC<{
             </span>
             {request.requires_human_session && (
               <Badge variant="default" size="sm">Needs a person</Badge>
+            )}
+            {isExpiredAwaitingSweep && (
+              <Badge variant="warning" size="sm">Expired — awaiting sweep</Badge>
             )}
           </div>
           {summary && (
@@ -285,7 +293,15 @@ const ApprovalCard: React.FC<{
 
 const LiveApprovalQueue: React.FC<{ canDecide: boolean }> = ({ canDecide }) => {
   const { data: approvals, isLoading, lastPush } = useLiveApprovalQueue();
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  // A deep link (RemediationTab, the system extension's pending-approval
+  // toast) names the request it wants opened via `?request=<id>`. Read once,
+  // into the initial state: this only needs to seed the starting expansion,
+  // never fight a click that later collapses the same row.
+  const [searchParams] = useSearchParams();
+  const deepLinkRequestId = searchParams.get('request');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(
+    () => new Set(deepLinkRequestId ? [deepLinkRequestId] : [])
+  );
   // Transient, panel-scoped, and dropped the moment the operator acknowledges:
   // the plaintext is never persisted, logged or sent anywhere from here.
   //
