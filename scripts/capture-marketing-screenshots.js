@@ -51,7 +51,7 @@ const CAPTURES = [
   { slug: 'marketing-homepage', url: '/', settle: 3000, spa: true },
   { slug: 'marketing-features', url: '/features', settle: 2000, spa: true },
   { slug: 'marketing-pricing', url: '/pricing', settle: 2000, spa: true },
-  { slug: 'fleet-dashboard', url: '/app/system/fleet', auth: 'admin', settle: 3000 },
+  { slug: 'fleet-dashboard', url: '/app/system/operations/fleet', auth: 'admin', settle: 3000 },
   { slug: 'template-composer', url: '/app/system/templates/compose', auth: 'admin', settle: 3000 },
   { slug: 'sdwan-overview', url: '/app/system/sdwan', auth: 'admin', settle: 3000 },
   // Demo Company captures (clean account, no private-extension leak) for
