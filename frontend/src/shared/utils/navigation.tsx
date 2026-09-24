@@ -346,8 +346,8 @@ export const defaultNavigationConfig: NavigationConfig = {
           name: 'Connections',
           href: '/app/devops/connections',
           icon: Plug,
-          description: 'Integrations, webhooks, API keys, and file storage',
-          permissions: ['integrations.read', 'webhook.read', 'api.manage_keys', 'admin.storage.read'],
+          description: 'Integrations, webhooks, and API keys',
+          permissions: ['integrations.read', 'webhook.read', 'api.manage_keys'],
           order: 4
         },
         {

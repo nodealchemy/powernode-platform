@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Puzzle, Link2, Key, HardDrive } from 'lucide-react';
+import { Puzzle, Link2, Key } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { IntegrationsPage } from '@/pages/app/devops/integrations';
 import WebhookManagementPage from '@/pages/app/devops/WebhooksPage';
 import { ApiKeysPage } from '@/pages/app/devops/ApiKeysPage';
-import StorageProvidersPage from '@/pages/app/admin/StorageProvidersPage';
 
+// No "File Storage" tab here — it duplicated the canonical /app/admin/storage
+// page (same StorageProvidersPage component); that admin route is canonical.
 const tabs = [
   { id: 'integrations', label: 'Integrations', icon: <Puzzle size={16} />, path: '/' },
   { id: 'webhooks', label: 'Webhooks', icon: <Link2 size={16} />, path: '/webhooks' },
   { id: 'api-keys', label: 'API Keys', icon: <Key size={16} />, path: '/api-keys' },
-  { id: 'storage', label: 'File Storage', icon: <HardDrive size={16} />, path: '/storage' },
 ];
 
 export const ConnectionsPage: React.FC = () => {
@@ -20,7 +20,6 @@ export const ConnectionsPage: React.FC = () => {
 
   const getActiveTab = () => {
     const path = location.pathname;
-    if (path.includes('/connections/storage')) return 'storage';
     if (path.includes('/connections/webhooks')) return 'webhooks';
     if (path.includes('/connections/api-keys')) return 'api-keys';
     return 'integrations';
@@ -51,7 +50,7 @@ export const ConnectionsPage: React.FC = () => {
   return (
     <PageContainer
       title="Connections"
-      description="Integrations, webhooks, API keys, and file storage"
+      description="Integrations, webhooks, and API keys"
       breadcrumbs={getBreadcrumbs()}
     >
       <TabContainer
@@ -70,9 +69,6 @@ export const ConnectionsPage: React.FC = () => {
         </TabPanel>
         <TabPanel tabId="api-keys" activeTab={activeTab}>
           <ApiKeysPage />
-        </TabPanel>
-        <TabPanel tabId="storage" activeTab={activeTab}>
-          <StorageProvidersPage />
         </TabPanel>
       </TabContainer>
     </PageContainer>

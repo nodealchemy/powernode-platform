@@ -224,7 +224,6 @@ const DashboardPage: React.FC = () => {
         <Route path="/content/kb/articles/:id" element={<KnowledgeBaseArticlePage />} />
         <Route path="/content/kb/articles/new" element={<KnowledgeBaseArticleEditor />} />
         <Route path="/content/kb/articles/:id/edit" element={<KnowledgeBaseArticleEditor />} />
-        <Route path="/content/kb/admin" element={<KnowledgeBaseAdminPage />} />
         <Route path="/content/kb/manage" element={<KnowledgeBaseAdminPage />} />
         {/* Business routes handled by featureRegistry (business) */}
 

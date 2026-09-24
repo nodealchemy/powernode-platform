@@ -1,17 +1,17 @@
 import React from 'react';
 import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { DollarSign, TrendingUp, Wallet } from 'lucide-react';
+import { DollarSign, Wallet } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
-import { CostOverviewPanel } from '../components/CostOverviewPanel';
 import { CostTrendChart } from '../components/CostTrendChart';
 import { BudgetUtilizationPanel } from '../components/BudgetUtilizationPanel';
 import { OptimizationRecommendations } from '../components/OptimizationRecommendations';
 
 const FINOPS_BASE = '/app/ai/cost/finops';
 
+// No "Overview" tab here — it duplicated CostPage's own `/app/ai/cost/overview`
+// (same CostOverviewPanel + CostTrendChart); that top-level tab is canonical.
 const TABS = [
-  { key: 'overview', label: 'Overview', icon: TrendingUp },
   { key: 'cost-explorer', label: 'Cost Explorer', icon: DollarSign },
   { key: 'budget', label: 'Budget', icon: Wallet },
 ] as const;
@@ -34,7 +34,7 @@ export const FinOpsContent: React.FC = () => {
     );
   }
 
-  const activeTab = TABS.find((t) => location.pathname.endsWith(`/${t.key}`))?.key ?? 'overview';
+  const activeTab = TABS.find((t) => location.pathname.endsWith(`/${t.key}`))?.key ?? 'cost-explorer';
 
   return (
     <div className="space-y-6">
@@ -60,16 +60,7 @@ export const FinOpsContent: React.FC = () => {
       </nav>
 
       <Routes>
-        <Route index element={<Navigate to="overview" replace />} />
-        <Route
-          path="overview"
-          element={
-            <div className="space-y-6">
-              <CostOverviewPanel />
-              <CostTrendChart />
-            </div>
-          }
-        />
+        <Route index element={<Navigate to="cost-explorer" replace />} />
         <Route
           path="cost-explorer"
           element={
@@ -80,7 +71,7 @@ export const FinOpsContent: React.FC = () => {
           }
         />
         <Route path="budget" element={<BudgetUtilizationPanel />} />
-        <Route path="*" element={<Navigate to="overview" replace />} />
+        <Route path="*" element={<Navigate to="cost-explorer" replace />} />
       </Routes>
     </div>
   );

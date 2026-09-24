@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Database, Brain, BookOpen } from 'lucide-react';
+import { Database, Brain } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { MemoryExplorerContent } from './MemoryExplorerPage';
 import { AgentMemoryContent } from '../components/AgentMemoryContent';
-import { ContextsContent } from '@/pages/app/ai/ContextsPage';
 
+// No "Contexts & Search" tab here — it duplicated the top-level
+// `/app/ai/knowledge/contexts` tab (same ContextsContent); that tab is canonical.
 const tabs = [
   { id: 'tiers', label: 'Tier Explorer', icon: <Database size={16} />, path: '/' },
   { id: 'agent-memory', label: 'Agent Memory', icon: <Brain size={16} />, path: '/agent-memory' },
-  { id: 'contexts', label: 'Contexts & Search', icon: <BookOpen size={16} />, path: '/contexts' },
 ];
 
 /**
@@ -23,7 +23,6 @@ export const KnowledgeMemoryContent: React.FC<{ onActionsReady?: (actions: PageA
   const getActiveTab = () => {
     const path = location.pathname;
     if (path.includes('/memory/agent-memory') || path.includes('/knowledge/memory/agent-memory')) return 'agent-memory';
-    if (path.includes('/memory/contexts') || path.includes('/knowledge/memory/contexts')) return 'contexts';
     return 'tiers';
   };
 
@@ -52,9 +51,6 @@ export const KnowledgeMemoryContent: React.FC<{ onActionsReady?: (actions: PageA
       </TabPanel>
       <TabPanel tabId="agent-memory" activeTab={activeTab}>
         <AgentMemoryContent onActionsReady={handleActionsReady} />
-      </TabPanel>
-      <TabPanel tabId="contexts" activeTab={activeTab}>
-        <ContextsContent onActionsReady={handleActionsReady} />
       </TabPanel>
     </TabContainer>
   );
