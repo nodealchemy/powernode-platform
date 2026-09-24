@@ -34,7 +34,6 @@ The access layer is already 100% permission-based (`permissionUtils.hasAdminAcce
 **Action:** confirm no hidden role-gated access path; document; do not rewrite.
 
 ### Hardcoded colors → theme classes (~20 real)
-- `pages/app/ai/AgentMarketplacePage.tsx` — 8× `focus:ring-blue-500` → `focus:ring-theme-interactive-primary` (proven canonical).
 - Sweep ~12 remaining offenders in `features/` + `pages/`.
 - **Exclude:** `pages/public/WelcomePage.tsx` (intentional marketing gradient), `var(--theme-*, #hex)` fallbacks, test files.
 
