@@ -8,13 +8,17 @@ describe('PermissionSelector', () => {
     { id: 'role-3', name: 'Viewer', description: 'Read-only access' }
   ];
 
+  // Permissions are identified by `key` (the dotted catalog name) — the real
+  // Permission shape (delegationApi.ts, PermissionSelector's own local type)
+  // carries no `id` field at all; `key` IS the selection identifier
+  // PermissionSelector reads and reports back through onPermissionChange.
   const mockPermissions = [
-    { id: 'perm-1', resource: 'users', action: 'read', description: 'View users', key: 'users.read' },
-    { id: 'perm-2', resource: 'users', action: 'create', description: 'Create users', key: 'users.create' },
-    { id: 'perm-3', resource: 'users', action: 'delete', description: 'Delete users', key: 'users.delete' },
-    { id: 'perm-4', resource: 'billing', action: 'read', description: 'View billing', key: 'business.billing.read' },
-    { id: 'perm-5', resource: 'billing', action: 'update', description: 'Update billing', key: 'business.billing.update' },
-    { id: 'perm-6', resource: 'analytics', action: 'export', description: 'Export analytics', key: 'analytics.export' }
+    { resource: 'users', action: 'read', description: 'View users', key: 'users.read' },
+    { resource: 'users', action: 'create', description: 'Create users', key: 'users.create' },
+    { resource: 'users', action: 'delete', description: 'Delete users', key: 'users.delete' },
+    { resource: 'billing', action: 'read', description: 'View billing', key: 'business.billing.read' },
+    { resource: 'billing', action: 'update', description: 'Update billing', key: 'business.billing.update' },
+    { resource: 'analytics', action: 'export', description: 'Export analytics', key: 'analytics.export' }
   ];
 
   const defaultProps = {
@@ -58,7 +62,7 @@ describe('PermissionSelector', () => {
     });
 
     it('shows selected count', () => {
-      render(<PermissionSelector {...defaultProps} selectedPermissionIds={['perm-1', 'perm-2']} />);
+      render(<PermissionSelector {...defaultProps} selectedPermissionIds={['users.read', 'users.create']} />);
 
       // Count appears in header and in resource groups
       const selectedTexts = screen.getAllByText('2 selected');
@@ -78,7 +82,7 @@ describe('PermissionSelector', () => {
     });
 
     it('hides warning when permissions are selected', () => {
-      render(<PermissionSelector {...defaultProps} selectedPermissionIds={['perm-1']} />);
+      render(<PermissionSelector {...defaultProps} selectedPermissionIds={['users.read']} />);
 
       expect(screen.queryByText(/Please select either a role or specific permissions/)).not.toBeInTheDocument();
     });
@@ -226,7 +230,7 @@ describe('PermissionSelector', () => {
     });
 
     it('shows selected count per resource', () => {
-      render(<PermissionSelector {...defaultProps} selectedPermissionIds={['perm-1', 'perm-2']} />);
+      render(<PermissionSelector {...defaultProps} selectedPermissionIds={['users.read', 'users.create']} />);
 
       // users resource has 2 selected
       const selectedTexts = screen.getAllByText(/\d+ selected/);
@@ -267,7 +271,7 @@ describe('PermissionSelector', () => {
       const permissionRow = screen.getByText('users.read').closest('div[class*="cursor-pointer"]');
       fireEvent.click(permissionRow!);
 
-      expect(onPermissionChange).toHaveBeenCalledWith(['perm-1']);
+      expect(onPermissionChange).toHaveBeenCalledWith(['users.read']);
     });
 
     it('removes permission when already selected', () => {
@@ -275,7 +279,7 @@ describe('PermissionSelector', () => {
       render(
         <PermissionSelector
           {...defaultProps}
-          selectedPermissionIds={['perm-1']}
+          selectedPermissionIds={['users.read']}
           onPermissionChange={onPermissionChange}
         />
       );
@@ -305,7 +309,7 @@ describe('PermissionSelector', () => {
       const usersHeader = screen.getByText('users').closest('div[class*="cursor-pointer"]');
       fireEvent.click(usersHeader!);
 
-      expect(onPermissionChange).toHaveBeenCalledWith(['perm-1', 'perm-2', 'perm-3']);
+      expect(onPermissionChange).toHaveBeenCalledWith(['users.read', 'users.create', 'users.delete']);
     });
 
     it('deselects all when all are already selected', () => {
@@ -313,7 +317,7 @@ describe('PermissionSelector', () => {
       render(
         <PermissionSelector
           {...defaultProps}
-          selectedPermissionIds={['perm-1', 'perm-2', 'perm-3']}
+          selectedPermissionIds={['users.read', 'users.create', 'users.delete']}
           onPermissionChange={onPermissionChange}
         />
       );
@@ -329,7 +333,7 @@ describe('PermissionSelector', () => {
       render(
         <PermissionSelector
           {...defaultProps}
-          selectedPermissionIds={['perm-4']}
+          selectedPermissionIds={['business.billing.read']}
           onPermissionChange={onPermissionChange}
         />
       );
@@ -337,7 +341,7 @@ describe('PermissionSelector', () => {
       const usersHeader = screen.getByText('users').closest('div[class*="cursor-pointer"]');
       fireEvent.click(usersHeader!);
 
-      expect(onPermissionChange).toHaveBeenCalledWith(['perm-4', 'perm-1', 'perm-2', 'perm-3']);
+      expect(onPermissionChange).toHaveBeenCalledWith(['business.billing.read', 'users.read', 'users.create', 'users.delete']);
     });
 
     it('does not toggle when disabled', () => {
@@ -356,7 +360,7 @@ describe('PermissionSelector', () => {
       render(
         <PermissionSelector
           {...defaultProps}
-          selectedPermissionIds={['perm-1', 'perm-2', 'perm-3']}
+          selectedPermissionIds={['users.read', 'users.create', 'users.delete']}
         />
       );
 
@@ -369,7 +373,7 @@ describe('PermissionSelector', () => {
       render(
         <PermissionSelector
           {...defaultProps}
-          selectedPermissionIds={['perm-1']}
+          selectedPermissionIds={['users.read']}
         />
       );
 
@@ -382,7 +386,7 @@ describe('PermissionSelector', () => {
       render(
         <PermissionSelector
           {...defaultProps}
-          selectedPermissionIds={['perm-1']}
+          selectedPermissionIds={['users.read']}
         />
       );
 
