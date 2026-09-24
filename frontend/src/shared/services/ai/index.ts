@@ -268,7 +268,6 @@ export type {
   CompliancePolicy,
   PolicyViolation,
   ApprovalChain,
-  ApprovalRequest,
   DataClassification,
   DataDetection,
   ComplianceReport,

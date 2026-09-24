@@ -62,25 +62,6 @@ export interface ApprovalChain {
   created_at: string;
 }
 
-export interface ApprovalRequest {
-  id: string;
-  request_id: string;
-  status: 'pending' | 'approved' | 'rejected' | 'expired' | 'cancelled';
-  source_type: string | null;
-  source_id: string | null;
-  description: string | null;
-  request_data: Record<string, unknown>;
-  step_statuses: unknown[];
-  current_step: number;
-  expires_at: string | null;
-  completed_at: string | null;
-  created_at: string;
-  approval_chain: {
-    id: string;
-    name: string;
-  };
-}
-
 export interface DataClassification {
   id: string;
   name: string;
@@ -223,8 +204,6 @@ export interface ViolationFilters extends QueryFilters {
   severity?: string;
 }
 
-export type ApprovalRequestFilters = QueryFilters;
-
 export interface AuditFilters extends QueryFilters {
   action_type?: string;
   resource_type?: string;
@@ -278,30 +257,12 @@ class GovernanceApiService extends BaseApiService {
     return this.put(`${this.basePath}/violations/${id}/resolve`, data);
   }
 
-  // Approval Chains
-  async createApprovalChain(data: {
-    name: string;
-    trigger_type: string;
-    steps: unknown[];
-    description?: string;
-    timeout_hours?: number;
-  }): Promise<{ approval_chain: ApprovalChain }> {
-    return this.post(`${this.basePath}/approval_chains`, data);
-  }
-
   // Single-chain show lives on the standalone Ai::ApprovalChainsController
   // (GET /ai/approval_chains/:id), NOT under /ai/governance — the governance
-  // approval_chains route is index/create only. The show action renders
-  // `data: serialize(chain)`, which BaseApiService#extractData unwraps to the
-  // chain itself.
+  // approval_chains route was index/create only, and both were deleted with
+  // the Governance Approvals tab (fc-11).
   async getApprovalChain(id: string): Promise<ApprovalChain> {
     return this.get<ApprovalChain>(`/ai/approval_chains/${id}`);
-  }
-
-  // Approval Requests
-  async getApprovalRequests(filters: ApprovalRequestFilters = {}): Promise<PaginatedResponse<ApprovalRequest>> {
-    const queryString = this.buildQueryString(filters);
-    return this.get<PaginatedResponse<ApprovalRequest>>(`${this.basePath}/approval_requests${queryString}`);
   }
 
   // Data Classifications
