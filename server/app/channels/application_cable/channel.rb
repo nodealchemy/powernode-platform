@@ -4,13 +4,18 @@ module ApplicationCable
   class Channel < ActionCable::Channel::Base
     # N2: a socket opened BEFORE maintenance mode was enabled is otherwise
     # never re-checked — Connection#authenticate_user only gates the initial
-    # handshake. Two chokepoints close that gap for every channel that
+    # handshake. Three chokepoints close that gap for every channel that
     # inherits from this base, with no per-channel code:
     #   - before_subscribe: a NEW subscription attempt over an
     #     already-open (grandfathered) connection is rejected.
     #   - #perform_action: every subsequent action call on an EXISTING
     #     subscription is rejected/closed once maintenance turns on mid-session.
+    #   - periodically :enforce_maintenance!: catches a PASSIVE subscriber —
+    #     one that only streams broadcasts and never calls an action at all
+    #     (e.g. NotificationChannel with nothing pending) — which the two
+    #     hooks above would otherwise never reach.
     before_subscribe :reject_if_maintenance_blocked!
+    periodically :enforce_maintenance!, every: 30.seconds
 
     # Overrides ActionCable::Channel::Base#perform_action, which is PUBLIC
     # (the dispatcher calls it from outside the channel instance) — must stay
@@ -57,26 +62,34 @@ module ApplicationCable
       throw :abort
     end
 
+    # The periodic re-check (see periodically above). Same close path as
+    # #perform_action's — a passive subscriber gets the SAME
+    # reason: "maintenance_mode" disconnect frame a mid-action user would.
+    def enforce_maintenance!
+      close_for_maintenance! if maintenance_blocked?
+    end
+
     # `current_user` is delegated from the connection (identified_by); a
     # worker-authenticated channel (current_user nil) is never gated here —
     # consistent with Admin::MaintenanceMode.blocked? only ever being called
     # against a resolved user principal on the REST/MCP/cable-connect paths.
     #
-    # `connection.request`/`connection.impersonator` are read defensively
-    # (`respond_to?`) rather than bare, because ActionCable::Channel::TestCase's
-    # ConnectionStub (`stub_connection` in a channel spec) implements neither —
-    # only whatever identifiers a given spec explicitly stubs. Every existing
-    # channel spec calls `stub_connection current_user: ...` without an
-    # `impersonator:` or `request:`, so referencing either one un-guarded here
-    # would raise NoMethodError in EVERY channel spec, not just one exercising
-    # maintenance mode.
+    # Reads the remote IP via `connection.maintenance_remote_ip` — NOT
+    # `connection.request.remote_ip`. `request` is declared PRIVATE on
+    # ActionCable::Connection::Base, so it is unreachable from a DIFFERENT
+    # object (this Channel) in PRODUCTION too, not just in a test harness —
+    # `connection.respond_to?(:request)` is false either way. Guarded with
+    # `respond_to?` regardless, because ActionCable::Channel::TestCase's
+    # ConnectionStub (`stub_connection` in a channel spec) doesn't define
+    # `maintenance_remote_ip` unless a spec explicitly stubs it, and every
+    # PRE-EXISTING channel spec calls `stub_connection current_user: ...`
+    # without it.
     def maintenance_blocked?
       return false unless current_user
 
-      remote_ip = connection.respond_to?(:request) ? connection.request.remote_ip : nil
-      impersonator = connection.respond_to?(:impersonator) ? connection.impersonator : nil
+      remote_ip = connection.respond_to?(:maintenance_remote_ip) ? connection.maintenance_remote_ip : nil
 
-      Admin::MaintenanceMode.blocked?(remote_ip) { |perm| current_user.has_permission?(perm) || (impersonator && impersonator.has_permission?(perm)) }
+      Admin::MaintenanceMode.blocked?(remote_ip) { |perm| current_user.has_permission?(perm) }
     end
 
     # Real Connection#close is public and works from a Channel (Channel has a

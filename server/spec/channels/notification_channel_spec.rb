@@ -69,6 +69,15 @@ RSpec.describe NotificationChannel, type: :channel do
   # every channel that inherits from it stops being usable once maintenance
   # turns on mid-session, with no per-channel code required.
   describe 'maintenance mode (ApplicationCable::Channel base-class gate)' do
+    # `verify_partial_doubles` (spec_helper.rb) refuses to stub a method a
+    # double doesn't already define — ConnectionStub has no #close (only
+    # #transmit), so it's defined here first, making
+    # `connection.respond_to?(:close)` true and the subsequent `close`
+    # branch (not the reject-fallback) run for real.
+    def stub_connection_close(conn)
+      conn.define_singleton_method(:close) { |**_kwargs| }
+    end
+
     after do
       Admin::MaintenanceMode.disable!
       Admin::MaintenanceMode.invalidate_cache!
@@ -83,30 +92,67 @@ RSpec.describe NotificationChannel, type: :channel do
       expect(subscription).to be_rejected
     end
 
-    it 'stops an ALREADY-SUBSCRIBED (grandfathered) connection from performing further actions once maintenance turns on' do
+    it 'closes with the distinct maintenance_mode reason when an already-subscribed (grandfathered) connection performs an action' do
+      stub_connection_close(connection)
       subscribe(account_id: account.id)
       expect(subscription).to be_confirmed
 
       Admin::MaintenanceMode.enable!(message: 'Upgrading')
       Admin::MaintenanceMode.invalidate_cache!
 
+      expect(connection).to receive(:close).with(reason: 'maintenance_mode', reconnect: false)
       perform :ping
-
-      expect(subscription).to be_rejected
     end
 
-    it 'exempts a system.admin holder from both the subscribe-time and perform-time checks' do
+    it 'closes a PASSIVE subscriber (never calls an action) via the periodic re-check' do
+      stub_connection_close(connection)
+      subscribe(account_id: account.id)
+      expect(subscription).to be_confirmed
+
+      Admin::MaintenanceMode.enable!(message: 'Upgrading')
+      Admin::MaintenanceMode.invalidate_cache!
+
+      # periodically's real timer never fires in this harness (ChannelStub
+      # makes start_periodic_timers a no-op) — invoke the registered
+      # callback directly, same technique as testing any other private hook.
+      expect(connection).to receive(:close).with(reason: 'maintenance_mode', reconnect: false)
+      subscription.send(:enforce_maintenance!)
+    end
+
+    it 'exempts a system.admin holder from the subscribe-time, perform-time, AND periodic checks' do
       admin = create(:user, account: account, permissions: [ 'system.admin' ])
       stub_connection current_user: admin
+      stub_connection_close(connection)
       Admin::MaintenanceMode.enable!(message: 'Upgrading')
       Admin::MaintenanceMode.invalidate_cache!
 
       subscribe(account_id: account.id)
       expect(subscription).to be_confirmed
 
+      expect(connection).not_to receive(:close)
       perform :ping
-
+      subscription.send(:enforce_maintenance!)
       expect(subscription).not_to be_rejected
+    end
+
+    # Item 1 (HIGH fix): `request` is private on ActionCable::Connection::Base,
+    # so a Channel reads the remote IP via the new public
+    # Connection#maintenance_remote_ip instead — this is what actually lets a
+    # bypass-listed non-admin through the Channel-level gate.
+    it 'exempts a non-admin connecting from a configured bypass IP' do
+      with_trusted_proxy_cidrs('10.10.10.10/32') do
+        Admin::MaintenanceMode.enable!(message: 'Upgrading', bypass_ips: [ '203.0.113.5' ])
+        Admin::MaintenanceMode.invalidate_cache!
+
+        stub_connection_close(connection)
+        connection.define_singleton_method(:maintenance_remote_ip) { '203.0.113.5' }
+
+        subscribe(account_id: account.id)
+        expect(subscription).to be_confirmed
+
+        expect(connection).not_to receive(:close)
+        perform :ping
+      end
     end
   end
 
