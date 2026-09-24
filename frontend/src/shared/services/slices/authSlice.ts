@@ -145,16 +145,21 @@ export const getCurrentUser = createAsyncThunk(
       const errorMessage = isErrorWithResponse(error)
         ? (error.response?.data?.error || error.response?.data?.message || 'Failed to get current user')
         : getErrorMessage(error);
+      // Admin::MaintenanceMode's gate (server/app/controllers/concerns/
+      // authentication.rb) — a 503 carrying this code means the request
+      // never reached the resource; the user's own session was never
+      // evaluated as invalid. See the .rejected reducer below.
+      const errorCode = isErrorWithResponse(error) ? error.response?.data?.code : undefined;
 
       // Check for token invalidity issues that require immediate token clearance
       if (isErrorWithResponse(error) && error.response?.status === 401 &&
           (errorMessage.includes('Invalid token') ||
            errorMessage.includes('Signature verification failed') ||
            errorMessage.includes('Token has been blacklisted'))) {
-        return rejectWithValue({ clearTokens: true, message: errorMessage });
+        return rejectWithValue({ clearTokens: true, message: errorMessage, code: errorCode });
       }
 
-      return rejectWithValue({ clearTokens: false, message: errorMessage });
+      return rejectWithValue({ clearTokens: false, message: errorMessage, code: errorCode });
     }
   }
 );
@@ -429,14 +434,24 @@ const authSlice = createSlice({
       })
       .addCase(getCurrentUser.rejected, (state, action) => {
         state.isLoading = false;
-        const payload = action.payload as { clearTokens: boolean; message: string } | string;
+        const payload = action.payload as { clearTokens: boolean; message: string; code?: string } | string;
+        state.error = typeof payload === 'object' ? payload.message : (payload || 'Failed to get current user');
 
-        // Clear all authentication data when getCurrentUser fails
+        // A maintenance_mode 503 means the request never reached the
+        // resource — the user's session was never evaluated as invalid, so
+        // clearing it here would silently log them out the moment
+        // MaintenanceScreen (api.ts's interceptor) takes over, for a
+        // condition that has nothing to do with their session's validity.
+        if (typeof payload === 'object' && payload.code === 'maintenance_mode') {
+          return;
+        }
+
+        // Clear all authentication data when getCurrentUser fails for any
+        // other reason.
         state.user = null;
         state.access_token = null;
         state.refresh_token = null;
         state.isAuthenticated = false;
-        state.error = typeof payload === 'object' ? payload.message : (payload || 'Failed to get current user');
       })
       
       // Resend verification email

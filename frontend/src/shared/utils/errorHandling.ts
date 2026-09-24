@@ -10,6 +10,7 @@ export interface ErrorWithResponse {
       message?: string;
       error?: string;
       errors?: string[];
+      code?: string;
     };
     status?: number;
   };

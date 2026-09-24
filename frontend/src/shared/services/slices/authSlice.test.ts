@@ -350,6 +350,37 @@ describe('authSlice', () => {
       expect(state.user).toBeNull();
       expect(state.isAuthenticated).toBe(false);
     });
+
+    it('does NOT clear auth state when the rejection carries the maintenance_mode error code', async () => {
+      // Seed an already-authenticated session, same technique the
+      // refreshAccessToken tests below use.
+      store.dispatch({
+        type: 'auth/login/fulfilled',
+        payload: {
+          user: { id: '1', email: 'test@example.com' },
+          access_token: 'existing-token',
+          refresh_token: 'existing-refresh',
+        },
+      });
+
+      mockedAuthAPI.getCurrentUser.mockRejectedValueOnce({
+        response: {
+          status: 503,
+          data: { error: 'Upgrading the database', code: 'maintenance_mode' },
+        },
+      });
+
+      await store.dispatch(getCurrentUser(false));
+
+      const state = store.getState().auth;
+      // Admin::MaintenanceMode's gate (server/app/controllers/concerns/
+      // authentication.rb) means this request never reached the resource —
+      // the session itself was never invalidated, so it must survive.
+      expect(state.user).toEqual({ id: '1', email: 'test@example.com' });
+      expect(state.access_token).toBe('existing-token');
+      expect(state.isAuthenticated).toBe(true);
+      expect(state.error).toBe('Upgrading the database');
+    });
   });
 
   describe('refreshAccessToken async thunk', () => {
