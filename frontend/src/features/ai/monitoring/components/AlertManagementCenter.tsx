@@ -228,8 +228,8 @@ export const AlertManagementCenter: React.FC<AlertManagementCenterProps> = ({
                     )}
                   </div>
 
-                  {/* Actions */}
-                  {canManageAlerts && !alert.resolved && (
+                  {/* Actions (alerts stored before alerts had ids cannot be addressed) */}
+                  {canManageAlerts && alert.id && !alert.resolved && (
                     <div className="flex items-center gap-2 pt-2">
                       {!alert.acknowledged && (
                         <Button

@@ -6,13 +6,14 @@ const mockAddNotification = jest.fn();
 const mockGetAlerts = jest.fn();
 const mockAcknowledgeAlert = jest.fn();
 const mockResolveAlert = jest.fn();
+let mockAllowed = ['ai.aiops.read', 'ai.aiops.manage'];
 
 jest.mock('@/shared/components/layout/PageContainer', () => ({
   PageContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 jest.mock('@/shared/hooks/usePermissions', () => ({
   usePermissions: () => ({
-    hasPermission: (p: string) => ['ai.aiops.read', 'ai.aiops.manage'].includes(p),
+    hasPermission: (p: string) => mockAllowed.includes(p),
   }),
 }));
 jest.mock('@/shared/hooks/useNotifications', () => ({
@@ -71,7 +72,24 @@ const confirmInModal = (label: string) =>
 
 describe('OperationsPage alert actions', () => {
   beforeEach(() => {
+    mockAllowed = ['ai.aiops.read', 'ai.aiops.manage'];
     mockGetAlerts.mockResolvedValue([apiAlert()]);
+  });
+
+  it('offers no actions on an alert without an id (stored before alerts had ids)', async () => {
+    mockGetAlerts.mockResolvedValue([apiAlert({ id: undefined })]);
+    await renderAlertsShowingAll();
+
+    expect(screen.queryByRole('button', { name: /^Acknowledge$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Resolve$/ })).not.toBeInTheDocument();
+  });
+
+  it('gates the actions on ai.aiops.manage alone, as the server does', async () => {
+    mockAllowed = ['ai.aiops.read', 'admin.access'];
+    await renderAlertsShowingAll();
+
+    expect(screen.queryByRole('button', { name: /^Acknowledge$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Resolve$/ })).not.toBeInTheDocument();
   });
 
   it('acknowledges through the API and updates the row', async () => {
