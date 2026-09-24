@@ -43,6 +43,11 @@ export interface MaintenanceStatus {
   message?: string;
   estimated_completion?: string;
   bypass_ips?: string[];
+  // False when TRUSTED_PROXY_CIDRS is unset server-side — see
+  // Admin::MaintenanceMode#trusted_proxies_configured?. The Mode tab uses
+  // this to disable/explain the bypass-IP field rather than accepting input
+  // a save will always reject with a 422.
+  bypass_ips_supported?: boolean;
 }
 
 export interface BackupInfo {
@@ -133,7 +138,8 @@ class MaintenanceApiService {
       mode: data.enabled,
       message: data.message,
       estimated_completion: data.estimated_completion,
-      bypass_ips: data.bypass_ips
+      bypass_ips: data.bypass_ips,
+      bypass_ips_supported: data.bypass_ips_supported
     };
   }
 

@@ -13,26 +13,60 @@ export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, 
   // the store's current list so re-saving the message doesn't drop it.
   const [bypassIpsText, setBypassIpsText] = useState((status.bypass_ips || []).join(', '));
 
+  // Undefined (older server, or a status shape a test doesn't set) is treated
+  // as supported — only an explicit `false` (Admin::MaintenanceMode's
+  // trusted_proxies_configured? returning false) disables the field.
+  const bypassSupported = status.bypass_ips_supported !== false;
+
   const parseBypassIps = () =>
     bypassIpsText
       .split(/[,\s]+/)
       .map((entry) => entry.trim())
       .filter(Boolean);
 
-  const handleToggleMode = async () => {
+  const applyChange = async (enabled: boolean) => {
     setSubmitting(true);
     try {
-      await maintenanceApi.setMaintenanceMode(!status.mode, message, estimatedCompletion || undefined, parseBypassIps());
+      await maintenanceApi.setMaintenanceMode(enabled, message, estimatedCompletion || undefined, parseBypassIps());
       showNotification(
-        status.mode ? 'Maintenance mode disabled' : 'Maintenance mode enabled',
+        enabled ? 'Maintenance mode enabled' : 'Maintenance mode disabled',
         'success'
       );
       onUpdate();
-    } catch (_error) {
-      showNotification('Failed to update maintenance mode', 'error');
+    } catch (error) {
+      // Surface the SERVER's own message (e.g. Admin::MaintenanceMode's
+      // InvalidBypassIp 422 explaining a rejected bypass-IP write) rather
+      // than a generic string — an admin editing the bypass list needs to
+      // know WHY the write was rejected, not just that it was.
+      const errorMessage = error instanceof Error && error.message
+        ? error.message
+        : 'Failed to update maintenance mode';
+      showNotification(errorMessage, 'error');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleToggleMode = async () => {
+    // Confirm only on the OFF -> ON transition: enabling maintenance mode is
+    // disruptive (blocks every non-exempt, non-bypassed user immediately);
+    // disabling it is not, so it needs no confirmation.
+    if (!status.mode) {
+      const confirmed = window.confirm(
+        'Enable maintenance mode? This will block access for all non-admin users immediately.'
+      );
+      if (!confirmed) return;
+    }
+
+    await applyChange(!status.mode);
+  };
+
+  // Saves message/ETA/bypass IPs WITHOUT flipping `mode` — lets an admin
+  // update the maintenance message or bypass list while maintenance is
+  // already on (or stage them before turning it on), without a disable +
+  // re-enable round trip.
+  const handleSave = async () => {
+    await applyChange(status.mode);
   };
 
   return (
@@ -108,12 +142,31 @@ export const MaintenanceModeTab: React.FC<MaintenanceModeTabProps> = ({ status, 
               placeholder="203.0.113.5, 198.51.100.0/24"
               value={bypassIpsText}
               onChange={(e) => setBypassIpsText(e.target.value)}
-              disabled={submitting}
+              disabled={submitting || !bypassSupported}
               className="input-theme w-full"
             />
-            <p className="text-xs text-theme-secondary mt-1">
-              Comma-separated IPs or CIDR ranges exempt from the maintenance gate.
-            </p>
+            {bypassSupported ? (
+              <p className="text-xs text-theme-secondary mt-1">
+                Comma-separated IPs or CIDR ranges exempt from the maintenance gate.
+              </p>
+            ) : (
+              <p className="text-xs text-theme-warning-fg mt-1">
+                Bypass IPs are unavailable until the server sets TRUSTED_PROXY_CIDRS
+                (see docs/operations/trusted-proxy-cidrs.md) — without it, a bypass
+                IP can never be trusted.
+              </p>
+            )}
+          </div>
+
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={submitting}
+              className="btn-theme btn-theme-secondary"
+            >
+              Save
+            </button>
           </div>
         </div>
       </SettingsCard>
