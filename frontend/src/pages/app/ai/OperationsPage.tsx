@@ -83,6 +83,33 @@ export const OperationsPage: React.FC = () => {
     fetchAlerts();
   }, [canViewOperations, fetchAlerts]);
 
+  // Acknowledge / resolve through the API, then swap in the server's copy of
+  // the alert so the row reflects what was actually persisted.
+  const updateAlert = useCallback(async (
+    action: 'acknowledge' | 'resolve',
+    alertId: string,
+    note?: string
+  ) => {
+    try {
+      const updated = action === 'acknowledge'
+        ? await monitoringApi.acknowledgeAlert(alertId, note)
+        : await monitoringApi.resolveAlert(alertId, note);
+      const [row] = transformAlerts([updated]);
+      setAlerts(prev => prev.map(a => (a.id === row.id ? row : a)));
+      addNotificationRef.current({
+        type: action === 'acknowledge' ? 'info' : 'success',
+        title: action === 'acknowledge' ? 'Alert Acknowledged' : 'Alert Resolved',
+        message: row.message
+      });
+    } catch (err) {
+      addNotificationRef.current({
+        type: 'error',
+        title: action === 'acknowledge' ? 'Failed to acknowledge alert' : 'Failed to resolve alert',
+        message: err instanceof Error ? err.message : 'Unknown error'
+      });
+    }
+  }, []);
+
   const firstTabPath = firstAccessibleTabPath(OPERATIONS_TABS, OPERATIONS_BASE, hasPermission);
 
   if (!firstTabPath) {
@@ -146,21 +173,11 @@ export const OperationsPage: React.FC = () => {
                     isLoading={isLoading}
                     canManageAlerts={canManageAlerts}
                     onRefresh={fetchAlerts}
-                    onAcknowledgeAlert={async (alertId: string, note?: string) => {
-                      addNotification({
-                        type: 'info',
-                        title: 'Alert Acknowledged',
-                        message: note || `Alert ${alertId} acknowledged`
-                      });
-                      await fetchAlerts();
+                    onAcknowledgeAlert={(alertId: string, note?: string) => {
+                      void updateAlert('acknowledge', alertId, note);
                     }}
-                    onResolveAlert={async (alertId: string, note?: string) => {
-                      addNotification({
-                        type: 'success',
-                        title: 'Alert Resolved',
-                        message: note || `Alert ${alertId} resolved`
-                      });
-                      await fetchAlerts();
+                    onResolveAlert={(alertId: string, note?: string) => {
+                      void updateAlert('resolve', alertId, note);
                     }}
                   />
                   {/* AIOps provider reliability: circuit breakers + recent errors (self-fetching) */}

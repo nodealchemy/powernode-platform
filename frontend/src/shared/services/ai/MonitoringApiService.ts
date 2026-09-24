@@ -20,6 +20,8 @@ import { type StatusRollup, type Verdict, UNHEALTHY_VERDICTS, isVerdict } from '
  * - GET  /api/v1/ai/monitoring/health/connectivity
  * - GET  /api/v1/ai/monitoring/alerts
  * - POST /api/v1/ai/monitoring/alerts/check
+ * - POST /api/v1/ai/monitoring/alerts/:id/acknowledge
+ * - POST /api/v1/ai/monitoring/alerts/:id/resolve
  * - GET  /api/v1/ai/monitoring/circuit_breakers
  * - GET  /api/v1/ai/monitoring/circuit_breakers/:service_name
  * - POST /api/v1/ai/monitoring/circuit_breakers/:service_name/reset
@@ -193,7 +195,11 @@ export interface Alert {
   message: string;
   timestamp: string;
   acknowledged: boolean;
+  acknowledged_at?: string | null;
+  acknowledged_by?: string | null;
   resolved: boolean;
+  resolved_at?: string | null;
+  resolved_by?: string | null;
 }
 
 class MonitoringApiService extends BaseApiService {
@@ -506,6 +512,30 @@ class MonitoringApiService extends BaseApiService {
 
     // Extract triggered_alerts array from response, or return empty array
     return response?.triggered_alerts || [];
+  }
+
+  /**
+   * Acknowledge an alert
+   * POST /api/v1/ai/monitoring/alerts/:id/acknowledge
+   */
+  async acknowledgeAlert(alertId: string, note?: string): Promise<Alert> {
+    const response = await this.post<{ alert: Alert }>(
+      `${this.basePath}/alerts/${encodeURIComponent(alertId)}/acknowledge`,
+      { note }
+    );
+    return response.alert;
+  }
+
+  /**
+   * Resolve an alert
+   * POST /api/v1/ai/monitoring/alerts/:id/resolve
+   */
+  async resolveAlert(alertId: string, note?: string): Promise<Alert> {
+    const response = await this.post<{ alert: Alert }>(
+      `${this.basePath}/alerts/${encodeURIComponent(alertId)}/resolve`,
+      { note }
+    );
+    return response.alert;
   }
 
   // ===================================================================
