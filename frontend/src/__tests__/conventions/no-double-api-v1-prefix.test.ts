@@ -29,8 +29,7 @@ import { join, relative, sep } from 'path';
  * (21 methods, all hardcoding '/api/v1' through a local `apiRequest` helper
  * that forwards to `api.<verb>`) but is NOT fixed here: the operator has
  * decided to delete the whole delegations feature (frontend + server) in
- * fc-20, so it is allowlisted below rather than patched, same as the billing
- * orphans.
+ * fc-20, so it is allowlisted below rather than patched.
  *
  * SCOPE, widened from the fix's first pass: this guard does NOT require the
  * literal to appear directly inside an `api.<verb>(...)` /
@@ -192,20 +191,9 @@ const ALLOWED_OFFENDER_COUNTS: Readonly<Record<string, number>> = {
   // baked into the baseURL every other file must never repeat.
   'frontend/src/shared/services/api.ts': 2,
 
-  // fc-13 orphans: same double-prefix defect, but these three have zero
-  // non-test importers and are deleted (not fixed) by fc-13. They ARE
-  // re-exported from a barrel (shared/services/services.ts,
-  // shared/services/billing/index.ts) — that's what "zero non-test
-  // importers" means here: nothing imports them THROUGH that barrel either,
-  // not that the barrel itself was pruned. fc-13 removes both the files and
-  // those barrel lines together.
-  'frontend/src/shared/services/billing/invoicesApi.ts': 11,
-  'frontend/src/shared/services/billing/paymentMethodsApi.ts': 6,
-  'frontend/src/shared/services/billing/subscriptionHistoryApi.ts': 1,
-
   // fc-20 deletes the delegations feature (frontend + server) — same
   // double-prefix defect across all 21 methods, allowlisted rather than
-  // fixed for the same reason as the billing orphans above.
+  // fixed because the whole file is being deleted.
   'frontend/src/features/delegations/services/delegationApi.ts': 21,
 
   // Feeds `new EventSource(url)` directly, never `api`/`apiClient` — an
