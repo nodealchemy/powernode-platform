@@ -103,9 +103,6 @@ export interface ChurnMetrics {
   churned_subscriptions: number;
 }
 
-// Backward compatibility alias
-export type { Plan as SubscriptionPlan };
-
 export interface Subscription {
   id: string;
   status: string;
