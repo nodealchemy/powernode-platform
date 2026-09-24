@@ -14,9 +14,13 @@ import { hasPermissions } from '@/shared/utils/permissionUtils';
 interface DelegationDetailsModalProps {
   delegation: Delegation;
   onClose: () => void;
-  onRevoke: (id: string) => void;
-  onActivate: (id: string) => void | Promise<void>;
-  onDeactivate: (id: string) => void;
+  // Revoke/activate/deactivate all reject on failure (activate in particular can refuse
+  // for a reason the UI cannot predict, e.g. the activator no longer holding what the row
+  // carries) -- this modal is the ONLY place that error can be shown, since it sits above
+  // everything the parent renders.
+  onRevoke: (id: string) => Promise<void>;
+  onActivate: (id: string) => Promise<void>;
+  onDeactivate: (id: string) => Promise<void>;
   // The permission-set editor derives every offer it makes from the `delegation` prop,
   // and the parent re-points that prop only once its reload has resolved -- so this is
   // awaited, and its return type must admit the promise the parent actually returns.
@@ -39,6 +43,10 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
   const [permissionToAdd, setPermissionToAdd] = useState('');
   const [savingPermissionSet, setSavingPermissionSet] = useState(false);
   const [permissionSetError, setPermissionSetError] = useState<string | null>(null);
+  // Separate from permissionSetError: a status-action refusal (revoke/activate/deactivate)
+  // is unrelated to whatever the permission-set editor is doing, and the two can be true
+  // at once without one masking the other.
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // PERMISSIONS ONLY, NEVER ROLES. Mirrors the pair
   // Api::V1::DelegationsController#authorize_delegation_management! enforces (through the
@@ -157,6 +165,19 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
     const permission = permissionRefs.find(p => p.key === key);
     return permission ? permission.label : key;
   };
+
+  const runStatusAction = async (action: () => Promise<void>) => {
+    setActionError(null);
+    try {
+      await action();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : 'The action could not be completed.');
+    }
+  };
+
+  const handleActivateClick = () => runStatusAction(() => onActivate(delegation.id));
+  const handleDeactivateClick = () => runStatusAction(() => onDeactivate(delegation.id));
+  const handleRevokeClick = () => runStatusAction(() => onRevoke(delegation.id));
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -394,29 +415,36 @@ export const DelegationDetailsModal: React.FC<DelegationDetailsModalProps> = ({
               )}
 
               {delegation.status !== 'revoked' && (
-                <div className="pt-6 border-t border-theme flex items-center space-x-3">
-                  {delegation.is_active && (
-                    <button
-                      onClick={() => onDeactivate(delegation.id)}
-                      className="btn-theme btn-theme-secondary"
-                    >
-                      Deactivate
-                    </button>
+                <div className="pt-6 border-t border-theme">
+                  {actionError && (
+                    <p role="alert" className="text-sm text-theme-error-fg mb-3">
+                      {actionError}
+                    </p>
                   )}
-                  {!delegation.is_active && !delegation.is_expired && (
+                  <div className="flex items-center space-x-3">
+                    {delegation.is_active && (
+                      <button
+                        onClick={handleDeactivateClick}
+                        className="btn-theme btn-theme-secondary"
+                      >
+                        Deactivate
+                      </button>
+                    )}
+                    {!delegation.is_active && !delegation.is_expired && (
+                      <button
+                        onClick={handleActivateClick}
+                        className="btn-theme btn-theme-secondary"
+                      >
+                        Activate
+                      </button>
+                    )}
                     <button
-                      onClick={() => onActivate(delegation.id)}
-                      className="btn-theme btn-theme-secondary"
+                      onClick={handleRevokeClick}
+                      className="btn-theme btn-theme-secondary text-theme-error-fg hover:bg-theme-error-bg hover:text-white"
                     >
-                      Activate
+                      Revoke Delegation
                     </button>
-                  )}
-                  <button
-                    onClick={() => onRevoke(delegation.id)}
-                    className="btn-theme btn-theme-secondary text-theme-error-fg hover:bg-theme-error-bg hover:text-white"
-                  >
-                    Revoke Delegation
-                  </button>
+                  </div>
                 </div>
               )}
           </div>

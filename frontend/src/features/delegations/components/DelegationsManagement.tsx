@@ -35,7 +35,6 @@ export const DelegationsManagement: React.FC = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   // Delegatable permissions shown in the reference section, sourced from the catalog at
   // runtime -- empty until the first successful fetch resolves.
   const [permissionRefs, setPermissionRefs] = useState<DelegationPermissionOption[]>([]);
@@ -98,61 +97,74 @@ export const DelegationsManagement: React.FC = () => {
   };
 
   const handleCreateDelegation = async (data: DelegationFormData) => {
-    if (!accountId) return;
+    if (!accountId) {
+      throw new Error('No account selected. Reload the page and try again.');
+    }
     await delegationApi.createDelegation(accountId, data);
     await loadDelegations();
     setShowCreateModal(false);
   };
 
-  const handleRevokeDelegation = (delegationId: string) => {
-    confirm({
-      title: 'Revoke Delegation',
-      message: 'Are you sure you want to revoke this delegation? The delegated user will immediately lose the access it grants.',
-      confirmLabel: 'Revoke',
-      variant: 'danger',
-      onConfirm: async () => {
-        if (!accountId) return;
-        try {
-          setActionError(null);
-          await delegationApi.revokeDelegation(accountId, delegationId);
-          await loadDelegations();
-          setShowDetailsModal(false);
-        } catch (error) {
-          setActionError(errorMessage(error, 'Failed to revoke delegation.'));
-        }
-      },
+  // Revoke, activate and deactivate are all only reachable from inside
+  // DelegationDetailsModal, whose z-50 overlay sits above this component's own
+  // DOM -- an error banner rendered here would never be seen. Every handler
+  // below therefore REJECTS/THROWS instead of swallowing the failure into a
+  // local banner, so the modal can catch it and render it in its own
+  // subtree the way its permission-set editor's error already does.
+  const handleRevokeDelegation = (delegationId: string): Promise<void> =>
+    new Promise((resolve, reject) => {
+      confirm({
+        title: 'Revoke Delegation',
+        message: 'Are you sure you want to revoke this delegation? The delegated user will immediately lose the access it grants.',
+        confirmLabel: 'Revoke',
+        variant: 'danger',
+        onConfirm: async () => {
+          if (!accountId) {
+            reject(new Error('No account selected. Reload the page and try again.'));
+            return;
+          }
+          try {
+            await delegationApi.revokeDelegation(accountId, delegationId);
+            await loadDelegations();
+            setShowDetailsModal(false);
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        },
+      });
     });
-  };
 
-  const handleActivateDelegation = async (delegationId: string) => {
-    if (!accountId) return;
-    try {
-      setActionError(null);
-      await delegationApi.activateDelegation(accountId, delegationId);
-      await handleDelegationUpdated();
-    } catch (error) {
-      setActionError(errorMessage(error, 'Failed to activate delegation.'));
+  const handleActivateDelegation = async (delegationId: string): Promise<void> => {
+    if (!accountId) {
+      throw new Error('No account selected. Reload the page and try again.');
     }
+    await delegationApi.activateDelegation(accountId, delegationId);
+    await handleDelegationUpdated();
   };
 
-  const handleDeactivateDelegation = (delegationId: string) => {
-    confirm({
-      title: 'Deactivate Delegation',
-      message: 'Are you sure you want to deactivate this delegation? The delegated user will lose the access it grants until it is reactivated.',
-      confirmLabel: 'Deactivate',
-      variant: 'danger',
-      onConfirm: async () => {
-        if (!accountId) return;
-        try {
-          setActionError(null);
-          await delegationApi.deactivateDelegation(accountId, delegationId);
-          await handleDelegationUpdated();
-        } catch (error) {
-          setActionError(errorMessage(error, 'Failed to deactivate delegation.'));
-        }
-      },
+  const handleDeactivateDelegation = (delegationId: string): Promise<void> =>
+    new Promise((resolve, reject) => {
+      confirm({
+        title: 'Deactivate Delegation',
+        message: 'Are you sure you want to deactivate this delegation? The delegated user will lose the access it grants until it is reactivated.',
+        confirmLabel: 'Deactivate',
+        variant: 'danger',
+        onConfirm: async () => {
+          if (!accountId) {
+            reject(new Error('No account selected. Reload the page and try again.'));
+            return;
+          }
+          try {
+            await delegationApi.deactivateDelegation(accountId, delegationId);
+            await handleDelegationUpdated();
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        },
+      });
     });
-  };
 
   const getStatusBadge = (delegation: Delegation) => {
     const variant = delegation.is_expired
@@ -218,12 +230,6 @@ export const DelegationsManagement: React.FC = () => {
         {loadError && (
           <div role="alert" className="mb-6 bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
             <p className="text-sm text-theme-error-fg">{loadError}</p>
-          </div>
-        )}
-
-        {actionError && (
-          <div role="alert" className="mb-6 bg-theme-error-bg border border-theme-error-border rounded-lg p-4">
-            <p className="text-sm text-theme-error-fg">{actionError}</p>
           </div>
         )}
 

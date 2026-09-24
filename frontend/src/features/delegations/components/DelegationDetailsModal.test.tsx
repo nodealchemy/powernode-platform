@@ -524,3 +524,99 @@ describe('DelegationDetailsModal action buttons', () => {
     expect(onDeactivate).toHaveBeenCalledWith('del-1');
   });
 });
+
+// fc-20 review round 2 (MED): activate/deactivate/revoke are only reachable from THIS
+// modal, whose z-50 overlay sits above everything DelegationsManagement renders -- an
+// error banner rendered by the parent would never be seen. Activate in particular can
+// refuse for a reason the UI cannot predict (e.g. Accounts::DelegationService's
+// unconferrable_reason, when the activator can no longer grant what the row carries),
+// so a silently-swallowed rejection there is a real, reachable failure mode, not a
+// theoretical one.
+describe('DelegationDetailsModal action buttons: refusal is shown INSIDE this modal', () => {
+  beforeEach(() => {
+    mockPermissions = [];
+  });
+
+  it('shows the activate refusal reason inside the modal, not just on the console', async () => {
+    const onActivate = jest.fn().mockRejectedValue(
+      new Error('Cannot activate: the grantor no longer holds reports.refund')
+    );
+    render(
+      <DelegationDetailsModal
+        delegation={{ ...delegation, is_active: false, is_expired: false, status: 'inactive' }}
+        onClose={jest.fn()}
+        onRevoke={jest.fn()}
+        onActivate={onActivate}
+        onDeactivate={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Activate' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Cannot activate: the grantor no longer holds reports.refund');
+  });
+
+  it('shows the deactivate refusal reason inside the modal', async () => {
+    const onDeactivate = jest.fn().mockRejectedValue(new Error('Cannot deactivate: already revoked'));
+    render(
+      <DelegationDetailsModal
+        delegation={{ ...delegation, is_active: true, is_expired: false, status: 'active' }}
+        onClose={jest.fn()}
+        onRevoke={jest.fn()}
+        onActivate={jest.fn()}
+        onDeactivate={onDeactivate}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Deactivate' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Cannot deactivate: already revoked');
+  });
+
+  it('shows the revoke refusal reason inside the modal', async () => {
+    const onRevoke = jest.fn().mockRejectedValue(new Error('Cannot revoke: already revoked'));
+    render(
+      <DelegationDetailsModal
+        delegation={{ ...delegation, is_active: true, is_expired: false, status: 'active' }}
+        onClose={jest.fn()}
+        onRevoke={onRevoke}
+        onActivate={jest.fn()}
+        onDeactivate={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Revoke Delegation' }));
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Cannot revoke: already revoked');
+  });
+
+  it('clears a stale action error once a later action succeeds', async () => {
+    const onActivate = jest.fn().mockRejectedValueOnce(new Error('temporary refusal'));
+    render(
+      <DelegationDetailsModal
+        delegation={{ ...delegation, is_active: false, is_expired: false, status: 'inactive' }}
+        onClose={jest.fn()}
+        onRevoke={jest.fn()}
+        onActivate={onActivate}
+        onDeactivate={jest.fn()}
+        onUpdate={jest.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Activate' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('temporary refusal');
+
+    onActivate.mockResolvedValueOnce(undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Activate' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+  });
+});

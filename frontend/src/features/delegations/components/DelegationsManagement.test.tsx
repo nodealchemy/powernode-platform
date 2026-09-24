@@ -62,14 +62,18 @@ jest.mock('./CreateDelegationModal', () => ({
 }));
 
 jest.mock('./DelegationDetailsModal', () => ({
-  DelegationDetailsModal: ({ delegation, onClose, onRevoke, onActivate, onDeactivate, onUpdate }: { delegation: { id: string; delegated_user: { email: string }; stale_permission_names?: string[] }; onClose: () => void; onRevoke: (id: string) => void; onActivate: (id: string) => void; onDeactivate: (id: string) => void; onUpdate: () => void }) => (
+  // onRevoke/onActivate/onDeactivate now reject on failure -- fc-20 review round 2 moved
+  // error DISPLAY into the real DelegationDetailsModal (pinned in its own spec), so this
+  // stub just swallows the rejection the way the real component's runStatusAction does,
+  // instead of leaving it unhandled here.
+  DelegationDetailsModal: ({ delegation, onClose, onRevoke, onActivate, onDeactivate, onUpdate }: { delegation: { id: string; delegated_user: { email: string }; stale_permission_names?: string[] }; onClose: () => void; onRevoke: (id: string) => Promise<void>; onActivate: (id: string) => Promise<void>; onDeactivate: (id: string) => Promise<void>; onUpdate: () => void }) => (
     <div data-testid="delegation-details-modal">
       <span>Details: {delegation.delegated_user.email}</span>
       <span data-testid="details-stale">{(delegation.stale_permission_names || []).join(',')}</span>
       <button onClick={onClose}>Close Details</button>
-      <button onClick={() => onRevoke(delegation.id)}>Revoke</button>
-      <button onClick={() => onActivate(delegation.id)}>Activate</button>
-      <button onClick={() => onDeactivate(delegation.id)}>Deactivate</button>
+      <button onClick={() => { onRevoke(delegation.id).catch(() => {}); }}>Revoke</button>
+      <button onClick={() => { onActivate(delegation.id).catch(() => {}); }}>Activate</button>
+      <button onClick={() => { onDeactivate(delegation.id).catch(() => {}); }}>Deactivate</button>
       <button onClick={onUpdate}>Signal Update</button>
     </div>
   )
@@ -587,7 +591,14 @@ describe('DelegationsManagement', () => {
       });
     });
 
-    it('surfaces a revoke failure instead of failing silently', async () => {
+    // fc-20 review round 2: a revoke/activate/deactivate failure is no longer displayed
+    // here -- this component's own error banner sits BEHIND the details modal's z-50
+    // overlay, so it was never seen. The handler now rejects instead of swallowing the
+    // failure into a local banner, letting DelegationDetailsModal catch and display it
+    // (pinned in DelegationDetailsModal.test.tsx). What this component owns is simply:
+    // don't treat a rejection as success -- the list is not reloaded and the modal is
+    // not closed.
+    it('does not reload the list or close the modal when revoke fails', async () => {
       mockRevokeDelegation.mockRejectedValue(new Error('Failed to revoke delegation: already revoked'));
 
       render(<DelegationsManagement />);
@@ -599,7 +610,11 @@ describe('DelegationsManagement', () => {
       fireEvent.click(screen.getByText('Finance User').closest('div[class*="cursor-pointer"]')!);
       fireEvent.click(screen.getByText('Revoke'));
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(/already revoked/i);
+      await waitFor(() => {
+        expect(mockRevokeDelegation).toHaveBeenCalledWith('acct-1', 'del-1');
+      });
+      expect(mockGetDelegations).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('delegation-details-modal')).toBeInTheDocument();
     });
 
     it('calls activateDelegation with the real account id when Activate clicked', async () => {
@@ -617,7 +632,7 @@ describe('DelegationsManagement', () => {
       });
     });
 
-    it('surfaces an activate failure instead of failing silently', async () => {
+    it('does not reload the list when activate fails', async () => {
       mockActivateDelegation.mockRejectedValue(new Error('Failed to activate delegation: already revoked'));
 
       render(<DelegationsManagement />);
@@ -629,7 +644,10 @@ describe('DelegationsManagement', () => {
       fireEvent.click(screen.getByText('Paused User').closest('div[class*="cursor-pointer"]')!);
       fireEvent.click(screen.getByText('Activate'));
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(/already revoked/i);
+      await waitFor(() => {
+        expect(mockActivateDelegation).toHaveBeenCalledWith('acct-1', 'del-4');
+      });
+      expect(mockGetDelegations).toHaveBeenCalledTimes(1);
     });
 
     it('calls deactivateDelegation with the real account id when Deactivate clicked, after confirmation', async () => {
@@ -647,7 +665,7 @@ describe('DelegationsManagement', () => {
       });
     });
 
-    it('surfaces a deactivate failure instead of failing silently', async () => {
+    it('does not reload the list when deactivate fails', async () => {
       mockDeactivateDelegation.mockRejectedValue(new Error('Failed to deactivate delegation: already revoked'));
 
       render(<DelegationsManagement />);
@@ -659,7 +677,10 @@ describe('DelegationsManagement', () => {
       fireEvent.click(screen.getByText('Finance User').closest('div[class*="cursor-pointer"]')!);
       fireEvent.click(screen.getByText('Deactivate'));
 
-      expect(await screen.findByRole('alert')).toHaveTextContent(/already revoked/i);
+      await waitFor(() => {
+        expect(mockDeactivateDelegation).toHaveBeenCalledWith('acct-1', 'del-1');
+      });
+      expect(mockGetDelegations).toHaveBeenCalledTimes(1);
     });
   });
 });
