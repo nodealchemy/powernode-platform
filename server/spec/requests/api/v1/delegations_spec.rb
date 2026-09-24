@@ -25,6 +25,44 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
     role
   end
 
+  # fc-20 review item 1 (BLOCKER). delegationApi.ts used to hardcode the literal
+  # string "current" as :account_id; #set_account calls Account.find(params[:account_id])
+  # for anyone holding admin.access, so "current" 404'd for every admin -- including
+  # core-mode's first user, who holds system.admin (and therefore admin.access, since
+  # User#has_permission? treats system.admin as granting every permission). The fix is
+  # to send the REAL account id, never a server-side "current" sentinel. These pin the
+  # exact UI request shape (real account id) for both actors the UI can present it to.
+  describe 'fc-20 BLOCKER: the UI must send the real account id, never "current"' do
+    let!(:some_delegation) do
+      user = create(:user, account: account)
+      create(:account_delegation, :active, account: account, delegated_by: manager_user, delegated_user: user)
+    end
+
+    it 'succeeds for a super_admin (admin.access, via system.admin) using the real account id' do
+      super_admin = create(:user, :super_admin, account: create(:account))
+
+      get "/api/v1/accounts/#{account.id}/delegations", headers: auth_headers_for(super_admin)
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body).dig('data', 'delegations').size).to eq(1)
+    end
+
+    it 'succeeds for a manager (accounts.manage, own account, no admin.access) using the real account id' do
+      get "/api/v1/accounts/#{account.id}/delegations", headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body).dig('data', 'delegations').size).to eq(1)
+    end
+
+    it '404s a literal "current" sentinel for an admin.access holder -- proving the UI must never send one' do
+      super_admin = create(:user, :super_admin, account: create(:account))
+
+      get '/api/v1/accounts/current/delegations', headers: auth_headers_for(super_admin)
+
+      expect(response).to have_http_status(:not_found)
+    end
+  end
+
   describe 'GET /api/v1/accounts/:account_id/delegations' do
     let!(:active_delegation) do
       user = create(:user, account: account)
@@ -87,6 +125,47 @@ RSpec.describe 'Api::V1::Delegations', type: :request do
       get "/api/v1/accounts/#{account.id}/delegations", headers: regular_headers
 
       expect(response).to have_http_status(:forbidden)
+    end
+  end
+
+  # fc-20 review item 5: a manager scoped to a DIFFERENT account. #set_account only
+  # honours params[:account_id] for an admin.access holder; anyone else always gets
+  # `current_user.account`, so a same-permission manager elsewhere in the system is
+  # scoped away from this account's delegations entirely -- not merely refused by a
+  # 403, but unable to name the row at all (#set_delegation looks it up through
+  # @account.account_delegations, which never contains it).
+  describe 'a manager in another account cannot see or revoke this account\'s delegation' do
+    let(:other_account) { create(:account) }
+    let(:other_manager) do
+      user = create(:user, :manager, account: other_account)
+      user.roles.first.role_permissions.find_or_create_by!(permission_name: 'accounts.manage')
+      user.reload
+      user
+    end
+    let!(:this_accounts_delegation) do
+      user = create(:user, account: account)
+      create(:account_delegation, :active, account: account, delegated_by: manager_user, delegated_user: user)
+    end
+
+    it 'returns 404 (not the row) on GET show' do
+      get "/api/v1/accounts/#{account.id}/delegations/#{this_accounts_delegation.id}", headers: auth_headers_for(other_manager)
+
+      expect(response).to have_http_status(:not_found)
+    end
+
+    it 'returns 404 (not the row) on DELETE (revoke)' do
+      delete "/api/v1/accounts/#{account.id}/delegations/#{this_accounts_delegation.id}", headers: auth_headers_for(other_manager)
+
+      expect(response).to have_http_status(:not_found)
+      expect(this_accounts_delegation.reload.status).not_to eq('revoked')
+    end
+
+    it 'does not even list it under GET index (scoped to their OWN account instead)' do
+      get "/api/v1/accounts/#{account.id}/delegations", headers: auth_headers_for(other_manager)
+
+      expect(response).to have_http_status(:ok)
+      ids = JSON.parse(response.body).dig('data', 'delegations').map { |d| d['id'] }
+      expect(ids).not_to include(this_accounts_delegation.id)
     end
   end
 

@@ -67,4 +67,15 @@ RSpec.describe 'Delegation grant -> account switcher visibility -> switch', type
     post '/api/v1/accounts/switch', params: { account_id: account.id }, headers: delegated_user_headers, as: :json
     expect(response).to have_http_status(:forbidden)
   end
+
+  # fc-20 review item 5: a delegated user cannot switch into an account they
+  # were never granted at all -- not merely one whose grant was revoked. No
+  # Account::Delegation row exists for (delegated_user, another_account) here.
+  it 'refuses the switch into an account the user was never delegated at all' do
+    another_account = create(:account)
+
+    post '/api/v1/accounts/switch', params: { account_id: another_account.id }, headers: delegated_user_headers, as: :json
+
+    expect(response).to have_http_status(:forbidden)
+  end
 end
