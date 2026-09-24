@@ -7,39 +7,38 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # Maintenance Mode endpoints
   def show_mode
-    render_success({
-
-        enabled: maintenance_mode_enabled?,
-        message: safe_config(:maintenance_message) || "System is under maintenance",
-        enabled_at: safe_config(:maintenance_enabled_at),
-        estimated_completion: safe_config(:maintenance_estimated_completion),
-        bypass_ips: safe_config(:maintenance_bypass_ips) || []
-      }
-    )
+    render_success(Admin::MaintenanceMode.status)
   end
 
   def update_mode
-    enabled = params[:enabled]
-    message = params[:message] || "System is under maintenance"
-    estimated_completion = params[:estimated_completion]
-    bypass_ips = params[:bypass_ips] || []
+    return render_error("enabled is required", status: :bad_request) unless params.key?(:enabled)
 
-    if enabled
-      enable_maintenance_mode(message, estimated_completion, bypass_ips)
-      Rails.logger.info "Maintenance mode ENABLED by #{current_user.email}"
-    else
-      disable_maintenance_mode
-      Rails.logger.info "Maintenance mode DISABLED by #{current_user.email}"
+    enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
+    status = nil
+
+    # State + audit row in one transaction: a failed audit write must not
+    # leave maintenance mode silently toggled with no record of who did it
+    # or why, and a failed state write must not log an audit row for a
+    # change that never actually took effect.
+    ActiveRecord::Base.transaction do
+      if enabled
+        status = Admin::MaintenanceMode.enable!(
+          message: params[:message],
+          estimated_completion: params[:estimated_completion],
+          bypass_ips: params[:bypass_ips] || []
+        )
+        Rails.logger.info "Maintenance mode ENABLED by #{current_user.email}"
+        audit_maintenance_change("maintenance_mode_enabled", status)
+      else
+        status = Admin::MaintenanceMode.disable!
+        Rails.logger.info "Maintenance mode DISABLED by #{current_user.email}"
+        audit_maintenance_change("maintenance_mode_disabled", status)
+      end
     end
 
-    render_success({
-
-        enabled: enabled,
-        message: message,
-        estimated_completion: estimated_completion
-      },
-      message: enabled ? "Maintenance mode enabled" : "Maintenance mode disabled"
-    )
+    render_success(status, message: status[:enabled] ? "Maintenance mode enabled" : "Maintenance mode disabled")
+  rescue Admin::MaintenanceMode::InvalidBypassIp => e
+    render_error(e.message, status: :unprocessable_content)
   end
 
   # Data Cleanup endpoints
@@ -159,7 +158,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def status
     render_success({
 
-        maintenance_mode: maintenance_mode_enabled?,
+        maintenance_mode: Admin::MaintenanceMode.enabled?,
         database_status: check_database_status,
         redis_status: check_redis_status,
         sidekiq_status: check_sidekiq_status,
@@ -287,98 +286,21 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     require_any_permission("admin.maintenance.mode", "admin.maintenance.backup", "system.admin")
   end
 
-  def maintenance_mode_enabled?
-    Rails.application.config.respond_to?(:maintenance_mode) &&
-    Rails.application.config.maintenance_mode == true
-  end
-
-  def enable_maintenance_mode(message, estimated_completion, bypass_ips)
-    Rails.application.config.maintenance_mode = true
-    Rails.application.config.maintenance_message = message
-    Rails.application.config.maintenance_enabled_at = Time.current
-    Rails.application.config.maintenance_estimated_completion = estimated_completion
-    Rails.application.config.maintenance_bypass_ips = bypass_ips
-
-    # Write maintenance file for web server
-    write_maintenance_file(message, estimated_completion)
-
-    # Log maintenance mode activation
+  # Audit-logs every maintenance-mode change (Admin::MaintenanceMode itself
+  # is pure store logic with no request/current_user context). Action names
+  # ("maintenance_mode_enabled"/"maintenance_mode_disabled") are unchanged
+  # from the prior config-based implementation for audit-trail continuity.
+  def audit_maintenance_change(action, status)
     AuditLog.create!(
       user: current_user,
       account: current_account,
-      action: "maintenance_mode_enabled",
+      action: action,
       resource_type: "System",
       resource_id: "system",
       source: "admin_panel",
       ip_address: request.remote_ip,
-      metadata: {
-        message: message,
-        estimated_completion: estimated_completion,
-        bypass_ips: bypass_ips
-      }
+      metadata: status.slice(:message, :estimated_completion, :bypass_ips)
     )
-  end
-
-  def disable_maintenance_mode
-    Rails.application.config.maintenance_mode = false
-    Rails.application.config.maintenance_message = nil
-    Rails.application.config.maintenance_enabled_at = nil
-    Rails.application.config.maintenance_estimated_completion = nil
-    Rails.application.config.maintenance_bypass_ips = nil
-
-    # Remove maintenance file
-    remove_maintenance_file
-
-    # Log maintenance mode deactivation
-    AuditLog.create!(
-      user: current_user,
-      account: current_account,
-      action: "maintenance_mode_disabled",
-      resource_type: "System",
-      resource_id: "system",
-      source: "admin_panel",
-      ip_address: request.remote_ip,
-      metadata: {}
-    )
-  end
-
-  def write_maintenance_file(message, estimated_completion)
-    maintenance_file = Rails.root.join("public", "maintenance.html")
-    content = generate_maintenance_page_content(message, estimated_completion)
-    File.write(maintenance_file, content)
-  end
-
-  def remove_maintenance_file
-    maintenance_file = Rails.root.join("public", "maintenance.html")
-    File.delete(maintenance_file) if File.exist?(maintenance_file)
-  end
-
-  def generate_maintenance_page_content(message, estimated_completion)
-    <<~HTML
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Powernode - Under Maintenance</title>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 40px; background: #f5f5f5; color: #333; }
-          .container { max-width: 600px; margin: 0 auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
-          h1 { color: #e74c3c; margin-bottom: 20px; }
-          .icon { font-size: 48px; margin-bottom: 20px; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="icon">🔧</div>
-          <h1>System Under Maintenance</h1>
-          <p>#{message}</p>
-          #{estimated_completion ? "<p><strong>Estimated completion:</strong> #{estimated_completion}</p>" : ""}
-          <p>We apologize for any inconvenience. Please check back shortly.</p>
-        </div>
-      </body>
-      </html>
-    HTML
   end
 
   # Helper methods for status checks
@@ -547,9 +469,5 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     parts << "#{minutes}m" if minutes > 0 || parts.empty?
 
     parts.join(" ")
-  end
-
-  def safe_config(key)
-    Rails.application.config.respond_to?(key) ? Rails.application.config.send(key) : nil
   end
 end

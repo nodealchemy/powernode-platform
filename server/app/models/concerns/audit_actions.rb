@@ -85,6 +85,7 @@ module AuditActions
   SYSTEM_ACTIONS = %w[
     data_export data_import security_scan compliance_check
     system_maintenance system_backup system_restore
+    maintenance_mode_enabled maintenance_mode_disabled
     audit_log_cleanup audit_log_export
     audit_logging_error error_occurred
     database_restore_created database_restore_status_changed

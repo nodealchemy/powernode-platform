@@ -90,6 +90,7 @@ module Authentication
         return render_unauthorized("No account associated") unless @current_account
         return render_unauthorized("Account suspended") unless @current_account.active?
         @current_user.record_login! if should_record_login?
+        return render_maintenance_mode_response if Admin::MaintenanceMode.blocked?(request.remote_ip) { |perm| has_permission?(perm) }
       elsif @current_worker
         # Worker tokens are long-lived (30d). Re-validate the worker and its
         # account are still active on every request so a revoked/suspended worker
@@ -395,6 +396,18 @@ module Authentication
 
   # Note: render_unauthorized and render_forbidden are provided by ApiResponse concern
   # ApplicationController includes ApiResponse after Authentication, so those methods take precedence
+
+  # The REST shape for a blocked request — see Admin::MaintenanceMode.blocked?
+  # for exactly which requests reach this (a resolved, non-exempt @current_user).
+  def render_maintenance_mode_response
+    status = Admin::MaintenanceMode.status
+    render_error(
+      status[:message],
+      status: :service_unavailable,
+      code: "maintenance_mode",
+      details: { estimated_completion: status[:estimated_completion] }
+    )
+  end
 
   def extract_bearer_token
     auth_header = request.headers["Authorization"]

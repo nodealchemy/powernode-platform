@@ -216,6 +216,13 @@ module Admin
         hash[setting.key.to_sym] = setting.value
       end
 
+      # Override the raw string dump above with the typed reader: AdminSetting
+      # stores every value as a string, so the raw "false" the loop above just
+      # captured is a non-empty (truthy) JS string on the other end — the
+      # overview page badge would read ACTIVE forever. Admin::MaintenanceMode
+      # is the single source of truth for this flag.
+      settings[:maintenance_mode] = Admin::MaintenanceMode.enabled?
+
       metadata = Rails.cache.fetch("system_settings_metadata", expires_in: 1.year) do
         {
           created_at: Time.current,

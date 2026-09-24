@@ -161,7 +161,11 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   def admin_settings_params
     params.require(:admin_settings).permit(
-      :maintenance_mode,
+      # maintenance_mode is deliberately NOT permitted here — it is written
+      # exclusively through Admin::MaintenanceMode via
+      # Api::V1::Admin::Maintenance::MaintenanceController#update_mode, which
+      # is also the only endpoint that audit-logs the change. This used to be
+      # a second writer to an AdminSetting row that nothing read.
       :registration_enabled,
       :email_verification_required,
       :require_email_verification,

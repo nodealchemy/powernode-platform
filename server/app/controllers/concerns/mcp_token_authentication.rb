@@ -131,6 +131,15 @@ module McpTokenAuthentication
       return
     end
 
+    # User#has_permission? directly (not the delegation-aware controller
+    # method in Authentication) is correct here: a Doorkeeper access token
+    # never carries an account-switch delegation_id, so there is no
+    # delegation scope to resolve against.
+    if Admin::MaintenanceMode.blocked?(request.remote_ip) { |perm| user.has_permission?(perm) }
+      render_mcp_maintenance_response
+      return
+    end
+
     @current_user = user
     @current_account = user.account
     @current_mcp_principal = ::Mcp::Principal.for_user(user)
@@ -138,6 +147,20 @@ module McpTokenAuthentication
 
     # Capture OAuth application on the MCP session if present
     link_mcp_session_to_application(doorkeeper_token)
+  end
+
+  # An MCP-shaped 503 (not ApiResponse's render_error — this concern's own
+  # render_oauth_unauthorized doesn't use it either, since MCP clients expect
+  # this module's { error, error_code } body shape, not the success/data
+  # envelope). See Admin::MaintenanceMode.blocked? for exactly which requests
+  # reach this.
+  def render_mcp_maintenance_response
+    status = Admin::MaintenanceMode.status
+    render json: {
+      error: status[:message],
+      error_code: "maintenance_mode",
+      estimated_completion: status[:estimated_completion]
+    }, status: :service_unavailable
   end
 
   def link_mcp_session_to_application(doorkeeper_token)

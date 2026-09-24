@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "ipaddr"
 require_relative "boot"
 require_relative "version"
 require_relative "../lib/powernode/extension_registry"
@@ -78,6 +79,23 @@ module Server
 
     # Track boot time for uptime calculations
     config.boot_time = Time.current
+
+    # Pin ActionDispatch::RemoteIp's trusted proxy list to ONLY the real
+    # reverse proxy, when the operator has configured one. Rails' own default
+    # (ActionDispatch::RemoteIp::TRUSTED_PROXIES) trusts EVERY loopback/private/
+    # link-local address as a proxy hop — meaning any caller that reaches this
+    # app directly from a private IP (any other service on the same host/VPC,
+    # bypassing the real reverse proxy) is treated as trusted, and Rails will
+    # honor an arbitrary attacker-supplied X-Forwarded-For as request.remote_ip.
+    # That is the exact vector Admin::MaintenanceMode's bypass-IP check has to
+    # defend against (see its own trusted_proxies_configured? guard).
+    #
+    # Purely additive: with TRUSTED_PROXY_CIDRS unset (the default for every
+    # existing deployment), config.action_dispatch.trusted_proxies is left
+    # alone and Rails' own default applies exactly as before.
+    if ENV["TRUSTED_PROXY_CIDRS"].present?
+      config.action_dispatch.trusted_proxies = ENV["TRUSTED_PROXY_CIDRS"].split(",").map { |cidr| IPAddr.new(cidr.strip) }
+    end
 
     # Application version configuration
     config.version = Powernode::Version.current
