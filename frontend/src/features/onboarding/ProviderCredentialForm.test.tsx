@@ -1,17 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ProviderCredentialForm } from './ProviderCredentialForm';
 
-const mockPost = jest.fn();
-
-jest.mock('@/shared/services/apiClient', () => ({
-  apiClient: {
-    get: jest.fn(),
-    post: (...args: unknown[]) => mockPost(...args),
-  },
-}));
+// The form never names an API: the caller hands it the test function.
+const mockTest = jest.fn();
 
 beforeEach(() => {
-  mockPost.mockReset();
+  mockTest.mockReset();
 });
 
 describe('ProviderCredentialForm', () => {
@@ -38,7 +32,7 @@ describe('ProviderCredentialForm', () => {
   });
 
   it('renders the GCP schema as a textarea for the service account JSON', () => {
-    render(<ProviderCredentialForm category="cloud" providerType="gcp" />);
+    render(<ProviderCredentialForm category="cloud" providerType="gcp" testCredentials={mockTest} />);
     const textarea = screen.getByTestId('provider-cred-field-service_account_json');
     expect(textarea.tagName).toBe('TEXTAREA');
   });
@@ -64,7 +58,7 @@ describe('ProviderCredentialForm', () => {
   });
 
   it('disables the Test button until all required fields are populated', () => {
-    render(<ProviderCredentialForm category="cloud" providerType="aws" />);
+    render(<ProviderCredentialForm category="cloud" providerType="aws" testCredentials={mockTest} />);
     const testBtn = screen.getByTestId('provider-cred-test-btn');
     expect(testBtn).toBeDisabled();
 
@@ -78,7 +72,7 @@ describe('ProviderCredentialForm', () => {
   });
 
   it('flags an inline error when GCP service account JSON is malformed', () => {
-    render(<ProviderCredentialForm category="cloud" providerType="gcp" />);
+    render(<ProviderCredentialForm category="cloud" providerType="gcp" testCredentials={mockTest} />);
     const textarea = screen.getByTestId('provider-cred-field-service_account_json');
     fireEvent.change(textarea, { target: { value: 'not-json' } });
     fireEvent.blur(textarea);
@@ -86,9 +80,14 @@ describe('ProviderCredentialForm', () => {
     expect(screen.getByTestId('provider-cred-test-btn')).toBeDisabled();
   });
 
-  it('POSTs to the BYOC test endpoint with provider_id + credentials and renders success', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { valid: true } } });
+  it('renders no Test button when the caller passes no test function', () => {
     render(<ProviderCredentialForm category="cloud" providerType="hetzner" />);
+    expect(screen.queryByTestId('provider-cred-test-btn')).toBeNull();
+  });
+
+  it('tests through the caller-supplied function with provider_id + credentials and renders success', async () => {
+    mockTest.mockResolvedValueOnce({ valid: true });
+    render(<ProviderCredentialForm category="cloud" providerType="hetzner" testCredentials={mockTest} />);
 
     fireEvent.change(screen.getByTestId('provider-cred-field-api_token'), {
       target: { value: 'token-abc' },
@@ -100,21 +99,17 @@ describe('ProviderCredentialForm', () => {
       expect(screen.getByTestId('provider-cred-test-success')).toBeInTheDocument();
     });
 
-    expect(mockPost).toHaveBeenCalledWith(
-      '/system/provider_credentials/test',
-      expect.objectContaining({
-        provider_id: 'hetzner',
-        provider_type: 'hetzner',
-        credentials: { api_token: 'token-abc' },
-      })
-    );
+    expect(mockTest).toHaveBeenCalledWith({
+      providerId: 'hetzner',
+      providerType: 'hetzner',
+      category: 'cloud',
+      credentials: { api_token: 'token-abc' },
+    });
   });
 
-  it('renders the rejection reason when the test endpoint returns valid: false', async () => {
-    mockPost.mockResolvedValueOnce({
-      data: { data: { valid: false, error: 'AccessDenied' } },
-    });
-    render(<ProviderCredentialForm category="cloud" providerType="vultr" />);
+  it('renders the rejection reason when the test function returns valid: false', async () => {
+    mockTest.mockResolvedValueOnce({ valid: false, error: 'AccessDenied' });
+    render(<ProviderCredentialForm category="cloud" providerType="vultr" testCredentials={mockTest} />);
     fireEvent.change(screen.getByTestId('provider-cred-field-api_key'), {
       target: { value: 'bad-key' },
     });
@@ -125,10 +120,15 @@ describe('ProviderCredentialForm', () => {
     });
   });
 
-  it('uses providerId override in the test payload when present', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { valid: true } } });
+  it('uses providerId override in the test request when present', async () => {
+    mockTest.mockResolvedValueOnce({ valid: true });
     render(
-      <ProviderCredentialForm category="cloud" providerType="aws" providerId="11111111-2222-3333-4444-555555555555" />
+      <ProviderCredentialForm
+        category="cloud"
+        providerType="aws"
+        providerId="11111111-2222-3333-4444-555555555555"
+        testCredentials={mockTest}
+      />
     );
 
     fireEvent.change(screen.getByTestId('provider-cred-field-access_key_id'), {
@@ -140,24 +140,24 @@ describe('ProviderCredentialForm', () => {
     fireEvent.click(screen.getByTestId('provider-cred-test-btn'));
 
     await waitFor(() => {
-      expect(mockPost).toHaveBeenCalledWith(
-        '/system/provider_credentials/test',
+      expect(mockTest).toHaveBeenCalledWith(
         expect.objectContaining({
-          provider_id: '11111111-2222-3333-4444-555555555555',
-          provider_type: 'aws',
+          providerId: '11111111-2222-3333-4444-555555555555',
+          providerType: 'aws',
         })
       );
     });
   });
 
   it('clears the success indicator and notifies the parent when a value changes', async () => {
-    mockPost.mockResolvedValueOnce({ data: { data: { valid: true } } });
+    mockTest.mockResolvedValueOnce({ valid: true });
     const onTestStatus = jest.fn();
     render(
       <ProviderCredentialForm
         category="cloud"
         providerType="hetzner"
         onTestStatusChange={onTestStatus}
+        testCredentials={mockTest}
       />
     );
     fireEvent.change(screen.getByTestId('provider-cred-field-api_token'), {

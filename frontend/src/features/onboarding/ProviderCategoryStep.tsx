@@ -7,6 +7,7 @@ import {
   ProviderCredentialForm,
   type CredentialTestStatus,
   type ProviderCategory,
+  type ProviderCredentialFormProps,
   type ProviderCredentialValues,
   type ProviderTypeSlug,
 } from './ProviderCredentialForm';
@@ -157,6 +158,8 @@ export interface ProviderCategoryStepProps {
   onSave: () => Promise<void>;
   /** Test-hook prefix so the onboarding ("first-run") and setup wizards keep distinct ids. */
   testIdPrefix?: string;
+  /** The category's credential test; absent for categories with no test surface. */
+  testCredentials?: ProviderCredentialFormProps['testCredentials'];
 }
 
 /**
@@ -172,11 +175,12 @@ export const ProviderCategoryStep: React.FC<ProviderCategoryStepProps> = ({
   onTestStatusChange,
   onSave,
   testIdPrefix = 'first-run',
+  testCredentials,
 }) => {
   const options = PROVIDER_OPTIONS_BY_CATEGORY[category];
   const meta = CATEGORY_DESCRIPTIONS[category];
-  // Cloud is the only category that exposes a test endpoint today.
-  const supportsTest = category === 'cloud';
+  // Only a category whose server exposes a test surface passes a test function.
+  const supportsTest = Boolean(testCredentials);
   // local_qemu inside cloud doesn't need credentials at all.
   const requiresTest = supportsTest && progress.providerType !== 'local_qemu';
 
@@ -241,6 +245,7 @@ export const ProviderCategoryStep: React.FC<ProviderCategoryStepProps> = ({
             initialValues={progress.credentials}
             onChange={onValuesChange}
             onTestStatusChange={onTestStatusChange}
+            testCredentials={testCredentials}
             hideTestButton={!requiresTest}
           />
 

@@ -49,8 +49,15 @@
  * 3: `@/shared/services/apiClient` lost its default export; only the named
  * `apiClient` remains. A bundle built against 2 may still default-import it,
  * which no longer links, so the loader skips it until the extension is rebuilt.
+ *
+ * 4: `@/features/onboarding/ProviderCredentialForm` dropped its `testEndpoint`
+ * prop for a caller-supplied `testCredentials` function, and
+ * `@/shared/services/featureRegistry` gained provider-category handler
+ * registration (the extension now registers its cloud credential create/test).
+ * A bundle built against 3 would render the form with no Test button and
+ * register no handlers, so the loader skips it until it is rebuilt.
  */
-export const CORE_UI_API_VERSION = 3;
+export const CORE_UI_API_VERSION = 4;
 
 /**
  * Core `@/…` modules exposed to extension frontends. Derived empirically from

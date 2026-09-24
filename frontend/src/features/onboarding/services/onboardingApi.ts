@@ -1,5 +1,5 @@
 // Onboarding API service — consolidates the inline apiClient calls made by the
-// onboarding feature components (ProviderCredentialForm, FirstRunWizard).
+// onboarding feature components (FirstRunWizard).
 //
 // Behavior-preserving: each method uses the SAME apiClient module the components
 // previously called inline, hits the SAME endpoint with the SAME payload, and
@@ -12,32 +12,6 @@ import type {
   ProviderCredentialValues,
   ProviderTypeSlug,
 } from '../ProviderCredentialForm';
-
-/**
- * Raw envelope returned by the cloud credential-test endpoint. The server may
- * wrap the result under `data` (render_success) or return it flat; callers read
- * `envelope.data ?? envelope`.
- */
-export interface TestResponseEnvelope {
-  data?: { valid?: boolean; error?: string };
-  valid?: boolean;
-  error?: string;
-}
-
-/** Inner (unwrapped) shape consumed by ProviderCredentialForm after `envelope.data ?? envelope`. */
-export interface CredentialTestResult {
-  valid?: boolean;
-  error?: string;
-}
-
-export interface TestCredentialsParams {
-  /** Endpoint override — defaults applied by the caller (cloud test surface). */
-  endpoint: string;
-  providerId: string;
-  providerType: ProviderTypeSlug;
-  category: ProviderCategory;
-  credentials: ProviderCredentialValues;
-}
 
 interface OnboardingStatusResponse {
   data?: {
@@ -54,10 +28,6 @@ interface OnboardingStatusResponse {
 export type OnboardingStatusCategories = Partial<
   Record<ProviderCategory, { has_credentials: boolean; count: number; available: boolean }>
 >;
-
-interface CloudCredentialResponse {
-  data?: { id?: string; provider_credential?: { id?: string } };
-}
 
 interface AiProviderResponse {
   data?: { provider?: { id?: string } };
@@ -83,11 +53,6 @@ interface GitCredentialResponse {
 interface CompleteResponseEnvelope {
   data?: { onboarding_completed_at?: string | null };
   onboarding_completed_at?: string | null;
-}
-
-export interface CreateProviderCredentialParams {
-  providerType: ProviderTypeSlug;
-  credentials: ProviderCredentialValues;
 }
 
 export interface CreateProviderViaProviderParams {
@@ -118,51 +83,12 @@ export interface CompleteOnboardingParams {
  */
 export const onboardingApi = {
   /**
-   * POST the cloud credential-test surface. Returns the inner result object the
-   * form reads via `envelope.data ?? envelope` (so `.valid` / `.error` are read
-   * the same way the component did).
-   */
-  async testCredentials({
-    endpoint,
-    providerId,
-    providerType,
-    category,
-    credentials,
-  }: TestCredentialsParams): Promise<CredentialTestResult> {
-    const response = await apiClient.post<TestResponseEnvelope>(endpoint, {
-      provider_id: providerId,
-      provider_type: providerType,
-      provider_category: category,
-      credentials,
-    });
-    const envelope = response.data ?? {};
-    return envelope.data ?? envelope;
-  },
-
-  /**
    * GET `/onboarding/status`. Returns the per-category map the wizard reads via
    * `response.data?.data?.categories ?? {}`.
    */
   async getStatus(): Promise<OnboardingStatusCategories> {
     const response = await apiClient.get<OnboardingStatusResponse>('/onboarding/status');
     return response.data?.data?.categories ?? {};
-  },
-
-  /**
-   * Cloud category: single POST that auto-creates the provider. Returns the
-   * derived credential id (`provider_credential?.id ?? id ?? null`).
-   */
-  async createCloudCredential({
-    providerType,
-    credentials,
-  }: CreateProviderCredentialParams): Promise<string | null> {
-    const response = await apiClient.post<CloudCredentialResponse>('/system/provider_credentials', {
-      provider_id: providerType,
-      provider_type: providerType,
-      credentials,
-    });
-    const inner = response.data?.data ?? {};
-    return inner.provider_credential?.id ?? inner.id ?? null;
   },
 
   /**

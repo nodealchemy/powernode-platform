@@ -115,4 +115,13 @@ describe('host UI API contract', () => {
     expect('default' in apiClientModule).toBe(false);
     expect(CORE_UI_API_VERSION).toBeGreaterThanOrEqual(3);
   });
+
+  it('bumped the host UI API version for the ProviderCredentialForm test seam', () => {
+    // '@/features/onboarding/ProviderCredentialForm' no longer accepts
+    // testEndpoint (a bundle built against 3 passes it and gets no Test
+    // button), and '@/shared/services/featureRegistry' gained
+    // registerProviderCategoryHandlers, which such a bundle never calls.
+    expect(HOST_EXPOSED_IDS as readonly string[]).toContain('@/features/onboarding/ProviderCredentialForm');
+    expect(CORE_UI_API_VERSION).toBeGreaterThanOrEqual(4);
+  });
 });

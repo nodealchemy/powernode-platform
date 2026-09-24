@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { logger } from '@/shared/utils/logger';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 import { onboardingApi } from '@/features/onboarding/services/onboardingApi';
 import {
   ProviderCategoryStep,
@@ -14,11 +15,33 @@ import {
   type ProviderTypeSlug,
 } from '@/features/onboarding/ProviderCredentialForm';
 import type { SetupStepComponentProps } from './types';
+import type { SetupStep } from '../services/setupApi';
 
 const COMPONENT_TO_CATEGORY: Record<string, ProviderCategory> = {
   'core/ai_provider': 'ai',
   'core/cloud_provider': 'cloud',
   'core/git_provider': 'git',
+};
+
+// Categories whose credentials core persists itself. Any other category is
+// served by the handlers an extension registers for it.
+const CORE_SERVED_CATEGORIES: readonly ProviderCategory[] = ['ai', 'git'];
+
+const categoryOf = (step: SetupStep): ProviderCategory =>
+  (step.category as ProviderCategory) ?? COMPONENT_TO_CATEGORY[step.component ?? ''] ?? 'ai';
+
+/**
+ * Whether the setup wizard should show this step. A provider step for a
+ * category core does not serve is shown only while an extension has registered
+ * handlers for it; without them the category is simply absent.
+ */
+export const isSetupStepAvailable = (step: SetupStep): boolean => {
+  if (step.completion !== 'provider_credentials') return true;
+  const category = categoryOf(step);
+  return (
+    CORE_SERVED_CATEGORIES.includes(category) ||
+    featureRegistry.getProviderCategoryHandlers(category) !== undefined
+  );
 };
 
 /**
@@ -29,8 +52,10 @@ const COMPONENT_TO_CATEGORY: Record<string, ProviderCategory> = {
  * a configured provider is auto-skipped on the next load.
  */
 export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
-  const category: ProviderCategory =
-    (step.category as ProviderCategory) ?? COMPONENT_TO_CATEGORY[step.component ?? ''] ?? 'ai';
+  const category = categoryOf(step);
+  const handlers = CORE_SERVED_CATEGORIES.includes(category)
+    ? undefined
+    : featureRegistry.getProviderCategoryHandlers(category);
 
   const [providerType, setProviderType] = useState<ProviderTypeSlug | null>(null);
   const [credentials, setCredentials] = useState<ProviderCredentialValues>({});
@@ -72,8 +97,8 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     setSaveStatus('saving');
     setSaveError(null);
     try {
-      if (category === 'cloud') {
-        await onboardingApi.createCloudCredential({ providerType, credentials });
+      if (handlers) {
+        await handlers.createCredential({ providerType, credentials });
       } else if (category === 'ai') {
         const providerId = await onboardingApi.createAiProvider({
           providerType,
@@ -100,7 +125,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
       setSaveError(err instanceof Error ? err.message : 'Failed to save credentials. Please retry.');
       setSaveStatus('error');
     }
-  }, [providerType, category, credentials]);
+  }, [providerType, category, credentials, handlers]);
 
   const progress: CategoryProgress = {
     providerType,
@@ -120,6 +145,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
       onTestStatusChange={onTestStatusChange}
       onSave={onSave}
       testIdPrefix="setup"
+      testCredentials={handlers?.testCredential}
     />
   );
 };

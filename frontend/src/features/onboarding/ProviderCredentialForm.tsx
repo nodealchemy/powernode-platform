@@ -2,14 +2,18 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, CheckCircle2, Loader2, ShieldCheck, XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { logger } from '@/shared/utils/logger';
-import { onboardingApi } from './services/onboardingApi';
+import type {
+  ProviderCredentialTestRequest,
+  ProviderCredentialTestResult,
+} from '@/shared/services/featureRegistry';
 
 /**
  * Provider categories supported by the unified onboarding wizard.
  *
  * Each category routes to a different credential-create surface:
  *   - ai:    POST /ai/providers + POST /ai/providers/:id/credentials
- *   - cloud: POST /system/provider_credentials (auto-creates provider)
+ *   - cloud: the create handler an extension registers for the category
+ *            (featureRegistry.registerProviderCategoryHandlers)
  *   - git:   POST /git/providers + POST /git/providers/:id/credentials
  */
 export type ProviderCategory = 'ai' | 'cloud' | 'git';
@@ -366,11 +370,11 @@ export interface ProviderCredentialFormProps {
   /** Notified when the credential test transitions; useful for save-button gating. */
   onTestStatusChange?: (status: CredentialTestStatus) => void;
   /**
-   * Optional override for the "Test credentials" endpoint. Defaults to the
-   * cloud-provider test endpoint; AI and Git categories don't currently
-   * expose a parallel test surface, so the wizard hides the button there.
+   * Tests the entered credentials. The form names no API: the caller passes
+   * the test function of whatever serves the category. Without one there is
+   * no "Test credentials" button (AI and Git have no test surface today).
    */
-  testEndpoint?: string;
+  testCredentials?: (request: ProviderCredentialTestRequest) => Promise<ProviderCredentialTestResult>;
   /** Compact form variant suppresses the description block. */
   compact?: boolean;
   /** Hide the "Test credentials" CTA — useful when the parent renders its own. */
@@ -444,7 +448,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
   initialValues,
   onChange,
   onTestStatusChange,
-  testEndpoint = '/system/provider_credentials/test',
+  testCredentials,
   compact = false,
   hideTestButton = false,
   excludeScopes,
@@ -515,11 +519,11 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
       setTouched(allTouched);
       return;
     }
+    if (!testCredentials) return;
     setTestStatus('testing');
     setTestMessage(null);
     try {
-      const inner = await onboardingApi.testCredentials({
-        endpoint: testEndpoint,
+      const inner = await testCredentials({
         providerId: providerId ?? providerType,
         providerType,
         category,
@@ -627,7 +631,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
 
       <div className="space-y-3">{fields.map(renderField)}</div>
 
-      {!hideTestButton && (
+      {!hideTestButton && testCredentials && (
         <div className="flex flex-wrap items-center gap-3">
           <Button
             type="button"

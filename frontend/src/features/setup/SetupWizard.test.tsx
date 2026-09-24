@@ -30,8 +30,6 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
   __esModule: true,
   onboardingApi: {
     complete: jest.fn().mockResolvedValue(undefined),
-    testCredentials: jest.fn(),
-    createCloudCredential: jest.fn(),
     createAiProvider: jest.fn(),
     createAiCredential: jest.fn(),
     createGitProvider: jest.fn(),
@@ -169,6 +167,52 @@ describe('SetupWizard', () => {
     await waitFor(() => expect(screen.getByTestId('setup-ai-step')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('setup-continue-btn'));
     await waitFor(() => expect(onboardingApi.complete).toHaveBeenCalled());
+  });
+
+  describe('the cloud provider step', () => {
+    const cloudThenAi = [
+      {
+        key: 'cloud_provider', title: 'Cloud provider', order: 60, owner: 'core', required: false,
+        component: 'core/cloud_provider', category: 'cloud', completion: 'provider_credentials',
+        completed: false, completed_at: null,
+      },
+      {
+        key: 'git_provider', title: 'Git provider', order: 70, owner: 'core', required: false,
+        component: 'core/git_provider', category: 'git', completion: 'provider_credentials',
+        completed: false, completed_at: null,
+      },
+    ];
+
+    afterEach(() => featureRegistry.clear());
+
+    it('is absent when no extension registers cloud credential handlers', async () => {
+      setUrl('/setup');
+      featureRegistry.clear();
+      mockGetSteps.mockResolvedValue(cloudThenAi);
+
+      renderWithProviders(<SetupWizard />, {
+        preloadedState: { auth: { isAuthenticated: true, user: { id: '1' }, isLoading: false } },
+      });
+
+      await waitFor(() => expect(screen.getByTestId('setup-git-step')).toBeInTheDocument());
+      expect(screen.queryByTestId('setup-cloud-step')).toBeNull();
+      expect(screen.queryByText('Cloud provider')).toBeNull();
+    });
+
+    it('is shown when an extension registers cloud credential handlers', async () => {
+      setUrl('/setup');
+      featureRegistry.registerProviderCategoryHandlers('cloud', {
+        createCredential: jest.fn(),
+        testCredential: jest.fn(),
+      });
+      mockGetSteps.mockResolvedValue(cloudThenAi);
+
+      renderWithProviders(<SetupWizard />, {
+        preloadedState: { auth: { isAuthenticated: true, user: { id: '1' }, isLoading: false } },
+      });
+
+      await waitFor(() => expect(screen.getByTestId('setup-cloud-step')).toBeInTheDocument());
+    });
   });
 
   it('renders an extension component step via featureRegistry and marks it configured', async () => {

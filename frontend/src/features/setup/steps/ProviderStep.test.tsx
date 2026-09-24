@@ -5,8 +5,6 @@ import type { SetupStep } from '../services/setupApi';
 jest.mock('@/features/onboarding/services/onboardingApi', () => ({
   __esModule: true,
   onboardingApi: {
-    testCredentials: jest.fn(),
-    createCloudCredential: jest.fn(),
     createAiProvider: jest.fn(),
     createAiCredential: jest.fn(),
     createGitProvider: jest.fn(),
@@ -15,8 +13,12 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
 }));
 
 import { onboardingApi } from '@/features/onboarding/services/onboardingApi';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
-const mockCreateCloud = onboardingApi.createCloudCredential as jest.Mock;
+// Cloud credentials are not served by core: the category's create/test handlers
+// come from whichever extension registered them.
+const mockCreateCloud = jest.fn();
+const mockTestCloud = jest.fn();
 const mockCreateAiProvider = onboardingApi.createAiProvider as jest.Mock;
 const mockCreateAiCredential = onboardingApi.createAiCredential as jest.Mock;
 const mockCreateGitProvider = onboardingApi.createGitProvider as jest.Mock;
@@ -37,7 +39,13 @@ const stepFor = (component: string, category: string): SetupStep => ({
 
 describe('ProviderStep', () => {
   beforeEach(() => {
+    featureRegistry.clear();
+    featureRegistry.registerProviderCategoryHandlers('cloud', {
+      createCredential: mockCreateCloud,
+      testCredential: mockTestCloud,
+    });
     mockCreateCloud.mockReset();
+    mockTestCloud.mockReset();
     mockCreateAiProvider.mockReset();
     mockCreateAiCredential.mockReset();
     mockCreateGitProvider.mockReset();
@@ -50,7 +58,9 @@ describe('ProviderStep', () => {
     expect(screen.getByTestId('setup-provider-local_qemu')).toBeInTheDocument();
   });
 
-  it('saves a local_qemu cloud credential via onboardingApi (single POST)', async () => {
+  afterEach(() => featureRegistry.clear());
+
+  it('saves a local_qemu cloud credential through the registered cloud handler', async () => {
     mockCreateCloud.mockResolvedValue('cred-local');
     render(<ProviderStep step={stepFor('core/cloud_provider', 'cloud')} />);
 
@@ -62,6 +72,22 @@ describe('ProviderStep', () => {
     await waitFor(() => expect(screen.getByTestId('setup-save-success')).toBeInTheDocument());
     expect(mockCreateCloud).toHaveBeenCalledWith(
       expect.objectContaining({ providerType: 'local_qemu' })
+    );
+  });
+
+  it('tests cloud credentials through the registered cloud handler', async () => {
+    mockTestCloud.mockResolvedValue({ valid: true });
+    render(<ProviderStep step={stepFor('core/cloud_provider', 'cloud')} />);
+
+    fireEvent.click(screen.getByTestId('setup-provider-hetzner'));
+    fireEvent.change(screen.getByTestId('provider-cred-field-api_token'), {
+      target: { value: 'token-abc' },
+    });
+    fireEvent.click(screen.getByTestId('provider-cred-test-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('provider-cred-test-success')).toBeInTheDocument());
+    expect(mockTestCloud).toHaveBeenCalledWith(
+      expect.objectContaining({ providerType: 'hetzner', credentials: { api_token: 'token-abc' } })
     );
   });
 

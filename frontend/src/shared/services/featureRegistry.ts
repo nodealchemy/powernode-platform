@@ -86,6 +86,36 @@ export interface FeatureChannel {
   defaultPageTypes?: string[];
 }
 
+/** What a provider category's credential-test surface is asked. `providerId`
+ *  falls back to the provider type slug when no provider record exists yet. */
+export interface ProviderCredentialTestRequest {
+  providerId: string;
+  providerType: string;
+  category: string;
+  credentials: Record<string, string>;
+}
+
+/** A credential test's verdict: `valid`, and the reason when it is not. */
+export interface ProviderCredentialTestResult {
+  valid?: boolean;
+  error?: string;
+}
+
+/**
+ * Credential create/test for a provider category core does not serve itself.
+ * Core's setup and onboarding surfaces show such a category only when an
+ * extension registers handlers for it, and call them instead of naming any
+ * extension endpoint. Keyed by category id; core never names an extension.
+ */
+export interface ProviderCategoryHandlers {
+  /** Store a credential (creating the provider if needed); resolves to its id. */
+  createCredential(request: {
+    providerType: string;
+    credentials: Record<string, string>;
+  }): Promise<string | null>;
+  testCredential(request: ProviderCredentialTestRequest): Promise<ProviderCredentialTestResult>;
+}
+
 interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
   publicRoutes: Map<string, FeatureRoute[]>;
@@ -96,6 +126,7 @@ interface FeatureRegistryState {
   channels: Map<string, FeatureChannel[]>;
   setupStepComponents: Map<string, SetupStepComponent>;
   componentSlots: Map<string, ComponentSlot>;
+  providerCategoryHandlers: Map<string, ProviderCategoryHandlers>;
   version: number;
   listeners: Set<() => void>;
 }
@@ -110,6 +141,7 @@ const state: FeatureRegistryState = {
   channels: new Map(),
   setupStepComponents: new Map(),
   componentSlots: new Map(),
+  providerCategoryHandlers: new Map(),
   version: 0,
   listeners: new Set(),
 };
@@ -168,6 +200,21 @@ export const featureRegistry = {
       state.componentSlots.set(id, component);
     });
     notifyListeners();
+  },
+
+  /**
+   * Register credential create/test handlers for a provider category core does
+   * not serve itself (see ProviderCategoryHandlers). A second registration for
+   * the same category replaces the first.
+   */
+  registerProviderCategoryHandlers(category: string, handlers: ProviderCategoryHandlers): void {
+    state.providerCategoryHandlers.set(category, handlers);
+    notifyListeners();
+  },
+
+  /** The handlers registered for a provider category, or undefined. */
+  getProviderCategoryHandlers(category: string): ProviderCategoryHandlers | undefined {
+    return state.providerCategoryHandlers.get(category);
   },
 
   /** Resolve a slot component by its host-owned slot id, or undefined. */
@@ -361,5 +408,6 @@ export const featureRegistry = {
     state.channels.clear();
     state.setupStepComponents.clear();
     state.componentSlots.clear();
+    state.providerCategoryHandlers.clear();
   },
 };

@@ -13,7 +13,7 @@ import { featureRegistry } from '@/shared/services/featureRegistry';
 import { SchemaStepForm } from './SchemaStepForm';
 import { ExtensionSelectionStep } from './steps/ExtensionSelectionStep';
 import { SeedStep } from './steps/SeedStep';
-import { ProviderStep } from './steps/ProviderStep';
+import { ProviderStep, isSetupStepAvailable } from './steps/ProviderStep';
 import type { SetupStepComponentProps } from './steps/types';
 import { setupApi, type SetupStep } from './services/setupApi';
 
@@ -171,7 +171,7 @@ export const SetupWizard: React.FC = () => {
     const load = async () => {
       try {
         if (isAuthenticated) {
-          const steps = await setupApi.getSteps();
+          const steps = (await setupApi.getSteps()).filter(isSetupStepAvailable);
           if (cancelled) return;
           dispatchLocal({ type: 'INIT_STEPS', steps, index: firstIncomplete(steps) });
           return;
@@ -251,7 +251,7 @@ export const SetupWizard: React.FC = () => {
         } else {
           await setupApi.submitStep(step.key, values);
         }
-        const steps = await setupApi.getSteps();
+        const steps = (await setupApi.getSteps()).filter(isSetupStepAvailable);
         // Skip any already-completed steps ahead (e.g. provider steps whose
         // credentials already exist) so we never re-ask for configured providers.
         const nextIdx = nextIncompleteFrom(steps, state.index + 1);
