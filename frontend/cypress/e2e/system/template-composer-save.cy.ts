@@ -11,7 +11,7 @@
  *   4. Save modal opens, accepts a template name, persists via the
  *      compose_preview / create_template / assign_module_to_template
  *      back-end chain
- *   5. New template appears in the list at /app/system/templates
+ *   5. New template appears in the list at /app/system/catalog/templates
  *
  * The test relies on existing seed data: the test account must have at
  * least one NodeModule. If the seed is empty, the test logs and skips
@@ -87,7 +87,7 @@ describe('Template Composer save flow', () => {
       cy.contains(templateName, { timeout: 10000 }).should('exist');
 
       // Visit the templates list and verify the template is there.
-      cy.visit('/app/system/templates');
+      cy.visit('/app/system/catalog/templates');
       cy.waitForPageLoad();
       cy.contains(templateName).should('exist');
     });
