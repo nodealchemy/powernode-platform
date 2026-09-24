@@ -38,7 +38,6 @@ import { modelRouterApi } from '@/shared/services/ai/ModelRouterApiService';
 import { aiOpsApi } from '@/shared/services/ai/AiOpsApiService';
 import { roiApi } from '@/shared/services/ai/RoiApiService';
 import { creditsApi } from '@/shared/services/ai/CreditsApiService';
-import { mcpHostingApi } from '@/shared/services/ai/McpHostingApiService';
 import { ragApi } from '@/shared/services/ai/RagApiService';
 import { teamsApi } from '@/shared/services/ai/TeamsApiService';
 import { governanceApi } from '@/shared/services/ai/GovernanceApiService';
@@ -221,18 +220,6 @@ export type {
   OperationCost,
   ResellerStats,
 } from '@/shared/services/ai/CreditsApiService';
-
-// Re-export MCP Hosting service (Phase 2 - MCP Hosting)
-export { mcpHostingApi };
-export type {
-  McpHostedServer,
-  McpServerDetailed,
-  McpServerDeployment,
-  McpServerMetric,
-  McpServerSubscription,
-  McpMarketplaceListing,
-  ServerCreateParams,
-} from '@/shared/services/ai/McpHostingApiService';
 
 // Outcome Billing (success-based AI billing) is a commercial concern owned by
 // the business extension; its service/types live there, not in core.
@@ -509,7 +496,6 @@ export const aiApi = {
   roi: roiApi,
   // Phase 2 - New services
   credits: creditsApi,
-  mcpHosting: mcpHostingApi,
   // Phase 3 - New services
   rag: ragApi,
   teams: teamsApi,
