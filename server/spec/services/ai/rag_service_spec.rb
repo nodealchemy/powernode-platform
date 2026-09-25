@@ -289,6 +289,19 @@ RSpec.describe Ai::RagService, type: :service do
           expect(chunk.token_count).to be > 0
         end
       end
+
+      it 'replaces the chunks on a second run rather than adding to them' do
+        service.process_document(knowledge_base.id, document.id)
+        single_run = document.chunks.count
+        expect(single_run).to be > 0
+
+        reprocessed = service.process_document(knowledge_base.id, document.id)
+
+        expect(document.chunks.count).to eq(single_run)
+        expect(document.chunks.ordered.pluck(:sequence_number)).to eq((1..single_run).to_a)
+        expect(reprocessed.reload).to have_attributes(status: 'indexed', chunk_count: single_run)
+        expect(knowledge_base.reload.chunk_count).to eq(single_run)
+      end
     end
   end
 

@@ -80,7 +80,8 @@ module Ai
           },
           "process_document" => {
             description: "Process a document: chunk and embed it for RAG retrieval. " \
-                         "It uses the knowledge base's chunking settings and embeds only chunks that have no embedding yet.",
+                         "It uses the knowledge base's chunking settings and embeds only chunks that have no embedding yet. " \
+                         "Processing a document again replaces its chunks.",
             parameters: {
               knowledge_base_id: { type: "string", required: true, description: "Knowledge base ID" },
               document_id: { type: "string", required: true, description: "Document ID to process" }

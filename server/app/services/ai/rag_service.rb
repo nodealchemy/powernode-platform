@@ -158,16 +158,24 @@ module Ai
       kb = doc.knowledge_base
       chunks = chunk_content(doc.content, kb.chunking_strategy, kb.chunk_size, kb.chunk_overlap)
 
-      created_chunks = chunks.each_with_index.map do |chunk_content, idx|
-        Ai::DocumentChunk.create!(
-          document: doc,
-          knowledge_base: kb,
-          sequence_number: idx + 1,
-          content: chunk_content,
-          token_count: estimate_tokens(chunk_content),
-          start_offset: 0, # Would need proper offset tracking
-          end_offset: chunk_content.length
-        )
+      # Reprocessing REPLACES the document's chunks: the old set goes in the
+      # same transaction the new one is written in, so a rerun neither stacks a
+      # second set nor collides on (document_id, sequence_number), and a failed
+      # rerun leaves the previous chunks in place.
+      created_chunks = Ai::DocumentChunk.transaction do
+        doc.chunks.destroy_all
+
+        chunks.each_with_index.map do |chunk_content, idx|
+          Ai::DocumentChunk.create!(
+            document: doc,
+            knowledge_base: kb,
+            sequence_number: idx + 1,
+            content: chunk_content,
+            token_count: estimate_tokens(chunk_content),
+            start_offset: 0, # Would need proper offset tracking
+            end_offset: chunk_content.length
+          )
+        end
       end
 
       doc.complete_indexing!(
