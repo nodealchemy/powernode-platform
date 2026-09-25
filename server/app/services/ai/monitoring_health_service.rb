@@ -6,9 +6,6 @@ module Ai
   # Provides health monitoring including:
   # - System, database, redis health checks
   # - Provider and worker health
-  # - Connectivity tests
-  # - Performance metrics
-  # - Activity summaries
   #
   # It reports MEASUREMENTS ONLY. It deliberately returns no health score and no
   # overall status: the status-plane rollup is the one health score (E7, E7b,
@@ -21,8 +18,6 @@ module Ai
   #
   class MonitoringHealthService
     include HealthChecks
-    include ConnectivityTests
-    include ActivityMetrics
 
     attr_reader :account
 

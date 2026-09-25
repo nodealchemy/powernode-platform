@@ -24,7 +24,7 @@ module Monitoring
     include AiMonitoringConcern
 
     # Component types for monitoring
-    COMPONENTS = %w[system providers agents conversations costs resources].freeze
+    COMPONENTS = %w[system providers agents conversations costs].freeze
 
     # Explicit initialize to ensure account is set
     # Note: Can't call super due to ActiveModel::Model conflict with BaseAiService
@@ -107,8 +107,6 @@ module Monitoring
       get_conversation_metrics(time_range)
     when "costs"
       get_cost_metrics(time_range)
-    when "resources"
-      get_resource_metrics(time_range)
     else
       {}
     end
@@ -218,19 +216,6 @@ module Monitoring
       cost_by_agent: calculate_cost_by_agent(time_range),
       cost_trend: calculate_cost_trend(time_range),
       projected_monthly_cost: project_monthly_cost(time_range)
-    }
-  end
-
-  # =============================================================================
-  # RESOURCE METRICS
-  # =============================================================================
-
-  def get_resource_metrics(time_range)
-    {
-      database: get_database_metrics,
-      redis: get_redis_metrics,
-      memory: get_memory_metrics,
-      cpu: get_cpu_metrics
     }
   end
 
@@ -524,86 +509,6 @@ module Monitoring
   def project_monthly_cost(time_range)
     daily_average = calculate_total_cost(time_range) / (time_range.to_f / 1.day)
     (daily_average * 30).round(2)
-  end
-
-  def get_database_metrics
-    {
-      status: check_database_health[:status],
-      connection_count: ActiveRecord::Base.connection_pool.stat[:size]
-    }
-  end
-
-  def get_redis_metrics
-    info = redis.info
-    {
-      status: check_redis_health[:status],
-      used_memory: info["used_memory_human"],
-      connected_clients: info["connected_clients"]&.to_i || 0
-    }
-  end
-
-  def get_memory_metrics
-    # Get memory usage from system
-    if `which free`.present?
-      # Linux/Unix systems
-      free_output = `free -m`
-      lines = free_output.split("\n")
-      mem_line = lines[1]
-      parts = mem_line.split
-
-      {
-        total_mb: parts[1].to_i,
-        used_mb: parts[2].to_i,
-        free_mb: parts[3].to_i,
-        usage_percent: ((parts[2].to_f / parts[1].to_f) * 100).round(2)
-      }
-    else
-      # Fallback - use Ruby process memory
-      rss = `ps -o rss= -p #{Process.pid}`.to_i / 1024
-      {
-        process_memory_mb: rss,
-        usage_percent: 0
-      }
-    end
-  rescue StandardError => e
-    Rails.logger.warn "Failed to collect memory metrics: #{e.message}"
-    {}
-  end
-
-  def get_cpu_metrics
-    # Get CPU usage from system
-    if `which top`.present?
-      # Get CPU usage from top command (works on most Unix systems)
-      cpu_output = `top -bn1 | grep "Cpu(s)"`.strip
-
-      if cpu_output.present?
-        # Parse output like: "Cpu(s): 12.5%us,  2.3%sy,  0.0%ni, 84.1%id,  0.0%wa"
-        idle = cpu_output.match(/(\d+\.?\d*)%?\s*id/)[1].to_f rescue 0
-        used_percent = (100 - idle).round(2)
-        load_avg = (`uptime`.match(/load average: ([\d., ]+)/)&.[](1) || "N/A")
-
-        {
-          usage_percent: used_percent,
-          idle_percent: idle.round(2),
-          load_average: load_avg
-        }
-      else
-        fallback_cpu_metrics
-      end
-    else
-      fallback_cpu_metrics
-    end
-  rescue StandardError => e
-    Rails.logger.warn "Failed to collect CPU metrics: #{e.message}"
-    fallback_cpu_metrics
-  end
-
-  def fallback_cpu_metrics
-    load_avg = `cat /proc/loadavg 2>/dev/null`.split[0..2].join(", ") rescue "N/A"
-    {
-      load_average: load_avg,
-      usage_percent: 0
-    }
   end
 
   def get_requests_per_second(time_range)

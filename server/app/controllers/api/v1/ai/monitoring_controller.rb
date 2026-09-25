@@ -6,16 +6,17 @@
 # RESTful resource controller following the AI Orchestration Redesign pattern.
 #
 # Consolidates:
-# - MonitoringController (status, health, metrics, alerts)
+# - MonitoringController (status, metrics, alerts)
 # - CircuitBreakersController (circuit breaker management)
-# - AiHealthController (comprehensive health checks)
+#
+# Health is not served here: platform health is on /app/status, and the
+# MCP health tool reads Ai::MonitoringHealthService directly (fc-47).
 #
 # Architecture:
 # - Primary resource: Monitoring Dashboard
 # - Integrates with Monitoring::UnifiedService (Phase 1)
 # - Circuit breaker management
 # - Real-time metrics broadcasting
-# - Comprehensive health checking
 #
 module Api
   module V1
@@ -72,20 +73,6 @@ module Api
             **platform_rollup(current_user.account),
             timestamp: Time.current.iso8601
           )
-        end
-
-        # =============================================================================
-        # HEALTH CHECKS
-        # =============================================================================
-
-        # GET /api/v1/ai/monitoring/health/detailed
-        def health_detailed
-          render_success(health_service.detailed_health)
-        end
-
-        # GET /api/v1/ai/monitoring/health/connectivity
-        def health_connectivity
-          render_success(health_service.connectivity_check)
         end
 
         # =============================================================================
@@ -242,10 +229,6 @@ module Api
           render_error(e.message, status: :conflict)
         end
 
-        def health_service
-          @health_service ||= ::Ai::MonitoringHealthService.new(account: current_user.account)
-        end
-
         def current_account
           current_worker&.account || current_user&.account
         end
@@ -277,7 +260,7 @@ module Api
           return if current_worker
 
           permission_map = {
-            %w[dashboard metrics overview health_detailed health_connectivity alerts alerts_check
+            %w[dashboard metrics overview alerts alerts_check
                circuit_breakers_index circuit_breaker_show circuit_breakers_category] => "ai.monitoring.read",
             %w[circuit_breaker_reset broadcast_metrics start_monitoring stop_monitoring] => "ai.monitoring.manage",
             USER_ATTRIBUTED_ACTIONS => "ai.aiops.manage"

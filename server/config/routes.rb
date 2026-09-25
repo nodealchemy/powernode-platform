@@ -1028,7 +1028,6 @@ Rails.application.routes.draw do
         namespace :maintenance do
           get :status, to: "maintenance#status"
           get :health, to: "maintenance#health"
-          get :metrics, to: "maintenance#metrics"
 
           # Backup management
           get :backups, to: "maintenance#backups"
@@ -1829,8 +1828,6 @@ Rails.application.routes.draw do
           get :dashboard
           get :metrics
           get :overview
-          get "health/detailed", action: :health_detailed
-          get "health/connectivity", action: :health_connectivity
           get :alerts
           post "alerts/check", action: :alerts_check
           post "alerts/:alert_id/acknowledge", action: :alert_acknowledge

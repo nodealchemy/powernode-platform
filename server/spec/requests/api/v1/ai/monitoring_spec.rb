@@ -172,32 +172,6 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/monitoring/health/detailed' do
-    context 'with proper permissions' do
-      it 'returns detailed health information' do
-        allow_any_instance_of(Ai::MonitoringHealthService).to receive(:detailed_health)
-          .and_return({ components: [], services: [] })
-
-        get '/api/v1/ai/monitoring/health/detailed', headers: headers, as: :json
-
-        expect_success_response
-      end
-    end
-  end
-
-  describe 'GET /api/v1/ai/monitoring/health/connectivity' do
-    context 'with proper permissions' do
-      it 'returns connectivity check results' do
-        allow_any_instance_of(Ai::MonitoringHealthService).to receive(:connectivity_check)
-          .and_return({ database: 'connected', redis: 'connected' })
-
-        get '/api/v1/ai/monitoring/health/connectivity', headers: headers, as: :json
-
-        expect_success_response
-      end
-    end
-  end
-
   describe 'GET /api/v1/ai/monitoring/alerts' do
     context 'with proper permissions' do
       it 'returns list of alerts' do

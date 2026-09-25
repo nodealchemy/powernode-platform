@@ -15,8 +15,6 @@ import { type StatusRollup, type Verdict, UNHEALTHY_VERDICTS, isVerdict } from '
  * - GET  /api/v1/ai/monitoring/dashboard
  * - GET  /api/v1/ai/monitoring/metrics
  * - GET  /api/v1/ai/monitoring/overview
- * - GET  /api/v1/ai/monitoring/health/detailed
- * - GET  /api/v1/ai/monitoring/health/connectivity
  * - GET  /api/v1/ai/monitoring/alerts
  * - POST /api/v1/ai/monitoring/alerts/check
  * - POST /api/v1/ai/monitoring/alerts/:id/acknowledge
@@ -81,18 +79,9 @@ export interface MonitoringDashboard {
     message: string;
     timestamp: string;
   }>;
-  // Resource utilization data
-  resources?: {
-    cpu: { usage_percent: number; idle_percent: number; load_average: string };
-    memory: { total_mb: number; used_mb: number; free_mb: number; usage_percent: number };
-    database: { status: string; connection_count: number | null };
-    redis: { status: string; used_memory: string; connected_clients: number };
-  };
 }
 
 export interface MetricsData {
-  cpu_usage: number;
-  memory_usage: number;
   active_connections: number;
   request_rate: number;
   error_rate: number;
@@ -187,12 +176,6 @@ class MonitoringApiService extends BaseApiService {
               workers?: { status?: string };
             };
           };
-        };
-        resources?: {
-          cpu?: { usage_percent?: number; idle_percent?: number; load_average?: string };
-          memory?: { total_mb?: number; used_mb?: number; free_mb?: number; usage_percent?: number };
-          database?: { status?: string; connection_count?: number };
-          redis?: { status?: string; used_memory?: string; connected_clients?: number };
         };
       };
     }
@@ -299,30 +282,7 @@ class MonitoringApiService extends BaseApiService {
         avg_execution_time: 0,
         total_cost: 0
       })),
-      alerts: [],
-      // Include resource utilization data from backend
-      resources: dashboard?.components?.resources ? {
-        cpu: {
-          usage_percent: dashboard.components.resources.cpu?.usage_percent || 0,
-          idle_percent: dashboard.components.resources.cpu?.idle_percent || 0,
-          load_average: dashboard.components.resources.cpu?.load_average || '0'
-        },
-        memory: {
-          total_mb: dashboard.components.resources.memory?.total_mb || 0,
-          used_mb: dashboard.components.resources.memory?.used_mb || 0,
-          free_mb: dashboard.components.resources.memory?.free_mb || 0,
-          usage_percent: dashboard.components.resources.memory?.usage_percent || 0
-        },
-        database: {
-          status: dashboard.components.resources.database?.status || 'unknown',
-          connection_count: dashboard.components.resources.database?.connection_count ?? null
-        },
-        redis: {
-          status: dashboard.components.resources.redis?.status || 'unknown',
-          used_memory: dashboard.components.resources.redis?.used_memory || '0',
-          connected_clients: dashboard.components.resources.redis?.connected_clients || 0
-        }
-      } : undefined
+      alerts: []
     };
   }
 
@@ -342,10 +302,6 @@ class MonitoringApiService extends BaseApiService {
           };
           errors?: { error_rate?: number };
         };
-        resources?: {
-          cpu?: { usage_percent?: number };
-          memory?: { usage_percent?: number };
-        };
       };
       timestamp?: string;
     }
@@ -355,8 +311,6 @@ class MonitoringApiService extends BaseApiService {
 
     // Transform nested backend response to flat MetricsData format
     const metricsData: MetricsData = {
-      cpu_usage: response?.metrics?.resources?.cpu?.usage_percent || 0,
-      memory_usage: response?.metrics?.resources?.memory?.usage_percent || 0,
       active_connections: response?.metrics?.system?.performance?.active_connections?.total || 0,
       request_rate: response?.metrics?.system?.performance?.requests_per_second || 0,
       error_rate: response?.metrics?.system?.errors?.error_rate || 0,
@@ -373,26 +327,6 @@ class MonitoringApiService extends BaseApiService {
    */
   async getOverview(): Promise<any> {
     return this.get<any>(`${this.basePath}/overview`);
-  }
-
-  // ===================================================================
-  // Health Monitoring
-  // ===================================================================
-
-  /**
-   * Get detailed health information
-   * GET /api/v1/ai/monitoring/health/detailed
-   */
-  async getDetailedHealth(): Promise<any> {
-    return this.get<any>(`${this.basePath}/health/detailed`);
-  }
-
-  /**
-   * Get connectivity health check
-   * GET /api/v1/ai/monitoring/health/connectivity
-   */
-  async getConnectivityHealth(): Promise<any> {
-    return this.get<any>(`${this.basePath}/health/connectivity`);
   }
 
   // ===================================================================

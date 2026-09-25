@@ -195,31 +195,19 @@ describe('MonitoringApiService#getDashboard — per-agent and per-provider rates
   });
 });
 
-describe('MonitoringApiService#getDashboard — database pool size (M1 tail)', () => {
+// fc-47 review M1: the resources component fed only the deleted System
+// Health tab. The server no longer sends it and the client maps none.
+describe('MonitoringApiService#getDashboard — no resources', () => {
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  const withDatabase = (database: unknown) => ({
-    dashboard: { components: { agents: { total_agents: 0, agents: [] }, providers: { providers: [] }, resources: { database } } },
-    rollup: rollup(),
-  });
-
-  it('passes the pool size through', async () => {
-    jest.spyOn(target, 'get').mockResolvedValue(withDatabase({ status: 'ok', connection_count: 10 }));
+  it('maps no resources block, even if a server still sends one', async () => {
+    jest.spyOn(target, 'get').mockResolvedValue({
+      dashboard: { components: { agents: { total_agents: 0, agents: [] }, providers: { providers: [] }, resources: { database: { status: 'ok' } } } },
+      rollup: rollup(),
+    });
     const result = await monitoringApi.getDashboard();
-    expect(result.resources?.database.connection_count).toBe(10);
-  });
-
-  it('reads null when the server sends no pool size — not 0', async () => {
-    jest.spyOn(target, 'get').mockResolvedValue(withDatabase({ status: 'ok' }));
-    const result = await monitoringApi.getDashboard();
-    expect(result.resources?.database.connection_count).toBeNull();
-  });
-
-  it('passes a real 0 through rather than blanking it', async () => {
-    jest.spyOn(target, 'get').mockResolvedValue(withDatabase({ status: 'ok', connection_count: 0 }));
-    const result = await monitoringApi.getDashboard();
-    expect(result.resources?.database.connection_count).toBe(0);
+    expect(result).not.toHaveProperty('resources');
   });
 });

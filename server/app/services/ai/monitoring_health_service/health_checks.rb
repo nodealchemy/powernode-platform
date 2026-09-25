@@ -5,25 +5,6 @@ module Ai
     module HealthChecks
       extend ActiveSupport::Concern
 
-      # Get detailed health information for all services
-      # @return [Hash] Detailed health data
-      def detailed_health
-        {
-          timestamp: Time.current.iso8601,
-          services: {
-            database: detailed_database_health,
-            redis: detailed_redis_health,
-            providers: detailed_provider_health,
-            agents: detailed_agent_health,
-            workers: detailed_worker_health
-          },
-          recent_activity: recent_activity_summary,
-          error_analysis: recent_error_analysis,
-          performance_metrics: performance_metrics,
-          resource_metrics: resource_metrics
-        }
-      end
-
       def check_system_health
         {
           status: "healthy",
@@ -90,93 +71,6 @@ module Ai
 
       def circuit_breaker_summary
         ::Ai::CircuitBreakerRegistry.health_summary
-      end
-
-      # Detailed health checks
-
-      def detailed_database_health
-        pool_stat = ActiveRecord::Base.connection_pool.stat
-        {
-          status: "healthy",
-          connection_pool: {
-            size: pool_stat[:size],
-            connections: pool_stat[:connections],
-            busy: pool_stat[:busy],
-            idle: pool_stat[:idle],
-            available: pool_stat[:idle]
-          },
-          table_counts: {
-            ai_providers: account.ai_providers.count,
-            ai_agents: account.ai_agents.count,
-            ai_conversations_today: account.ai_conversations.where("created_at >= ?", Date.current).count
-          }
-        }
-      rescue StandardError => e
-        {
-          status: "unhealthy",
-          error: e.message
-        }
-      end
-
-      def detailed_redis_health
-        redis = Powernode::Redis.new_client
-        info = redis.info
-
-        {
-          status: "healthy",
-          version: info["redis_version"],
-          used_memory: info["used_memory_human"],
-          used_memory_peak: info["used_memory_peak_human"],
-          connected_clients: info["connected_clients"]&.to_i || 0,
-          uptime_days: info["uptime_in_days"]&.to_i || 0
-        }
-      rescue StandardError => e
-        {
-          status: "unhealthy",
-          error: e.message
-        }
-      end
-
-      def detailed_provider_health
-        account.ai_providers.where(is_active: true).includes(:provider_credentials).map do |provider|
-          {
-            id: provider.id,
-            name: provider.name,
-            provider_type: provider.provider_type,
-            status: provider.is_active ? "active" : "inactive",
-            credentials_count: provider.provider_credentials.select(&:is_active?).size,
-            recent_executions: ::Ai::AgentExecution.where(agent: ::Ai::Agent.where(provider: provider))
-                                                .where("created_at >= ?", 24.hours.ago)
-                                                .count
-          }
-        end
-      end
-
-      def detailed_agent_health
-        agents = account.ai_agents
-
-        {
-          total_agents: agents.count,
-          active_agents: agents.where(status: "active").count,
-          recent_executions: {
-            last_hour: ::Ai::AgentExecution.where(agent: agents).where("created_at >= ?", 1.hour.ago).count,
-            last_24h: ::Ai::AgentExecution.where(agent: agents).where("created_at >= ?", 24.hours.ago).count
-          }
-        }
-      end
-
-      def detailed_worker_health
-        {
-          recent_activity: {
-            agent_executions: ::Ai::AgentExecution.where("created_at >= ?", 1.hour.ago).count,
-            completed_executions: ::Ai::AgentExecution.where(status: "completed").where("created_at >= ?", 1.hour.ago).count,
-            failed_executions: ::Ai::AgentExecution.where(status: "failed").where("created_at >= ?", 1.hour.ago).count
-          },
-          queue_health: {
-            processing_rate: ::Ai::AgentExecution.where(status: "completed").where("created_at >= ?", 10.minutes.ago).count,
-            creation_rate: ::Ai::AgentExecution.where("created_at >= ?", 10.minutes.ago).count
-          }
-        }
       end
 
       private
