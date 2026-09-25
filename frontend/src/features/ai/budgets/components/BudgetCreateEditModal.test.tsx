@@ -17,12 +17,12 @@ jest.mock('@/shared/services/apiClient', () => ({
   },
 }));
 
+const mockGetAgents = jest.fn();
 jest.mock('@/shared/services/ai/AgentsApiService', () => ({
-  agentsApi: {
-    getAgents: () =>
-      Promise.resolve({ items: [{ id: 'a-one', name: 'Agent One' }, { id: 'a-two', name: 'Agent Two' }] }),
-  },
+  agentsApi: { getAgents: (...args: unknown[]) => mockGetAgents(...args) },
 }));
+
+const AGENTS = [{ id: 'a-one', name: 'Agent One' }, { id: 'a-two', name: 'Agent Two' }];
 
 const renderModal = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -38,6 +38,8 @@ const renderModal = () => {
 describe('BudgetCreateEditModal (create)', () => {
   beforeEach(() => {
     mockPost.mockResolvedValue({ data: { success: true, data: {} } });
+    mockGetAgents.mockImplementation(({ search }: { search?: string }) =>
+      Promise.resolve({ items: AGENTS.filter((a) => !search || a.name.toLowerCase().includes(search.toLowerCase())) }));
   });
 
   it('offers the account agents and sends the chosen agent id', async () => {
@@ -66,5 +68,21 @@ describe('BudgetCreateEditModal (create)', () => {
 
     expect(await screen.findByText('Please choose an agent')).toBeInTheDocument();
     expect(mockPost).not.toHaveBeenCalled();
+  });
+
+  // The list is one page of 100; an account with more agents finds the rest by
+  // name through the agents endpoint's own search, rather than never seeing them.
+  it('searches the agents endpoint by name and keeps the chosen agent selectable', async () => {
+    renderModal();
+    await screen.findByRole('option', { name: 'Agent One' });
+    expect(mockGetAgents).toHaveBeenCalledWith({ per_page: 100 });
+
+    fireEvent.change(screen.getByLabelText('Agent'), { target: { value: 'a-one' } });
+    fireEvent.change(screen.getByLabelText('Search agents'), { target: { value: 'two' } });
+
+    await waitFor(() => expect(mockGetAgents).toHaveBeenCalledWith({ per_page: 100, search: 'two' }));
+    await screen.findByRole('option', { name: 'Agent Two' });
+    expect(screen.getByRole('option', { name: 'Agent One' })).toBeInTheDocument();
+    expect((screen.getByLabelText('Agent') as HTMLSelectElement).value).toBe('a-one');
   });
 });

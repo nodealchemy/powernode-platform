@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { useBudgetAgentOptions, useCreateBudget, useUpdateBudget } from '../api/budgetsApi';
+import { useCreateBudget, useUpdateBudget } from '../api/budgetsApi';
 import type { AgentBudget } from '../types';
+import { BudgetAgentPicker } from './BudgetAgentPicker';
 
 interface BudgetCreateEditModalProps {
   budget?: AgentBudget | null;
   onClose: () => void;
 }
 
+const fieldClass =
+  'w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info-fg';
+
 export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ budget, onClose }) => {
   const isEdit = !!budget;
   const createBudget = useCreateBudget();
   const updateBudget = useUpdateBudget();
-  const { data: agents } = useBudgetAgentOptions(!isEdit);
 
   const [agentId, setAgentId] = useState(budget?.agent_id ?? '');
   const [totalDollars, setTotalDollars] = useState(budget ? (budget.total_budget_cents / 100).toString() : '');
@@ -64,17 +67,15 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {!isEdit && (
             <div>
-              <label htmlFor="budget-agent" className="block text-sm font-medium text-theme-primary mb-1">Agent</label>
-              <select
-                id="budget-agent"
+              <label htmlFor="budget-agent-agent" className="block text-sm font-medium text-theme-primary mb-1">Agent</label>
+              <BudgetAgentPicker
+                label="Agent"
                 value={agentId}
-                onChange={(e) => setAgentId(e.target.value)}
-                className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
-                required
-              >
-                <option value="">Select agent…</option>
-                {(agents ?? []).map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
-              </select>
+                onChange={setAgentId}
+                enabled={!isEdit}
+                selectClassName={fieldClass}
+                searchClassName={fieldClass}
+              />
             </div>
           )}
 

@@ -9,9 +9,10 @@ import { EntityLink } from '@/shared/components/entity';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { cn } from '@/shared/utils/cn';
 import { useAutonomyStats } from '@/features/ai/autonomy/api/autonomyApi';
-import { useAgentBudgets, useAllocateChildBudget, useBudgetAgentOptions, useDeleteBudget } from '../api/budgetsApi';
+import { useAgentBudgets, useAllocateChildBudget, useDeleteBudget } from '../api/budgetsApi';
 import { computeBudgetRegime } from '../budgetRegime';
 import type { AgentBudget } from '../types';
+import { BudgetAgentPicker } from './BudgetAgentPicker';
 import { BudgetCreateEditModal } from './BudgetCreateEditModal';
 import { BudgetRegimeIndicator } from './BudgetRegimeIndicator';
 import { BudgetTransactionHistory } from './BudgetTransactionHistory';
@@ -100,7 +101,6 @@ const selectClass = 'px-2 py-1 text-sm rounded-md border border-theme bg-theme-s
 
 /** Carve part of a budget's remaining balance into a new child budget for another agent. */
 const AllocateChildForm: React.FC<{ parent: AgentBudget; onDone: () => void }> = ({ parent, onDone }) => {
-  const { data: agents } = useBudgetAgentOptions();
   const allocate = useAllocateChildBudget();
   const [agentId, setAgentId] = useState('');
   const [amount, setAmount] = useState('');
@@ -132,20 +132,17 @@ const AllocateChildForm: React.FC<{ parent: AgentBudget; onDone: () => void }> =
   return (
     <form onSubmit={handleSubmit} className="border-t border-theme p-3 space-y-2" aria-label="Allocate to a child agent">
       <div className="flex flex-wrap items-end gap-2">
-        <label className="text-xs text-theme-tertiary">
-          Child agent
-          <select
-            aria-label="Child agent"
+        <div className="text-xs text-theme-tertiary">
+          <span>Child agent</span>
+          <BudgetAgentPicker
+            label="Child agent"
             value={agentId}
-            onChange={(e) => setAgentId(e.target.value)}
-            className={cn(selectClass, 'block mt-1 min-w-[12rem]')}
-          >
-            <option value="">Select agent…</option>
-            {(agents ?? [])
-              .filter((agent) => agent.id !== parent.agent_id)
-              .map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
-          </select>
-        </label>
+            onChange={setAgentId}
+            excludeId={parent.agent_id}
+            selectClassName={cn(selectClass, 'block mt-1 min-w-[12rem]')}
+            searchClassName={cn(selectClass, 'block mt-1 min-w-[12rem]')}
+          />
+        </div>
         <label className="text-xs text-theme-tertiary">
           Amount ({parent.currency})
           <input

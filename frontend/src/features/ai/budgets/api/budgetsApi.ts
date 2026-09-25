@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, keepPreviousData, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
 import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { autonomyStatsQueryKey } from '@/features/ai/autonomy/api/autonomyApi';
@@ -14,7 +14,7 @@ const BUDGET_KEYS = {
   all: ['autonomy', 'budgets'] as const,
   list: () => [...BUDGET_KEYS.all, 'list'] as const,
   transactions: (budgetId: string) => [...BUDGET_KEYS.all, 'transactions', budgetId] as const,
-  agentOptions: () => [...BUDGET_KEYS.all, 'agent-options'] as const,
+  agentOptions: (search: string) => [...BUDGET_KEYS.all, 'agent-options', search] as const,
 };
 
 export function useAgentBudgets() {
@@ -43,15 +43,19 @@ export function useBudgetTransactions(budgetId: string, page = 1, perPage = 25) 
   });
 }
 
-/** Agents a budget can be created or allocated for (the account's and global ones). */
-export function useBudgetAgentOptions(enabled = true) {
+/**
+ * Agents a budget can be created or allocated for (the account's and global
+ * ones): the first page of 100, narrowed server-side by name when searched.
+ */
+export function useBudgetAgentOptions(search = '', enabled = true) {
   return useQuery({
-    queryKey: BUDGET_KEYS.agentOptions(),
+    queryKey: BUDGET_KEYS.agentOptions(search),
     queryFn: async () => {
-      const { items } = await agentsApi.getAgents({ per_page: 100 });
+      const { items } = await agentsApi.getAgents(search ? { per_page: 100, search } : { per_page: 100 });
       return (items ?? []).map((agent) => ({ id: agent.id, name: agent.name }));
     },
     enabled,
+    placeholderData: keepPreviousData,
   });
 }
 
