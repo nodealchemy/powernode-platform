@@ -74,7 +74,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "model resolution" do
 
     it "surfaces no_model_configured on the result and makes NO LLM call — both arms" do
       bind(provider).update_columns(supported_models: [])
-      expect(client).not_to receive(:complete)
+      expect(client).not_to receive(:complete_structured)
 
       result = service.capture(natural_language: "three postgres nodes")
 
@@ -86,7 +86,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "model resolution" do
     it "does not report it when a model resolves, and sends that model" do
       bind(provider)
       sent = nil
-      allow(client).to receive(:complete) do |**opts|
+      allow(client).to receive(:complete_structured) do |**opts|
         sent = opts[:model]
         double(success?: true, content: "{}")
       end
@@ -103,7 +103,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "model resolution" do
       expect(service.capture(natural_language: "a")).to have_key(:no_model_configured)
 
       provider.update_columns(supported_models: [ { "id" => "test-model-9", "name" => "test-model-9" } ])
-      allow(client).to receive(:complete).and_return(double(success?: true, content: "{}"))
+      allow(client).to receive(:complete_structured).and_return(double(success?: true, content: "{}"))
       expect(service.capture(natural_language: "b")).not_to have_key(:no_model_configured)
     end
   end

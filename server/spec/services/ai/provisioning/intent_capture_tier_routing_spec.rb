@@ -65,12 +65,12 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "tier routing", type: :se
 
     it "never invokes the resolver" do
       expect(::Ai::Routing::TaskTierResolver).not_to receive(:resolve)
-      allow(client).to receive(:complete).and_return(response)
+      allow(client).to receive(:complete_structured).and_return(response)
       service.capture(natural_language: "provision a node")
     end
 
     it "sends the pre-existing model, unchanged" do
-      expect(client).to receive(:complete)
+      expect(client).to receive(:complete_structured)
         .with(hash_including(model: service.send(:resolve_model))).and_return(response)
       service.capture(natural_language: "provision a node")
     end
@@ -95,25 +95,25 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "tier routing", type: :se
     end
 
     it "applies a non-substituting resolution's model" do
-      expect(client).to receive(:complete)
+      expect(client).to receive(:complete_structured)
         .with(hash_including(model: "claude-opus-4-8")).and_return(response)
       service.capture(natural_language: "provision a node")
     end
 
     it "passes the resolved effort through" do
-      expect(client).to receive(:complete)
+      expect(client).to receive(:complete_structured)
         .with(hash_including(effort: "high")).and_return(response)
       service.capture(natural_language: "provision a node")
     end
 
     it "links the routing decision to the execution the call creates" do
-      expect(client).to receive(:complete)
+      expect(client).to receive(:complete_structured)
         .with(hash_including(routing_decision_id: "rd-123")).and_return(response)
       service.capture(natural_language: "provision a node")
     end
 
     it "resolves the tier against the tracking agent, tagged with a task_type" do
-      allow(client).to receive(:complete).and_return(response)
+      allow(client).to receive(:complete_structured).and_return(response)
       expect(service).to receive(:resolve_task_tier)
         .with(hash_including(task_type: "provisioning_intent_capture"))
         .and_return(resolution)
@@ -129,7 +129,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "tier routing", type: :se
     end
 
     it "falls back to the baseline model instead of breaking the call" do
-      expect(client).to receive(:complete)
+      expect(client).to receive(:complete_structured)
         .with(hash_including(model: service.send(:resolve_model))).and_return(response)
       service.capture(natural_language: "provision a node")
     end

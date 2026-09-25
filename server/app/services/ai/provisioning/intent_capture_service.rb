@@ -57,6 +57,50 @@ module Ai
 
       REQUIRED_FIELDS = %i[intent use_case scale regions budget_cap_usd_monthly].freeze
 
+      # Structured-output schemas. The API enforces them, so no prompt asks for
+      # JSON. Strict form for Anthropic output_config.format and OpenAI strict
+      # json_schema: closed objects and every property required, so a field the
+      # model cannot infer comes back null (or [] for a list), which
+      # #deep_merge_brief treats as "nothing to add".
+      NULLABLE_STRING = { type: %w[string null] }.freeze
+      NULLABLE_INTEGER = { type: %w[integer null] }.freeze
+      STRING_LIST = { type: "array", items: { type: "string" } }.freeze
+      BRIEF_JSON_SCHEMA = {
+        name: "provisioning_brief",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: BRIEF_SCHEMA.keys.map(&:to_s),
+          properties: {
+            intent: NULLABLE_STRING,
+            use_case: NULLABLE_STRING,
+            scale: {
+              type: "object",
+              additionalProperties: false,
+              required: %w[initial target growth_profile],
+              properties: { initial: NULLABLE_INTEGER, target: NULLABLE_INTEGER, growth_profile: NULLABLE_STRING }
+            },
+            regions: STRING_LIST,
+            compliance: STRING_LIST,
+            budget_cap_usd_monthly: { type: %w[number null] },
+            latency_targets_ms: {
+              type: "object",
+              additionalProperties: false,
+              required: %w[p99],
+              properties: { p99: NULLABLE_INTEGER }
+            },
+            data_residency: STRING_LIST,
+            preferred_provider: NULLABLE_STRING,
+            preferred_template: NULLABLE_STRING,
+            repo_url: NULLABLE_STRING,
+            branch: NULLABLE_STRING,
+            start_command: NULLABLE_STRING,
+            runtime_hint: NULLABLE_STRING,
+            storage_gb: NULLABLE_INTEGER
+          }
+        }
+      }.freeze
+
       INTENT_KEYWORDS = /\b(?:provision|deploy|host|stack|cluster|database|scale|migrate)\b/i.freeze
 
       INTENT_PROVISION = "provision_infrastructure"
@@ -186,6 +230,7 @@ module Ai
         prompt = build_brief_prompt(natural_language, prior_brief, mode)
         response = safe_complete(
           client,
+          schema: BRIEF_JSON_SCHEMA,
           messages: [{ role: "user", content: prompt }],
           max_tokens: DEFAULT_MAX_TOKENS,
           temperature: DEFAULT_TEMPERATURE
@@ -204,6 +249,7 @@ module Ai
         prompt = build_classify_prompt(natural_language)
         response = safe_complete(
           client,
+          schema: classify_schema,
           messages: [{ role: "user", content: prompt }],
           max_tokens: CLASSIFY_MAX_TOKENS,
           temperature: 0.0
@@ -254,7 +300,7 @@ module Ai
       # routing_decision_id rides along so TrackedWorkerLlmClient can link the
       # decision to the execution it creates, which is what lets
       # Ai::AgentExecution#record_routing_decision_outcome close the loop.
-      def safe_complete(client, **opts)
+      def safe_complete(client, schema:, **opts)
         agent = tracking_agent
         resolution = if agent
                        resolve_task_tier(
@@ -288,7 +334,7 @@ module Ai
 
         call_opts[:routing_decision_id] = routing_decision_id if routing_decision_id
 
-        client.complete(**call_opts)
+        client.complete_structured(schema: schema, **call_opts)
       rescue ::Ai::Provisioning::NoModelConfiguredError => e
         # REPORTED, not dropped. Same shape as the cost-cap refusal above: the
         # payload rides out on the capture/refine result as
@@ -346,9 +392,8 @@ module Ai
         <<~PROMPT
           You are a provisioning intent extractor. #{action_label}.
 
-          Return ONLY a single JSON object — no prose, no code fences. The object
-          contains any of these fields you can confidently infer; OMIT fields you
-          can't determine (do NOT guess):
+          Fill each of these fields you can confidently infer. Set a field you
+          can't determine to null, or [] for a list (do NOT guess):
 
             intent: short string ("provision a 3-node Postgres cluster")
             use_case: longer description of what the workload does
@@ -360,7 +405,7 @@ module Ai
             data_residency: array of country/region codes the data must stay in
             preferred_provider: string id of a cloud provider, or null
             preferred_template: name of a node template to provision from, or null
-            storage_gb: int — per-instance persistent volume size in GB, or omit
+            storage_gb: int — per-instance persistent volume size in GB, or null
 
           #{provider_extraction_rule.chomp}
 
@@ -474,7 +519,7 @@ module Ai
             #{INTENT_PROVISION}  — wants to create / scale / migrate / replace infrastructure
             #{INTENT_GENERAL}    — anything else (questions, conversation, status checks)
 
-          Return JSON ONLY: {"intent_type":"...","confidence":0.0-1.0}
+          Give the confidence from 0.0 to 1.0.
 
           Message:
           #{natural_language}
@@ -483,8 +528,10 @@ module Ai
 
       # ----- Parsing ---------------------------------------------------------
 
+      # The reply is BRIEF_JSON_SCHEMA JSON (structured output); anything else
+      # (a refusal, a max_tokens cut) is logged with an excerpt and yields nil.
       def parse_brief_json(content)
-        json = extract_json_object(content)
+        json = JSON.parse(content.to_s)
         unless json.is_a?(Hash)
           # Previously the ONLY silent path here. A model that answers in prose
           # instead of JSON — which is what a reasoning-tier substitution did —
@@ -501,14 +548,14 @@ module Ai
         json.deep_stringify_keys
       rescue JSON::ParserError => e
         Rails.logger.warn(
-          "[IntentCaptureService] Brief JSON parse failed: #{e.message}; " \
+          "[IntentCaptureService] brief response contained no JSON object (#{e.message}); " \
             "excerpt: #{content.to_s.strip[0, 200].inspect}"
         )
         nil
       end
 
       def parse_classify_json(content)
-        json = extract_json_object(content)
+        json = JSON.parse(content.to_s)
         return nil unless json.is_a?(Hash)
 
         intent = json["intent_type"] || json[:intent_type]
@@ -522,17 +569,19 @@ module Ai
         nil
       end
 
-      def extract_json_object(content)
-        return nil unless content.is_a?(String)
-
-        # Strip ```json fences and surrounding prose; isolate the largest balanced object.
-        stripped = content.strip
-        stripped = stripped.sub(/\A```(?:json)?\s*/i, "").sub(/```\s*\z/, "")
-        first = stripped.index("{")
-        last = stripped.rindex("}")
-        return nil unless first && last && last > first
-
-        JSON.parse(stripped[first..last])
+      def classify_schema
+        {
+          name: "intent_classification",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: %w[intent_type confidence],
+            properties: {
+              intent_type: { type: "string", enum: [ INTENT_PROVISION, INTENT_GENERAL ] },
+              confidence: { type: "number" }
+            }
+          }
+        }
       end
 
       # ----- Brief shape helpers --------------------------------------------

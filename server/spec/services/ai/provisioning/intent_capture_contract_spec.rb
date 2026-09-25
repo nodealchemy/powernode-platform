@@ -49,6 +49,16 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "output contract + parse 
       expect(service.send(:parse_brief_json, "{ not valid json")).to be_nil
     end
 
+    it "requests each call with a strict structured-output schema (C8)" do
+      [ described_class::BRIEF_JSON_SCHEMA, service.send(:classify_schema) ].each do |wrapper|
+        schema = wrapper[:schema]
+        expect(schema[:additionalProperties]).to be(false)
+        expect(schema[:required]).to match_array(schema[:properties].keys.map(&:to_s))
+      end
+      prompt = service.send(:build_brief_prompt, "a node", {}, :capture)
+      expect(prompt).not_to match(/ONLY a single JSON object|code fences/)
+    end
+
     it "stays quiet and parses on a good payload" do
       expect(Rails.logger).not_to receive(:warn)
       expect(service.send(:parse_brief_json, '{"intent":"x"}')).to eq("intent" => "x")
@@ -97,14 +107,14 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "output contract + parse 
 
     it "does NOT send the substituted model when the caller needs structured output" do
       allow(service).to receive(:annotate_unapplied_resolution!)
-      expect(client).to receive(:complete)
+      expect(client).to receive(:complete_structured)
         .with(hash_including(model: service.send(:resolve_model))).and_return(response)
       service.capture(natural_language: "provision a node")
     end
 
     it "never sends o3-mini specifically" do
       allow(service).to receive(:annotate_unapplied_resolution!)
-      expect(client).to receive(:complete) { |**kw|
+      expect(client).to receive(:complete_structured) { |**kw|
         expect(kw[:model]).not_to eq("o3-mini")
         response
       }
@@ -114,14 +124,14 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "output contract + parse 
     it "still RECORDS the decision — the oracle keeps its data" do
       allow(service).to receive(:annotate_unapplied_resolution!)
       expect(::Ai::Routing::TaskTierResolver).to receive(:resolve).and_return(substituted)
-      allow(client).to receive(:complete).and_return(response)
+      allow(client).to receive(:complete_structured).and_return(response)
       service.capture(natural_language: "provision a node")
     end
 
     it "annotates the decision as considered-but-not-applied, with a reason" do
       expect(service).to receive(:annotate_unapplied_resolution!)
         .with(anything, hash_including(:reason))
-      allow(client).to receive(:complete).and_return(response)
+      allow(client).to receive(:complete_structured).and_return(response)
       service.capture(natural_language: "provision a node")
     end
 
@@ -137,7 +147,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, "output contract + parse 
       end
 
       it "applies it — there is no substitution to be unsafe about" do
-        expect(client).to receive(:complete).with(hash_including(model: "gpt-4o")).and_return(response)
+        expect(client).to receive(:complete_structured).with(hash_including(model: "gpt-4o")).and_return(response)
         service.capture(natural_language: "provision a node")
       end
     end
