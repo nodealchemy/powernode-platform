@@ -590,11 +590,12 @@ rm -rf "$console_tmp"
 # Local copies of shared UI primitives (plan §3, fc-48): get*Status*/Severity*
 # colour/badge fns, formatCurrency/relative-time/formatBytes, StatCard and
 # inline empty states. scripts/list-local-primitive-sites.sh is the single
-# definition of a match; the checker compares it to the tracked
-# .claude/hooks/local-primitive-baseline.txt plus the gitignored .local.txt as
-# an EQUALITY ratchet — a new copy fails, and so does a ledger entry whose copy
-# was removed (the sweep shrinks the ledger in the same diff). A lister that
-# returns nothing while the ledger holds entries fails loud, as above.
+# definition of a match; the checker compares it, as an EQUALITY ratchet, to
+# the ledgers each tree owns — core's .claude/hooks/local-primitive-baseline.txt
+# and every checked-out extension's own ledger inside its tree — so a new copy
+# fails, and so does an entry whose copy was removed (the sweep shrinks the
+# ledger in the same diff). A lister that returns nothing while the ledgers
+# hold entries fails loud, as above.
 total_checks=$((total_checks + 1))
 echo -n "Checking: No new local copies of shared UI primitives (ledger equality)... "
 if primitives_out=$(bash scripts/checks/local-primitives-ratchet.sh 2>&1); then

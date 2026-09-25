@@ -11,11 +11,17 @@
 #   stale    a ledger entry whose copy is gone       -> exit 1, "Stale ledger entries"
 #   empty    lister finds nothing, ledger non-empty  -> exit 1, "found NOTHING"
 #   blind    lister cannot look (exit 3)             -> exit 1, "could not look (exit 3)"
-#   absent   entry under a private tree not checked out is not compared -> exit 0
-#   public   entry under an absent PUBLIC path is still compared -> exit 1, stale
 #   multi    a second identical site with one ledger entry -> exit 1, new (multiset)
 #   rule     a non-status rule (formatBytes) through the real lister -> exit 1, new
+#   corepath the core ledger names an extension path -> exit 1, "outside its own tree"
+#   extout   an extension ledger names a path outside its tree -> exit 1, "outside its own tree"
+#   extown   an extension's site is excused only by its own ledger: with it -> 0,
+#            without it -> exit 1, new
+#   private  a private tree carrying its own ledger, and no gitignored core-side
+#            file anywhere (a fresh worktree) -> exit 0
+#   removed  removing an extension tree drops both its sites and its ledger -> exit 0
 #
+# Extension ledgers live inside their own tree, at $EXT_LEDGER_REL.
 # LOCAL_PRIMITIVES_CHECKER overrides the checker under test (for red-first runs
 # against a mutant).
 #
@@ -26,6 +32,7 @@ set -u
 REPO="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)" || exit 1
 CHECKER="${LOCAL_PRIMITIVES_CHECKER:-$REPO/scripts/checks/local-primitives-ratchet.sh}"
 LISTER="$REPO/scripts/list-local-primitive-sites.sh"
+EXT_LEDGER_REL="frontend/src/__tests__/conventions/local-primitive-baseline.txt"
 
 fail=0
 work=$(mktemp -d)
@@ -40,14 +47,22 @@ const getStatusColor = (status: string) => (status === 'active' ? 'green' : 'gra
 export const WidgetList = () => getStatusColor('active');
 TSX
   printf '# ledger\nfrontend/src/features/widgets/WidgetList.tsx|status-fn|getStatusColor\n' > "$dir/ledger.txt"
-  : > "$dir/ledger.local.txt"
   echo "$dir"
+}
+
+# An extension tree <rel> under fixture <dir> with one local formatCurrency,
+# and (unless "noledger") its own ledger naming it.
+extension() { # dir rel [noledger]
+  local dir="$1" rel="$2"
+  mkdir -p "$dir/$rel/frontend/src/features/x" "$dir/$rel/$(dirname "$EXT_LEDGER_REL")"
+  printf 'export const formatCurrency = (n: number) => `$${n}`;\n' > "$dir/$rel/frontend/src/features/x/Price.tsx"
+  [ "${3:-}" = noledger ] || printf '# ledger\n%s/frontend/src/features/x/Price.tsx|format-currency|formatCurrency\n' "$rel" > "$dir/$rel/$EXT_LEDGER_REL"
 }
 
 run() { # dir [lister] -> sets out, code
   local dir="$1" lister="${2:-$LISTER}"
   out=$(cd "$dir" && LOCAL_PRIMITIVES_LISTER="$lister" \
-        LOCAL_PRIMITIVES_LEDGER="$dir/ledger.txt" LOCAL_PRIMITIVES_LEDGER_LOCAL="$dir/ledger.local.txt" \
+        LOCAL_PRIMITIVES_LEDGER="$dir/ledger.txt" \
         bash "$CHECKER" 2>&1)
   code=$?
 }
@@ -92,15 +107,6 @@ printf '#!/bin/bash\nexit 3\n' > "$work/blind-lister.sh"
 run "$dir" "$work/blind-lister.sh"
 assert "blind: a lister that cannot look fails, reporting its exit code" 1 "could not look (exit 3)"
 
-dir=$(fixture absent)
-echo "extensions/private/nothere/frontend/src/X.tsx|stat-card|StatCard" >> "$dir/ledger.local.txt"
-run "$dir"
-assert "absent: entries under a tree not checked out are not compared" 0 ""
-
-dir=$(fixture public)
-echo "extensions/ghost/frontend/src/Y.tsx|empty-state" >> "$dir/ledger.txt"
-run "$dir"
-assert "public: an entry under an absent public path is still compared (stale)" 1 "extensions/ghost/frontend/src/Y.tsx|empty-state"
 
 dir=$(fixture multi)
 cat >> "$dir/frontend/src/features/widgets/WidgetList.tsx" <<'TSX'
@@ -115,5 +121,37 @@ export const formatBytes = (n: number) => `${n} B`;
 TSX
 run "$dir"
 assert "rule: a local formatBytes is caught through the real lister" 1 "frontend/src/features/widgets/Size.tsx|format-bytes|formatBytes"
+
+dir=$(fixture corepath)
+echo "extensions/ghost/frontend/src/Y.tsx|empty-state" >> "$dir/ledger.txt"
+run "$dir"
+assert "corepath: the core ledger may not name an extension path" 1 "outside its own tree: extensions/ghost/frontend/src/Y.tsx|empty-state"
+
+dir=$(fixture extout)
+extension "$dir" extensions/e1
+echo "frontend/src/features/widgets/WidgetList.tsx|status-fn|getStatusColor" >> "$dir/extensions/e1/$EXT_LEDGER_REL"
+run "$dir"
+assert "extout: an extension ledger entry outside its own tree fails" 1 "extensions/e1: ledger entry outside its own tree: frontend/src/features/widgets/WidgetList.tsx"
+
+dir=$(fixture extown)
+extension "$dir" extensions/e1
+run "$dir"
+assert "extown: an extension's site is excused by its own ledger" 0 ""
+rm "$dir/extensions/e1/$EXT_LEDGER_REL"
+run "$dir"
+assert "extown: without its ledger the extension's site is new" 1 "extensions/e1/frontend/src/features/x/Price.tsx|format-currency|formatCurrency"
+
+dir=$(fixture private)
+extension "$dir" extensions/private/p1
+extension "$dir" extensions/e1
+run "$dir"
+assert "private: a fresh worktree whose private tree carries its own ledger is green" 0 ""
+
+dir=$(fixture removed)
+extension "$dir" extensions/private/p1
+extension "$dir" extensions/e2
+rm -rf "$dir/extensions/private/p1" "$dir/extensions/e2"
+run "$dir"
+assert "removed: removing an extension tree drops its sites and its ledger" 0 ""
 
 exit $fail

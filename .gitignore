@@ -484,12 +484,6 @@ extensions/private
 # scripts/generate-console-log-baseline.sh. Absent => those sites read as new.
 /.claude/hooks/console-log-baseline.local.txt
 
-# Private-extension half of the local-UI-primitive ledger read by
-# scripts/checks/local-primitives-ratchet.sh (plan §3, fc-48). Same reason as the
-# console-log ledger above. Written by scripts/generate-local-primitive-baseline.sh.
-# Absent => a checked-out private tree's existing sites read as new.
-/.claude/hooks/local-primitive-baseline.local.txt
-
 # Private-extension half of the deep-relative-import ledger read by
 # scripts/pattern-validation.sh. It names private extension PATHS, which a tracked
 # file may not, so the split mirrors the console-log and core-purity ledgers above.
