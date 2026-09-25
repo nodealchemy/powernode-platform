@@ -67,22 +67,57 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "cancel_gitea_workflow_run", mutating: true
       declare_action "create_gitea_user_token", mutating: true
-      declare_action "delete_gitea_action_secret", mutating: true, destructive: true
+      declare_action "delete_gitea_action_secret", mutating: true, destructive: true,
+                                                   returns: "owner, repo and the deleted secret_name",
+                                                   refuses: [ "the account has no active Gitea credential", "owner or repo is blank",
+                                                             "Gitea rejects the delete" ]
       declare_action "delete_gitea_user_token", mutating: true, destructive: true
       declare_action "delete_gitea_workflow_run", mutating: true, destructive: true
-      declare_action "dispatch_gitea_workflow", mutating: true
-      declare_action "get_gitea_job_logs", mutating: false
-      declare_action "get_gitea_workflow_run", mutating: false
-      declare_action "list_gitea_action_secrets", mutating: false
-      declare_action "list_gitea_run_artifacts", mutating: false
-      declare_action "list_gitea_user_tokens", mutating: false
-      declare_action "list_gitea_workflow_runs", mutating: false
-      declare_action "list_gitea_workflows", mutating: false
-      declare_action "rerun_gitea_job", mutating: true
-      declare_action "rerun_gitea_workflow", mutating: true
-      declare_action "rerun_gitea_workflow_failed_jobs", mutating: true
-      declare_action "set_gitea_action_secret", mutating: true
-      declare_action "set_gitea_action_secrets_bulk", mutating: true
+      declare_action "dispatch_gitea_workflow", mutating: true,
+                                                returns: "owner, repo, workflow_file and ref; no run id, so find the run with list_gitea_workflow_runs",
+                                                refuses: [ "the account has no active Gitea credential", "owner, repo, workflow_file or ref is blank",
+                                                          "Gitea rejects the dispatch" ]
+      declare_action "get_gitea_job_logs", mutating: false,
+                                           returns: "the log text, after the optional grep then tail filters, and its size in bytes",
+                                           refuses: [ "the account has no active Gitea credential", "owner, repo or job_id is blank",
+                                                     "Gitea returns no log for the job" ]
+      declare_action "get_gitea_workflow_run", mutating: false,
+                                               returns: "the run (status, conclusion, branch, sha, url, timestamps) and its jobs with their steps",
+                                               refuses: [ "the account has no active Gitea credential", "owner, repo or run_id is blank" ]
+      declare_action "list_gitea_action_secrets", mutating: false,
+                                                  returns: "count and each secret's name with created_at and updated_at; never values",
+                                                  refuses: [ "the account has no active Gitea credential", "owner or repo is blank" ]
+      declare_action "list_gitea_run_artifacts", mutating: false,
+                                                 returns: "count and the artifacts as Gitea reports them; empty when the run is not found",
+                                                 refuses: [ "the account has no active Gitea credential", "owner, repo or run_id is blank" ]
+      declare_action "list_gitea_user_tokens", mutating: false,
+                                               returns: "count and each token's id, name, scopes and last eight characters",
+                                               refuses: "the account has no active Gitea credential"
+      declare_action "list_gitea_workflow_runs", mutating: false,
+                                                 returns: "count and each run's id, name, status, conclusion, branch, sha, url and timestamps",
+                                                 refuses: [ "the account has no active Gitea credential", "owner or repo is blank" ]
+      declare_action "list_gitea_workflows", mutating: false,
+                                             returns: "count and each workflow's name, path and state",
+                                             refuses: [ "the account has no active Gitea credential", "owner or repo is blank" ]
+      declare_action "rerun_gitea_job", mutating: true,
+                                        refuses: [ "the account has no active Gitea credential", "owner, repo, run_id or job_id is blank",
+                                                  "Gitea rejects the rerun" ],
+                                        see_also: { "rerun_gitea_workflow_failed_jobs" => "re-running every failed job of a run" }
+      declare_action "rerun_gitea_workflow", mutating: true,
+                                             refuses: [ "the account has no active Gitea credential", "owner, repo or run_id is blank",
+                                                       "Gitea rejects the rerun" ],
+                                             see_also: { "rerun_gitea_workflow_failed_jobs" => "re-running only the failed jobs" }
+      declare_action "rerun_gitea_workflow_failed_jobs", mutating: true,
+                                                         refuses: [ "the account has no active Gitea credential", "owner, repo or run_id is blank",
+                                                                   "Gitea rejects the rerun" ],
+                                                         see_also: { "rerun_gitea_job" => "re-running one named job" }
+      declare_action "set_gitea_action_secret", mutating: true,
+                                                returns: "owner, repo and secret_name; never the value",
+                                                refuses: [ "the account has no active Gitea credential", "owner or repo is blank", "Gitea rejects the write" ]
+      declare_action "set_gitea_action_secrets_bulk", mutating: true,
+                                                      returns: "set_count, failed_count and a per-secret success and error list; success is false if any write failed",
+                                                      refuses: [ "the account has no active Gitea credential", "owner or repo is blank",
+                                                                "secrets is not a non-empty hash" ]
 
       def self.definition
         {

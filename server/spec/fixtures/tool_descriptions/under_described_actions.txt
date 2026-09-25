@@ -59,7 +59,6 @@ create_page
 create_team
 create_workspace
 delete_document
-delete_gitea_action_secret
 delete_memory_pool
 delete_ralph_loop
 delete_shared_memory
@@ -76,7 +75,6 @@ discover_improvements
 dismiss_all_notifications
 dismiss_improvement
 dismiss_notification
-dispatch_gitea_workflow
 dispatch_to_runner
 emit_signal
 enable_autonomy
@@ -93,8 +91,6 @@ get_agent
 get_api_reference
 get_component_status
 get_conversation_messages
-get_gitea_job_logs
-get_gitea_workflow_run
 get_governance_report
 get_graph_neighbors
 get_graph_node
@@ -123,11 +119,6 @@ kubernetes_list_nodes
 list_conversations
 list_generated_images
 list_git_runners
-list_gitea_action_secrets
-list_gitea_run_artifacts
-list_gitea_user_tokens
-list_gitea_workflow_runs
-list_gitea_workflows
 list_governance_reports
 list_graph_nodes
 list_knowledge_bases
@@ -156,9 +147,6 @@ record_agent_execution
 recruit_agent
 reinforce_signal
 reopen_ralph_loop
-rerun_gitea_job
-rerun_gitea_workflow
-rerun_gitea_workflow_failed_jobs
 resolve_governance_report
 resume_ralph_loop
 revert_improvement
@@ -167,8 +155,6 @@ scoreboard
 search_knowledge_graph
 search_memory
 send_concierge_message
-set_gitea_action_secret
-set_gitea_action_secrets_bulk
 spawn_task
 start_content_production
 system_abort_task
