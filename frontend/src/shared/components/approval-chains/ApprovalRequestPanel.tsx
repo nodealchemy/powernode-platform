@@ -1,6 +1,7 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { fetchApprovalRequest, decideApprovalRequest } from '@/features/ai/approvals/api/approvalsApi';
 import { Button } from '@/shared/components/ui/Button';
+import { OneShotRevealModal } from '@/shared/components/ui/OneShotRevealModal';
 import { CheckIcon, XMarkIcon, ClockIcon } from '@heroicons/react/24/outline';
 import type { ApprovalRequest } from '@/shared/types/approval';
 import { logger } from '@/shared/utils/logger';
@@ -19,6 +20,12 @@ interface ApprovalRequestPanelProps {
  * if the current user isn't in the current step's approvers list. After
  * action, refetches state — if more steps remain, displays "Approved your
  * step. Awaiting next step."; if completed/rejected, shows terminal status.
+ *
+ * An approve can mint material the server returns exactly once
+ * (`revealed_result`). It goes to the same one-shot reveal the approval queue
+ * uses, never into `request`, and is dropped when the operator acknowledges.
+ * onResolved (which closes the surrounding notification) waits for that
+ * acknowledgement, or the reveal would unmount unseen.
  */
 export function ApprovalRequestPanel({ approvalRequestId, onResolved }: ApprovalRequestPanelProps) {
   const [request, setRequest] = useState<ApprovalRequest | null>(null);
@@ -26,6 +33,10 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
   const [acting, setActing] = useState(false);
   const [comments, setComments] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // A queue, as in ApprovalQueuePanel: a second approve (a later step) must
+  // not overwrite a reveal the operator has not saved yet.
+  const [revealQueue, setRevealQueue] = useState<Record<string, unknown>[]>([]);
+  const resolvedAfterReveal = useRef(false);
 
   const fetchState = useCallback(() => {
     setLoading(true);
@@ -46,12 +57,23 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
     setActing(true);
     setErrorMessage(null);
     try {
-      const updated = await decideApprovalRequest(approvalRequestId, decision, comments.trim() || undefined);
+      let revealed = false;
+      const updated = await decideApprovalRequest(approvalRequestId, decision, {
+        comments: comments.trim() || undefined,
+        onRevealedResult: (values) => {
+          revealed = true;
+          setRevealQueue((queue) => [...queue, values]);
+        },
+      });
       setRequest(updated);
       setComments('');
       const newStatus = updated?.status;
       if (newStatus === 'approved' || newStatus === 'rejected') {
-        onResolved?.();
+        if (revealed) {
+          resolvedAfterReveal.current = true;
+        } else {
+          onResolved?.();
+        }
       }
     } catch (e) {
       setErrorMessage((e as Error).message || 'Action failed');
@@ -60,8 +82,34 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
     }
   };
 
+  const acknowledgeReveal = () => {
+    const lastOne = revealQueue.length <= 1;
+    setRevealQueue((queue) => queue.slice(1));
+    if (lastOne && resolvedAfterReveal.current) {
+      resolvedAfterReveal.current = false;
+      onResolved?.();
+    }
+  };
+
+  const reveal = revealQueue.length > 0 && (
+    <OneShotRevealModal
+      title="Approved — shown once"
+      values={revealQueue[0]}
+      note="This approval ran an operation that minted new material. It is not stored and cannot be shown again."
+      acknowledgeLabel="I have saved this somewhere safe"
+      onDone={acknowledgeReveal}
+    />
+  );
+
   if (loading) return <p className="text-sm text-theme-tertiary py-4">Loading…</p>;
-  if (!request) return <p className="text-sm text-theme-danger-fg py-4">Approval request not found</p>;
+  if (!request) {
+    return (
+      <>
+        <p className="text-sm text-theme-danger-fg py-4">Approval request not found</p>
+        {reveal}
+      </>
+    );
+  }
 
   const stepStatus = request.step_statuses?.[request.current_step];
   const isPending = request.status === 'pending';
@@ -168,6 +216,8 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
       {errorMessage && (
         <p className="text-sm text-theme-danger-fg">{errorMessage}</p>
       )}
+
+      {reveal}
     </div>
   );
 }

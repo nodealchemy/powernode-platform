@@ -35,13 +35,41 @@ export const fetchApprovalRequest = async (id: string): Promise<StepApprovalRequ
   return response.data?.data || null;
 };
 
+/**
+ * The approve response is the ONLY carrier of `revealed_result`: the server
+ * empties its one-shot slot with the read that produced this body
+ * (IMP-7b81ca22f661), so a client that drops it destroys the material. Hand a
+ * revealable value to the caller and strip the slot from what is returned, so
+ * the plaintext never lands in a caller's request state or a query cache.
+ */
+const takeRevealedResult = (
+  body: unknown,
+  onRevealedResult: (values: Record<string, unknown>) => void
+): Record<string, unknown> | null => {
+  if (!body || typeof body !== 'object') return null;
+  const { revealed_result: revealed, ...rest } = body as ApprovalDecision;
+  const shown = takeRevealableResult(revealed);
+  if (shown) {
+    onRevealedResult(shown);
+  }
+  return rest;
+};
+
 export const decideApprovalRequest = async (
   id: string,
   decision: 'approve' | 'reject',
-  comments?: string
+  {
+    comments,
+    onRevealedResult,
+  }: {
+    comments?: string;
+    // REQUIRED, as in useApproveAction: an approve that forgets to take the
+    // slot is the bug (offer 01a0d711), so the compiler is the guard.
+    onRevealedResult: (values: Record<string, unknown>) => void;
+  }
 ): Promise<StepApprovalRequest | null> => {
   const response = await apiClient.post(`/ai/autonomy/approvals/${id}/${decision}`, { comments });
-  return response.data?.data || null;
+  return takeRevealedResult(response.data?.data, onRevealedResult) as unknown as StepApprovalRequest | null;
 };
 
 export function useApprovalQueue() {
@@ -57,15 +85,12 @@ export function useApprovalQueue() {
 export function useApproveAction() {
   const queryClient = useQueryClient();
   return useMutation({
-    // The approve response is the ONLY carrier of `revealed_result`: the server
-    // empties its one-shot slot with the read that produced this body
-    // (IMP-7b81ca22f661), so a client that drops it destroys the material.
-    //
-    // It is handed to the caller HERE and then stripped from what this returns.
-    // Whatever this resolves to becomes react-query mutation state, which the
-    // cache keeps (with the response body intact) for gcTime after the reveal
-    // is closed — reset() clears the observer, not the cached mutation. Keeping
-    // the plaintext out of that state is the only way it is truly transient.
+    // The revealed_result is handed to the caller HERE (takeRevealedResult)
+    // and stripped from what this returns. Whatever this resolves to becomes
+    // react-query mutation state, which the cache keeps (with the response
+    // body intact) for gcTime after the reveal is closed — reset() clears the
+    // observer, not the cached mutation. Keeping the plaintext out of that
+    // state is the only way it is truly transient.
     mutationFn: async ({
       id,
       comments,
@@ -79,12 +104,7 @@ export function useApproveAction() {
       onRevealedResult: (values: Record<string, unknown>) => void;
     }) => {
       const response = await apiClient.post(`/ai/autonomy/approvals/${id}/approve`, { comments });
-      const { revealed_result: revealed, ...rest } = (response.data?.data ?? {}) as ApprovalDecision;
-      const shown = takeRevealableResult(revealed);
-      if (shown) {
-        onRevealedResult(shown);
-      }
-      return rest as ApprovalRequest;
+      return (takeRevealedResult(response.data?.data ?? {}, onRevealedResult) ?? {}) as unknown as ApprovalRequest;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: APPROVAL_KEYS.approvals() });

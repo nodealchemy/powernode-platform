@@ -115,4 +115,66 @@ describe('ApprovalRequestPanel', () => {
       expect(screen.getByText(/Approval complete/i)).toBeInTheDocument();
     });
   });
+
+  // Offer 01a0d711: the server empties the one-shot revealed_result slot with
+  // the approve response itself, so this panel is the only chance to show it.
+  describe('one-shot revealed_result on approve', () => {
+    const SECRET = 'whsec_plaintext_shown_once';
+
+    const approveWith = async (body: Record<string, unknown>, onResolved = jest.fn()) => {
+      mockGet.mockResolvedValue({ data: { success: true, data: baseRequest } });
+      mockPost.mockResolvedValue({ data: { success: true, data: body } });
+      render(<ApprovalRequestPanel approvalRequestId="req-1" onResolved={onResolved} />);
+      await waitFor(() => screen.getByRole('button', { name: /Approve/i }));
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /Approve/i }));
+      });
+      return onResolved;
+    };
+
+    it('shows the revealed value exactly once, and resolves only after it is acknowledged', async () => {
+      const onResolved = await approveWith({
+        ...baseRequest,
+        status: 'approved',
+        revealed_result: { webhook_secret: SECRET, empty: '' },
+      });
+
+      expect(screen.getAllByTestId('one-shot-reveal')).toHaveLength(1);
+      expect(screen.getAllByText(SECRET)).toHaveLength(1);
+      // Resolving closes the notification, which would unmount the reveal unseen.
+      expect(onResolved).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByRole('checkbox'));
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+
+      await waitFor(() => expect(screen.queryByTestId('one-shot-reveal')).not.toBeInTheDocument());
+      expect(screen.queryByText(SECRET)).not.toBeInTheDocument();
+      expect(onResolved).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens no reveal when the approve response carries none', async () => {
+      const onResolved = await approveWith({ ...baseRequest, status: 'approved' });
+
+      expect(screen.queryByTestId('one-shot-reveal')).not.toBeInTheDocument();
+      expect(onResolved).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps the plaintext out of the request the panel renders from', async () => {
+      await approveWith({
+        ...baseRequest,
+        status: 'pending',
+        current_step: 1,
+        revealed_result: { webhook_secret: SECRET },
+      });
+
+      fireEvent.click(screen.getByRole('checkbox'));
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+      await waitFor(() => expect(screen.queryByTestId('one-shot-reveal')).not.toBeInTheDocument());
+
+      // The panel re-renders from its request state (now step 2); the secret
+      // appears nowhere once the reveal is gone.
+      expect(screen.getByText(/Step 2 of 2: Manager/i)).toBeInTheDocument();
+      expect(document.body.textContent).not.toContain(SECRET);
+    });
+  });
 });
