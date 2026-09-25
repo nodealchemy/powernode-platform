@@ -127,7 +127,8 @@ module Ai
           "dev_complete_task" => {
             description: "Report the outcome of a claimed (in_progress) task, OR resolve a blocked task " \
                          "(operator disposition — no re-claim needed). Records a RalphIteration with verification " \
-                         "evidence, transitions the task (passed/failed/blocked/skipped), and captures learnings on the loop.",
+                         "evidence and transitions the task (passed/failed/blocked/skipped). It also captures " \
+                         "learnings on the loop.",
             parameters: {
               loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
               task_key: { type: "string", required: true, description: "Task key being reported" },
@@ -199,8 +200,9 @@ module Ai
             }
           },
           "dev_update_task" => {
-            description: "Amend a queued task's brief or routing AFTER it was created — the seam for a decision " \
-                         "the operator made post-approval (scope narrowed, one of two offered directions chosen). " \
+            description: "Amend a queued task's brief or routing AFTER it was created. It is the seam for a " \
+                         "decision the operator made post-approval (scope narrowed, one of two offered directions " \
+                         "chosen). " \
                          "Edits reach the executor on the next dev_next_task claim. Overwrites are journalled with " \
                          "their prior value in metadata.operator_edits; `note` appends without touching the brief. " \
                          "Cannot change status — use dev_complete_task for transitions, or dev_requeue_task to " \
@@ -224,9 +226,9 @@ module Ai
             }
           },
           "dev_requeue_task" => {
-            description: "Return a BLOCKED task to the queue (blocked -> pending) — typically one parked for " \
-                         "operator review whose question has now been answered (record the answer first with " \
-                         "dev_update_task). Clears the block report and the claim, and keeps them in " \
+            description: "Return a BLOCKED task to the queue (blocked -> pending). It is typically one parked " \
+                         "for operator review whose question has now been answered (record the answer first " \
+                         "with dev_update_task). Clears the block report and the claim, and keeps them in " \
                          "metadata.requeue_history with who requeued it and why; the attempt count and operator " \
                          "notes stay. Refused, before anything parks, for an unknown loop or task, a task that is " \
                          "not blocked, or a missing reason. A PERSON's decision: this verb never requeues anything " \
