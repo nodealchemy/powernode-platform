@@ -5,14 +5,6 @@
       "frontend/src/features/account/users/services/usersApi.ts",
       "frontend/src/features/delegations/services/delegationApi.ts"
     ],
-    "/admin/pages": [
-      "frontend/src/features/content/pages/components/DailySummariesPanel.tsx",
-      "frontend/src/features/content/pages/services/pagesApi.ts"
-    ],
-    "/admin_settings/accounts": [
-      "frontend/src/features/account/users/services/usersApi.ts",
-      "frontend/src/features/admin/services/adminSettingsApi.ts"
-    ],
     "/ai/agents": [
       "frontend/src/features/ai/memory/api/contextApi.ts",
       "frontend/src/features/ai/memory/api/tieredMemoryApi.ts",
@@ -52,10 +44,6 @@
       "frontend/src/features/devops/git/services/git/pipelinesApi.ts",
       "frontend/src/features/devops/git/services/git/repositoriesApi.ts",
       "frontend/src/features/devops/git/services/git/schedulesApi.ts"
-    ],
-    "/health": [
-      "frontend/src/features/admin/services/servicesApi.ts",
-      "frontend/src/features/platform/status/api/publicHealthApi.ts"
     ],
     "/impersonations": [
       "frontend/src/features/account/users/services/usersApi.ts",
