@@ -52,7 +52,6 @@ const DeveloperPortal = React.lazy(() => import('@/features/developer/pages/Deve
 // AI Sub-pages
 const AgentDetailPage = React.lazy(() => import('./ai/AgentDetailPage').then(m => ({ default: m.AgentDetailPage })));
 const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m => ({ default: m.AIAnalyticsPage })));
-const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
 const ControlPage = React.lazy(() => import('@/features/ai/control/pages/ControlPage').then(m => ({ default: m.ControlPage })));
 const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
 // The only operator screen for either capability — previously unrouted.
@@ -140,7 +139,6 @@ const DashboardPage: React.FC = () => {
             exact route to `/ai/agents/:agentId/*` below with agentId="community",
             opening AgentDetailPage instead of the Community tab (fc-46 review). */}
         <Route path="/ai/agents/community/*" element={<AIAgentsPage />} />
-        <Route path="/ai/agents/:agentId/memory/*" element={<AgentMemoryPage />} />
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />
         <Route path="/ai/teams/*" element={<TeamsPage />} />

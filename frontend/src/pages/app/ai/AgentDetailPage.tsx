@@ -1,25 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import { Bot, MessageSquare, Brain, ArrowLeft, BookOpen, Lightbulb, Activity, Info } from 'lucide-react';
+import {
+  MessageSquare, ArrowLeft, BookOpen, Lightbulb, Copy, Settings, Play, Pause, Archive, Trash2, Shield,
+} from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
-import { EntityLink } from '@/shared/components/entity';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { usePermissions } from '@/shared/hooks/usePermissions';
+import { useNotification } from '@/shared/hooks/useNotification';
 import { agentsApi, intelligenceApi } from '@/shared/services/ai';
 import type { ExperienceReplay, IntelligenceSummary } from '@/shared/services/ai/IntelligenceApiService';
 import { AgentConnectionsGraph } from '@/features/ai/agents/components/AgentConnectionsGraph';
 import { ContextBrowser } from '@/features/ai/memory/components/ContextBrowser';
 import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
-import { CLAUDE_CODE_TOKEN_CONVENTION } from '@/features/ai/agents/constants/agentConstants';
-import type { AiAgent } from '@/shared/types/ai';
+import { useAgentDetail } from '@/features/ai/agents/hooks/useAgentDetail';
+import { AgentDetailStatsCards } from '@/features/ai/agents/components/AgentDetailStatsCards';
+import { AgentPerformanceSummary } from '@/features/ai/agents/components/AgentPerformanceSummary';
+import { AgentConfigTab } from '@/features/ai/agents/components/detail-tabs/AgentConfigTab';
+import { AgentHistoryTab } from '@/features/ai/agents/components/detail-tabs/AgentHistoryTab';
+import { AgentTeamsTab } from '@/features/ai/agents/components/detail-tabs/AgentTeamsTab';
+import { AgentSkillsTab } from '@/features/ai/agents/components/detail-tabs/AgentSkillsTab';
+import { AgentWorkspacesTab } from '@/features/ai/agents/components/detail-tabs/AgentWorkspacesTab';
+import { AgentMemoryTab } from '@/features/ai/agents/components/detail-tabs/AgentMemoryTab';
+import { EditAgentModal } from '@/features/ai/agents/components/EditAgentModal';
+import { STATUS_CONFIG, AGENT_TYPE_LABELS, TRUST_CONFIG } from '@/features/ai/agents/constants/agentConstants';
 
+// fc-43: the one agent detail surface. The former global AgentDetailModal's
+// tabs and manage actions live here, and the per-agent memory page is the
+// Memory tab at the same URL. Each tab is at its own path.
 const tabs = [
   { id: 'overview', label: 'Overview', path: '/' },
+  { id: 'history', label: 'History', path: '/history' },
+  { id: 'teams', label: 'Teams', path: '/teams' },
+  { id: 'skills', label: 'Skills', path: '/skills' },
+  { id: 'workspaces', label: 'Workspaces', path: '/workspaces' },
+  // Gated like the endpoints they read: ContextsController and
+  // AgentMemoryController authorize ai.context.read / ai.memory.read.
+  { id: 'knowledge', label: 'Knowledge', path: '/knowledge', permissions: ['ai.context.read'] },
+  { id: 'memory', label: 'Memory', path: '/memory', permissions: ['ai.memory.read'] },
   { id: 'intelligence', label: 'Intelligence', path: '/intelligence' },
   { id: 'connections', label: 'Connections', path: '/connections' },
-  { id: 'knowledge', label: 'Knowledge', path: '/knowledge' },
 ];
 
 // ---- Intelligence Tab Content ----
@@ -102,53 +125,95 @@ export const AgentDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { openConversationMaximized } = useChatWindow();
-  const [agent, setAgent] = useState<AiAgent | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { hasPermission } = usePermissions();
+  const { showNotification } = useNotification();
+  const { confirm, ConfirmationDialog } = useConfirmation();
+  const { agent, stats, analytics, error, reload } = useAgentDetail(agentId ?? null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
-  const getActiveTab = () => {
-    if (location.pathname.includes('/intelligence')) return 'intelligence';
-    if (location.pathname.includes('/connections')) return 'connections';
-    if (location.pathname.includes('/knowledge')) return 'knowledge';
-    return 'overview';
-  };
+  const canManage = hasPermission('ai.agents.manage');
+  const basePath = `/app/ai/agents/${agentId}`;
 
-  const [activeTab, setActiveTab] = useState(getActiveTab());
+  // The first path segment after the agent picks the tab; a tab the viewer
+  // may not see falls back to Overview rather than rendering its panel.
+  const segment = location.pathname.startsWith(basePath)
+    ? location.pathname.slice(basePath.length).split('/')[1] || ''
+    : '';
+  const matched = tabs.find((t) => t.path === `/${segment}`);
+  const activeTab = matched && (!matched.permissions || matched.permissions.every((p) => hasPermission(p)))
+    ? matched.id
+    : 'overview';
 
   useEffect(() => {
-    const newTab = getActiveTab();
-    if (newTab !== activeTab) setActiveTab(newTab);
-  }, [location.pathname]);
+    if (error && !agent) navigate('/app/ai/agents');
+  }, [error, agent, navigate]);
 
-  useEffect(() => {
-    if (!agentId) return;
-    const load = async () => {
-      try {
-        setLoading(true);
-        const data = await agentsApi.getAgent(agentId);
-        setAgent(data);
-      } catch (_err) {
-        navigate('/app/ai/agents');
-      } finally {
-        setLoading(false);
+  const goToList = useCallback(() => navigate('/app/ai/agents'), [navigate]);
+
+  const handleClone = useCallback(async () => {
+    if (!agent) return;
+    try {
+      const cloned = await agentsApi.cloneAgent(agent.id);
+      showNotification(`Cloned as "${cloned.name}"`, 'success');
+      navigate(`/app/ai/agents/${cloned.id}`);
+    } catch {
+      showNotification('Failed to clone agent', 'error');
+    }
+  }, [agent, navigate, showNotification]);
+
+  const handleToggleStatus = useCallback(async () => {
+    if (!agent) return;
+    try {
+      if (agent.status === 'active') {
+        await agentsApi.pauseAgent(agent.id);
+        showNotification(`${agent.name} paused`, 'success');
+      } else {
+        await agentsApi.resumeAgent(agent.id);
+        showNotification(`${agent.name} resumed`, 'success');
       }
-    };
-    load();
-  }, [agentId, navigate]);
+      reload();
+    } catch {
+      showNotification('Failed to update agent status', 'error');
+    }
+  }, [agent, reload, showNotification]);
 
-  if (loading || !agent) {
+  const handleArchive = useCallback(async () => {
+    if (!agent) return;
+    try {
+      await agentsApi.archiveAgent(agent.id);
+      showNotification(`${agent.name} archived`, 'success');
+      goToList();
+    } catch {
+      showNotification('Failed to archive agent', 'error');
+    }
+  }, [agent, goToList, showNotification]);
+
+  const handleDelete = useCallback(() => {
+    if (!agent) return;
+    confirm({
+      title: 'Delete Agent',
+      message: `Are you sure you want to delete "${agent.name}"? This action cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: async () => {
+        await agentsApi.deleteAgent(agent.id);
+        showNotification(`${agent.name} deleted`, 'success');
+        goToList();
+      },
+    });
+  }, [agent, confirm, goToList, showNotification]);
+
+  if (!agent) {
     return <LoadingSpinner size="lg" className="py-12" message="Loading agent..." />;
   }
 
-  const statusVariant = agent.status === 'active' ? 'success' : agent.status === 'error' ? 'danger' : 'secondary';
+  const status = STATUS_CONFIG[agent.status] || STATUS_CONFIG.inactive;
+  const trustLevel = (agent as { trust_level?: string }).trust_level;
+  const trustConfig = trustLevel ? TRUST_CONFIG[trustLevel] : undefined;
+  const version = (agent as { mcp_tool_manifest?: { version?: string } }).mcp_tool_manifest?.version;
 
   const pageActions = [
-    {
-      id: 'back',
-      label: 'Back to Agents',
-      onClick: () => navigate('/app/ai/agents/list'),
-      variant: 'secondary' as const,
-      icon: ArrowLeft,
-    },
+    { id: 'back', label: 'Back to Agents', onClick: goToList, variant: 'secondary' as const, icon: ArrowLeft },
     {
       id: 'chat',
       label: 'Chat',
@@ -156,13 +221,17 @@ export const AgentDetailPage: React.FC = () => {
       variant: 'outline' as const,
       icon: MessageSquare,
     },
-    {
-      id: 'memory',
-      label: 'Memory',
-      onClick: () => navigate(`/app/ai/agents/${agent.id}/memory`),
-      variant: 'outline' as const,
-      icon: Brain,
-    },
+    ...(canManage
+      ? [
+          { id: 'clone', label: 'Clone', onClick: handleClone, variant: 'outline' as const, icon: Copy },
+          { id: 'edit', label: 'Edit', onClick: () => setShowEditModal(true), variant: 'outline' as const, icon: Settings },
+          agent.status === 'active'
+            ? { id: 'pause', label: 'Pause', onClick: handleToggleStatus, variant: 'warning' as const, icon: Pause }
+            : { id: 'resume', label: 'Resume', onClick: handleToggleStatus, variant: 'success' as const, icon: Play },
+          { id: 'archive', label: 'Archive', onClick: handleArchive, variant: 'secondary' as const, icon: Archive },
+          { id: 'delete', label: 'Delete', onClick: handleDelete, variant: 'danger' as const, icon: Trash2 },
+        ]
+      : []),
   ];
 
   const getBreadcrumbs = () => {
@@ -189,147 +258,103 @@ export const AgentDetailPage: React.FC = () => {
       <TabContainer
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
-        basePath={`/app/ai/agents/${agentId}`}
+        basePath={basePath}
         variant="underline"
         className="mb-6"
       >
         <TabPanel tabId="overview" activeTab={activeTab}>
-          <Card className="p-6">
-            <div className="flex items-start gap-4 mb-6">
-              <div className="h-12 w-12 bg-theme-info-bg rounded-lg flex items-center justify-center">
-                <Bot className="h-6 w-6 text-theme-info-fg" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                  <h2 className="text-xl font-semibold text-theme-primary">{agent.name}</h2>
-                  <Badge variant={statusVariant} size="sm">{agent.status}</Badge>
-                </div>
-                {agent.description && (
-                  <p className="text-sm text-theme-secondary">{agent.description}</p>
-                )}
-              </div>
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant={status.variant} size="sm">{status.label}</Badge>
+              <Badge variant="outline" size="xs">{AGENT_TYPE_LABELS[agent.agent_type] || agent.agent_type}</Badge>
+              {trustConfig && (
+                <Badge variant={trustConfig.variant} size="xs">
+                  {trustConfig.icon && <Shield className="h-2.5 w-2.5 mr-0.5" />}
+                  {trustConfig.label}
+                </Badge>
+              )}
+              {version && <Badge variant="outline" size="xs">v{version}</Badge>}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-theme-tertiary">Type</span>
-                  <span className="text-theme-primary">{agent.agent_type || 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-theme-tertiary">Provider</span>
-                  {agent.provider?.id ? (
-                    <EntityLink
-                      type="ai_provider"
-                      id={agent.provider.id}
-                      label={agent.provider.name}
-                      className="text-theme-primary"
-                    />
-                  ) : (
-                    <span className="text-theme-primary">{agent.provider?.name || 'N/A'}</span>
-                  )}
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-theme-tertiary">Model</span>
-                  <span className="text-theme-primary">{agent.model || 'N/A'}</span>
-                </div>
-              </div>
+            <AgentPerformanceSummary
+              stats={stats}
+              analytics={analytics}
+              fallbackSuccessRate={agent.execution_stats?.success_rate ?? 0}
+            />
+            {stats && stats.total_executions > 0 && <AgentDetailStatsCards stats={stats} />}
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-theme-tertiary">Total Executions</span>
-                  <span className="text-theme-primary">{agent.execution_stats?.total_executions || 0}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-theme-tertiary">Success Rate</span>
-                  <span className="text-theme-primary">{agent.execution_stats?.success_rate || 0}%</span>
-                </div>
-                {agent.skills && agent.skills.length > 0 ? (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-theme-tertiary">Skills</span>
-                    <div className="flex flex-wrap gap-1 justify-end">
-                      {agent.skills.map((skill) => (
-                        <Badge key={skill.id} variant="info" size="sm">
-                          <EntityLink type="skill" id={skill.id} label={skill.name} />
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ) : agent.skill_slugs && agent.skill_slugs.length > 0 && (
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-theme-tertiary">Skills</span>
-                    <div className="flex flex-wrap gap-1 justify-end">
-                      {agent.skill_slugs.map((slug) => (
-                        <Badge key={slug} variant="info" size="sm">{slug}</Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {agent.skill_slugs && agent.skill_slugs.length > 0 && (
-                  <div className="text-xs">
-                    <button type="button" onClick={() => navigate('/app/ai/knowledge?tab=skill-graph')} className="text-theme-info-fg hover:underline">
-                      View skills in graph →
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </Card>
+            <AgentConfigTab agent={agent} />
+          </div>
+        </TabPanel>
 
-          <Card className="p-6 mt-6" data-testid="agent-executions-card">
-            <div className="flex items-center gap-2 mb-4">
-              <Activity size={18} className="text-theme-info-fg" />
-              <h3 className="text-lg font-medium text-theme-primary">Executions</h3>
-              <span
-                data-testid="executions-token-convention"
-                title={CLAUDE_CODE_TOKEN_CONVENTION}
-                aria-label={CLAUDE_CODE_TOKEN_CONVENTION}
-                className="inline-flex text-theme-tertiary cursor-help"
+        <TabPanel tabId="history" activeTab={activeTab}>
+          <AgentHistoryTab agentId={agent.id} />
+        </TabPanel>
+
+        <TabPanel tabId="teams" activeTab={activeTab}>
+          <AgentTeamsTab agentId={agent.id} />
+        </TabPanel>
+
+        <TabPanel tabId="skills" activeTab={activeTab}>
+          <div className="space-y-4">
+            <div className="text-xs">
+              <button
+                type="button"
+                onClick={() => navigate('/app/ai/knowledge/skills/graph')}
+                className="text-theme-info-fg hover:underline"
               >
-                <Info size={14} aria-hidden="true" />
-              </span>
+                View skills in graph →
+              </button>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-theme-primary" data-testid="executions-platform-count">
-                  {agent.execution_stats?.by_executor_kind?.platform ?? 0}
-                </div>
-                <div className="text-xs text-theme-tertiary">Platform</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-theme-primary" data-testid="executions-claude-code-count">
-                  {agent.execution_stats?.by_executor_kind?.claude_code ?? 0}
-                </div>
-                <div className="text-xs text-theme-tertiary">Claude Code</div>
-              </div>
-            </div>
-          </Card>
+            <AgentSkillsTab agentId={agent.id} />
+          </div>
         </TabPanel>
 
-        <TabPanel tabId="intelligence" activeTab={activeTab}>
-          {agentId && <IntelligenceContent agentId={agentId} />}
-        </TabPanel>
-
-        <TabPanel tabId="connections" activeTab={activeTab}>
-          {agentId && <AgentConnectionsGraph agentId={agentId} />}
+        <TabPanel tabId="workspaces" activeTab={activeTab}>
+          <AgentWorkspacesTab agentId={agent.id} />
         </TabPanel>
 
         <TabPanel tabId="knowledge" activeTab={activeTab}>
-          {agentId && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-4">
-                <BookOpen size={18} className="text-theme-secondary" />
-                <h3 className="text-lg font-medium text-theme-primary">Agent Knowledge & Contexts</h3>
-              </div>
-              <ContextBrowser
-                filters={{ ai_agent_id: agentId }}
-                linkToDetail
-              />
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 mb-4">
+              <BookOpen size={18} className="text-theme-secondary" />
+              <h3 className="text-lg font-medium text-theme-primary">Agent Knowledge & Contexts</h3>
             </div>
-          )}
+            <ContextBrowser
+              filters={{ ai_agent_id: agent.id }}
+              linkToDetail
+            />
+          </div>
+        </TabPanel>
+
+        <TabPanel tabId="memory" activeTab={activeTab}>
+          <AgentMemoryTab agentId={agent.id} />
+        </TabPanel>
+
+        <TabPanel tabId="intelligence" activeTab={activeTab}>
+          <IntelligenceContent agentId={agent.id} />
+        </TabPanel>
+
+        <TabPanel tabId="connections" activeTab={activeTab}>
+          <AgentConnectionsGraph agentId={agent.id} />
         </TabPanel>
       </TabContainer>
+
+      <EditAgentModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        agent={agent}
+        onAgentUpdated={() => {
+          setShowEditModal(false);
+          reload();
+        }}
+        onAgentDeleted={() => {
+          setShowEditModal(false);
+          goToList();
+        }}
+      />
+
+      {ConfirmationDialog}
     </PageContainer>
   );
 };

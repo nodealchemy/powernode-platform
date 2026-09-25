@@ -5,8 +5,8 @@ const ENTITY_PARAM = 'entity';
 const ENTITY_ID_PARAM = 'eid';
 
 /**
- * Generalized counterpart to `useAgentModal`: opens/closes the global
- * EntityReferenceHost via URL search params (`?entity=<type>&eid=<id>`).
+ * Opens/closes the global EntityReferenceHost via URL search params
+ * (`?entity=<type>&eid=<id>`).
  * Works from any page — the host is mounted once in DashboardLayout.
  *
  * Opening pushes a history entry so the browser back button closes the modal.

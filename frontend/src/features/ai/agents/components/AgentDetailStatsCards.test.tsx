@@ -3,9 +3,9 @@ import { AgentDetailStatsCards } from './AgentDetailStatsCards';
 import type { AgentStats } from '@/shared/services/ai/types/agent-api-types';
 
 // IMP-e8513b30152d — useAgentDetail carries execution_stats.by_executor_kind
-// (platform vs Claude Code) and its only consumer is AgentDetailModal, which
-// hands `stats` to this component. Without a render here the hook's plumbing is
-// inert: nothing displays the split the modal's data now contains.
+// (platform vs Claude Code) and its only consumer is the agent detail page's
+// Overview tab, which hands `stats` to this component. Without a render here the
+// hook's plumbing is inert: nothing displays the split the page's data contains.
 const baseStats: AgentStats = {
   total_executions: 12,
   successful_executions: 10,

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search, ChevronRight, ArrowDown, ArrowUp,
   Brain, Eye, Pencil, Copy, Pause, Play, Archive, MoreHorizontal,
@@ -7,7 +8,6 @@ import {
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { DropdownMenu } from '@/shared/components/ui/DropdownMenu';
-import { useAgentModal } from '@/shared/hooks/useAgentModal';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotification } from '@/shared/hooks/useNotification';
 import { useChatWindow } from '@/features/ai/chat/context/ChatWindowContext';
@@ -37,7 +37,7 @@ export const AgentsIndexTable: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [editAgent, setEditAgent] = useState<AiAgent | null>(null);
 
-  const { openAgent } = useAgentModal();
+  const navigate = useNavigate();
   const { hasPermission } = usePermissions();
   const { showNotification } = useNotification();
   const { openConversationMaximized } = useChatWindow();
@@ -283,7 +283,7 @@ export const AgentsIndexTable: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <span className={cn('w-2 h-2 rounded-full flex-shrink-0', STATUS_CONFIG[agent.status]?.dot || 'bg-theme-surface')} />
                       <div className="min-w-0">
-                        <div className="text-sm font-medium text-theme-primary truncate">{agent.name}</div>
+                        <EntityLink type="agent" id={agent.id} label={agent.name} className="block text-sm font-medium text-theme-primary truncate" />
                         {agent.description && (
                           <div className="text-xs text-theme-tertiary truncate max-w-xs">{agent.description}</div>
                         )}
@@ -313,7 +313,7 @@ export const AgentsIndexTable: React.FC = () => {
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-0.5" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" iconOnly onClick={() => openAgent(agent.id)} title="View details">
+                      <Button variant="ghost" size="sm" iconOnly onClick={() => navigate(`/app/ai/agents/${agent.id}`)} title="View details">
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
                       <Button variant="ghost" size="sm" iconOnly onClick={() => handleChat(agent)} title="Chat">
