@@ -573,7 +573,7 @@ The frontend chat interface is built as part of the AI feature module.
 
 | Layer | Purpose |
 |-------|---------|
-| React Query | Conversation list, message history fetching (`chatApi`) |
+| React Query | Conversation list, message history fetching (`conversationsApi`/`agentsApi`) |
 | WebSocket state | Real-time updates via `useConversationSocket` hook |
 | Local context + reducer | Per-conversation UI state (`ChatWindowReducer`) |
 | Optimistic rendering | Messages rendered immediately, replaced by server confirmation |
