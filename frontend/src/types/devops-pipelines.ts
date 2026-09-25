@@ -1,65 +1,5 @@
 // DevOps Pipeline Management Types
 
-// Provider types
-export type DevopsProviderType = 'gitea' | 'github' | 'gitlab' | 'jenkins';
-
-export interface DevopsProvider {
-  id: string;
-  name: string;
-  provider_type: DevopsProviderType;
-  base_url: string;
-  is_active: boolean;
-  last_sync_at: string | null;
-  settings: Record<string, unknown>;
-  repository_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DevopsProviderFormData {
-  name: string;
-  provider_type: DevopsProviderType;
-  base_url: string;
-  api_token: string;
-  webhook_secret?: string;
-  is_active: boolean;
-  settings?: Record<string, unknown>;
-}
-
-// Prompt Template types (now uses Shared::PromptTemplate with domain='devops')
-export type DevopsPromptCategory = 'review' | 'implement' | 'security' | 'deploy' | 'docs' | 'custom' | 'general' | 'agent' | 'workflow';
-export type DevopsPromptDomain = 'devops' | 'ai_workflow' | 'general';
-
-export interface DevopsPromptTemplate {
-  id: string;
-  name: string;
-  slug: string;
-  description: string | null;
-  category: DevopsPromptCategory;
-  domain: DevopsPromptDomain;
-  content: string;
-  variables: Record<string, string>;
-  is_active: boolean;
-  is_system: boolean;
-  version: number;
-  usage_count: number;
-  variable_names: string[];
-  created_by_name: string | null;
-  parent_template_id: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DevopsPromptTemplateFormData {
-  name: string;
-  description?: string;
-  category: DevopsPromptCategory;
-  content: string;
-  is_active: boolean;
-  variables?: Record<string, string>;
-  parent_template_id?: string;
-}
-
 // Pipeline types
 
 export interface DevopsPipelineTriggers {
@@ -257,87 +197,7 @@ export interface DevopsStepExecution {
   updated_at: string;
 }
 
-// Schedule types
-export interface DevopsSchedule {
-  id: string;
-  name: string;
-  cron_expression: string;
-  timezone: string;
-  inputs: Record<string, unknown>;
-  next_run_at: string | null;
-  last_run_at: string | null;
-  is_active: boolean;
-  cron_description: string;
-  is_due: boolean;
-  pipeline_name: string;
-  pipeline_slug: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DevopsScheduleFormData {
-  name: string;
-  cron_expression: string;
-  timezone?: string;
-  is_active: boolean;
-  pipeline_id: string;
-  inputs?: Record<string, unknown>;
-}
-
-// Repository types
-export interface DevopsRepository {
-  id: string;
-  name: string;
-  full_name: string;
-  default_branch: string;
-  external_id: string;
-  settings: Record<string, unknown>;
-  is_active: boolean;
-  last_synced_at: string | null;
-  clone_url: string;
-  web_url: string;
-  owner: string;
-  repo_name: string;
-  provider_type: DevopsProviderType;
-  pipeline_count: number;
-  pipelines?: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    overrides: Record<string, unknown>;
-    attached_at: string;
-  }>;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DevopsRepositoryFormData {
-  name: string;
-  full_name: string;
-  default_branch?: string;
-  external_id: string;
-  is_active: boolean;
-  provider_id: string;
-  settings?: Record<string, unknown>;
-}
-
 // API Response types
-export interface DevopsProvidersResponse {
-  providers: DevopsProvider[];
-  meta: {
-    total: number;
-    by_type: Record<string, number>;
-  };
-}
-
-export interface DevopsPromptTemplatesResponse {
-  prompt_templates: DevopsPromptTemplate[];
-  meta: {
-    total: number;
-    by_category: Record<string, number>;
-  };
-}
-
 export interface DevopsPipelinesResponse {
   pipelines: DevopsPipeline[];
   meta: {
@@ -358,45 +218,10 @@ export interface DevopsPipelineRunsResponse {
   };
 }
 
-export interface DevopsSchedulesResponse {
-  schedules: DevopsSchedule[];
-  meta: {
-    total: number;
-    active_count: number;
-    next_due: string | null;
-  };
-}
-
-export interface DevopsRepositoriesResponse {
-  repositories: DevopsRepository[];
-  meta: {
-    total: number;
-    active_count: number;
-    by_provider: Record<string, number>;
-  };
-}
-
-// Preview response
-export interface DevopsPromptPreviewResponse {
-  prompt_template_id: string;
-  rendered_content: string;
-  variables_used: string[];
-  rendered_at: string;
-}
-
 // Export YAML response
 export interface DevopsPipelineExportResponse {
   pipeline_id: string;
   pipeline_name: string;
   yaml: string;
   generated_at: string;
-}
-
-// Connection test response
-export interface DevopsConnectionTestResponse {
-  provider_id: string;
-  connected: boolean;
-  message: string;
-  details?: Record<string, unknown>;
-  tested_at: string;
 }
