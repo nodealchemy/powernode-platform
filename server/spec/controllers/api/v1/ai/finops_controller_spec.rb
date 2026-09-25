@@ -102,30 +102,6 @@ RSpec.describe "Api::V1::Ai::FinopsController", type: :request do
   end
 
   # =========================================================================
-  # BUDGET UTILIZATION (GET /api/v1/ai/finops/budget_utilization)
-  # =========================================================================
-  describe "GET /api/v1/ai/finops/budget_utilization" do
-    let(:path) { "/api/v1/ai/finops/budget_utilization" }
-
-    it 'returns 401 when unauthenticated' do
-      get path, headers: { 'Content-Type' => 'application/json' }
-      expect(response).to have_http_status(:unauthorized)
-    end
-
-    it 'returns 403 when user lacks ai.finops.view permission' do
-      get path, headers: auth_headers_for(no_perms_user)
-      expect(response).to have_http_status(:forbidden)
-    end
-
-    it 'returns success when user has ai.finops.view permission' do
-      get path, headers: auth_headers_for(read_user)
-      expect(response).to have_http_status(:success)
-      expect(json_response['success']).to eq(true)
-      expect(json_response_data['budget']).to be_a(Hash)
-    end
-  end
-
-  # =========================================================================
   # TOKEN ANALYTICS (GET /api/v1/ai/finops/token_analytics)
   # =========================================================================
   describe "GET /api/v1/ai/finops/token_analytics" do

@@ -91,21 +91,6 @@ RSpec.describe 'Api::V1::Ai::Finops', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/finops/budget_utilization' do
-    before do
-      allow(cost_service).to receive(:budget_analysis).and_return({ monthly_budget: 500 })
-    end
-
-    it 'returns budget utilization data' do
-      get '/api/v1/ai/finops/budget_utilization', headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['budget']).to be_present
-      expect(data['agent_budgets']).to be_an(Array)
-    end
-  end
-
   describe 'GET /api/v1/ai/finops/token_analytics' do
     before do
       allow(token_service).to receive(:usage_summary).and_return({

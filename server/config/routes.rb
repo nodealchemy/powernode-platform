@@ -2693,7 +2693,6 @@ Rails.application.routes.draw do
           get "/", action: :index
           get "cost_breakdown", action: :cost_breakdown
           get "trends", action: :trends
-          get "budget_utilization", action: :budget_utilization
           get "token_analytics", action: :token_analytics
           get "waste_analysis", action: :waste_analysis
           get "forecast", action: :forecast
