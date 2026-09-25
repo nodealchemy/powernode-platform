@@ -37,7 +37,7 @@
 # aren't set (e.g. a deploy step with a different env than the one the app
 # boots with), any pollution for that field is silently left in place — this
 # migration will need re-running (or the vars supplying) once it does run
-# with them present. See docs/operations/service-and-ops.md for the
+# with them present. See docs/operations/production-deployment.md for the
 # operational note.
 class StripEnvCapturedValuesFromRedisConfigBlob < ActiveRecord::Migration[8.0]
   def up
