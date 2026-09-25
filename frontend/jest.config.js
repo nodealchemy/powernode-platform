@@ -30,13 +30,13 @@ module.exports = {
     '^@/pages/(.*)$': '<rootDir>/src/pages/$1',
     '^@/assets/(.*)$': '<rootDir>/src/assets/$1',
     // Catch-all fallback, mirroring tsconfig.json's own `"@/*": ["./src/*"]`:
-    // the specific entries above exist for extension jest configs to
-    // re-anchor individually (see business/marketing/etc. jest.config.js
-    // comments), but core itself has top-level src dirs (e.g. src/services)
-    // that only this catch-all resolves. Must come after the specific
-    // entries have no effect on precedence (Jest tries patterns in order and
-    // both forms resolve identically for shared/features/pages/assets), but
-    // keeps the fallback from masking a future extension-specific override.
+    // the specific entries above exist for extension jest.config.js files to
+    // re-anchor individually, but core itself has top-level src dirs (e.g.
+    // src/services) that only this catch-all resolves. Jest tries patterns in
+    // order and uses the first match, so it stays last among the `@/` entries
+    // where it cannot mask a more specific mapping. Extension configs inherit
+    // it through `...parent.moduleNameMapper`, where `<rootDir>` is the
+    // extension's own frontend, so each one overrides it to point at core.
     '^@/(.*)$': '<rootDir>/src/$1',
     '^axios$': 'axios/dist/node/axios.cjs',
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
