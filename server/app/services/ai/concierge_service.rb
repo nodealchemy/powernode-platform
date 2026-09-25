@@ -124,6 +124,7 @@ module Ai
       freeze_turn_context!
 
       credential = find_credential
+      compact_history!(credential)
 
       if credential && tool_bridge_available?(credential)
         process_with_tools(content, credential)
@@ -390,7 +391,19 @@ module Ai
     # saves it with Ai::Conversation#add_user_message before #process_message),
     # and each user turn carries its frozen context (Ai::ConciergeHistory).
     def build_tool_messages
-      history.messages(limit: 15)
+      history.messages
+    end
+
+    # Threshold compaction at the turn boundary (Ai::ConciergeCompactor), in
+    # place of a sliding window that dropped the oldest message every turn.
+    def compact_history!(credential)
+      model = concierge_model || credential&.provider&.default_model
+      return if credential.nil? || model.blank? || !@agent&.persisted?
+
+      Ai::ConciergeCompactor.new(
+        history: history, llm_client: WorkerLlmClient.new(agent_id: @agent.id),
+        model: model, system_prompt: -> { concierge_tool_system_prompt }
+      ).compact_if_needed!
     end
 
     def history
@@ -485,7 +498,7 @@ module Ai
     # See #build_tool_messages: the history ends with the user's message and
     # each user turn carries its frozen context.
     def build_legacy_messages
-      [ { role: "system", content: legacy_system_prompt } ] + history.messages(limit: 10)
+      [ { role: "system", content: legacy_system_prompt } ] + history.messages
     end
 
     # Synthetic system message carrying the router's invocation addendum
