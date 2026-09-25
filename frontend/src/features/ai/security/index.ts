@@ -36,9 +36,6 @@ export {
   useComplianceMatrix,
 } from './api/securityExtApi';
 
-// Page
-export { SecurityDashboardPage } from './pages/SecurityDashboardPage';
-
 // Components
 export { SecurityScoreCard } from './components/SecurityScoreCard';
 export { AgentIdentityList } from './components/AgentIdentityList';

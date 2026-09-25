@@ -35,11 +35,31 @@ Defined in `shared/utils/navigation.tsx` (`defaultNavigationConfig`); routed in
 | Agents / Teams / Missions / Execution / Knowledge / Infrastructure | `/app/ai/*` | per-feature | per-feature |
 | **Observability** | `/app/ai/observability` | `PathTabs`: System Health · Systems · Circuit Breakers · Alerts · Conversations · Execution Traces · Evaluation | one permission per tab — see `MONITORING_TABS` |
 | **Cost** | `/app/ai/cost` | `SubNavRail`: Overview · Credits · FinOps · ROI · Outcome Billing | `ai.finops.view` / `ai.roi.read` / `ai.analytics.read` |
-| Governance | `/app/ai/governance` | per-feature | `ai.governance.read` |
+| **Control** | `/app/ai/control` | `SubNavRail`: Approvals · Policies · Budgets · Safety · Trust & Lineage · Goals · Compliance Audit | any permission a leaf is gated on (`CONTROL_PERMISSIONS`) |
 
 The **Developer Portal** lives in the **DevOps** section (`/app/developer`,
 `api.manage_keys`). The former orphan **Cost** and **Developer** sidebar sections were
 removed; their contents were absorbed above.
+
+## Control hub (`ControlPage`, sub-rail)
+
+`features/ai/control/pages/ControlPage.tsx` — replaces the Autonomy dashboard, the
+Governance page, the Approval Chains page and the standalone Budgets page. One
+`SubNavRail` over seven leaves; a leaf with sub-views renders one `PathTabs` row, and
+every leaf and tab is gated on the permission its endpoints check:
+
+- **Approvals** — queue (`?request=<id>` opens one) · proposals · escalations · approval chains.
+- **Policies** — intervention · compliance (compliance policies with toggle and create, their
+  violations with resolve, and the account's security events).
+- **Budgets** — `BudgetsPanel` (single view).
+- **Safety** — kill switch · identities & quarantine · shadow mode · autonomy telemetry.
+  Circuit breakers are not here: their one home is Observability → Circuit Breakers.
+- **Trust & Lineage** — trust · lineage (with delegation policies) · behavior · feedback.
+- **Goals** — single view.
+- **Compliance Audit** — audit log · reports · collusion · ASI compliance.
+
+Team coordination (signals, pressure fields, restructure events) moved to the Teams
+page's Coordination tab (`/app/ai/teams/coordination`).
 
 ## Cost hub (`CostPage`, sub-rail)
 

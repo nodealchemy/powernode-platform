@@ -1,5 +1,6 @@
 import { defaultNavigationConfig } from '@/shared/utils/navigation';
 import { hasAccess } from '@/shared/utils/permissionUtils';
+import { CONTROL_PERMISSIONS } from '@/features/ai/control/controlPaths';
 import type { User } from '@/shared/services/slices/authSlice';
 
 const sections = defaultNavigationConfig.sections ?? [];
@@ -14,7 +15,7 @@ describe('defaultNavigationConfig — AI category consolidation', () => {
 
   it('exposes Observability and Cost as AI section items (fc-42: Operations merged into Observability)', () => {
     expect(itemIds('ai')).toEqual(
-      expect.arrayContaining(['ai-observability', 'ai-cost', 'ai-governance']),
+      expect.arrayContaining(['ai-observability', 'ai-cost', 'ai-control']),
     );
     expect(itemIds('ai')).not.toContain('ai-operations');
   });
@@ -109,22 +110,25 @@ describe('defaultNavigationConfig — DevOps nav permission alignment', () => {
   });
 });
 
-// fc-31: one Budgets page, linked from the AI section under the same label as
-// its title and breadcrumb, gated on the permission its route guard and the
-// list endpoint check — permissions only, never roles.
-describe('defaultNavigationConfig — Budgets (fc-31)', () => {
-  const budgets = () => section('ai')?.items.find((i) => i.id === 'ai-budgets');
+// fc-41: one Control item in the AI section replaces Autonomy, Governance,
+// Budgets and Approval Chains. It carries the same permissions as the Control
+// route (CONTROL_PERMISSIONS) — permissions only, never roles.
+describe('defaultNavigationConfig — Control (fc-41)', () => {
+  const control = () => section('ai')?.items.find((i) => i.id === 'ai-control');
   const userWith = (permissions: string[]) => ({ permissions } as unknown as User);
 
-  it('links the Budgets page from the AI section', () => {
-    expect(budgets()).toMatchObject({ name: 'Budgets', href: '/app/ai/control/budgets' });
-    const allBudgetHrefs = sections.flatMap((s) => s.items).filter((i) => /budget/i.test(i.href ?? ''));
-    expect(allBudgetHrefs.map((i) => i.id)).toEqual(['ai-budgets']);
+  it('links Control from the AI section, and nothing links the pages it replaced', () => {
+    expect(control()).toMatchObject({ name: 'Control', href: '/app/ai/control' });
+    const allItems = sections.flatMap((s) => s.items);
+    ['ai-autonomy', 'ai-governance', 'ai-budgets', 'ai-approval-chains'].forEach((id) =>
+      expect(allItems.map((i) => i.id)).not.toContain(id));
+    expect(allItems.filter((i) => /\/app\/ai\/(governance|approval-chains|agents\/autonomy|control\/budgets)/.test(i.href ?? '')))
+      .toEqual([]);
   });
 
-  it('is gated on ai.agents.read alone, which shows it to readers and hides it otherwise', () => {
-    expect(budgets()?.permissions).toEqual(['ai.agents.read']);
-    expect(hasAccess(userWith(['ai.agents.read']), budgets()?.permissions)).toBe(true);
-    expect(hasAccess(userWith(['ai.autonomy.manage']), budgets()?.permissions)).toBe(false);
+  it('is gated on exactly the Control route permissions', () => {
+    expect([...(control()?.permissions ?? [])].sort()).toEqual([...CONTROL_PERMISSIONS].sort());
+    expect(hasAccess(userWith(['ai.governance.read']), control()?.permissions)).toBe(true);
+    expect(hasAccess(userWith(['ai.teams.read']), control()?.permissions)).toBe(false);
   });
 });

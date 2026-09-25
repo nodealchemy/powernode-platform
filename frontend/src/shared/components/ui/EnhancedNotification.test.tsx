@@ -221,7 +221,7 @@ describe('EnhancedNotification', () => {
   });
 
   describe('link', () => {
-    const link = { label: 'Review approvals', to: '/app/ai/agents/autonomy' };
+    const link = { label: 'Review approvals', to: '/app/ai/control/approvals/queue' };
 
     it('renders an in-app link with the given label and target', () => {
       render(
@@ -231,7 +231,7 @@ describe('EnhancedNotification', () => {
       );
 
       const anchor = screen.getByRole('link', { name: 'Review approvals' });
-      expect(anchor).toHaveAttribute('href', '/app/ai/agents/autonomy');
+      expect(anchor).toHaveAttribute('href', '/app/ai/control/approvals/queue');
     });
 
     it('dismisses the notification when the link is clicked', () => {

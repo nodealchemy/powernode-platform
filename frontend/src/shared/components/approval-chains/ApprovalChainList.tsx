@@ -8,7 +8,8 @@ import type { ApprovalChain } from '@/shared/types/approval';
 
 /**
  * List + manage approval chains for the current account. Rendered by the
- * Approval Chains page (/app/ai/approval-chains) and by extensions that embed
+ * AI → Control → Approvals → Approval chains tab (/app/ai/control/approvals/chains)
+ * and by extensions that embed
  * it (the System autonomy settings). Each chain shows step count, usage
  * count, and inline edit/delete buttons.
  */

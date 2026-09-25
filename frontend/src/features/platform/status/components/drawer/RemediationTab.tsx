@@ -6,6 +6,7 @@ import type {
   RemediationRouteData,
   RemediationState,
 } from '@/shared/types/platformStatus';
+import { CONTROL_APPROVALS_PATH } from '@/features/ai/control/controlPaths';
 
 // What the platform is doing about this component, and what it is waiting on.
 //
@@ -224,7 +225,7 @@ export const RemediationTab: React.FC<RemediationTabProps> = ({
       // approval link on a component nobody is waiting on would invite a click
       // that leads nowhere.
       <Link
-        to={`/app/ai/agents/autonomy/approvals?request=${encodeURIComponent(remediation.approval_request_id)}`}
+        to={`${CONTROL_APPROVALS_PATH}?request=${encodeURIComponent(remediation.approval_request_id)}`}
         className="text-sm text-theme-info-fg underline"
       >
         Open the approval request

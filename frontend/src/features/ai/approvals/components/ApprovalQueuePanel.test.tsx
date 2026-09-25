@@ -108,7 +108,7 @@ const renderPanelWithNavigator = (permissions: string[] = ['ai.agents.read', 'ai
   });
   return renderWithProviders(
     <QueryClientProvider client={queryClient}>
-      <DeepLinkNavigator to="/app/ai/agents/autonomy/approvals?request=req-2" />
+      <DeepLinkNavigator to="/app/ai/control/approvals/queue?request=req-2" />
       <ApprovalQueuePanel />
     </QueryClientProvider>,
     {
@@ -440,7 +440,7 @@ describe('ApprovalQueuePanel deep link (?request=)', () => {
         data: { data: { ...rowWithTitle('req-2', 'action two'), step_statuses: [], decisions: [] } },
       });
     });
-    window.history.pushState({}, '', '/app/ai/agents/autonomy/approvals?request=req-2');
+    window.history.pushState({}, '', '/app/ai/control/approvals/queue?request=req-2');
 
     renderPanel();
 
@@ -478,7 +478,7 @@ describe('ApprovalQueuePanel deep link (?request=)', () => {
       });
     });
     // Mounted at req-1's deep link first — nothing about req-2 yet.
-    window.history.pushState({}, '', '/app/ai/agents/autonomy/approvals?request=req-1');
+    window.history.pushState({}, '', '/app/ai/control/approvals/queue?request=req-1');
 
     renderPanelWithNavigator();
 
@@ -520,7 +520,7 @@ describe('ApprovalQueuePanel deep link scrolls the row into view', () => {
         data: { data: { ...rowWithTitle('req-2', 'action two'), step_statuses: [], decisions: [] } },
       });
     });
-    window.history.pushState({}, '', '/app/ai/agents/autonomy/approvals?request=req-2');
+    window.history.pushState({}, '', '/app/ai/control/approvals/queue?request=req-2');
   });
 
   afterEach(() => {

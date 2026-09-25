@@ -213,13 +213,13 @@ describe('useNotifications', () => {
     result.current.addNotification({
       type: 'info',
       message: 'Approval required: deleting port mapping is awaiting review.',
-      link: { label: 'Review approvals', to: '/app/ai/agents/autonomy' },
+      link: { label: 'Review approvals', to: '/app/ai/control/approvals/queue' },
     });
 
     const notification = store.getState().ui.notifications[0];
     expect(notification.link).toEqual({
       label: 'Review approvals',
-      to: '/app/ai/agents/autonomy',
+      to: '/app/ai/control/approvals/queue',
     });
   });
 

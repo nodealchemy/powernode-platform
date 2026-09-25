@@ -7,7 +7,7 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
   Play, Rocket, DollarSign, Code2, Building2, Megaphone,
-  Shield, Route, ClipboardCheck, MessageSquare, Share2, Lock, Lightbulb, Wallet
+  Route, MessageSquare, Share2, Lock, Lightbulb
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -60,15 +60,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'Create and manage AI agents',
           permissions: ['ai.agents.read'],
           order: 2
-        },
-        {
-          id: 'ai-autonomy',
-          name: 'Autonomy',
-          href: '/app/ai/agents/autonomy',
-          icon: Shield,
-          description: 'Agent trust, lineage, budgets, and the kill switch',
-          permissions: ['ai.agents.read'],
-          order: 2.5
         },
         {
           id: 'ai-teams',
@@ -172,31 +163,20 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 12
         },
         {
-          id: 'ai-governance',
-          name: 'Governance',
-          href: '/app/ai/governance',
+          // AI → Control: approvals, policies, budgets, safety, trust &
+          // lineage, goals and compliance audit. Gated on the same list as the
+          // /ai/control/* route (CONTROL_PERMISSIONS, pinned by the nav test).
+          id: 'ai-control',
+          name: 'Control',
+          href: '/app/ai/control',
           icon: ShieldCheck,
-          description: 'AI governance policies and compliance',
-          permissions: ['ai.governance.read'],
+          description: 'Approvals, policies, budgets, safety, trust and compliance audit',
+          permissions: [
+            'ai.agents.read', 'ai.proposals.view', 'ai.escalations.view', 'ai.approval_chains.manage',
+            'ai.intervention_policies.manage', 'ai.governance.read', 'ai.kill_switch.manage',
+            'ai.security.manage', 'ai.feedback.view', 'ai.goals.manage',
+          ],
           order: 13
-        },
-        {
-          id: 'ai-budgets',
-          name: 'Budgets',
-          href: '/app/ai/control/budgets',
-          icon: Wallet,
-          description: 'Agent spending limits, utilization, and allocations',
-          permissions: ['ai.agents.read'],
-          order: 13.4
-        },
-        {
-          id: 'ai-approval-chains',
-          name: 'Approval Chains',
-          href: '/app/ai/approval-chains',
-          icon: ClipboardCheck,
-          description: 'Define reusable multi-step approval workflows',
-          permissions: ['ai.approval_chains.manage'],
-          order: 13.5
         },
         {
           // The only operator screen for chat-platform integrations the

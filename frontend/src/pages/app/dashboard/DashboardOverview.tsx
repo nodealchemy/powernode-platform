@@ -53,18 +53,17 @@ import type { AutonomyStats } from '@/features/ai/autonomy/types/autonomy';
 import type { BudgetRegime } from '@/features/ai/budgets/types';
 import { useMissions } from '@/features/missions';
 import type { Mission } from '@/features/missions';
+import { CONTROL_APPROVALS_PATH, CONTROL_BASE_PATH, CONTROL_PERMISSIONS } from '@/features/ai/control/controlPaths';
 
 // --- Route contract -------------------------------------------------------
 // Every path below is copied from the routes block in `DashboardPage.tsx`.
-// The autonomy sidebar's sections (approvals, budgets, trust, kill switch) are
-// URL-addressable at `${PATHS.autonomy}/<section>`, so a tile can link
-// straight into the one it names instead of only the dashboard's Overview.
+// AI → Control's leaves and tabs are URL-addressable, so a tile links straight
+// into the one it names (the approval queue, trust scores).
 const PATHS = {
   agents: '/app/ai/agents',
-  autonomy: '/app/ai/agents/autonomy',
-  autonomyApprovals: '/app/ai/agents/autonomy/approvals',
-  approvalChains: '/app/ai/approval-chains',
-  governance: '/app/ai/governance',
+  control: CONTROL_BASE_PATH,
+  controlApprovals: CONTROL_APPROVALS_PATH,
+  controlTrust: `${CONTROL_BASE_PATH}/trust-lineage/trust`,
   missions: '/app/ai/missions',
   modelRouter: '/app/ai/infrastructure/model-router',
   cost: '/app/ai/cost',
@@ -202,7 +201,7 @@ const GovernanceChips: React.FC<{ onNavigate: (path: string) => void }> = ({ onN
         label="Approvals waiting"
         value={approvalsUnavailable ? PLACEHOLDER : pendingApprovals}
         tone={!approvalsUnavailable && pendingApprovals > 0 ? 'warning' : 'default'}
-        onClick={() => onNavigate(PATHS.autonomyApprovals)}
+        onClick={() => onNavigate(PATHS.controlApprovals)}
       />
       <StatusChip
         icon={Wallet}
@@ -216,14 +215,14 @@ const GovernanceChips: React.FC<{ onNavigate: (path: string) => void }> = ({ onN
         label="Trusted / autonomous"
         value={statsUnavailable ? PLACEHOLDER : `${stats.trusted + stats.autonomous} of ${stats.total_agents}`}
         tone="info"
-        onClick={() => onNavigate(PATHS.autonomy)}
+        onClick={() => onNavigate(PATHS.controlTrust)}
       />
       <StatusChip
         icon={Gauge}
         label="Tier changes pending"
         value={statsUnavailable ? PLACEHOLDER : stats.pending_promotions + stats.pending_demotions}
         tone={!statsUnavailable && stats.pending_promotions + stats.pending_demotions > 0 ? 'info' : 'default'}
-        onClick={() => onNavigate(PATHS.autonomy)}
+        onClick={() => onNavigate(PATHS.controlTrust)}
       />
     </>
   );
@@ -247,7 +246,7 @@ const GovernanceTiles: React.FC<{ onNavigate: (path: string) => void }> = ({ onN
               ? 'Agents are blocked on a human decision'
               : 'Nothing blocked on a human'
         }
-        onClick={() => onNavigate(PATHS.autonomyApprovals)}
+        onClick={() => onNavigate(PATHS.controlApprovals)}
       />
 
       <StatTile
@@ -391,7 +390,7 @@ export const DashboardOverview: React.FC = () => {
   // Permissions only — never roles.
   const canReadAgents = user?.permissions?.includes('ai.agents.read') ?? false;
   const canReadMissions = user?.permissions?.includes('ai.missions.read') ?? false;
-  const canManageChains = user?.permissions?.includes('ai.approval_chains.manage') ?? false;
+  const canUseControl = CONTROL_PERMISSIONS.some((p) => user?.permissions?.includes(p));
 
   const { missions, loading: missionsLoading, error: missionsError, fetchMissions } = useMissions();
 
@@ -425,28 +424,12 @@ export const DashboardOverview: React.FC = () => {
 
   const quickLinks: QuickLink[] = [
     {
-      id: 'autonomy',
-      label: 'Autonomy',
-      description: 'Approvals, trust, budgets, kill switch',
+      id: 'control',
+      label: 'Control',
+      description: 'Approvals, policies, budgets, safety, trust, compliance audit',
       icon: ShieldCheck,
-      path: PATHS.autonomy,
-      visible: canReadAgents,
-    },
-    {
-      id: 'approval-chains',
-      label: 'Approval chains',
-      description: 'Multi-step workflows for high-risk actions',
-      icon: RouteIcon,
-      path: PATHS.approvalChains,
-      visible: canManageChains,
-    },
-    {
-      id: 'governance',
-      label: 'Governance',
-      description: 'Audit trail, security posture, policy',
-      icon: Activity,
-      path: PATHS.governance,
-      visible: true,
+      path: PATHS.control,
+      visible: canUseControl,
     },
     {
       id: 'model-router',

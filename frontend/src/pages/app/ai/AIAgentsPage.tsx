@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
-  Plus, Brain, CreditCard, ArrowLeft, Globe, Shield,
+  Plus, Brain, CreditCard, ArrowLeft, Globe,
 } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
@@ -10,7 +10,6 @@ import { ExpandableStatsHeader } from '@/features/ai/agents/components/Expandabl
 import { AgentsIndexTable } from '@/features/ai/agents/components/AgentsIndexTable';
 import { CardsTab } from '@/features/ai/agents/components/tabs/CardsTab';
 import { CommunityAgentsContent } from '@/features/ai/community-agents/pages/CommunityAgentsPage';
-import { AutonomyContent, autonomySectionLabel } from '@/features/ai/autonomy/pages/AutonomyDashboardPage';
 import { useAgentsList } from '@/features/ai/agents/hooks/useAgentsList';
 import { useTeamsList } from '@/features/ai/agents/hooks/useTeamsList';
 import { useAgentCards } from '@/features/ai/agents/hooks/useAgentCards';
@@ -21,7 +20,6 @@ const tabs = [
   { id: 'agents', label: 'Agents', icon: <Brain size={16} />, path: '/' },
   { id: 'cards', label: 'Cards', icon: <CreditCard size={16} />, path: '/cards' },
   { id: 'community', label: 'Community', icon: <Globe size={16} />, path: '/community' },
-  { id: 'autonomy', label: 'Autonomy', icon: <Shield size={16} />, path: '/autonomy' },
 ];
 
 export const AIAgentsPage: React.FC = () => {
@@ -42,7 +40,6 @@ export const AIAgentsPage: React.FC = () => {
   const getActiveTab = () => {
     const path = location.pathname;
     if (path.includes('/agents/community')) return 'community';
-    if (path.includes('/agents/autonomy')) return 'autonomy';
     if (path.includes('/agents/cards')) return 'cards';
     return 'agents';
   };
@@ -91,20 +88,7 @@ export const AIAgentsPage: React.FC = () => {
     } else {
       base.push({ label: 'Agents', href: '/app/ai/agents' });
       const activeTabInfo = tabs.find(t => t.id === activeTab);
-      // Autonomy's own sections are URL-addressable now, so a deep link's
-      // breadcrumb must name the section, not just the "Autonomy" tab it
-      // sits under.
-      const sectionLabel = activeTab === 'autonomy' ? autonomySectionLabel(location.pathname) : null;
-      if (activeTabInfo) {
-        base.push(
-          sectionLabel
-            ? { label: activeTabInfo.label, href: '/app/ai/agents/autonomy' }
-            : { label: activeTabInfo.label }
-        );
-      }
-      if (sectionLabel) {
-        base.push({ label: sectionLabel });
-      }
+      if (activeTabInfo) base.push({ label: activeTabInfo.label });
     }
     return base;
   };
@@ -177,9 +161,6 @@ export const AIAgentsPage: React.FC = () => {
           <CommunityAgentsContent />
         </TabPanel>
 
-        <TabPanel tabId="autonomy" activeTab={activeTab}>
-          <AutonomyContent />
-        </TabPanel>
 
       </TabContainer>
 

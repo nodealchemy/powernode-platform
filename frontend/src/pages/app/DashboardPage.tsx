@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
+import { CONTROL_PERMISSIONS } from '@/features/ai/control/controlPaths';
 import { DashboardOverview } from '@/pages/app/dashboard/DashboardOverview';
 
 // Context providers used inline in route elements (must be synchronous)
@@ -40,7 +41,6 @@ const AIOverviewPage = React.lazy(() => import('./ai/AIOverviewPage').then(m => 
 const AIAgentsPage = React.lazy(() => import('./ai/AIAgentsPage').then(m => ({ default: m.AIAgentsPage })));
 const ObservabilityPage = React.lazy(() => import('./ai/ObservabilityPage').then(m => ({ default: m.ObservabilityPage })));
 const CostPage = React.lazy(() => import('./ai/CostPage').then(m => ({ default: m.CostPage })));
-const GovernancePage = React.lazy(() => import('./ai/GovernancePage'));
 // SandboxPage absorbed into Execution tabs
 
 // AI Tabbed wrappers
@@ -55,8 +55,7 @@ const DeveloperPortal = React.lazy(() => import('@/features/developer/pages/Deve
 const AgentDetailPage = React.lazy(() => import('./ai/AgentDetailPage').then(m => ({ default: m.AgentDetailPage })));
 const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m => ({ default: m.AIAnalyticsPage })));
 const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
-const ApprovalChainsPage = React.lazy(() => import('./ai/ApprovalChainsPage').then(m => ({ default: m.ApprovalChainsPage })));
-const BudgetsPage = React.lazy(() => import('./ai/BudgetsPage').then(m => ({ default: m.BudgetsPage })));
+const ControlPage = React.lazy(() => import('@/features/ai/control/pages/ControlPage').then(m => ({ default: m.ControlPage })));
 const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
 // The only operator screen for either capability — previously unrouted.
 // AIConversationsPage: CRUD/filter/export/detail over ai conversations, only
@@ -74,8 +73,9 @@ const ChatChannelsPage = React.lazy(() => import('@/features/ai/chat-channels/pa
 const LearningPage = React.lazy(() => import('@/pages/app/ai/LearningPage'));
 
 // AI Orchestration
-// SandboxDashboardPage → Execution/Containers, AutonomyDashboardPage → Agents/Autonomy, CompoundLearningPage → Knowledge/Learning
-// AuditDashboardPage and SecurityDashboardPage absorbed into GovernancePage tabs
+// SandboxDashboardPage → Execution/Containers, CompoundLearningPage → Knowledge/Learning
+// Autonomy, Governance (with its audit and security views), Approval Chains and
+// Budgets → AI → Control (/ai/control/*)
 // EvaluationDashboardPage absorbed into Observability, CodeFactoryPage absorbed into Missions
 
 // AI Missions
@@ -148,30 +148,14 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai" element={<AIOverviewPage />} />
         <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
         <Route path="/ai/agents/community" element={<AIAgentsPage />} />
-        {/* `/*` so an Autonomy section (`/ai/agents/autonomy/approvals`, etc.) is
-            URL-addressable. This DOES win over `/ai/agents/:agentId/*` below —
-            verified with `matchRoutes`: React Router ranks this literal
-            "autonomy" segment over that route's dynamic `:agentId` segment at
-            the same depth, so a sub-path here never falls through to
-            AgentDetailPage. It does NOT win over `/ai/agents/:agentId/memory/*`
-            for an `/autonomy/memory/...` path specifically — that route has one
-            MORE literal segment ("memory"), which outranks a shorter route
-            regardless of the dynamic `:agentId`, so such a path would route to
-            AgentMemoryPage instead (verified the same way). Harmless today: no
-            Autonomy sidebar item is named "memory" (AutonomyDashboardPage's
-            SIDEBAR_ITEMS). If one ever is, this collision needs revisiting. */}
-        <Route path="/ai/agents/autonomy/*" element={<AIAgentsPage />} />
         <Route path="/ai/agents/:agentId/memory/*" element={<AgentMemoryPage />} />
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />
-        <Route path="/ai/teams" element={<TeamsPage />} />
-        <Route path="/ai/governance/*" element={<GovernancePage />} />
-        {/* Approval chains — gated on ai.approval_chains.manage (defense-in-depth;
-            Api::V1::Ai::ApprovalChainsController enforces the same permission). */}
-        <Route path="/ai/approval-chains" element={<ProtectedRoute requiredPermissions={['ai.approval_chains.manage']}><ApprovalChainsPage /></ProtectedRoute>} />
-        {/* Budgets — gated on ai.agents.read, which GET /api/v1/ai/autonomy/budgets
-            checks; the panel gates its writes on ai.autonomy.manage. */}
-        <Route path="/ai/control/budgets" element={<ProtectedRoute requiredPermissions={['ai.agents.read']}><BudgetsPage /></ProtectedRoute>} />
+        <Route path="/ai/teams/*" element={<TeamsPage />} />
+        {/* AI → Control — approvals, policies, budgets, safety, trust & lineage,
+            goals and compliance audit on one page. Guarded on every permission
+            some part of it is gated on; each leaf and tab re-checks its own. */}
+        <Route path="/ai/control/*" element={<ProtectedRoute requiredPermissions={CONTROL_PERMISSIONS}><ControlPage /></ProtectedRoute>} />
 
         {/* AI Pages - Tabbed wrappers */}
         <Route path="/ai/execution/*" element={<ExecutionPage />} />

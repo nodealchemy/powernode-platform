@@ -2,29 +2,15 @@ import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test-utils';
 import { AIAgentsPage } from './AIAgentsPage';
 
-// fc-10 review: the Autonomy tab's own sections are URL-addressable now, so a
-// deep link's breadcrumb trail must name the section it actually opened —
-// "Autonomy" alone would be true of every section, including the one the
-// link did NOT open.
-//
 // Every child and data-fetching hook is stubbed to a bare marker or a no-op:
-// what is under test is `getBreadcrumbs()`, not any one tab's own content
-// (each has its own suite). `AutonomyDashboardPage` is a PARTIAL mock — only
-// `AutonomyContent` is replaced; `autonomySectionLabel` stays real, since
-// that is the exact function the breadcrumb trail calls.
+// what is under test is the page's tabs and breadcrumb trail, not any one
+// tab's own content (each has its own suite).
 
 jest.mock('@/features/ai/agents/components/CreateAgentModal', () => ({ CreateAgentModal: () => null }));
 jest.mock('@/features/ai/agents/components/ExpandableStatsHeader', () => ({ ExpandableStatsHeader: () => null }));
 jest.mock('@/features/ai/agents/components/AgentsIndexTable', () => ({ AgentsIndexTable: () => null }));
 jest.mock('@/features/ai/agents/components/tabs/CardsTab', () => ({ CardsTab: () => null }));
 jest.mock('@/features/ai/community-agents/pages/CommunityAgentsPage', () => ({ CommunityAgentsContent: () => null }));
-jest.mock('@/features/ai/autonomy/pages/AutonomyDashboardPage', () => {
-  const actual = jest.requireActual('@/features/ai/autonomy/pages/AutonomyDashboardPage');
-  return {
-    ...actual,
-    AutonomyContent: () => <div data-testid="autonomy-content" />,
-  };
-});
 
 jest.mock('@/features/ai/agents/hooks/useAgentsList', () => ({
   useAgentsList: () => ({
@@ -62,24 +48,23 @@ const renderPage = (path: string) => {
   });
 };
 
-describe('AIAgentsPage breadcrumbs name the Autonomy section', () => {
+// fc-41: Autonomy left the Agents page for AI → Control; the Agents page keeps
+// its own three views and no longer mounts autonomy content at all.
+describe('AIAgentsPage — agents views only', () => {
   afterEach(() => {
     window.history.replaceState({}, '', '/');
   });
 
-  it('shows no section breadcrumb at the bare autonomy path', () => {
-    renderPage('/app/ai/agents/autonomy');
+  it('offers the Agents, Cards and Community tabs, and no Autonomy tab', () => {
+    renderPage('/app/ai/agents');
 
-    expect(screen.getByTestId('autonomy-content')).toBeInTheDocument();
-    expect(screen.queryByText('Approvals')).not.toBeInTheDocument();
+    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Agents', 'Cards', 'Community']);
+    expect(screen.queryByText('Autonomy')).not.toBeInTheDocument();
   });
 
-  it("names the section in the breadcrumb trail for a section sub-path", () => {
-    renderPage('/app/ai/agents/autonomy/approvals');
+  it('names the active tab in the breadcrumb trail', () => {
+    renderPage('/app/ai/agents/community');
 
-    expect(screen.getByTestId('autonomy-content')).toBeInTheDocument();
-    // Only the breadcrumb can produce this text — AutonomyContent (the actual
-    // sidebar/section renderer) is mocked away above.
-    expect(screen.getByText('Approvals')).toBeInTheDocument();
+    expect(screen.getAllByText('Community').length).toBeGreaterThan(1);
   });
 });

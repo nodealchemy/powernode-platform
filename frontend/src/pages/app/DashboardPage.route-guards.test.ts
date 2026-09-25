@@ -36,17 +36,25 @@ describe('DashboardPage route guards (C15 G5)', () => {
   });
 });
 
-// fc-31: the one Budgets page. Its route guard is the permission the list
-// endpoint (GET /api/v1/ai/autonomy/budgets) checks, and it must be the same
-// permission the sidebar item carries — a nav item the route then refuses, or
-// a route the nav hides, is the mismatch this pins.
-describe('DashboardPage route guards — Budgets (fc-31)', () => {
-  it('/ai/control/budgets renders BudgetsPage behind ai.agents.read', () => {
-    const element = protectedRouteElement('/ai/control/budgets');
-    expect(element).toMatch(/^<ProtectedRoute\s+requiredPermissions=\{\['ai\.agents\.read'\]\}><BudgetsPage \/><\/ProtectedRoute>$/);
+// fc-41: AI → Control replaces the Autonomy dashboard, the Governance page,
+// the Approval Chains page and the standalone Budgets page. It is guarded on
+// CONTROL_PERMISSIONS (every permission some leaf of it is gated on), and the
+// routes it replaced are gone — no redirects.
+describe('DashboardPage route guards — Control (fc-41)', () => {
+  it('/ai/control/* renders ControlPage behind CONTROL_PERMISSIONS', () => {
+    const element = protectedRouteElement('/ai/control/\\*');
+    expect(element).toMatch(/^<ProtectedRoute\s+requiredPermissions=\{CONTROL_PERMISSIONS\}><ControlPage \/><\/ProtectedRoute>$/);
+    expect(DASHBOARD_SRC).toMatch(/import \{ CONTROL_PERMISSIONS \} from '@\/features\/ai\/control\/controlPaths';/);
   });
 
-  it('is the only route to the Budgets page', () => {
-    expect(DASHBOARD_SRC.match(/<BudgetsPage \/>/g)).toHaveLength(1);
+  it.each(['/ai/governance', '/ai/approval-chains', '/ai/agents/autonomy', '/ai/control/budgets'])(
+    'no longer routes %s',
+    (path) => {
+      expect(DASHBOARD_SRC).not.toContain(`path="${path}`);
+    },
+  );
+
+  it('no longer mounts the pages Control replaced', () => {
+    expect(DASHBOARD_SRC).not.toMatch(/GovernancePage|ApprovalChainsPage|BudgetsPage/);
   });
 });

@@ -9,7 +9,7 @@ import { OptimizationRecommendations } from '../components/OptimizationRecommend
  * FinOpsContent — spend analytics (the cost explorer), rendered at the Cost
  * hub's `/app/ai/cost/finops`. No "Overview" here — it duplicated CostPage's
  * own `/app/ai/cost/overview`, which is canonical — and no budget view: agent
- * budgets live on the one Budgets page (/app/ai/control/budgets). With a single
+ * budgets live on AI → Control → Budgets (/app/ai/control/budgets). With a single
  * view left there are no sub-routes, so an old FinOps sub-path is an unknown
  * Cost path, handled like any other.
  */

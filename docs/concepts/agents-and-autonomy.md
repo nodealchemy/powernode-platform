@@ -1117,7 +1117,7 @@ import { MissionsPage } from '@/features/missions/pages/MissionsPage';
 import { MissionDetailModal } from '@/features/missions/components/MissionDetailModal';
 import { useMissions } from '@/features/missions/hooks/useMissions';
 
-import { AutonomyDashboardPage } from '@/features/ai/autonomy/pages/AutonomyDashboardPage';
+import { ControlPage } from '@/features/ai/control/pages/ControlPage'; // AI → Control
 import { KillSwitchPanel } from '@/features/ai/autonomy/components/KillSwitchPanel';
 import { TrustScoreCard } from '@/features/ai/autonomy/components/TrustScoreCard';
 

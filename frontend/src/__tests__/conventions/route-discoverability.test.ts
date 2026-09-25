@@ -32,8 +32,8 @@ import { tmpdir } from 'os';
  *   - it contains a `:param` segment — reached via a runtime-computed id,
  *     not a static literal (per the task's own scoping instruction);
  *   - it ends in `/*` — a mount point for a nested router (e.g.
- *     `/app/ai/governance/*` mounts GovernancePage's own internal
- *     <TabContainer>), not a single navigable destination; its actual
+ *     `/app/ai/control/*` mounts ControlPage's own rail and path tabs),
+ *     not a single navigable destination; its actual
  *     sub-destinations are checked as their own route-table entries where
  *     they register one (tabs, nested <Route>s), not this bare mount marker;
  *   - it is exactly `/app` (the shell root, trivially always reachable).
@@ -485,7 +485,7 @@ describe('route-discoverability matcher (unit)', () => {
     });
 
     it('excludes a /* nested-router mount', () => {
-      expect(requiresDiscoverability('/app/ai/governance/*')).toBe(false);
+      expect(requiresDiscoverability('/app/ai/control/*')).toBe(false);
     });
 
     it('excludes the bare shell root', () => {

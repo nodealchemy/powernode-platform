@@ -184,7 +184,7 @@ describe('DashboardOverview — governance tiles link straight to Approvals', ()
 
     fireEvent.click(chipFor('Approvals waiting'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/app/ai/agents/autonomy/approvals');
+    expect(mockNavigate).toHaveBeenCalledWith('/app/ai/control/approvals/queue');
   });
 
   it('the "Approvals waiting" tile navigates to the Approvals section, not the Autonomy tab\'s Overview', () => {
@@ -192,6 +192,62 @@ describe('DashboardOverview — governance tiles link straight to Approvals', ()
 
     fireEvent.click(tile('Approvals waiting'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/app/ai/agents/autonomy/approvals');
+    expect(mockNavigate).toHaveBeenCalledWith('/app/ai/control/approvals/queue');
+  });
+});
+
+// fc-41: Autonomy, Governance and Approval Chains became AI → Control. The
+// dashboard links there once, and its trust chip lands on Trust, not on a
+// dashboard that no longer exists.
+describe('DashboardOverview — links into AI → Control', () => {
+  beforeEach(() => {
+    mockNavigate.mockClear();
+    mockUseAutonomyStats.mockReturnValue({
+      data: {
+        total_agents: 2, supervised: 1, monitored: 0, trusted: 1, autonomous: 0,
+        pending_promotions: 0, pending_demotions: 0,
+      },
+      isLoading: false,
+      isError: false,
+    });
+    mockUseApprovalQueue.mockReturnValue({ data: [], isLoading: false, isError: false });
+  });
+
+  const renderAs = (permissions: string[]) => {
+    mockUseDashboardStats.mockReturnValue({
+      stats: stats('ok', 100), loading: false, error: null, monitoringError: null, refresh: jest.fn(),
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return renderWithProviders(
+      <QueryClientProvider client={client}>
+        <DashboardOverview />
+      </QueryClientProvider>,
+      { preloadedState: { auth: { user: { id: 'u1', name: 'Operator', permissions }, isAuthenticated: true, isLoading: false } } }
+    );
+  };
+
+  it('offers one Control quick link instead of Autonomy, Approval chains and Governance', () => {
+    renderAs(['ai.agents.read', 'ai.approval_chains.manage', 'ai.governance.read']);
+
+    fireEvent.click(screen.getByText('Control', { selector: 'span' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/app/ai/control');
+    ['Autonomy', 'Approval chains', 'Governance'].forEach((label) =>
+      expect(screen.queryByText(label, { selector: 'span' })).not.toBeInTheDocument());
+  });
+
+  it('shows the Control link to a governance-only reader, and hides it from someone with no Control permission', () => {
+    const { unmount } = renderAs(['ai.governance.read']);
+    expect(screen.getByText('Control', { selector: 'span' })).toBeInTheDocument();
+    unmount();
+
+    renderAs(['ai.missions.read']);
+    expect(screen.queryByText('Control', { selector: 'span' })).not.toBeInTheDocument();
+  });
+
+  it('sends the trust chip to Control → Trust & Lineage', () => {
+    renderAs(['ai.agents.read']);
+
+    fireEvent.click(screen.getByText('Trusted / autonomous', { selector: 'button span' }).closest('button') as HTMLElement);
+    expect(mockNavigate).toHaveBeenCalledWith('/app/ai/control/trust-lineage/trust');
   });
 });

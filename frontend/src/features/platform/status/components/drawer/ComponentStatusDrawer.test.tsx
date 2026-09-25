@@ -299,7 +299,7 @@ describe('ComponentStatusDrawer', () => {
       expect(link).toBeInTheDocument();
       // Opens the Approvals section directly, with the request id, so the
       // queue can expand it — not the Autonomy tab's Overview (fc-10).
-      expect(link).toHaveAttribute('href', '/app/ai/agents/autonomy/approvals?request=ar-9');
+      expect(link).toHaveAttribute('href', '/app/ai/control/approvals/queue?request=ar-9');
       unmount();
 
       mockedApi.fetchComponentStatus.mockResolvedValue({
