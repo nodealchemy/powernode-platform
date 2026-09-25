@@ -123,7 +123,7 @@ export function IntegrationDetailPage() {
     const response = await integrationsApi.deleteInstance(id);
     if (response.success) {
       showNotification('Integration deleted', 'success');
-      navigate('/app/devops/integrations/integrations');
+      navigate('/app/devops/integrations');
     } else {
       showNotification(response.error || 'Failed to delete integration', 'error');
     }
@@ -158,7 +158,7 @@ export function IntegrationDetailPage() {
   const baseBreadcrumbs = [
     { label: 'Dashboard', href: '/app' },
     { label: 'DevOps', href: '/app/devops' },
-    { label: 'Integrations', href: '/app/devops/integrations/integrations' }
+    { label: 'Integrations', href: '/app/devops/integrations' }
   ];
 
   if (isLoading) {
@@ -185,7 +185,7 @@ export function IntegrationDetailPage() {
         <div className="text-center py-12">
           <p className="text-theme-secondary">The integration you're looking for doesn't exist.</p>
           <a
-            href="/app/devops/integrations/integrations"
+            href="/app/devops/integrations"
             className="inline-block mt-4 text-theme-primary hover:underline"
           >
             Back to Integrations

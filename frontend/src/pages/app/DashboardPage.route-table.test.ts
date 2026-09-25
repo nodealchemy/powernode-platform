@@ -1,4 +1,4 @@
-import { readFileSync } from 'fs';
+import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { matchRoutes } from 'react-router-dom';
 
@@ -89,5 +89,48 @@ describe('DashboardPage route table (fc-46 review): a deep link resolves to the 
     ['/ai/execution/loop/abc-123/iterations', 'ExecutionPage'],
   ])('%s resolves to %s', (pathname, expected) => {
     expect(resolvedComponent(pathname)).toBe(expected);
+  });
+});
+
+describe('DashboardPage route table (fc-44): the regrouped DevOps URLs resolve to the intended page', () => {
+  it.each([
+    ['/devops/integrations', 'IntegrationsWebhooksPage'],
+    ['/devops/integrations/webhook-endpoints', 'IntegrationsWebhooksPage'],
+    ['/devops/integrations/new', 'NewIntegrationPage'],
+    ['/devops/integrations/new/some-template', 'NewIntegrationPage'],
+    ['/devops/integrations/some-integration-id', 'IntegrationDetailPage'],
+    ['/devops/integrations/some-integration-id/executions', 'IntegrationDetailPage'],
+    ['/devops/api-keys', 'ApiKeysPage'],
+    ['/devops/containers', 'ContainersHubPage'],
+    ['/devops/containers/docker/some-host/containers/some-container', 'ContainersHubPage'],
+  ])('%s resolves to %s', (pathname, expected) => {
+    expect(resolvedComponent(pathname)).toBe(expected);
+  });
+
+  // fc-44 review blocker: six links pointed at /app/devops/integrations/integrations,
+  // which the :id detail route swallows (id="integrations"), opening a
+  // "doesn't exist" detail page whose Back link looped to the same URL. Any
+  // STATIC /app/devops/integrations/<word> link literal in the frontend must
+  // resolve to something other than the detail page.
+  it('no static /app/devops/integrations/<word> link resolves to IntegrationDetailPage', () => {
+    const srcRoot = join(__dirname, '..', '..');
+    const linkRe = /['"`](\/app\/devops\/integrations\/[a-z][a-z-]*)(?=['"`/?])/g;
+    const found = new Set<string>();
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== 'node_modules') walk(full);
+        } else if (/\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
+          for (const m of readFileSync(full, 'utf8').matchAll(linkRe)) found.add(m[1]);
+        }
+      }
+    };
+    walk(srcRoot);
+    const words = [...found];
+    expect(words.length).toBeGreaterThan(0);
+
+    const swallowed = words.filter((p) => resolvedComponent(p.replace(/^\/app/, '')) === 'IntegrationDetailPage');
+    expect(swallowed).toEqual([]);
   });
 });
