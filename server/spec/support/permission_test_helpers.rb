@@ -138,25 +138,6 @@ module PermissionTestHelpers
   end
 
   # =============================================================================
-  # DEVOPS USER TYPES
-  # =============================================================================
-
-  # Create a user with DevOps/CI-CD permissions
-  # @param options [Hash] Additional options for user creation
-  # @return [User] DevOps user
-  def devops_user(**options)
-    account = options.delete(:account) || create(:account)
-    devops_permissions = %w[
-      devops.pipelines.read devops.pipelines.write
-      devops.pipeline_runs.read devops.pipeline_runs.write
-      devops.providers.read devops.providers.write
-      devops.repositories.read devops.repositories.write
-      git.providers.read git.providers.create
-    ]
-    create(:user, account: account, permissions: devops_permissions, **options)
-  end
-
-  # =============================================================================
   # PERMISSION ASSERTIONS
   # =============================================================================
 

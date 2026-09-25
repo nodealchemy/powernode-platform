@@ -323,9 +323,6 @@ module Permissions
     "devops.pipelines.write" => "Create, update, and delete DevOps pipelines",
     "devops.pipeline_runs.read" => "View DevOps pipeline runs",
     "devops.pipeline_runs.write" => "Manage DevOps pipeline runs (cancel, retry)",
-    "devops.providers.read" => "View DevOps providers",
-    "devops.providers.write" => "Create, update, and delete DevOps providers",
-    "devops.repositories.read" => "View DevOps repositories",
     "devops.repositories.write" => "Manage DevOps repositories",
     # CI surface (Gitea Actions runs/secrets, runner dispatch). Formerly gated
     # by ai.workflows.*, which also gated Ralph loops and worktree sessions —
@@ -333,10 +330,10 @@ module Permissions
     # verb convention of its devops.* siblings rather than the ai.* CRUD one.
     "devops.ci.read" => "View CI workflows, runs, jobs and logs",
     "devops.ci.write" => "Dispatch, cancel and rerun CI workflows; manage CI secrets and runner tokens",
+    # Read-only: the CRUD surface for schedules was removed (fc-23, the parallel
+    # devops_* API), but Ai::Tools::ScheduleReadTool still reads Devops::Schedule
+    # rows for pipelines created before that removal.
     "devops.schedules.read" => "View DevOps pipeline schedules",
-    "devops.schedules.write" => "Manage DevOps pipeline schedules",
-    "devops.prompt_templates.read" => "View DevOps prompt templates",
-    "devops.prompt_templates.write" => "Manage DevOps prompt templates",
 
     # DevOps Integrations
     "devops.integrations.read" => "View DevOps integration templates and instances",
@@ -513,10 +510,6 @@ module Permissions
     # DevOps Administration
     "admin.devops.pipelines.read" => "View all DevOps pipelines",
     "admin.devops.pipelines.manage" => "Manage all DevOps pipelines",
-    "admin.devops.providers.read" => "View all DevOps providers",
-    "admin.devops.providers.manage" => "Manage all DevOps providers",
-    "admin.devops.repositories.read" => "View all DevOps repositories",
-    "admin.devops.repositories.manage" => "Manage all DevOps repositories",
     "admin.devops.integration_templates.create" => "Create DevOps integration templates",
     "admin.devops.integration_templates.update" => "Update DevOps integration templates",
     "admin.devops.integration_templates.delete" => "Delete DevOps integration templates",
@@ -855,10 +848,8 @@ module Permissions
         # DevOps permissions
         "devops.pipelines.read", "devops.pipelines.write",
         "devops.pipeline_runs.read", "devops.pipeline_runs.write",
-        "devops.providers.read", "devops.providers.write",
-        "devops.repositories.read", "devops.repositories.write",
-        "devops.schedules.read", "devops.schedules.write",
-        "devops.prompt_templates.read", "devops.prompt_templates.write",
+        "devops.repositories.write",
+        "devops.schedules.read",
         "devops.integrations.read", "devops.integrations.create", "devops.integrations.update",
         "devops.integrations.delete", "devops.integrations.execute",
         "devops.integrations.credentials.read", "devops.integrations.credentials.create",
@@ -1102,10 +1093,8 @@ module Permissions
         # DevOps permissions
         "devops.pipelines.read", "devops.pipelines.write",
         "devops.pipeline_runs.read", "devops.pipeline_runs.write",
-        "devops.providers.read", "devops.providers.write",
-        "devops.repositories.read", "devops.repositories.write",
-        "devops.schedules.read", "devops.schedules.write",
-        "devops.prompt_templates.read", "devops.prompt_templates.write",
+        "devops.repositories.write",
+        "devops.schedules.read",
         "devops.integrations.read", "devops.integrations.create", "devops.integrations.update",
         "devops.integrations.delete", "devops.integrations.execute",
         "devops.integrations.credentials.read", "devops.integrations.credentials.create",
