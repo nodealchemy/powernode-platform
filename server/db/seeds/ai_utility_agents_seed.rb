@@ -26,6 +26,8 @@ provider = CoreSeeds::CanonicalAgentOwner.provider_for(pinned_model: nil, prefer
 
 # Each agent has: slug, name, agent_type, description, system_prompt, temperature,
 # max_tokens, and skills (matched by slug) so agents are discoverable via the skill graph.
+# An agent without max_tokens takes the model-aware default at call time
+# (Ai::Llm::ModelCapabilities.default_max_tokens).
 # tool_families is each agent's tool scope, derived from what its prompt does
 # (concerns/canonical_tool_access.rb).
 UTILITY_AGENTS = [
@@ -78,7 +80,8 @@ UTILITY_AGENTS = [
     agent_type: "assistant",
     description: "Impartial quality evaluator that scores AI agent outputs on correctness, completeness, helpfulness, and safety.",
     temperature: 0.1,
-    max_tokens: 500,
+    # No max_tokens: 500 truncated the verdict on always-thinking models, where
+    # thinking is paid out of max_tokens. The model-aware default applies.
     system_prompt: <<~PROMPT.strip,
       You are an impartial AI output evaluator. Score every submission on four dimensions using a 1-5 scale:
 
@@ -295,7 +298,7 @@ UTILITY_AGENTS.each do |attrs|
         "model_config" => {
           "temperature" => attrs[:temperature],
           "max_tokens" => attrs[:max_tokens]
-        },
+        }.compact,
         "system_prompt" => attrs[:system_prompt]
       ),
       attrs[:tool_families]

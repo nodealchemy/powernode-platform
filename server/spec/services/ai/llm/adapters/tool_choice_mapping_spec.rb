@@ -22,7 +22,8 @@ RSpec.describe "tool_choice mapping on the wire" do # rubocop:disable RSpec/Desc
         [ 200, { "content" => [] }, {} ]
       end
       opts = choice.nil? ? {} : { tool_choice: choice }
-      adapter.complete_with_tools(messages: messages, tools: tools, model: "claude-fable-5", **opts)
+      # max_tokens under the streaming ceiling keeps this on the http_post path.
+      adapter.complete_with_tools(messages: messages, tools: tools, model: "claude-fable-5", max_tokens: 1024, **opts)
       captured[:tool_choice]
     end
 

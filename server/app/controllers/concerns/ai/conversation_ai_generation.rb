@@ -107,6 +107,10 @@ module Ai
 
       # Build LLM client
       client = ::WorkerLlmClient.new(agent_id: agent.id)
+      # The agent's own cap, read raw: Ai::Agent#max_tokens fills in 2048, which
+      # would hide the route default an always-thinking model needs. Other models
+      # keep that 2048 (what both branches effectively sent before).
+      configured_max_tokens = agent.mcp_metadata&.dig("model_config", "max_tokens")
 
       if agent_tools_enabled?(agent)
         # Agentic path: LLM can call platform tools in an iterative loop
@@ -116,7 +120,8 @@ module Ai
           model: model,
           max_iterations: max_iterations,
           temperature: agent.temperature || 0.7,
-          max_tokens: agent.max_tokens || 4096
+          max_tokens: configured_max_tokens ||
+                      ::Ai::Llm::ModelCapabilities.default_max_tokens(model, agentic: true) || 2048
         )
         format_tool_loop_response(result, model)
       else
@@ -125,7 +130,7 @@ module Ai
           messages: messages,
           model: model,
           temperature: agent.temperature || 0.7,
-          max_tokens: agent.max_tokens || 2048
+          max_tokens: configured_max_tokens || ::Ai::Llm::ModelCapabilities.default_max_tokens(model) || 2048
         )
         format_completion_response(response, model)
       end

@@ -16,7 +16,8 @@ RSpec.describe Ai::Llm::Client, 'tool_choice on the wire' do
       captured = body
       [200, response, {}]
     end
-    opts = choice.nil? ? {} : { tool_choice: choice }
+    # max_tokens under the streaming ceiling keeps this on the http_post path.
+    opts = choice.nil? ? { max_tokens: 1024 } : { tool_choice: choice, max_tokens: 1024 }
     client.complete_with_tools(messages: messages, tools: tools, model: model, **opts)
     captured[:tool_choice]
   end

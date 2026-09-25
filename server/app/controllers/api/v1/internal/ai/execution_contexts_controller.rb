@@ -76,7 +76,8 @@ module Api
               execution_context: execution_context,
               system_prompt: system_prompt,
               model: model,
-              max_tokens: model_config["max_tokens"] || 2000,
+              max_tokens: model_config["max_tokens"] ||
+                          ::Ai::Llm::ModelCapabilities.default_max_tokens(model, agentic: true) || 2000,
               temperature: model_config["temperature"] || 0.7,
               provider_type: provider&.provider_type,
               provider_credential_id: credential&.id,

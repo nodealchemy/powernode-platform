@@ -45,9 +45,7 @@ module Ai
             s, p, _ = http_post(openai_url, body, model)
             s == 200 ? parse_openai_response(p, model) : openai_handle_error(s, p)
           when :anthropic
-            body = build_anthropic_body(messages, model, **opts)
-            s, p, _ = http_post(anthropic_url, body, model)
-            s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
+            anthropic_send(build_anthropic_body(messages, model, **opts), model)
           when :ollama
             body = build_ollama_body(messages, model, stream: false, **opts)
             r = HTTParty.post(ollama_url, headers: @headers, body: body.to_json, timeout: 300)
@@ -77,15 +75,14 @@ module Ai
             s, p, _ = http_post(openai_url, body, model)
             s == 200 ? parse_openai_response(p, model) : openai_handle_error(s, p)
           when :anthropic
-            body = build_anthropic_body(messages, model, **opts)
+            body = build_anthropic_body(messages, model, agentic: true, **opts)
             body[:tools] = tools.map { |t| { name: t[:name], description: t[:description], input_schema: t[:parameters] || t[:input_schema] } }
             # Cache the whole tools block (a breakpoint covers the prefix up to and
             # including the annotated tool) — tool definitions are the bulk of an
             # agent call's stable prompt and identical across tool-loop iterations.
             body[:tools].last[:cache_control] = { type: "ephemeral" } if anthropic_cache_prompt?(opts) && body[:tools].any?
             body[:tool_choice] = opts[:tool_choice] ? anthropic_tool_choice(opts[:tool_choice]) : { type: "auto" }
-            s, p, _ = http_post(anthropic_url, body, model)
-            s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
+            anthropic_send(body, model)
           when :ollama
             body = build_ollama_body(messages, model, stream: false, **opts)
             body[:tools] = tools.map { |t| { type: "function", function: { name: t[:name], description: t[:description], parameters: t[:parameters] } } }
@@ -107,8 +104,7 @@ module Ai
             body = build_anthropic_body(messages, model, **opts)
             # Merge — don't clobber output_config.effort that the builder may have set.
             body[:output_config] = (body[:output_config] || {}).merge(format: { type: "json_schema", schema: schema[:schema] || schema })
-            s, p, _ = http_post(anthropic_url, body, model)
-            s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
+            anthropic_send(body, model)
           when :ollama
             body = build_ollama_body(messages, model, stream: false, **opts)
             body[:format] = schema[:schema] || schema
@@ -350,12 +346,24 @@ module Ai
         opts.fetch(:cache_system_prompt, true)
       end
 
-      def build_anthropic_body(messages, model, **opts)
+      # One request, streamed when max_tokens is above the non-streaming ceiling (a
+      # large unstreamed response risks HTTP timeouts; a stream's read timeout is per
+      # chunk). Callers get the same Response either way. Mirrors the server adapter.
+      def anthropic_send(body, model)
+        return stream_anthropic_body(body, model) { |_chunk| } if ModelCapabilities.stream_required?(body[:max_tokens])
+
+        s, p, _ = http_post(anthropic_url, body, model)
+        s == 200 ? parse_anthropic_response(p, model) : anthropic_handle_error(s, p)
+      end
+
+      # agentic: a tool-loop turn, which gets the larger default max_tokens on an
+      # always-thinking model (ModelCapabilities.default_max_tokens).
+      def build_anthropic_body(messages, model, agentic: false, **opts)
         sys_msgs = messages.select { |m| (m[:role] || m["role"]) == "system" }
         other = messages.reject { |m| (m[:role] || m["role"]) == "system" }
         sys = sys_msgs.map { |m| m[:content] || m["content"] }.join("\n")
         sys = [sys, opts[:system_prompt]].reject(&:blank?).join("\n") if opts[:system_prompt].present?
-        body = { model: model, messages: other.map { |m| anthropic_normalize_message(m) }, max_tokens: opts[:max_tokens] || 4096 }
+        body = { model: model, messages: other.map { |m| anthropic_normalize_message(m) }, max_tokens: opts[:max_tokens] || ModelCapabilities.default_max_tokens(model, agentic: agentic) || 4096 }
         if sys.present?
           body[:system] = anthropic_cache_prompt?(opts) ? [{ type: "text", text: sys, cache_control: { type: "ephemeral" } }] : sys
         end
@@ -454,8 +462,14 @@ module Ai
         c.to_s == "none" ? { type: "none" } : { type: "auto" }
       end
 
-      def stream_anthropic(messages, model, **opts)
-        body = build_anthropic_body(messages, model, **opts).merge(stream: true)
+      def stream_anthropic(messages, model, **opts, &block)
+        stream_anthropic_body(build_anthropic_body(messages, model, **opts), model, &block)
+      end
+
+      # Send a built body as an SSE stream, yielding chunks and returning the
+      # accumulated Response.
+      def stream_anthropic_body(body, model)
+        body = body.merge(stream: true)
         acc = ""; tcs = []; cur = nil; usage = {}; sid = SecureRandom.uuid; fin = nil; think = ""; refusal_details = nil
         yield Chunk.new(type: :stream_start, stream_id: sid, timestamp: ts)
         http_stream(anthropic_url, body, model) do |resp|

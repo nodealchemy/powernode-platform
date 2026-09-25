@@ -105,7 +105,7 @@ RSpec.describe Ai::Llm::Adapters::AnthropicAdapter, "#build_messages_body" do
         { name: "tool_a", description: "first", parameters: { type: "object" } },
         { name: "tool_b", description: "second", parameters: { type: "object" } }
       ]
-      adapter.complete_with_tools(messages: messages, tools: tools, model: "claude-fable-5")
+      adapter.complete_with_tools(messages: messages, tools: tools, model: "claude-fable-5", max_tokens: 1024)
 
       expect(captured[:tools].first).not_to have_key(:cache_control)
       expect(captured[:tools].last[:cache_control]).to eq(type: "ephemeral")
@@ -119,7 +119,7 @@ RSpec.describe Ai::Llm::Adapters::AnthropicAdapter, "#build_messages_body" do
       end
 
       tools = [{ name: "tool_a", description: "only", parameters: { type: "object" } }]
-      adapter.complete_with_tools(messages: messages, tools: tools, model: "claude-fable-5",
+      adapter.complete_with_tools(messages: messages, tools: tools, model: "claude-fable-5", max_tokens: 1024,
                                   cache_system_prompt: false)
 
       expect(captured[:tools].last).not_to have_key(:cache_control)

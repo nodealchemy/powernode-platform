@@ -29,7 +29,57 @@ module Ai
         end
 
         def complete(messages:, model:, **opts)
+          send_messages(build_messages_body(messages, model, **opts), model)
+        end
+
+        def stream(messages:, model:, **opts, &block)
+          raise ArgumentError, "Block required for streaming" unless block_given?
+
+          stream_messages(build_messages_body(messages, model, **opts), model, &block)
+        end
+
+        def complete_with_tools(messages:, tools:, model:, **opts)
+          anthropic_tools = tools.map do |tool|
+            {
+              name: tool[:name],
+              description: tool[:description],
+              input_schema: tool[:parameters] || tool[:input_schema]
+            }
+          end
+
+          body = build_messages_body(messages, model, agentic: true, **opts)
+          body[:tools] = anthropic_tools
+          # Cache the whole tools block (a breakpoint covers the prefix up to and
+          # including the annotated tool) — tool definitions are the bulk of an
+          # agent call's stable prompt and identical across tool-loop iterations.
+          body[:tools].last[:cache_control] = { type: "ephemeral" } if cache_prompt?(opts) && body[:tools].any?
+          body[:tool_choice] = opts[:tool_choice] ? anthropic_tool_choice(opts[:tool_choice]) : { type: "auto" }
+
+          send_messages(body, model)
+        end
+
+        def complete_structured(messages:, schema:, model:, **opts)
           body = build_messages_body(messages, model, **opts)
+          # Anthropic uses output_config for structured output (GA since late 2025).
+          # Merge — don't clobber output_config.effort that the builder may have set.
+          body[:output_config] = (body[:output_config] || {}).merge(
+            format: {
+              type: "json_schema",
+              schema: schema[:schema] || schema
+            }
+          )
+
+          send_messages(body, model)
+        end
+
+        private
+
+        # One request, streamed when max_tokens is above the non-streaming ceiling
+        # (a large unstreamed response risks HTTP timeouts; a stream's read timeout
+        # is per chunk). Callers get the same Response either way.
+        def send_messages(body, model)
+          return stream_messages(body, model) { |_chunk| } if Ai::Llm::ModelCapabilities.stream_required?(body[:max_tokens])
+
           status, parsed, _headers = http_post("/messages", body, model)
 
           case status
@@ -40,11 +90,10 @@ module Ai
           end
         end
 
-        def stream(messages:, model:, **opts, &block)
-          raise ArgumentError, "Block required for streaming" unless block_given?
-
-          body = build_messages_body(messages, model, **opts)
-          body[:stream] = true
+        # Send a built body as an SSE stream, yielding chunks and returning the
+        # accumulated Response.
+        def stream_messages(body, model)
+          body = body.merge(stream: true)
 
           accumulated_content = ""
           tool_calls = []
@@ -163,57 +212,9 @@ module Ai
           build_error_response(e.message, status_code: e.status_code)
         end
 
-        def complete_with_tools(messages:, tools:, model:, **opts)
-          anthropic_tools = tools.map do |tool|
-            {
-              name: tool[:name],
-              description: tool[:description],
-              input_schema: tool[:parameters] || tool[:input_schema]
-            }
-          end
-
-          body = build_messages_body(messages, model, **opts)
-          body[:tools] = anthropic_tools
-          # Cache the whole tools block (a breakpoint covers the prefix up to and
-          # including the annotated tool) — tool definitions are the bulk of an
-          # agent call's stable prompt and identical across tool-loop iterations.
-          body[:tools].last[:cache_control] = { type: "ephemeral" } if cache_prompt?(opts) && body[:tools].any?
-          body[:tool_choice] = opts[:tool_choice] ? anthropic_tool_choice(opts[:tool_choice]) : { type: "auto" }
-
-          status, parsed, _headers = http_post("/messages", body, model)
-
-          case status
-          when 200
-            build_anthropic_response(parsed, model)
-          else
-            handle_error(status, parsed)
-          end
-        end
-
-        def complete_structured(messages:, schema:, model:, **opts)
-          body = build_messages_body(messages, model, **opts)
-          # Anthropic uses output_config for structured output (GA since late 2025).
-          # Merge — don't clobber output_config.effort that the builder may have set.
-          body[:output_config] = (body[:output_config] || {}).merge(
-            format: {
-              type: "json_schema",
-              schema: schema[:schema] || schema
-            }
-          )
-
-          status, parsed, _headers = http_post("/messages", body, model)
-
-          case status
-          when 200
-            build_anthropic_response(parsed, model)
-          else
-            handle_error(status, parsed)
-          end
-        end
-
-        private
-
-        def build_messages_body(messages, model, **opts)
+        # agentic: a tool-loop turn, which gets the larger default max_tokens on an
+        # always-thinking model (ModelCapabilities.default_max_tokens).
+        def build_messages_body(messages, model, agentic: false, **opts)
           # Separate system messages — Anthropic requires system as top-level param
           system_msgs = messages.select { |m| (m[:role] || m["role"]) == "system" }
           other_msgs = messages.reject { |m| (m[:role] || m["role"]) == "system" }
@@ -228,7 +229,8 @@ module Ai
           body = {
             model: model,
             messages: formatted_messages,
-            max_tokens: opts[:max_tokens] || 4096
+            max_tokens: opts[:max_tokens] ||
+                        Ai::Llm::ModelCapabilities.default_max_tokens(model, agentic: agentic) || 4096
           }
 
           body[:system] = build_system_param(system_content, opts) if system_content.present?

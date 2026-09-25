@@ -23,11 +23,13 @@ class Ai::McpAgentExecutor
       tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account)
 
       if tool_bridge.tools_enabled? && tool_bridge.tool_definitions_for_llm.any?
+        opts[:max_tokens] ||= route_max_tokens(model, agentic: true)
         result = tool_bridge.execute_tool_loop(
           llm_client: llm_client, messages: messages, model: model, **opts
         )
         format_tool_loop_result(result, model)
       else
+        opts[:max_tokens] ||= route_max_tokens(model, agentic: false)
         response = llm_client.complete(messages: messages, model: model, **opts)
         unless response.success?
           raise ProviderError, "Provider returned no content (finish_reason: #{response.finish_reason})"
@@ -93,8 +95,8 @@ class Ai::McpAgentExecutor
         effort = resolution.effort if resolution.effort
       end
 
-      max_tokens = execution_context.dig(:context, "max_tokens") ||
-                   model_config["max_tokens"] || 2000
+      # nil when unset: the route default is chosen per branch (#route_max_tokens).
+      max_tokens = execution_context.dig(:context, "max_tokens") || model_config["max_tokens"]
       temperature = execution_context.dig(:context, "temperature") ||
                     model_config["temperature"] || 0.7
 
@@ -107,6 +109,13 @@ class Ai::McpAgentExecutor
                system_prompt: system_prompt, effort: effort }.compact
 
       [model, opts]
+    end
+
+    # Default max_tokens for the route: the tool loop and a plain completion get
+    # ModelCapabilities' agentic/completion defaults on an always-thinking model
+    # (thinking is paid out of max_tokens); other models keep the historical 2000.
+    def route_max_tokens(model, agentic:)
+      ::Ai::Llm::ModelCapabilities.default_max_tokens(model, agentic: agentic) || 2000
     end
 
     # Governed tier resolution for this MCP agent execution ("agent_task" complexity

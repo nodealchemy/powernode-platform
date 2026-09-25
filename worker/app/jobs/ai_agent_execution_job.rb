@@ -101,6 +101,9 @@ class AiAgentExecutionJob < BaseJob
     reasoning_mode = reasoning_config['mode']
     reflection_enabled = reasoning_config['reflection_enabled'] == true
 
+    # Both branches run a tool loop; an always-thinking model gets the agentic default.
+    max_tokens = ctx['max_tokens'] || Ai::Llm::ModelCapabilities.default_max_tokens(model, agentic: true) || 2000
+
     # 4. Execute via server proxy (WebSocket with HTTP fallback)
     proxy = llm_proxy_with_websocket || llm_proxy
 
@@ -110,7 +113,7 @@ class AiAgentExecutionJob < BaseJob
         messages: messages,
         model: model,
         system_prompt: system_prompt,
-        max_tokens: ctx['max_tokens'] || 2000,
+        max_tokens: max_tokens,
         temperature: ctx['temperature'] || 0.7,
         reasoning_mode: reasoning_mode,
         reflection_enabled: reflection_enabled
@@ -121,7 +124,7 @@ class AiAgentExecutionJob < BaseJob
         messages: messages,
         model: model,
         system_prompt: system_prompt,
-        max_tokens: ctx['max_tokens'] || 2000,
+        max_tokens: max_tokens,
         temperature: ctx['temperature'] || 0.7
       )
     end

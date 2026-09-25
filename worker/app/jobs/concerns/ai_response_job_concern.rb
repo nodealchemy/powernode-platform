@@ -102,7 +102,9 @@ module AiResponseJobConcern
     return { success: false, error: 'No model configured for this agent or its provider' } if model.blank?
 
     temperature = agent['temperature'] || 0.7
-    max_tokens = agent['max_tokens'] || 2048
+    # Unset, an always-thinking model gets the completion default (thinking is
+    # paid out of max_tokens); anything else keeps 2048.
+    max_tokens = agent['max_tokens'] || Ai::Llm::ModelCapabilities.default_max_tokens(model) || 2048
 
     api_key, base_url = resolve_provider_credentials(credentials, provider)
     return { success: false, error: 'Failed to decrypt credentials' } if api_key == :decrypt_failed

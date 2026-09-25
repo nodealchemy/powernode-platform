@@ -124,7 +124,8 @@ module Api
             # #37: explicit param override, else resolve via Ai::Agent resolution triple
             model = params[:model] || @agent.resolved_model
 
-            max_tokens = params[:max_tokens] || model_config["max_tokens"] || 2000
+            max_tokens = params[:max_tokens] || model_config["max_tokens"] ||
+                         ::Ai::Llm::ModelCapabilities.default_max_tokens(model, agentic: true) || 2000
             temperature = params[:temperature] || model_config["temperature"] || 0.7
 
             system_prompt = params[:system_prompt] ||

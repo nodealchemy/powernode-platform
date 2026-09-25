@@ -167,9 +167,12 @@ module AgentBackedService
     (agent.mcp_metadata&.dig("model_config", "temperature") || 0.7).to_f
   end
 
-  # Max tokens from agent mcp_metadata model_config, defaults to 2048
+  # Max tokens from agent mcp_metadata model_config. Unset, an always-thinking
+  # model gets the completion default (thinking is paid out of max_tokens);
+  # anything else keeps 2048.
   def agent_max_tokens(agent)
-    (agent.mcp_metadata&.dig("model_config", "max_tokens") || 2048).to_i
+    (agent.mcp_metadata&.dig("model_config", "max_tokens") ||
+      ::Ai::Llm::ModelCapabilities.default_max_tokens(agent_model(agent)) || 2048).to_i
   end
 
   # Account accessor — services may use @account, account, or other patterns.

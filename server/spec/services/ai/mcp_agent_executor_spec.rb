@@ -484,6 +484,40 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
     end
   end
 
+  # Thinking is paid out of max_tokens on always-thinking models, so the route
+  # decides the default: the tool loop gets the agentic 64K, a plain completion
+  # 16K; other models keep the historical 2000. An agent's own cap always wins.
+  describe 'max_tokens route defaults (private)' do
+    let(:execution_context) { { context: {}, input: "hi" } }
+    let(:messages) { [ { role: "user", content: "hi" } ] }
+
+    before { allow(agent).to receive(:build_system_prompt_with_profile).and_return('sys') }
+
+    it 'leaves max_tokens unset when neither the context nor the agent sets one' do
+      allow(agent).to receive(:resolved_model).and_return('claude-fable-5')
+      agent.mcp_metadata = (agent.mcp_metadata || {}).except("model_config")
+      _model, opts = executor.send(:resolve_model_config, execution_context, messages)
+      expect(opts).not_to have_key(:max_tokens)
+    end
+
+    it "keeps the agent's configured cap" do
+      allow(agent).to receive(:resolved_model).and_return('claude-fable-5')
+      agent.mcp_metadata = (agent.mcp_metadata || {}).merge("model_config" => { "max_tokens" => 1234 })
+      _model, opts = executor.send(:resolve_model_config, execution_context, messages)
+      expect(opts[:max_tokens]).to eq(1234)
+    end
+
+    it 'defaults an always-thinking model by route' do
+      expect(executor.send(:route_max_tokens, 'claude-opus-5', agentic: true)).to eq(64_000)
+      expect(executor.send(:route_max_tokens, 'claude-opus-5', agentic: false)).to eq(16_000)
+    end
+
+    it 'keeps 2000 for other models' do
+      expect(executor.send(:route_max_tokens, 'claude-sonnet-4-6', agentic: true)).to eq(2000)
+      expect(executor.send(:route_max_tokens, 'gpt-4o', agentic: false)).to eq(2000)
+    end
+  end
+
   # IMP-6cda93db7f31: ai_agents.ai_provider_id is nullable on a GLOBAL row, so
   # a canonical seeded before any provider existed carries none. Ruling 8 says
   # such a principal never executes (Ai::Tools::BaseTool refuses it at the tool

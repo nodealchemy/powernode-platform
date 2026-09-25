@@ -89,6 +89,17 @@ module Ai
         claude-mythos
       ].freeze
 
+      # Default max_tokens for a caller that sets none (see .default_max_tokens).
+      # Thinking is always on for adaptive-only models and is paid out of max_tokens,
+      # so the no-thinking-era 2K/4K defaults cut replies off mid-answer.
+      #   - AGENTIC: tool-loop turns. 64K is Anthropic's guidance for agentic work.
+      #   - COMPLETION: a single answer. 16K leaves room for thinking plus a long reply,
+      #     and it is also NON_STREAMING_MAX_TOKENS: above ~16K a request must stream,
+      #     because an unstreamed response that large risks HTTP timeouts.
+      AGENTIC_MAX_TOKENS = 64_000
+      COMPLETION_MAX_TOKENS = 16_000
+      NON_STREAMING_MAX_TOKENS = 16_000
+
       module_function
 
       # The frozen capability profile Hash for a model id.
@@ -114,6 +125,19 @@ module Ai
 
       # Max output tokens (nil when unknown — caller keeps its own default).
       def max_output_tokens(model_id) = profile(model_id)[:max_output]
+
+      # Default max_tokens when the caller sets none: AGENTIC_MAX_TOKENS for a
+      # tool-loop turn, COMPLETION_MAX_TOKENS otherwise, on adaptive-only models. nil
+      # for everything else — the caller keeps its own default, since legacy and
+      # non-Claude models have smaller output ceilings.
+      def default_max_tokens(model_id, agentic: false)
+        return nil unless thinking_mode(model_id) == :adaptive_only
+
+        agentic ? AGENTIC_MAX_TOKENS : COMPLETION_MAX_TOKENS
+      end
+
+      # Whether a request with this max_tokens must be sent streamed.
+      def stream_required?(max_tokens) = max_tokens.to_i > NON_STREAMING_MAX_TOKENS
 
       # Context window in tokens (nil when unknown).
       def context_window(model_id) = profile(model_id)[:context_window]

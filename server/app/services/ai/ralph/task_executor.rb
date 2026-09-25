@@ -191,7 +191,8 @@ module Ai
           llm_client: client,
           messages: user_messages,
           model: model,
-          max_tokens: options[:max_tokens] || 4096,
+          max_tokens: options[:max_tokens] ||
+                      ::Ai::Llm::ModelCapabilities.default_max_tokens(model, agentic: true) || 4096,
           temperature: options[:temperature] || 0.7,
           system_prompt: system_prompt,
           local_tools: local_tools,
@@ -521,7 +522,8 @@ module Ai
 
         options = {
           model: model,
-          max_tokens: model_config["max_tokens"] || 4096,
+          max_tokens: model_config["max_tokens"] ||
+                      ::Ai::Llm::ModelCapabilities.default_max_tokens(model, agentic: true) || 4096,
           temperature: model_config["temperature"] || 0.7
         }
         options[:effort] = effort if effort

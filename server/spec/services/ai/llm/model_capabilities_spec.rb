@@ -65,6 +65,27 @@ RSpec.describe Ai::Llm::ModelCapabilities do
     end
   end
 
+  describe ".default_max_tokens (route-aware, thinking-inclusive)" do
+    it "gives an always-thinking model 64K on a tool loop and 16K on a plain completion" do
+      expect(described_class.default_max_tokens("claude-opus-5-5", agentic: true)).to eq(64_000)
+      expect(described_class.default_max_tokens("claude-opus-5-5")).to eq(16_000)
+    end
+
+    %w[claude-sonnet-4-6 claude-haiku-4-5 gpt-4o].each do |model|
+      it "is nil for #{model}, so the caller keeps its own default" do
+        expect(described_class.default_max_tokens(model, agentic: true)).to be_nil
+      end
+    end
+  end
+
+  describe ".stream_required?" do
+    it "is false up to the non-streaming ceiling and true above it" do
+      expect(described_class.stream_required?(16_000)).to be(false)
+      expect(described_class.stream_required?(16_001)).to be(true)
+      expect(described_class.stream_required?(nil)).to be(false)
+    end
+  end
+
   describe ".request_timeout_seconds (capability-aware HTTP read timeout)" do
     %w[claude-fable-5 claude-mythos-5 claude-opus-4-8 claude-opus-5 claude-opus-5-5 claude-sonnet-5].each do |model|
       it "is 600s for adaptive-only #{model}" do
