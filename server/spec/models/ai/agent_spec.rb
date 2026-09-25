@@ -426,6 +426,14 @@ RSpec.describe Ai::Agent, type: :model do
     end
   end
 
+  describe 'BASE_GUARDRAILS verification gate (B7)' do
+    # Most agents have no shell and never change code; the gate applies when
+    # they do, so the condition is stated rather than left implied.
+    it 'conditions the verification gate on having changed code' do
+      expect(Ai::Agent::BASE_GUARDRAILS).to include("When you changed code, verify by execution")
+    end
+  end
+
   describe '#resolved_model Fable candidacy gate (pinned path)' do
     let(:gate_account) { create(:account) }
     let(:gate_provider) do
