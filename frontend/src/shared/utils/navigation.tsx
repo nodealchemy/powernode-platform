@@ -519,10 +519,12 @@ export const defaultNavigationConfig: NavigationConfig = {
   ]
 };
 
-// Admin-specific navigation overrides
+// Admin-specific navigation overrides: Administration (who — users, accounts,
+// roles, audit) and Platform Settings (how the platform runs). Each section
+// keeps the old single section's gate for its items: admin.access, plus the
+// item permissions that gate aggregate carried (audit; storage).
 export const adminNavigationOverrides = {
   sections: [
-    // Administration section - super admin features (always last)
     {
       id: 'administration',
       name: 'Administration',
@@ -552,43 +554,7 @@ export const adminNavigationOverrides = {
           icon: Building2,
           description: 'Provision tenant accounts',
           permissions: ['admin.account.create'],
-          order: 4
-        },
-        {
-          id: 'settings',
-          name: 'Settings',
-          href: '/app/admin/settings',
-          icon: Settings,
-          description: 'Platform configuration and settings',
-          permissions: ['admin.settings.read'],
-          order: 5
-        },
-        {
-          id: 'maintenance',
-          name: 'Maintenance',
-          href: '/app/admin/maintenance',
-          icon: '🔧',
-          description: 'System maintenance and health monitoring',
-          permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup', 'admin.maintenance.mode'],
-          order: 6
-        },
-        {
-          id: 'workers',
-          name: 'Workers',
-          href: '/app/admin/workers',
-          icon: '🤖',
-          description: 'Manage background workers and job processing',
-          permissions: ['admin.settings.read'],
-          order: 7
-        },
-        {
-          id: 'storage',
-          name: 'File Storage',
-          href: '/app/admin/storage',
-          icon: HardDrive,
-          description: 'Configure storage providers for file management',
-          permissions: ['admin.storage.manage', 'admin.storage.read'],
-          order: 8
+          order: 3
         },
         {
           id: 'audit-logs',
@@ -597,15 +563,59 @@ export const adminNavigationOverrides = {
           icon: '📋',
           description: 'System audit and activity logs',
           permissions: ['admin.audit.read'],
-          order: 9
+          order: 5
         }
       ],
-      permissions: ['admin.access', 'admin.storage.manage', 'admin.storage.read', 'admin.audit.read'],
+      permissions: ['admin.access', 'admin.audit.read'],
       collapsible: true,
       defaultExpanded: false,
       order: 30
+    },
+    {
+      id: 'platform-settings',
+      name: 'Platform Settings',
+      items: [
+        {
+          id: 'settings',
+          name: 'Settings',
+          href: '/app/admin/settings',
+          icon: Settings,
+          description: 'Platform configuration and settings',
+          permissions: ['admin.settings.read'],
+          order: 1
+        },
+        {
+          id: 'maintenance',
+          name: 'Maintenance',
+          href: '/app/admin/maintenance',
+          icon: '🔧',
+          description: 'System maintenance and health monitoring',
+          permissions: ['admin.maintenance.backup', 'admin.maintenance.cleanup', 'admin.maintenance.mode'],
+          order: 2
+        },
+        {
+          id: 'workers',
+          name: 'Workers',
+          href: '/app/admin/workers',
+          icon: '🤖',
+          description: 'Manage background workers and job processing',
+          permissions: ['admin.settings.read'],
+          order: 3
+        },
+        {
+          id: 'storage',
+          name: 'File Storage',
+          href: '/app/admin/storage',
+          icon: HardDrive,
+          description: 'Configure storage providers for file management',
+          permissions: ['admin.storage.manage', 'admin.storage.read'],
+          order: 4
+        }
+      ],
+      permissions: ['admin.access', 'admin.storage.manage', 'admin.storage.read'],
+      collapsible: true,
+      defaultExpanded: false,
+      order: 31
     }
   ]
 };
-
-export default defaultNavigationConfig;

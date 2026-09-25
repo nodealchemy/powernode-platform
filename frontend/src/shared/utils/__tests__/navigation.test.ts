@@ -1,4 +1,4 @@
-import { defaultNavigationConfig } from '@/shared/utils/navigation';
+import { defaultNavigationConfig, adminNavigationOverrides } from '@/shared/utils/navigation';
 import { hasAccess } from '@/shared/utils/permissionUtils';
 import { CONTROL_PERMISSIONS } from '@/shared/constants/controlPermissions';
 import type { User } from '@/shared/services/slices/authSlice';
@@ -203,15 +203,6 @@ describe('defaultNavigationConfig — AI Agents / Work / Platform (fc-43)', () =
     expect(order('ai-work')).toBeLessThan(order('ai-platform'));
   });
 
-  // Equality ratchet: a section growing past 7 fails, and so does a listed
-  // one that got back under (remove it here).
-  const KNOWN_OVERSIZED: string[] = [];
-
-  it('keeps every section at 7 items or fewer', () => {
-    const oversized = sections.filter((s) => s.items.length > 7).map((s) => s.id);
-    expect(oversized).toEqual(KNOWN_OVERSIZED);
-  });
-
   it('names the MCP item MCP and links nothing to the deleted Infrastructure or Learning Insights pages', () => {
     expect(byId('ai-platform', 'ai-mcp')).toMatchObject({ name: 'MCP', href: '/app/ai/mcp' });
     const hrefs = sections.flatMap((s) => s.items.map((i) => i.href ?? ''));
@@ -276,5 +267,65 @@ describe('defaultNavigationConfig — notifications (fc-45)', () => {
   it('links no separate notification-preferences page', () => {
     expect(allHrefs()).not.toContain('/app/profile/notifications');
     expect(itemIds('account')).not.toContain('notifications');
+  });
+});
+
+// fc-45: Administration had eight core items (nine with an extension's). It
+// splits into Administration (who: users, accounts, roles, audit) and Platform
+// Settings (how the platform runs) — navigation only; no URL moves.
+describe('adminNavigationOverrides — Administration / Platform Settings split (fc-45)', () => {
+  const adminSections = adminNavigationOverrides.sections;
+  const adminSection = (id: string) => adminSections.find((s) => s.id === id);
+
+  it('has the two sections, Administration then Platform Settings', () => {
+    expect(adminSections.map((s) => [s.id, s.name])).toEqual([
+      ['administration', 'Administration'],
+      ['platform-settings', 'Platform Settings'],
+    ]);
+  });
+
+  it('files each admin page under exactly one of them, at its unchanged URL', () => {
+    expect(adminSection('administration')?.items.map((i) => i.href)).toEqual([
+      '/app/admin/users',
+      '/app/admin/roles',
+      '/app/admin/accounts',
+      '/app/admin/audit-logs',
+    ]);
+    expect(adminSection('platform-settings')?.items.map((i) => i.href)).toEqual([
+      '/app/admin/settings',
+      '/app/admin/maintenance',
+      '/app/admin/workers',
+      '/app/admin/storage',
+    ]);
+  });
+
+  // The old single section showed to holders of admin.access, the storage
+  // permissions, or admin.audit.read; each item keeps that visibility in its
+  // new section.
+  it('keeps each item visible to whoever could see it before the split', () => {
+    expect(adminSection('administration')?.permissions).toEqual(['admin.access', 'admin.audit.read']);
+    expect(adminSection('platform-settings')?.permissions).toEqual(['admin.access', 'admin.storage.manage', 'admin.storage.read']);
+  });
+});
+
+// The nav-width guard (fc-45; the one guard since fc-43's AI split): a
+// sidebar section carries at most seven CORE items, and no destination is
+// linked twice. Extension items are not counted here — an extension that
+// registers into a core section pins its own count in its own tests.
+describe('core navigation width and uniqueness (fc-45)', () => {
+  const coreSections = [...sections, ...adminNavigationOverrides.sections];
+  const MAX_ITEMS_PER_SECTION = 7;
+
+  it.each(coreSections.map((s) => [s.id, s] as const))('section %s has at most seven items', (_id, s) => {
+    expect(s.items.length).toBeLessThanOrEqual(MAX_ITEMS_PER_SECTION);
+  });
+
+  it('links each sidebar destination once', () => {
+    const hrefs = [
+      ...defaultNavigationConfig.items.map((i) => i.href),
+      ...coreSections.flatMap((s) => s.items.map((i) => i.href)),
+    ];
+    const duplicates = hrefs.filter((href, index) => hrefs.indexOf(href) !== index);
+    expect(duplicates).toEqual([]);
   });
 });
