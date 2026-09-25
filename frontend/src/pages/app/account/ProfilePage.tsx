@@ -72,9 +72,13 @@ export const ProfilePage: React.FC = () => {
   });
 
   // Users & Invitations sub-tab, from the URL (/app/profile/users[/delegations]).
-  // A user who may manage delegations but not read the team lands on Delegations.
-  const usersSubTab = location.pathname === '/app/profile/users/delegations' ||
-    !hasPermissions(user, USERS_SUBTAB_PERMISSIONS.members) ? 'delegations' : 'members';
+  // Delegations only for a holder of its permissions; a user who may manage
+  // delegations but not read the team lands on it from /app/profile/users.
+  const canSeeDelegations = hasPermissions(user, USERS_SUBTAB_PERMISSIONS.delegations);
+  const usersSubTab = canSeeDelegations && (
+    location.pathname === '/app/profile/users/delegations' ||
+    !hasPermissions(user, USERS_SUBTAB_PERMISSIONS.members)
+  ) ? 'delegations' : 'members';
 
   // Form states
   const [profileForm, setProfileForm] = useState({

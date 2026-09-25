@@ -361,6 +361,16 @@ describe('ProfilePage - Users & Invitations > Delegations', () => {
     expect(screen.queryByRole('tab', { name: /Delegations/ })).not.toBeInTheDocument();
   });
 
+  it('serves no delegations at /app/profile/users/delegations to a user without the delegation permissions', async () => {
+    mockGet.mockResolvedValue(ok({ users: [], stats: {} }));
+    renderProfileAt('/app/profile/users/delegations', ['team.read']);
+
+    await screen.findByRole('tab', { name: /Users & Invitations/, selected: true });
+    expect(screen.queryByText('Account Delegations')).not.toBeInTheDocument();
+    expect(document.getElementById('tabpanel-members')).not.toBeNull();
+    expect(document.getElementById('tabpanel-delegations')).toBeNull();
+  });
+
   it('opens Delegations at /app/profile/users for a user who may not read the team', async () => {
     renderProfileAt('/app/profile/users', ['accounts.manage']);
 
