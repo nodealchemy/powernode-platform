@@ -73,7 +73,7 @@ module Ai
           when :openai
             body = build_openai_body(messages, model, **opts)
             body[:tools] = tools.map { |t| { type: "function", function: { name: t[:name], description: t[:description], parameters: t[:parameters], strict: t[:strict] || false }.compact } }
-            body[:tool_choice] = opts[:tool_choice] || "auto"
+            body[:tool_choice] = openai_tool_choice(opts[:tool_choice])
             s, p, _ = http_post(openai_url, body, model)
             s == 200 ? parse_openai_response(p, model) : openai_handle_error(s, p)
           when :anthropic
@@ -256,6 +256,17 @@ module Ai
         body
       end
 
+      # Provider-neutral tool_choice intent: "auto" | "none" | "required" | "any" |
+      # <tool name>. OpenAI supports forcing; mirrors the server OpenaiAdapter.
+      def openai_tool_choice(c)
+        case c
+        when nil, "" then "auto"
+        when "auto", "none", "required" then c
+        when "any" then "required"
+        else { type: "function", function: { name: c.to_s } }
+        end
+      end
+
       def openai_normalize_message(msg)
         role = msg[:role] || msg["role"]
         result = { role: role, content: msg[:content] || msg["content"] }
@@ -436,14 +447,11 @@ module Ai
         build_error_response("#{m} (HTTP #{status})", status_code: status)
       end
 
+      # Only auto/none: forced tool use ("required"/"any" or a tool name) 400s on
+      # current Claude models, so a forcing intent degrades to auto and the prompt
+      # steers. Mirrors the server AnthropicAdapter.
       def anthropic_tool_choice(c)
-        case c
-        when "auto" then { type: "auto" }
-        when "none" then { type: "none" }
-        when "required", "any" then { type: "any" }
-        when Hash then c
-        else { type: "tool", name: c.to_s }
-        end
+        c.to_s == "none" ? { type: "none" } : { type: "auto" }
       end
 
       def stream_anthropic(messages, model, **opts)

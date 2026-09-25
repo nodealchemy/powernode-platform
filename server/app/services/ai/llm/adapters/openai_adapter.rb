@@ -185,7 +185,7 @@ module Ai
 
           body = build_chat_body(messages, model, **opts)
           body[:tools] = openai_tools
-          body[:tool_choice] = opts[:tool_choice] || "auto"
+          body[:tool_choice] = openai_tool_choice(opts[:tool_choice])
 
           status, parsed, _headers = http_post("/chat/completions", body, model)
 
@@ -219,6 +219,18 @@ module Ai
         end
 
         private
+
+        # Provider-neutral tool_choice intent: "auto" | "none" | "required" | "any" |
+        # <tool name>. OpenAI supports forcing, so a tool name becomes its function
+        # shape and "any" its "required" synonym.
+        def openai_tool_choice(choice)
+          case choice
+          when nil, "" then "auto"
+          when "auto", "none", "required" then choice
+          when "any" then "required"
+          else { type: "function", function: { name: choice.to_s } }
+          end
+        end
 
         def build_chat_body(messages, model, **opts)
           # Separate system messages

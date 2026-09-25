@@ -325,12 +325,15 @@ module Ai
       credential ||= find_credential
       model = concierge_model || credential&.provider&.default_model
 
-      # When the user explicitly asks to delegate, force the model to call send_message
-      # rather than letting it decide (gpt-4.1-mini often ignores tool-use instructions)
+      # When the user explicitly asks to delegate, ask for a send_message call
+      # (gpt-4.1-mini often ignores tool-use instructions). tool_choice is a
+      # provider-neutral intent: the OpenAI mappers force the named tool; the
+      # Anthropic mappers degrade it to auto (current Claude models reject forced
+      # tool use), where the prompt steers and the success check below confirms.
       opts = { temperature: 0.3, max_tokens: 4096, system_prompt: concierge_tool_system_prompt }
       if @conversation.workspace_conversation? && content.match?(DELEGATION_PATTERN)
-        opts[:tool_choice] = { "type" => "function", "function" => { "name" => "send_message" } }
-        Rails.logger.info("[ConciergeService] Delegation intent detected — forcing send_message tool_choice")
+        opts[:tool_choice] = "send_message"
+        Rails.logger.info("[ConciergeService] Delegation intent detected — requesting send_message tool_choice")
       end
 
       result = tool_bridge.execute_tool_loop(

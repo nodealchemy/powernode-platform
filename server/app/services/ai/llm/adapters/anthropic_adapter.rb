@@ -389,14 +389,13 @@ module Ai
           end
         end
 
+        # Only auto/none are emitted. Forced tool use ("required"/"any" or a tool
+        # name) returns 400 on current Claude models ("tool_choice: type "tool" and
+        # "any" are not supported"), so a forcing intent degrades to auto and the
+        # prompt does the steering; callers check a call was made (the concierge's
+        # send_message success check).
         def anthropic_tool_choice(choice)
-          case choice
-          when "auto" then { type: "auto" }
-          when "none" then { type: "none" }
-          when "required", "any" then { type: "any" }
-          when Hash then choice
-          else { type: "tool", name: choice.to_s }
-          end
+          choice.to_s == "none" ? { type: "none" } : { type: "auto" }
         end
 
       end

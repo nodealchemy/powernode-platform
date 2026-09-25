@@ -383,8 +383,9 @@ module Ai
         iteration += 1
         Rails.logger.info "[AgentToolBridge] Iteration #{iteration}/#{max_iter} for agent #{agent.id}"
 
-        # tool_choice only applies to the first iteration (forced tool call);
-        # subsequent iterations use auto so the model can generate a text response
+        # tool_choice only applies to the first iteration (a requested tool call,
+        # forced where the provider supports it); later iterations use auto so the
+        # model can generate a text response
         iter_opts = iteration > 1 ? opts.except(:tool_choice) : opts
 
         response = llm_client.complete_with_tools(
