@@ -11,9 +11,10 @@ import { ProviderCircuitBreakersPanel } from './ProviderCircuitBreakersPanel';
  *
  * Combines the two circuit-breaker surfaces the consolidation plan (Tier 3,
  * "Circuit breakers x3") found scattered across three places under distinct
- * labels: agent breakers (Ai::CircuitBreaker, per-agent, resettable — reused
- * from Autonomy → Security's CircuitBreakerStatusPanel, not duplicated) and
- * provider breakers (Ai::CircuitBreakerRegistry, shared, resettable — the
+ * labels: agent breakers (Ai::CircuitBreaker, per-agent, resettable —
+ * CircuitBreakerStatusPanel, formerly ALSO mounted on Autonomy → Security;
+ * removed from there once this became the one home, so it's not duplicated)
+ * and provider breakers (Ai::CircuitBreakerRegistry, shared, resettable — the
  * live registry that actually gates Ai::Llm::Client calls). Each half is
  * gated on the permission its OWN backend endpoint enforces — a viewer can
  * hold one without the other:

@@ -62,7 +62,7 @@ The sections render across the **Observability** hub tabs:
 | Observability tab | AIOps content | Source |
 |---|---|---|
 | **Systems** | execution / latency / cost KPIs, system-health components, active-provider-alerts callout, hourly trend charts, providers table, agents table | `dashboard.overview`, `dashboard.health`, `dashboard.alerts[]`, `/trends`, `dashboard.providers[]`, `dashboard.agents[]` |
-| **Circuit Breakers** | provider circuit-breaker status (`Ai::CircuitBreakerRegistry`, live) + recent execution errors; agent circuit breakers (`Ai::CircuitBreaker`) render alongside, from a different backend | `dashboard.circuit_breakers[]` no longer backs this — see the tab's own component; `/recent_errors` |
+| **Circuit Breakers** | provider circuit-breaker status (`Ai::CircuitBreakerRegistry`, live) + recent execution errors; agent circuit breakers (`Ai::CircuitBreaker`) render alongside, from a different backend | `ProviderCircuitBreakersPanel` (not `dashboard.circuit_breakers[]`); `/recent_errors` |
 
 AIOps `cost_analysis` data surfaces in the **Cost** domain (`/app/ai/cost`), not Observability.
 
