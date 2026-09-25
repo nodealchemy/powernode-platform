@@ -8,7 +8,7 @@ module Ai
     class Response
       attr_reader :content, :tool_calls, :finish_reason, :model, :provider,
                   :usage, :cost, :thinking_content, :raw_response, :stream_id,
-                  :refusal
+                  :refusal, :content_blocks
 
       # `served_by` (model that ultimately produced the content) and
       # `refusal_recovery` (the adapt→fallback audit trail) are set AFTER
@@ -31,6 +31,9 @@ module Ai
         # DECLINED, else nil. Detection sets this BEFORE any content is read so
         # a refusal never returns as a silent nil.
         @refusal = attrs[:refusal]
+        # The assistant turn's raw Anthropic blocks (thinking included), in order,
+        # when it carries thinking; a tool loop replays them verbatim. nil otherwise.
+        @content_blocks = attrs[:content_blocks]
         @served_by = attrs[:served_by]
         @refusal_recovery = attrs[:refusal_recovery]
       end
@@ -78,6 +81,7 @@ module Ai
           thinking_content: thinking_content,
           stream_id: stream_id,
           refusal: refusal,
+          content_blocks: content_blocks,
           served_by: served_by,
           refusal_recovery: refusal_recovery
         }.compact

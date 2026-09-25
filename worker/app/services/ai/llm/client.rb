@@ -391,13 +391,26 @@ module Ai
           temperature: opts[:temperature], top_p: opts[:top_p],
           surface_reasoning: opts[:surface_reasoning], effort: opts[:effort]
         )
+        AnthropicMessages.bind_thinking!(body, model) if anthropic_first_party?
 
         body
+      end
+
+      # The thinking binding controls are offered on the first-party API; on Bedrock
+      # and Vertex they arrive per model and Foundry has none, so a gateway or cloud
+      # base_url gets the replay without them.
+      def anthropic_first_party?
+        URI.parse(@base_url).host == "api.anthropic.com"
+      rescue URI::InvalidURIError
+        false
       end
 
       def anthropic_normalize_message(msg)
         role = msg[:role] || msg["role"]
         content = msg[:content] || msg["content"]
+        # A tool-loop turn that carried thinking replays its own blocks, verbatim.
+        replay = role == "assistant" ? (msg[:content_blocks] || msg["content_blocks"]) : nil
+        return { role: "assistant", content: replay } if replay.present?
         if role == "tool"
           return { role: "user", content: [{ type: "tool_result", tool_use_id: msg[:tool_call_id] || msg["tool_call_id"],
                                              content: content.is_a?(String) ? content : content.to_json }] }
@@ -433,6 +446,7 @@ module Ai
                        finish_reason: parsed["stop_reason"],
                        model: parsed["model"] || model, raw_response: parsed,
                        thinking_content: (refusal ? nil : think.presence),
+                       content_blocks: (refusal ? nil : AnthropicMessages.replay_blocks(blocks)),
                        refusal: refusal,
                        usage: { prompt_tokens: u["input_tokens"] || 0, completion_tokens: u["output_tokens"] || 0,
                                 cached_tokens: u["cache_read_input_tokens"] || 0,
@@ -482,11 +496,14 @@ module Ai
       def stream_anthropic_body(body, model)
         body = body.merge(stream: true)
         acc = ""; tcs = []; cur = nil; usage = {}; sid = SecureRandom.uuid; fin = nil; think = ""; refusal_details = nil
+        blocks = []; block = nil # the raw content blocks, rebuilt for replay (AnthropicMessages.replay_blocks)
         yield Chunk.new(type: :stream_start, stream_id: sid, timestamp: ts)
         http_stream(anthropic_url, body, model) do |resp|
           parse_anthropic_sse(resp) do |evt, p|
             case evt
             when "content_block_start"
+              block = (p["content_block"] || {}).dup
+              blocks << block
               if p.dig("content_block", "type") == "tool_use"
                 cur = { id: p.dig("content_block", "id"), name: p.dig("content_block", "name"), arguments: "" }
                 yield Chunk.new(type: :tool_call_start, tool_call_id: cur[:id], tool_call_name: cur[:name], stream_id: sid, timestamp: ts)
@@ -496,6 +513,7 @@ module Ai
               case d["type"]
               when "text_delta"
                 acc += d["text"]
+                block["text"] = block["text"].to_s + d["text"].to_s if block
                 yield Chunk.new(type: :content_delta, content: d["text"], stream_id: sid, timestamp: ts)
               when "input_json_delta"
                 if cur
@@ -504,11 +522,15 @@ module Ai
                 end
               when "thinking_delta"
                 think += d["thinking"].to_s
+                block["thinking"] = block["thinking"].to_s + d["thinking"].to_s if block
                 yield Chunk.new(type: :thinking_delta, content: d["thinking"], stream_id: sid, timestamp: ts)
+              when "signature_delta"
+                block["signature"] = block["signature"].to_s + d["signature"].to_s if block
               end
             when "content_block_stop"
               if cur
                 tcs << { id: cur[:id], name: cur[:name], arguments: safe_parse_json(cur[:arguments]) }
+                block["input"] = tcs.last[:arguments] if block
                 yield Chunk.new(type: :tool_call_end, tool_call_id: cur[:id], stream_id: sid, timestamp: ts)
                 cur = nil
               end
@@ -536,7 +558,8 @@ module Ai
         refusal = anthropic_refusal(fin, refusal_details, content_present: acc.present?)
         build_response(content: (refusal ? nil : acc.presence), tool_calls: (refusal ? [] : tcs),
                        finish_reason: fin, model: model, usage: usage,
-                       thinking_content: (refusal ? nil : think.presence), refusal: refusal, stream_id: sid)
+                       thinking_content: (refusal ? nil : think.presence), refusal: refusal, stream_id: sid,
+                       content_blocks: (refusal ? nil : AnthropicMessages.replay_blocks(blocks)))
       rescue RequestError => e
         yield Chunk.new(type: :error, content: e.message, stream_id: sid, timestamp: ts)
         build_error_response(e.message, status_code: e.status_code)

@@ -165,12 +165,11 @@ class LlmProxyClient
         }.compact
       end
 
-      # Add assistant message with tool calls to conversation
-      current_messages << {
-        role: "assistant",
-        content: response.content,
-        tool_calls: response.tool_calls
-      }
+      # Add assistant message with tool calls to conversation. A turn that
+      # carried thinking replays its raw blocks (the builder sends them verbatim).
+      assistant = { role: "assistant", content: response.content, tool_calls: response.tool_calls }
+      assistant[:content_blocks] = response.content_blocks if response.content_blocks
+      current_messages << assistant
 
       # Dispatch each tool call through the server
       response.tool_calls.each do |tool_call|
@@ -352,6 +351,9 @@ class LlmProxyClient
       "tool_calls" => response.tool_calls.presence,
       "cost" => cost,
       "thinking_content" => response.thinking_content,
+      # Raw blocks (thinking included) for a tool loop to replay; nil unless the
+      # turn carried thinking.
+      "content_blocks" => response.content_blocks,
       # Refusal metadata rides the existing flat JSON body back to the server.
       # `.compact` drops these for every non-refusal call, so the hot path is
       # byte-identical to before.

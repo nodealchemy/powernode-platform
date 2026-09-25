@@ -27,8 +27,18 @@ module Ai
     # deleted, which would be an edit. The reminder fallback has no such field; its
     # earlier copies simply stay in place. .beta_headers declares the beta the body
     # then needs.
+    #
+    # Within a tool loop, the assistant turn that called the tools is replayed with
+    # its thinking blocks, verbatim and in order (.replay_blocks picks them out of a
+    # response), so the model keeps its reasoning across tool rounds. .bind_thinking!
+    # asks the API to drop a replayed block whose prefix no longer matches instead of
+    # failing the request; its caller applies it only on the first-party API, since
+    # the binding controls are per model on Bedrock and Vertex and absent on Foundry.
     module AnthropicMessages
       CLEAR_AT_BETA = "mid-conversation-system-clear-at-2026-08-21"
+      THINKING_BINDING_BETA = "thinking-binding-controls-2026-08-01"
+      THINKING_TYPES = %w[thinking redacted_thinking].freeze
+      REPLAY_TYPES = (THINKING_TYPES + %w[text tool_use]).freeze
 
       module_function
 
@@ -38,7 +48,34 @@ module Ai
         messages = body[:messages] || body["messages"]
         betas = []
         betas << CLEAR_AT_BETA if Array(messages).any? { |m| m.is_a?(Hash) && clear_at_of(m) }
+        thinking = body[:thinking] || body["thinking"]
+        betas << THINKING_BINDING_BETA if thinking.is_a?(Hash) && (thinking[:block_binding] || thinking["block_binding"])
         betas.empty? ? {} : { "anthropic-beta" => betas.join(",") }
+      end
+
+      # An assistant turn's content blocks to replay verbatim, or nil when the turn
+      # carries no thinking (rebuilding it from tool_calls is then equivalent).
+      def replay_blocks(blocks)
+        blocks = Array(blocks).select { |b| b.is_a?(Hash) && REPLAY_TYPES.include?(block_type(b)) }
+        blocks.any? { |b| THINKING_TYPES.include?(block_type(b)) } ? blocks : nil
+      end
+
+      # Sets thinking.block_binding.prefix_mismatch_behavior "drop_block" when the
+      # request replays a thinking block to an adaptive-only model; the thinking
+      # config already in the body is kept. .beta_headers then adds the beta.
+      def bind_thinking!(body, model)
+        return body unless ModelCapabilities.thinking_mode(model) == :adaptive_only && replays_thinking?(body[:messages])
+
+        body[:thinking] = (body[:thinking] || { type: "adaptive" })
+                          .merge(block_binding: { prefix_mismatch_behavior: "drop_block" })
+        body
+      end
+
+      def replays_thinking?(messages)
+        Array(messages).any? do |m|
+          content = m.is_a?(Hash) ? (m[:content] || m["content"]) : nil
+          content.is_a?(Array) && content.any? { |b| b.is_a?(Hash) && THINKING_TYPES.include?(block_type(b)) }
+        end
       end
 
       # @param normalize [Proc] maps each non-system message to Anthropic shape
@@ -100,6 +137,8 @@ module Ai
       end
 
       def system?(message) = role_of(message) == "system"
+
+      def block_type(block) = (block[:type] || block["type"]).to_s
 
       def clear_at_of(message) = message[:clear_at] || message["clear_at"]
 

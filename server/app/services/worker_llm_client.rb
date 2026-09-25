@@ -243,6 +243,7 @@ class WorkerLlmClient
       model: data["model"],
       usage: symbolize_usage(data["usage"]),
       thinking_content: data["thinking_content"],
+      content_blocks: data["content_blocks"],
       cost: data["cost"],
       provider: provider_name,
       # Refusal metadata threaded back from the worker's refusal handler.

@@ -425,6 +425,17 @@ module Ai
           }
         end
 
+        # A turn that carried thinking is replayed as the one assistant message the
+        # model produced, with its raw blocks (thinking, text, every tool_use) in
+        # order, so the model keeps its reasoning across rounds. The worker's
+        # Anthropic builder sends the blocks verbatim. Otherwise each call gets its
+        # own assistant message below.
+        replay = response.respond_to?(:content_blocks) ? response.content_blocks.presence : nil
+        if replay
+          messages << { role: "assistant", content: response.content, tool_calls: response.tool_calls,
+                        content_blocks: replay }
+        end
+
         # Dispatch each tool call and append results to conversation
         response.tool_calls.each do |tool_call|
           # D2 review F2: the kill switch, checked immediately before EVERY tool
@@ -470,14 +481,16 @@ module Ai
 
           Rails.logger.info "[AgentToolBridge] Tool #{tool_name} completed in #{call_duration_ms}ms"
 
-          messages << {
-            role: "assistant", content: nil,
-            tool_calls: [{
-              id: tool_call_id,
-              name: tool_name,
-              arguments: tool_call[:arguments] || tool_call["arguments"] || {}
-            }]
-          }
+          unless replay
+            messages << {
+              role: "assistant", content: nil,
+              tool_calls: [ {
+                id: tool_call_id,
+                name: tool_name,
+                arguments: tool_call[:arguments] || tool_call["arguments"] || {}
+              } ]
+            }
+          end
           messages << { role: "tool", tool_call_id: tool_call_id, content: result_json }
         end
 

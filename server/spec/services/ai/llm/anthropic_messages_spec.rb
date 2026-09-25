@@ -86,4 +86,39 @@ RSpec.describe Ai::Llm::AnthropicMessages do
       expect(described_class.beta_headers(messages: [ { role: "user", content: "a" } ])).to eq({})
     end
   end
+
+  describe "thinking replay (F3)" do
+    let(:thinking) { { "type" => "thinking", "thinking" => "", "signature" => "s" } }
+    let(:tool_use) { { "type" => "tool_use", "id" => "t", "name" => "n", "input" => {} } }
+
+    it "keeps the replayable blocks of a thinking turn, in order" do
+      blocks = [ thinking, { "type" => "text", "text" => "x" }, tool_use ]
+      expect(described_class.replay_blocks(blocks)).to eq(blocks)
+    end
+
+    it "returns nil for a turn without thinking" do
+      expect(described_class.replay_blocks([ tool_use ])).to be_nil
+    end
+
+    it "binds a replaying request to drop_block, keeping any thinking config" do
+      body = { messages: [ { role: "assistant", content: [ thinking, tool_use ] } ],
+               thinking: { type: "adaptive", display: "summarized" } }
+      described_class.bind_thinking!(body, "claude-fable-5")
+      expect(body[:thinking]).to eq(type: "adaptive", display: "summarized",
+                                    block_binding: { prefix_mismatch_behavior: "drop_block" })
+      expect(described_class.beta_headers(body)).to eq("anthropic-beta" => described_class::THINKING_BINDING_BETA)
+    end
+
+    it "leaves a request that replays no thinking alone" do
+      body = { messages: [ { role: "assistant", content: [ tool_use ] } ] }
+      described_class.bind_thinking!(body, "claude-fable-5")
+      expect(body).not_to have_key(:thinking)
+    end
+
+    it "leaves a legacy model alone" do
+      body = { messages: [ { role: "assistant", content: [ thinking ] } ] }
+      described_class.bind_thinking!(body, "claude-opus-4-6")
+      expect(body).not_to have_key(:thinking)
+    end
+  end
 end
