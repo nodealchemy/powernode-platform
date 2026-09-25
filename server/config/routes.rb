@@ -985,9 +985,10 @@ Rails.application.routes.draw do
         put :development, on: :member, action: :update_development
 
         # Security configuration endpoints
-        get :security, on: :member, action: :security_config
-        put :security, on: :member, action: :update_security_config
-        post "security/test", on: :member, action: :test_security_config
+        #
+        # security_config/update_security_config/test_security_config (fc-21):
+        # GET/PUT :security and POST security/test were deleted along with
+        # their only frontend caller — see security_config_actions.rb.
         post "security/regenerate_jwt_secret", on: :member, action: :regenerate_jwt_secret
         delete "security/blacklisted_tokens", on: :member, action: :clear_blacklisted_tokens
         get "security/blacklist_stats", on: :member, action: :blacklist_statistics

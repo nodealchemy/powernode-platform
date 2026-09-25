@@ -218,71 +218,9 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin_settings/security' do
-    context 'with admin.settings.security permission' do
-      let(:headers) { auth_headers_for(user_with_security_permission) }
-
-      it 'returns security configuration' do
-        get '/api/v1/admin_settings/security', headers: headers, as: :json
-
-        expect_success_response
-      end
-    end
-
-    context 'without security permission' do
-      let(:headers) { auth_headers_for(user_with_settings_view) }
-
-      it 'returns forbidden error' do
-        get '/api/v1/admin_settings/security', headers: headers, as: :json
-
-        expect(response).to have_http_status(:forbidden)
-      end
-    end
-  end
-
-  describe 'PUT /api/v1/admin_settings/security' do
-    let(:headers) { auth_headers_for(user_with_security_permission) }
-
-    context 'with admin.settings.security permission' do
-      let(:security_params) do
-        {
-          security_config: {
-            authentication: {
-              max_failed_attempts: 5,
-              lockout_duration: 30
-            }
-          }
-        }
-      end
-
-      before do
-        allow_any_instance_of(Admin::SecurityConfigService).to receive(:update_config).and_return({
-          success: true,
-          config: { authentication: { max_failed_attempts: 5 } },
-          message: 'Security configuration updated successfully'
-        })
-      end
-
-      it 'updates security configuration' do
-        put '/api/v1/admin_settings/security',
-            params: security_params,
-            headers: headers,
-            as: :json
-
-        expect_success_response
-      end
-    end
-  end
-
-  describe 'POST /api/v1/admin_settings/security/test' do
-    let(:headers) { auth_headers_for(user_with_security_permission) }
-
-    it 'tests security configuration' do
-      post '/api/v1/admin_settings/security/test', headers: headers, as: :json
-
-      expect_success_response
-    end
-  end
+  # GET/PUT /api/v1/admin_settings/security and POST security/test (fc-21):
+  # deleted along with their only frontend caller, the unrouted admin-dashboard
+  # SecuritySettings.tsx — see security_config_actions.rb.
 
   describe 'GET /api/v1/admin_settings/security/blacklist_stats' do
     let(:headers) { auth_headers_for(user_with_security_permission) }
@@ -875,21 +813,12 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
       end
     end
 
-    describe 'PUT /api/v1/admin_settings/security (update_security_config)' do
-      let(:params) { { security_config: { jwt: { access_token_ttl: 999 } } } }
-
-      it 'forbids a read-only admin' do
-        put '/api/v1/admin_settings/security', params: params,
-            headers: read_only_headers, as: :json
-        expect(response).to have_http_status(:forbidden)
-      end
-
-      it 'allows a holder of admin.settings.security' do
-        put '/api/v1/admin_settings/security', params: params,
-            headers: security_headers, as: :json
-        expect(response).not_to have_http_status(:forbidden)
-      end
-    end
+    # PUT /api/v1/admin_settings/security (update_security_config) and
+    # GET /api/v1/admin_settings/security (security_config, read) (fc-21):
+    # both deleted along with their only frontend caller — see
+    # security_config_actions.rb. The bug this section guards against
+    # (inline require_permission not halting) is still covered by the three
+    # actions below.
 
     describe 'DELETE /api/v1/admin_settings/security/blacklisted_tokens (clear_blacklisted_tokens)' do
       it 'forbids a read-only admin' do
@@ -901,18 +830,6 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
       it 'allows a holder of admin.settings.security' do
         delete '/api/v1/admin_settings/security/blacklisted_tokens',
                headers: security_headers, as: :json
-        expect(response).not_to have_http_status(:forbidden)
-      end
-    end
-
-    describe 'GET /api/v1/admin_settings/security (security_config, read)' do
-      it 'forbids a read-only admin' do
-        get '/api/v1/admin_settings/security', headers: read_only_headers, as: :json
-        expect(response).to have_http_status(:forbidden)
-      end
-
-      it 'allows a holder of admin.settings.security' do
-        get '/api/v1/admin_settings/security', headers: security_headers, as: :json
         expect(response).not_to have_http_status(:forbidden)
       end
     end

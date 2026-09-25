@@ -525,57 +525,13 @@ class AdminSettingsApi {
   }
 
   // Security Configuration Management
-  async getSecurityConfig(): Promise<{
-    csrf: {
-      enabled: boolean;
-      token_name: string;
-      protection_method: string;
-      require_ssl: boolean;
-    };
-    jwt: {
-      access_token_ttl: number;
-      refresh_token_ttl: number;
-      algorithm: string;
-      blacklist_enabled: boolean;
-      require_fresh_tokens_for_sensitive_operations: boolean;
-    };
-    authentication: {
-      max_failed_attempts: number;
-      lockout_duration: number;
-      require_2fa_for_admin: boolean;
-      session_timeout: number;
-    };
-    api_security: {
-      rate_limiting_enabled: boolean;
-      cors_enabled: boolean;
-      allowed_origins: string[];
-      require_api_key_for_write_operations: boolean;
-    };
-  }> {
-    const response = await api.get('/admin_settings/security');
-    return response.data;
-  }
-
-  async updateSecurityConfig(config: unknown): Promise<{
-    success: boolean;
-    message: string;
-    config: Record<string, unknown>;
-  }> {
-    const response = await api.put('/admin_settings/security', { security_config: config });
-    return response.data;
-  }
-
-  async testSecurityConfiguration(): Promise<{
-    csrf_protection: 'working' | 'error';
-    jwt_validation: 'working' | 'error';
-    authentication_flow: 'working' | 'error';
-    api_security: 'working' | 'error';
-    overall_status: 'healthy' | 'warning' | 'error';
-    details: string[];
-  }> {
-    const response = await api.post('/admin_settings/security/test');
-    return response.data;
-  }
+  //
+  // getSecurityConfig/updateSecurityConfig/testSecurityConfiguration were
+  // removed here (fc-21): their only caller, the unrouted admin-dashboard
+  // SecuritySettings.tsx, had zero importers anywhere — AdminSettingsSecurityTabPage.tsx
+  // is the live, routed security tab, and it reads/writes security settings
+  // through getOverview()/updateSettings() instead, never these three. The
+  // matching backend actions/routes/service methods were deleted alongside.
 
   async regenerateJwtSecret(): Promise<{
     success: boolean;
