@@ -26,7 +26,7 @@ module Ai
       declare_action "discover_improvements", mutating: false
       declare_action "dismiss_improvement", mutating: true
       declare_action "enable_autonomy", mutating: true
-      declare_action "list_improvements", mutating: false
+      declare_action "list_improvements", mutating: false, limit: 50, refuses: "status is not one of pending, approved, applied, dismissed"
       declare_action "revert_improvement", mutating: true
       declare_action "scoreboard", mutating: false
 
@@ -85,7 +85,7 @@ module Ai
             }
           },
           "list_improvements" => {
-            description: "List improvement offers, newest first.",
+            description: "List code-quality improvement offers in one status (pending unless status is given), newest first. Only code-quality types (code_lint, dead_code, code_duplication, convention_adherence, test_gap) are listed; other recommendations are not.",
             parameters: {
               status: { type: "string", required: false, description: "pending | approved | applied | dismissed (default pending)" },
               repository: { type: "string", required: false, description: "Filter by repository (id/full_name); matches the GitRepository target or legacy tag" }
@@ -281,8 +281,11 @@ module Ai
 
       def list_improvements(params)
         status = params[:status].presence || "pending"
+        statuses = Ai::ImprovementRecommendation::STATUSES
+        return error_result("Unknown status #{status.inspect}; use one of #{statuses.join(', ')}") unless statuses.include?(status)
+
         scope = Ai::ImprovementRecommendation.where(account: account, recommendation_type: Ai::ImprovementRecommendation::CODE_QUALITY_TYPES)
-        scope = scope.where(status: status) if Ai::ImprovementRecommendation::STATUSES.include?(status)
+        scope = scope.where(status: status)
         scope = filter_by_repository(scope, params[:repository]) if params[:repository].present?
         success_result(improvements: scope.recent(50).map { |r| serialize(r) })
       end

@@ -187,6 +187,18 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(result[:data][:improvements].size).to eq(1)
       expect(result[:data][:improvements].first[:type]).to eq("code_lint")
     end
+
+    # lane D H5: an unrecognised status used to skip the filter and list every
+    # status, so a typo read as an unfiltered answer.
+    it "refuses an unrecognised status instead of listing every status" do
+      rec_id = create_offer[:data][:recommendation][:id]
+      Ai::ImprovementRecommendation.find(rec_id).update!(status: "dismissed")
+
+      result = tool.execute(params: { action: "list_improvements", status: "dismised" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to include("dismised").and include("pending, approved, applied, dismissed")
+    end
   end
 
   describe "approve_improvement" do

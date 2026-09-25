@@ -163,7 +163,6 @@ list_gitea_workflow_runs
 list_gitea_workflows
 list_governance_reports
 list_graph_nodes
-list_improvements
 list_knowledge_bases
 list_messages
 list_ralph_loops
