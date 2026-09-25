@@ -15,5 +15,7 @@ export function downloadJson(payload: unknown, filename: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Deferred: revoking the object URL synchronously can race the browser's
+  // own click-triggered download and cancel it before the download starts.
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
