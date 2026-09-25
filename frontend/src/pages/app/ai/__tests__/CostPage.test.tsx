@@ -78,7 +78,8 @@ describe('CostPage hub', () => {
   // Cost hub does not carry two Overview tabs.
   it('labels the Credits balance sub-tab Balance', () => {
     const { CREDIT_TABS } = jest.requireActual('@/pages/app/ai/CreditsPage');
-    expect(CREDIT_TABS[0]).toMatchObject({ key: 'overview', label: 'Balance' });
+    expect(CREDIT_TABS[0]).toMatchObject({ key: 'balance', label: 'Balance' });
+    expect(CREDIT_TABS.map((t: { key: string }) => t.key)).not.toContain('overview');
   });
 
   it('routes to the active leaf and marks its rail item current', () => {

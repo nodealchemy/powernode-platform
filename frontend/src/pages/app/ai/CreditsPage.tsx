@@ -60,7 +60,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
  * Exported so the parent page and tests can reuse the same spec.
  */
 export const CREDIT_TABS: PathTabSpec[] = [
-  { key: 'overview', label: 'Balance', permission: 'ai.analytics.read', icon: <Coins size={16} /> },
+  { key: 'balance', label: 'Balance', permission: 'ai.analytics.read', icon: <Coins size={16} /> },
   { key: 'purchase', label: 'Purchase', permission: 'ai.analytics.read', icon: <ShoppingCart size={16} /> },
   { key: 'transactions', label: 'Transactions', permission: 'ai.analytics.read', icon: <DollarSign size={16} /> },
   { key: 'transfers', label: 'Transfers', permission: 'ai.analytics.read', icon: <ArrowRightLeft size={16} /> },
@@ -214,9 +214,9 @@ export const CreditsContent: React.FC<CreditsContentProps> = ({ basePath = '/app
     : transactions.filter(t => t.transaction_type === typeFilter);
 
   // First accessible tab — the redirect target for the index/catchall routes.
-  // Falls back to the overview segment for type-safety; when no tab is
+  // Falls back to the balance segment for type-safety; when no tab is
   // accessible PathTabs renders the empty state instead of these routes.
-  const fallbackPath = firstAccessibleTabPath(CREDIT_TABS, basePath, hasPermission) ?? `${basePath}/overview`;
+  const fallbackPath = firstAccessibleTabPath(CREDIT_TABS, basePath, hasPermission) ?? `${basePath}/balance`;
 
   const emptyState = (
     <div className="text-center py-12" data-testid="credits-no-access">
@@ -288,9 +288,9 @@ export const CreditsContent: React.FC<CreditsContentProps> = ({ basePath = '/app
           <Routes>
             <Route index element={<Navigate to={fallbackPath} replace />} />
 
-            {/* Overview Tab */}
+            {/* Balance Tab */}
             <Route
-              path="overview"
+              path="balance"
               element={
                 <div className="space-y-6">
                   {/* Usage Analytics */}

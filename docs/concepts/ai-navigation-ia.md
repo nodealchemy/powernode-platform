@@ -33,7 +33,7 @@ Defined in `shared/utils/navigation.tsx` (`defaultNavigationConfig`); routed in
 |---|---|---|---|
 | Overview | `/app/ai` | single page | — |
 | Agents / Teams / Missions / Execution / Knowledge / Infrastructure | `/app/ai/*` | per-feature | per-feature |
-| **Observability** | `/app/ai/observability` | `PathTabs`: System Health · Systems · Circuit Breakers · Alerts · Conversations · Execution Traces · Evaluation | one permission per tab — see `MONITORING_TABS` |
+| **Observability** | `/app/ai/observability` | `PathTabs`: Systems · Circuit Breakers · Alerts · Self-Healing · Conversations · Execution Traces · Evaluation (platform health is on `/app/status`) | one permission per tab — see `MONITORING_TABS` |
 | **Cost** | `/app/ai/cost` | `SubNavRail`: Overview · Credits · FinOps · ROI · Outcome Billing | `ai.finops.view` / `ai.roi.read` / `ai.analytics.read` |
 | **Control** | `/app/ai/control` | `SubNavRail`: Approvals · Policies · Budgets · Safety · Trust & Lineage · Goals · Compliance Audit | any permission a leaf is gated on (`CONTROL_PERMISSIONS`) |
 
@@ -67,7 +67,7 @@ page's Coordination tab (`/app/ai/teams/coordination`).
 sub-views renders a single `PathTabs` row:
 
 - **Overview** — cross-cutting snapshot (reuses FinOps panels).
-- **Credits** — `CreditsContent` → tabs: overview · purchase · transactions · transfers · reseller.
+- **Credits** — `CreditsContent` → tabs: balance · purchase · transactions · transfers · reseller.
 - **FinOps** — `FinOpsContent` (single view: the cost explorer, at `/app/ai/cost/finops`; agent budgets live on the Budgets page, `/app/ai/control/budgets`).
 - **ROI** — `RoiDashboardContent` (single view).
 - **Outcome Billing** — `OutcomeBillingContent` → tabs: definitions · contracts · records · violations · performance · summary.

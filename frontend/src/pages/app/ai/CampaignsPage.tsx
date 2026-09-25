@@ -9,7 +9,7 @@ export const CampaignsPageWrapper: React.FC = () => {
   const breadcrumbs = useMemo<BreadcrumbItem[]>(() => [
     { label: 'Dashboard', href: '/app' },
     { label: 'AI', href: '/app/ai' },
-    { label: 'Campaigns' },
+    { label: 'Improvement Campaigns' },
   ], []);
 
   const handleActionsReady = useCallback((newActions: PageAction[]) => {
