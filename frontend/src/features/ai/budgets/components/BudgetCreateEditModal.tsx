@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { useCreateBudget, useUpdateBudget } from '../api/budgetsApi';
+import { useBudgetAgentOptions, useCreateBudget, useUpdateBudget } from '../api/budgetsApi';
 import type { AgentBudget } from '../types';
 
 interface BudgetCreateEditModalProps {
@@ -12,6 +12,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
   const isEdit = !!budget;
   const createBudget = useCreateBudget();
   const updateBudget = useUpdateBudget();
+  const { data: agents } = useBudgetAgentOptions(!isEdit);
 
   const [agentId, setAgentId] = useState(budget?.agent_id ?? '');
   const [totalDollars, setTotalDollars] = useState(budget ? (budget.total_budget_cents / 100).toString() : '');
@@ -36,7 +37,7 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
       );
     } else {
       if (!agentId) {
-        setError('Please enter an agent ID');
+        setError('Please choose an agent');
         return;
       }
       createBudget.mutate(
@@ -63,15 +64,17 @@ export const BudgetCreateEditModal: React.FC<BudgetCreateEditModalProps> = ({ bu
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
           {!isEdit && (
             <div>
-              <label className="block text-sm font-medium text-theme-primary mb-1">Agent ID</label>
-              <input
-                type="text"
+              <label htmlFor="budget-agent" className="block text-sm font-medium text-theme-primary mb-1">Agent</label>
+              <select
+                id="budget-agent"
                 value={agentId}
                 onChange={(e) => setAgentId(e.target.value)}
                 className="w-full rounded-md border border-theme bg-theme-background-secondary text-theme-primary px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-theme-info-fg"
-                placeholder="Enter agent UUID"
                 required
-              />
+              >
+                <option value="">Select agent…</option>
+                {(agents ?? []).map((agent) => <option key={agent.id} value={agent.id}>{agent.name}</option>)}
+              </select>
             </div>
           )}
 
