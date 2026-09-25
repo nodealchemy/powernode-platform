@@ -5,9 +5,8 @@
  *
  * Tests for System Maintenance functionality including:
  * - Page navigation and load
- * - Tab navigation (overview, mode, health, backups, cleanup, operations, schedules)
+ * - Tab navigation (overview, mode, backups, cleanup, operations, schedules)
  * - Maintenance mode controls
- * - System health monitoring
  * - Backup management
  * - Cleanup operations
  * - Scheduled maintenance
@@ -40,14 +39,13 @@ describe('Admin Maintenance Page Tests', () => {
 
     it('should display maintenance tabs', () => {
       // The page uses button-based tabs with emoji icons
-      cy.assertContainsAny(['Overview', 'Mode', 'Health', 'Backups', 'Cleanup', 'Operations', 'Schedules']);
+      cy.assertContainsAny(['Overview', 'Mode', 'Backups', 'Cleanup', 'Operations', 'Schedules']);
     });
 
     it('should switch between tabs using path navigation', () => {
       const tabs = [
         { path: '/app/admin/maintenance', content: ['Overview', 'Status', 'System'] },
         { path: '/app/admin/maintenance/mode', content: ['Mode', 'Maintenance Mode', 'Enable', 'Disable', 'Message'] },
-        { path: '/app/admin/maintenance/health', content: ['Health', 'CPU', 'Memory', 'Disk', 'Score', 'Database'] },
         { path: '/app/admin/maintenance/backups', content: ['Backup', 'Restore', 'Database', 'Create'] },
         { path: '/app/admin/maintenance/cleanup', content: ['Cleanup', 'Clear', 'Cache', 'Temporary', 'Files'] },
         { path: '/app/admin/maintenance/schedules', content: ['Schedule', 'Planned', 'Upcoming', 'Tasks'] },
@@ -61,10 +59,10 @@ describe('Admin Maintenance Page Tests', () => {
     });
 
     it('should switch tabs via tab buttons', () => {
-      // Click on Health tab
-      cy.contains('button', 'Health').click();
+      // Click on Backups tab
+      cy.contains('button', 'Database Backups').click();
       cy.waitForStableDOM();
-      cy.url().should('include', '/health');
+      cy.url().should('include', '/backups');
     });
   });
 
@@ -102,24 +100,6 @@ describe('Admin Maintenance Page Tests', () => {
 
     it('should display maintenance message input', () => {
       cy.assertContainsAny(['Message', 'message', 'Description']);
-    });
-  });
-
-  describe('System Health Display', () => {
-    beforeEach(() => {
-      cy.navigateTo('/app/admin/maintenance/health');
-    });
-
-    it('should display system health metrics', () => {
-      cy.assertContainsAny(['CPU', 'Memory', 'Disk', 'Health', 'Score', '%', 'Healthy', 'Warning', 'System']);
-    });
-
-    it('should display service status information', () => {
-      cy.assertContainsAny(['Database', 'Redis', 'Queue', 'Service', 'Status', 'Connected']);
-    });
-
-    it('should have refresh health functionality', () => {
-      cy.assertContainsAny(['Refresh', 'Check', 'Update']);
     });
   });
 

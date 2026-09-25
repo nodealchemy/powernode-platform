@@ -179,6 +179,33 @@ describe('AdminMaintenancePage', () => {
       });
     });
 
+    // fc-47: platform health is on /app/status. Maintenance keeps no System
+    // Health tab; the overview's health card links to the status page.
+    it('has no System Health tab', async () => {
+      await renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('All Systems Operational')).toBeInTheDocument();
+      });
+      const tabNames = screen.getAllByRole('button').map(b => b.textContent);
+      expect(tabNames.some(name => name?.includes('System Health'))).toBe(false);
+    });
+
+    it('does not treat /health as a tab path', async () => {
+      await renderComponent('/app/admin/maintenance/health');
+
+      await waitFor(() => {
+        expect(screen.getByText('All Systems Operational')).toBeInTheDocument();
+      });
+    });
+
+    it("links the overview's health card to /app/status", async () => {
+      await renderComponent();
+
+      const card = await screen.findByRole('link', { name: /Platform Status/ });
+      expect(card).toHaveAttribute('href', '/app/status');
+    });
+
     it('defaults to Overview tab', async () => {
       await renderComponent();
 

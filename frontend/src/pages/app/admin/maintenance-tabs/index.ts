@@ -1,7 +1,6 @@
 // AdminMaintenancePage tab components
 export { MaintenanceOverviewTab } from './MaintenanceOverviewTab';
 export { MaintenanceModeTab } from './MaintenanceModeTab';
-export { SystemHealthTab } from './SystemHealthTab';
 export { DatabaseBackupsTab } from './DatabaseBackupsTab';
 export { DataCleanupTab } from './DataCleanupTab';
 export { SystemOperationsTab } from './SystemOperationsTab';
@@ -13,7 +12,6 @@ export type {
   MaintenancePageActions,
   MaintenanceOverviewTabProps,
   MaintenanceModeTabProps,
-  SystemHealthTabProps,
   DatabaseBackupsTabProps,
   DataCleanupTabProps,
   SystemOperationsTabProps,

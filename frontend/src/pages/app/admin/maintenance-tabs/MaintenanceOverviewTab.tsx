@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { maintenanceApi } from '@/shared/services/admin/maintenanceApi';
 import { SettingsCard } from '@/features/admin/components/settings/SettingsComponents';
 import { MaintenanceOverviewTabProps, MaintenanceTab } from './types';
@@ -215,9 +216,9 @@ const QuickStatsGrid: React.FC<QuickStatsGridProps> = ({
   activeSchedules
 }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-    {/* Health Status Card */}
-    <button
-      onClick={() => onNavigateToTab('health')}
+    {/* Health Status Card — platform health is on /app/status (fc-47) */}
+    <Link
+      to="/app/status"
       className="bg-theme-surface rounded-lg border border-theme p-4 hover:border-theme-interactive-primary transition-colors text-left"
     >
       <div className="flex items-center justify-between mb-3">
@@ -226,11 +227,11 @@ const QuickStatsGrid: React.FC<QuickStatsGridProps> = ({
           {systemHealth?.overall_status || 'Unknown'}
         </span>
       </div>
-      <h4 className="font-medium text-theme-primary">System Health</h4>
+      <h4 className="font-medium text-theme-primary">Platform Status</h4>
       <p className="text-sm text-theme-secondary mt-1">
         {systemHealth ? `${getHealthyServiceCount()} services healthy` : 'Loading...'}
       </p>
-    </button>
+    </Link>
 
     {/* Backups Card */}
     <button

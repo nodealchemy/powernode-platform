@@ -16,7 +16,6 @@ import { RefreshCw, Plus, Trash2 } from 'lucide-react';
 import {
   MaintenanceOverviewTab,
   MaintenanceModeTab,
-  SystemHealthTab,
   DatabaseBackupsTab,
   DataCleanupTab,
   SystemOperationsTab,
@@ -35,7 +34,7 @@ export const AdminMaintenancePage: React.FC = () => {
   const getActiveTabFromPath = (): MaintenanceTab => {
     const pathSegments = location.pathname.split('/');
     const lastSegment = pathSegments[pathSegments.length - 1];
-    if (['mode', 'health', 'backups', 'cleanup', 'operations', 'schedules'].includes(lastSegment)) {
+    if (['mode', 'backups', 'cleanup', 'operations', 'schedules'].includes(lastSegment)) {
       return lastSegment as MaintenanceTab;
     }
     return 'overview';
@@ -207,8 +206,6 @@ export const AdminMaintenancePage: React.FC = () => {
         );
       case 'mode':
         return <MaintenanceModeTab status={maintenanceStatus} onUpdate={loadMaintenanceData} />;
-      case 'health':
-        return <SystemHealthTab health={systemHealth} metrics={systemMetrics} onRefresh={loadMaintenanceData} />;
       case 'backups':
         return <DatabaseBackupsTab backups={backups} onRefresh={loadMaintenanceData} onRegisterActions={setActions} />;
       case 'cleanup':

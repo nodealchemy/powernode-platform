@@ -8,7 +8,7 @@ import {
   MaintenanceSchedule
 } from '@/shared/services/admin/maintenanceApi';
 
-export type MaintenanceTab = 'overview' | 'mode' | 'health' | 'backups' | 'cleanup' | 'operations' | 'schedules';
+export type MaintenanceTab = 'overview' | 'mode' | 'backups' | 'cleanup' | 'operations' | 'schedules';
 
 export interface MaintenancePageActions {
   refreshData?: () => void;
@@ -30,12 +30,6 @@ export interface MaintenanceOverviewTabProps {
 export interface MaintenanceModeTabProps {
   status: MaintenanceStatus;
   onUpdate: () => void;
-}
-
-export interface SystemHealthTabProps {
-  health: SystemHealth | null;
-  metrics: MaintenanceSystemMetrics | null;
-  onRefresh: () => void;
 }
 
 export interface DatabaseBackupsTabProps {
@@ -65,7 +59,6 @@ export interface ScheduledTasksTabProps {
 export const MAINTENANCE_TABS = [
   { id: 'overview', label: 'Overview', icon: '📊', path: '' },
   { id: 'mode', label: 'Maintenance Mode', icon: '🔧', path: 'mode' },
-  { id: 'health', label: 'System Health', icon: '💚', path: 'health' },
   { id: 'backups', label: 'Database Backups', icon: '💾', path: 'backups' },
   { id: 'cleanup', label: 'Data Cleanup', icon: '🗑️', path: 'cleanup' },
   { id: 'operations', label: 'System Operations', icon: '⚙️', path: 'operations' },
