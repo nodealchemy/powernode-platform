@@ -36,7 +36,6 @@ get_schedule
 get_subgraph
 get_team
 graph_statistics
-integration_health
 kill_switch_status
 kubernetes_get_cluster
 kubernetes_list_clusters

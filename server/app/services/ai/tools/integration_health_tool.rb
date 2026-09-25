@@ -9,7 +9,9 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "integration_health", mutating: false
+      declare_action "integration_health", mutating: false,
+                                           returns: "id, name, type, status, health_status, last_health_check_at, consecutive_failures, " \
+                                                    "last_error and success_rate per integration, plus counts by health status"
 
       def self.definition
         {
