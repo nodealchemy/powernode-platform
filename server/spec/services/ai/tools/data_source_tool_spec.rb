@@ -1875,6 +1875,37 @@ RSpec.describe Ai::Tools::DataSourceTool do
       expect(result[:error]).to match(/not found/i)
     end
 
+    # The ingest service reports a missing knowledge base inside its tally
+    # ({ error: "knowledge base not found for account", ingested: 0, ... }),
+    # which the tool used to wrap in a success result — after a live fetch.
+    it "errors, without fetching or ingesting, when knowledge_base_id names no knowledge base" do
+      expect(Ai::DataSources::QueryService).not_to receive(:new)
+      expect(Ai::DataSources::RagIngestionService).not_to receive(:new)
+      missing_id = SecureRandom.uuid
+
+      result = tool.execute(params: {
+        action: "data_source_ingest_to_kb", data_source_id: "open-meteo",
+        endpoint_id: "forecast", knowledge_base_id: missing_id
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/knowledge base not found: #{missing_id}/i)
+    end
+
+    it "errors when knowledge_base_id names another account's knowledge base" do
+      foreign_kb = create(:ai_knowledge_base, account: create(:account))
+      expect(Ai::DataSources::QueryService).not_to receive(:new)
+      expect(Ai::DataSources::RagIngestionService).not_to receive(:new)
+
+      result = tool.execute(params: {
+        action: "data_source_ingest_to_kb", data_source_id: "open-meteo",
+        endpoint_id: "forecast", knowledge_base_id: foreign_kb.id
+      })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/knowledge base not found/i)
+    end
+
     it "performs the ingest instead of filing a proposal when authorized via ai.data_sources.manage" do
       manage_account = create(:account)
       create(:user, account: manage_account, permissions: ["ai.data_sources.manage"])

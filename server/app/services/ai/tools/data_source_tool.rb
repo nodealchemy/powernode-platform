@@ -168,7 +168,8 @@ module Ai
                                            refuses: "manifest is blank, or the import fails",
                                            see_also: { "data_source_export" => "producing a manifest" }
       declare_action "data_source_ingest_to_kb", mutating: true,
-                                                 refuses: "#{ENDPOINT_NOT_FOUND}, or knowledge_base_id is blank",
+                                                 refuses: "#{ENDPOINT_NOT_FOUND}, or knowledge_base_id is blank or names no " \
+                                                          "knowledge base in this account",
                                                  see_also: { "query_knowledge_base" => "searching the ingested documents" }
       declare_action "data_source_install_template", mutating: true,
                                                      returns: "the installed source's details, created, updated_endpoints, " \
@@ -884,6 +885,12 @@ module Ai
         ds = resolve_source(params[:data_source_id])
         endpoint = resolve_endpoint(ds, params[:endpoint_id])
         raise ArgumentError, "knowledge_base_id is required" if params[:knowledge_base_id].blank?
+        # Refuse a knowledge base this account cannot write to BEFORE the live fetch.
+        # RagIngestionService reports it only inside its tally, which would otherwise
+        # come back wrapped in a success result.
+        unless Ai::KnowledgeBase.for_account(account.id).exists?(id: params[:knowledge_base_id])
+          raise ActiveRecord::RecordNotFound, "Knowledge base not found: #{params[:knowledge_base_id]}"
+        end
 
         envelope = Ai::DataSources::QueryService.new(
           data_source: ds, endpoint: endpoint,
