@@ -13,8 +13,9 @@ scope/posture/decision-authority/stop-conditions, the Ralph loop(s) it drives, a
 async parked-questions queue, and a progress ledger. `/campaign run` is the Ralph-pattern loop
 body — drive it repeatedly with `/loop /campaign run <id>`.
 
-Aliases: `/campaign` and `/autodev` are the same skill. Dual surface — platform agents call the
-same actions via the `campaign` MCP tool (`campaign_start/status/answer_question/stop/resume`).
+Dual surface — platform agents call the same actions through the MCP tools `platform.campaign_start`,
+`platform.campaign_status`, `platform.campaign_answer_question`, `platform.campaign_stop` and
+`platform.campaign_resume`.
 
 ## Usage
 ```
