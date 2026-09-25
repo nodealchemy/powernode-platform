@@ -60,37 +60,6 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
     end
   end
 
-  describe 'PUT /api/v1/ai/governance/policies/:id/activate' do
-    let(:policy) { create(:ai_compliance_policy, account: account, status: 'draft') }
-
-    it 'activates the policy' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:activate_policy)
-        .and_return({ policy: policy })
-
-      put "/api/v1/ai/governance/policies/#{policy.id}/activate", headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['policy']).to be_present
-    end
-  end
-
-  describe 'POST /api/v1/ai/governance/policies/evaluate' do
-    let(:context_params) { { context: { action: 'data_access', resource: 'sensitive_data' } } }
-
-    it 'evaluates policies against context' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:evaluate_policies)
-        .and_return({ allowed: true, results: [] })
-
-      post '/api/v1/ai/governance/policies/evaluate', params: context_params, headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data).to have_key('allowed')
-      expect(data).to have_key('results')
-    end
-  end
-
   describe 'GET /api/v1/ai/governance/violations' do
     let!(:violation) { create(:ai_policy_violation, account: account) }
 
@@ -115,20 +84,6 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
     end
   end
 
-  describe 'PUT /api/v1/ai/governance/violations/:id/acknowledge' do
-    let(:violation) { create(:ai_policy_violation, account: account, status: 'open') }
-
-    it 'acknowledges the violation' do
-      allow_any_instance_of(Ai::PolicyViolation).to receive(:acknowledge!).and_return(true)
-
-      put "/api/v1/ai/governance/violations/#{violation.id}/acknowledge", headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['violation']).to be_present
-    end
-  end
-
   describe 'PUT /api/v1/ai/governance/violations/:id/resolve' do
     let(:violation) { create(:ai_policy_violation, account: account, status: 'acknowledged') }
 
@@ -141,104 +96,6 @@ RSpec.describe 'Api::V1::Ai::Governance', type: :request do
           as: :json
 
       expect_success_response
-    end
-  end
-
-  describe 'GET /api/v1/ai/governance/classifications' do
-    let!(:classification) { create(:ai_data_classification, account: account) }
-
-    it 'returns list of classifications' do
-      get '/api/v1/ai/governance/classifications', headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['classifications']).to be_an(Array)
-    end
-  end
-
-  describe 'POST /api/v1/ai/governance/classifications' do
-    let(:classification_params) do
-      {
-        name: 'PII',
-        classification_level: 'high',
-        detection_patterns: [ 'ssn', 'email' ],
-        handling_requirements: { encrypt: true }
-      }
-    end
-
-    it 'creates a new classification' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:create_classification)
-        .and_return(create(:ai_data_classification, account: account))
-
-      post '/api/v1/ai/governance/classifications', params: classification_params, headers: headers, as: :json
-
-      expect(response).to have_http_status(:created)
-      data = json_response_data
-      expect(data['classification']).to be_present
-    end
-  end
-
-  describe 'POST /api/v1/ai/governance/scan' do
-    let(:scan_params) { { text: 'Test data with email@example.com' } }
-
-    it 'scans for sensitive data' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:scan_for_sensitive_data)
-        .and_return({ has_sensitive_data: true, detections: [] })
-
-      post '/api/v1/ai/governance/scan', params: scan_params, headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data).to have_key('has_sensitive_data')
-      expect(data).to have_key('detections')
-    end
-  end
-
-  describe 'POST /api/v1/ai/governance/mask' do
-    let(:mask_params) { { text: 'Sensitive data: email@example.com' } }
-
-    it 'masks sensitive data' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:mask_sensitive_data)
-        .and_return('Sensitive data: ***')
-
-      post '/api/v1/ai/governance/mask', params: mask_params, headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['masked_text']).to be_present
-    end
-  end
-
-  describe 'GET /api/v1/ai/governance/reports' do
-    let!(:report) { create(:ai_compliance_report, account: account) }
-
-    it 'returns list of reports' do
-      get '/api/v1/ai/governance/reports', headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['reports']).to be_an(Array)
-    end
-  end
-
-  describe 'POST /api/v1/ai/governance/reports' do
-    let(:report_params) do
-      {
-        report_type: 'compliance',
-        period_start: 30.days.ago.to_s,
-        period_end: Time.current.to_s
-      }
-    end
-
-    it 'generates a compliance report' do
-      allow_any_instance_of(Ai::GovernanceService).to receive(:generate_report)
-        .and_return(create(:ai_compliance_report, account: account))
-
-      post '/api/v1/ai/governance/reports', params: report_params, headers: headers, as: :json
-
-      expect(response).to have_http_status(:created)
-      data = json_response_data
-      expect(data['report']).to be_present
     end
   end
 

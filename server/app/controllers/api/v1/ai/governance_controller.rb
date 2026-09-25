@@ -11,15 +11,11 @@ module Api
         # defined). Decoupled from the coarse `ai.manage` gate so AI-operator
         # tokens without governance authority cannot mutate governance state.
         READ_ACTIONS = %i[
-          policies violations classifications
-          reports summary audit_log security_events
+          policies violations summary audit_log security_events
         ].freeze
 
         WRITE_ACTIONS = %i[
-          create_policy activate_policy toggle_policy evaluate_policies
-          acknowledge_violation resolve_violation
-          create_classification scan_data mask_data
-          generate_report
+          create_policy toggle_policy resolve_violation
         ].freeze
 
         before_action :require_governance_read, only: READ_ACTIONS
@@ -59,14 +55,6 @@ module Api
           render_success(policy: policy_json(policy), status: :created)
         end
 
-        # PUT /api/v1/ai/governance/policies/:id/activate
-        def activate_policy
-          policy = current_account.ai_compliance_policies.find(params[:id])
-          result = @service.activate_policy(policy)
-
-          render_success(policy: policy_json(result[:policy]))
-        end
-
         # PUT /api/v1/ai/governance/policies/:id/toggle
         # An active policy is disabled; a draft or disabled one is activated.
         # Archived policies stay archived, and a required policy is never
@@ -91,16 +79,6 @@ module Api
           render_success(policy: policy_json(policy))
         end
 
-        # POST /api/v1/ai/governance/policies/evaluate
-        def evaluate_policies
-          result = @service.evaluate_policies(params[:context] || {})
-
-          render_success(
-            allowed: result[:allowed],
-            results: result[:results].map { |r| evaluation_result_json(r) }
-          )
-        end
-
         # Violations
         # GET /api/v1/ai/governance/violations
         def violations
@@ -119,14 +97,6 @@ module Api
           )
         end
 
-        # PUT /api/v1/ai/governance/violations/:id/acknowledge
-        def acknowledge_violation
-          violation = current_account.ai_policy_violations.find(params[:id])
-          violation.acknowledge!(current_user)
-
-          render_success(violation: violation_json(violation))
-        end
-
         # PUT /api/v1/ai/governance/violations/:id/resolve
         def resolve_violation
           violation = current_account.ai_policy_violations.find(params[:id])
@@ -137,80 +107,6 @@ module Api
           )
 
           render_success(violation: violation_json(violation))
-        end
-
-        # Data Classifications
-        # GET /api/v1/ai/governance/classifications
-        def classifications
-          classifications = current_account.ai_data_classifications
-                                          .ordered_by_sensitivity
-                                          .page(params[:page])
-                                          .per(params[:per_page] || 20)
-
-          render_success(
-            classifications: classifications.map { |c| classification_json(c) },
-            pagination: pagination_meta(classifications)
-          )
-        end
-
-        # POST /api/v1/ai/governance/classifications
-        def create_classification
-          classification = @service.create_classification(
-            name: params[:name],
-            level: params[:classification_level],
-            detection_patterns: params[:detection_patterns] || [],
-            handling_requirements: params[:handling_requirements] || {},
-            user: current_user
-          )
-
-          render_success(classification: classification_json(classification), status: :created)
-        end
-
-        # POST /api/v1/ai/governance/scan
-        def scan_data
-          result = @service.scan_for_sensitive_data(
-            params[:text],
-            source_type: params[:source_type],
-            source_id: params[:source_id]
-          )
-
-          render_success(
-            has_sensitive_data: result[:has_sensitive_data],
-            detections: result[:detections].map { |d| detection_json(d) }
-          )
-        end
-
-        # POST /api/v1/ai/governance/mask
-        def mask_data
-          masked_text = @service.mask_sensitive_data(params[:text])
-          render_success(masked_text: masked_text)
-        end
-
-        # Reports
-        # GET /api/v1/ai/governance/reports
-        def reports
-          reports = current_account.ai_compliance_reports
-                                  .recent
-                                  .page(params[:page])
-                                  .per(params[:per_page] || 20)
-
-          render_success(
-            reports: reports.map { |r| report_json(r) },
-            pagination: pagination_meta(reports)
-          )
-        end
-
-        # POST /api/v1/ai/governance/reports
-        def generate_report
-          report = @service.generate_report(
-            report_type: params[:report_type],
-            period_start: params[:period_start]&.to_datetime,
-            period_end: params[:period_end]&.to_datetime,
-            config: params[:config] || {},
-            user: current_user
-          )
-
-          render_success(report: report_json(report), status: :created)
         end
 
         # GET /api/v1/ai/governance/summary
@@ -341,16 +237,6 @@ module Api
           }
         end
 
-        def evaluation_result_json(result)
-          {
-            policy_id: result[:policy].id,
-            policy_name: result[:policy].name,
-            allowed: result[:allowed],
-            reason: result[:reason],
-            enforcement: result[:enforcement]
-          }
-        end
-
         def violation_json(violation)
           {
             id: violation.id,
@@ -369,53 +255,6 @@ module Api
               id: violation.policy.id,
               name: violation.policy.name
             }
-          }
-        end
-
-        def classification_json(classification)
-          {
-            id: classification.id,
-            name: classification.name,
-            classification_level: classification.classification_level,
-            description: classification.description,
-            detection_patterns: classification.detection_patterns,
-            handling_requirements: classification.handling_requirements,
-            requires_encryption: classification.requires_encryption,
-            requires_masking: classification.requires_masking,
-            requires_audit: classification.requires_audit,
-            is_system: classification.is_system,
-            detection_count: classification.detection_count
-          }
-        end
-
-        def detection_json(detection)
-          {
-            id: detection.id,
-            detection_id: detection.detection_id,
-            classification_level: detection.classification_level,
-            source_type: detection.source_type,
-            field_path: detection.field_path,
-            action_taken: detection.action_taken,
-            masked_snippet: detection.masked_snippet,
-            confidence_score: detection.confidence_score,
-            created_at: detection.created_at
-          }
-        end
-
-        def report_json(report)
-          {
-            id: report.id,
-            report_id: report.report_id,
-            report_type: report.report_type,
-            status: report.status,
-            format: report.format,
-            period_start: report.period_start,
-            period_end: report.period_end,
-            summary_data: report.summary_data,
-            file_path: report.file_path,
-            file_size_bytes: report.file_size_bytes,
-            generated_at: report.generated_at,
-            expires_at: report.expires_at
           }
         end
 

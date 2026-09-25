@@ -1589,26 +1589,11 @@ Rails.application.routes.draw do
           # Policies
           get "policies", action: :policies
           post "policies", action: :create_policy
-          put "policies/:id/activate", action: :activate_policy
           put "policies/:id/toggle", action: :toggle_policy
-          post "policies/evaluate", action: :evaluate_policies
 
           # Violations
           get "violations", action: :violations
-          put "violations/:id/acknowledge", action: :acknowledge_violation
           put "violations/:id/resolve", action: :resolve_violation
-
-          # Data classifications
-          get "classifications", action: :classifications
-          post "classifications", action: :create_classification
-
-          # Data scanning
-          post "scan", action: :scan_data
-          post "mask", action: :mask_data
-
-          # Reports
-          get "reports", action: :reports
-          post "reports", action: :generate_report
 
           # Summary and audit
           get "summary", action: :summary
