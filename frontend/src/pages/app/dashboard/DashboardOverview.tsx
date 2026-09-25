@@ -469,7 +469,7 @@ export const DashboardOverview: React.FC = () => {
       // specifically, since that's what this card's description promises.
       id: 'observability-alerts',
       label: 'Alerts',
-      description: 'Alerts, incidents, execution traces',
+      description: 'Active alerts, acknowledge and resolve',
       icon: Zap,
       path: `${PATHS.observability}/alerts`,
       visible: true,
