@@ -10,13 +10,13 @@ RSpec.describe Ai::Tools::KnowledgeQualityTool do
 
   describe "cross-account isolation (IDOR)" do
     it "unsupersede_learning cannot revive another account's learning" do
-      other = create(:ai_compound_learning, account: account_b, status: "deprecated")
+      other = create(:ai_compound_learning, account: account_b, status: "superseded")
 
       result = tool.execute(params: { action: "unsupersede_learning", learning_id: other.id })
 
       expect(result[:success]).to be false
       expect(result[:error]).to match(/not found/i)
-      expect(other.reload.status).to eq("deprecated")
+      expect(other.reload.status).to eq("superseded")
     end
 
     it "verify_learning_batch cannot verify another account's learning" do
@@ -34,13 +34,15 @@ RSpec.describe Ai::Tools::KnowledgeQualityTool do
   end
 
   describe "legitimate same-account access" do
-    it "unsupersede_learning revives the account's own deprecated learning" do
-      own = create(:ai_compound_learning, account: account_a, status: "deprecated")
+    it "unsupersede_learning revives the account's own superseded learning" do
+      winner = create(:ai_compound_learning, account: account_a, status: "active")
+      own = create(:ai_compound_learning, account: account_a, status: "superseded", superseded_by: winner)
 
       result = tool.execute(params: { action: "unsupersede_learning", learning_id: own.id })
 
       expect(result[:success]).to be true
       expect(own.reload.status).to eq("active")
+      expect(own.superseded_by_id).to be_nil
     end
 
     it "verify_learning_batch verifies the account's own active learning" do
@@ -51,6 +53,24 @@ RSpec.describe Ai::Tools::KnowledgeQualityTool do
       expect(result[:success]).to be true
       expect(result[:verified]).to eq(1)
       expect(own.reload.status).to eq("verified")
+    end
+  end
+
+  # unsupersede_learning reverses resolve_contradiction, so it may only revive
+  # a SUPERSEDED learning. It used to revive any non-active status, which let
+  # it silently undo a dispute (disproven), a verification (verified), a
+  # retirement (retired) or a decay deprecation (deprecated).
+  describe "unsupersede_learning refuses every status other than superseded" do
+    %w[verified disproven retired deprecated].each do |status|
+      it "refuses a #{status} learning and leaves it #{status}" do
+        own = create(:ai_compound_learning, account: account_a, status: status)
+
+        result = tool.execute(params: { action: "unsupersede_learning", learning_id: own.id })
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to include(status)
+        expect(own.reload.status).to eq(status)
+      end
     end
   end
 

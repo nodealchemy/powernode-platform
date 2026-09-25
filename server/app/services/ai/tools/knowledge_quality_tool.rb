@@ -24,7 +24,9 @@ module Ai
                                               returns: "winner_id, loser_id, winner_importance, loser_status and the reason",
                                               refuses: "either learning is not found, or reason is blank",
                                               see_also: { "unsupersede_learning" => "reversing a resolution" }
-      declare_action "unsupersede_learning", mutating: true
+      declare_action "unsupersede_learning", mutating: true,
+                                             returns: "learning_id and status (active)",
+                                             refuses: "the learning is not found, or its status is not superseded"
       declare_action "verify_learning", mutating: true,
                                         returns: "learning_id, new_status (verified), new_importance and new_confidence",
                                         refuses: "the learning is not found or not active, or there is no user context",
@@ -86,7 +88,7 @@ module Ai
             parameters: {}
           },
           "unsupersede_learning" => {
-            description: "Revive a deprecated/superseded learning back to active state. Clears superseded_by_id and resets status to active. Use to reverse an erroneous resolve_contradiction call.",
+            description: "Revive a superseded learning back to active state. Clears superseded_by_id and resets status to active. Use to reverse an erroneous resolve_contradiction call. Refuses any learning whose status is not superseded.",
             parameters: {
               learning_id: { type: "string", required: true, description: "CompoundLearning ID to revive" }
             }
@@ -120,7 +122,12 @@ module Ai
         learning = find_learning!(params[:learning_id])
         return learning unless learning.is_a?(Ai::CompoundLearning)
 
-        return { success: false, error: "Already active" } if learning.status == "active"
+        # Only reverses resolve_contradiction. Any other non-active status was
+        # set by a different decision (dispute, verification, retirement,
+        # decay) that this verb must not silently undo.
+        unless learning.status == "superseded"
+          return { success: false, error: "Only a superseded learning can be revived; this learning is #{learning.status}" }
+        end
 
         learning.update!(status: "active", superseded_by_id: nil)
         { success: true, learning_id: learning.id, status: learning.status }
