@@ -25,12 +25,9 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
     return hasPermissions(user, [...tab.requiredPermissions]);
   });
 
-  // Determine active tab based on current path
-  const getActiveTab = (): string => {
-    return findActiveSettingsTab(availableTabs, location.pathname)?.id || 'overview';
-  };
-
-  const activeTabId = getActiveTab();
+  // The tab the current path belongs to; none on an unknown settings path,
+  // where the page shows its not-found message instead.
+  const activeTabId = findActiveSettingsTab(availableTabs, location.pathname)?.id;
 
   const handleTabClick = (tab: AdminSettingsTab) => {
     navigate(tab.href);
@@ -77,13 +74,14 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
         <select
           id="admin-settings-tab"
           name="admin-settings-tab"
-          value={activeTabId}
+          value={activeTabId ?? ''}
           onChange={(e) => {
             const selectedTab = availableTabs.find(tab => tab.id === e.target.value);
             if (selectedTab) handleTabClick(selectedTab);
           }}
           className="block w-full rounded-md border-theme bg-theme-surface text-theme-primary shadow-sm focus:border-theme-interactive-primary focus:ring-theme-interactive-primary"
         >
+          {!activeTabId && <option value="" disabled>Select a tab</option>}
           {availableTabs.map((tab) => (
             <option key={tab.id} value={tab.id}>
               {tab.label}

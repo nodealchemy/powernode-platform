@@ -319,4 +319,33 @@ describe('AdminSettingsTabs', () => {
     // Reset the mock back to original value for other tests
     mockLocation.pathname = originalPathname;
   });
+
+  // fc-45: an unknown settings path renders the page's not-found message, so
+  // no tab may claim to be the current one.
+  it('marks no tab active on an unknown settings path', async () => {
+    const originalPathname = mockLocation.pathname;
+    mockLocation.pathname = '/app/admin/settings/no-such-tab';
+
+    renderWithProviders(
+      <AdminSettingsTabs />,
+      {
+        preloadedState: {
+          ...mockAuthenticatedState,
+          auth: {
+            ...mockAuthenticatedState.auth,
+            user: { ...mockUsers.adminUser, permissions: ['admin.settings.read'] }
+          }
+        }
+      }
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Overview')).toHaveLength(2); // Desktop and mobile
+    });
+    screen.getAllByRole('button').forEach((button) => expect(button).not.toHaveAttribute('aria-current'));
+    expect(screen.queryByText('System overview and quick admin actions')).not.toBeInTheDocument();
+    expect((screen.getByLabelText('Select an admin settings tab') as HTMLSelectElement).value).toBe('');
+
+    mockLocation.pathname = originalPathname;
+  });
 });
