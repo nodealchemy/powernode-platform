@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { fetchBenchmarks, createBenchmark, runBenchmark } from '../api/evaluationApi';
+import { learningApi } from '@/features/ai/learning/api/learningApi';
 import type { PerformanceBenchmark } from '../types/evaluation';
 import { agentsApi } from '@/shared/services/ai';
 
@@ -28,7 +28,7 @@ export const BenchmarkBuilder: React.FC = () => {
     try {
       setLoading(true);
       const [benchData, agentRes] = await Promise.all([
-        fetchBenchmarks(),
+        learningApi.getBenchmarks(),
         agentsApi.getAgents({ status: 'active', limit: 100 }),
       ]);
       setBenchmarks(benchData);
@@ -48,7 +48,7 @@ export const BenchmarkBuilder: React.FC = () => {
     if (!formName.trim()) return;
     try {
       setCreating(true);
-      await createBenchmark({
+      await learningApi.createBenchmark({
         name: formName,
         agent_id: formAgentId || undefined,
         thresholds: { correctness: 3.0, completeness: 3.0, helpfulness: 3.0, safety: 4.0 },
@@ -68,7 +68,7 @@ export const BenchmarkBuilder: React.FC = () => {
   const handleRun = async (id: string) => {
     try {
       setRunningId(id);
-      await runBenchmark(id);
+      await learningApi.runBenchmark(id);
       addNotification({ type: 'success', message: 'Benchmark run complete' });
       loadData();
     } catch {

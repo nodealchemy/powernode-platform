@@ -4,22 +4,9 @@ import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { apiClient } from '@/shared/services/apiClient';
+import { learningApi, type Recommendation } from './api/learningApi';
 import { EntityLink } from '@/shared/components/entity';
 import { resolveCoreEntityType } from '@/shared/entity/registerCoreEntities';
-
-interface Recommendation {
-  id: string;
-  recommendation_type: string;
-  target_type: string;
-  target_id: string;
-  current_config: Record<string, unknown>;
-  recommended_config: Record<string, unknown>;
-  evidence: Record<string, unknown>;
-  confidence_score: number;
-  status: string;
-  created_at: string;
-}
 
 const TYPE_LABELS: Record<string, string> = {
   provider_switch: 'Provider Switch',
@@ -37,8 +24,7 @@ export const RecommendationsContent: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get('/ai/learning/recommendations');
-      setRecommendations(response.data?.data?.recommendations || []);
+      setRecommendations(await learningApi.getRecommendations());
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to load recommendations' });
     } finally {
@@ -52,7 +38,7 @@ export const RecommendationsContent: React.FC = () => {
 
   const applyRecommendation = async (id: string) => {
     try {
-      await apiClient.post(`/ai/learning/recommendations/${id}/apply`);
+      await learningApi.applyRecommendation(id);
       addNotification({ type: 'success', message: 'Recommendation applied' });
       loadData();
     } catch (_error) {
@@ -62,7 +48,7 @@ export const RecommendationsContent: React.FC = () => {
 
   const dismissRecommendation = async (id: string) => {
     try {
-      await apiClient.post(`/ai/learning/recommendations/${id}/dismiss`);
+      await learningApi.dismissRecommendation(id);
       loadData();
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to dismiss recommendation' });

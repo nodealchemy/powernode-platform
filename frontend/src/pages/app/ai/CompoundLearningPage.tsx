@@ -3,7 +3,7 @@ import { ArrowUpRight } from 'lucide-react';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
-import { promoteCrossTeam } from '@/features/ai/learning/services/compoundLearningApi';
+import { learningApi } from '@/features/ai/learning/api/learningApi';
 import { CompoundMetricsDashboard } from '@/features/ai/learning/components/CompoundMetricsDashboard';
 import { LearningsList } from '@/features/ai/learning/components/LearningsList';
 
@@ -17,7 +17,7 @@ export const CompoundLearningContent: React.FC<CompoundLearningContentProps> = (
 
   const handlePromote = useCallback(async () => {
     try {
-      const count = await promoteCrossTeam();
+      const count = await learningApi.promoteCrossTeam();
       addNotification({
         type: 'success',
         message: count > 0 ? `Promoted ${count} learnings to global scope` : 'No learnings eligible for promotion',
@@ -60,7 +60,7 @@ const CompoundLearningPage: React.FC = () => {
 
   const handlePromote = async () => {
     try {
-      const count = await promoteCrossTeam();
+      const count = await learningApi.promoteCrossTeam();
       addNotification({
         type: 'success',
         message: count > 0 ? `Promoted ${count} learnings to global scope` : 'No learnings eligible for promotion',

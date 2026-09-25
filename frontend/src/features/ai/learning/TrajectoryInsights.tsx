@@ -4,26 +4,9 @@ import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { apiClient } from '@/shared/services/apiClient';
+import { learningApi, type CacheMetrics } from './api/learningApi';
+import type { AgentScoreTrend } from '@/features/ai/evaluation/types/evaluation';
 import { EntityLink } from '@/shared/components/entity';
-
-interface AgentScoreTrend {
-  agent_id: string;
-  agent_name: string;
-  count: number;
-  average_correctness: number | null;
-  average_completeness: number | null;
-  average_helpfulness: number | null;
-  average_safety: number | null;
-  trend: string;
-}
-
-interface CacheMetrics {
-  hits: number;
-  misses: number;
-  hit_rate: number;
-  estimated_savings_usd: number;
-}
 
 const TrendIcon: React.FC<{ trend: string }> = ({ trend }) => {
   switch (trend) {
@@ -45,12 +28,12 @@ export const TrajectoryInsights: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [trendsRes, cacheRes] = await Promise.all([
-        apiClient.get('/ai/learning/agent_trends'),
-        apiClient.get('/ai/learning/cache_metrics'),
+      const [trends, metrics] = await Promise.all([
+        learningApi.getAgentTrends(),
+        learningApi.getCacheMetrics(),
       ]);
-      setAgentTrends(trendsRes.data?.data?.trends || []);
-      setCacheMetrics(cacheRes.data?.data?.metrics || null);
+      setAgentTrends(trends);
+      setCacheMetrics(metrics);
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to load insights' });
     } finally {

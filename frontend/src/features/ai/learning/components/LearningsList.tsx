@@ -5,13 +5,12 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import {
-  fetchLearnings,
-  reinforceLearning,
+  learningApi,
   CompoundLearning,
   LearningFilters,
   SortField,
   SortDir,
-} from '../services/compoundLearningApi';
+} from '../api/learningApi';
 
 const PAGE_SIZE = 50;
 
@@ -80,7 +79,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
       if (selectedCategory) filters.category = selectedCategory;
       if (selectedScope) filters.scope = selectedScope;
 
-      const result = await fetchLearnings(filters);
+      const result = await learningApi.getLearnings(filters);
 
       if (append) {
         setLearnings((prev) => [...prev, ...result.learnings]);
@@ -127,7 +126,7 @@ export const LearningsList: React.FC<LearningsListProps> = ({ refreshKey = 0 }) 
     e.stopPropagation();
     try {
       setReinforcing(id);
-      await reinforceLearning(id);
+      await learningApi.reinforceLearning(id);
       addNotification({ type: 'success', message: 'Learning reinforced' });
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to reinforce learning' });

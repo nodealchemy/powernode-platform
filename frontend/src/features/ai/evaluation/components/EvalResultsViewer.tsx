@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { fetchEvaluationResults } from '../api/evaluationApi';
+import { learningApi } from '@/features/ai/learning/api/learningApi';
 import type { EvaluationResult, ScoreDimension } from '../types/evaluation';
 import { SCORE_DIMENSIONS, DIMENSION_LABELS } from '../types/evaluation';
 
@@ -37,7 +37,7 @@ export const EvalResultsViewer: React.FC<EvalResultsViewerProps> = ({ agentId })
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchEvaluationResults({ agent_id: agentId, limit: 100 });
+      const data = await learningApi.getEvaluationResults({ agent_id: agentId, limit: 100 });
       setResults(data);
     } catch {
       addNotification({ type: 'error', message: 'Failed to load evaluation results' });

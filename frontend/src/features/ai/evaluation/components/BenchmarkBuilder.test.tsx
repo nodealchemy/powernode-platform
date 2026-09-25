@@ -16,10 +16,12 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 // inline in a mock factory before the first test runs, so wire this one
 // through a named mock and set its resolved value in beforeEach instead.
 const mockFetchBenchmarks = jest.fn();
-jest.mock('../api/evaluationApi', () => ({
-  fetchBenchmarks: (...args: unknown[]) => mockFetchBenchmarks(...args),
-  createBenchmark: jest.fn(),
-  runBenchmark: jest.fn(),
+jest.mock('@/features/ai/learning/api/learningApi', () => ({
+  learningApi: {
+    getBenchmarks: (...args: unknown[]) => mockFetchBenchmarks(...args),
+    createBenchmark: jest.fn(),
+    runBenchmark: jest.fn(),
+  },
 }));
 
 describe('BenchmarkBuilder (fc-37 migration)', () => {

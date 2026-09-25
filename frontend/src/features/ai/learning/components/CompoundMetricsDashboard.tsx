@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { fetchCompoundMetrics, CompoundMetrics } from '../services/compoundLearningApi';
+import { learningApi, type CompoundMetrics } from '../api/learningApi';
 
 const CATEGORY_COLORS: Record<string, string> = {
   pattern: 'info',
@@ -55,7 +55,7 @@ export const CompoundMetricsDashboard: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchCompoundMetrics();
+      const data = await learningApi.getCompoundMetrics();
       setMetrics(data);
     } catch (_error) {
       addNotification({ type: 'error', message: 'Failed to load compound metrics' });

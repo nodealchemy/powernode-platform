@@ -5,7 +5,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { fetchAgentTrends } from '../api/evaluationApi';
+import { learningApi } from '@/features/ai/learning/api/learningApi';
 import type { AgentScoreTrend, ScoreDimension } from '../types/evaluation';
 import { SCORE_DIMENSIONS, DIMENSION_LABELS } from '../types/evaluation';
 
@@ -18,7 +18,7 @@ export const EvalComparison: React.FC = () => {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await fetchAgentTrends();
+      const data = await learningApi.getAgentTrends();
       setTrends(data);
       if (data.length > 0) {
         setSelectedAgents(data.slice(0, 4).map((t) => t.agent_id));
