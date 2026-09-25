@@ -20,6 +20,33 @@ RSpec.describe Platform::Health::CoreChecks do
       expect(result[:connection_pool]).to include(:size, :connections, :busy, :idle)
     end
 
+    # fc-47 C4 row 1: the fields the deleted fleet HealthPanel showed. Counts
+    # and the database's name only, never a host.
+    it "reports the database name, its size and its active connections" do
+      connection = ActiveRecord::Base.connection
+      result = described_class.database
+
+      expect(result[:database]).to eq(connection.current_database)
+      expect(result[:size_bytes]).to be_a(Integer).and be > 0
+      expect(result[:active_connections]).to be_a(Integer).and be >= 1
+    end
+
+    it "leaves a refused figure absent, with the exception class as its reason, and stays healthy" do
+      connection = ActiveRecord::Base.connection
+      allow(connection).to receive(:select_value).and_call_original
+      allow(connection).to receive(:select_value).with(/pg_database_size/)
+                                                  .and_raise(ActiveRecord::StatementInvalid, "permission denied for db x")
+      allow(Rails.logger).to receive(:warn)
+
+      result = described_class.database
+
+      expect(result[:status]).to eq("healthy")
+      expect(result).not_to have_key(:size_bytes)
+      expect(result[:size_bytes_reason]).to eq("ActiveRecord::StatementInvalid")
+      expect(result[:active_connections]).to be_a(Integer)
+      expect(Rails.logger).to have_received(:warn).with(/permission denied/)
+    end
+
     it "reports unhealthy with the exception class, and logs the message instead of returning it" do
       allow(ActiveRecord::Base.connection).to receive(:execute)
         .and_raise(ActiveRecord::ConnectionNotEstablished, "password authentication failed for user x")
@@ -60,10 +87,19 @@ RSpec.describe Platform::Health::CoreChecks do
       expect(described_class.redis(client: client)).not_to have_key(:used_memory)
     end
 
-    it "reports unhealthy with the exception class only when redis is unreachable" do
+    it "names the configured cache store by its class, and nothing about where it is" do
+      allow(client).to receive(:ping).and_return("PONG")
+      allow(client).to receive(:info).and_return("connected_clients" => "3")
+
+      expect(described_class.redis(client: client)[:cache_store]).to eq(Rails.cache.class.name)
+    end
+
+    it "reports unhealthy with the exception class, and still the cache store, when redis is unreachable" do
       allow(client).to receive(:ping).and_raise(Redis::CannotConnectError, "refused at 10.0.0.5:6379")
 
-      expect(described_class.redis(client: client)).to eq(status: "unhealthy", error_class: "Redis::CannotConnectError")
+      expect(described_class.redis(client: client)).to eq(
+        status: "unhealthy", error_class: "Redis::CannotConnectError", cache_store: Rails.cache.class.name
+      )
     end
   end
 

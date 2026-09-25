@@ -148,6 +148,33 @@ RSpec.describe Platform::Status::Contributors::CoreService do
     end
   end
 
+  # fc-47 C4 row 1: the database name, size and active connections and the
+  # cache store reach the row's evidence from the real checks, inside the one
+  # cached measurement.
+  describe "the row evidence from the real checks" do
+    before do
+      allow(checks).to receive(:all).and_call_original
+      redis = instance_double(Redis, ping: "PONG", info: { "connected_clients" => "2" })
+      allow(Powernode::Redis).to receive(:client).and_return(redis)
+      %i[sidekiq disk memory cpu].each { |service| allow(checks).to receive(service).and_return(status: "healthy") }
+    end
+
+    def evidence_for(ref)
+      only_condition(enumerate.find { |r| contributor.ref_for(r) == ref })["evidence"]
+    end
+
+    it "carries the database name, its size and its active connections" do
+      expect(evidence_for("database")).to include(
+        "database" => ActiveRecord::Base.connection.current_database,
+        "size_bytes" => a_kind_of(Integer), "active_connections" => a_kind_of(Integer)
+      )
+    end
+
+    it "carries the cache store's class name" do
+      expect(evidence_for("redis")).to include("cache_store" => Rails.cache.class.name)
+    end
+  end
+
   it "is registered by the core glob" do
     expect(Platform::Status::Contributors.contributor_classes).to include(described_class)
   end

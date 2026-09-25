@@ -38,16 +38,29 @@ module Platform
         SERVICES.index_with { |service| public_send(service) }
       end
 
+      # Also the database's name, size and active connections. Each of those is
+      # read on its own: one the role may not read is absent with a reason,
+      # never a 0, and the database is still healthy.
       def database
+        connection = ActiveRecord::Base.connection
         started = monotonic_now
-        ActiveRecord::Base.connection.execute("SELECT 1")
+        connection.execute("SELECT 1")
+        response_time_ms = elapsed_ms(started)
         pool = ActiveRecord::Base.connection_pool.stat
 
         {
           status: "healthy",
-          response_time_ms: elapsed_ms(started),
-          connection_pool: pool.slice(:size, :connections, :busy, :idle)
-        }
+          response_time_ms: response_time_ms,
+          connection_pool: pool.slice(:size, :connections, :busy, :idle),
+          database: connection.current_database
+        }.merge(
+          figure(:size_bytes) { connection.select_value("SELECT pg_database_size(current_database())") },
+          figure(:active_connections) do
+            connection.select_value(
+              "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND state = 'active'"
+            )
+          end
+        )
       rescue StandardError => e
         failure("unhealthy", :database, e)
       end
@@ -62,10 +75,17 @@ module Platform
         {
           status: "healthy",
           response_time_ms: response_time_ms,
-          connected_clients: client.info["connected_clients"].to_i
+          connected_clients: client.info["connected_clients"].to_i,
+          cache_store: cache_store
         }
       rescue StandardError => e
-        failure("unhealthy", :redis, e)
+        failure("unhealthy", :redis, e).merge(cache_store: cache_store)
+      end
+
+      # The configured Rails cache store's class, read in-process, so it is
+      # known even when Redis is not. Never its URL or host.
+      def cache_store
+        Rails.cache.class.name
       end
 
       # Sidekiq runs in the standalone worker app and this app stays
@@ -99,6 +119,18 @@ module Platform
       def last_seen(beats)
         newest = beats.compact.max
         newest ? { last_seen_at: Time.at(newest).utc.iso8601 } : {}
+      end
+
+      # { key => Integer } when the query answers; otherwise { "<key>_reason" =>
+      # the exception class }, with the message logged, not returned.
+      def figure(key)
+        value = yield
+        return { "#{key}_reason": "query returned no value" } if value.nil?
+
+        { key => value.to_i }
+      rescue StandardError => e
+        Rails.logger.warn "[CoreChecks] #{key} could not be read: #{e.class}: #{e.message}"
+        { "#{key}_reason": e.class.name }
       end
 
       def failure(status, service, error)
