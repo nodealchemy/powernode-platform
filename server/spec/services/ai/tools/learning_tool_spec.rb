@@ -28,6 +28,43 @@ RSpec.describe Ai::Tools::LearningTool do
            importance_score: 0.8)
   end
 
+  # create_learning said "similar learning reinforced" on ANY non-create
+  # outcome (including a validation failure) and never returned an id.
+  describe "create_learning" do
+    before { allow(WorkerJobService).to receive(:enqueue_ai_dedup_learning) }
+
+    it "returns the new learning's id" do
+      result = tool.send(:call, action: "create_learning", category: "discovery",
+                                content: "Queue consumers must ack only after the write commits")
+
+      expect(result[:success]).to be true
+      expect(result[:outcome]).to eq("created")
+      created = Ai::CompoundLearning.find(result[:learning_id])
+      expect(created.content).to eq("Queue consumers must ack only after the write commits")
+    end
+
+    it "returns the reinforced learning's id for a near-duplicate" do
+      result = tool.send(:call, action: "create_learning", category: "discovery", content: learning.content)
+
+      expect(result[:success]).to be true
+      expect(result[:outcome]).to eq("reinforced")
+      expect(result[:learning_id]).to eq(learning.id)
+    end
+
+    it "reports a validation failure instead of claiming a reinforcement" do
+      invalid = Ai::CompoundLearning.new
+      invalid.errors.add(:content, "is invalid")
+      allow(Ai::CompoundLearning).to receive(:create!).and_raise(ActiveRecord::RecordInvalid.new(invalid))
+
+      result = tool.send(:call, action: "create_learning", category: "discovery",
+                                content: "A brand new lesson nobody has recorded yet")
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to include("Content is invalid")
+      expect(result[:error]).not_to match(/reinforced/i)
+    end
+  end
+
   describe "query_learnings with a multi-word intent query" do
     it "returns learnings matching ANY of the query words (not strict AND)" do
       # "budget" and "cadence" appear in no learning; under the old chained

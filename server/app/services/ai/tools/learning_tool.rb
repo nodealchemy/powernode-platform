@@ -48,9 +48,9 @@ module Ai
       BULK_REFUSES = "the predicate matches more than 500 rows, or a filter value is blank"
 
       declare_action "create_learning", mutating: true,
-                                        returns: "success and a message saying whether a new learning was stored or a " \
-                                                 "near-duplicate was reinforced; no id is returned",
-                                        refuses: "content is blank, or category is not a known category",
+                                        returns: "learning_id and outcome: created for a new learning, or reinforced with the " \
+                                                 "id of the existing near-duplicate that was boosted",
+                                        refuses: "content is blank, category is not a known category, or the learning fails validation",
                                         see_also: { "create_knowledge" => "a curated reference entry" }
       declare_action "learning_metrics", mutating: false,
                                          returns: "total and active counts, active counts by category and scope, average " \
@@ -287,7 +287,7 @@ module Ai
         end
 
         service = Ai::Learning::CompoundLearningService.new(account: account)
-        stored = service.store_learning(
+        result = service.store_learning_with_outcome(
           {
             title: params[:title],
             content: params[:content],
@@ -300,10 +300,14 @@ module Ai
           }
         )
 
-        if stored
-          { success: true, message: "Learning created successfully" }
+        case result[:outcome]
+        when :created
+          { success: true, learning_id: result[:learning].id, outcome: "created", message: "Learning created" }
+        when :reinforced
+          { success: true, learning_id: result[:learning].id, outcome: "reinforced",
+            message: "A similar learning already exists and was reinforced instead" }
         else
-          { success: true, message: "Similar learning already exists and was reinforced" }
+          { success: false, error: "Learning not stored: #{Array(result[:errors]).join('; ')}" }
         end
       rescue StandardError => e
         rescued_error_result(e)

@@ -868,10 +868,19 @@ module Ai
       end
 
       # Store a learning with embedding generation and deduplication.
-      # Returns true if a new learning was created, false if a near-duplicate was found and boosted.
+      # Returns true if a new learning was created, false otherwise (blank content,
+      # a near-duplicate that was boosted instead, or an invalid record).
       def store_learning(learning_data, team: nil, execution: nil)
+        store_learning_with_outcome(learning_data, team: team, execution: execution)[:outcome] == :created
+      end
+
+      # Same as store_learning, but says which case happened:
+      #   { outcome: :created,    learning: <new row> }
+      #   { outcome: :reinforced, learning: <existing near-duplicate that was boosted> }
+      #   { outcome: :invalid,    errors: [messages] }  (blank content or validation failure)
+      def store_learning_with_outcome(learning_data, team: nil, execution: nil)
         content = learning_data[:content]
-        return false if content.blank?
+        return { outcome: :invalid, errors: [ "content is blank" ] } if content.blank?
 
         # Generate embedding for deduplication
         embedding = @embedding_service.generate(content)
@@ -893,7 +902,7 @@ module Ai
               metadata: existing.metadata.merge("last_duplicate_at" => Time.current.iso8601)
             )
             existing.touch_event_processed!
-            return false
+            return { outcome: :reinforced, learning: existing }
           end
 
           # Check for potential contradictions (similar content, opposite outcomes)
@@ -922,7 +931,7 @@ module Ai
           if existing
             existing.boost_importance!(0.03)
             existing.touch_event_processed!
-            return false
+            return { outcome: :reinforced, learning: existing }
           end
         end
 
@@ -955,10 +964,10 @@ module Ai
           Rails.logger.warn("[CompoundLearning] Failed to enqueue dedup check: #{e.message}")
         end
 
-        true
+        { outcome: :created, learning: new_learning }
       rescue ActiveRecord::RecordInvalid => e
         Rails.logger.warn("[CompoundLearning] Failed to store learning: #{e.message}")
-        false
+        { outcome: :invalid, errors: e.record.errors.full_messages.presence || [ e.message ] }
       end
 
       # Resolve neutral injections positively by EXACT id — the dev-loop drain
