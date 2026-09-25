@@ -9,8 +9,8 @@ module Platform
   # ── `not_measured` IS THE WIRE NAME (design §4.1) ───────────────────────────
   #
   # The absent-measurement verdict travels as `not_measured` end to end. The
-  # `unknown` alias the platform-health REST route emits today is a different
-  # producer and is retired with HealthPanel (C4). Nothing in this file, and
+  # `unknown` alias a platform-health REST route used to emit was a different
+  # producer, deleted with HealthPanel (fc-47). Nothing in this file, and
   # nothing downstream of it, may rename the verdict on the way out: a UI that
   # sees `unknown` cannot tell "we did not look" from "the value is unknown to
   # you", and a spec greps the rendered JSON for the literal.

@@ -12,8 +12,8 @@
 // ── `not_measured` IS THE WIRE NAME ────────────────────────────────────────
 //
 // The absent-measurement verdict travels as `not_measured` end to end. The
-// `unknown` alias the platform-health REST route emits today is a DIFFERENT
-// producer, retired with HealthPanel (C4). Nothing here may rename it on the
+// `unknown` alias a platform-health REST route used to emit was a DIFFERENT
+// producer, deleted with HealthPanel (fc-47). Nothing here may rename it on the
 // way in: a UI that sees `unknown` cannot tell "we did not look" from "the
 // value is unknown to you", and those call for different operator actions.
 
