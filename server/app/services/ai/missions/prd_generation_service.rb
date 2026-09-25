@@ -13,21 +13,10 @@ module Ai
         You are a senior software architect creating a Product Requirements Document (PRD).
         Your job is to break down a feature into concrete, implementable tasks.
 
-        Output ONLY valid JSON with this structure:
-        {
-          "title": "Feature title",
-          "description": "Brief description of the feature",
-          "tasks": [
-            {
-              "key": "task_1",
-              "name": "Short task name",
-              "description": "Detailed description of what to implement",
-              "priority": 1,
-              "acceptance_criteria": "What defines this task as complete",
-              "dependencies": []
-            }
-          ]
-        }
+        Give the feature a title and a brief description, then its tasks. For each
+        task: a key, a short name, a detailed description of what to implement, a
+        priority, acceptance criteria that define it as complete, and the keys of the
+        tasks it depends on.
 
         Rules:
         - Break work into 2-8 discrete tasks, ordered by dependency
@@ -37,8 +26,39 @@ module Ai
         - Use sequential keys: task_1, task_2, etc.
         - Priority: 1 = highest, higher numbers = lower priority
         - List task key dependencies (e.g. ["task_1"] means depends on task_1)
-        - Output ONLY the JSON object, no markdown fences or commentary
       LIQUID
+
+      # Structured output: the API enforces this shape, so no prompt asks for
+      # JSON. Strict form (closed objects, every property required) for
+      # Anthropic output_config.format and OpenAI strict json_schema.
+      PRD_SCHEMA = {
+        name: "prd",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: %w[title description tasks],
+          properties: {
+            title: { type: "string" },
+            description: { type: "string" },
+            tasks: {
+              type: "array",
+              items: {
+                type: "object",
+                additionalProperties: false,
+                required: %w[key name description priority acceptance_criteria dependencies],
+                properties: {
+                  key: { type: "string" },
+                  name: { type: "string" },
+                  description: { type: "string" },
+                  priority: { type: "integer" },
+                  acceptance_criteria: { type: "string" },
+                  dependencies: { type: "array", items: { type: "string" } }
+                }
+              }
+            }
+          }
+        }
+      }.freeze
 
       attr_reader :mission, :account
 
@@ -60,7 +80,8 @@ module Ai
         client = build_agent_client(agent)
         messages = build_messages
 
-        response = client.complete(messages: messages, model: agent_model(agent), max_tokens: agent_max_tokens(agent), temperature: agent_temperature(agent))
+        response = client.complete_structured(messages: messages, schema: PRD_SCHEMA, model: agent_model(agent),
+                                              max_tokens: agent_max_tokens(agent), temperature: agent_temperature(agent))
         raise PrdGenerationError, "AI provider returned error: #{response.content}" unless response.success?
 
         response_text = response.content
@@ -169,33 +190,17 @@ module Ai
         parts.join("\n")
       end
 
-      # Parse PRD JSON from AI response text
+      # The reply is PRD_SCHEMA JSON (structured output). One that does not
+      # parse (a refusal, a max_tokens cut) falls back to a single task built
+      # from the objective, logged.
       def parse_prd_from_response(text)
-        # Try direct JSON parse
-        parsed = JSON.parse(text)
-        normalize_prd(parsed) if parsed.is_a?(Hash) && parsed["tasks"]
-      rescue JSON::ParserError
-        # Try extracting from code fences
-        if (match = text.match(/```(?:json)?\s*\n?(.*?)\n?\s*```/m))
-          begin
-            parsed = JSON.parse(match[1])
-            return normalize_prd(parsed) if parsed.is_a?(Hash) && parsed["tasks"]
-          rescue JSON::ParserError
-            # Fall through
-          end
+        parsed = begin
+          JSON.parse(text)
+        rescue JSON::ParserError
+          nil
         end
+        return normalize_prd(parsed) if parsed.is_a?(Hash) && parsed["tasks"].present?
 
-        # Try finding JSON object in text
-        if (match = text.match(/\{.*"tasks"\s*:\s*\[.*\]/m))
-          begin
-            parsed = JSON.parse(match[0])
-            return normalize_prd(parsed) if parsed.is_a?(Hash) && parsed["tasks"]
-          rescue JSON::ParserError
-            # Fall through
-          end
-        end
-
-        # Fallback: single task from the objective
         Rails.logger.warn("[PrdGenerationService] Could not parse AI response as PRD JSON, using fallback")
         {
           "title" => mission.selected_feature&.dig("title") || mission.name,

@@ -56,21 +56,10 @@ SYSTEM_PROMPT_TEMPLATES = [
       You are a senior software architect creating a Product Requirements Document (PRD).
       Your job is to break down a feature into concrete, implementable tasks.
 
-      Output ONLY valid JSON with this structure:
-      {
-        "title": "Feature title",
-        "description": "Brief description of the feature",
-        "tasks": [
-          {
-            "key": "task_1",
-            "name": "Short task name",
-            "description": "Detailed description of what to implement",
-            "priority": 1,
-            "acceptance_criteria": "What defines this task as complete",
-            "dependencies": []
-          }
-        ]
-      }
+      Give the feature a title and a brief description, then its tasks. For each
+      task: a key, a short name, a detailed description of what to implement, a
+      priority, acceptance criteria that define it as complete, and the keys of the
+      tasks it depends on.
 
       Rules:
       - Break work into 2-8 discrete tasks, ordered by dependency
@@ -80,7 +69,6 @@ SYSTEM_PROMPT_TEMPLATES = [
       - Use sequential keys: task_1, task_2, etc.
       - Priority: 1 = highest, higher numbers = lower priority
       - List task key dependencies (e.g. ["task_1"] means depends on task_1)
-      - Output ONLY the JSON object, no markdown fences or commentary
     LIQUID
   },
   {

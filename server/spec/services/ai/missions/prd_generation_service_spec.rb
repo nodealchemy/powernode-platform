@@ -88,7 +88,7 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
 
     context 'when AI returns valid PRD JSON' do
       before do
-        allow(client).to receive(:complete).and_return(
+        allow(client).to receive(:complete_structured).and_return(
           Ai::Llm::Response.new(content: ai_response_json, usage: { prompt_tokens: 500, completion_tokens: 300, total_tokens: 800 })
         )
       end
@@ -121,25 +121,30 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
       end
     end
 
-    context 'when AI returns JSON in code fences' do
+    # C8: the shape is enforced by the API (PRD_SCHEMA), not asked for in prose.
+    context 'structured output' do
       before do
-        fenced_response = "Here's the PRD:\n```json\n#{ai_response_json}\n```\nLet me know if you need changes."
-        allow(client).to receive(:complete).and_return(
-          Ai::Llm::Response.new(content: fenced_response, usage: { prompt_tokens: 500, completion_tokens: 300, total_tokens: 800 })
+        allow(client).to receive(:complete_structured).and_return(
+          Ai::Llm::Response.new(content: ai_response_json, usage: { prompt_tokens: 500, completion_tokens: 300, total_tokens: 800 })
         )
       end
 
-      it 'extracts and parses the JSON from code fences' do
-        prd = service.generate!
+      it 'requests the strict PRD schema and asks for no JSON in the prompt' do
+        service.generate!
 
-        expect(prd["tasks"].length).to eq(2)
-        expect(prd["tasks"].first["key"]).to eq("task_1")
+        expect(client).to have_received(:complete_structured) do |messages:, schema:, **|
+          expect(schema).to eq(described_class::PRD_SCHEMA)
+          expect(messages.first[:content]).not_to match(/ONLY valid JSON|markdown fences/)
+        end
+        task = described_class::PRD_SCHEMA.dig(:schema, :properties, :tasks, :items)
+        expect(task[:additionalProperties]).to be(false)
+        expect(task[:required]).to match_array(task[:properties].keys.map(&:to_s))
       end
     end
 
     context 'when AI returns unparseable response' do
       before do
-        allow(client).to receive(:complete).and_return(
+        allow(client).to receive(:complete_structured).and_return(
           Ai::Llm::Response.new(content: "I cannot generate a PRD for this.", usage: { prompt_tokens: 500, completion_tokens: 50, total_tokens: 550 })
         )
       end
@@ -155,7 +160,7 @@ RSpec.describe Ai::Missions::PrdGenerationService, type: :service do
     context 'when AI provider returns error' do
       before do
         allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: agent.id)).and_return(client)
-        allow(client).to receive(:complete).and_return(
+        allow(client).to receive(:complete_structured).and_return(
           Ai::Llm::Response.new(content: nil, finish_reason: "error", raw_response: { error: "Rate limit exceeded" })
         )
       end
