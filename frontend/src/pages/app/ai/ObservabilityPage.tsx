@@ -7,13 +7,11 @@ import { PathTabs, firstAccessibleTabPath } from '@/shared/components/navigation
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { aiCrumbs } from '@/shared/utils/breadcrumbs';
-import { monitoringApi, HealthStatus } from '@/shared/services/ai/MonitoringApiService';
+import { monitoringApi } from '@/shared/services/ai/MonitoringApiService';
 import { conversationsApi, ConversationBase } from '@/shared/services/ai/ConversationsApiService';
-import { Alert, ResourceUtilization, ConversationMetrics } from '@/shared/types/monitoring';
+import { Alert, ConversationMetrics } from '@/shared/types/monitoring';
 
 import { transformAlerts, MONITORING_TABS } from '@/features/ai/monitoring/utils';
-import { SystemHealthDashboard } from '@/features/ai/monitoring/components/SystemHealthDashboard';
-import { ResourceUtilizationChart } from '@/features/ai/monitoring/components/ResourceUtilizationChart';
 import { ConversationAnalytics } from '@/features/ai/monitoring/components/ConversationAnalytics';
 import { AlertManagementCenter } from '@/features/ai/monitoring/components/AlertManagementCenter';
 import { CircuitBreakersTab } from '@/features/ai/monitoring/components/CircuitBreakersTab';
@@ -44,10 +42,14 @@ const OBSERVABILITY_BASE = '/app/ai/observability';
  * AiMonitoringConcern) and the live provider Ai::CircuitBreakerRegistry — both
  * used below (Alerts tab, Circuit Breakers tab).
  *
- * Path-based tabs (canonical `PathTabs` + nested `<Routes>`): System Health,
- * Systems, Circuit Breakers, Alerts, Conversations, Execution Traces,
+ * Path-based tabs (canonical `PathTabs` + nested `<Routes>`): Systems, Circuit
+ * Breakers, Alerts, Self-Healing, Conversation Analytics, Execution Traces,
  * Evaluation — each gated on the permission its OWN backend endpoint checks
  * (see MONITORING_TABS), not a single blanket page-level permission.
+ *
+ * fc-47: the System Health tab is gone. Platform health (database, redis,
+ * workers, host resources, providers, breakers) is on /app/status; the
+ * self-healing view it also held is its own tab.
  */
 export const ObservabilityPage: React.FC = () => {
   const { hasPermission } = usePermissions();
@@ -60,11 +62,6 @@ export const ObservabilityPage: React.FC = () => {
     addNotificationRef.current = addNotification;
   }, [addNotification]);
 
-  // Health tab state (Ai::MonitoringHealthService + Monitoring::UnifiedService resources)
-  const [systemHealth, setSystemHealth] = useState<HealthStatus | null>(null);
-  const [resources, setResources] = useState<ResourceUtilization | null>(null);
-  const [isLoadingHealth, setIsLoadingHealth] = useState(true);
-
   // Alerts tab state (Monitoring::UnifiedService — the only stateful alerts)
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [isLoadingAlerts, setIsLoadingAlerts] = useState(true);
@@ -73,7 +70,6 @@ export const ObservabilityPage: React.FC = () => {
   const [conversations, setConversations] = useState<ConversationMetrics[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(true);
 
-  const canViewHealth = hasPermission('ai.monitoring.read');
   const canViewAlerts = hasPermission('ai.monitoring.read');
   const canManageAlerts = hasPermission('ai.aiops.manage');
   const canViewConversations = hasPermission('ai.conversations.read');
@@ -88,69 +84,10 @@ export const ObservabilityPage: React.FC = () => {
     () =>
       aiCrumbs(
         { label: 'Observability', href: OBSERVABILITY_BASE },
-        { label: activeTab?.label ?? 'System Health' }
+        { label: activeTab?.label ?? 'Observability' }
       ),
     [activeTab]
   );
-
-  // ---- Health tab -----------------------------------------------------------
-
-  const fetchHealth = useCallback(async () => {
-    if (!canViewHealth) return;
-    setIsLoadingHealth(true);
-    try {
-      const [healthResponse, dashboardResponse] = await Promise.all([
-        monitoringApi.getHealth(),
-        monitoringApi.getDashboard(),
-      ]);
-      setSystemHealth(healthResponse);
-
-      if (dashboardResponse.resources) {
-        // The server reports the pool SIZE as connection_count, and nothing
-        // about use or storage. Report that and no more (M1 tail): the old
-        // `|| 5`, a pool `used` equal to its size, and a 1000/100/900 storage
-        // split were all invented.
-        const poolSize = dashboardResponse.resources.database.connection_count;
-        setResources({
-          system: {
-            cpu_usage: dashboardResponse.resources.cpu.usage_percent,
-            memory_usage: dashboardResponse.resources.memory.usage_percent,
-            disk_usage: 0,
-            network_usage: 0
-          },
-          database: {
-            connection_pool: { size: poolSize, used: null, available: null },
-            query_performance: { avg_query_time: 0, slow_queries: 0, deadlocks: 0 },
-            storage_usage: null
-          },
-          redis: {
-            memory_usage: {
-              used: parseFloat(dashboardResponse.resources.redis.used_memory) || 0,
-              peak: 0,
-              limit: 0
-            },
-            connection_count: dashboardResponse.resources.redis.connected_clients,
-            hit_rate: 100
-          },
-          sidekiq: { queue_sizes: {}, worker_utilization: { busy: 0, idle: 0, total: 0 }, failed_jobs: 0 },
-          actioncable: { connection_count: 0, subscription_count: 0, message_throughput: 0 }
-        });
-      }
-    } catch (err) {
-      addNotificationRef.current({
-        type: 'error',
-        title: 'Health Check Failed',
-        message: err instanceof Error ? err.message : 'Failed to fetch health data'
-      });
-    } finally {
-      setIsLoadingHealth(false);
-    }
-  }, [canViewHealth]);
-
-  useEffect(() => {
-    if (!canViewHealth) return;
-    fetchHealth();
-  }, [canViewHealth, fetchHealth]);
 
   // ---- Alerts tab -------------------------------------------------------------
 
@@ -276,20 +213,11 @@ export const ObservabilityPage: React.FC = () => {
     );
   }
 
-  // Only Health, Alerts and Conversations own page-level refreshable data;
+  // Only Alerts and Conversations own page-level refreshable data;
   // Systems (AiOpsContent), Circuit Breakers and Traces self-fetch, and
   // Evaluation has no refresh concept.
   const actions: PageAction[] = (() => {
     switch (activeTab?.key) {
-      case 'health':
-        return [{
-          id: 'observability-refresh',
-          label: 'Refresh',
-          onClick: () => { void fetchHealth(); },
-          icon: RefreshCw,
-          variant: 'outline' as const,
-          disabled: isLoadingHealth
-        }];
       case 'alerts':
         return [{
           id: 'observability-refresh',
@@ -317,7 +245,7 @@ export const ObservabilityPage: React.FC = () => {
     <AiErrorBoundary>
       <PageContainer
         title="Observability"
-        description="Health, systems, circuit breakers, alerts, conversations, traces, and evaluation for the AI fleet"
+        description="Systems, circuit breakers, alerts, self-healing, conversations, traces, and evaluation for the AI fleet"
         breadcrumbs={breadcrumbs}
         actions={actions}
       >
@@ -328,27 +256,6 @@ export const ObservabilityPage: React.FC = () => {
         >
           <Routes>
             <Route index element={<Navigate to={firstTabPath} replace />} />
-
-            <Route
-              path="health"
-              element={
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <SystemHealthDashboard
-                      healthData={systemHealth}
-                      isLoading={isLoadingHealth}
-                      onRefresh={fetchHealth}
-                    />
-                    <ResourceUtilizationChart
-                      resourceData={resources}
-                      isLoading={isLoadingHealth}
-                      onRefresh={fetchHealth}
-                    />
-                  </div>
-                  <SelfHealingContent />
-                </div>
-              }
-            />
 
             <Route path="systems" element={<AiOpsContent />} />
 
@@ -371,6 +278,8 @@ export const ObservabilityPage: React.FC = () => {
                 />
               }
             />
+
+            <Route path="self-healing" element={<SelfHealingContent />} />
 
             <Route
               path="conversations"

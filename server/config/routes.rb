@@ -1829,7 +1829,6 @@ Rails.application.routes.draw do
           get :dashboard
           get :metrics
           get :overview
-          get :health
           get "health/detailed", action: :health_detailed
           get "health/connectivity", action: :health_connectivity
           get :alerts

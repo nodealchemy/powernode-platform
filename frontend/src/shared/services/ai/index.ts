@@ -113,7 +113,6 @@ export type {
 export { monitoringApi };
 export type {
   MonitoringDashboard,
-  HealthStatus,
   MetricsData,
   ProviderCircuitBreakerState,
   Alert,

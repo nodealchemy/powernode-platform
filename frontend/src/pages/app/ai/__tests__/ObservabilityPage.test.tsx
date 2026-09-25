@@ -7,12 +7,7 @@ const mockAddNotification = jest.fn();
 const mockGetAlerts = jest.fn();
 const mockAcknowledgeAlert = jest.fn();
 const mockResolveAlert = jest.fn();
-const mockGetDashboard = jest.fn();
-const mockGetHealth = jest.fn();
 const mockGetConversations = jest.fn();
-// The page's own resources mapping (M1 tail) — captured so a `|| 5` or a
-// fabricated storage split regresses visibly, same discipline as before the merge.
-const mockResourceProps: Array<{ resourceData: Record<string, unknown> | null }> = [];
 const mockConversationProps: Array<{ conversations: Array<Record<string, unknown>> }> = [];
 
 jest.mock('@/shared/components/layout/PageContainer', () => ({
@@ -26,8 +21,6 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 }));
 jest.mock('@/shared/services/ai/MonitoringApiService', () => ({
   monitoringApi: {
-    getDashboard: (...args: unknown[]) => mockGetDashboard(...args),
-    getHealth: (...args: unknown[]) => mockGetHealth(...args),
     getAlerts: (...args: unknown[]) => mockGetAlerts(...args),
     acknowledgeAlert: (...args: unknown[]) => mockAcknowledgeAlert(...args),
     resolveAlert: (...args: unknown[]) => mockResolveAlert(...args),
@@ -38,15 +31,6 @@ jest.mock('@/shared/services/ai/ConversationsApiService', () => ({
 }));
 jest.mock('@/shared/components/error/AiErrorBoundary', () => ({
   AiErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
-jest.mock('@/features/ai/monitoring/components/SystemHealthDashboard', () => ({
-  SystemHealthDashboard: () => <div data-testid="health-leaf" />,
-}));
-jest.mock('@/features/ai/monitoring/components/ResourceUtilizationChart', () => ({
-  ResourceUtilizationChart: (props: { resourceData: Record<string, unknown> | null }) => {
-    mockResourceProps.push(props);
-    return <div data-testid="resources-leaf" />;
-  },
 }));
 jest.mock('@/features/ai/monitoring/components/ConversationAnalytics', () => ({
   ConversationAnalytics: (props: { conversations: Array<Record<string, unknown>> }) => {
@@ -80,7 +64,7 @@ jest.mock('@/features/ai/monitoring/components/AlertManagementCenter', () => ({
 jest.mock('@/features/ai/monitoring/components/CircuitBreakersTab', () => ({
   CircuitBreakersTab: () => <div data-testid="circuit-breakers-leaf" />,
 }));
-jest.mock('@/features/ai/self-healing/SelfHealingDashboard', () => ({ SelfHealingContent: () => <div /> }));
+jest.mock('@/features/ai/self-healing/SelfHealingDashboard', () => ({ SelfHealingContent: () => <div data-testid="self-healing-leaf" /> }));
 jest.mock('@/features/ai/evaluation/pages/EvaluationDashboardPage', () => ({ EvaluationContent: () => <div data-testid="evaluation-leaf" /> }));
 jest.mock('@/features/ai/aiops/components/AiOpsDashboard', () => ({ AiOpsContent: () => <div data-testid="systems-leaf" /> }));
 jest.mock('../ExecutionTracesPage', () => ({ ExecutionTracesContent: () => <div data-testid="traces-leaf" /> }));
@@ -111,8 +95,6 @@ describe('ObservabilityPage', () => {
   beforeEach(() => {
     mockAllowed = [];
     mockAddNotification.mockClear();
-    mockGetDashboard.mockReset().mockResolvedValue({});
-    mockGetHealth.mockReset().mockResolvedValue({});
     mockGetAlerts.mockReset().mockResolvedValue([]);
     mockAcknowledgeAlert.mockReset();
     mockResolveAlert.mockReset();
@@ -120,15 +102,13 @@ describe('ObservabilityPage', () => {
       items: [],
       pagination: { current_page: 1, per_page: 50, total_pages: 0, total_count: 0 },
     });
-    mockResourceProps.length = 0;
     mockConversationProps.length = 0;
   });
 
-  it('renders all seven merged tabs when every underlying permission is held', () => {
+  it('renders all seven tabs when every underlying permission is held', () => {
     mockAllowed = ALL_PERMISSIONS;
-    renderAt('/app/ai/observability/health');
-
-    expect(screen.getByRole('link', { name: 'System Health' })).toBeInTheDocument();
+    renderAt('/app/ai/observability/systems');
+    expect(screen.getByRole('link', { name: 'Self-Healing' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Systems' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Circuit Breakers' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument();
@@ -146,7 +126,7 @@ describe('ObservabilityPage', () => {
 
   it('shows Access Denied when the user holds none of the tab permissions', () => {
     mockAllowed = [];
-    renderAt('/app/ai/observability/health');
+    renderAt('/app/ai/observability/systems');
     expect(screen.getByText(/Access Denied/i)).toBeInTheDocument();
   });
 
@@ -155,10 +135,10 @@ describe('ObservabilityPage', () => {
   // pass together. Holding each tab's permission in isolation and checking
   // the OTHERS stay gated proves the tabs are wired to distinct permissions.
   describe('each tab is gated on its own backend permission, not a blanket one', () => {
-    it('ai.monitoring.read alone unlocks Health, Circuit Breakers and Alerts, not Systems/Conversations', () => {
+    it('ai.monitoring.read alone unlocks Self-Healing, Circuit Breakers and Alerts, not Systems/Conversations', () => {
       mockAllowed = ['ai.monitoring.read'];
-      renderAt('/app/ai/observability/health');
-      expect(screen.getByRole('link', { name: 'System Health' })).toBeInTheDocument();
+      renderAt('/app/ai/observability/alerts');
+      expect(screen.getByRole('link', { name: 'Self-Healing' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Circuit Breakers' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Systems' })).not.toBeInTheDocument();
@@ -169,7 +149,7 @@ describe('ObservabilityPage', () => {
       mockAllowed = ['ai.aiops.read'];
       renderAt('/app/ai/observability/systems');
       expect(screen.getByRole('link', { name: 'Systems' })).toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: 'System Health' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Self-Healing' })).not.toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Alerts' })).not.toBeInTheDocument();
     });
 
@@ -177,7 +157,7 @@ describe('ObservabilityPage', () => {
       mockAllowed = ['ai.conversations.read'];
       renderAt('/app/ai/observability/conversations');
       expect(screen.getByRole('link', { name: 'Conversation Analytics' })).toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: 'System Health' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Self-Healing' })).not.toBeInTheDocument();
     });
 
     it('ai_monitoring.read alone unlocks only Execution Traces', () => {
@@ -185,7 +165,7 @@ describe('ObservabilityPage', () => {
       renderAt('/app/ai/observability/traces');
       expect(screen.getByRole('link', { name: 'Execution Traces' })).toBeInTheDocument();
       expect(screen.getByTestId('traces-leaf')).toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: 'System Health' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Self-Healing' })).not.toBeInTheDocument();
     });
 
     it('ai.analytics.read alone unlocks only Evaluation', () => {
@@ -197,34 +177,22 @@ describe('ObservabilityPage', () => {
     });
   });
 
-  describe('Health tab resource figures (M1 tail — carried through the merge)', () => {
-    const resources = (connection_count: number | null) => ({
-      cpu: { usage_percent: 5, idle_percent: 95, load_average: '0.1' },
-      memory: { total_mb: 100, used_mb: 40, free_mb: 60, usage_percent: 40 },
-      database: { status: 'ok', connection_count },
-      redis: { status: 'ok', used_memory: '1', connected_clients: 2 },
+  // fc-47: platform health lives on /app/status (the core_service contributor
+  // and the rest of the status plane). Observability keeps no health tab and
+  // reads no health endpoint of its own. Self-healing keeps its own tab
+  // until its capabilities have a home on the status page.
+  describe('health moved to /app/status (fc-47)', () => {
+    it('has no System Health tab, and /health is not a tab', () => {
+      mockAllowed = ALL_PERMISSIONS;
+      renderAt('/app/ai/observability/health');
+      expect(screen.queryByRole('link', { name: 'System Health' })).not.toBeInTheDocument();
+      expect(screen.getByTestId('systems-leaf')).toBeInTheDocument();
     });
-    const lastDatabase = () =>
-      (mockResourceProps[mockResourceProps.length - 1]?.resourceData as { database: Record<string, unknown> } | null)
-        ?.database;
 
-    beforeEach(() => {
+    it('renders self-healing on its own Self-Healing tab', () => {
       mockAllowed = ['ai.monitoring.read'];
-    });
-
-    it('the database pool carries the size the server sent and nothing it did not', async () => {
-      mockGetDashboard.mockResolvedValue({ resources: resources(10) });
-      renderAt('/app/ai/observability/health');
-      await waitFor(() => expect(lastDatabase()).toBeTruthy());
-      expect(lastDatabase()?.connection_pool).toEqual({ size: 10, used: null, available: null });
-      expect(lastDatabase()?.storage_usage).toBeNull();
-    });
-
-    it('no pool size from the server is a null size — not a made-up 5', async () => {
-      mockGetDashboard.mockResolvedValue({ resources: resources(null) });
-      renderAt('/app/ai/observability/health');
-      await waitFor(() => expect(lastDatabase()).toBeTruthy());
-      expect(lastDatabase()?.connection_pool).toEqual({ size: null, used: null, available: null });
+      renderAt('/app/ai/observability/self-healing');
+      expect(screen.getByTestId('self-healing-leaf')).toBeInTheDocument();
     });
   });
 

@@ -15,7 +15,6 @@ import { type StatusRollup, type Verdict, UNHEALTHY_VERDICTS, isVerdict } from '
  * - GET  /api/v1/ai/monitoring/dashboard
  * - GET  /api/v1/ai/monitoring/metrics
  * - GET  /api/v1/ai/monitoring/overview
- * - GET  /api/v1/ai/monitoring/health
  * - GET  /api/v1/ai/monitoring/health/detailed
  * - GET  /api/v1/ai/monitoring/health/connectivity
  * - GET  /api/v1/ai/monitoring/alerts
@@ -88,82 +87,6 @@ export interface MonitoringDashboard {
     memory: { total_mb: number; used_mb: number; free_mb: number; usage_percent: number };
     database: { status: string; connection_count: number | null };
     redis: { status: string; used_memory: string; connected_clients: number };
-  };
-}
-
-/**
- * Native backend health response format
- * Matches Rails Ai::MonitoringHealthService#comprehensive_health_check output
- */
-export interface HealthStatus {
-  // E7b: the health service reports component measurements only and stamps
-  // no verdict of its own. The overall verdict comes from the status-plane
-  // rollup the health action merges in beside the measurements (account-owned
-  // rows only; shared/NULL-account rows are split out separately).
-  rollup: StatusRollup | null;
-  shared: StatusRollup | null;
-  timestamp: string;
-  time_range_seconds?: number;
-
-  // System component
-  system: {
-    status: 'healthy' | 'degraded' | 'unhealthy';
-    uptime?: number;
-    active_agents: number;
-    running_executions: number;
-  };
-
-  // Database component
-  database: {
-    status: 'healthy' | 'degraded' | 'unhealthy';
-    connection?: string;
-    connection_pool?: {
-      size: number;
-      connections: number;
-      busy: number;
-      idle: number;
-      available: number;
-    };
-    error?: string;
-  };
-
-  // Redis component
-  redis: {
-    status: 'healthy' | 'degraded' | 'unhealthy';
-    used_memory?: string;
-    connected_clients?: number;
-    error?: string;
-  };
-
-  // Providers component
-  providers: {
-    total_providers: number;
-    healthy_providers: number;
-    providers: Array<{
-      id: string;
-      name: string;
-      provider_type: string;
-      status: 'active' | 'inactive';
-      has_credentials: boolean;
-      is_healthy: boolean;
-    }>;
-  };
-
-  // Workers component
-  workers: {
-    status: 'healthy' | 'degraded';
-    recent_completions: number;
-    recent_starts: number;
-    estimated_backlog: number;
-    last_activity?: string;
-  };
-
-  // Circuit breakers summary
-  circuit_breakers?: {
-    total_services: number;
-    healthy: number;
-    degraded: number;
-    unhealthy: number;
   };
 }
 
@@ -455,14 +378,6 @@ class MonitoringApiService extends BaseApiService {
   // ===================================================================
   // Health Monitoring
   // ===================================================================
-
-  /**
-   * Get system health status
-   * GET /api/v1/ai/monitoring/health
-   */
-  async getHealth(): Promise<HealthStatus> {
-    return this.get<HealthStatus>(`${this.basePath}/health`);
-  }
 
   /**
    * Get detailed health information

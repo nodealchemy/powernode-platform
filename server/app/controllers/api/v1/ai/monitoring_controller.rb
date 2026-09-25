@@ -24,7 +24,7 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_time_range, only: [ :dashboard, :metrics, :health ]
+        before_action :set_time_range, only: [ :dashboard, :metrics ]
         before_action :set_components, only: [ :dashboard, :metrics ]
 
         # =============================================================================
@@ -77,25 +77,6 @@ module Api
         # =============================================================================
         # HEALTH CHECKS
         # =============================================================================
-
-        # GET /api/v1/ai/monitoring/health
-        def health
-          health_data = health_service.comprehensive_health_check(time_range: @time_range)
-          rollup = platform_rollup(current_user.account)
-
-          # E7b: the service reports measurements and stamps no verdict on them,
-          # so the audit line records the rollup's verdict — the one the operator
-          # actually saw — rather than a number this endpoint no longer has.
-          render_success(health_data.merge(rollup))
-          # Under metadata: AuditLog.log_action keeps metadata and a few named
-          # columns, and silently drops any other keyword (E7 review low 1).
-          log_audit_event("ai.monitoring.health_check", current_user.account,
-            metadata: {
-              verdict: rollup[:rollup]&.dig(:verdict),
-              counts_by_verdict: rollup[:rollup]&.dig(:counts_by_verdict)
-            }
-          )
-        end
 
         # GET /api/v1/ai/monitoring/health/detailed
         def health_detailed
@@ -296,7 +277,7 @@ module Api
           return if current_worker
 
           permission_map = {
-            %w[dashboard metrics overview health health_detailed health_connectivity alerts alerts_check
+            %w[dashboard metrics overview health_detailed health_connectivity alerts alerts_check
                circuit_breakers_index circuit_breaker_show circuit_breakers_category] => "ai.monitoring.read",
             %w[circuit_breaker_reset broadcast_metrics start_monitoring stop_monitoring] => "ai.monitoring.manage",
             USER_ATTRIBUTED_ACTIONS => "ai.aiops.manage"

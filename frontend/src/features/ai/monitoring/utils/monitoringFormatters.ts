@@ -38,10 +38,10 @@ export const formatLastUpdate = (date: Date | null): string => {
  * Path-based tab identifiers for the Observability hub (`/app/ai/observability`).
  */
 export type MonitoringTabId =
-  | 'health'
   | 'systems'
   | 'circuit-breakers'
   | 'alerts'
+  | 'self-healing'
   | 'conversations'
   | 'traces'
   | 'evaluation';
@@ -72,10 +72,13 @@ export type MonitoringTabId =
  * dead-end tabs for anyone without the real permission).
  */
 export const MONITORING_TABS: PathTabSpec<MonitoringTabId>[] = [
-  { key: 'health', label: 'System Health', permission: 'ai.monitoring.read', icon: React.createElement(HeartPulse, { size: 16 }) },
   { key: 'systems', label: 'Systems', permission: 'ai.aiops.read', icon: React.createElement(Server, { size: 16 }) },
   { key: 'circuit-breakers', label: 'Circuit Breakers', permission: 'ai.monitoring.read', icon: React.createElement(Zap, { size: 16 }) },
   { key: 'alerts', label: 'Alerts', permission: 'ai.monitoring.read', icon: React.createElement(Bell, { size: 16 }) },
+  // SelfHealingController requires ai.monitoring.read. Its own tab since fc-47
+  // deleted System Health (platform health is on /app/status); it stays until
+  // the status page covers its capabilities.
+  { key: 'self-healing', label: 'Self-Healing', permission: 'ai.monitoring.read', icon: React.createElement(HeartPulse, { size: 16 }) },
   { key: 'conversations', label: 'Conversation Analytics', permission: 'ai.conversations.read', icon: React.createElement(MessageSquare, { size: 16 }) },
   { key: 'traces', label: 'Execution Traces', permission: 'ai_monitoring.read', icon: React.createElement(Workflow, { size: 16 }) },
   { key: 'evaluation', label: 'Evaluation', permission: 'ai.analytics.read', icon: React.createElement(ClipboardCheck, { size: 16 }) },

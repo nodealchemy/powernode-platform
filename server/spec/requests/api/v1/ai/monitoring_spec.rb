@@ -172,54 +172,6 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/monitoring/health' do
-    context 'with proper permissions' do
-      # E7b: the service is stubbed with MEASUREMENTS ONLY, which is the whole
-      # claim — after this increment it has no verdict of its own to return.
-      before do
-        allow_any_instance_of(Ai::MonitoringHealthService).to receive(:comprehensive_health_check)
-          .and_return({ database: { status: 'healthy' }, redis: { status: 'healthy' } })
-      end
-
-      it 'answers with the status-plane rollup beside the measurements' do
-        create(:platform_component_status, :degraded, account: account)
-
-        get '/api/v1/ai/monitoring/health', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['database']['status']).to eq('healthy')
-        expect(data['rollup']['verdict']).to eq('degraded')
-      end
-
-      it 'no longer answers with a health score or a service-derived status' do
-        create(:platform_component_status, account: account, verdict: 'ok')
-
-        get '/api/v1/ai/monitoring/health', headers: headers, as: :json
-
-        data = json_response_data
-        expect(data).not_to have_key('health_score')
-        expect(data).not_to have_key('status')
-        expect(data['rollup']['verdict']).to eq('ok')
-      end
-
-      # E7 review low 1. The audit row carries the verdict and the per-verdict
-      # counts UNDER METADATA. Passed as bare keywords they were dropped without
-      # a word: AuditLog.log_action keeps metadata and a few named columns, and
-      # nothing else.
-      it 'audits the check with the rollup verdict and counts_by_verdict' do
-        create(:platform_component_status, :degraded, account: account)
-
-        get '/api/v1/ai/monitoring/health', headers: headers, as: :json
-
-        row = AuditLog.where(action: 'ai.monitoring.health_check', account_id: account.id).sole
-        expect(row.metadata).to include('verdict' => 'degraded')
-        expect(row.metadata['counts_by_verdict']).to include('degraded' => 1)
-        expect(row.metadata).not_to have_key('unhealthy_components')
-      end
-    end
-  end
-
   describe 'GET /api/v1/ai/monitoring/health/detailed' do
     context 'with proper permissions' do
       it 'returns detailed health information' do
