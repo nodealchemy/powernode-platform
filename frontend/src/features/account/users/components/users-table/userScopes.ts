@@ -93,7 +93,13 @@ export const rowGates = (
     roles: hasPermissions(currentUser, perms.roles),
     manage: !isSelf && inOwnAccount && hasPermissions(currentUser, perms.manage),
     delete: !isSelf && hasPermissions(currentUser, perms.delete),
-    impersonate: !isSelf && !!impersonationPermissions?.length && hasPermissions(currentUser, impersonationPermissions),
+    // Auth::ImpersonationService refuses an inactive target, and a target in
+    // another account unless the actor holds system.admin.
+    impersonate: !isSelf &&
+      row.status === 'active' &&
+      (inOwnAccount || hasPermissions(currentUser, ['system.admin'])) &&
+      !!impersonationPermissions?.length &&
+      hasPermissions(currentUser, impersonationPermissions),
   };
 };
 

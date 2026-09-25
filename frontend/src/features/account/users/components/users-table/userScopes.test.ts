@@ -92,6 +92,25 @@ describe('rowGates — per scope, permissions only', () => {
     it('stays closed without one of the registered permissions', () => {
       expect(rowGates('all', actor(['admin.user.update']), row(), IMPERSONATION).impersonate).toBe(false);
     });
+
+    // Auth::ImpersonationService#validate_impersonation_request! refuses a
+    // target in another account unless the actor holds system.admin, and the
+    // seeded admin role holds admin.user.impersonate but not system.admin.
+    it('an other-account row needs system.admin', () => {
+      const elsewhere = row({ account: { id: 'acct-2', name: 'Theirs', status: 'active' } } as Partial<User>);
+      expect(rowGates('all', actor(['admin.user.impersonate']), elsewhere, IMPERSONATION).impersonate).toBe(false);
+      expect(rowGates('all', actor(['admin.user.impersonate', 'admin.access']), elsewhere, IMPERSONATION).impersonate).toBe(false);
+      expect(rowGates('all', actor(['system.admin']), elsewhere, IMPERSONATION).impersonate).toBe(true);
+    });
+
+    it('an own-account row does not need system.admin', () => {
+      expect(rowGates('all', actor(['admin.user.impersonate']), row(), IMPERSONATION).impersonate).toBe(true);
+    });
+
+    // The service also refuses an inactive target (row state, not a role).
+    it.each(['suspended', 'inactive'])('is closed for a %s user', (status) => {
+      expect(rowGates('account', actor(['system.admin']), row({ status } as Partial<User>), IMPERSONATION).impersonate).toBe(false);
+    });
   });
 });
 
