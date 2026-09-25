@@ -22,18 +22,23 @@ import { type StatusRollup, type Verdict, UNHEALTHY_VERDICTS, isVerdict } from '
  * - POST /api/v1/ai/monitoring/alerts/check
  * - POST /api/v1/ai/monitoring/alerts/:id/acknowledge
  * - POST /api/v1/ai/monitoring/alerts/:id/resolve
- * - GET  /api/v1/ai/monitoring/circuit_breakers
- * - GET  /api/v1/ai/monitoring/circuit_breakers/:service_name
+ * - GET  /api/v1/ai/monitoring/circuit_breakers/category/ai_providers
  * - POST /api/v1/ai/monitoring/circuit_breakers/:service_name/reset
- * - POST /api/v1/ai/monitoring/circuit_breakers/:service_name/open
- * - POST /api/v1/ai/monitoring/circuit_breakers/:service_name/close
- * - POST /api/v1/ai/monitoring/circuit_breakers/reset_all
- * - GET  /api/v1/ai/monitoring/circuit_breakers/category/:category
- * - POST /api/v1/ai/monitoring/circuit_breakers/category/:category/reset
- * - GET  /api/v1/ai/monitoring/circuit_breakers/monitor
  * - POST /api/v1/ai/monitoring/broadcast
  * - POST /api/v1/ai/monitoring/start
  * - POST /api/v1/ai/monitoring/stop
+ *
+ * fc-42: the generic per-service circuit-breaker CRUD (getCircuitBreakers,
+ * getCircuitBreaker, resetCircuitBreaker(name), openCircuitBreaker,
+ * closeCircuitBreaker, resetAllCircuitBreakers, getCircuitBreakersByCategory,
+ * resetCircuitBreakersByCategory, monitorCircuitBreakers) was deleted rather
+ * than wired up: it had zero callers AND its response typing didn't match the
+ * controller (each returned the envelope's inner hash — `{circuit_breakers:
+ * [...], ...}` — typed as if it were the array itself), so it could never
+ * have worked as written. The Observability "Circuit Breakers" tab
+ * (ProviderCircuitBreakersPanel) needs exactly one real, correctly-shaped
+ * slice of this — the `ai_providers` category, read + reset — which is what
+ * getProviderCircuitBreakers/resetProviderCircuitBreaker below provide.
  */
 
 export interface MonitoringDashboard {
@@ -178,14 +183,21 @@ export interface MetricsData {
   timestamp: string;
 }
 
-export interface CircuitBreaker {
+/**
+ * Shape of Ai::CircuitBreakerRegistry#circuit_stats (CircuitBreakerCore),
+ * matched field-for-field — this is what the backend actually sends.
+ */
+export interface ProviderCircuitBreakerState {
   service_name: string;
   state: 'closed' | 'open' | 'half_open';
   failure_count: number;
   success_count: number;
-  last_failure_time?: string;
-  next_attempt_time?: string;
-  error_threshold: number;
+  consecutive_failures: number;
+  consecutive_successes: number;
+  last_failure_time: string | null;
+  last_success_time: string | null;
+  state_changed_at: string | null;
+  next_retry_at: string | null;
 }
 
 export interface Alert {
@@ -539,81 +551,40 @@ class MonitoringApiService extends BaseApiService {
   }
 
   // ===================================================================
-  // Circuit Breakers
+  // Circuit Breakers — the "provider" half of the Observability Circuit
+  // Breakers tab (Ai::CircuitBreakerRegistry; SHARED across accounts — these
+  // gate real LLM provider calls, keyed by provider TYPE, e.g. "openai", not
+  // by a per-account Ai::Provider row). The agent half comes from
+  // ai/autonomy/api/autonomyApi.ts's useCircuitBreakers (Ai::CircuitBreaker,
+  // account-scoped, per-agent).
   // ===================================================================
 
   /**
-   * Get all circuit breakers
-   * GET /api/v1/ai/monitoring/circuit_breakers
+   * Get the ai_providers-category circuit breakers.
+   * GET /api/v1/ai/monitoring/circuit_breakers/category/ai_providers
    */
-  async getCircuitBreakers(): Promise<CircuitBreaker[]> {
-    return this.get<CircuitBreaker[]>(`${this.basePath}/circuit_breakers`);
+  async getProviderCircuitBreakers(): Promise<ProviderCircuitBreakerState[]> {
+    const response = await this.get<{
+      category: string;
+      circuit_breakers: ProviderCircuitBreakerState[];
+      count: number;
+      timestamp: string;
+    }>(`${this.basePath}/circuit_breakers/category/ai_providers`);
+    return response?.circuit_breakers ?? [];
   }
 
   /**
-   * Get specific circuit breaker
-   * GET /api/v1/ai/monitoring/circuit_breakers/:service_name
-   */
-  async getCircuitBreaker(serviceName: string): Promise<CircuitBreaker> {
-    return this.get<CircuitBreaker>(`${this.basePath}/circuit_breakers/${serviceName}`);
-  }
-
-  /**
-   * Reset circuit breaker
+   * Reset one provider circuit breaker (service_name is the provider TYPE,
+   * e.g. "openai" — see Ai::CircuitBreakerRegistry::SERVICE_CATEGORIES).
    * POST /api/v1/ai/monitoring/circuit_breakers/:service_name/reset
    */
-  async resetCircuitBreaker(serviceName: string): Promise<CircuitBreaker> {
-    return this.post<CircuitBreaker>(`${this.basePath}/circuit_breakers/${serviceName}/reset`);
-  }
-
-  /**
-   * Open circuit breaker (force open)
-   * POST /api/v1/ai/monitoring/circuit_breakers/:service_name/open
-   */
-  async openCircuitBreaker(serviceName: string): Promise<CircuitBreaker> {
-    return this.post<CircuitBreaker>(`${this.basePath}/circuit_breakers/${serviceName}/open`);
-  }
-
-  /**
-   * Close circuit breaker (force close)
-   * POST /api/v1/ai/monitoring/circuit_breakers/:service_name/close
-   */
-  async closeCircuitBreaker(serviceName: string): Promise<CircuitBreaker> {
-    return this.post<CircuitBreaker>(`${this.basePath}/circuit_breakers/${serviceName}/close`);
-  }
-
-  /**
-   * Reset all circuit breakers
-   * POST /api/v1/ai/monitoring/circuit_breakers/reset_all
-   */
-  async resetAllCircuitBreakers(): Promise<{ reset_count: number }> {
-    return this.post<{ reset_count: number }>(`${this.basePath}/circuit_breakers/reset_all`);
-  }
-
-  /**
-   * Get circuit breakers by category
-   * GET /api/v1/ai/monitoring/circuit_breakers/category/:category
-   */
-  async getCircuitBreakersByCategory(category: string): Promise<CircuitBreaker[]> {
-    return this.get<CircuitBreaker[]>(`${this.basePath}/circuit_breakers/category/${category}`);
-  }
-
-  /**
-   * Reset circuit breakers by category
-   * POST /api/v1/ai/monitoring/circuit_breakers/category/:category/reset
-   */
-  async resetCircuitBreakersByCategory(category: string): Promise<{ reset_count: number }> {
-    return this.post<{ reset_count: number }>(
-      `${this.basePath}/circuit_breakers/category/${category}/reset`
-    );
-  }
-
-  /**
-   * Monitor circuit breakers (streaming/long-poll endpoint)
-   * GET /api/v1/ai/monitoring/circuit_breakers/monitor
-   */
-  async monitorCircuitBreakers(): Promise<CircuitBreaker[]> {
-    return this.get<CircuitBreaker[]>(`${this.basePath}/circuit_breakers/monitor`);
+  async resetProviderCircuitBreaker(serviceName: string): Promise<ProviderCircuitBreakerState> {
+    const response = await this.post<{
+      message: string;
+      service_name: string;
+      state: ProviderCircuitBreakerState;
+    }>(`${this.basePath}/circuit_breakers/${encodeURIComponent(serviceName)}/reset`);
+    return response.state;
   }
 
   // ===================================================================

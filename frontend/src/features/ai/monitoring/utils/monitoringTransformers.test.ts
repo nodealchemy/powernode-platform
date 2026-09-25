@@ -1,8 +1,5 @@
-import { transformDashboardData, transformAlerts } from './monitoringTransformers';
-import type { MonitoringDashboard, Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
-
-const dashboard = (overrides: Record<string, unknown>): MonitoringDashboard =>
-  overrides as unknown as MonitoringDashboard;
+import { transformAlerts } from './monitoringTransformers';
+import type { Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
 
 const apiAlert = (overrides: Partial<ApiAlert>): ApiAlert =>
   ({
@@ -15,42 +12,6 @@ const apiAlert = (overrides: Partial<ApiAlert>): ApiAlert =>
     timestamp: '2024-01-01T00:00:00.000Z',
     ...overrides,
   } as unknown as ApiAlert);
-
-describe('transformDashboardData', () => {
-  it('prefers overview.active_agents, falling back to agents.total then 0', () => {
-    expect(transformDashboardData(dashboard({ overview: { active_agents: 5 }, agents: { total: 3 } }))
-      .overview.total_agents).toBe(5);
-    expect(transformDashboardData(dashboard({ overview: {}, agents: { total: 3 } }))
-      .overview.total_agents).toBe(3);
-    expect(transformDashboardData(dashboard({})).overview.total_agents).toBe(0);
-  });
-
-  it('derives total_providers from providers length (0 when absent)', () => {
-    expect(transformDashboardData(dashboard({ providers: [{}, {}] })).overview.total_providers).toBe(2);
-    expect(transformDashboardData(dashboard({})).overview.total_providers).toBe(0);
-  });
-
-  it('passes through extended overview metrics with 0 fallbacks', () => {
-    const d = transformDashboardData(
-      dashboard({ overview: { total_executions_today: 12, total_cost_today: 3.5, avg_response_time: 200, success_rate: 0.99 } })
-    );
-    expect(d.overview.total_executions_today).toBe(12);
-    expect(d.overview.total_cost_today).toBe(3.5);
-    expect(d.overview.avg_response_time).toBe(200);
-    expect(d.overview.success_rate).toBe(0.99);
-    expect(transformDashboardData(dashboard({})).overview.success_rate).toBe(0);
-  });
-
-  it('no longer carries a dashboard-level health_score (E7 removed the rival producer)', () => {
-    // The rollup verdict is now the authoritative status; this dashboard-level
-    // field had zero real consumers even before removal (it was populated
-    // from an already-broken `|| 100` fallback reading a field the endpoint
-    // never actually nested here). Asserting its absence pins the removal —
-    // resurrecting the old `health_score: ... || 100` line would fail this.
-    expect(transformDashboardData(dashboard({ system_health: { uptime_percentage: 87 } })))
-      .not.toHaveProperty('health_score');
-  });
-});
 
 describe('transformAlerts', () => {
   it('remaps severity (critical->critical, warning->high, else->medium)', () => {

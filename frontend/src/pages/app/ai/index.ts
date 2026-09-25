@@ -4,7 +4,6 @@ export { AIAgentsPage } from './AIAgentsPage';
 export { AIConversationsPage } from './AIConversationsPage';
 export { AIAnalyticsPage } from './AIAnalyticsPage';
 export { ObservabilityPage } from './ObservabilityPage';
-export { OperationsPage } from './OperationsPage';
 export { McpBrowserPage } from './McpBrowserPage';
 export { A2aTasksPage } from './A2aTasksPage';
 export { AgentDetailPage } from './AgentDetailPage';

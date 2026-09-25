@@ -1,9 +1,7 @@
 // AI Monitoring exports
-export { AgentPerformancePanel } from './components/AgentPerformancePanel';
 export { AlertManagementCenter } from './components/AlertManagementCenter';
+export { CircuitBreakersTab } from './components/CircuitBreakersTab';
 export { ConversationAnalytics } from './components/ConversationAnalytics';
-export { MonitoringOverviewCards } from './components/MonitoringOverviewCards';
-export { MonitoringStatusBar } from './components/MonitoringStatusBar';
-export { ProviderMonitoringGrid } from './components/ProviderMonitoringGrid';
+export { ProviderCircuitBreakersPanel } from './components/ProviderCircuitBreakersPanel';
 export { ResourceUtilizationChart } from './components/ResourceUtilizationChart';
 export { SystemHealthDashboard } from './components/SystemHealthDashboard';

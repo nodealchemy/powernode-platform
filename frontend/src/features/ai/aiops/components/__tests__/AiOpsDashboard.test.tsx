@@ -5,7 +5,6 @@ import { AiOpsContent } from '../AiOpsDashboard';
 import { OverviewSection } from '../sections/OverviewSection';
 import { ProvidersSection } from '../sections/ProvidersSection';
 import { AgentsSection } from '../sections/AgentsSection';
-import { ReliabilitySection } from '../sections/ReliabilitySection';
 import { TrendsSection } from '../sections/TrendsSection';
 import type { AiOpsDashboard as AiOpsDashboardData } from '@/shared/services/ai/AiOpsApiService';
 import {
@@ -210,29 +209,12 @@ describe('AgentsSection', () => {
   });
 });
 
-describe('ReliabilitySection', () => {
-  it('renders the circuit-breaker table and NO generic alerts list', () => {
-    setupHooks();
-    renderWithClient(<ReliabilitySection />);
-    expect(screen.getByText('Circuit Breakers')).toBeInTheDocument();
-    expect(screen.getByText('OpenAI')).toBeInTheDocument();
-    // must NOT duplicate the Alerts tab's alert list
-    expect(screen.queryByText('Error rate exceeded threshold')).not.toBeInTheDocument();
-  });
-
-  it('hides the recent-errors feed when the optional data is absent', () => {
-    setupHooks({ recentErrors: undefined });
-    renderWithClient(<ReliabilitySection />);
-    expect(screen.queryByText('Recent Errors')).not.toBeInTheDocument();
-  });
-
-  it('shows the recent-errors feed when the optional data is present', () => {
-    setupHooks({ recentErrors: [{ execution_id: 'e1', agent_name: 'Researcher', error: 'boom', failed_at: '2026-06-18T01:00:00Z' }] });
-    renderWithClient(<ReliabilitySection />);
-    expect(screen.getByText('Recent Errors')).toBeInTheDocument();
-    expect(screen.getByText('boom')).toBeInTheDocument();
-  });
-});
+// ReliabilitySection was deleted (fc-42): its circuit-breaker table read a
+// stale Ai::ProviderMetric snapshot rather than the live
+// Ai::CircuitBreakerRegistry state. ProviderCircuitBreakersPanel replaces it
+// (frontend/src/features/ai/monitoring/components/ProviderCircuitBreakersPanel.test.tsx),
+// and the recent-errors feed it also carried now lives in
+// CircuitBreakersTab.test.tsx.
 
 describe('TrendsSection', () => {
   it('falls back to the cost trend when the optional trends payload is absent', () => {

@@ -13,8 +13,8 @@ import { getErrorMessage } from '@/shared/utils/errorHandling';
  * (TraceList + TraceViewer), WITHOUT a PageContainer of its own.
  *
  * Extracted so it can be mounted both as a standalone page (ExecutionTracesPage,
- * under the Developer nav) and as the `traces` tab of the Operations hub
- * (`OperationsPage`), where the surrounding PageContainer is supplied by the hub.
+ * under the Developer nav) and as the `traces` tab of the Observability hub
+ * (`ObservabilityPage`), where the surrounding PageContainer is supplied by the hub.
  * The "back to traces" affordance lives inside the content (rather than as a
  * page-level action) because the embedding hub owns the page header.
  */

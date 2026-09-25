@@ -1,17 +1,19 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 let mockAllowed: string[] = [];
-// Captures what the page hands the agent panel (M1 re-review k1): the agent
-// mapping is the page's own code, and a bare `() => <div />` mock let a
-// restored `|| 100` there pass every example.
-const mockAgentPanelProps: Array<{ agents: Array<Record<string, unknown>> }> = [];
-// The same capture for the provider grid, the conversation list and the
-// resource chart (M1 tail): each of those mappings is the page's own code too.
-const mockProviderGridProps: Array<{ providers: Array<Record<string, unknown>> }> = [];
-const mockConversationProps: Array<{ conversations: Array<Record<string, unknown>> }> = [];
+const mockAddNotification = jest.fn();
+const mockGetAlerts = jest.fn();
+const mockAcknowledgeAlert = jest.fn();
+const mockResolveAlert = jest.fn();
+const mockGetDashboard = jest.fn();
+const mockGetHealth = jest.fn();
+const mockGetConversations = jest.fn();
+// The page's own resources mapping (M1 tail) — captured so a `|| 5` or a
+// fabricated storage split regresses visibly, same discipline as before the merge.
 const mockResourceProps: Array<{ resourceData: Record<string, unknown> | null }> = [];
+const mockConversationProps: Array<{ conversations: Array<Record<string, unknown>> }> = [];
 
 jest.mock('@/shared/components/layout/PageContainer', () => ({
   PageContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -20,61 +22,68 @@ jest.mock('@/shared/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: (p: string) => mockAllowed.includes(p) }),
 }));
 jest.mock('@/shared/hooks/useNotifications', () => ({
-  useNotifications: () => ({ addNotification: jest.fn() }),
+  useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 jest.mock('@/shared/services/ai/MonitoringApiService', () => ({
   monitoringApi: {
-    getDashboard: jest.fn().mockResolvedValue({}),
-    getHealth: jest.fn().mockResolvedValue({}),
-    getAlerts: jest.fn().mockResolvedValue([]),
+    getDashboard: (...args: unknown[]) => mockGetDashboard(...args),
+    getHealth: (...args: unknown[]) => mockGetHealth(...args),
+    getAlerts: (...args: unknown[]) => mockGetAlerts(...args),
+    acknowledgeAlert: (...args: unknown[]) => mockAcknowledgeAlert(...args),
+    resolveAlert: (...args: unknown[]) => mockResolveAlert(...args),
   },
 }));
 jest.mock('@/shared/services/ai/ConversationsApiService', () => ({
-  conversationsApi: {
-    getConversations: jest.fn().mockResolvedValue({
-      items: [],
-      pagination: { current_page: 1, per_page: 50, total_pages: 0, total_count: 0 },
-    }),
-  },
+  conversationsApi: { getConversations: (...args: unknown[]) => mockGetConversations(...args) },
 }));
 jest.mock('@/shared/components/error/AiErrorBoundary', () => ({
   AiErrorBoundary: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-// Keep MONITORING_TABS real; stub the data transforms.
-jest.mock('@/features/ai/monitoring/utils', () => {
-  const actual = jest.requireActual('@/features/ai/monitoring/utils');
-  return { ...actual, transformDashboardData: () => ({}), transformAlerts: () => [] };
-});
-// Stub the dashboard child components so the page renders without data shapes.
-jest.mock('@/features/ai/monitoring/components/MonitoringOverviewCards', () => ({ MonitoringOverviewCards: () => <div /> }));
-jest.mock('@/features/ai/monitoring/components/MonitoringStatusBar', () => ({ MonitoringStatusBar: () => <div /> }));
-jest.mock('@/features/ai/monitoring/components/SystemHealthDashboard', () => ({ SystemHealthDashboard: () => <div data-testid="health-leaf" /> }));
-jest.mock('@/features/ai/monitoring/components/ProviderMonitoringGrid', () => ({
-  ProviderMonitoringGrid: (props: { providers: Array<Record<string, unknown>> }) => {
-    mockProviderGridProps.push(props);
-    return <div />;
-  },
+jest.mock('@/features/ai/monitoring/components/SystemHealthDashboard', () => ({
+  SystemHealthDashboard: () => <div data-testid="health-leaf" />,
 }));
-jest.mock('@/features/ai/monitoring/components/AgentPerformancePanel', () => ({
-  AgentPerformancePanel: (props: { agents: Array<Record<string, unknown>> }) => {
-    mockAgentPanelProps.push(props);
-    return <div />;
+jest.mock('@/features/ai/monitoring/components/ResourceUtilizationChart', () => ({
+  ResourceUtilizationChart: (props: { resourceData: Record<string, unknown> | null }) => {
+    mockResourceProps.push(props);
+    return <div data-testid="resources-leaf" />;
   },
 }));
 jest.mock('@/features/ai/monitoring/components/ConversationAnalytics', () => ({
   ConversationAnalytics: (props: { conversations: Array<Record<string, unknown>> }) => {
     mockConversationProps.push(props);
-    return <div />;
+    return <div data-testid="conversations-leaf" />;
   },
 }));
-jest.mock('@/features/ai/monitoring/components/ResourceUtilizationChart', () => ({
-  ResourceUtilizationChart: (props: { resourceData: Record<string, unknown> | null }) => {
-    mockResourceProps.push(props);
-    return <div />;
-  },
+jest.mock('@/features/ai/monitoring/components/AlertManagementCenter', () => ({
+  AlertManagementCenter: (props: {
+    alerts: Array<Record<string, unknown>>;
+    canManageAlerts: boolean;
+    onAcknowledgeAlert: (id: string, note?: string) => void;
+    onResolveAlert: (id: string, note?: string) => void;
+  }) => (
+    <div data-testid="alerts-leaf">
+      {props.alerts.map((a) => (
+        <div key={a.id as string}>
+          <span>{a.message as string}</span>
+          <span>{a.acknowledged ? 'Acknowledged' : 'Pending'}</span>
+          {props.canManageAlerts && !a.acknowledged && (
+            <button onClick={() => props.onAcknowledgeAlert(a.id as string)}>Acknowledge</button>
+          )}
+          {props.canManageAlerts && !a.resolved && (
+            <button onClick={() => props.onResolveAlert(a.id as string)}>Resolve</button>
+          )}
+        </div>
+      ))}
+    </div>
+  ),
+}));
+jest.mock('@/features/ai/monitoring/components/CircuitBreakersTab', () => ({
+  CircuitBreakersTab: () => <div data-testid="circuit-breakers-leaf" />,
 }));
 jest.mock('@/features/ai/self-healing/SelfHealingDashboard', () => ({ SelfHealingContent: () => <div /> }));
-jest.mock('@/features/ai/evaluation/pages/EvaluationDashboardPage', () => ({ EvaluationContent: () => <div /> }));
+jest.mock('@/features/ai/evaluation/pages/EvaluationDashboardPage', () => ({ EvaluationContent: () => <div data-testid="evaluation-leaf" /> }));
+jest.mock('@/features/ai/aiops/components/AiOpsDashboard', () => ({ AiOpsContent: () => <div data-testid="systems-leaf" /> }));
+jest.mock('../ExecutionTracesPage', () => ({ ExecutionTracesContent: () => <div data-testid="traces-leaf" /> }));
 
 import { ObservabilityPage } from '../ObservabilityPage';
 
@@ -88,107 +97,107 @@ function renderAt(path: string) {
   );
 }
 
+const ALL_PERMISSIONS = [
+  'ai.monitoring.read',
+  'ai.monitoring.manage',
+  'ai.aiops.read',
+  'ai.aiops.manage',
+  'ai.conversations.read',
+  'ai_monitoring.read',
+  'ai.analytics.read',
+];
+
 describe('ObservabilityPage', () => {
-  afterEach(() => {
+  beforeEach(() => {
     mockAllowed = [];
+    mockAddNotification.mockClear();
+    mockGetDashboard.mockReset().mockResolvedValue({});
+    mockGetHealth.mockReset().mockResolvedValue({});
+    mockGetAlerts.mockReset().mockResolvedValue([]);
+    mockAcknowledgeAlert.mockReset();
+    mockResolveAlert.mockReset();
+    mockGetConversations.mockReset().mockResolvedValue({
+      items: [],
+      pagination: { current_page: 1, per_page: 50, total_pages: 0, total_count: 0 },
+    });
+    mockResourceProps.length = 0;
+    mockConversationProps.length = 0;
   });
 
-  it('renders the monitoring-only tab set when analytics is permitted', () => {
-    mockAllowed = ['ai.analytics.read'];
+  it('renders all seven merged tabs when every underlying permission is held', () => {
+    mockAllowed = ALL_PERMISSIONS;
     renderAt('/app/ai/observability/health');
 
     expect(screen.getByRole('link', { name: 'System Health' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Systems' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Circuit Breakers' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Conversations' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Execution Traces' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Evaluation' })).toBeInTheDocument();
   });
 
-  it('no longer surfaces the moved Credits/Operations/Alerts tabs', () => {
-    mockAllowed = ['ai.analytics.read'];
-    renderAt('/app/ai/observability/health');
-
-    expect(screen.queryByRole('link', { name: /Credits/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Operations/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Alerts/i })).not.toBeInTheDocument();
+  it('no longer exposes a separate Operations/AIOps hub — Systems IS the AIOps body', () => {
+    mockAllowed = ['ai.aiops.read'];
+    renderAt('/app/ai/observability/systems');
+    expect(screen.getByTestId('systems-leaf')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'AIOps' })).not.toBeInTheDocument();
   });
 
-  it('shows Access Denied when the user lacks analytics permission', () => {
+  it('shows Access Denied when the user holds none of the tab permissions', () => {
     mockAllowed = [];
     renderAt('/app/ai/observability/health');
     expect(screen.getByText(/Access Denied/i)).toBeInTheDocument();
   });
 
-  // M1 re-review k1: the page passes an agent's rate through, never `|| 100`.
-  describe('agent rates handed to the Systems tab', () => {
-    const { monitoringApi } = jest.requireMock('@/shared/services/ai/MonitoringApiService');
-    const { conversationsApi } = jest.requireMock('@/shared/services/ai/ConversationsApiService');
+  // Mutant proof for the permission-matching fix: a version that gated every
+  // tab on the single old blanket `ai.analytics.read` would make ALL of these
+  // pass together. Holding each tab's permission in isolation and checking
+  // the OTHERS stay gated proves the tabs are wired to distinct permissions.
+  describe('each tab is gated on its own backend permission, not a blanket one', () => {
+    it('ai.monitoring.read alone unlocks Health, Circuit Breakers and Alerts, not Systems/Conversations', () => {
+      mockAllowed = ['ai.monitoring.read'];
+      renderAt('/app/ai/observability/health');
+      expect(screen.getByRole('link', { name: 'System Health' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Circuit Breakers' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Systems' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Conversations' })).not.toBeInTheDocument();
+    });
 
-    beforeEach(() => {
-      mockAgentPanelProps.length = 0;
+    it('ai.aiops.read alone unlocks only Systems', () => {
+      mockAllowed = ['ai.aiops.read'];
+      renderAt('/app/ai/observability/systems');
+      expect(screen.getByRole('link', { name: 'Systems' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'System Health' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Alerts' })).not.toBeInTheDocument();
+    });
+
+    it('ai.conversations.read alone unlocks only Conversations (fixes the old ai.analytics.read mismatch)', () => {
+      mockAllowed = ['ai.conversations.read'];
+      renderAt('/app/ai/observability/conversations');
+      expect(screen.getByRole('link', { name: 'Conversations' })).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'System Health' })).not.toBeInTheDocument();
+    });
+
+    it('ai_monitoring.read alone unlocks only Execution Traces', () => {
+      mockAllowed = ['ai_monitoring.read'];
+      renderAt('/app/ai/observability/traces');
+      expect(screen.getByRole('link', { name: 'Execution Traces' })).toBeInTheDocument();
+      expect(screen.getByTestId('traces-leaf')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'System Health' })).not.toBeInTheDocument();
+    });
+
+    it('ai.analytics.read alone unlocks only Evaluation', () => {
       mockAllowed = ['ai.analytics.read'];
-      monitoringApi.getHealth.mockResolvedValue({});
-      monitoringApi.getAlerts.mockResolvedValue([]);
-      conversationsApi.getConversations.mockResolvedValue({
-        items: [],
-        pagination: { current_page: 1, per_page: 50, total_pages: 0, total_count: 0 },
-      });
-    });
-
-    const lastAgents = () => mockAgentPanelProps[mockAgentPanelProps.length - 1]?.agents ?? [];
-
-    it('an agent with no measured rate arrives with a null health and success rate — never 100', async () => {
-      monitoringApi.getDashboard.mockResolvedValue({
-        agentsList: [{ id: 'a1', name: 'Never ran', status: 'active', executions: 0, success_rate: null }],
-      });
-
-      renderAt('/app/ai/observability/systems');
-      await waitFor(() => expect(lastAgents()).toHaveLength(1));
-
-      const [agent] = lastAgents();
-      expect(agent.health_score).toBeNull();
-      expect((agent.performance as Record<string, unknown>).success_rate).toBeNull();
-      expect((agent.performance as Record<string, unknown>).error_rate).toBeNull();
-    });
-
-    it('an agent at a real 0% arrives as 0 with a 100% error rate', async () => {
-      monitoringApi.getDashboard.mockResolvedValue({
-        agentsList: [{ id: 'a1', name: 'Always failed', status: 'active', executions: 4, success_rate: 0 }],
-      });
-
-      renderAt('/app/ai/observability/systems');
-      await waitFor(() => expect(lastAgents()).toHaveLength(1));
-
-      const [agent] = lastAgents();
-      expect(agent.health_score).toBe(0);
-      expect((agent.performance as Record<string, unknown>).error_rate).toBe(100);
+      renderAt('/app/ai/observability/evaluation');
+      expect(screen.getByRole('link', { name: 'Evaluation' })).toBeInTheDocument();
+      expect(screen.getByTestId('evaluation-leaf')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Conversations' })).not.toBeInTheDocument();
     });
   });
 
-  // M1 tail: what the page hands the provider grid, the conversation list and
-  // the resource chart. A figure the server does not send arrives as null —
-  // never the 100, the 5 or the 1000/100/900 the page used to make up.
-  describe('figures handed to the Systems, Conversations and Health tabs', () => {
-    const { monitoringApi } = jest.requireMock('@/shared/services/ai/MonitoringApiService');
-    const { conversationsApi } = jest.requireMock('@/shared/services/ai/ConversationsApiService');
-    const page = (items: unknown[]) => ({
-      items,
-      pagination: { current_page: 1, per_page: 50, total_pages: items.length ? 1 : 0, total_count: items.length },
-    });
-
-    beforeEach(() => {
-      mockProviderGridProps.length = 0;
-      mockConversationProps.length = 0;
-      mockResourceProps.length = 0;
-      mockAllowed = ['ai.analytics.read'];
-      monitoringApi.getHealth.mockResolvedValue({});
-      monitoringApi.getAlerts.mockResolvedValue([]);
-      conversationsApi.getConversations.mockResolvedValue(page([]));
-    });
-
-    const last = <T,>(calls: T[]): T | undefined => calls[calls.length - 1];
-    const lastProviders = () => last(mockProviderGridProps)?.providers ?? [];
-    const lastConversations = () => last(mockConversationProps)?.conversations ?? [];
-    const perf = (row: Record<string, unknown>) => row.performance as Record<string, unknown>;
+  describe('Health tab resource figures (M1 tail — carried through the merge)', () => {
     const resources = (connection_count: number | null) => ({
       cpu: { usage_percent: 5, idle_percent: 95, load_average: '0.1' },
       memory: { total_mb: 100, used_mb: 40, free_mb: 60, usage_percent: 40 },
@@ -196,69 +205,108 @@ describe('ObservabilityPage', () => {
       redis: { status: 'ok', used_memory: '1', connected_clients: 2 },
     });
     const lastDatabase = () =>
-      (last(mockResourceProps)?.resourceData as { database: Record<string, unknown> } | null)?.database;
+      (mockResourceProps[mockResourceProps.length - 1]?.resourceData as { database: Record<string, unknown> } | null)
+        ?.database;
 
-    it('a provider with no measured error rate arrives with null rates — not 100% success and 0% errors', async () => {
-      monitoringApi.getDashboard.mockResolvedValue({ providers: [{ id: 'p1', name: 'Idle', status: 'healthy', latency_ms: 0 }] });
-
-      renderAt('/app/ai/observability/systems');
-      await waitFor(() => expect(lastProviders()).toHaveLength(1));
-
-      expect(perf(lastProviders()[0]).success_rate).toBeNull();
-      expect(perf(lastProviders()[0]).error_rate).toBeNull();
-    });
-
-    it('a provider at a real 0% error rate arrives as 0 errors and 100% success', async () => {
-      monitoringApi.getDashboard.mockResolvedValue({ providers: [{ id: 'p1', name: 'Clean', status: 'healthy', latency_ms: 5, error_rate: 0 }] });
-
-      renderAt('/app/ai/observability/systems');
-      await waitFor(() => expect(lastProviders()).toHaveLength(1));
-
-      expect(perf(lastProviders()[0]).error_rate).toBe(0);
-      expect(perf(lastProviders()[0]).success_rate).toBe(100);
-    });
-
-    it('a provider failing every call arrives as 0% success', async () => {
-      monitoringApi.getDashboard.mockResolvedValue({ providers: [{ id: 'p1', name: 'Broken', status: 'unhealthy', latency_ms: 5, error_rate: 100 }] });
-
-      renderAt('/app/ai/observability/systems');
-      await waitFor(() => expect(lastProviders()).toHaveLength(1));
-
-      expect(perf(lastProviders()[0]).success_rate).toBe(0);
-      expect(perf(lastProviders()[0]).error_rate).toBe(100);
+    beforeEach(() => {
+      mockAllowed = ['ai.monitoring.read'];
     });
 
     it('the database pool carries the size the server sent and nothing it did not', async () => {
-      monitoringApi.getDashboard.mockResolvedValue({ resources: resources(10) });
-
+      mockGetDashboard.mockResolvedValue({ resources: resources(10) });
       renderAt('/app/ai/observability/health');
       await waitFor(() => expect(lastDatabase()).toBeTruthy());
-
       expect(lastDatabase()?.connection_pool).toEqual({ size: 10, used: null, available: null });
       expect(lastDatabase()?.storage_usage).toBeNull();
     });
 
     it('no pool size from the server is a null size — not a made-up 5', async () => {
-      monitoringApi.getDashboard.mockResolvedValue({ resources: resources(null) });
-
+      mockGetDashboard.mockResolvedValue({ resources: resources(null) });
       renderAt('/app/ai/observability/health');
       await waitFor(() => expect(lastDatabase()).toBeTruthy());
-
       expect(lastDatabase()?.connection_pool).toEqual({ size: null, used: null, available: null });
+    });
+  });
+
+  describe('Conversations tab figures (M1 tail — carried through the merge)', () => {
+    beforeEach(() => {
+      mockAllowed = ['ai.conversations.read'];
     });
 
     it('a conversation arrives with no health score and no success rate — never 100', async () => {
-      monitoringApi.getDashboard.mockResolvedValue({});
-      conversationsApi.getConversations.mockResolvedValue(page([{
-        id: 'c1', title: 'Chat', status: 'active', message_count: 3, total_tokens: 10, total_cost: 0,
-        last_activity_at: '2026-09-11T00:00:00Z', created_at: '2026-09-11T00:00:00Z',
-      }]));
+      mockGetConversations.mockResolvedValue({
+        items: [{
+          id: 'c1', title: 'Chat', status: 'active', message_count: 3, total_tokens: 10, total_cost: 0,
+          last_activity_at: '2026-09-11T00:00:00Z', created_at: '2026-09-11T00:00:00Z',
+        }],
+        pagination: { current_page: 1, per_page: 50, total_pages: 1, total_count: 1 },
+      });
 
       renderAt('/app/ai/observability/conversations');
-      await waitFor(() => expect(lastConversations()).toHaveLength(1));
-
-      expect(lastConversations()[0].health_score).toBeNull();
-      expect(perf(lastConversations()[0]).success_rate).toBeNull();
+      const last = () => mockConversationProps[mockConversationProps.length - 1]?.conversations ?? [];
+      await waitFor(() => expect(last()).toHaveLength(1));
+      expect(last()[0].health_score).toBeNull();
+      expect((last()[0].performance as Record<string, unknown>).success_rate).toBeNull();
     });
+  });
+
+  describe('Alerts tab (moved from the former Operations hub, fc-04 working acknowledge)', () => {
+    const ALERT_ID = '019f0000-0000-7000-8000-000000000001';
+    const apiAlert = (overrides: Record<string, unknown> = {}) => ({
+      id: ALERT_ID,
+      alert_type: 'high_latency',
+      severity: 'critical',
+      message: 'Alert triggered: High latency',
+      timestamp: '2026-09-24T10:00:00Z',
+      acknowledged: false,
+      resolved: false,
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      mockAllowed = ['ai.monitoring.read', 'ai.aiops.manage'];
+      mockGetAlerts.mockResolvedValue([apiAlert()]);
+    });
+
+    it('acknowledges through the API and updates the row', async () => {
+      mockAcknowledgeAlert.mockResolvedValue(apiAlert({ acknowledged: true, acknowledged_at: '2026-09-24T10:05:00Z' }));
+      renderAt('/app/ai/observability/alerts');
+
+      const leaf = screen.getByTestId('alerts-leaf');
+      await within(leaf).findByText('Alert triggered: High latency');
+      fireEvent.click(within(leaf).getByRole('button', { name: 'Acknowledge' }));
+
+      await waitFor(() => expect(mockAcknowledgeAlert).toHaveBeenCalledWith(ALERT_ID, undefined));
+      expect(await within(leaf).findByText('Acknowledged')).toBeInTheDocument();
+    });
+
+    it('gates the acknowledge/resolve actions on ai.aiops.manage alone, as the server does', async () => {
+      mockAllowed = ['ai.monitoring.read'];
+      renderAt('/app/ai/observability/alerts');
+      const leaf = screen.getByTestId('alerts-leaf');
+      await within(leaf).findByText('Alert triggered: High latency');
+      expect(within(leaf).queryByRole('button', { name: 'Acknowledge' })).not.toBeInTheDocument();
+    });
+
+    it('reports a failed acknowledge and leaves the row unchanged', async () => {
+      mockAcknowledgeAlert.mockRejectedValue(new Error('Alert not found'));
+      renderAt('/app/ai/observability/alerts');
+      const leaf = screen.getByTestId('alerts-leaf');
+      await within(leaf).findByText('Alert triggered: High latency');
+
+      fireEvent.click(within(leaf).getByRole('button', { name: 'Acknowledge' }));
+      await waitFor(() =>
+        expect(mockAddNotification).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'error', message: 'Alert not found' }),
+        ),
+      );
+      expect(within(leaf).getByRole('button', { name: 'Acknowledge' })).toBeInTheDocument();
+    });
+  });
+
+  it('renders the Circuit Breakers tab body', async () => {
+    mockAllowed = ['ai.monitoring.read'];
+    renderAt('/app/ai/observability/circuit-breakers');
+    expect(await screen.findByTestId('circuit-breakers-leaf')).toBeInTheDocument();
   });
 });

@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
 import { Activity } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Select } from '@/shared/components/ui/Select';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import type { RealTimeMetrics } from '@/shared/services/ai/AiOpsApiService';
-import { AIOPS_KEYS, useAiOpsDashboard, useAiOpsRealTime } from '../api/aiopsApi';
+import { useAiOpsDashboard, useAiOpsRealTime } from '../api/aiopsApi';
 import { formatNumber, formatDuration, formatPercent, getHealthBadge } from './aiopsHelpers';
 import { AiOpsTimeRange } from './sections/sectionShared';
 import { OverviewSection } from './sections/OverviewSection';
@@ -47,7 +44,7 @@ const LiveTicker: React.FC<{ realTime: RealTimeMetrics }> = ({ realTime }) => {
 };
 
 /**
- * Embeddable AIOps Operations-tab body.
+ * Embeddable AIOps dashboard body.
  *
  * Owns a compact controls bar (time-range Select + live ticker + health badge)
  * whose time range drives its four operational sections, rendered as a FLAT
@@ -55,12 +52,14 @@ const LiveTicker: React.FC<{ realTime: RealTimeMetrics }> = ({ realTime }) => {
  * the shared react-query hooks (deduped by query key), so changing the range
  * triggers a single refetch shared across the header and all sections.
  *
- * Cost and Reliability are NOT rendered here — they are exported for mounting
- * into the Observability Credits/Alerts tabs. The one-shot dashboard-error toast
- * lives only here (distributed sections show inline error+retry, no toast, since
- * they share one query and per-section toasts would spam).
+ * The one-shot dashboard-error toast lives only here (distributed sections
+ * show inline error+retry, no toast, since they share one query and
+ * per-section toasts would spam).
  *
- * Mounted at `OperationsPage` (Operations tab); keep it exported + prop-less.
+ * fc-42: mounted directly as ObservabilityPage's "Systems" tab body (the
+ * former standalone AiOpsDashboard page wrapper and the Operations hub it
+ * lived in are both gone — this was the one thing either of them still had
+ * that Observability didn't already provide its own chrome for).
  */
 export const AiOpsContent: React.FC = () => {
   const [timeRange, setTimeRange] = useState<AiOpsTimeRange>('1h');
@@ -128,33 +127,4 @@ export const AiOpsContent: React.FC = () => {
   );
 };
 
-/**
- * Thin standalone page wrapper (not part of the distributed Observability tabs,
- * retained for direct/standalone use). Owns the page chrome + a refresh action
- * that invalidates the AIOps query keys; the self-fetching sections refetch.
- */
-export const AiOpsDashboard: React.FC = () => {
-  const queryClient = useQueryClient();
-  const { refreshAction } = useRefreshAction({
-    onRefresh: () => {
-      queryClient.invalidateQueries({ queryKey: AIOPS_KEYS.all });
-    },
-  });
-
-  return (
-    <PageContainer
-      title="AI Operations"
-      description="Real-time monitoring and observability for AI workloads"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'AI', href: '/app/ai' },
-        { label: 'AIOps' },
-      ]}
-      actions={[refreshAction]}
-    >
-      <AiOpsContent />
-    </PageContainer>
-  );
-};
-
-export default AiOpsDashboard;
+export default AiOpsContent;

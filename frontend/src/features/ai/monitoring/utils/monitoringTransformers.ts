@@ -1,32 +1,5 @@
-import { MonitoringDashboard, Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
-import {
-  MonitoringDashboardData,
-  Alert
-} from '@/shared/types/monitoring';
-
-/**
- * Transform API dashboard response to internal MonitoringDashboardData type
- * Uses native backend overview data directly
- */
-export const transformDashboardData = (dashboard: MonitoringDashboard): MonitoringDashboardData => {
-  return {
-    overview: {
-      // Use native overview from backend
-      total_providers: dashboard.providers?.length || 0,
-      total_agents: dashboard.overview?.active_agents || dashboard.agents?.total || 0,
-      active_conversations: 0,
-      system_uptime: 0,
-      last_updated: new Date().toISOString(),
-      // Extended operational metrics
-      total_executions_today: dashboard.overview?.total_executions_today || 0,
-      total_cost_today: dashboard.overview?.total_cost_today || 0,
-      avg_response_time: dashboard.overview?.avg_response_time || 0,
-      success_rate: dashboard.overview?.success_rate || 0,
-    },
-    timestamp: new Date().toISOString(),
-    components: {}
-  };
-};
+import { Alert as ApiAlert } from '@/shared/services/ai/MonitoringApiService';
+import { Alert } from '@/shared/types/monitoring';
 
 /**
  * Transform API alerts to internal Alert type

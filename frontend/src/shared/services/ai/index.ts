@@ -115,7 +115,7 @@ export type {
   MonitoringDashboard,
   HealthStatus,
   MetricsData,
-  CircuitBreaker,
+  ProviderCircuitBreakerState,
   Alert,
 } from '@/shared/services/ai/MonitoringApiService';
 

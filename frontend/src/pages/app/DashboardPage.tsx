@@ -39,7 +39,6 @@ const GitProvidersPage = React.lazy(() => import('./devops/GitProvidersPage').th
 const AIOverviewPage = React.lazy(() => import('./ai/AIOverviewPage').then(m => ({ default: m.AIOverviewPage })));
 const AIAgentsPage = React.lazy(() => import('./ai/AIAgentsPage').then(m => ({ default: m.AIAgentsPage })));
 const ObservabilityPage = React.lazy(() => import('./ai/ObservabilityPage').then(m => ({ default: m.ObservabilityPage })));
-const OperationsPage = React.lazy(() => import('./ai/OperationsPage').then(m => ({ default: m.OperationsPage })));
 const CostPage = React.lazy(() => import('./ai/CostPage').then(m => ({ default: m.CostPage })));
 const GovernancePage = React.lazy(() => import('./ai/GovernancePage'));
 // SandboxPage absorbed into Execution tabs
@@ -49,7 +48,7 @@ const ExecutionPage = React.lazy(() => import('./ai/ExecutionPage').then(m => ({
 const KnowledgePage = React.lazy(() => import('./ai/KnowledgePage').then(m => ({ default: m.KnowledgePage })));
 const InfrastructurePage = React.lazy(() => import('./ai/InfrastructurePage').then(m => ({ default: m.InfrastructurePage })));
 // Credits, FinOps, ROI, and Outcome Billing are consolidated into CostPage
-// (above); Execution Traces is rendered inside OperationsPage.
+// (above); Execution Traces is rendered inside ObservabilityPage.
 const DeveloperPortal = React.lazy(() => import('@/features/developer/pages/DeveloperPortal').then(m => ({ default: m.DeveloperPortal })));
 
 // AI Sub-pages
@@ -182,9 +181,9 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/knowledge/contexts/:id" element={<ContextDetailPage />} />
         <Route path="/ai/knowledge/*" element={<KnowledgePage />} />
         <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
-        {/* Observability = monitoring only; Operations = AiOps/alerts/traces; Cost = billing/finops/roi. */}
+        {/* fc-42: Observability = monitoring + AIOps + circuit breakers + alerts
+            + conversations + traces + evaluation (merged); Cost = billing/finops/roi. */}
         <Route path="/ai/observability/*" element={<ObservabilityPage />} />
-        <Route path="/ai/operations/*" element={<OperationsPage />} />
 
         {/* AI Missions - code-factory before :missionId, static tabs before dynamic */}
         <Route path="/ai/missions/code-factory/*" element={<MissionsPageWrapper />} />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { HeartPulse, Server, MessageSquare, ClipboardCheck, Bell, Activity, Workflow } from 'lucide-react';
+import { HeartPulse, Server, MessageSquare, ClipboardCheck, Bell, Zap, Workflow } from 'lucide-react';
 import type { PathTabSpec } from '@/shared/components/navigation/PathTabs';
 
 /**
@@ -37,34 +37,49 @@ export const formatLastUpdate = (date: Date | null): string => {
 /**
  * Path-based tab identifiers for the Observability hub (`/app/ai/observability`).
  */
-export type MonitoringTabId = 'health' | 'systems' | 'conversations' | 'evaluation';
+export type MonitoringTabId =
+  | 'health'
+  | 'systems'
+  | 'circuit-breakers'
+  | 'alerts'
+  | 'conversations'
+  | 'traces'
+  | 'evaluation';
 
 /**
  * Tab definitions for the Observability hub — consumed directly by the canonical
- * `PathTabs` scaffold (one URL segment per tab). The legacy `operations`/`alerts`/
- * `credits` tabs moved out: operations + alerts now live on the Operations hub
- * (`OPERATIONS_TABS`), and billing/credits moved to the Cost domain.
+ * `PathTabs` scaffold (one URL segment per tab).
+ *
+ * fc-42: Observability and the former Operations hub (AIOps/Alerts/Execution
+ * Traces) are ONE page now — Tier 2 finding #13 in the consolidation plan
+ * (docs/operations/local/frontend-consolidation-plan-2026-09-24.md) found the
+ * two backends (Monitoring::UnifiedService and Ai::Analytics::DashboardService)
+ * both exposing health + alerts under different tabs of different pages.
+ * `systems` is now the AIOps dashboard body (Ai::Analytics::DashboardService —
+ * the one with MCP tool usage, via Ai::Introspection::McpToolRegistrar's
+ * platform.health/platform.alerts/platform.provider_health, and genuinely live
+ * per-execution data via Ai::ProviderMetric.record_metrics), not the old
+ * Monitoring::UnifiedService-backed provider/agent grids. `circuit-breakers` is
+ * new: one view for both the agent breakers (Ai::CircuitBreaker, resettable,
+ * reused from Autonomy → Security) and the provider breakers
+ * (Ai::CircuitBreakerRegistry, also resettable — previously dead
+ * MonitoringApiService methods, now wired up), under distinct labels.
+ *
+ * Permissions are the ones each tab's OWN backend endpoint actually enforces
+ * (not a blanket `ai.analytics.read` — that gated `health`/`systems` before
+ * even though MonitoringController#health/#dashboard require
+ * `ai.monitoring.read`, and `conversations` before even though
+ * ConversationsController#index requires `ai.conversations.read`; both were
+ * dead-end tabs for anyone without the real permission).
  */
 export const MONITORING_TABS: PathTabSpec<MonitoringTabId>[] = [
-  { key: 'health', label: 'System Health', permission: 'ai.analytics.read', icon: React.createElement(HeartPulse, { size: 16 }) },
-  { key: 'systems', label: 'Systems', permission: 'ai.analytics.read', icon: React.createElement(Server, { size: 16 }) },
-  { key: 'conversations', label: 'Conversations', permission: 'ai.analytics.read', icon: React.createElement(MessageSquare, { size: 16 }) },
-  { key: 'evaluation', label: 'Evaluation', permission: 'ai.analytics.read', icon: React.createElement(ClipboardCheck, { size: 16 }) },
-];
-
-/**
- * Path-based tab identifiers for the Operations hub (`/app/ai/operations`).
- */
-export type OperationsTabId = 'aiops' | 'alerts' | 'traces';
-
-/**
- * Tab definitions for the Operations hub — AIOps dashboard, alert management, and
- * the execution-trace viewer. Consumed by `OperationsPage` via `PathTabs`.
- */
-export const OPERATIONS_TABS: PathTabSpec<OperationsTabId>[] = [
-  { key: 'aiops', label: 'AIOps', permission: 'ai.aiops.read', icon: React.createElement(Activity, { size: 16 }) },
-  { key: 'alerts', label: 'Alerts', permission: 'ai.aiops.read', icon: React.createElement(Bell, { size: 16 }) },
+  { key: 'health', label: 'System Health', permission: 'ai.monitoring.read', icon: React.createElement(HeartPulse, { size: 16 }) },
+  { key: 'systems', label: 'Systems', permission: 'ai.aiops.read', icon: React.createElement(Server, { size: 16 }) },
+  { key: 'circuit-breakers', label: 'Circuit Breakers', permission: 'ai.monitoring.read', icon: React.createElement(Zap, { size: 16 }) },
+  { key: 'alerts', label: 'Alerts', permission: 'ai.monitoring.read', icon: React.createElement(Bell, { size: 16 }) },
+  { key: 'conversations', label: 'Conversations', permission: 'ai.conversations.read', icon: React.createElement(MessageSquare, { size: 16 }) },
   { key: 'traces', label: 'Execution Traces', permission: 'ai_monitoring.read', icon: React.createElement(Workflow, { size: 16 }) },
+  { key: 'evaluation', label: 'Evaluation', permission: 'ai.analytics.read', icon: React.createElement(ClipboardCheck, { size: 16 }) },
 ];
 
 /**
@@ -75,8 +90,8 @@ export const VALID_TAB_IDS = MONITORING_TABS.map(tab => tab.key);
 /**
  * Get breadcrumbs based on active Observability tab.
  *
- * Retained for backward compatibility; new hub pages compute breadcrumbs from
- * `useLocation` + `aiCrumbs(...)` directly (see ObservabilityPage / OperationsPage).
+ * Retained for backward compatibility; ObservabilityPage computes breadcrumbs
+ * from `useLocation` + `aiCrumbs(...)` directly.
  */
 export const getMonitoringBreadcrumbs = (activeTab: string) => {
   const baseBreadcrumbs: Array<{ label: string; href?: string }> = [
