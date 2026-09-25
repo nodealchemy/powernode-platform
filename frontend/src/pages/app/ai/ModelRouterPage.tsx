@@ -1,7 +1,9 @@
 // Model Router Page - Intelligent AI Request Routing
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Route, BarChart3, Zap, Trash2, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
@@ -49,11 +51,27 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'rules' | 'decisions' | 'analytics' | 'optimization' | 'escalations';
 
+const MODEL_ROUTER_BASE_PATH = '/app/ai/infrastructure/model-router';
+
+const getActiveModelRouterTab = (pathname: string): TabType => {
+  if (pathname.includes('/model-router/decisions')) return 'decisions';
+  if (pathname.includes('/model-router/analytics')) return 'analytics';
+  if (pathname.includes('/model-router/optimization')) return 'optimization';
+  if (pathname.includes('/model-router/escalations')) return 'escalations';
+  return 'rules';
+};
+
 export const ModelRouterContent: React.FC = () => {
+  const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
   const { currentUser } = useAuth();
   const canReadRouting = currentUser?.permissions?.includes('ai.routing.read') || false;
-  const [activeTab, setActiveTab] = useState<TabType>('rules');
+  const [activeTab, setActiveTab] = useState<TabType>(getActiveModelRouterTab(location.pathname));
+
+  useEffect(() => {
+    const newTab = getActiveModelRouterTab(location.pathname);
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
   const [rules, setRules] = useState<RoutingRule[]>([]);
   const [decisions, setDecisions] = useState<RoutingDecision[]>([]);
   const [statistics, setStatistics] = useState<RoutingStatistics | null>(null);
@@ -253,11 +271,11 @@ export const ModelRouterContent: React.FC = () => {
   };
 
   const tabs = [
-    { id: 'rules' as TabType, label: 'Rules', icon: Route },
-    { id: 'decisions' as TabType, label: 'Decisions', icon: Zap },
-    { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 },
-    { id: 'optimization' as TabType, label: 'Optimization', icon: TrendingUp },
-    ...(canReadRouting ? [{ id: 'escalations' as TabType, label: 'Escalations', icon: ArrowUpRight }] : [])
+    { id: 'rules', label: 'Rules', icon: <Route size={16} />, path: '/' },
+    { id: 'decisions', label: 'Decisions', icon: <Zap size={16} />, path: '/decisions' },
+    { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={16} />, path: '/analytics' },
+    { id: 'optimization', label: 'Optimization', icon: <TrendingUp size={16} />, path: '/optimization' },
+    ...(canReadRouting ? [{ id: 'escalations', label: 'Escalations', icon: <ArrowUpRight size={16} />, path: '/escalations' }] : [])
   ];
 
   return (
@@ -274,24 +292,6 @@ export const ModelRouterContent: React.FC = () => {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="border-b border-theme mb-6">
-        <nav className="flex gap-4">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                activeTab === tab.id ? 'border-theme-info-border text-theme-info-fg' : 'border-transparent text-theme-secondary hover:text-theme-primary'
-              }`}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
@@ -299,8 +299,15 @@ export const ModelRouterContent: React.FC = () => {
           <p className="mt-4 text-theme-secondary">Loading router data...</p>
         </div>
       ) : (
-        <>
-          {activeTab === 'rules' && (
+        <TabContainer
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={(id) => setActiveTab(id as TabType)}
+          basePath={MODEL_ROUTER_BASE_PATH}
+          variant="underline"
+          className="mb-6"
+        >
+          <TabPanel tabId="rules" activeTab={activeTab}>
             <RulesTab
               rules={rules}
               expandedRuleId={expandedRuleId}
@@ -312,30 +319,36 @@ export const ModelRouterContent: React.FC = () => {
               onCreateClick={() => setShowCreateModal(true)}
               getRuleTypeColor={getRuleTypeColor}
             />
-          )}
-          {activeTab === 'decisions' && <DecisionsTab decisions={decisions} getDecisionColor={getDecisionColor} />}
-          {activeTab === 'analytics' && <AnalyticsTab costAnalysis={costAnalysis} rankings={rankings} recommendations={recommendations} />}
-          {activeTab === 'optimization' && (
+          </TabPanel>
+          <TabPanel tabId="decisions" activeTab={activeTab}>
+            <DecisionsTab decisions={decisions} getDecisionColor={getDecisionColor} />
+          </TabPanel>
+          <TabPanel tabId="analytics" activeTab={activeTab}>
+            <AnalyticsTab costAnalysis={costAnalysis} rankings={rankings} recommendations={recommendations} />
+          </TabPanel>
+          <TabPanel tabId="optimization" activeTab={activeTab}>
             <OptimizationTab
               optimizations={optimizations}
               optimizationStats={optimizationStats}
               onIdentifyOptimizations={handleIdentifyOptimizations}
               onApplyOptimization={handleApplyOptimization}
             />
+          </TabPanel>
+          {canReadRouting && (
+            <TabPanel tabId="escalations" activeTab={activeTab}>
+              <EscalationsTab
+                escalations={escalations}
+                rollup={escalationRollup}
+                benefit={escalationBenefit}
+                loading={escalationsLoading}
+                tierFilter={escalationTier}
+                timeRange={escalationTimeRange}
+                onTierChange={setEscalationTier}
+                onTimeRangeChange={setEscalationTimeRange}
+              />
+            </TabPanel>
           )}
-          {activeTab === 'escalations' && canReadRouting && (
-            <EscalationsTab
-              escalations={escalations}
-              rollup={escalationRollup}
-              benefit={escalationBenefit}
-              loading={escalationsLoading}
-              tierFilter={escalationTier}
-              timeRange={escalationTimeRange}
-              onTierChange={setEscalationTier}
-              onTimeRangeChange={setEscalationTimeRange}
-            />
-          )}
-        </>
+        </TabContainer>
       )}
 
       {/* Delete Confirmation Modal */}
