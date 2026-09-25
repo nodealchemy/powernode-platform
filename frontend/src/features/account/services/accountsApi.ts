@@ -90,8 +90,10 @@ export interface AccountResponse {
  * @module AccountsApi
  * @description Account management service.
  *
- * RESPONSIBILITY: Account CRUD operations, account status management
- * NOT RESPONSIBLE FOR: Admin settings dashboard (use adminSettingsApi for account listing)
+ * RESPONSIBILITY: Account CRUD operations, account status management.
+ * adminSettingsApi.getAccounts() (`/admin_settings/accounts`) had zero
+ * callers and was removed rather than migrated (fc-38); this is the only
+ * account-listing client now.
  *
  * Handles /accounts/* and /admin/accounts/* endpoints.
  */
