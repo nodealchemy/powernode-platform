@@ -14,7 +14,7 @@ module Ai
       declare_action "delete_team", mutating: true, destructive: true
       declare_action "execute_team", mutating: true
       declare_action "get_team", mutating: false
-      declare_action "list_teams", mutating: false
+      declare_action "list_teams", mutating: false, limit: 50, returns: "id, name, type, coordination strategy, member count, canonical flag and template id per team, in no particular order"
       declare_action "remove_team_member", mutating: true, destructive: true
       declare_action "update_team", mutating: true
 
@@ -59,7 +59,7 @@ module Ai
             }
           },
           "list_teams" => {
-            description: "List all active AI agent teams in the current account. A team flagged canonical is the account's materialisation of a global team template (read-only; clone the template to customise)",
+            description: "List active AI agent teams in the current account. A team flagged canonical is the account's materialisation of a global team template (read-only; clone the template to customise)",
             parameters: {}
           },
           "get_team" => {

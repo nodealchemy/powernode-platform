@@ -11,7 +11,7 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "create_page", mutating: true
       declare_action "get_page", mutating: false
-      declare_action "list_pages", mutating: false
+      declare_action "list_pages", mutating: false, limit: 50, returns: "page summaries, most recently updated first"
       declare_action "update_page", mutating: true
 
       def self.definition

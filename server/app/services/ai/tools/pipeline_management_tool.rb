@@ -10,7 +10,7 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "get_pipeline_status", mutating: false
-      declare_action "list_pipelines", mutating: false
+      declare_action "list_pipelines", mutating: false, returns: "only count, the number of matching pipelines capped at 50; the pipelines themselves are not returned"
       declare_action "trigger_pipeline", mutating: true
 
       def self.definition

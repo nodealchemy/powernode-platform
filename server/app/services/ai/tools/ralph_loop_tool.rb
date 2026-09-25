@@ -45,7 +45,7 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "delete_ralph_loop", mutating: true, destructive: true
-      declare_action "get_ralph_loop", mutating: false
+      declare_action "get_ralph_loop", mutating: false, returns: "the loop with its 5 most recent iterations"
       declare_action "get_ralph_loop_statistics", mutating: false
       declare_action "list_ralph_loops", mutating: false
       declare_action "pause_ralph_loop", mutating: true
@@ -72,7 +72,7 @@ module Ai
             parameters: {}
           },
           "get_ralph_loop" => {
-            description: "Get detailed Ralph Loop info including iterations, schedule config, and agent assignment",
+            description: "Get a Ralph Loop's detail: schedule config, agent assignment and its most recent iterations.",
             parameters: {
               loop_id: { type: "string", required: true, description: "Ralph loop ID or name" }
             }

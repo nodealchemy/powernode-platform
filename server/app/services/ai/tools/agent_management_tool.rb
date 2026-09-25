@@ -39,7 +39,7 @@ module Ai
       declare_action "delete_agent", mutating: true, destructive: true
       declare_action "execute_agent", mutating: true
       declare_action "get_agent", mutating: false
-      declare_action "list_agents", mutating: false
+      declare_action "list_agents", mutating: false, limit: 50, returns: "id, name, model and status per agent, in no particular order and with no total count"
       declare_action "set_agent_autonomy_level", mutating: true
       declare_action "spawn_task", mutating: true
       declare_action "update_agent", mutating: true
@@ -86,7 +86,7 @@ module Ai
             }
           },
           "list_agents" => {
-            description: "List all active AI agents in the current account",
+            description: "List active AI agents in the current account.",
             parameters: {}
           },
           "get_agent" => {

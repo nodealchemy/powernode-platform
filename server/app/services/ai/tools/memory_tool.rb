@@ -39,7 +39,7 @@ module Ai
       declare_action "create_memory_pool", mutating: true
       declare_action "delete_memory_pool", mutating: true, destructive: true
       declare_action "delete_shared_memory", mutating: true, destructive: true
-      declare_action "list_pools", mutating: false
+      declare_action "list_pools", mutating: false, limit: 50, returns: "id, pool_id, name and pool_type per pool, in no particular order"
       declare_action "memory_stats", mutating: false
       declare_action "read_shared_memory", mutating: false
       declare_action "search_memory", mutating: false

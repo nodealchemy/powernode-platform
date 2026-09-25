@@ -15,7 +15,7 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "create_kb_article", mutating: true
       declare_action "get_kb_article", mutating: false
-      declare_action "list_kb_articles", mutating: false
+      declare_action "list_kb_articles", mutating: false, limit: 50, returns: "article summaries, most recently updated first"
       declare_action "update_kb_article", mutating: true
 
       def self.definition
