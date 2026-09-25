@@ -106,7 +106,7 @@ describe('AgentDetailPage — the one agent detail surface (fc-43)', () => {
 
     await screen.findByRole('button', { name: 'Back to Agents' });
     for (const label of ['Overview', 'History', 'Teams', 'Skills', 'Workspaces', 'Knowledge', 'Memory', 'Intelligence', 'Connections']) {
-      expect(screen.getByRole('tab', { name: new RegExp(`^${label}$`) })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: label })).toBeInTheDocument();
     }
   });
 
