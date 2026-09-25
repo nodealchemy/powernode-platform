@@ -48,7 +48,10 @@ module Ai
       }.freeze
 
       declare_action "list_component_status", mutating: false
-      declare_action "get_component_status", mutating: false
+      declare_action "get_component_status", mutating: false,
+                                             refuses: "neither id nor both component_kind and component_ref are given, " \
+                                                      "or the component is not visible to this account",
+                                             see_also: { "get_component_impact" => "dependents and ranked root-cause candidates" }
       declare_action "get_component_impact", mutating: false
 
       VERDICT_DESCRIPTION = "One of ok | held | progressing | not_measured | degraded | down. " \
@@ -93,7 +96,8 @@ module Ai
             }
           },
           "get_component_status" => {
-            description: "One component in full: verdict, the typed conditions with their reason tokens " \
+            description: "One status-plane component in full, found by id or by component_kind plus component_ref. " \
+                         "It carries the verdict, the typed conditions with their reason tokens " \
                          "and evidence, dependency edges, remediation state, links, the actions the " \
                          "operator page offers (each naming its OWN permission — this tool grants none " \
                          "of them) and an impact summary. Read-only.",
