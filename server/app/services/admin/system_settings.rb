@@ -285,13 +285,20 @@ module Admin
       end
 
       # vault_addr (non-secret) plus the real decrypted vault_role_id/
-      # vault_secret_id.
+      # vault_secret_id. Falls back to the blob's own plaintext value when no
+      # encrypted row exists yet (fc-38 review item #2) — matching
+      # .redis_config's fallback — so a row written before the data
+      # migration ran, or before this hardening shipped, doesn't read as a
+      # blank credential in the gap.
       def vault_config
         blob = raw_vault_blob
+        role_encrypted = AdminSetting.find_by(key: "vault_role_id_encrypted")
+        secret_encrypted = AdminSetting.find_by(key: "vault_secret_id_encrypted")
+
         {
           "vault_addr" => blob["vault_addr"],
-          "vault_role_id" => decrypt_secret(AdminSetting.get("vault_role_id_encrypted", "")),
-          "vault_secret_id" => decrypt_secret(AdminSetting.get("vault_secret_id_encrypted", ""))
+          "vault_role_id" => role_encrypted ? decrypt_secret(role_encrypted.value) : blob["vault_role_id"].to_s,
+          "vault_secret_id" => secret_encrypted ? decrypt_secret(secret_encrypted.value) : blob["vault_secret_id"].to_s
         }
       end
 

@@ -132,6 +132,35 @@ RSpec.describe Admin::SystemSettings do
       expect(config).to eq("vault_addr" => nil, "vault_role_id" => "", "vault_secret_id" => "")
     end
 
+    # fc-38 review item #2: before the data migration runs (or for any row
+    # written before this hardening shipped), the blob may still hold a
+    # plaintext vault_role_id/vault_secret_id with no _encrypted row yet.
+    # .redis_config already falls back to the blob's own value in that case;
+    # .vault_config must do the same, or Vault authentication (and the admin
+    # UI) would silently see blank credentials until the migration runs.
+    it "falls back to the blob's plaintext vault_role_id/vault_secret_id when no encrypted row exists yet" do
+      AdminSetting.create!(
+        key: "vault_config",
+        value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "pre-migration-role", "vault_secret_id" => "pre-migration-secret" }.to_json
+      )
+
+      config = described_class.vault_config
+
+      expect(AdminSetting.exists?(key: "vault_role_id_encrypted")).to be(false)
+      expect(config["vault_role_id"]).to eq("pre-migration-role")
+      expect(config["vault_secret_id"]).to eq("pre-migration-secret")
+    end
+
+    it "prefers the encrypted row over the blob's plaintext once one exists" do
+      AdminSetting.create!(
+        key: "vault_config",
+        value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "stale-plaintext-role" }.to_json
+      )
+      described_class.update_vault_config!("vault_role_id" => "fresh-encrypted-role")
+
+      expect(described_class.vault_config["vault_role_id"]).to eq("fresh-encrypted-role")
+    end
+
     it "update_vault_config! writes only the keys present, leaving the others untouched" do
       described_class.update_vault_config!("vault_addr" => "http://vault.example.internal:8200", "vault_role_id" => "role-a")
       described_class.update_vault_config!("vault_secret_id" => "secret-b")
