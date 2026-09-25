@@ -50,7 +50,6 @@ federation_list_partners
 generate_audio
 generate_image
 generate_video
-get_api_reference
 get_component_status
 get_governance_report
 get_graph_neighbors

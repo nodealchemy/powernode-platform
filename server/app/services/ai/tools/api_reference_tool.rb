@@ -10,7 +10,10 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "get_api_reference", mutating: false
+      declare_action "get_api_reference", mutating: false,
+                                          returns: "the reference markdown (narrowed to the first `##` section whose heading matches section, " \
+                                                   "or the whole document when none matches) and the list of `##` section headings",
+                                          refuses: "the API reference document is not present on this deployment"
 
       def self.definition
         {
