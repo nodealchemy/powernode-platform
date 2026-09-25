@@ -187,8 +187,13 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # remove_team_member, detach_skill_from_agent, data_source_unsubscribe —
     # each of which destroys rows and had been publishing destructiveHint:
     # false. Collateral pinned below: exactly those three registry keys.
+    #
+    # 24 since archive_by_predicate and retire_by_predicate (IMP-3c9a6dc8f0a9)
+    # were declared destructive with no overlay entry: bulk verbs over up to
+    # a whole account's knowledge or learnings in one call. LITERAL, like the
+    # three above. Collateral pinned below: exactly those two registry keys.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(22)
+      expect(patterns.size).to eq(24)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -228,6 +233,17 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # literal would deny nothing at all while reading as a control.
     it "denies exactly the three E2-review literals, each a real registry key" do
       literals = %w[remove_team_member detach_skill_from_agent data_source_unsubscribe]
+      expect(patterns).to include(*literals)
+
+      denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        literals.any? { |pattern| ::File.fnmatch(pattern, name, ::File::FNM_EXTGLOB) }
+      end
+
+      expect(denied.sort).to eq(literals.sort)
+    end
+
+    it "denies exactly the two bulk predicate literals, each a real registry key" do
+      literals = %w[archive_by_predicate retire_by_predicate]
       expect(patterns).to include(*literals)
 
       denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|

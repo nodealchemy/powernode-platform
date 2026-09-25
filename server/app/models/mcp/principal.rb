@@ -201,6 +201,12 @@ module Mcp
       # purpose: no glob of their shape (*remove_*, *detach_*, *unsubscribe*)
       # is narrow enough to stay off a future reversible verb, and
       # principal_deny_overlay_spec pins the collateral to exactly these three.
+      #
+      # archive_by_predicate and retire_by_predicate are LITERAL for the same
+      # reason. Each archives or retires every row a predicate matches, up to
+      # the whole account's knowledge or learnings in one call, and is declared
+      # destructive. An archive can be undone row by row, but a bulk sweep is an
+      # operator's decision, not an instance's.
       DESTRUCTIVE_TOOL_PATTERNS = %w[
         *_deferred_operation
         *intervention_policy
@@ -224,6 +230,8 @@ module Mcp
         remove_team_member
         detach_skill_from_agent
         data_source_unsubscribe
+        archive_by_predicate
+        retire_by_predicate
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every
