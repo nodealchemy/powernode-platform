@@ -40,58 +40,45 @@ export interface ImpersonationStartResponse {
   expires_at: string;
 }
 
-export interface ImpersonationApiResponse<T> {
-  success: boolean;
-  data?: T;
+export interface ImpersonationValidation {
+  valid: boolean;
+  session?: ImpersonationSession;
+  expires_at?: string;
   message?: string;
-  error?: string;
 }
 
-// API functions
+// Unwraps the server's success envelope ({ success, data, message? } --
+// api_response.rb): axios's `response.data` IS that envelope, so the payload is
+// one level further in. A `success: false` envelope becomes a thrown Error
+// carrying the server's own `error` label.
+const unwrap = <T>(envelope: { success?: boolean; data?: T; error?: string }): T => {
+  if (!envelope?.success) {
+    throw new Error(envelope?.error || 'Impersonation request failed');
+  }
+  return envelope.data as T;
+};
+
+// The one client for /impersonations. It stays in shared because the auth
+// slice (shared) owns the impersonation session; the user tables dispatch that
+// slice's thunks rather than calling this directly.
 export const impersonationApi = {
-  // Start impersonating a user
-  async startImpersonation(request: ImpersonationRequest): Promise<ImpersonationApiResponse<ImpersonationStartResponse>> {
+  async startImpersonation(request: ImpersonationRequest): Promise<ImpersonationStartResponse> {
     const response = await api.post('/impersonations', request);
-    return response.data;
+    return unwrap<ImpersonationStartResponse>(response.data);
   },
 
-  // Stop impersonation
-  async stopImpersonation(sessionToken: string): Promise<ImpersonationApiResponse<{ duration: number }>> {
+  async stopImpersonation(sessionToken: string): Promise<{ duration: number }> {
     const response = await api.delete('/impersonations', {
       data: { session_token: sessionToken }
     });
-    return response.data;
+    return unwrap<{ duration: number }>(response.data);
   },
 
-  // Get active impersonation sessions
-  async getActiveSessions(): Promise<ImpersonationApiResponse<ImpersonationSession[]>> {
-    const response = await api.get('/impersonations');
-    return response.data;
-  },
-
-  // Get impersonation history
-  async getHistory(limit?: number): Promise<ImpersonationApiResponse<ImpersonationSession[]>> {
-    const response = await api.get('/impersonations/history', {
-      params: { limit }
-    });
-    return response.data;
-  },
-
-  // Get users available for impersonation
-  async getImpersonatableUsers(): Promise<ImpersonationApiResponse<UserSummary[]>> {
-    const response = await api.get('/impersonations/users');
-    return response.data;
-  },
-
-  // Validate impersonation token
-  async validateToken(token: string): Promise<ImpersonationApiResponse<{
-    session?: ImpersonationSession;
-    expires_at?: string;
-  }> & {
-    valid?: boolean;
-  }> {
+  // The server answers 200 with data.valid false for a bad token; only a
+  // transport or envelope failure throws.
+  async validateToken(token: string): Promise<ImpersonationValidation> {
     const response = await api.post('/impersonations/validate', { token });
-    return response.data;
+    return unwrap<ImpersonationValidation>(response.data);
   }
 };
 

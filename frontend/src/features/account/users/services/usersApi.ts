@@ -199,12 +199,6 @@ class UsersApiService {
     return response.data;
   }
 
-  // Impersonate user (admin only — business extension endpoint)
-  async impersonateUser(user_id: string): Promise<{ success: boolean; message: string }> {
-    const response = await api.post('/impersonations', { user_id });
-    return response.data;
-  }
-
   // Get user statistics
   async getUserStats(): Promise<{ success: boolean; data: UserStats }> {
     const response = await api.get('/users/stats');

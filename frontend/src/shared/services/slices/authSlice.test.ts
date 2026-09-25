@@ -10,6 +10,8 @@ import authReducer, {
   resendVerificationEmail,
   clearResendVerificationSuccess,
   decrementResendCooldown,
+  checkImpersonationStatus,
+  startImpersonation,
 } from './authSlice';
 import { authApi } from '@/features/account/auth/services/authAPI';
 import uiReducer from './uiSlice';
@@ -34,6 +36,15 @@ Object.defineProperty(window, 'localStorage', {
 
 // Mock the auth API
 jest.mock('@/features/account/auth/services/authAPI');
+
+// The HTTP layer under impersonationApi. Impersonation tests resolve these with
+// the REAL server envelope ({ success, data } -- api_response.rb), so the
+// client's unwrap and the thunks' reading of it are both exercised.
+const mockApiPost = jest.fn();
+jest.mock('@/shared/services/api', () => ({
+  __esModule: true,
+  api: { post: (...args: unknown[]) => mockApiPost(...args), delete: jest.fn() },
+}));
 
 const mockedAuthAPI = authApi as jest.Mocked<typeof authApi>;
 
@@ -558,6 +569,58 @@ describe('authSlice', () => {
         store.dispatch(decrementResendCooldown());
       }
       expect(store.getState().auth.resendCooldown).toBe(0);
+    });
+  });
+
+  describe('impersonation thunks', () => {
+    const summary = (id: string) => ({
+      id, email: `${id}@example.com`, full_name: `User ${id}`, roles: ['member'],
+      permissions: ['team.read'], status: 'active',
+    });
+
+    it('checkImpersonationStatus keeps an active session the server reports as valid', async () => {
+      localStorageMock.getItem.mockImplementation(((key: string) => (key === 'impersonationToken' ? 'tok-1' : null)) as never);
+      const session = {
+        id: 's1', session_token: 'tok-1', impersonator: summary('u1'), impersonated_user: summary('u2'),
+        started_at: '2026-09-25T09:00:00Z', active: true, expired: false,
+      };
+      // validate_token puts `valid` INSIDE data, never at the envelope's top level.
+      mockApiPost.mockResolvedValueOnce({
+        data: { success: true, data: { valid: true, session, expires_at: '2026-09-25T17:00:00Z' } },
+      });
+
+      await store.dispatch(checkImpersonationStatus());
+
+      const { impersonation, user } = store.getState().auth;
+      expect(impersonation.isImpersonating).toBe(true);
+      expect(impersonation.impersonatedUser?.id).toBe('u2');
+      expect(impersonation.originalUser?.id).toBe('u1');
+      expect(impersonation.expiresAt).toBe('2026-09-25T17:00:00Z');
+      expect(user?.id).toBe('u2');
+      expect(localStorageMock.removeItem).not.toHaveBeenCalledWith('impersonationToken');
+    });
+
+    it('checkImpersonationStatus clears a session the server reports as invalid', async () => {
+      localStorageMock.getItem.mockImplementation(((key: string) => (key === 'impersonationToken' ? 'stale' : null)) as never);
+      mockApiPost.mockResolvedValueOnce({ data: { success: true, data: { valid: false, message: 'Invalid or expired impersonation token' } } });
+
+      await store.dispatch(checkImpersonationStatus());
+
+      expect(store.getState().auth.impersonation.isImpersonating).toBe(false);
+      expect(localStorageMock.removeItem).toHaveBeenCalledWith('impersonationToken');
+    });
+
+    it('startImpersonation stores the token from the unwrapped create payload', async () => {
+      mockApiPost.mockResolvedValueOnce({
+        data: { success: true, message: 'Impersonation started successfully',
+          data: { token: 'tok-9', target_user: summary('u2'), expires_at: '2026-09-25T17:00:00Z' } },
+      });
+
+      await store.dispatch(startImpersonation({ user_id: 'u2', reason: 'support' }));
+
+      expect(store.getState().auth.impersonation.isImpersonating).toBe(true);
+      expect(store.getState().auth.impersonation.impersonatedUser?.id).toBe('u2');
+      expect(localStorageMock.setItem).toHaveBeenCalledWith('impersonationToken', 'tok-9');
     });
   });
 });

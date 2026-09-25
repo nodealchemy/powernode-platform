@@ -190,14 +190,10 @@ export const startImpersonation = createAsyncThunk(
       const state = getState() as { auth: AuthState };
       const originalUser = state.auth.user;
       
-      const response = await impersonationApi.startImpersonation({ user_id, reason });
-      
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Failed to start impersonation');
-      }
-      
+      const started = await impersonationApi.startImpersonation({ user_id, reason });
+
       return {
-        ...response.data,
+        ...started,
         originalUser,
       };
     } catch (error) {
@@ -216,13 +212,7 @@ export const stopImpersonation = createAsyncThunk(
         throw new Error('No active impersonation session');
       }
 
-      const response = await impersonationApi.stopImpersonation(sessionToken);
-
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to stop impersonation');
-      }
-
-      return response.data;
+      return await impersonationApi.stopImpersonation(sessionToken);
     } catch (error) {
       return rejectWithValue(getErrorMessage(error) || 'Failed to stop impersonation');
     }
@@ -239,17 +229,13 @@ export const checkImpersonationStatus = createAsyncThunk(
         return null;
       }
       
-      const response = await impersonationApi.validateToken(impersonationToken);
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to validate impersonation token');
-      }
-      
-      // CRITICAL FIX: Backend returns 'valid' at top level, but also include session data
+      // validate_token answers inside data: { valid, session?, expires_at? }.
+      const validation = await impersonationApi.validateToken(impersonationToken);
+
       return {
-        valid: response.valid || false,
-        session: response.data?.session || null,
-        expires_at: response.data?.expires_at || null
+        valid: validation.valid === true,
+        session: validation.session || null,
+        expires_at: validation.expires_at || null
       };
     } catch (error) {
       return rejectWithValue(
