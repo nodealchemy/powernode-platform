@@ -204,7 +204,6 @@ Rails.application.routes.draw do
         # User data export endpoints
         scope "users/:user_id" do
           get "export/profile", to: "data_exports#user_profile"
-          get "export/activity", to: "data_exports#user_activity"
           get "export/audit_logs", to: "data_exports#user_audit_logs"
           get "export/consents", to: "data_exports#user_consents"
           patch :anonymize, to: "users#anonymize"

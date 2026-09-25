@@ -19,16 +19,6 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
     render_not_found("User")
   end
 
-  # GET /api/v1/internal/users/:user_id/export/activity
-  def user_activity
-    user = User.find(params[:user_id])
-    activities = user.respond_to?(:activities) ? user.activities.limit(1000) : []
-
-    render_success(data: activities.map { |a| activity_data(a) })
-  rescue ActiveRecord::RecordNotFound
-    render_not_found("User")
-  end
-
   # GET /api/v1/internal/users/:user_id/export/audit_logs
   def user_audit_logs
     audit_logs = AuditLog.where(user_id: params[:user_id]).limit(1000)
@@ -47,7 +37,7 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   def account_payments
     account = Account.find(params[:account_id])
 
-    render_success(data: account.respond_to?(:export_payments) ? account.export_payments : [])
+    render_optional_export(account, :export_payments)
   rescue ActiveRecord::RecordNotFound
     render_not_found("Account")
   end
@@ -56,7 +46,7 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   def account_invoices
     account = Account.find(params[:account_id])
 
-    render_success(data: account.respond_to?(:export_invoices) ? account.export_invoices : [])
+    render_optional_export(account, :export_invoices)
   rescue ActiveRecord::RecordNotFound
     render_not_found("Account")
   end
@@ -65,29 +55,43 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   def account_subscriptions
     account = Account.find(params[:account_id])
 
-    render_success(data: account.respond_to?(:export_subscriptions) ? account.export_subscriptions : [])
+    render_optional_export(account, :export_subscriptions)
   rescue ActiveRecord::RecordNotFound
     render_not_found("Account")
   end
 
-  # GET /api/v1/internal/accounts/:account_id/export/files
+  # GET /api/v1/internal/accounts/:account_id/export/files?user_id=
+  #
+  # GDPR Article 15: the files the DATA SUBJECT uploaded (uploaded_by_id) in
+  # this account (account_id), not every file in the account — an export
+  # request belongs to one user, and a co-member's files are that co-member's
+  # personal data, not the requester's. Soft-deleted rows are included (with
+  # deleted_at): the platform still holds them. Metadata only; storage_key and
+  # other internal locators are not personal data and stay out.
   def account_files
-    account = Account.find(params[:account_id])
-    files = account.respond_to?(:files) ? account.files.limit(1000) : []
+    return render_error("user_id is required", status: :unprocessable_content) if params[:user_id].blank?
 
-    render_success(data: files.map { |f| file_data(f) })
-  rescue ActiveRecord::RecordNotFound
-    render_not_found("Account")
+    account = Account.find(params[:account_id])
+    user = User.where(account_id: account.id).find(params[:user_id])
+    files = FileManagement::Object.where(account_id: account.id, uploaded_by_id: user.id).order(:created_at)
+
+    render_success(data: files.map { |f| file_data(f) }, meta: { count: files.size })
+  rescue ActiveRecord::RecordNotFound => e
+    render_not_found(e.model == "User" ? "User" : "Account")
   end
 
   private
 
-  def activity_data(activity)
-    {
-      id: activity.id,
-      action: activity.respond_to?(:action) ? activity.action : nil,
-      created_at: activity.created_at
-    }
+  # Billing records come from an extension that core cannot depend on, so the
+  # capability check stays — but an absent provider is reported as such
+  # (meta.available: false), never as an account that simply has no records.
+  def render_optional_export(account, method_name)
+    if account.respond_to?(method_name)
+      records = account.public_send(method_name)
+      render_success(data: records, meta: { available: true, count: records.size })
+    else
+      render_success(data: [], meta: { available: false, reason: "no_export_provider_installed" })
+    end
   end
 
   def audit_log_data(log)
@@ -114,9 +118,16 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   def file_data(file)
     {
       id: file.id,
-      filename: file.respond_to?(:filename) ? file.filename : nil,
-      size: file.respond_to?(:size) ? file.size : nil,
-      created_at: file.created_at
+      filename: file.filename,
+      content_type: file.content_type,
+      file_type: file.file_type,
+      category: file.category,
+      file_size: file.file_size,
+      visibility: file.visibility,
+      version: file.version,
+      created_at: file.created_at,
+      updated_at: file.updated_at,
+      deleted_at: file.deleted_at
     }
   end
 end

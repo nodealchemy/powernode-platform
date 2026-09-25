@@ -32,10 +32,12 @@ module DataManagement
     before_create :set_defaults
     after_create :log_export_requested
 
-    # Available data types for export
+    # Available data types for export. `activity` was withdrawn
+    # (IMP-8aab38f3ad62): no per-user activity model exists, its endpoint
+    # answered an always-empty success, and the per-user trail it would have
+    # named (AuditLog) is exported as `audit_logs`.
     EXPORTABLE_DATA_TYPES = %w[
       profile
-      activity
       audit_logs
       payments
       invoices

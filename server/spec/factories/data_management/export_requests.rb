@@ -85,7 +85,7 @@ FactoryBot.define do
 
     trait :partial_export do
       export_type { "partial" }
-      include_data_types { %w[profile activity settings] }
+      include_data_types { %w[profile audit_logs settings] }
     end
 
     # ============================================
