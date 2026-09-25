@@ -1,0 +1,16 @@
+# Core frontend files allowed to contain an extension-route literal, checked by
+# scripts/checks/core-extension-route-literals.rb. EXACT per-file counts: a file
+# above its count holds a new literal, a file below it means a fix landed and
+# the entry must be lowered or removed. Every entry names its ruling or task.
+frontend/src/features/system/storage/services/storageAssignmentsApi.ts:
+  count: 8
+  reason: "blessed cross-boundary seam: core storage-assignments UI calls /system/storage_* by URL"
+  ref: IMP-ca6b51d65114
+frontend/src/features/system/storage/services/storageCredentialsApi.ts:
+  count: 3
+  reason: "blessed cross-boundary seam: core storage-assignments UI calls /system/storage_* by URL"
+  ref: IMP-ca6b51d65114
+frontend/src/features/devops/module-builds/services/moduleBuildBatchesApi.ts:
+  count: 3
+  reason: "owned by fc-34 (module builds move into the system extension)"
+  ref: fc-34

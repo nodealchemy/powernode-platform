@@ -786,6 +786,41 @@ else
 fi
 fi
 
+# Core names no extension ROUTE (fc-36). The core-purity checks above match names
+# and paths; a string literal such as '/system/platform/volumes' or '/plans' in
+# core frontend code is the same dependency in a form they cannot see — it 404s,
+# or links nowhere, whenever the extension is absent. Core reaches extension
+# behaviour through featureRegistry seams. Exceptions live in an explicit
+# per-file allowlist with a reason and a ruling/task ref for each entry (see
+# scripts/checks/core-extension-route-literals.rb). Core-only scan, so it runs the
+# same with no extensions present. Fails CLOSED on a missing script, a failed
+# fixture self-test, or a non-numeric result.
+total_checks=$((total_checks + 1))
+echo -n "Checking: Core frontend names no extension route... "
+if [ ! -r scripts/checks/core-extension-route-literals.rb ]; then
+    echo -e "${RED}✗ FAIL${NC} (script MISSING: scripts/checks/core-extension-route-literals.rb)"
+    failed_checks=$((failed_checks + 1))
+elif ! ruby scripts/checks/core-extension-route-literals.rb --self-test >/dev/null 2>&1; then
+    echo -e "${RED}✗ FAIL${NC} (fixture self-test failed — broken matcher, not a clean tree; run: ruby scripts/checks/core-extension-route-literals.rb --self-test)"
+    failed_checks=$((failed_checks + 1))
+else
+    route_hits=$(ruby scripts/checks/core-extension-route-literals.rb 2>/dev/null || true)
+    case "$route_hits" in
+        ''|*[!0-9]*)
+            echo -e "${RED}✗ FAIL${NC} (no usable result: produced '"'"'$route_hits'"'"')"
+            failed_checks=$((failed_checks + 1))
+            ;;
+        0)
+            echo -e "${GREEN}✓ PASS${NC}"
+            passed_checks=$((passed_checks + 1))
+            ;;
+        *)
+            echo -e "${RED}✗ FAIL${NC} ($route_hits violation(s); run: ruby scripts/checks/core-extension-route-literals.rb --list)"
+            failed_checks=$((failed_checks + 1))
+            ;;
+    esac
+fi
+
 # Deployment-identifier leak guard. Powernode is a platform OTHER people deploy: THIS
 # deployment's hostnames, internal IP ranges, VM ids and operator details are irrelevant
 # to every other deployment and a gratuitous disclosure on the public mirror. Their home
