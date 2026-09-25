@@ -78,21 +78,6 @@ module Api
           render_not_found("MCP App")
         end
 
-        # POST /api/v1/ai/mcp_apps/:id/process
-        def process_input
-          result = renderer_service.process_user_input(
-            instance_id: params[:instance_id],
-            input_data: params[:input_data] || {}
-          )
-
-          render_success(
-            response: result[:response],
-            state_update: result[:state_update]
-          )
-        rescue ActiveRecord::RecordNotFound
-          render_not_found("MCP App Instance")
-        end
-
         private
 
         def validate_permissions

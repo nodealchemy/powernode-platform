@@ -16,7 +16,7 @@ module Api
 
         before_action :authenticate_request
         before_action :validate_permissions
-        before_action :set_time_range, only: %i[index cost_breakdown trends token_analytics]
+        before_action :set_time_range, only: %i[index trends token_analytics]
 
         # ==========================================================================
         # OVERVIEW
@@ -42,21 +42,6 @@ module Api
         # ==========================================================================
         # COST ANALYSIS
         # ==========================================================================
-
-        # GET /api/v1/ai/finops/cost_breakdown
-        def cost_breakdown
-          cost_service = build_cost_service
-
-          render_success({
-            cost_breakdown: {
-              by_provider: cost_service.cost_breakdown_by_provider,
-              by_model: cost_service.cost_breakdown_by_model,
-              by_agent: cost_service.cost_breakdown_by_agent,
-              daily: cost_service.daily_cost_breakdown
-            },
-            time_range: time_range_info
-          })
-        end
 
         # GET /api/v1/ai/finops/trends
         def trends

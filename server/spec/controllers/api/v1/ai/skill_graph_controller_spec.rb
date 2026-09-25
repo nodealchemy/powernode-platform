@@ -41,22 +41,6 @@ RSpec.describe Api::V1::Ai::SkillGraphController, type: :controller do
     end
   end
 
-  describe "POST #discover" do
-    it "returns traversal results" do
-      allow_any_instance_of(Ai::SkillGraph::TraversalService).to receive(:traverse).and_return(
-        discovered_skills: [], paths: [], seed_count: 0, token_estimate: 0
-      )
-
-      post :discover, params: { task_context: "review my code" }
-      expect(response).to have_http_status(:ok)
-    end
-
-    it "requires task_context" do
-      post :discover
-      expect(response).to have_http_status(:bad_request)
-    end
-  end
-
   describe "POST #create_edge" do
     let(:skill_a) { create(:ai_skill, account: account, name: "A", category: "productivity") }
     let(:skill_b) { create(:ai_skill, account: account, name: "B", category: "sales") }
@@ -85,52 +69,6 @@ RSpec.describe Api::V1::Ai::SkillGraphController, type: :controller do
         relation_type: "invalid"
       }
       expect(response).to have_http_status(:unprocessable_content)
-    end
-  end
-
-  describe "PATCH #update_edge" do
-    let!(:edge) { create(:ai_knowledge_graph_edge, account: account) }
-
-    it "updates edge weight and confidence" do
-      patch :update_edge, params: { id: edge.id, weight: 0.8, confidence: 0.9 }
-      expect(response).to have_http_status(:ok)
-      edge.reload
-      expect(edge.weight).to eq(0.8)
-      expect(edge.confidence).to eq(0.9)
-    end
-
-    it "returns not found for missing edge" do
-      patch :update_edge, params: { id: SecureRandom.uuid, weight: 0.5 }
-      expect(response).to have_http_status(:not_found)
-    end
-  end
-
-  describe "DELETE #destroy_edge" do
-    let!(:edge) { create(:ai_knowledge_graph_edge, account: account) }
-
-    it "deletes the edge" do
-      allow_any_instance_of(Ai::SkillGraph::BridgeService).to receive(:remove_skill_edge)
-
-      delete :destroy_edge, params: { id: edge.id }
-      expect(response).to have_http_status(:ok)
-      expect(json_response["data"]["deleted"]).to be true
-    end
-  end
-
-  describe "POST #auto_detect" do
-    let!(:skill) { create(:ai_skill, account: account, name: "Test Skill", category: "productivity") }
-
-    it "returns suggestions" do
-      allow_any_instance_of(Ai::SkillGraph::BridgeService).to receive(:auto_detect_relationships).and_return([])
-
-      post :auto_detect, params: { skill_id: skill.id }
-      expect(response).to have_http_status(:ok)
-      expect(json_response["data"]["suggestions"]).to eq([])
-    end
-
-    it "returns not found for missing skill" do
-      post :auto_detect, params: { skill_id: SecureRandom.uuid }
-      expect(response).to have_http_status(:not_found)
     end
   end
 
@@ -167,24 +105,6 @@ RSpec.describe Api::V1::Ai::SkillGraphController, type: :controller do
     it "requires task_context" do
       post :compose_team
       expect(response).to have_http_status(:bad_request)
-    end
-  end
-
-  describe "GET #agent_context" do
-    let!(:agent) { create(:ai_agent, account: account) }
-
-    it "returns agent skill graph context" do
-      allow_any_instance_of(Ai::SkillGraph::ContextEnrichmentService).to receive(:enrich).and_return(
-        context_block: "", metadata: {}
-      )
-
-      get :agent_context, params: { agent_id: agent.id }
-      expect(response).to have_http_status(:ok)
-    end
-
-    it "returns not found for missing agent" do
-      get :agent_context, params: { agent_id: SecureRandom.uuid }
-      expect(response).to have_http_status(:not_found)
     end
   end
 

@@ -144,38 +144,4 @@ RSpec.describe "Api::V1::Ai::Security::AgentIdentity", type: :request do
       expect(data["revoked_count"]).to be >= 1
     end
   end
-
-  describe "POST /api/v1/ai/security/identities/verify" do
-    let(:identity_service) { Ai::Security::AgentIdentityService.new(account: account) }
-    let!(:identity) { identity_service.provision!(agent: agent) }
-
-    it "verifies a valid signature" do
-      payload = "test_payload"
-      signature = identity_service.sign(agent: agent, payload: payload)
-
-      post "/api/v1/ai/security/identities/verify",
-           headers: headers,
-           params: { agent_id: agent.id, payload: payload, signature: signature },
-           as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data["valid"]).to be true
-    end
-
-    it "rejects an invalid signature" do
-      post "/api/v1/ai/security/identities/verify",
-           headers: headers,
-           params: {
-             agent_id: agent.id,
-             payload: "test",
-             signature: Base64.strict_encode64("invalid")
-           },
-           as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data["valid"]).to be false
-    end
-  end
 end

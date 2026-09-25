@@ -12,17 +12,6 @@ module Ai
       render_success(data: executions.map { |e| serialize_shadow_execution(e) })
     end
 
-    # GET /api/v1/ai/autonomy/shadow_executions/:agent_id
-    def agent_shadow_executions
-      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
-      service = ::Ai::Autonomy::ShadowModeService.new(account: current_account)
-      executions = service.for_agent(agent, limit: params[:limit]&.to_i || 50)
-
-      render_success(data: executions.map { |e| serialize_shadow_execution(e) })
-    rescue ActiveRecord::RecordNotFound
-      render_not_found("Agent")
-    end
-
     private
 
     def serialize_shadow_execution(execution)

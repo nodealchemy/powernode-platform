@@ -153,57 +153,6 @@ RSpec.describe "Api::V1::Ai::KnowledgeGraph", type: :request do
     end
   end
 
-  describe "GET /api/v1/ai/knowledge_graph/nodes/:id/neighbors" do
-    let(:center) { create(:ai_knowledge_graph_node, account: account, name: "Center") }
-    let(:neighbor) { create(:ai_knowledge_graph_node, account: account, name: "Neighbor") }
-
-    before do
-      create(:ai_knowledge_graph_edge, account: account, source_node: center, target_node: neighbor)
-    end
-
-    it "returns neighbors" do
-      get "/api/v1/ai/knowledge_graph/nodes/#{center.id}/neighbors", headers: headers
-
-      expect(response).to have_http_status(:ok)
-      body = JSON.parse(response.body)
-      expect(body["data"]["neighbors"]).to be_an(Array)
-    end
-  end
-
-  describe "GET /api/v1/ai/knowledge_graph/shortest_path" do
-    let(:node_a) { create(:ai_knowledge_graph_node, account: account) }
-    let(:node_b) { create(:ai_knowledge_graph_node, account: account) }
-
-    before do
-      create(:ai_knowledge_graph_edge, account: account, source_node: node_a, target_node: node_b)
-    end
-
-    it "finds shortest path" do
-      get "/api/v1/ai/knowledge_graph/shortest_path",
-          params: { source_id: node_a.id, target_id: node_b.id },
-          headers: headers
-
-      expect(response).to have_http_status(:ok)
-      body = JSON.parse(response.body)
-      expect(body["data"]["path"]).to be_an(Array)
-    end
-  end
-
-  describe "POST /api/v1/ai/knowledge_graph/subgraph" do
-    let(:node_a) { create(:ai_knowledge_graph_node, account: account) }
-    let(:node_b) { create(:ai_knowledge_graph_node, account: account) }
-
-    it "returns subgraph" do
-      post "/api/v1/ai/knowledge_graph/subgraph",
-           params: { node_ids: [node_a.id, node_b.id] }.to_json,
-           headers: headers
-
-      expect(response).to have_http_status(:ok)
-      body = JSON.parse(response.body)
-      expect(body["data"]["nodes"]).to be_an(Array)
-    end
-  end
-
   # Cross-tenant IDOR: extract resolves a Document by id; Document delegates its
   # account to its knowledge_base. The document must be scoped to the acting
   # account so a foreign account's document 404s (never disclose its content via
@@ -346,9 +295,6 @@ RSpec.describe "Api::V1::Ai::KnowledgeGraph", type: :request do
       "GET #nodes" => ->(ctx, h) { ctx.get "/api/v1/ai/knowledge_graph/nodes", headers: h },
       "GET #show_node" => ->(ctx, h) { ctx.get "/api/v1/ai/knowledge_graph/nodes/#{ctx.authz_node.id}", headers: h },
       "GET #edges" => ->(ctx, h) { ctx.get "/api/v1/ai/knowledge_graph/edges", headers: h },
-      "GET #neighbors" => ->(ctx, h) { ctx.get "/api/v1/ai/knowledge_graph/nodes/#{ctx.authz_node.id}/neighbors", headers: h },
-      "GET #shortest_path" => ->(ctx, h) { ctx.get "/api/v1/ai/knowledge_graph/shortest_path", params: { source_id: ctx.authz_node.id, target_id: ctx.authz_node2.id }, headers: h },
-      "POST #subgraph" => ->(ctx, h) { ctx.post "/api/v1/ai/knowledge_graph/subgraph", params: { node_ids: [ctx.authz_node.id] }.to_json, headers: h },
       "GET #statistics" => ->(ctx, h) { ctx.get "/api/v1/ai/knowledge_graph/statistics", headers: h },
       "POST #multi_hop_reason" => ->(ctx, h) { ctx.post "/api/v1/ai/knowledge_graph/reason", params: { query: "q" }.to_json, headers: h },
       "POST #hybrid_search" => ->(ctx, h) { ctx.post "/api/v1/ai/knowledge_graph/search", params: { query: "q" }.to_json, headers: h }

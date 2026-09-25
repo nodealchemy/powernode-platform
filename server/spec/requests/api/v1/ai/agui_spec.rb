@@ -98,33 +98,6 @@ RSpec.describe "Api::V1::Ai::Agui", type: :request do
     end
   end
 
-  describe "POST /api/v1/ai/agui/sessions/:id/state" do
-    let(:session) { create(:ai_agui_session, account: account, state: { "counter" => 0 }) }
-
-    it "pushes a state delta" do
-      post "/api/v1/ai/agui/sessions/#{session.id}/state",
-           params: {
-             state_delta: [{ "op" => "replace", "path" => "/counter", "value" => 5 }]
-           }.to_json,
-           headers: headers
-
-      expect_success_response
-      data = json_response_data
-      expect(data["snapshot"]["counter"]).to eq(5)
-      expect(data["sequence"]).to be > 0
-    end
-
-    it "returns error for invalid patch" do
-      post "/api/v1/ai/agui/sessions/#{session.id}/state",
-           params: {
-             state_delta: [{ "op" => "remove", "path" => "/nonexistent" }]
-           }.to_json,
-           headers: headers
-
-      expect(response.status).to be >= 400
-    end
-  end
-
   describe "GET /api/v1/ai/agui/sessions/:id/events" do
     let(:session) { create(:ai_agui_session, account: account) }
 

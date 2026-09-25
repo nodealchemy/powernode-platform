@@ -1426,23 +1426,8 @@ Rails.application.routes.draw do
           end
         end
 
-        # Pipeline trigger (requires repository context)
-        post "repositories/:repository_id/pipelines/trigger", to: "pipelines#trigger"
-
         # Job logs
         get "pipelines/:pipeline_id/jobs/:id/logs", to: "pipelines#job_logs"
-
-        # Webhook events (read-only history)
-        resources :webhook_events, only: [ :index, :show ] do
-          collection do
-            get :stats
-          end
-
-          member do
-            post :retry
-            post :redeliver
-          end
-        end
 
         # Account-level Git Webhooks (organization-wide webhook configs)
         resources :account_webhooks, controller: "account_webhooks" do
@@ -1468,20 +1453,6 @@ Rails.application.routes.draw do
             post :removal_token
             put :labels, action: :update_labels
           end
-        end
-
-        # Pipeline Schedules (scheduled/cron pipelines)
-        resources :pipeline_schedules, only: [ :show, :update, :destroy ] do
-          member do
-            post :trigger
-            post :pause
-            post :resume
-          end
-        end
-
-        # Repository-scoped schedule creation
-        scope "repositories/:repository_id" do
-          resources :schedules, controller: "pipeline_schedules", only: [ :index, :create ]
         end
 
         # Pipeline Approvals (approval gates for deployments)
@@ -2009,17 +1980,12 @@ Rails.application.routes.draw do
           patch "nodes/:id", action: :update_node
           delete "nodes/:id", action: :destroy_node
 
-          # Node traversal
-          get "nodes/:id/neighbors", action: :neighbors
-
           # Edges CRUD
           get "edges", action: :edges
           post "edges", action: :create_edge
           delete "edges/:id", action: :destroy_edge
 
           # Graph operations
-          get "shortest_path", action: :shortest_path
-          post "subgraph", action: :subgraph
           post "extract", action: :extract
           get "statistics", action: :statistics
           post "reason", action: :multi_hop_reason
@@ -2032,16 +1998,11 @@ Rails.application.routes.draw do
         scope :skill_graph, controller: "skill_graph" do
           get "subgraph", action: :subgraph
           post "sync", action: :sync
-          post "discover", action: :discover
           post "edges", action: :create_edge
-          patch "edges/:id", action: :update_edge
-          delete "edges/:id", action: :destroy_edge
-          post "auto_detect", action: :auto_detect
           get "team_coverage/:team_id", action: :team_coverage
           post "team_gaps/:team_id", action: :team_gaps
           post "suggest_agents/:team_id", action: :suggest_agents
           post "compose_team", action: :compose_team
-          get "agent_context/:agent_id", action: :agent_context
 
           # Lifecycle - proposals
           post "research", action: :research
@@ -2595,7 +2556,6 @@ Rails.application.routes.draw do
         # ===================================================================
         scope :finops, controller: "finops" do
           get "/", action: :index
-          get "cost_breakdown", action: :cost_breakdown
           get "trends", action: :trends
           get "token_analytics", action: :token_analytics
           get "waste_analysis", action: :waste_analysis
@@ -2743,7 +2703,6 @@ Rails.application.routes.draw do
           get "budgets/:id/transactions", action: :budget_transactions
           get "stats", action: :stats
           get "capability_matrix", action: :capability_matrix
-          get "capability_matrix/:agent_id", action: :agent_capabilities
           get "circuit_breakers", action: :circuit_breakers
           get "circuit_breakers/:agent_id", action: :agent_circuit_breakers
           post "circuit_breakers/:id/reset", action: :reset_circuit_breaker
@@ -2752,15 +2711,10 @@ Rails.application.routes.draw do
           post "approvals/:id/approve", action: :approve_action
           post "approvals/:id/reject", action: :reject_action
           get "shadow_executions", action: :shadow_executions
-          get "shadow_executions/:agent_id", action: :agent_shadow_executions
           get "telemetry", action: :telemetry_events
           post "telemetry", action: :create_telemetry_event
-          get "telemetry/:agent_id", action: :agent_telemetry
           get "delegation_policies", action: :delegation_policies
-          get "delegation_policies/:agent_id", action: :agent_delegation_policy
           post "delegation_policies", action: :create_delegation_policy
-          put "delegation_policies/:id", action: :update_delegation_policy
-          delete "delegation_policies/:id", action: :destroy_delegation_policy
           get "behavioral_fingerprints/:agent_id", action: :behavioral_fingerprints
           post "broadcast", action: :relay_broadcast
           get "cost_thresholds", action: :cost_thresholds
@@ -2888,7 +2842,6 @@ Rails.application.routes.draw do
             get "/:id", action: :show
             post "/:id/rotate", action: :rotate
             post "/:id/revoke", action: :revoke
-            post "/verify", action: :verify
           end
 
           # Phase 7: Quarantine Management (OWASP ASI08/ASI10)
@@ -2987,7 +2940,6 @@ Rails.application.routes.draw do
           post "sessions", action: :create_session
           get "sessions/:id", action: :show_session
           delete "sessions/:id", action: :destroy_session
-          post "sessions/:id/state", action: :push_state
           get "sessions/:id/events", action: :events
         end
 
@@ -3001,7 +2953,6 @@ Rails.application.routes.draw do
           patch "/:id", action: :update
           delete "/:id", action: :destroy
           post "/:id/render", action: :render_app
-          post "/:id/process", action: :process_input
         end
       end
 

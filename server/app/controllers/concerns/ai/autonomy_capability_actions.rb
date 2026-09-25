@@ -9,14 +9,5 @@ module Ai
       service = ::Ai::Autonomy::CapabilityMatrixService.new(account: current_account)
       render_success(data: service.full_matrix)
     end
-
-    # GET /api/v1/ai/autonomy/capability_matrix/:agent_id
-    def agent_capabilities
-      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
-      service = ::Ai::Autonomy::CapabilityMatrixService.new(account: current_account)
-      render_success(data: service.agent_capabilities(agent: agent))
-    rescue ActiveRecord::RecordNotFound
-      render_not_found("Agent")
-    end
   end
 end

@@ -16,17 +16,6 @@ module Ai
       render_success(data: events.map { |e| serialize_telemetry_event(e) })
     end
 
-    # GET /api/v1/ai/autonomy/telemetry/:agent_id
-    def agent_telemetry
-      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
-      service = ::Ai::Autonomy::TelemetryService.new(account: current_account)
-      events = service.for_agent(agent, limit: params[:limit]&.to_i || 100)
-
-      render_success(data: events.map { |e| serialize_telemetry_event(e) })
-    rescue ActiveRecord::RecordNotFound
-      render_not_found("Agent")
-    end
-
     # POST /api/v1/ai/autonomy/telemetry
     def create_telemetry_event
       account = resolve_account_for_agent(params[:agent_id])

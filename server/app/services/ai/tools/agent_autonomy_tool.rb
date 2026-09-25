@@ -80,13 +80,13 @@ module Ai
         # authority; the write itself lands only after Ai::AutonomyGate
         # (category ai.delegation_policy.update, default require_approval)
         # lets it through. Operator ruling: ai.agents.update, the agent-update
-        # permission, rather than ai.autonomy.manage (what the REST twins
-        # create/update_delegation_policy demand): the REST verbs WRITE the
-        # row directly, while this verb only parks a proposal — and a caller
-        # who may edit an agent may propose its delegation policy. The read
-        # (describe_delegation) stays at the floor: its twin, GET
-        # /api/v1/ai/autonomy/delegation_policies/:agent_id, is gated on
-        # ai.agents.read by AutonomyController#validate_permissions.
+        # permission, rather than ai.autonomy.manage (what the REST twin
+        # create_delegation_policy demands): the REST verb WRITES the row
+        # directly, while this verb only parks a proposal — and a caller who
+        # may edit an agent may propose its delegation policy. The read
+        # (describe_delegation) stays at the floor: its REST counterpart, GET
+        # /api/v1/ai/autonomy/delegation_policies, is gated on ai.agents.read
+        # by AutonomyController#validate_permissions.
         #
         # This entry prices the SELF case only. A proposal naming another agent
         # is charged CROSS_AGENT_DELEGATION_PERMISSION in #effective_perm_for —

@@ -171,46 +171,4 @@ RSpec.describe "Api::V1::Ai::McpApps", type: :request do
       expect_error_response("MCP App not found", 404)
     end
   end
-
-  describe "POST /api/v1/ai/mcp_apps/:id/process" do
-    let(:mcp_app) { create(:ai_mcp_app, :with_schema, account: account) }
-    let(:instance) { create(:ai_mcp_app_instance, mcp_app: mcp_app, account: account) }
-
-    it "processes user input" do
-      post "/api/v1/ai/mcp_apps/#{mcp_app.id}/process",
-           params: {
-             instance_id: instance.id,
-             input_data: { "name" => "Test" }
-           }.to_json,
-           headers: headers
-
-      expect_success_response
-      data = json_response_data
-      expect(data["response"]["received"]).to be true
-    end
-
-    it "returns validation error for invalid input" do
-      post "/api/v1/ai/mcp_apps/#{mcp_app.id}/process",
-           params: {
-             instance_id: instance.id,
-             input_data: {}
-           }.to_json,
-           headers: headers
-
-      expect_success_response
-      data = json_response_data
-      expect(data["response"]["error"]).to eq("Invalid input")
-    end
-
-    it "returns 404 for unknown instance" do
-      post "/api/v1/ai/mcp_apps/#{mcp_app.id}/process",
-           params: {
-             instance_id: SecureRandom.uuid,
-             input_data: { "name" => "Test" }
-           }.to_json,
-           headers: headers
-
-      expect(response.status).to be >= 400
-    end
-  end
 end

@@ -12,8 +12,8 @@ require "rails_helper"
 #                                            under the core category
 #                                            `ai.delegation_policy.update`.
 #
-# Why AgentAutonomyTool and not AgentManagementTool: the read's REST twin
-# (GET /api/v1/ai/autonomy/delegation_policies/:agent_id) is gated on
+# Why AgentAutonomyTool and not AgentManagementTool: the read's REST
+# counterpart (GET /api/v1/ai/autonomy/delegation_policies) is gated on
 # ai.agents.read — exactly this tool's REQUIRED_PERMISSION floor — while
 # AgentManagementTool's floor is ai.agents.execute, which would OVER-gate a
 # read. The write maps to ai.agents.update through ACTION_PERMISSIONS, the

@@ -20,20 +20,6 @@ module Api
           render_success(result)
         end
 
-        # POST /api/v1/ai/skill_graph/discover
-        def discover
-          authorize_permission!("ai.skills.read")
-          task_context = params[:task_context]
-          return render_error("task_context required", status: :bad_request) if task_context.blank?
-
-          result = traversal_service.traverse(
-            task_context: task_context,
-            mode: params[:mode] || :auto,
-            token_budget: params[:token_budget]&.to_i || 2000
-          )
-          render_success(result)
-        end
-
         # POST /api/v1/ai/skill_graph/edges
         def create_edge
           authorize_permission!("ai.knowledge_graph.manage")
@@ -48,44 +34,6 @@ module Api
           render_success(edge: serialize_edge(edge))
         rescue ArgumentError, ::Ai::KnowledgeGraph::GraphServiceError => e
           render_error(e.message, status: :unprocessable_content)
-        end
-
-        # PATCH /api/v1/ai/skill_graph/edges/:id
-        def update_edge
-          authorize_permission!("ai.knowledge_graph.manage")
-
-          edge = current_account.ai_knowledge_graph_edges.find(params[:id])
-          update_attrs = {}
-          update_attrs[:weight] = params[:weight].to_f if params[:weight].present?
-          update_attrs[:confidence] = params[:confidence].to_f if params[:confidence].present?
-
-          edge.update!(update_attrs) if update_attrs.any?
-          render_success(edge: serialize_edge(edge))
-        rescue ActiveRecord::RecordNotFound
-          render_error("Edge not found", status: :not_found)
-        rescue ActiveRecord::RecordInvalid => e
-          render_error(e.message, status: :unprocessable_content)
-        end
-
-        # DELETE /api/v1/ai/skill_graph/edges/:id
-        def destroy_edge
-          authorize_permission!("ai.knowledge_graph.manage")
-          bridge_service.remove_skill_edge(params[:id])
-          render_success(deleted: true)
-        rescue ::Ai::KnowledgeGraph::GraphServiceError => e
-          render_error(e.message, status: :not_found)
-        end
-
-        # POST /api/v1/ai/skill_graph/auto_detect
-        def auto_detect
-          authorize_permission!("ai.skills.read")
-          skill = ::Ai::Skill.for_account(current_account.id).find(params[:skill_id])
-          threshold = params[:similarity_threshold]&.to_f || 0.7
-
-          suggestions = bridge_service.auto_detect_relationships(skill, similarity_threshold: threshold)
-          render_success(suggestions: suggestions, count: suggestions.size)
-        rescue ActiveRecord::RecordNotFound
-          render_error("Skill not found", status: :not_found)
         end
 
         # GET /api/v1/ai/skill_graph/team_coverage/:team_id
@@ -136,22 +84,6 @@ module Api
             max_members: params[:max_members]&.to_i || 5
           )
           render_success(result)
-        end
-
-        # GET /api/v1/ai/skill_graph/agent_context/:agent_id
-        def agent_context
-          authorize_permission!("ai.skills.read")
-          agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
-
-          result = enrichment_service.enrich(
-            agent: agent,
-            input_text: params[:input_text] || "",
-            mode: params[:mode] || :manifest,
-            token_budget: params[:token_budget]&.to_i || 2000
-          )
-          render_success(result)
-        rescue ActiveRecord::RecordNotFound
-          render_error("Agent not found", status: :not_found)
         end
 
         # ===================================================================
@@ -461,16 +393,8 @@ module Api
           @bridge_service ||= ::Ai::SkillGraph::BridgeService.new(current_account)
         end
 
-        def traversal_service
-          @traversal_service ||= ::Ai::SkillGraph::TraversalService.new(current_account)
-        end
-
         def coverage_service
           @coverage_service ||= ::Ai::SkillGraph::TeamCoverageService.new(current_account)
-        end
-
-        def enrichment_service
-          @enrichment_service ||= ::Ai::SkillGraph::ContextEnrichmentService.new(current_account)
         end
 
         def research_service

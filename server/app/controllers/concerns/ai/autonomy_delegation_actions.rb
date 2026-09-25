@@ -12,20 +12,6 @@ module Ai
       render_success(data: policies.map { |p| serialize_delegation_policy(p) })
     end
 
-    # GET /api/v1/ai/autonomy/delegation_policies/:agent_id
-    def agent_delegation_policy
-      agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
-      policy = ::Ai::DelegationPolicy.resolve_for(agent_id: agent.id, account_id: current_account.id)
-
-      if policy
-        render_success(data: serialize_delegation_policy(policy))
-      else
-        render_success(data: nil)
-      end
-    rescue ActiveRecord::RecordNotFound
-      render_not_found("Agent")
-    end
-
     # POST /api/v1/ai/autonomy/delegation_policies
     def create_delegation_policy
       agent = ::Ai::Agent.for_account(current_account.id).find(params[:agent_id])
@@ -46,42 +32,14 @@ module Ai
       render_error(e.message, status: :unprocessable_content)
     end
 
-    # PUT /api/v1/ai/autonomy/delegation_policies/:id
-    def update_delegation_policy
-      policy = ::Ai::DelegationPolicy.where(account_id: current_account.id).find(params[:id])
-      policy.update!(delegation_policy_params)
-
-      render_success(data: serialize_delegation_policy(policy))
-    rescue ActiveRecord::RecordNotFound
-      render_not_found("Delegation policy")
-    rescue ActiveRecord::RecordInvalid => e
-      render_error(e.message, status: :unprocessable_content)
-    end
-
-    # DELETE /api/v1/ai/autonomy/delegation_policies/:id
-    def destroy_delegation_policy
-      policy = ::Ai::DelegationPolicy.where(account_id: current_account.id).find(params[:id])
-      policy.destroy!
-
-      render_success(data: { deleted: true })
-    rescue ActiveRecord::RecordNotFound
-      render_not_found("Delegation policy")
-    end
-
     private
-
-    def delegation_policy_params
-      params.permit(:max_depth, :budget_delegation_pct, :inheritance_policy,
-                    allowed_delegate_types: [], delegatable_actions: [])
-    end
 
     def serialize_delegation_policy(policy)
       {
         id: policy.id,
         agent_id: policy.agent_id,
         agent_name: policy.agent&.name,
-        # A canonical (account-less) row is seed-managed and read-only here:
-        # update/destroy resolve through where(account_id:) and will not find it.
+        # A canonical (account-less) row is seed-managed and read-only here.
         canonical: policy.global?,
         max_depth: policy.max_depth,
         allowed_delegate_types: policy.allowed_delegate_types,

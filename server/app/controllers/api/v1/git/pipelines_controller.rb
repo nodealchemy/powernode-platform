@@ -5,7 +5,6 @@ module Api
     module Git
       class PipelinesController < ApplicationController
         before_action :set_pipeline, only: %i[show cancel retry jobs]
-        before_action :set_repository_for_trigger, only: %i[trigger]
         before_action :validate_permissions
 
         # GET /api/v1/git/pipelines
@@ -46,36 +45,6 @@ module Api
         # GET /api/v1/git/pipelines/:id
         def show
           render_success({ pipeline: serialize_pipeline_detail(@pipeline) })
-        end
-
-        # POST /api/v1/git/repositories/:repository_id/pipelines/trigger
-        def trigger
-          credential = @repository.git_provider_credential
-          return render_error("Credential cannot be used", status: :unprocessable_content) unless credential.can_be_used?
-
-          client = ::Devops::Git::ApiClient.for(credential)
-          ref = params[:ref] || @repository.default_branch
-          inputs = params[:inputs]&.to_unsafe_h || {}
-          workflow_id = params[:workflow] || params[:workflow_id] || params[:workflow_file]
-
-          result = client.trigger_workflow(
-            @repository.owner,
-            @repository.name,
-            workflow_id,
-            ref,
-            inputs
-          )
-
-          if result[:success]
-            render_success(
-              { message: "Pipeline triggered successfully", pipeline_id: result[:pipeline_id] },
-              status: :accepted
-            )
-          else
-            render_error(result[:error], status: :unprocessable_content)
-          end
-        rescue ::Devops::Git::ApiClient::ApiError => e
-          render_error(e.message, status: :unprocessable_content)
         end
 
         # POST /api/v1/git/pipelines/:id/cancel
@@ -204,24 +173,19 @@ module Api
           render_error("Pipeline not found", status: :not_found)
         end
 
-        def set_repository_for_trigger
-          @repository = current_user.account.git_repositories
-                          .includes(:credential)
-                          .find(params[:repository_id])
-        rescue ActiveRecord::RecordNotFound
-          render_error("Repository not found", status: :not_found)
-        end
-
         def validate_permissions
           case action_name
           when "index", "show", "jobs", "stats"
             require_permission("git.pipelines.read")
-          when "trigger", "retry"
+          when "retry"
             require_permission("git.pipelines.trigger")
           when "cancel"
             require_permission("git.pipelines.cancel")
           when "job_logs"
             require_permission("git.pipelines.logs")
+          else
+            # An action the map does not name is refused, never waved through.
+            render_forbidden
           end
         end
 

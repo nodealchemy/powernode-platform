@@ -162,59 +162,6 @@ RSpec.describe Api::V1::Ai::AguiController, type: :controller do
   end
 
   # ===========================================================================
-  # POST #push_state
-  # ===========================================================================
-
-  describe 'POST #push_state' do
-    context 'with ai.agents.read permission' do
-      before { sign_in read_user }
-
-      it 'pushes state delta' do
-        allow(protocol_service).to receive(:get_session).with(agui_session.id.to_s).and_return(agui_session)
-
-        state_sync_service = instance_double(Ai::Agui::StateSyncService)
-        allow(Ai::Agui::StateSyncService).to receive(:new).and_return(state_sync_service)
-        allow(state_sync_service).to receive(:push_state).and_return({
-          sequence: 1,
-          snapshot: { key: 'value' }
-        })
-
-        post :push_state, params: {
-          id: agui_session.id,
-          state_delta: [{ op: 'add', path: '/key', value: 'value' }]
-        }
-
-        expect(response).to have_http_status(:success)
-        expect(json_response['success']).to be true
-        expect(json_response['data']['sequence']).to eq(1)
-      end
-
-      it 'returns not found for missing session' do
-        allow(protocol_service).to receive(:get_session).and_raise(ActiveRecord::RecordNotFound)
-
-        post :push_state, params: {
-          id: SecureRandom.uuid,
-          state_delta: [{ op: 'add', path: '/key', value: 'value' }]
-        }
-
-        expect(response).to have_http_status(:not_found)
-      end
-    end
-
-    context 'without permissions' do
-      before { sign_in user }
-
-      it 'returns forbidden' do
-        post :push_state, params: {
-          id: agui_session.id,
-          state_delta: []
-        }
-        expect(response).to have_http_status(:forbidden)
-      end
-    end
-  end
-
-  # ===========================================================================
   # GET #events
   # ===========================================================================
 

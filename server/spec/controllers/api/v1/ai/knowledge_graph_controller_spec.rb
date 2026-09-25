@@ -179,50 +179,6 @@ RSpec.describe Api::V1::Ai::KnowledgeGraphController, type: :controller do
   # GRAPH TRAVERSAL
   # ============================================================================
 
-  describe 'GET #neighbors' do
-    it 'returns neighbors for a node' do
-      allow(graph_service).to receive(:find_neighbors).and_return([{ id: node2.id, name: 'Rails' }])
-
-      get :neighbors, params: { id: node.id, depth: 1 }
-      expect(response).to have_http_status(:ok)
-      expect(json_response['data']['neighbors']).to be_an(Array)
-    end
-  end
-
-  describe 'GET #shortest_path' do
-    it 'returns a path between two nodes' do
-      allow(graph_service).to receive(:shortest_path).and_return([edge])
-
-      get :shortest_path, params: { source_id: node.id, target_id: node2.id }
-      expect(response).to have_http_status(:ok)
-      expect(json_response['data']['path']).to be_an(Array)
-      expect(json_response['data']['length']).to eq(1)
-    end
-
-    it 'returns empty path when no path found' do
-      allow(graph_service).to receive(:shortest_path).and_return(nil)
-
-      get :shortest_path, params: { source_id: node.id, target_id: node2.id }
-      expect(response).to have_http_status(:ok)
-      expect(json_response['data']['path']).to eq([])
-      expect(json_response['data']['length']).to eq(0)
-    end
-  end
-
-  describe 'POST #subgraph' do
-    it 'returns subgraph data' do
-      allow(graph_service).to receive(:subgraph).and_return({ nodes: [node], edges: [edge] })
-
-      post :subgraph, params: { node_ids: [node.id, node2.id] }
-      expect(response).to have_http_status(:ok)
-    end
-
-    it 'returns error when node_ids missing' do
-      post :subgraph, params: {}
-      expect(response).to have_http_status(:bad_request)
-    end
-  end
-
   # ============================================================================
   # EXTRACTION & REASONING
   # ============================================================================

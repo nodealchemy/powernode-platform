@@ -10,7 +10,7 @@ module Api
         # permission. READ actions require ai.knowledge_graph.read; mutations
         # require ai.knowledge_graph.manage.
         before_action -> { require_permission("ai.knowledge_graph.read") },
-                      only: %i[nodes show_node edges neighbors shortest_path subgraph statistics multi_hop_reason hybrid_search]
+                      only: %i[nodes show_node edges statistics multi_hop_reason hybrid_search]
         before_action -> { require_permission("ai.knowledge_graph.manage") },
                       only: %i[create_node update_node destroy_node create_edge destroy_edge extract]
 
@@ -92,55 +92,6 @@ module Api
         # ============================================================================
         # GRAPH TRAVERSAL
         # ============================================================================
-
-        # GET /api/v1/ai/knowledge_graph/nodes/:id/neighbors
-        def neighbors
-          depth = params[:depth]&.to_i || 1
-          relation_types = params[:relation_types]
-
-          result = graph_service.find_neighbors(
-            node: params[:id],
-            depth: depth,
-            relation_types: relation_types
-          )
-
-          render_success(neighbors: result, count: result.size)
-        rescue ::Ai::KnowledgeGraph::GraphServiceError => e
-          render_error(e.message, status: :not_found)
-        end
-
-        # GET /api/v1/ai/knowledge_graph/shortest_path
-        def shortest_path
-          path = graph_service.shortest_path(
-            source: params[:source_id],
-            target: params[:target_id],
-            max_depth: params[:max_depth]&.to_i || 5
-          )
-
-          if path
-            render_success(
-              path: path.map { |e| serialize_edge(e) },
-              length: path.size
-            )
-          else
-            render_success(path: [], length: 0, message: "No path found")
-          end
-        rescue ::Ai::KnowledgeGraph::GraphServiceError => e
-          render_error(e.message, status: :not_found)
-        end
-
-        # POST /api/v1/ai/knowledge_graph/subgraph
-        def subgraph
-          node_ids = params[:node_ids]
-          return render_error("node_ids required", status: :bad_request) if node_ids.blank?
-
-          result = graph_service.subgraph(
-            node_ids: node_ids,
-            include_edges: params.fetch(:include_edges, true)
-          )
-
-          render_success(result)
-        end
 
         # ============================================================================
         # EXTRACTION & REASONING

@@ -77,19 +77,6 @@ module Api
             render_error(e.message, status: :unprocessable_content)
           end
 
-          # POST /api/v1/ai/security/identities/verify
-          def verify
-            result = service.verify(
-              agent_id: params[:agent_id],
-              payload: params[:payload],
-              signature: params[:signature]
-            )
-
-            render_success(data: result)
-          rescue ::Ai::Security::AgentIdentityService::VerificationError => e
-            render_error(e.message, status: :unprocessable_content)
-          end
-
           private
 
           def validate_permissions

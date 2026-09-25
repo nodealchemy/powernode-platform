@@ -138,48 +138,6 @@ RSpec.describe Api::V1::Git::PipelinesController, type: :controller do
   # PIPELINE ACTIONS
   # =============================================================================
 
-  describe 'POST #trigger' do
-    let(:mock_client) { double('GitApiClient') }
-
-    before do
-      allow(::Devops::Git::ApiClient).to receive(:for).and_return(mock_client)
-      allow(mock_client).to receive(:trigger_workflow).and_return({
-        success: true,
-        pipeline_id: 'new_pipeline_123'
-      })
-    end
-
-    context 'with valid permissions' do
-      before { sign_in pipeline_manage_user }
-
-      it 'triggers a new pipeline' do
-        post :trigger, params: {
-          repository_id: repository.id,
-          workflow: 'ci.yml',
-          ref: 'main'
-        }
-
-        expect(response).to have_http_status(:accepted)
-        json = JSON.parse(response.body)
-        expect(json['data']['message']).to include('triggered')
-      end
-    end
-
-    context 'without permissions' do
-      before { sign_in pipeline_read_user }
-
-      it 'returns forbidden error' do
-        post :trigger, params: {
-          repository_id: repository.id,
-          workflow: 'ci.yml',
-          ref: 'main'
-        }
-
-        expect(response).to have_http_status(:forbidden)
-      end
-    end
-  end
-
   describe 'POST #cancel' do
     let(:pipeline) { create(:git_pipeline, :running, repository: repository, account: account) }
     let(:mock_client) { double('GitApiClient') }

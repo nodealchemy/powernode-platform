@@ -215,36 +215,4 @@ RSpec.describe "Api::V1::Ai::McpAppsController", type: :request do
       expect(json_response['data']['instance_id']).to be_present
     end
   end
-
-  # =========================================================================
-  # PROCESS INPUT
-  # =========================================================================
-  describe "POST /api/v1/ai/mcp_apps/:id/process" do
-    let(:path) { "#{base_path}/#{mcp_app.id}/process" }
-    let(:process_params) { { instance_id: SecureRandom.uuid, input_data: { key: "value" } } }
-    let(:process_result) do
-      { response: { status: "ok" }, state_update: { updated: true } }
-    end
-
-    before do
-      allow(renderer_service).to receive(:process_user_input).and_return(process_result)
-    end
-
-    it 'returns 401 when unauthenticated' do
-      post path, params: process_params.to_json, headers: { 'Content-Type' => 'application/json' }
-      expect(response).to have_http_status(:unauthorized)
-    end
-
-    it 'returns 403 when user lacks permission' do
-      post path, params: process_params.to_json, headers: auth_headers_for(no_perms_user)
-      expect(response).to have_http_status(:forbidden)
-    end
-
-    it 'processes input and returns response' do
-      post path, params: process_params.to_json, headers: auth_headers_for(read_user)
-      expect(response).to have_http_status(:success)
-      expect(json_response['data']['response']).to be_present
-      expect(json_response['data']['state_update']).to be_present
-    end
-  end
 end

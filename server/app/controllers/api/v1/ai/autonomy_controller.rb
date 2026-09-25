@@ -18,7 +18,7 @@ module Api
           :create_budget, :update_budget, :destroy_budget, :allocate_child,
           :rollover_budget, :sync_pricing, :update_pricing,
           :reset_circuit_breaker,
-          :create_delegation_policy, :update_delegation_policy, :destroy_delegation_policy
+          :create_delegation_policy
         ]
         before_action :require_approval_permission, only: [:approve_action, :reject_action]
 

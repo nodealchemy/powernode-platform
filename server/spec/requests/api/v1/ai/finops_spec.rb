@@ -54,25 +54,6 @@ RSpec.describe 'Api::V1::Ai::Finops', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/finops/cost_breakdown' do
-    before do
-      allow(cost_service).to receive(:cost_breakdown_by_provider).and_return([])
-      allow(cost_service).to receive(:cost_breakdown_by_model).and_return([])
-      allow(cost_service).to receive(:cost_breakdown_by_agent).and_return([])
-      allow(cost_service).to receive(:daily_cost_breakdown).and_return({})
-    end
-
-    it 'returns cost breakdown data' do
-      get '/api/v1/ai/finops/cost_breakdown', headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-      expect(data['cost_breakdown']).to be_present
-      expect(data['cost_breakdown']).to have_key('by_provider')
-      expect(data['cost_breakdown']).to have_key('by_model')
-    end
-  end
-
   describe 'GET /api/v1/ai/finops/trends' do
     before do
       allow(cost_service).to receive(:calculate_cost_trend).and_return({ trend: "up" })

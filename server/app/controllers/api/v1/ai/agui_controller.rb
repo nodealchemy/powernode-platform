@@ -73,26 +73,6 @@ module Api
           render_not_found("Session")
         end
 
-        # POST /api/v1/ai/agui/sessions/:id/state
-        def push_state
-          session = protocol_service.get_session(params[:id])
-          sync_service = ::Ai::Agui::StateSyncService.new(session: session)
-
-          delta = Array(params[:state_delta]).map do |op|
-            op.respond_to?(:to_unsafe_h) ? op.to_unsafe_h : op.to_h
-          end
-          result = sync_service.push_state(state_delta: delta)
-
-          render_success(
-            sequence: result[:sequence],
-            snapshot: result[:snapshot]
-          )
-        rescue ActiveRecord::RecordNotFound
-          render_not_found("Session")
-        rescue ::Ai::Agui::StateSyncService::PatchError => e
-          render_error(e.message, status: :unprocessable_content)
-        end
-
         # GET /api/v1/ai/agui/sessions/:id/events
         def events
           events_list = protocol_service.get_events(
