@@ -153,6 +153,34 @@ RSpec.describe Ai::Providers::Sync::Anthropic do
       end
     end
 
+    context "with Claude releases newer than the listed families" do
+      let(:api_response_body) do
+        {
+          data: [
+            { id: "claude-opus-5", display_name: "Claude Opus 5", created_at: "2026-08-01T00:00:00Z" },
+            { id: "claude-opus-5-5", display_name: "Claude Opus 5.5", created_at: "2026-09-01T00:00:00Z" }
+          ]
+        }
+      end
+
+      before do
+        stub_request(:get, api_url)
+          .with(headers: { "x-api-key" => "sk-ant-test-key-1234567890abcdef", "anthropic-version" => "2023-06-01" })
+          .to_return(status: 200, body: api_response_body.to_json, headers: { "Content-Type" => "application/json" })
+      end
+
+      it "gives them the 1M-context / 128K-output envelope, not the old-Opus 200K / 32K" do
+        Ai::ProviderManagementService.send(:sync_anthropic_models, provider)
+        provider.reload
+
+        %w[claude-opus-5 claude-opus-5-5].each do |id|
+          model = provider.supported_models.find { |m| m["id"] == id }
+          expect(model["context_length"]).to eq(1_000_000), "#{id} context"
+          expect(model["max_output_tokens"]).to eq(128_000), "#{id} max output"
+        end
+      end
+    end
+
     context "with no credentials" do
       let(:provider_without_creds) { create(:ai_provider, :anthropic, account: account, name: "Anthropic No Creds", slug: "anthropic-no-creds") }
 

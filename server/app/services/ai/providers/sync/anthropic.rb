@@ -95,12 +95,13 @@ module Ai
             8192
           end
 
-          # Current-generation ids sharing the 1M/128K envelope (prefix-based,
-          # mirroring Ai::Llm::ModelCapabilities::ADAPTIVE_ONLY_PREFIXES plus the
-          # 4-6 family, which shares the envelope but still allows sampling).
+          # Ids sharing the 1M/128K envelope: every adaptive-only Claude model (per
+          # Ai::Llm::ModelCapabilities, which fails closed, so a new release such as
+          # Opus 5 lands here without an edit) plus the 4-6 family, which shares the
+          # envelope but still allows sampling.
           def current_generation?(model_id)
-            %w[claude-opus-4-8 claude-opus-4-7 claude-opus-4-6 claude-sonnet-5 claude-sonnet-4-6]
-              .any? { |prefix| model_id.start_with?(prefix) }
+            ::Ai::Llm::ModelCapabilities.thinking_mode(model_id) == :adaptive_only ||
+              %w[claude-opus-4-6 claude-sonnet-4-6].any? { |prefix| model_id.start_with?(prefix) }
           end
 
           def extract_anthropic_capabilities(model_id)

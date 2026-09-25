@@ -13,11 +13,10 @@ module Ai
     # Why it exists: current-generation Claude models REJECT (HTTP 400) request
     # parameters that older models accept, so the request builder must decide per
     # model which parameters are legal:
-    #   - Fable 5 / Mythos 5 / Opus 4.7 / Opus 4.8 / Sonnet 5 reject sampling params
-    #     (temperature/top_p/top_k).
-    #   - Fable 5 / Mythos 5 additionally reject an explicit `thinking` block of any
-    #     kind (thinking is ALWAYS on): both {type:"enabled",...} and
-    #     {type:"disabled"} are 400s. The `thinking` param must be OMITTED, or set to
+    #   - every Claude model newer than the legacy set (LEGACY_CLAUDE_PREFIXES)
+    #     rejects sampling params (temperature/top_p/top_k).
+    #   - the always-thinking ones additionally reject an explicit enabled
+    #     `thinking` block (budget_tokens). The `thinking` param is OMITTED, or set to
     #     {type:"adaptive"} (or {type:"adaptive",display:"summarized"} to surface a
     #     reasoning summary). Depth is controlled ONLY by output_config.effort.
     module ModelCapabilities
@@ -38,10 +37,9 @@ module Ai
         request_timeout: 600
       }.freeze
 
-      # Everything else routed through the Anthropic builder — opus-4-6 / sonnet-4-6 /
-      # haiku / older Claude, plus openai / grok / ollama that reuse this code path.
-      # Preserves today's permissive behavior so nothing regresses. max_output /
-      # context_window are left nil ("unknown — the caller keeps its own default").
+      # Legacy Claude (LEGACY_CLAUDE_PREFIXES) and every non-Claude id (openai / grok /
+      # ollama reuse this code path). max_output / context_window are left nil
+      # ("unknown — the caller keeps its own default").
       PERMISSIVE_DEFAULT = {
         sampling_params: true,
         thinking_mode: :configurable,
@@ -53,16 +51,31 @@ module Ai
         request_timeout: 120
       }.freeze
 
-      # Prefixes whose models use the adaptive-only reasoning surface. Prefix-based,
-      # mirroring Ai::ModelTiers. `claude-fable` / `claude-mythos` cover the -5 ids and
-      # any future point releases; the opus/sonnet entries are the current reasoning
-      # tier that shares the same request restrictions.
-      ADAPTIVE_ONLY_PREFIXES = %w[
-        claude-fable
-        claude-mythos
-        claude-opus-4-7
-        claude-opus-4-8
-        claude-sonnet-5
+      # Claude families that PREDATE the adaptive-only surface: they accept sampling
+      # params and have no output_config.effort. A CLOSED deny-list, prefix-based like
+      # Ai::ModelTiers: every Claude id NOT listed here is adaptive-only, so a new
+      # Claude release fails closed (no sampling params) instead of 400ing on every
+      # call until someone adds its prefix. The list only ever shrinks as families
+      # retire.
+      #   claude-instant / claude-2 / claude-3  — the 1.x/2.x/3.x generations
+      #   claude-haiku-4                         — Haiku 4.5; NOT claude-haiku, so a
+      #                                            future Haiku 5 fails closed
+      #   claude-sonnet-4                        — Sonnet 4 / 4.5 / 4.6
+      #   claude-opus-4-0 / -4-1 / -4-5 / -4-6   — Opus 4.0-4.6 aliases
+      #   claude-opus-4-2                        — dated Opus 4.0 ids (claude-opus-4-2025…)
+      # Opus 4.7 and later, Sonnet 5, Opus 5 / 5.5, Fable and Mythos are adaptive-only.
+      # Non-Claude ids stay permissive.
+      LEGACY_CLAUDE_PREFIXES = %w[
+        claude-instant
+        claude-2
+        claude-3
+        claude-haiku-4
+        claude-sonnet-4
+        claude-opus-4-0
+        claude-opus-4-1
+        claude-opus-4-2
+        claude-opus-4-5
+        claude-opus-4-6
       ].freeze
 
       # Prefixes whose models run request-time safety classifiers that can return
@@ -81,9 +94,10 @@ module Ai
       # The frozen capability profile Hash for a model id.
       def profile(model_id)
         mid = model_id.to_s
-        return REASONING_ADAPTIVE_ONLY if ADAPTIVE_ONLY_PREFIXES.any? { |prefix| mid.start_with?(prefix) }
+        return PERMISSIVE_DEFAULT unless mid.start_with?("claude-")
+        return PERMISSIVE_DEFAULT if LEGACY_CLAUDE_PREFIXES.any? { |prefix| mid.start_with?(prefix) }
 
-        PERMISSIVE_DEFAULT
+        REASONING_ADAPTIVE_ONLY
       end
 
       # Whether temperature / top_p / top_k may be sent for this model.

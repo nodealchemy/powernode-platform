@@ -535,14 +535,14 @@ module Ai
       if reasoning_mode.present?
         reasoning_mode = reasoning_mode.to_sym
 
-        # Fable/Mythos have always-on adaptive thinking AND run a reasoning_extraction
-        # safety classifier. The chain_of_thought / star scaffolds make the model emit
-        # its own reasoning as text and inject it back as an assistant turn — redundant
-        # on a native reasoner and a refusal trigger there. Skip them for that family
-        # (plan_and_execute produces subtasks, not a reasoning transcript, so it is
-        # unaffected). See guidance-fable5-compliance.
+        # Adaptive-only models think natively (depth is set by effort), and the newest
+        # run a reasoning_extraction classifier. The chain_of_thought / star scaffolds
+        # make the model emit its own reasoning as text and inject it back as an
+        # assistant turn — redundant on every such model and a refusal trigger on some.
+        # Skip them there (plan_and_execute produces subtasks, not a reasoning
+        # transcript, so it is unaffected). See guidance-fable5-compliance.
         if %i[chain_of_thought star].include?(reasoning_mode) &&
-           ::Ai::Llm::ModelCapabilities.refusal_capable?(model)
+           ::Ai::Llm::ModelCapabilities.thinking_mode(model) == :adaptive_only
           Rails.logger.info "[AgentToolBridge] Skipping #{reasoning_mode} scaffold for adaptive-thinking model #{model} (native reasoning; avoids reasoning_extraction refusal)"
           reasoning_mode = nil
         end

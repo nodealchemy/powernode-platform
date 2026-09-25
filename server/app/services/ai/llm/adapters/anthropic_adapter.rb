@@ -237,8 +237,8 @@ module Ai
 
           # Capability-gated request params (sampling / thinking / effort) go through
           # the single ModelCapabilities gate — the one choke point so no builder
-          # re-implements it and 400s on an adaptive-only model (Fable 5 / Mythos 5 /
-          # Opus 4.7 / Opus 4.8 / Sonnet 5). It merges effort into output_config,
+          # re-implements it and 400s on an adaptive-only model (every Claude model
+          # outside ModelCapabilities::LEGACY_CLAUDE_PREFIXES). It merges effort into output_config,
           # which complete_structured layers output_config.format onto afterward.
           Ai::Llm::ModelCapabilities.apply_anthropic_request_gate!(
             body, model,

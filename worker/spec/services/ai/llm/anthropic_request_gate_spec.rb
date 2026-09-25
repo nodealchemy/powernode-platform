@@ -16,6 +16,19 @@ RSpec.describe Ai::Llm::ModelCapabilities, '.apply_anthropic_request_gate!' do
     expect(body).not_to have_key(:top_p)
   end
 
+  # Opus 5 / 5.5 fell through an allow-list to the permissive profile, so every
+  # call carrying a temperature 400ed. The deny-list makes them (and any unknown
+  # future Claude id) adaptive-only.
+  %w[claude-opus-5 claude-opus-5-5 claude-opus-9].each do |model|
+    it "strips sampling params and accepts effort for #{model}" do
+      body = {}
+      described_class.apply_anthropic_request_gate!(body, model, temperature: 0.3, top_p: 0.9, effort: 'medium')
+      expect(body).not_to have_key(:temperature)
+      expect(body).not_to have_key(:top_p)
+      expect(body[:output_config]).to eq(effort: 'medium')
+    end
+  end
+
   it 'passes sampling params for a permissive model' do
     body = {}
     described_class.apply_anthropic_request_gate!(body, 'claude-opus-4-6', temperature: 0.7, top_p: 0.9)

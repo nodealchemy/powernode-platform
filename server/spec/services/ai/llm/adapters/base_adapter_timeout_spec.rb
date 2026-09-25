@@ -40,6 +40,12 @@ RSpec.describe Ai::Llm::Adapters::BaseAdapter, "capability-aware request timeout
     expect(captured[:timeout]).to eq(600)
   end
 
+  it "uses 600s for Opus 5 (adaptive-only via the legacy deny-list) on the non-streaming path" do
+    captured = stub_post_capturing_timeout
+    adapter.complete(messages: messages, model: "claude-opus-5")
+    expect(captured[:timeout]).to eq(600)
+  end
+
   it "uses 120s for a legacy model on the non-streaming path" do
     captured = stub_post_capturing_timeout
     adapter.complete(messages: messages, model: "claude-opus-4-6")
