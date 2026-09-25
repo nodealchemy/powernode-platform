@@ -12,10 +12,12 @@ module Ai
     #
     # The platform has four schedule-shaped surfaces and they are not
     # interchangeable. This tool covers exactly one — `Devops::Schedule`, the
-    # pipeline scheduler — because it is the only one that is a first-class CRUD
-    # surface with its own controller, guarded by a single unambiguous
-    # permission pair (`devops.schedules.read` / `.write`), whose columns carry
-    # no secret material.
+    # pipeline scheduler. Its own REST CRUD controller was removed (fc-23, the
+    # parallel devops_* API surface); this read-only tool and the model itself
+    # stay, since existing schedule rows still need to be inspectable. It
+    # remains the only one of the four gated by a single unambiguous
+    # permission (`devops.schedules.read`), whose columns carry no secret
+    # material.
     #
     # The other three are deliberately NOT here, each for its own reason:
     #
@@ -102,8 +104,8 @@ module Ai
 
       # `devops_schedules` carries NO account_id — tenancy comes from the
       # pipeline it belongs to. Scoping on the schedule row alone would have
-      # returned every account's schedules, so this mirrors the REST
-      # controller's join exactly (schedules_controller.rb:16-18).
+      # returned every account's schedules, so this joins through the pipeline
+      # the same way the now-removed REST controller did.
       def schedules
         ::Devops::Schedule.joins(:pipeline)
                           .where(devops_pipelines: { account_id: account.id })
