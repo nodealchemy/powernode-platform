@@ -21,9 +21,9 @@ Only **5 types are ready now** (existing modal + getById):
 
 | Type | getById | Detail modal | Permission |
 |---|---|---|---|
-| `agent` | agentsApi.getAgent | AgentDetailModal | ai.agents.read |
+| `agent` | agentsApi.getAgent | AgentDetailPage (`/app/ai/agents/:id`; the modal was folded into it in fc-43) | ai.agents.read |
 | `agent_team` | teamsApi.getTeam | TeamDetailModal | ai.teams.read |
-| `ai_agent` | agentsApi.getAgent | AgentDetailModal | ai.agents.read |
+| `ai_agent` | agentsApi.getAgent | AgentDetailPage (`/app/ai/agents/:id`) | ai.agents.read |
 | `mission` | missionsApi.getMission | MissionDetailModal | ai.missions.read |
 | `team` | teamsApi.getTeam | TeamDetailModal | ai.teams.read |
 
@@ -105,7 +105,7 @@ row expansion). High-severity items to look at (23):
 |---|---|---|---|---|---|
 | `ai/agents/.../AgentsIndexTable.tsx` · AgentsIndexTable | agent | index-table-expandable | **Keep (conforms)**; link `ai_provider`, `skill`, `user` cells in expanded row | Low | Reference pattern; only cross-refs are plaintext |
 | `ai/agents/.../AiAgentDashboard.tsx` · AiAgentDashboard | agent | card-grid | **Keep (exception — dashboard)**; link provider/skill plaintext; keep embedded edit modal | Low | Landing dashboard, not the canonical index (`AgentsIndexTable` is) |
-| `ai/agents/.../AgentDetailModal.tsx` · AgentDetailModal | agent | detail-modal | **Keep (mgmt)** — multi-tab console (Config/History/Teams/Skills/Workspaces w/ mutation + sparkline); own scalar fields also reachable via row expand; link `ai_provider` | Med | Tabs manage child collections → justified console |
+| `pages/app/ai/AgentDetailPage.tsx` · AgentDetailPage (fc-43: AgentDetailModal folded into it) | agent | detail-page | **Keep (mgmt)** — multi-tab console (Config/History/Teams/Skills/Workspaces w/ mutation + sparkline); own scalar fields also reachable via row expand; link `ai_provider` | Med | Tabs manage child collections → justified console |
 | `…/detail-tabs/AgentTeamsTab.tsx` · AgentTeamsTab | agent_team | inline-list | **Link cells** — team name → `agent_team` detail | Low | Membership list inside console; team is a cross-ref |
 | `…/detail-tabs/AgentSkillsTab.tsx` · AgentSkillsTab | skill | custom-panel | **Keep (mgmt)** — checkbox skill-assignment editor; link assigned `skill` names | Low | Mutating panel, not an index |
 | `…/detail-tabs/AgentWorkspacesTab.tsx` · AgentWorkspacesTab | workspace | inline-list | **Keep**; workspace already linked, keep Chat action | Low | Conforms (linked + action) |

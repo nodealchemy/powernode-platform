@@ -776,9 +776,9 @@ compound_learning_content = <<~MARKDOWN
 
   The effectiveness score directly impacts retrieval ranking — higher-effectiveness learnings are prioritized during context injection.
 
-  ## Frontend: CompoundLearningPage
+  ## Frontend: Compound Learning
 
-  The Compound Learning dashboard is accessible at `/app/ai/learning` and provides:
+  The Compound Learning dashboard is accessible at `/app/ai/knowledge/learning` (AI Agents → Knowledge → Learning) and provides:
 
   ### Metrics Dashboard
 
