@@ -6,9 +6,9 @@ module Platform
       # THE PLATFORM'S OWN CORE SERVICES — database, redis, sidekiq, disk,
       # memory and cpu — as components, read from Platform::Health::CoreChecks.
       #
-      # Core mode needs these on /app/status: without the system extension no
-      # other contributor reports them, and the Observability and Maintenance
-      # health tabs that used to were deleted in fc-47.
+      # They are reported here in every mode, so /app/status always shows them,
+      # and no other contributor reports them. The Observability and
+      # Maintenance health tabs that used to were deleted in fc-47.
       #
       # ── SCOPE ───────────────────────────────────────────────────────────────
       # Process-wide: one set per deployment, NULL account, the "shared
@@ -18,16 +18,12 @@ module Platform
       # ── ONE MEASUREMENT PER INTERVAL, NOT PER ACCOUNT ───────────────────────
       # The sweep reads, it does not probe — and these checks open sockets (a
       # SELECT 1, a PING, the worker Redis). The sweep runs once per account
-      # every interval, so the readings are cached for one sweep interval and
-      # every account's sweep in that interval reads the same measurement: one
-      # probe per interval however many accounts there are. The other methods
+      # every interval, so the readings are cached and every account's sweep
+      # in that interval reads the same measurement. The cache lives HALF an
+      # interval, so each sweep reads a measurement taken after the previous
+      # sweep began, never one a full interval stale. Each reading carries its
+      # `measured_at`, so the evidence says how old it is. The other methods
       # are pure functions of a reading.
-      #
-      # ── ONE ROW PER SERVICE ─────────────────────────────────────────────────
-      # A registered contributor that already reports a core service claims it
-      # through `reports_core_services` (see Contributor), and that service is
-      # neither measured nor yielded here. Core mode has no such contributor
-      # and reports all six.
       class CoreService < Contributor
         KIND = "core_service"
 
@@ -61,14 +57,6 @@ module Platform
           readings.each do |service, values|
             yield Reading.new(service: service.to_s, values: values)
           end
-        end
-
-        # The services no other registered contributor reports.
-        def services_to_measure
-          claimed = Registry.contributors.except(KIND).values.flat_map do |other|
-            other.respond_to?(:reports_core_services) ? Array(other.reports_core_services).map(&:to_sym) : []
-          end
-          ::Platform::Health::CoreChecks::SERVICES - claimed
         end
 
         def ref_for(reading) = reading.service
@@ -118,10 +106,14 @@ module Platform
         private
 
         def readings
-          services = services_to_measure
-          Rails.cache.fetch([ CACHE_KEY, *services ].join(":"), expires_in: SweepService.sweep_interval_seconds.seconds) do
-            ::Platform::Health::CoreChecks.all(only: services)
+          Rails.cache.fetch(CACHE_KEY, expires_in: cache_ttl) do
+            measured_at = Time.current.utc.iso8601
+            ::Platform::Health::CoreChecks.all.transform_values { |values| values.merge(measured_at: measured_at) }
           end
+        end
+
+        def cache_ttl
+          [ SweepService.sweep_interval_seconds / 2, 1 ].max.seconds
         end
       end
     end

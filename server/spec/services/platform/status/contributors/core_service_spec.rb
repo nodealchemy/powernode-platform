@@ -4,9 +4,9 @@ require "rails_helper"
 
 # fc-47 — the `core_service` contributor: the platform's own services
 # (database, redis, sidekiq, disk, memory, cpu) as components on /app/status in
-# CORE mode, read from the one shared Platform::Health::CoreChecks. Before it,
-# /app/status showed none of these without the system extension, and the only
-# views were the Observability and Maintenance health tabs fc-47 deletes.
+# every mode, read from the one shared Platform::Health::CoreChecks. Before it,
+# /app/status showed none of these in core mode, and the only views were the
+# Observability and Maintenance health tabs fc-47 deletes.
 RSpec.describe Platform::Status::Contributors::CoreService do
   subject(:contributor) { described_class.new }
 
@@ -30,11 +30,8 @@ RSpec.describe Platform::Status::Contributors::CoreService do
   def only_condition(record) = contributor.conditions_for(record).first
 
   before do
-    Rails.cache.delete_matched("#{described_class::CACHE_KEY}*")
-    allow(checks).to receive(:all) { |only: checks::SERVICES| readings.slice(*only) }
-    # Core mode by default: no other contributor claims a core service. A
-    # checked-out extension may register one that does; see the claim specs.
-    allow(Platform::Status::Registry).to receive(:contributors).and_return({ "core_service" => contributor }.freeze)
+    Rails.cache.delete(described_class::CACHE_KEY)
+    allow(checks).to receive(:all).and_return(readings)
   end
 
   describe "the contract" do
@@ -79,7 +76,7 @@ RSpec.describe Platform::Status::Contributors::CoreService do
       condition = condition_for(:redis, { status: "healthy", response_time_ms: 0.4, connected_clients: 7 })
 
       expect(condition).to include("type" => "Healthy", "status" => true, "reason" => "Healthy")
-      expect(condition["evidence"]).to eq("response_time_ms" => 0.4, "connected_clients" => 7)
+      expect(condition["evidence"].except("measured_at")).to eq("response_time_ms" => 0.4, "connected_clients" => 7)
     end
 
     it "is degraded on a warning" do
@@ -122,57 +119,32 @@ RSpec.describe Platform::Status::Contributors::CoreService do
       expect(checks).to have_received(:all).once
     end
 
-    it "probes again once the sweep interval has passed" do
-      enumerate(accounts.first)
-      travel(Platform::Status::SweepService.sweep_interval_seconds.seconds + 1.second) { enumerate(accounts.last) }
+    # fc-47 review L-1: the cache lives HALF a sweep interval, so the next
+    # sweep always finds a reading taken after the previous sweep started.
+    it "keeps a reading for half a sweep interval, and probes again after it" do
+      half = Platform::Status::SweepService.sweep_interval_seconds.seconds / 2
 
+      enumerate(accounts.first)
+      travel(half - 1.second) { enumerate(accounts.second) }
+      expect(checks).to have_received(:all).once
+
+      travel(half + 1.second) { enumerate(accounts.last) }
       expect(checks).to have_received(:all).twice
+    end
+
+    it "stamps every reading with when it was measured, carried into the evidence" do
+      freeze_time do
+        record = enumerate.find { |r| contributor.ref_for(r) == "redis" }
+
+        expect(record.values[:measured_at]).to eq(Time.current.utc.iso8601)
+        expect(only_condition(record)["evidence"]).to include("measured_at" => Time.current.utc.iso8601)
+      end
     end
 
     it "probes once when run through the sweep itself for several accounts" do
       accounts.each { |account| Platform::Status::SweepService.run_once!(account) }
 
       expect(checks).to have_received(:all).once
-    end
-  end
-
-  # fc-47 review M4: a registered contributor that already reports a core
-  # service (the system extension reports postgres, redis and sidekiq from
-  # its own probe) claims it, and core does not add a second row for it.
-  # Core names no contributor: it reads the claim off whatever is registered.
-  describe "services another registered contributor reports" do
-    let(:claimer) do
-      Class.new(Platform::Status::Contributor) do
-        def kind = "zz_core_service_claimer"
-        def each_component(_account) = nil
-        def reports_core_services = %w[database redis sidekiq]
-      end.new
-    end
-
-    # The registry as seen by the contributor, controlled per example: in this
-    # tree a checked-out extension may claim services of its own.
-    def registered(contributors)
-      allow(Platform::Status::Registry).to receive(:contributors).and_return(contributors.freeze)
-    end
-
-    it "reports all six services when nothing else claims any" do
-      registered("core_service" => contributor)
-
-      expect(enumerate.map { |r| contributor.ref_for(r) }).to eq(%w[database redis sidekiq disk memory cpu])
-      expect(checks).to have_received(:all).with(only: checks::SERVICES)
-    end
-
-    it "leaves out, and does not measure, the services a registered contributor reports" do
-      registered("core_service" => contributor, "zz_core_service_claimer" => claimer)
-
-      expect(enumerate.map { |r| contributor.ref_for(r) }).to eq(%w[disk memory cpu])
-      expect(checks).to have_received(:all).with(only: %i[disk memory cpu])
-    end
-
-    it "ignores a contributor that does not answer the claim" do
-      registered("core_service" => contributor, "zz_plain" => Object.new.tap { |o| o.define_singleton_method(:each_component) { |_| nil } })
-
-      expect(enumerate.size).to eq(6)
     end
   end
 

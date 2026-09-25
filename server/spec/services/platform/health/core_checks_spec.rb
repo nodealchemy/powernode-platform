@@ -216,11 +216,5 @@ RSpec.describe Platform::Health::CoreChecks do
       expect(described_class::SERVICES).to eq(%i[database redis sidekiq disk memory cpu])
       expect(described_class.all.keys).to eq(described_class::SERVICES)
     end
-
-    it "measures only the services it is asked for, and does not touch the rest" do
-      expect(described_class.all(only: %i[disk cpu]).keys).to eq(%i[disk cpu])
-      expect(described_class).not_to have_received(:database)
-      expect(described_class).not_to have_received(:sidekiq)
-    end
   end
 end

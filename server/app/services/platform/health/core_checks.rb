@@ -28,16 +28,14 @@ module Platform
 
       # A Sidekiq process heartbeats every few seconds; one silent for longer
       # than this has crashed, even though its identity stays registered until
-      # something prunes it. Same window as the system extension's probe.
+      # something prunes it.
       LIVE_BEAT_SECONDS = 60
 
       module_function
 
-      # @param only [Array<Symbol>] the services to measure; the rest are not
-      #   touched at all
       # @return [Hash{Symbol=>Hash}] each reading, in SERVICES order
-      def all(only: SERVICES)
-        (SERVICES & only.map(&:to_sym)).index_with { |service| public_send(service) }
+      def all
+        SERVICES.index_with { |service| public_send(service) }
       end
 
       def database

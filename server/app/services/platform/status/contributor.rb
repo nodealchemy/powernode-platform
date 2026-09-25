@@ -58,15 +58,6 @@ module Platform
         raise NotImplementedError, "#{self.class}#each_component must yield records"
       end
 
-      # The core services (Platform::Health::CoreChecks::SERVICES names, e.g.
-      # "database") this contributor already reports as components of its own.
-      # The core_service contributor leaves those out rather than add a second
-      # row for the same thing. Core reads this off whatever is registered and
-      # names no contributor.
-      def reports_core_services
-        []
-      end
-
       # False for process-wide kinds — a Redis connection, a disk image
       # registry, anything with no tenant. Their rows carry a NULL account,
       # render in a "shared infrastructure" section, and never enter a
