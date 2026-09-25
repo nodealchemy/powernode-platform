@@ -38,7 +38,7 @@ UNIT=$(systemctl list-units 'powernode-*-sidekiq.service' --no-pager --no-legend
 sudo systemctl restart "${UNIT:-powernode-worker@default}"
 systemctl is-active "${UNIT:-powernode-worker@default}"
 ```
-Worker drains jobs before stopping (~28s). **Do not proceed to health check for 30 seconds.**
+Worker drains jobs before stopping (~28s), so the health check waits for it (Step 3).
 
 ### worker-web (always restart with worker)
 Same discovery, `-worker-web` instead of `-sidekiq`:
@@ -61,9 +61,12 @@ Restart in this order: backend (reload), worker + worker-web, frontend.
 
 ## Step 3: Wait for Drain (worker only)
 
-If worker was restarted, wait 30 seconds before health checks:
+If worker was restarted, wait until its unit is active again before health checks (the ~30 s
+drain). A foreground `sleep` is blocked in this harness, so wait with the Monitor tool running a
+bounded until-loop on the discovered unit (shell state does not carry over, so discover it again):
 ```bash
-sleep 30
+UNIT=$(systemctl list-units 'powernode-*-sidekiq.service' --no-pager --no-legend --plain | awk '{print $1}' | head -1)
+timeout 90 bash -c "until systemctl is-active --quiet '${UNIT:-powernode-worker@default}'; do sleep 2; done"
 ```
 
 ## Step 4: Health Check
