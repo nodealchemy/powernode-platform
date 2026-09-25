@@ -95,8 +95,6 @@ For the full live tool catalogue exposed via MCP, see [../auto/mcp-tools.md](../
 | Controller | Path Prefix | Key Endpoints |
 |-----------|-------------|---------------|
 | `AgentIdentityController` | `/ai/security/agent_identity` | Identity verification |
-| `AnomalyDetectionsController` | `/ai/security/anomaly_detections` | Anomaly detection |
-| `PiiRedactionsController` | `/ai/security/pii_redactions` | PII redaction |
 | `QuarantineController` | `/ai/security/quarantine` | Agent quarantine |
 
 ### Providers & Model Routing

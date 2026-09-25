@@ -2931,21 +2931,6 @@ Rails.application.routes.draw do
         # 23. SECURITY - Anomaly detection & PII scanning
         # ===================================================================
         namespace :security do
-          resource :anomaly_detection, only: [] do
-            post :analyze
-            post :check_action
-            post :detect_injection
-            post :detect_rogue
-            get :report
-          end
-          resource :pii_redaction, only: [] do
-            post :scan
-            post :redact
-            post :apply_policy
-            post :check_output
-            post :batch_scan
-          end
-
           # Phase 7: Agent Identity Management (OWASP ASI03)
           scope :identities, controller: "agent_identity" do
             get "/", action: :index

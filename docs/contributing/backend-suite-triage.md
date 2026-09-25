@@ -104,8 +104,8 @@ documented idiom.
 expected the response to have status code :forbidden (403) but it was :ok (200)
 ```
 
-- `Api::V1::Ai::Security::AnomalyDetectionsController` — `#detect_injection`, `#detect_rogue`, `#report`
-- `Api::V1::Ai::Security::PiiRedactionsController` — `#scan`, `#redact`
+- `Api::V1::Ai::Security::AnomalyDetectionsController` — `#detect_injection`, `#detect_rogue`, `#report` (fc-27: this REST controller had zero callers and was deleted; the underlying `Ai::Security::AgentAnomalyDetectionService` it wrapped is still live)
+- `Api::V1::Ai::Security::PiiRedactionsController` — `#scan`, `#redact` (fc-27: same — deleted, `Ai::Security::PiiRedactionService` stays)
 - `Api::V1::Ai::MonitoringController`
 - `Api::V1::Ai::ApprovalChainsController`
 - `API::V1::Invitations`
