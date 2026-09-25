@@ -83,11 +83,8 @@ export interface MaintenanceSchedule {
 class MaintenanceApiService {
   // Maintenance Mode
   //
-  // Reads /admin/maintenance/mode (show_mode), NOT /admin/maintenance/status:
-  // the latter's `maintenance_mode` field never matched this service's
-  // `mode`/`message` shape, so the Mode tab's toggle and status badge were
-  // reading `undefined` (falsy) regardless of the real state. show_mode
-  // returns the fields Admin::MaintenanceMode's store actually tracks
+  // Reads /admin/maintenance/mode (show_mode), which returns the fields
+  // Admin::MaintenanceMode's store actually tracks
   // (`enabled`/`message`/`estimated_completion`/`bypass_ips`), mapped here to
   // the shape this service's callers use.
   async getMaintenanceStatus(): Promise<MaintenanceStatus> {

@@ -19,6 +19,14 @@ RSpec.describe "Deleted health surface routes", type: :routing do
     expect(get: "/api/v1/admin/maintenance/health").to route_to("api/v1/admin/maintenance/maintenance#health")
   end
 
+  # fc-47 review L-3: GET /admin/maintenance/status had no caller (the Mode
+  # tab reads /mode), and GET /admin/maintenance/health/services pointed at a
+  # service_health action that never existed.
+  it "does not route GET /api/v1/admin/maintenance/status or /health/services" do
+    expect(get: "/api/v1/admin/maintenance/status").not_to be_routable
+    expect(get: "/api/v1/admin/maintenance/health/services").not_to be_routable
+  end
+
   # fc-47 review M5: the detailed and connectivity checks had no caller left
   # (their client methods were never called, and no MCP tool reads them).
   it "does not route the detailed or connectivity health checks" do

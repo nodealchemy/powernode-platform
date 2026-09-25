@@ -25,7 +25,7 @@ RSpec.describe "Route caller coverage", type: :routing do
   # One-way ratchet: pinned to the baseline's EXACT size. A shrink (a route
   # gets a caller, or is deleted) must lower this in the same diff, so the
   # freed slot can never be silently re-spent; growing it is never an option.
-  MAX_BASELINE_SIZE = 452
+  MAX_BASELINE_SIZE = 450
   # controller#action => human reason it is legitimately caller-less from
   # OUR OWN code's point of view. Every entry here is a receiver: the request
   # originates from a third party (a git/registry provider, a spawned agent

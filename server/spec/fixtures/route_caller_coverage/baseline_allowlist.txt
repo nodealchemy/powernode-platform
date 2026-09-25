@@ -44,8 +44,6 @@ api/v1/admin/maintenance/maintenance#database_stats
 api/v1/admin/maintenance/maintenance#delete_task
 api/v1/admin/maintenance/maintenance#execute_task
 api/v1/admin/maintenance/maintenance#list_tasks
-api/v1/admin/maintenance/maintenance#service_health
-api/v1/admin/maintenance/maintenance#status
 api/v1/admin/maintenance/maintenance#update_task
 api/v1/admin/proxy_settings#add_wildcard_pattern
 api/v1/admin/proxy_settings#remove_wildcard_pattern

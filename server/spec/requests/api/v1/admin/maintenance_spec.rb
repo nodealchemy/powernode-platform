@@ -141,50 +141,6 @@ RSpec.describe 'Api::V1::Admin::Maintenance', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin/maintenance/status' do
-    let(:headers) { auth_headers_for(user_with_maintenance_permission) }
-
-    it 'returns system status' do
-      get '/api/v1/admin/maintenance/status', headers: headers, as: :json
-
-      expect_success_response
-      data = json_response_data
-
-      expect(data).to have_key('maintenance_mode')
-      expect(data).to have_key('database_status')
-    end
-
-    # fc-47 review M1: the statuses come from Platform::Health::CoreChecks.
-    # The Sidekiq one used Sidekiq::Stats, which this Sidekiq-free app cannot
-    # load, so it always rescued to "unavailable".
-    it 'reads database, redis and sidekiq through the shared core checks' do
-      allow(Platform::Health::CoreChecks).to receive(:all).with(only: %i[database redis sidekiq]).and_return(
-        database: { status: 'healthy' }, redis: { status: 'unhealthy', error_class: 'Redis::CannotConnectError' },
-        sidekiq: { status: 'healthy', processes: 1 }
-      )
-
-      get '/api/v1/admin/maintenance/status', headers: headers, as: :json
-
-      expect(json_response_data).to include(
-        'database_status' => 'connected', 'redis_status' => 'unavailable', 'sidekiq_status' => 'running'
-      )
-    end
-
-    it 'reports a stopped worker as stopped and an unreadable one as unavailable' do
-      allow(Platform::Health::CoreChecks).to receive(:all).and_return(
-        database: { status: 'unhealthy' }, redis: { status: 'healthy' }, sidekiq: { status: 'unhealthy', processes: 0 }
-      )
-      get '/api/v1/admin/maintenance/status', headers: headers, as: :json
-      expect(json_response_data).to include('database_status' => 'disconnected', 'sidekiq_status' => 'stopped')
-
-      allow(Platform::Health::CoreChecks).to receive(:all).and_return(
-        database: { status: 'healthy' }, redis: { status: 'healthy' }, sidekiq: { status: 'unknown' }
-      )
-      get '/api/v1/admin/maintenance/status', headers: headers, as: :json
-      expect(json_response_data).to include('sidekiq_status' => 'unavailable')
-    end
-  end
-
   describe 'GET /api/v1/admin/maintenance/health' do
     let(:headers) { auth_headers_for(user_with_maintenance_permission) }
 

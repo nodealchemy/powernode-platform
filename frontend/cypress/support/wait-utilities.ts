@@ -606,35 +606,6 @@ Cypress.Commands.add('setupAdminIntercepts', () => {
   cy.intercept('GET', '/api/v1/admin/audit-logs*').as('getAuditLogs');
 
   // Maintenance API intercepts
-  const mockMaintenanceStatus = {
-    mode: false,
-    message: 'System is operational',
-    scheduled_start: null,
-    scheduled_end: null
-  };
-
-  const mockSystemHealth = {
-    overall_status: 'healthy',
-    database: { status: 'healthy', size: 1073741824, connection_time: 5 },
-    redis: { status: 'healthy', memory_usage: 52428800, connected_clients: 15 },
-    storage: { status: 'healthy', used_space: 10737418240, available_space: 107374182400 },
-    services: [
-      { name: 'API Server', status: 'healthy', uptime: 864000, memory_usage: 524288000 },
-      { name: 'Background Worker', status: 'healthy', uptime: 432000, memory_usage: 262144000 },
-      { name: 'Queue Processor', status: 'healthy', uptime: 604800, memory_usage: 134217728 }
-    ]
-  };
-
-  const mockSystemMetrics = {
-    cpu_usage: 35.5,
-    memory_usage: 62.3,
-    disk_usage: 45.8,
-    database_connections: 25,
-    queue_size: 12,
-    active_users: 42,
-    response_time_avg: 85
-  };
-
   const mockBackups = [
     { id: 'backup-1', filename: 'backup_2024-01-15.sql.gz', size: 104857600, type: 'full', status: 'completed', created_at: '2024-01-15T10:00:00Z' },
     { id: 'backup-2', filename: 'backup_2024-01-14.sql.gz', size: 98566144, type: 'full', status: 'completed', created_at: '2024-01-14T10:00:00Z' },
@@ -654,21 +625,6 @@ Cypress.Commands.add('setupAdminIntercepts', () => {
     { id: 'schedule-1', description: 'Daily Backup', frequency: 'daily', next_run: '2024-01-16T02:00:00Z', enabled: true, task_type: 'backup' },
     { id: 'schedule-2', description: 'Weekly Cleanup', frequency: 'weekly', next_run: '2024-01-21T03:00:00Z', enabled: true, task_type: 'cleanup' }
   ];
-
-  cy.intercept('GET', '/api/v1/admin/maintenance/status*', {
-    statusCode: 200,
-    body: { success: true, data: mockMaintenanceStatus }
-  }).as('getMaintenanceStatus');
-
-  cy.intercept('GET', '/api/v1/admin/maintenance/health*', {
-    statusCode: 200,
-    body: { success: true, data: mockSystemHealth }
-  }).as('getSystemHealth');
-
-  cy.intercept('GET', '/api/v1/admin/maintenance/metrics*', {
-    statusCode: 200,
-    body: { success: true, data: mockSystemMetrics }
-  }).as('getSystemMetrics');
 
   cy.intercept('GET', '/api/v1/admin/maintenance/backups*', {
     statusCode: 200,

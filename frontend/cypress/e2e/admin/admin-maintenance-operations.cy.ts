@@ -285,21 +285,6 @@ describe('Admin Maintenance Operations Tests', () => {
 });
 
 function setupMaintenanceIntercepts() {
-  const mockStatus = {
-    maintenance_mode: false,
-    last_maintenance: '2025-01-14T03:00:00Z',
-    uptime: '15 days',
-    health: 'healthy',
-  };
-
-  const mockCache = {
-    size: '125MB',
-    entries: 15000,
-    hit_rate: 0.92,
-    hits: 150000,
-    misses: 13000,
-  };
-
   const mockBackups = [
     { id: 'backup-1', created_at: '2025-01-15T03:00:00Z', size: '2.5GB', type: 'full' },
     { id: 'backup-2', created_at: '2025-01-14T03:00:00Z', size: '250MB', type: 'incremental' },
@@ -311,11 +296,6 @@ function setupMaintenanceIntercepts() {
     { id: 'task-2', name: 'Log Cleanup', frequency: 'weekly', next_run: '2025-01-19T02:00:00Z' },
     { id: 'task-3', name: 'Cache Flush', frequency: 'daily', next_run: '2025-01-16T00:00:00Z' },
   ];
-
-  cy.intercept('GET', '**/api/**/admin/maintenance/status*', {
-    statusCode: 200,
-    body: { status: mockStatus, cache: mockCache },
-  }).as('getMaintenanceStatus');
 
   cy.intercept('GET', '**/api/**/admin/maintenance/backups*', {
     statusCode: 200,

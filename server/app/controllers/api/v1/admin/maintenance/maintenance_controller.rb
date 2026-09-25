@@ -190,21 +190,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     end
   end
 
-  # Status endpoint
-  def status
-    checks = ::Platform::Health::CoreChecks.all(only: %i[database redis sidekiq])
-    render_success({
-
-        maintenance_mode: Admin::MaintenanceMode.enabled?,
-        database_status: connection_status(checks[:database]),
-        redis_status: redis_status(checks[:redis]),
-        sidekiq_status: sidekiq_status(checks[:sidekiq]),
-        last_backup: get_last_backup_info,
-        system_uptime: get_system_uptime
-      }
-    )
-  end
-
   # Health endpoint
   def health
     # The one set of core checks (Platform::Health::CoreChecks), under the
@@ -318,51 +303,5 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       ip_address: request.remote_ip,
       metadata: status.slice(:message, :estimated_completion, :bypass_ips)
     )
-  end
-
-  # The /status labels for Platform::Health::CoreChecks readings.
-  def connection_status(reading)
-    reading[:status] == "healthy" ? "connected" : "disconnected"
-  end
-
-  def redis_status(reading)
-    reading[:status] == "healthy" ? "connected" : "unavailable"
-  end
-
-  def sidekiq_status(reading)
-    case reading[:status]
-    when "healthy" then "running"
-    when "unhealthy" then "stopped"
-    else "unavailable"
-    end
-  end
-
-  def get_last_backup_info
-    backup = Database::Backup.order(created_at: :desc).first
-    backup ? { created_at: backup.created_at, size: backup.file_size_bytes } : nil
-  rescue StandardError => e
-    Rails.logger.error "Failed to get last backup info: #{e.message}"
-    nil
-  end
-
-  def get_system_uptime
-    uptime_seconds = Time.current - Rails.application.config.booted_at rescue 0
-    {
-      seconds: uptime_seconds,
-      formatted: format_duration(uptime_seconds)
-    }
-  end
-
-  def format_duration(seconds)
-    days = (seconds / 86400).to_i
-    hours = ((seconds % 86400) / 3600).to_i
-    minutes = ((seconds % 3600) / 60).to_i
-
-    parts = []
-    parts << "#{days}d" if days > 0
-    parts << "#{hours}h" if hours > 0
-    parts << "#{minutes}m" if minutes > 0 || parts.empty?
-
-    parts.join(" ")
   end
 end

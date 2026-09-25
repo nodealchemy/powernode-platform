@@ -1026,7 +1026,6 @@ Rails.application.routes.draw do
 
         # Maintenance endpoints
         namespace :maintenance do
-          get :status, to: "maintenance#status"
           get :health, to: "maintenance#health"
 
           # Backup management
@@ -1047,9 +1046,6 @@ Rails.application.routes.draw do
           # Update message/ETA/bypass IPs WITHOUT toggling `enabled` — see
           # Admin::MaintenanceMode.update_fields!
           patch :mode, to: "maintenance#update_fields"
-
-          # System health
-          get "health/services", to: "maintenance#service_health"
 
           # Database operations
           get "database/stats", to: "maintenance#database_stats"

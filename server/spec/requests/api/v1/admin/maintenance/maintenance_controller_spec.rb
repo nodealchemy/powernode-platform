@@ -399,21 +399,6 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
     end
   end
 
-  describe 'GET /api/v1/admin/maintenance/status' do
-    context 'with admin maintenance permission' do
-      it 'returns overall maintenance status' do
-        get '/api/v1/admin/maintenance/status', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data).to include(
-          'maintenance_mode',
-          'database_status'
-        )
-      end
-    end
-  end
-
   describe 'GET /api/v1/admin/maintenance/health' do
     context 'with admin maintenance permission' do
       it 'returns health check results' do
