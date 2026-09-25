@@ -37,10 +37,15 @@ module CoreSeeds
       end
     end
 
-    def revert_catalog!(model)
-      CanonicalAgentContent::AGENTS.each_key do |slug|
+    # @param only [Hash{String => Array<Symbol>}, nil] slug => fields, for a
+    #   wave's down that must not revert what an earlier wave wrote
+    def revert_catalog!(model, only: nil)
+      (only || CanonicalAgentContent::AGENTS.keys.index_with { nil }).each do |slug, fields|
         agent = model.find_by(account_id: nil, slug: slug)
-        Ai::Agents::CanonicalContentRefresh.revert!(agent, CanonicalAgentContent.fields(slug)) if agent
+        next unless agent
+
+        values = CanonicalAgentContent.fields(slug)
+        Ai::Agents::CanonicalContentRefresh.revert!(agent, fields ? values.slice(*fields) : values)
       end
     end
 

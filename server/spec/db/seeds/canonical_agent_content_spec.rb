@@ -2,6 +2,7 @@
 
 require "rails_helper"
 require Rails.root.join("db/migrate/20260925130000_refresh_canonical_agent_content").to_s
+require Rails.root.join("db/migrate/20260925150000_move_manifest_prompts_to_system_prompt").to_s
 
 # Seeded canonical text reaches existing rows (every seed run, and the data
 # migration for installs whose seeds never re-run) without overwriting what an
@@ -112,6 +113,48 @@ RSpec.describe "canonical agent content" do
       expect(global("prd-generator").description).to eq(content.previous("prd-generator")[:description].first)
       expect(global("llm-judge").mcp_metadata["system_prompt"]).to eq(content::LLM_JUDGE_PROMPT_JSON_ERA)
       expect(global("intent-classifier").description).to eq("An operator's intent classifier.")
+    end
+  end
+
+  describe "persona prompts moved out of the manifest" do
+    moved = MoveManifestPromptsToSystemPrompt::MOVED
+    let(:migration) { MoveManifestPromptsToSystemPrompt.new }
+
+    def plant_dead_prompt!(agent, text)
+      manifest = agent.mcp_tool_manifest.merge("configuration" => { "system_prompt" => text, "temperature" => 0.3 })
+      agent.update_columns(mcp_tool_manifest: manifest, mcp_metadata: agent.mcp_metadata.except("system_prompt", stamp_key))
+    end
+
+    it "seeds the prompt where it is read and never into the manifest" do
+      seed_all!
+
+      moved.each do |slug|
+        agent = global(slug)
+        expect(agent.system_prompt).to eq(content.fields(slug)[:system_prompt]), slug
+        expect(agent.mcp_tool_manifest.dig("configuration", "system_prompt")).to be_nil, slug
+      end
+    end
+
+    it "fills the canonical prompt, moves a clone's text where it is read, and strips the dead key" do
+      seed_all!
+      moved.each { |slug| plant_dead_prompt!(global(slug), "old persona for #{slug}") }
+      clone = create(:ai_agent, account: create(:account), name: "Planner (ours)")
+      plant_dead_prompt!(clone, "our planner persona")
+
+      expect { migration.migrate(:up) }.to output.to_stdout
+
+      moved.each do |slug|
+        agent = global(slug)
+        expect(agent.system_prompt).to eq(content.fields(slug)[:system_prompt]), slug
+        expect(agent.mcp_tool_manifest["configuration"]).to eq("temperature" => 0.3), slug
+      end
+      expect(clone.reload.system_prompt).to eq("our planner persona")
+      expect(clone.mcp_tool_manifest["configuration"]).not_to have_key("system_prompt")
+
+      expect { migration.migrate(:down) }.to output.to_stdout
+
+      moved.each { |slug| expect(global(slug).system_prompt).to be_nil, slug }
+      expect(global("prd-generator").description).to eq(content.description("prd-generator"))
     end
   end
 end

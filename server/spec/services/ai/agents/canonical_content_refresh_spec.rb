@@ -110,6 +110,15 @@ RSpec.describe Ai::Agents::CanonicalContentRefresh do
       expect(stamp(agent, "description")).to eq("digest" => described_class.digest(old_description))
     end
 
+    it "empties a field the wave filled from blank" do
+      agent.update_columns(description: nil)
+      described_class.apply!(agent.reload, { description: new_description })
+
+      described_class.revert!(agent.reload, { description: new_description })
+
+      expect(agent.reload.description).to be_nil
+    end
+
     it "leaves a field an operator changed after the wave" do
       described_class.apply!(agent, { description: new_description }, previous: { description: [ old_description ] })
       agent.reload.update!(description: "operator text")

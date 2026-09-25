@@ -97,9 +97,11 @@ module Ai
 
       def stamp_for(field) = @stamps.dig(field, "digest")
 
-      def stamp(field, value, replaced: nil)
+      # `replaced` is recorded whenever a write happened, nil included, so
+      # revert! can empty a field this wave filled.
+      def stamp(field, value, **replaced)
         entry = { "digest" => self.class.digest(value) }
-        entry["replaced"] = replaced unless replaced.nil?
+        entry["replaced"] = replaced[:replaced] if replaced.key?(:replaced)
         @stamps[field] = entry
       end
 
