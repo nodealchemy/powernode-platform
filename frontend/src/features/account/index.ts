@@ -16,7 +16,6 @@ export * from './switcher';
 // Account components
 export { InviteTeamMemberModal } from './components/InviteTeamMemberModal';
 export { PermissionSelector } from './components/PermissionSelector';
-export { TeamMembersManagement } from './components/TeamMembersManagement';
 export { TwoFactorSettings } from './components/TwoFactorSettings';
 
 // Users
