@@ -13,10 +13,22 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "create_kb_article", mutating: true
-      declare_action "get_kb_article", mutating: false
+      declare_action "create_kb_article", mutating: true,
+                                          returns: "article_id, slug and title",
+                                          refuses: [ "the category slug is not found",
+                                                     "status is published and the caller lacks kb.publish",
+                                                     "the article fails validation, or no user in the account can be recorded as its actor" ]
+      declare_action "get_kb_article", mutating: false,
+                                       returns: "the article's content, excerpt, status, category, author email, tags, " \
+                                                "view count and timestamps",
+                                       refuses: "neither article_id nor slug matches a visible article",
+                                       see_also: { "list_kb_articles" => "finding an article's id or slug" }
       declare_action "list_kb_articles", mutating: false, limit: 50, returns: "article summaries, most recently updated first"
-      declare_action "update_kb_article", mutating: true
+      declare_action "update_kb_article", mutating: true,
+                                          returns: "article_id and slug",
+                                          refuses: [ "the article is not found",
+                                                     "the status change enters or leaves published and the caller lacks kb.publish",
+                                                     "the article fails validation, or no user in the account can be recorded as its actor" ]
 
       def self.definition
         {
@@ -47,14 +59,16 @@ module Ai
             }
           },
           "get_kb_article" => {
-            description: "Get a Knowledge Base article by ID or slug",
+            description: "Get a Knowledge Base article by ID or slug. " \
+                         "Global platform articles and this account's own articles are both visible.",
             parameters: {
               article_id: { type: "string", required: false, description: "Article ID" },
               slug: { type: "string", required: false, description: "Article slug (alternative to ID)" }
             }
           },
           "create_kb_article" => {
-            description: "Create a new Knowledge Base article in a category",
+            description: "Create a new Knowledge Base article in a category. " \
+                         "The status defaults to draft, and every create is recorded as a workflow transition.",
             parameters: {
               title: { type: "string", required: true, description: "Article title" },
               content: { type: "string", required: true, description: "Article content in markdown" },
@@ -66,7 +80,8 @@ module Ai
             }
           },
           "update_kb_article" => {
-            description: "Update an existing Knowledge Base article",
+            description: "Update an existing Knowledge Base article. " \
+                         "Only the fields you pass are changed, and each update is recorded as a workflow row.",
             parameters: {
               article_id: { type: "string", required: true, description: "Article ID" },
               title: { type: "string", required: false, description: "New article title" },
