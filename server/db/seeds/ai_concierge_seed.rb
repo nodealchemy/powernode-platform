@@ -23,7 +23,7 @@ concierge_tool_families = %w[
   list_agents get_agent create_agent update_agent execute_agent
   list_teams get_team create_team add_team_member execute_team
   list_skills get_skill search_knowledge_graph
-  read_shared_memory write_shared_memory search_memory query_knowledge_base search_documents
+  read_shared_memory write_shared_memory search_memory query_knowledge_base
   list_pipelines get_pipeline_status trigger_pipeline dispatch_to_runner create_gitea_repository
   get_activity_feed get_mission_status get_notifications get_system_health
   list_kb_articles get_kb_article create_kb_article update_kb_article list_pages get_page

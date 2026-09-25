@@ -572,7 +572,7 @@ skills_data = [
       - discover_skills — reusable capabilities for a task
       - get_api_reference — endpoint contracts and schemas
       - search_memory — relevant agent working memory
-      - search_documents — RAG chunk search
+      - query_knowledge_base — RAG chunk search over one knowledge base
 
       ### Contribution (AFTER non-trivial work)
       - create_learning — type: pattern | discovery | failure_mode | best_practice
@@ -594,7 +594,7 @@ skills_data = [
 
       ### Memory & RAG
       - write_shared_memory / read_shared_memory / search_memory
-      - query_knowledge_base / add_document / search_documents
+      - query_knowledge_base / add_document
 
       ### DevOps
       - trigger_pipeline / list_pipelines / get_pipeline_status

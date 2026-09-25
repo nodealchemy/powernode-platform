@@ -9,15 +9,20 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "query_knowledge_base", mutating: false
+      declare_action "query_knowledge_base", mutating: false,
+                                             returns: "the knowledge base searched, results_count and results (chunk content up to 1000 chars, score, source, document name and id)",
+                                             refuses: "the named knowledge base is not active in this account, or the account has none"
 
       def self.definition
         {
           name: "query_knowledge_base",
-          description: "Search RAG knowledge bases for relevant documents using hybrid semantic + keyword search",
+          description: "Search ONE RAG knowledge base for relevant document chunks, using hybrid semantic + keyword retrieval by default. " \
+                       "Without knowledge_base_id it searches the newest active knowledge base, not all of them; " \
+                       "list_knowledge_bases gives the ids. For curated platform procedures use search_knowledge, and for " \
+                       "agent-written memory use search_memory.",
           parameters: {
             query: { type: "string", required: true, description: "Search query" },
-            knowledge_base_id: { type: "string", required: false, description: "Specific knowledge base ID (searches first available if omitted)" },
+            knowledge_base_id: { type: "string", required: false, description: "Knowledge base to search. Omit to search the newest active knowledge base only." },
             mode: { type: "string", required: false, description: "Search mode: hybrid (default), vector, keyword, graph" },
             top_k: { type: "integer", required: false, description: "Max results (default 5, max 20)" }
           }

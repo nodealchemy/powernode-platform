@@ -290,7 +290,7 @@ module Ai
           authoritative answer when composing your reply.
 
           IMPORTANT — for this specific query:
-            * DO NOT call `search_knowledge`, `search_documents`, or other
+            * DO NOT call `search_knowledge`, `query_knowledge_base`, or other
               fallback search tools. The result below is more accurate than
               anything those tools would return.
             * DO NOT respond with "no records found", "couldn't find in

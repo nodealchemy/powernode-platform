@@ -14,14 +14,13 @@ module Ai
       declare_action "delete_document", mutating: true, destructive: true
       declare_action "list_knowledge_bases", mutating: false
       declare_action "process_document", mutating: true
-      declare_action "search_documents", mutating: false
 
       def self.definition
         {
           name: "rag_management",
-          description: "Manage RAG knowledge bases, documents, and search. Actions: list_knowledge_bases, create_knowledge_base, add_document, process_document, search_documents, delete_document",
+          description: "Manage RAG knowledge bases, documents, and search. Actions: list_knowledge_bases, create_knowledge_base, add_document, process_document, delete_document. To search a knowledge base, use query_knowledge_base.",
           parameters: {
-            action: { type: "string", required: true, description: "Action: list_knowledge_bases, create_knowledge_base, add_document, process_document, search_documents, delete_document" },
+            action: { type: "string", required: true, description: "Action: list_knowledge_bases, create_knowledge_base, add_document, process_document, delete_document" },
             knowledge_base_id: { type: "string", required: false, description: "Knowledge base ID" },
             name: { type: "string", required: false, description: "Name for KB or document" },
             description: { type: "string", required: false, description: "Description for KB" },
@@ -66,15 +65,6 @@ module Ai
               document_id: { type: "string", required: true, description: "Document ID to process" }
             }
           },
-          "search_documents" => {
-            description: "Search across RAG knowledge base documents using hybrid retrieval",
-            parameters: {
-              query: { type: "string", required: true, description: "Search query" },
-              knowledge_base_id: { type: "string", required: false, description: "Knowledge base ID (defaults to most recent)" },
-              mode: { type: "string", required: false, description: "Search mode: hybrid, vector, keyword, graph (default: hybrid)" },
-              top_k: { type: "integer", required: false, description: "Max results (default 5)" }
-            }
-          },
           "delete_document" => {
             description: "Delete a document from a RAG knowledge base",
             parameters: {
@@ -93,12 +83,11 @@ module Ai
         when "create_knowledge_base" then create_knowledge_base(params)
         when "add_document" then add_document(params)
         when "process_document" then process_document(params)
-        when "search_documents" then search_documents(params)
         when "delete_document" then delete_document(params)
         else
           {
             success: false,
-            error: "Unknown action: #{params[:action]}. Valid actions: list_knowledge_bases, create_knowledge_base, add_document, process_document, search_documents, delete_document"
+            error: "Unknown action: #{params[:action]}. Valid actions: list_knowledge_bases, create_knowledge_base, add_document, process_document, delete_document"
           }
         end
       end
@@ -191,53 +180,6 @@ module Ai
         rescued_error_result(e)
       end
 
-      def search_documents(params)
-        return { success: false, error: "query is required" } if params[:query].blank?
-
-        top_k = (params[:top_k] || 5).to_i.clamp(1, 20)
-        mode = params[:mode] || "hybrid"
-
-        unless %w[hybrid vector keyword graph].include?(mode)
-          return { success: false, error: "Invalid mode '#{mode}'. Valid: hybrid, vector, keyword, graph" }
-        end
-
-        kb_id = params[:knowledge_base_id]
-        unless kb_id.present?
-          kb = account.ai_knowledge_bases.active.order(created_at: :desc).first
-          return { success: false, error: "No active knowledge bases found" } unless kb
-          kb_id = kb.id
-        end
-
-        search_service = Ai::Rag::HybridSearchService.new(account)
-        result = search_service.search(
-          query: params[:query],
-          mode: mode,
-          top_k: top_k,
-          knowledge_base_id: kb_id
-        )
-
-        formatted = (result[:results] || []).map do |r|
-          doc = r[:document_id] ? Ai::Document.find_by(id: r[:document_id]) : nil
-          {
-            chunk_id: r[:id],
-            content: r[:content].to_s.truncate(1000),
-            score: r[:score],
-            source: r[:source],
-            document_name: doc&.name,
-            document_id: r[:document_id]
-          }
-        end
-
-        {
-          success: true,
-          query: params[:query],
-          results_count: formatted.size,
-          results: formatted,
-          search_mode: mode
-        }
-      rescue StandardError => e
-        rescued_error_result(e)
-      end
 
       def delete_document(params)
         return { success: false, error: "knowledge_base_id is required" } if params[:knowledge_base_id].blank?

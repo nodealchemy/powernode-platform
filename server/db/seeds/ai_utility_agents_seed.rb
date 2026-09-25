@@ -158,7 +158,7 @@ UTILITY_AGENTS = [
   },
   {
     slug: "rag-reranker",
-    tool_families: %w[search_documents query_knowledge_base search_memory],
+    tool_families: %w[query_knowledge_base search_memory],
     name: "RAG Reranker",
     agent_type: "data_analyst",
     description: CoreSeeds::CanonicalAgentContent.description("rag-reranker"),
@@ -186,7 +186,7 @@ UTILITY_AGENTS = [
   {
     slug: "rag-query-engine",
     tool_families: %w[
-      search_documents query_knowledge_base list_knowledge_bases search_memory read_shared_memory
+      query_knowledge_base list_knowledge_bases search_memory read_shared_memory
       search_knowledge_graph reason_knowledge_graph list_kb_articles get_kb_article
     ],
     name: "RAG Query Engine",

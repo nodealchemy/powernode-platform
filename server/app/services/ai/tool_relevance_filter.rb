@@ -49,7 +49,7 @@ module Ai
       "provision_infrastructure" => /\A(platform_provisioning_|system_|docker_|kubernetes_)/,
       "deploy" => /\A(dispatch_to_|create_gitea_|update_gitea_|gitea_|list_gitea_|get_gitea_|delete_gitea_|set_gitea_|trigger_|list_pipelines|get_pipeline|cancel_gitea_|rerun_gitea_|create_gitea_user_token|list_gitea_user_tokens|delete_gitea_user_token|deploy_)/,
       "memory" => /\A(memory_|shared_memory_|agent_remember|agent_forget|agent_recall|agent_reflect|consolidate_memory|read_shared_memory|write_shared_memory|delete_shared_memory|search_memory|list_pools|memory_stats)/,
-      "knowledge" => /\A(search_knowledge|query_knowledge|create_knowledge|update_knowledge|delete_knowledge|promote_knowledge|search_documents|knowledge_|kb_|list_kb|get_kb|create_kb|update_kb|query_knowledge_base|get_api_reference|query_learnings|reinforce_learning|create_learning|learning_metrics)/,
+      "knowledge" => /\A(search_knowledge|query_knowledge|create_knowledge|update_knowledge|delete_knowledge|promote_knowledge|knowledge_|kb_|list_kb|get_kb|create_kb|update_kb|query_knowledge_base|get_api_reference|query_learnings|reinforce_learning|create_learning|learning_metrics)/,
       "skill" => /\A(skill_|get_skill|discover_skill|create_skill|update_skill|delete_skill|toggle_skill|clone_skill|compose_skills|mutate_skill|auto_evolve_skill|get_skill_context|list_skills|skill_health|skill_metrics)/,
       "graph" => /\A(graph_|subgraph|reason_knowledge_graph|search_knowledge_graph|extract_to_knowledge_graph|get_graph_node|list_graph_nodes|get_graph_neighbors|graph_statistics|get_subgraph)/,
       "team" => /\A(team_|workspace_|create_team|add_team_member|execute_team|get_team|list_teams|update_team|optimize_team|invite_agent|active_sessions|create_workspace|list_workspaces|send_message|list_messages)/,
@@ -79,7 +79,7 @@ module Ai
       "campaign" => /\A(campaign_|dev_next_task|dev_complete_task|dev_list_tasks|dev_update_task|dev_requeue_task|delegate_ralph_task)/,
       # Remaining feature areas — so the concierge can reach EVERY platform capability.
       "mission" => /\A(get_mission_status|mission_|list_missions|create_mission|start_mission)/,
-      "rag" => /\A(query_knowledge_base|list_knowledge_bases|create_knowledge_base|add_document|process_document|search_documents|delete_document)/,
+      "rag" => /\A(query_knowledge_base|list_knowledge_bases|create_knowledge_base|add_document|process_document|delete_document)/,
       "content" => /\A(list_pages|get_page|create_page|update_page|list_kb_articles|get_kb_article|create_kb_article|update_kb_article)/,
       "image_generation" => /\A(generate_image|list_generated_images)/,
       "monitoring" => /\A(get_activity_feed|recent_events|get_notifications|mark_all_notifications_read|dismiss_notification|dismiss_all_notifications|integration_health|get_system_health|active_sessions)/

@@ -184,7 +184,6 @@ project_get
 project_list
 project_status
 promote_knowledge
-query_knowledge_base
 rate_knowledge
 read_shared_memory
 reason_knowledge_graph
@@ -203,7 +202,6 @@ retire_by_predicate
 revert_improvement
 route_task
 scoreboard
-search_documents
 search_knowledge
 search_knowledge_graph
 search_memory

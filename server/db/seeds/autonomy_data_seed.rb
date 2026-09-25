@@ -97,7 +97,7 @@ extra_agents = [
     # Text output, so no generate_* verbs: the images and pages it briefs from.
     tool_families: %w[
       list_generated_images content_production_status list_pages get_page list_kb_articles get_kb_article
-      search_documents
+      query_knowledge_base
     ],
     description: CoreSeeds::CanonicalAgentContent.description("visual-design-assistant")
   },

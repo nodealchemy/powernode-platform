@@ -164,7 +164,7 @@ ActiveRecord::Base.transaction do
   # Tool scope from its research duties: documents, knowledge bases, the
   # knowledge graph, and recording what it found.
   CoreSeeds::CanonicalToolAccess.declare_families!(research_analyst, %w[
-    search_documents query_knowledge_base list_knowledge_bases search_knowledge_graph reason_knowledge_graph
+    query_knowledge_base list_knowledge_bases search_knowledge_graph reason_knowledge_graph
     list_kb_articles get_kb_article get_api_reference create_learning create_knowledge
   ])
   CoreSeeds::CanonicalContent.refresh_from_catalog!(research_analyst)
