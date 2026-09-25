@@ -49,7 +49,7 @@ sub-views renders a single `PathTabs` row:
 
 - **Overview** — cross-cutting snapshot (reuses FinOps panels).
 - **Credits** — `CreditsContent` → tabs: overview · purchase · transactions · transfers · reseller.
-- **FinOps** — `FinOpsContent` → tabs: overview · cost-explorer · budget.
+- **FinOps** — `FinOpsContent` (single view: the cost explorer, at `/app/ai/cost/finops`; agent budgets live on the Budgets page, `/app/ai/control/budgets`).
 - **ROI** — `RoiDashboardContent` (single view).
 - **Outcome Billing** — `OutcomeBillingContent` → tabs: definitions · contracts · records · violations · performance · summary.
 
