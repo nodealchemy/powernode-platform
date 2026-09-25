@@ -7,12 +7,207 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Key,
   Play, Rocket, DollarSign, Code2, Building2, Megaphone,
-  Route, MessageSquare, MessageSquareText, Share2, Lock, Puzzle, Database
+  Route, MessageSquare, MessageSquareText, MessagesSquare, Share2, Lock, Puzzle, Database
 } from 'lucide-react';
-import { NavigationConfig } from '@/shared/types/navigation';
+import type { NavigationConfig, NavigationItem } from '@/shared/types/navigation';
 import { CONTROL_PERMISSIONS } from '@/shared/constants/controlPermissions';
 import { KNOWLEDGE_PERMISSIONS } from '@/shared/constants/knowledgePermissions';
 import { MCP_PERMISSIONS } from '@/shared/constants/mcpPermissions';
+
+// AI → Agents: the agents themselves and what they know (fc-43).
+const aiAgentsItems: NavigationItem[] = [
+  {
+    id: 'ai-overview',
+    name: 'Overview',
+    href: '/app/ai',
+    icon: Brain,
+    description: 'AI system dashboard and quick actions',
+    permissions: [],
+    order: 1
+  },
+  {
+    id: 'ai-agents',
+    name: 'Agents',
+    href: '/app/ai/agents',
+    icon: Bot,
+    description: 'Create and manage AI agents',
+    permissions: ['ai.agents.read'],
+    order: 2
+  },
+  {
+    id: 'ai-teams',
+    name: 'Teams',
+    href: '/app/ai/teams',
+    icon: Users,
+    description: 'Advanced multi-agent team orchestration',
+    permissions: ['ai.teams.read'],
+    order: 3
+  },
+  {
+    id: 'ai-skills',
+    name: 'Skills',
+    href: '/app/ai/skills',
+    icon: Puzzle,
+    description: 'Skill bundles agents use, and the skill graph',
+    permissions: ['ai.skills.read'],
+    order: 4
+  },
+  {
+    id: 'ai-prompts',
+    name: 'Prompts',
+    href: '/app/ai/prompts',
+    icon: MessageSquareText,
+    description: 'Prompt templates for agents and workflows',
+    permissions: ['ai.prompt_templates.read'],
+    order: 5
+  },
+  {
+    // Contexts, Tiered Memory, RAG, Graph and Learning; each tab is
+    // gated on its own permission, so any one of them opens the item.
+    id: 'ai-knowledge',
+    name: 'Knowledge',
+    href: '/app/ai/knowledge',
+    icon: BookOpen,
+    description: 'Contexts, tiered memory, document bases, the knowledge graph and learning',
+    permissions: KNOWLEDGE_PERMISSIONS,
+    order: 6
+  },
+];
+
+// AI → Work: what agents do, and the controls over it (fc-43).
+const aiWorkItems: NavigationItem[] = [
+  {
+    id: 'ai-missions',
+    name: 'Missions',
+    href: '/app/ai/missions',
+    icon: Rocket,
+    description: 'AI-assisted development missions',
+    permissions: ['ai.missions.read'],
+    order: 1
+  },
+  {
+    id: 'ai-campaigns',
+    name: 'Campaigns',
+    href: '/app/ai/campaigns',
+    icon: Megaphone,
+    description: 'Autonomous, repeatable improvement campaigns',
+    permissions: ['ai.campaigns.read'],
+    order: 2
+  },
+  {
+    id: 'ai-execution',
+    name: 'Execution',
+    href: '/app/ai/execution',
+    icon: Play,
+    description: 'Monitor and manage active AI agent execution',
+    permissions: ['ai.agents.read'],
+    order: 3
+  },
+  {
+    // The conversation list (export, unarchive, detail) had a route and
+    // a gate but no sidebar item. Gated like ConversationsController#index.
+    id: 'ai-conversations',
+    name: 'Conversations',
+    href: '/app/ai/conversations',
+    icon: MessagesSquare,
+    description: 'Agent conversations: browse, continue, export and archive',
+    permissions: ['ai.conversations.read'],
+    order: 4
+  },
+  {
+    // The only operator screen for chat-platform integrations the
+    // server still serves (Api::V1::Chat::ChannelsController) — no
+    // other page links to it, so without this it was reachable only by
+    // typing the URL.
+    id: 'ai-chat-channels',
+    name: 'Chat Channels',
+    href: '/app/ai/chat-channels',
+    icon: MessageSquare,
+    description: 'Manage external chat platform integrations',
+    permissions: ['chat.channels.read'],
+    order: 5
+  },
+  {
+    // AI → Control: approvals, policies, budgets, safety, trust &
+    // lineage, goals and compliance audit. Gated on the same list as the
+    // /ai/control/* route.
+    id: 'ai-control',
+    name: 'Control',
+    href: '/app/ai/control',
+    icon: ShieldCheck,
+    description: 'Approvals, policies, budgets, safety, trust and compliance audit',
+    permissions: CONTROL_PERMISSIONS,
+    order: 6
+  },
+];
+
+// AI → Platform: what agents run on (fc-43; MCP was the "Infrastructure" hub).
+const aiPlatformItems: NavigationItem[] = [
+  {
+    id: 'ai-providers',
+    name: 'Providers',
+    href: '/app/ai/providers',
+    icon: Plug,
+    description: 'AI providers and their credentials',
+    permissions: ['ai.providers.read'],
+    order: 1
+  },
+  {
+    id: 'ai-model-router',
+    name: 'Model Router',
+    href: '/app/ai/model-router',
+    icon: Route,
+    description: 'Model routing rules and bandit performance',
+    permissions: ['ai.routing.read'],
+    order: 2
+  },
+  {
+    // Servers, Apps, Studio and Sessions — the MCP tabs of the former
+    // "Infrastructure" hub, whose name did not say it held MCP.
+    id: 'ai-mcp',
+    name: 'MCP',
+    href: '/app/ai/mcp',
+    icon: Server,
+    description: 'Model Context Protocol servers, apps, studio and sessions',
+    permissions: MCP_PERMISSIONS,
+    order: 3
+  },
+  {
+    id: 'ai-data-sources',
+    name: 'Data Sources',
+    href: '/app/ai/data-sources',
+    icon: Database,
+    description: 'External data sources agents can query',
+    permissions: ['ai.data_sources.read'],
+    order: 4
+  },
+  {
+    // fc-42: merged with the former Operations hub (AiOps/alerts/traces) —
+    // one page, one Systems backend, one Circuit Breakers view. See
+    // MONITORING_TABS (features/ai/monitoring/utils/monitoringFormatters.ts)
+    // for the per-tab permissions this nav entry's own list summarizes.
+    id: 'ai-observability',
+    name: 'Observability',
+    href: '/app/ai/observability',
+    icon: Activity,
+    description: 'Health, systems, circuit breakers, alerts, conversations, traces, and evaluation',
+    permissions: ['ai.monitoring.read', 'ai.aiops.read', 'ai.conversations.read', 'ai_monitoring.read', 'ai.analytics.read'],
+    order: 5
+  },
+  {
+    id: 'ai-cost',
+    name: 'Cost',
+    href: '/app/ai/cost',
+    icon: DollarSign,
+    description: 'Credits, FinOps, ROI, and outcome billing',
+    permissions: ['ai.finops.view', 'ai.roi.read', 'ai.analytics.read'],
+    order: 6
+  },
+];
+
+/** A section opens to a holder of any of its items' permissions, and only those. */
+const openedByItems = (items: NavigationItem[]): string[] =>
+  Array.from(new Set(items.flatMap((item) => item.permissions ?? [])));
 
 export const defaultNavigationConfig: NavigationConfig = {
   items: [
@@ -41,191 +236,35 @@ export const defaultNavigationConfig: NavigationConfig = {
   ],
 
   sections: [
-    // AI section - primary differentiating feature
+    // AI — three groups of at most 7 items each, named for what they hold
+    // (fc-43; the single AI section had grown to 16 items). The Agents group
+    // keeps the 'ai' id extensions register into.
     {
       id: 'ai',
-      name: 'AI',
-      items: [
-        {
-          id: 'ai-overview',
-          name: 'Overview',
-          href: '/app/ai',
-          icon: Brain,
-          description: 'AI system dashboard and quick actions',
-          permissions: [],
-          order: 1
-        },
-        {
-          id: 'ai-agents',
-          name: 'Agents',
-          href: '/app/ai/agents',
-          icon: Bot,
-          description: 'Create and manage AI agents',
-          permissions: ['ai.agents.read'],
-          order: 2
-        },
-        {
-          id: 'ai-teams',
-          name: 'Teams',
-          href: '/app/ai/teams',
-          icon: Users,
-          description: 'Advanced multi-agent team orchestration',
-          permissions: ['ai.teams.read'],
-          order: 3
-        },
-        {
-          id: 'ai-missions',
-          name: 'Missions',
-          href: '/app/ai/missions',
-          icon: Rocket,
-          description: 'AI-assisted development missions',
-          permissions: ['ai.missions.read'],
-          order: 4
-        },
-        {
-          id: 'ai-campaigns',
-          name: 'Campaigns',
-          href: '/app/ai/campaigns',
-          icon: Megaphone,
-          description: 'Autonomous, repeatable improvement campaigns',
-          permissions: ['ai.campaigns.read'],
-          order: 5
-        },
-        {
-          id: 'ai-execution',
-          name: 'Execution',
-          href: '/app/ai/execution',
-          icon: Play,
-          description: 'Monitor and manage active AI agent execution',
-          permissions: ['ai.agents.read'],
-          order: 6
-        },
-        {
-          id: 'ai-skills',
-          name: 'Skills',
-          href: '/app/ai/skills',
-          icon: Puzzle,
-          description: 'Skill bundles agents use, and the skill graph',
-          permissions: ['ai.skills.read'],
-          order: 6.2
-        },
-        {
-          id: 'ai-prompts',
-          name: 'Prompts',
-          href: '/app/ai/prompts',
-          icon: MessageSquareText,
-          description: 'Prompt templates for agents and workflows',
-          permissions: ['ai.prompt_templates.read'],
-          order: 6.4
-        },
-        {
-          // Contexts, Tiered Memory, RAG, Graph and Learning; each tab is
-          // gated on its own permission, so any one of them opens the item.
-          id: 'ai-knowledge',
-          name: 'Knowledge',
-          href: '/app/ai/knowledge',
-          icon: BookOpen,
-          description: 'Contexts, tiered memory, document bases, the knowledge graph and learning',
-          permissions: KNOWLEDGE_PERMISSIONS,
-          order: 7
-        },
-        {
-          id: 'ai-providers',
-          name: 'Providers',
-          href: '/app/ai/providers',
-          icon: Brain,
-          description: 'AI providers and their credentials',
-          permissions: ['ai.providers.read'],
-          order: 9
-        },
-        {
-          id: 'ai-model-router',
-          name: 'Model Router',
-          href: '/app/ai/model-router',
-          icon: Route,
-          description: 'Model routing rules and bandit performance',
-          permissions: ['ai.routing.read'],
-          order: 9.5
-        },
-        {
-          // Servers, Apps, Studio and Sessions — the MCP tabs of the former
-          // "Infrastructure" hub, whose name did not say it held MCP.
-          id: 'ai-mcp',
-          name: 'MCP',
-          href: '/app/ai/mcp',
-          icon: Server,
-          description: 'Model Context Protocol servers, apps, studio and sessions',
-          permissions: MCP_PERMISSIONS,
-          order: 9.6
-        },
-        {
-          id: 'ai-data-sources',
-          name: 'Data Sources',
-          href: '/app/ai/data-sources',
-          icon: Database,
-          description: 'External data sources agents can query',
-          permissions: ['ai.data_sources.read'],
-          order: 9.8
-        },
-        {
-          // fc-42: merged with the former Operations hub (AiOps/alerts/traces) —
-          // one page, one Systems backend, one Circuit Breakers view. See
-          // MONITORING_TABS (features/ai/monitoring/utils/monitoringFormatters.ts)
-          // for the per-tab permissions this nav entry's own list summarizes.
-          id: 'ai-observability',
-          name: 'Observability',
-          href: '/app/ai/observability',
-          icon: Activity,
-          description: 'Health, systems, circuit breakers, alerts, conversations, traces, and evaluation',
-          permissions: ['ai.monitoring.read', 'ai.aiops.read', 'ai.conversations.read', 'ai_monitoring.read', 'ai.analytics.read'],
-          order: 10
-        },
-        {
-          id: 'ai-cost',
-          name: 'Cost',
-          href: '/app/ai/cost',
-          icon: DollarSign,
-          description: 'Credits, FinOps, ROI, and outcome billing',
-          permissions: ['ai.finops.view', 'ai.roi.read', 'ai.analytics.read'],
-          order: 12
-        },
-        {
-          // AI → Control: approvals, policies, budgets, safety, trust &
-          // lineage, goals and compliance audit. Gated on the same list as the
-          // /ai/control/* route.
-          id: 'ai-control',
-          name: 'Control',
-          href: '/app/ai/control',
-          icon: ShieldCheck,
-          description: 'Approvals, policies, budgets, safety, trust and compliance audit',
-          permissions: CONTROL_PERMISSIONS,
-          order: 13
-        },
-        {
-          // The only operator screen for chat-platform integrations the
-          // server still serves (Api::V1::Chat::ChannelsController) — no
-          // other page links to it, so without this it was reachable only by
-          // typing the URL.
-          id: 'ai-chat-channels',
-          name: 'Chat Channels',
-          href: '/app/ai/chat-channels',
-          icon: MessageSquare,
-          description: 'Manage external chat platform integrations',
-          permissions: ['chat.channels.read'],
-          order: 13.6
-        },
-      ],
-      // Every item's permission opens the section, Control's whole set included.
-      permissions: Array.from(new Set([
-        'ai.agents.read', 'ai.conversations.read', 'ai.providers.read', 'ai.skills.read', 'ai.prompt_templates.read',
-        ...KNOWLEDGE_PERMISSIONS,
-        'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai.monitoring.read',
-        'ai_monitoring.read', 'ai.routing.read', 'chat.channels.read', 'ai.data_sources.read',
-        ...MCP_PERMISSIONS, ...CONTROL_PERMISSIONS,
-      ])),
+      name: 'AI Agents',
+      items: aiAgentsItems,
+      permissions: openedByItems(aiAgentsItems),
       collapsible: true,
       defaultExpanded: true,
       order: 10
+    },
+    {
+      id: 'ai-work',
+      name: 'AI Work',
+      items: aiWorkItems,
+      permissions: openedByItems(aiWorkItems),
+      collapsible: true,
+      defaultExpanded: true,
+      order: 11
+    },
+    {
+      id: 'ai-platform',
+      name: 'AI Platform',
+      items: aiPlatformItems,
+      permissions: openedByItems(aiPlatformItems),
+      collapsible: true,
+      defaultExpanded: true,
+      order: 12
     },
     // Content section - supporting content management
     {

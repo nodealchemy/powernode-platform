@@ -13,15 +13,13 @@ describe('defaultNavigationConfig — AI category consolidation', () => {
     expect(section('developer')).toBeUndefined();
   });
 
-  it('exposes Observability and Cost as AI section items (fc-42: Operations merged into Observability)', () => {
-    expect(itemIds('ai')).toEqual(
-      expect.arrayContaining(['ai-observability', 'ai-cost', 'ai-control']),
-    );
-    expect(itemIds('ai')).not.toContain('ai-operations');
+  it('exposes Observability and Cost as AI Platform items (fc-42: Operations merged into Observability)', () => {
+    expect(itemIds('ai-platform')).toEqual(expect.arrayContaining(['ai-observability', 'ai-cost']));
+    expect(sections.flatMap((s) => s.items.map((i) => i.id))).not.toContain('ai-operations');
   });
 
   it('points the Cost and Observability items at their domain routes', () => {
-    const ai = section('ai')?.items ?? [];
+    const ai = section('ai-platform')?.items ?? [];
     expect(ai.find((i) => i.id === 'ai-cost')?.href).toBe('/app/ai/cost');
     expect(ai.find((i) => i.id === 'ai-observability')?.href).toBe('/app/ai/observability');
   });
@@ -34,7 +32,7 @@ describe('defaultNavigationConfig — AI category consolidation', () => {
   });
 
   it('gates Cost on cost-domain permissions only (no role checks)', () => {
-    const cost = section('ai')?.items.find((i) => i.id === 'ai-cost');
+    const cost = section('ai-platform')?.items.find((i) => i.id === 'ai-cost');
     expect(cost?.permissions).toEqual(
       expect.arrayContaining(['ai.finops.view', 'ai.roi.read', 'ai.analytics.read']),
     );
@@ -148,14 +146,14 @@ describe('defaultNavigationConfig — DevOps regroup (fc-44)', () => {
   });
 });
 
-// fc-41: one Control item in the AI section replaces Autonomy, Governance,
+// fc-41: one Control item (in AI Work since fc-43) replaces Autonomy, Governance,
 // Budgets and Approval Chains. It carries the same permissions as the Control
 // route (CONTROL_PERMISSIONS) — permissions only, never roles.
 describe('defaultNavigationConfig — Control (fc-41)', () => {
-  const control = () => section('ai')?.items.find((i) => i.id === 'ai-control');
+  const control = () => section('ai-work')?.items.find((i) => i.id === 'ai-control');
   const userWith = (permissions: string[]) => ({ permissions } as unknown as User);
 
-  it('links Control from the AI section, and nothing links the pages it replaced', () => {
+  it('links Control from the AI Work section, and nothing links the pages it replaced', () => {
     expect(control()).toMatchObject({ name: 'Control', href: '/app/ai/control' });
     const allItems = sections.flatMap((s) => s.items);
     ['ai-autonomy', 'ai-governance', 'ai-budgets', 'ai-approval-chains'].forEach((id) =>
@@ -164,12 +162,12 @@ describe('defaultNavigationConfig — Control (fc-41)', () => {
       .toEqual([]);
   });
 
-  // The AI section is shown only to holders of one of ITS permissions; a user
+  // A section is shown only to holders of one of ITS permissions; a user
   // whose only Control permission (e.g. ai.goals.manage) is missing there
   // would never see the section, and so never the Control item inside it.
-  it.each(CONTROL_PERMISSIONS)('shows the AI section, and Control in it, to a holder of only %s', (permission) => {
+  it.each(CONTROL_PERMISSIONS)('shows the AI Work section, and Control in it, to a holder of only %s', (permission) => {
     const user = userWith([permission]);
-    expect(hasAccess(user, section('ai')?.permissions)).toBe(true);
+    expect(hasAccess(user, section('ai-work')?.permissions)).toBe(true);
     expect(hasAccess(user, control()?.permissions)).toBe(true);
   });
 
@@ -177,5 +175,61 @@ describe('defaultNavigationConfig — Control (fc-41)', () => {
     expect([...(control()?.permissions ?? [])].sort()).toEqual([...CONTROL_PERMISSIONS].sort());
     expect(hasAccess(userWith(['ai.governance.read']), control()?.permissions)).toBe(true);
     expect(hasAccess(userWith(['ai.teams.read']), control()?.permissions)).toBe(false);
+  });
+});
+
+// fc-43: the one 16-item AI section became three groups, each of at most 7
+// items, whose names predict their contents.
+describe('defaultNavigationConfig — AI Agents / Work / Platform (fc-43)', () => {
+  const byId = (sectionId: string, id: string) => section(sectionId)?.items.find((i) => i.id === id);
+  const userWith = (permissions: string[]) => ({ permissions } as unknown as User);
+
+  it('groups the AI items into AI Agents, AI Work and AI Platform, in that order', () => {
+    expect(section('ai')?.name).toBe('AI Agents');
+    expect(section('ai-work')?.name).toBe('AI Work');
+    expect(section('ai-platform')?.name).toBe('AI Platform');
+    expect(itemIds('ai')).toEqual(['ai-overview', 'ai-agents', 'ai-teams', 'ai-skills', 'ai-prompts', 'ai-knowledge']);
+    expect(itemIds('ai-work')).toEqual([
+      'ai-missions', 'ai-campaigns', 'ai-execution', 'ai-conversations', 'ai-chat-channels', 'ai-control',
+    ]);
+    expect(itemIds('ai-platform')).toEqual([
+      'ai-providers', 'ai-model-router', 'ai-mcp', 'ai-data-sources', 'ai-observability', 'ai-cost',
+    ]);
+    const order = (id: string) => section(id)?.order ?? 0;
+    expect(order('ai')).toBeLessThan(order('ai-work'));
+    expect(order('ai-work')).toBeLessThan(order('ai-platform'));
+  });
+
+  // Equality ratchet: a section growing past 7 fails, and so does a listed
+  // one that got back under (remove it here). Account is fc-45's regroup.
+  const KNOWN_OVERSIZED = ['account'];
+
+  it('keeps every section at 7 items or fewer', () => {
+    const oversized = sections.filter((s) => s.items.length > 7).map((s) => s.id);
+    expect(oversized).toEqual(KNOWN_OVERSIZED);
+  });
+
+  it('names the MCP item MCP and links nothing to the deleted Infrastructure or Learning Insights pages', () => {
+    expect(byId('ai-platform', 'ai-mcp')).toMatchObject({ name: 'MCP', href: '/app/ai/mcp' });
+    const hrefs = sections.flatMap((s) => s.items.map((i) => i.href ?? ''));
+    expect(hrefs.filter((h) => /^\/app\/ai\/(infrastructure|learning)(\/|$)/.test(h))).toEqual([]);
+  });
+
+  it('links Conversations from AI Work, gated like ConversationsController#index', () => {
+    expect(byId('ai-work', 'ai-conversations')).toMatchObject({
+      href: '/app/ai/conversations',
+      permissions: ['ai.conversations.read'],
+    });
+  });
+
+  it.each(['ai', 'ai-work', 'ai-platform'])('opens %s to a holder of any one of its items\' permissions, and only them', (id) => {
+    const s = section(id);
+    for (const item of s?.items ?? []) {
+      for (const permission of item.permissions ?? []) {
+        expect(hasAccess(userWith([permission]), s?.permissions)).toBe(true);
+      }
+    }
+    const itemPermissions = new Set((s?.items ?? []).flatMap((i) => i.permissions ?? []));
+    expect([...(s?.permissions ?? [])].filter((p) => !itemPermissions.has(p))).toEqual([]);
   });
 });
