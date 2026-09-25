@@ -6,9 +6,7 @@
 
 // Git provider management (primary exports)
 export {
-  GitProviderCard,
   CredentialModal,
-  RepositoryList,
   CommitDetailModal,
   useGitProviders,
   useGitCredentials,
@@ -36,27 +34,11 @@ export type {
 
 // CI/CD Pipelines (use DevOps prefix to avoid git collisions)
 export {
-  PromptTemplateList,
-  RunHistory,
-  ProviderSettings,
-  AiConfigSettings,
-  PipelineStatsCards,
   JobLogViewer,
-  NotificationSettings,
   StepApprovalSettings,
 } from './pipelines/components';
 
 export {
-  usePromptTemplates,
-  usePromptTemplate,
-  usePipelineRuns,
-  usePipelineRun,
-  useProviders,
-  useProvider,
-  useAiConfigs,
-  useAiConfig,
-  useSchedules,
-  useSchedule,
   useJobLogsWebSocket,
 } from './pipelines/hooks';
 
