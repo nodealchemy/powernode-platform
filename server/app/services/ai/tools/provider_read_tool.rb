@@ -42,7 +42,9 @@ module Ai
       }.freeze
 
       declare_action "list_llm_providers", mutating: false
-      declare_action "get_llm_provider", mutating: false
+      declare_action "get_llm_provider", mutating: false,
+                                         refuses: "neither id nor slug is given, or the provider is not in this account",
+                                         see_also: { "list_llm_providers" => "finding a provider id or slug" }
       declare_action "list_models", mutating: false
 
       # A provider is "priced" when at least one supported_models entry has a
@@ -93,7 +95,8 @@ module Ai
             }
           },
           "get_llm_provider" => {
-            description: "One provider in full: endpoints, capability flags, supported models, rate limits, " \
+            description: "One LLM provider in full, by id or slug, with its credential status but never the credential. " \
+                         "It carries endpoints, capability flags, supported models, rate limits, " \
                          "default parameters and credential STATUS (configured / active count / expiry / " \
                          "last test outcome — never the credential itself). The five free-form jsonb " \
                          "columns (capabilities, supported_models, rate_limits, default_parameters, " \
