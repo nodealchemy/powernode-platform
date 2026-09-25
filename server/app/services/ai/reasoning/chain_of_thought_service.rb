@@ -30,8 +30,6 @@ module Ai
 
         After all steps, provide a final conclusion and your overall confidence
         (0.0 = no confidence, 1.0 = absolute certainty).
-
-        Respond ONLY with valid JSON matching the requested schema.
       PROMPT
 
       REASONING_SCHEMA = {

@@ -38,7 +38,6 @@ module Ai
         - "reject" — output is fundamentally flawed (any score < 0.3)
 
         Provide specific, actionable feedback explaining your verdict.
-        Respond ONLY with valid JSON matching the requested schema.
       PROMPT
 
       def initialize(account:)

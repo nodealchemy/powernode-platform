@@ -36,7 +36,6 @@ module Ai
            how to verify the result is correct.
 
         The Task phase is the most important — spend the most effort there.
-        Respond ONLY with valid JSON matching the requested schema.
       PROMPT
 
       STAR_SCHEMA = {

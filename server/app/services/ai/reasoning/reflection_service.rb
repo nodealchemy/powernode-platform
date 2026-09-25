@@ -29,7 +29,6 @@ module Ai
         - Whether the output should be retried entirely
 
         If known improvement areas are provided, pay special attention to those.
-        Respond ONLY with valid JSON matching the requested schema.
       PROMPT
 
       REFLECTION_SCHEMA = {
