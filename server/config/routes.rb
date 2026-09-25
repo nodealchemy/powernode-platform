@@ -123,9 +123,6 @@ Rails.application.routes.draw do
         resources :accounts, only: [ :show ]
         resources :invitations, only: [ :show ]
 
-        # Background job tracking
-        resources :jobs, only: [ :show, :update ]
-
         # External A2A agent-card fetch result callback (from worker's
         # ExternalAgentCardFetchJob — worker fetches the card, server persists)
         resources :external_agents, only: [] do
@@ -1002,9 +999,6 @@ Rails.application.routes.draw do
 
       # Admin endpoints (restricted to admin permissions)
       namespace :admin do
-        # Background job tracking
-        resources :jobs, only: [ :index, :show ]
-
         # User management
         resources :users
 

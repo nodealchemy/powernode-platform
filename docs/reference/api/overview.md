@@ -508,7 +508,6 @@ Workers normalise inbound provider webhooks and re-emit to internal endpoints.
 | `/internal/accounts/{id}` | GET | Account data for emails |
 | `/internal/invitations/{id}` | GET | Invitation data |
 | `/internal/workers/{id}/test_results` | POST | Report test completion |
-| `/internal/jobs/{id}` | GET/PATCH | Track background job status |
 | `/health` | GET | Backend health check |
 
 ### Worker Resilience
