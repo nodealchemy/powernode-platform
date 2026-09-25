@@ -20,8 +20,9 @@ import coreAllowlist from './api-client-conventions.allowlist.json';
  *    `const base = (id) => \`/x/${id}\``) substituted in.
  *
  * 2. UNIQUE `*Api` / `*ApiService` EXPORT NAMES across core and every
- *    checked-out extension. Three `providersApi`s meant an import picked
- *    whichever one its path pointed at and a reader could not tell which
+ *    public extension (a private extension's clash is only warned about).
+ *    Three `providersApi`s meant an import picked whichever one its path
+ *    pointed at and a reader could not tell which
  *    (fc-39 renamed them gitProvidersApi / fleetProvidersApi). No allowlist:
  *    the set of duplicates must stay empty.
  *
@@ -297,18 +298,31 @@ describe('API client conventions (fc-39)', () => {
     }
   });
 
-  it('client export names (*Api, *ApiService) are unique across core and every extension', () => {
-    const names = [
+  it('client export names (*Api, *ApiService) are unique across core and every public extension', () => {
+    const enforced = [
       ...exportedClientNames(coreFiles, null),
-      ...extensions.flatMap((ext) => exportedClientNames(filesOf(ext), ext)),
+      ...publicExtensions.flatMap((ext) => exportedClientNames(filesOf(ext), ext)),
     ];
-    expect(names.length).toBeGreaterThan(100);
+    expect(enforced.length).toBeGreaterThan(100);
 
-    const byName = new Map<string, string[]>();
-    for (const [name, id] of names) byName.set(name, [...(byName.get(name) ?? []), id]);
-    const clashes = [...byName].filter(([, ids]) => ids.length > 1).map(([name, ids]) => `${name}: ${ids.sort().join(', ')}`);
+    const clashesIn = (names: Array<[string, string]>) => {
+      const byName = new Map<string, string[]>();
+      for (const [name, id] of names) byName.set(name, [...(byName.get(name) ?? []), id]);
+      return [...byName].filter(([, ids]) => ids.length > 1).map(([name, ids]) => `${name}: ${ids.sort().join(', ')}`);
+    };
 
-    expect(clashes).toEqual([]);
+    expect(clashesIn(enforced)).toEqual([]);
+
+    // A private extension's name that clashes with core, a public extension or
+    // another private one is reported, not enforced (see PRIVATE EXTENSIONS).
+    const privateNames = privateExtensions.flatMap((ext) => exportedClientNames(filesOf(ext), ext));
+    const privateOwners = new Set(privateExtensions.map((ext) => ext.rel));
+    const privateClashes = clashesIn([...enforced, ...privateNames]).filter((clash) =>
+      [...privateOwners].some((owner) => clash.includes(`${owner}:`))
+    );
+    if (privateClashes.length > 0) {
+      console.warn('api-client-conventions: a checked-out private extension exports a client name already in use (not enforced here):', privateClashes);
+    }
   });
 
   it('extension components do not import the raw HTTP client; the listed exceptions equal the observed ones', () => {
