@@ -65,6 +65,30 @@ module Api
           render_success(message: "Intervention policy deleted")
         end
 
+        # GET /api/v1/ai/intervention_policies/grouped
+        # Every account row, grouped by registered policy domain, for the panel.
+        def grouped
+          render_success(data: ::Ai::InterventionPolicies::GroupedView.new(account: current_user.account).as_json)
+        end
+
+        # PATCH /api/v1/ai/intervention_policies/bulk
+        # body: { updates: [{ action_category, policy, scope?, agent_id?, ... }] }
+        def bulk
+          updates = Array(params[:updates])
+          return render_error("updates array required", status: :bad_request) if updates.empty?
+
+          result = ::Ai::InterventionPolicies::BulkUpdate
+            .new(account: current_user.account, own_human_session: own_human_session?)
+            .call(updates)
+
+          if result.errors.any?
+            render_error("Some updates failed", status: :unprocessable_content,
+                                                details: { errors: result.errors, changed: result.changed })
+          else
+            render_success(data: { changed: result.changed, message: "#{result.changed} policies updated" })
+          end
+        end
+
         # POST /api/v1/ai/intervention_policies/resolve
         # Test policy resolution for a given context
         def resolve

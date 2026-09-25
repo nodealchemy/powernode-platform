@@ -2945,6 +2945,8 @@ Rails.application.routes.draw do
         resources :intervention_policies, controller: "intervention_policies" do
           collection do
             post :resolve
+            get :grouped
+            patch :bulk
           end
         end
 
