@@ -39,10 +39,32 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "bulk_index", mutating: true
-      declare_action "create_relation", mutating: true
-      declare_action "prune_stale", mutating: true, destructive: true
-      declare_action "search_graph", mutating: false
-      declare_action "upsert_node", mutating: true
+      declare_action "create_relation", mutating: true,
+                                        returns: "action (created or updated) and the edge's id, endpoints, relation type, weight and confidence",
+                                        refuses: [
+                                          "source_node_id, target_node_id or relation_type is missing, or relation_type is not a code relation type",
+                                          "either node is not an active node in this account",
+                                          "the caller lacks ai.knowledge_graph.manage"
+                                        ]
+      declare_action "prune_stale", mutating: true, destructive: true,
+                                    returns: "status enqueued, dry_run, the shared-memory result_key and the read_shared_memory call that retrieves it",
+                                    refuses: [
+                                      "the repository is not in this account or has no local_path directory on this server",
+                                      "the caller lacks ai.knowledge_graph.manage"
+                                    ]
+      declare_action "search_graph", mutating: false,
+                                     returns: "up to top_k (default 10) matching code nodes, most-mentioned first, each with up to 10 graph neighbors " \
+                                              "when max_depth is above 0",
+                                     refuses: "query is missing, or the repository is not in this account or has no local_path directory on this server",
+                                     see_also: { "code_semantic_search" => "finding code by meaning rather than by name" }
+      declare_action "upsert_node", mutating: true,
+                                    returns: "action (created or updated) and the node's id, name, entity type, description, file path, " \
+                                             "line range, mention count and confidence",
+                                    refuses: [
+                                      "name or entity_type is missing, or entity_type is not a code entity type",
+                                      "the repository is not in this account or has no local_path directory on this server",
+                                      "the caller lacks ai.knowledge_graph.manage"
+                                    ]
 
       def self.definition
         {
@@ -76,7 +98,7 @@ module Ai
       def self.action_definitions
         {
           "code_upsert_node" => {
-            description: "Create or update a code-aware knowledge graph node. Auto-generates embeddings for semantic search.",
+            description: "Create or update a code-aware knowledge graph node, matched by exact name within the repository's knowledge base. An embedding for semantic search is generated only when description is given.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
               name: { type: "string", required: true, description: "Qualified node name (e.g. 'User#full_name')" },
@@ -88,7 +110,7 @@ module Ai
             }
           },
           "code_create_relation" => {
-            description: "Create a typed edge between two code nodes (e.g. imports, calls, inherits).",
+            description: "Create or update a typed edge, such as imports, calls or inherits, between two code nodes. An existing active edge with the same endpoints and type is updated instead.",
             parameters: {
               source_node_id: { type: "string", required: true, description: "Source node ID" },
               target_node_id: { type: "string", required: true, description: "Target node ID" },
@@ -98,7 +120,7 @@ module Ai
             }
           },
           "code_search_graph" => {
-            description: "Search the code graph with optional multi-hop traversal. Combines name matching with graph expansion.",
+            description: "Search the code graph by name, simple name or description substring, with optional multi-hop traversal. Neighbor expansion depth is capped at 3.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
               query: { type: "string", required: true, description: "Search query" },
@@ -108,7 +130,7 @@ module Ai
             }
           },
           "code_prune_stale" => {
-            description: "Find and remove/archive code nodes for files that no longer exist on disk (async — dispatched to the worker; result written to shared memory, retrieve via read_shared_memory). Use dry_run to preview.",
+            description: "Archive the code nodes and edges of indexed files that no longer exist on disk. Async: it is dispatched to the worker, and the result is written to shared memory for read_shared_memory. The dry_run flag defaults to true, so pass dry_run: false to apply.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
               dry_run: { type: "boolean", required: false, description: "Preview without executing (default true)" }

@@ -13,10 +13,6 @@ add_team_member
 agent_container_status
 approve_improvement
 bootstrap_disk_image_ci
-code_create_relation
-code_prune_stale
-code_search_graph
-code_upsert_node
 compose_skills
 content_production_status
 create_gitea_repository
