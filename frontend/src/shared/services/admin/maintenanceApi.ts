@@ -60,33 +60,6 @@ export interface BackupInfo {
   download_url?: string;
 }
 
-export interface SystemHealth {
-  overall_status: 'healthy' | 'warning' | 'critical';
-  database: {
-    status: 'healthy' | 'warning' | 'critical';
-    connection_time: number;
-    size: number;
-    last_backup: string;
-  };
-  redis: {
-    status: 'healthy' | 'warning' | 'critical';
-    memory_usage: number;
-    connected_clients: number;
-  };
-  storage: {
-    status: 'healthy' | 'warning' | 'critical';
-    total_space: number;
-    used_space: number;
-    available_space: number;
-  };
-  services: {
-    name: string;
-    status: 'healthy' | 'warning' | 'critical';
-    uptime: number;
-    memory_usage: number;
-  }[];
-}
-
 export interface CleanupStats {
   old_logs: number;
   expired_sessions: number;
@@ -105,18 +78,6 @@ export interface MaintenanceSchedule {
   last_run?: string;
   next_run: string;
   description: string;
-}
-
-export interface MaintenanceSystemMetrics {
-  cpu_usage: number;
-  memory_usage: number;
-  disk_usage: number;
-  active_users: number;
-  database_connections: number;
-  queue_size: number;
-  response_time_avg: number;
-  error_rate: number;
-  uptime: number;
 }
 
 class MaintenanceApiService {
@@ -220,21 +181,6 @@ class MaintenanceApiService {
     return response.data.download_url;
   }
 
-  // System Health
-  async getSystemHealth(): Promise<SystemHealth> {
-    const response = await apiRequest('/admin/maintenance/health', {
-      method: 'GET'
-    });
-    return response.data;
-  }
-
-  async getSystemMetrics(): Promise<MaintenanceSystemMetrics> {
-    const response = await apiRequest('/admin/maintenance/metrics', {
-      method: 'GET'
-    });
-    return response.data;
-  }
-
   // Data Cleanup
   async getCleanupStats(): Promise<CleanupStats> {
     const response = await apiRequest('/admin/maintenance/cleanup/stats', {
@@ -259,19 +205,6 @@ class MaintenanceApiService {
   }
 
   // System Operations
-  async restartService(serviceName: string): Promise<void> {
-    await apiRequest('/admin/maintenance/services/restart', {
-      method: 'POST',
-      body: JSON.stringify({ service: serviceName })
-    });
-  }
-
-  async restartSystem(): Promise<void> {
-    await apiRequest('/admin/maintenance/system/restart', {
-      method: 'POST'
-    });
-  }
-
   async flushCache(): Promise<void> {
     await apiRequest('/admin/maintenance/cache/flush', {
       method: 'POST'
@@ -337,20 +270,6 @@ class MaintenanceApiService {
     else size = 'TB';
     
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + size;
-  }
-
-  formatUptime(seconds: number): string {
-    const days = Math.floor(seconds / (24 * 3600));
-    const hours = Math.floor((seconds % (24 * 3600)) / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m`;
-    } else if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${minutes}m`;
-    }
   }
 
   getStatusColor(status: string): string {

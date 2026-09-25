@@ -4,59 +4,13 @@ import { maintenanceApi } from '@/shared/services/admin/maintenanceApi';
 import { SettingsCard } from '@/features/admin/components/settings/SettingsComponents';
 import { MaintenanceOverviewTabProps, MaintenanceTab } from './types';
 
-// Helper functions
-const getHealthColor = (status: string) => {
-  switch (status) {
-    case 'healthy': return 'text-theme-success-fg';
-    case 'warning': return 'text-theme-warning-fg';
-    case 'critical': return 'text-theme-error-fg';
-    default: return 'text-theme-secondary';
-  }
-};
-
-const getHealthBgColor = (status: string) => {
-  switch (status) {
-    case 'healthy': return 'bg-theme-success-bg';
-    case 'warning': return 'bg-theme-warning-bg';
-    case 'critical': return 'bg-theme-error-bg';
-    default: return 'bg-theme-surface';
-  }
-};
-
 export const MaintenanceOverviewTab: React.FC<MaintenanceOverviewTabProps> = ({
   maintenanceStatus,
-  systemHealth,
-  systemMetrics,
   backups,
   cleanupStats,
   schedules,
   onNavigateToTab
 }) => {
-  // Calculate overall system status
-  const getOverallStatus = () => {
-    if (!systemHealth) return { status: 'unknown', label: 'Unknown', icon: '❓' };
-    const { overall_status } = systemHealth;
-
-    if (overall_status === 'healthy') {
-      return { status: 'healthy', label: 'All Systems Operational', icon: '✅' };
-    }
-    if (overall_status === 'critical') {
-      return { status: 'critical', label: 'Critical Issues Detected', icon: '🚨' };
-    }
-    return { status: 'warning', label: 'Some Services Degraded', icon: '⚠️' };
-  };
-
-  // Count healthy services
-  const getHealthyServiceCount = () => {
-    if (!systemHealth) return 0;
-    let count = 0;
-    if (systemHealth.database?.status === 'healthy') count++;
-    if (systemHealth.redis?.status === 'healthy') count++;
-    if (systemHealth.storage?.status === 'healthy') count++;
-    const healthyServices = systemHealth.services?.filter(s => s.status === 'healthy').length || 0;
-    return count + healthyServices;
-  };
-
   // Get total cleanup items
   const getTotalCleanupItems = () => {
     if (!cleanupStats) return 0;
@@ -66,117 +20,43 @@ export const MaintenanceOverviewTab: React.FC<MaintenanceOverviewTabProps> = ({
            (cleanupStats.orphaned_uploads || 0);
   };
 
-  const overallStatus = getOverallStatus();
   const latestBackup = backups[0];
   const activeSchedules = schedules.filter(s => s.enabled).length;
 
   return (
     <div className="space-y-6">
-      {/* System Status Banner */}
-      <div className={`rounded-lg border border-theme p-6 ${getHealthBgColor(overallStatus.status)}`}>
+      {/* Maintenance mode banner. Platform health (services, host
+          resources) is on /app/status, not here (fc-47). */}
+      <div className={`rounded-lg border border-theme p-6 ${maintenanceStatus.mode ? 'bg-theme-warning-bg' : 'bg-theme-surface'}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <span className="text-4xl">{overallStatus.icon}</span>
+            <span className="text-4xl">{maintenanceStatus.mode ? '🔧' : '✅'}</span>
             <div>
-              <h3 className="text-xl font-semibold text-theme-primary">{overallStatus.label}</h3>
+              <h3 className="text-xl font-semibold text-theme-primary">
+                {maintenanceStatus.mode ? 'Maintenance Mode Active' : 'Maintenance mode is off'}
+              </h3>
               <p className="text-theme-secondary">
                 {maintenanceStatus.mode ? (
                   <span className="text-theme-warning-fg font-medium">Maintenance mode is currently active</span>
                 ) : (
-                  'System is running normally'
+                  'Users can reach the platform'
                 )}
               </p>
             </div>
           </div>
-          {maintenanceStatus.mode && (
-            <span className="px-3 py-1 rounded-full bg-theme-warning-bg text-theme-warning-fg text-sm font-medium">
-              Maintenance Mode Active
-            </span>
-          )}
         </div>
       </div>
 
       {/* Quick Stats Grid */}
       <QuickStatsGrid
-        systemHealth={systemHealth}
         backups={backups}
         cleanupStats={cleanupStats}
         schedules={schedules}
         onNavigateToTab={onNavigateToTab}
-        getHealthColor={getHealthColor}
-        getHealthyServiceCount={getHealthyServiceCount}
         getTotalCleanupItems={getTotalCleanupItems}
         latestBackup={latestBackup}
         activeSchedules={activeSchedules}
       />
-
-      {/* Service Health Details */}
-      <SettingsCard
-        title="Service Health Overview"
-        description="Current status of all system services"
-        icon="🏥"
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* Database */}
-          <div className={`p-4 rounded-lg ${getHealthBgColor(systemHealth?.database?.status || 'unknown')}`}>
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">🗄️</span>
-              <div>
-                <h5 className="font-medium text-theme-primary">Database</h5>
-                <p className={`text-sm font-medium ${getHealthColor(systemHealth?.database?.status || 'unknown')}`}>
-                  {systemHealth?.database?.status || 'Unknown'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Redis */}
-          <div className={`p-4 rounded-lg ${getHealthBgColor(systemHealth?.redis?.status || 'unknown')}`}>
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">⚡</span>
-              <div>
-                <h5 className="font-medium text-theme-primary">Redis</h5>
-                <p className={`text-sm font-medium ${getHealthColor(systemHealth?.redis?.status || 'unknown')}`}>
-                  {systemHealth?.redis?.status || 'Unknown'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Storage */}
-          <div className={`p-4 rounded-lg ${getHealthBgColor(systemHealth?.storage?.status || 'unknown')}`}>
-            <div className="flex items-center space-x-3">
-              <span className="text-2xl">💿</span>
-              <div>
-                <h5 className="font-medium text-theme-primary">Storage</h5>
-                <p className={`text-sm font-medium ${getHealthColor(systemHealth?.storage?.status || 'unknown')}`}>
-                  {systemHealth?.storage?.status || 'Unknown'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Dynamic Services */}
-          {systemHealth?.services?.map((service, index) => (
-            <div key={index} className={`p-4 rounded-lg ${getHealthBgColor(service.status)}`}>
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">⚙️</span>
-                <div>
-                  <h5 className="font-medium text-theme-primary">{service.name}</h5>
-                  <p className={`text-sm font-medium ${getHealthColor(service.status)}`}>
-                    {service.status}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </SettingsCard>
-
-      {/* System Metrics */}
-      {systemMetrics && (
-        <SystemMetricsSection systemMetrics={systemMetrics} />
-      )}
 
       {/* Recent Activity / Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -192,45 +72,34 @@ export const MaintenanceOverviewTab: React.FC<MaintenanceOverviewTabProps> = ({
 
 // Quick Stats Grid Sub-component
 interface QuickStatsGridProps {
-  systemHealth: MaintenanceOverviewTabProps['systemHealth'];
   backups: MaintenanceOverviewTabProps['backups'];
   cleanupStats: MaintenanceOverviewTabProps['cleanupStats'];
   schedules: MaintenanceOverviewTabProps['schedules'];
   onNavigateToTab: (tab: MaintenanceTab) => void;
-  getHealthColor: (status: string) => string;
-  getHealthyServiceCount: () => number;
   getTotalCleanupItems: () => number;
   latestBackup: MaintenanceOverviewTabProps['backups'][0] | undefined;
   activeSchedules: number;
 }
 
 const QuickStatsGrid: React.FC<QuickStatsGridProps> = ({
-  systemHealth,
   backups,
   cleanupStats,
   onNavigateToTab,
-  getHealthColor,
-  getHealthyServiceCount,
   getTotalCleanupItems,
   latestBackup,
   activeSchedules
 }) => (
   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-    {/* Health Status Card — platform health is on /app/status (fc-47) */}
+    {/* Platform health is on /app/status (fc-47): a link, no verdict of its own. */}
     <Link
       to="/app/status"
       className="bg-theme-surface rounded-lg border border-theme p-4 hover:border-theme-interactive-primary transition-colors text-left"
     >
       <div className="flex items-center justify-between mb-3">
         <span className="text-2xl">💚</span>
-        <span className={`text-sm font-medium ${getHealthColor(systemHealth?.overall_status || 'unknown')}`}>
-          {systemHealth?.overall_status || 'Unknown'}
-        </span>
       </div>
-      <h4 className="font-medium text-theme-primary">Platform Status</h4>
-      <p className="text-sm text-theme-secondary mt-1">
-        {systemHealth ? `${getHealthyServiceCount()} services healthy` : 'Loading...'}
-      </p>
+      <h4 className="font-medium text-theme-primary">Platform status →</h4>
+      <p className="text-sm text-theme-secondary mt-1">Services, dependencies and incidents</p>
     </Link>
 
     {/* Backups Card */}
@@ -280,92 +149,6 @@ const QuickStatsGrid: React.FC<QuickStatsGridProps> = ({
       </p>
     </button>
   </div>
-);
-
-// System Metrics Section Sub-component
-interface SystemMetricsSectionProps {
-  systemMetrics: NonNullable<MaintenanceOverviewTabProps['systemMetrics']>;
-}
-
-const SystemMetricsSection: React.FC<SystemMetricsSectionProps> = ({ systemMetrics }) => (
-  <SettingsCard
-    title="System Metrics"
-    description="Current resource utilization and performance metrics"
-    icon="📈"
-  >
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {/* CPU Usage */}
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-theme-primary">CPU Usage</span>
-          <span className="text-sm text-theme-secondary">{systemMetrics.cpu_usage?.toFixed(1) || 0}%</span>
-        </div>
-        <div className="h-2 bg-theme-background rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all ${
-              (systemMetrics.cpu_usage || 0) > 80 ? 'bg-theme-error-bg' :
-              (systemMetrics.cpu_usage || 0) > 60 ? 'bg-theme-warning-bg' : 'bg-theme-success-bg'
-            }`}
-            style={{ width: `${Math.min(systemMetrics.cpu_usage || 0, 100)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Memory Usage */}
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-theme-primary">Memory Usage</span>
-          <span className="text-sm text-theme-secondary">{systemMetrics.memory_usage?.toFixed(1) || 0}%</span>
-        </div>
-        <div className="h-2 bg-theme-background rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all ${
-              (systemMetrics.memory_usage || 0) > 80 ? 'bg-theme-error-bg' :
-              (systemMetrics.memory_usage || 0) > 60 ? 'bg-theme-warning-bg' : 'bg-theme-success-bg'
-            }`}
-            style={{ width: `${Math.min(systemMetrics.memory_usage || 0, 100)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Disk Usage */}
-      <div>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-theme-primary">Disk Usage</span>
-          <span className="text-sm text-theme-secondary">{systemMetrics.disk_usage?.toFixed(1) || 0}%</span>
-        </div>
-        <div className="h-2 bg-theme-background rounded-full overflow-hidden">
-          <div
-            className={`h-full rounded-full transition-all ${
-              (systemMetrics.disk_usage || 0) > 80 ? 'bg-theme-error-bg' :
-              (systemMetrics.disk_usage || 0) > 60 ? 'bg-theme-warning-bg' : 'bg-theme-success-bg'
-            }`}
-            style={{ width: `${Math.min(systemMetrics.disk_usage || 0, 100)}%` }}
-          />
-        </div>
-      </div>
-    </div>
-
-    {/* Additional Metrics */}
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-theme">
-      <div className="text-center">
-        <p className="text-2xl font-semibold text-theme-primary">{systemMetrics.database_connections || 0}</p>
-        <p className="text-sm text-theme-secondary">DB Connections</p>
-      </div>
-      <div className="text-center">
-        <p className="text-2xl font-semibold text-theme-primary">{systemMetrics.queue_size || 0}</p>
-        <p className="text-sm text-theme-secondary">Queue Size</p>
-      </div>
-      <div className="text-center">
-        <p className="text-2xl font-semibold text-theme-primary">{systemMetrics.active_users || 0}</p>
-        <p className="text-sm text-theme-secondary">Active Users</p>
-      </div>
-      <div className="text-center">
-        <p className="text-2xl font-semibold text-theme-primary">{systemMetrics.response_time_avg || 0}ms</p>
-        <p className="text-sm text-theme-secondary">Avg Response Time</p>
-      </div>
-    </div>
-  </SettingsCard>
 );
 
 // Recent Backups Section Sub-component

@@ -2,9 +2,7 @@
 import {
   MaintenanceStatus,
   BackupInfo,
-  SystemHealth,
   CleanupStats,
-  MaintenanceSystemMetrics,
   MaintenanceSchedule
 } from '@/shared/services/admin/maintenanceApi';
 
@@ -19,8 +17,6 @@ export interface MaintenancePageActions {
 
 export interface MaintenanceOverviewTabProps {
   maintenanceStatus: MaintenanceStatus;
-  systemHealth: SystemHealth | null;
-  systemMetrics: MaintenanceSystemMetrics | null;
   backups: BackupInfo[];
   cleanupStats: CleanupStats | null;
   schedules: MaintenanceSchedule[];
@@ -45,7 +41,6 @@ export interface DataCleanupTabProps {
 }
 
 export interface SystemOperationsTabProps {
-  health: SystemHealth | null;
   onRefresh: () => void;
 }
 

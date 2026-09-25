@@ -10,8 +10,6 @@ import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
 jest.mock('@/shared/services/admin/maintenanceApi', () => ({
   maintenanceApi: {
     getMaintenanceStatus: jest.fn(),
-    getSystemHealth: jest.fn(),
-    getSystemMetrics: jest.fn(),
     getBackups: jest.fn(),
     getCleanupStats: jest.fn(),
     getMaintenanceSchedules: jest.fn(),
@@ -26,14 +24,12 @@ jest.mock('@/shared/services/admin/maintenanceApi', () => ({
     deleteMaintenanceSchedule: jest.fn(),
     runScheduledTask: jest.fn(),
     formatBytes: jest.fn((bytes: number) => `${bytes} B`),
-    formatUptime: jest.fn((seconds: number) => `${seconds}s`),
     getStatusColor: jest.fn(() => 'text-theme-success-fg'),
     getStatusBgColor: jest.fn(() => 'bg-theme-success-bg'),
     clearCache: jest.fn(),
     rebuildIndexes: jest.fn(),
     vacuumDatabase: jest.fn(),
     restartServices: jest.fn(),
-    restartService: jest.fn(),
     flushCache: jest.fn(),
     optimizeDatabase: jest.fn()
   }
@@ -52,42 +48,6 @@ describe('AdminMaintenancePage', () => {
   const mockMaintenanceStatus = {
     mode: false,
     message: ''
-  };
-
-  const mockSystemHealth = {
-    overall_status: 'healthy' as const,
-    database: {
-      status: 'healthy' as const,
-      connection_time: 5,
-      size: 1024000,
-      last_backup: '2024-01-15T10:00:00Z'
-    },
-    redis: {
-      status: 'healthy' as const,
-      memory_usage: 50,
-      connected_clients: 10
-    },
-    storage: {
-      status: 'healthy' as const,
-      total_space: 100000000,
-      used_space: 50000000,
-      available_space: 50000000
-    },
-    services: [
-      { name: 'Sidekiq', status: 'healthy' as const, uptime: 86400, memory_usage: 256 }
-    ]
-  };
-
-  const mockSystemMetrics = {
-    cpu_usage: 45,
-    memory_usage: 60,
-    disk_usage: 70,
-    active_users: 25,
-    database_connections: 10,
-    queue_size: 5,
-    response_time_avg: 150,
-    error_rate: 0.5,
-    uptime: 86400
   };
 
   const mockBackups = [
@@ -119,8 +79,6 @@ describe('AdminMaintenancePage', () => {
     });
 
     (maintenanceApi.getMaintenanceStatus as jest.Mock).mockResolvedValue(mockMaintenanceStatus);
-    (maintenanceApi.getSystemHealth as jest.Mock).mockResolvedValue(mockSystemHealth);
-    (maintenanceApi.getSystemMetrics as jest.Mock).mockResolvedValue(mockSystemMetrics);
     (maintenanceApi.getBackups as jest.Mock).mockResolvedValue(mockBackups);
     (maintenanceApi.getCleanupStats as jest.Mock).mockResolvedValue(mockCleanupStats);
     (maintenanceApi.getMaintenanceSchedules as jest.Mock).mockResolvedValue(mockSchedules);
@@ -156,8 +114,6 @@ describe('AdminMaintenancePage', () => {
 
       await waitFor(() => {
         expect(maintenanceApi.getMaintenanceStatus).toHaveBeenCalled();
-        expect(maintenanceApi.getSystemHealth).toHaveBeenCalled();
-        expect(maintenanceApi.getSystemMetrics).toHaveBeenCalled();
         expect(maintenanceApi.getBackups).toHaveBeenCalled();
         expect(maintenanceApi.getCleanupStats).toHaveBeenCalled();
         expect(maintenanceApi.getMaintenanceSchedules).toHaveBeenCalled();
@@ -180,48 +136,40 @@ describe('AdminMaintenancePage', () => {
     });
 
     // fc-47: platform health is on /app/status. Maintenance keeps no System
-    // Health tab; the overview's health card links to the status page.
+    // Health tab and renders no health verdict of its own.
     it('has no System Health tab', async () => {
       await renderComponent();
 
-      await waitFor(() => {
-        expect(screen.getByText('All Systems Operational')).toBeInTheDocument();
-      });
+      await screen.findByRole('link', { name: /Platform status/ });
       const tabNames = screen.getAllByRole('button').map(b => b.textContent);
       expect(tabNames.some(name => name?.includes('System Health'))).toBe(false);
     });
 
-    it('does not treat /health as a tab path', async () => {
-      await renderComponent('/app/admin/maintenance/health');
+    it('falls back to Overview on a path that is not a tab', async () => {
+      await renderComponent('/app/admin/maintenance/not-a-tab');
 
-      await waitFor(() => {
-        expect(screen.getByText('All Systems Operational')).toBeInTheDocument();
-      });
+      expect(await screen.findByRole('link', { name: /Platform status/ })).toBeInTheDocument();
     });
 
-    it("links the overview's health card to /app/status", async () => {
+    it('links to /app/status for platform health', async () => {
       await renderComponent();
 
-      const card = await screen.findByRole('link', { name: /Platform Status/ });
+      const card = await screen.findByRole('link', { name: /Platform status/ });
       expect(card).toHaveAttribute('href', '/app/status');
     });
 
     it('defaults to Overview tab', async () => {
       await renderComponent();
 
-      await waitFor(() => {
-        expect(screen.getByText('All Systems Operational')).toBeInTheDocument();
-      });
+      expect(await screen.findByRole('link', { name: /Platform status/ })).toBeInTheDocument();
     });
   });
 
   describe('Overview Tab', () => {
-    it('displays system status banner', async () => {
+    it('says when maintenance mode is off', async () => {
       await renderComponent();
 
-      await waitFor(() => {
-        expect(screen.getByText('All Systems Operational')).toBeInTheDocument();
-      });
+      expect(await screen.findByText('Maintenance mode is off')).toBeInTheDocument();
     });
 
     it('shows maintenance mode warning when active', async () => {
@@ -238,47 +186,24 @@ describe('AdminMaintenancePage', () => {
     });
   });
 
-  describe('Health Status', () => {
-    it('shows healthy status when all services are healthy', async () => {
+  // fc-47 review H1: the overview used to render a health verdict, a service
+  // grid and host metrics from GET /admin/maintenance/health, whose shape
+  // ({overall_status, checks}) it never matched. /app/status shows them.
+  describe('No health of its own', () => {
+    it('renders no health verdict, service grid or system metrics', async () => {
       await renderComponent();
+      await screen.findByRole('link', { name: /Platform status/ });
 
-      await waitFor(() => {
-        expect(screen.getByText('All Systems Operational')).toBeInTheDocument();
-      });
-    });
-
-    it('shows degraded status when some services have issues', async () => {
-      (maintenanceApi.getSystemHealth as jest.Mock).mockResolvedValue({
-        ...mockSystemHealth,
-        overall_status: 'warning'
-      });
-
-      await renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Some Services Degraded')).toBeInTheDocument();
-      });
-    });
-
-    it('shows critical status when services are down', async () => {
-      (maintenanceApi.getSystemHealth as jest.Mock).mockResolvedValue({
-        ...mockSystemHealth,
-        overall_status: 'critical'
-      });
-
-      await renderComponent();
-
-      await waitFor(() => {
-        expect(screen.getByText('Critical Issues Detected')).toBeInTheDocument();
-      });
+      [
+        'All Systems Operational', 'Some Services Degraded', 'Critical Issues Detected',
+        'Service Health Overview', 'System Metrics', 'Service Management'
+      ].forEach((text) => expect(screen.queryByText(text)).not.toBeInTheDocument());
     });
   });
 
   describe('Error Handling', () => {
     it('displays error message when API fails', async () => {
       (maintenanceApi.getMaintenanceStatus as jest.Mock).mockRejectedValue(new Error('Network error'));
-      (maintenanceApi.getSystemHealth as jest.Mock).mockRejectedValue(new Error('Network error'));
-      (maintenanceApi.getSystemMetrics as jest.Mock).mockRejectedValue(new Error('Network error'));
       (maintenanceApi.getBackups as jest.Mock).mockRejectedValue(new Error('Network error'));
       (maintenanceApi.getCleanupStats as jest.Mock).mockRejectedValue(new Error('Network error'));
       (maintenanceApi.getMaintenanceSchedules as jest.Mock).mockRejectedValue(new Error('Network error'));
@@ -292,8 +217,6 @@ describe('AdminMaintenancePage', () => {
 
     it('shows retry button on error', async () => {
       (maintenanceApi.getMaintenanceStatus as jest.Mock).mockRejectedValue(new Error('Network error'));
-      (maintenanceApi.getSystemHealth as jest.Mock).mockRejectedValue(new Error('Network error'));
-      (maintenanceApi.getSystemMetrics as jest.Mock).mockRejectedValue(new Error('Network error'));
       (maintenanceApi.getBackups as jest.Mock).mockRejectedValue(new Error('Network error'));
       (maintenanceApi.getCleanupStats as jest.Mock).mockRejectedValue(new Error('Network error'));
       (maintenanceApi.getMaintenanceSchedules as jest.Mock).mockRejectedValue(new Error('Network error'));

@@ -7,9 +7,7 @@ import {
   maintenanceApi,
   MaintenanceStatus,
   BackupInfo,
-  SystemHealth,
   CleanupStats,
-  MaintenanceSystemMetrics,
   MaintenanceSchedule
 } from '@/shared/services/admin/maintenanceApi';
 import { RefreshCw, Plus, Trash2 } from 'lucide-react';
@@ -50,8 +48,6 @@ export const AdminMaintenancePage: React.FC = () => {
     mode: false,
     message: ''
   });
-  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
-  const [systemMetrics, setSystemMetrics] = useState<MaintenanceSystemMetrics | null>(null);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [cleanupStats, setCleanupStats] = useState<CleanupStats | null>(null);
   const [schedules, setSchedules] = useState<MaintenanceSchedule[]>([]);
@@ -61,18 +57,14 @@ export const AdminMaintenancePage: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      const [status, health, metrics, backupList, cleanup, scheduleList] = await Promise.all([
+      const [status, backupList, cleanup, scheduleList] = await Promise.all([
         maintenanceApi.getMaintenanceStatus(),
-        maintenanceApi.getSystemHealth(),
-        maintenanceApi.getSystemMetrics(),
         maintenanceApi.getBackups(),
         maintenanceApi.getCleanupStats(),
         maintenanceApi.getMaintenanceSchedules()
       ]);
 
       setMaintenanceStatus(status);
-      setSystemHealth(health);
-      setSystemMetrics(metrics);
       setBackups(backupList);
       setCleanupStats(cleanup);
       setSchedules(scheduleList);
@@ -196,8 +188,6 @@ export const AdminMaintenancePage: React.FC = () => {
         return (
           <MaintenanceOverviewTab
             maintenanceStatus={maintenanceStatus}
-            systemHealth={systemHealth}
-            systemMetrics={systemMetrics}
             backups={backups}
             cleanupStats={cleanupStats}
             schedules={schedules}
@@ -211,7 +201,7 @@ export const AdminMaintenancePage: React.FC = () => {
       case 'cleanup':
         return <DataCleanupTab stats={cleanupStats} onRefresh={loadMaintenanceData} onRegisterActions={setActions} />;
       case 'operations':
-        return <SystemOperationsTab health={systemHealth} onRefresh={loadMaintenanceData} />;
+        return <SystemOperationsTab onRefresh={loadMaintenanceData} />;
       case 'schedules':
         return <ScheduledTasksTab schedules={schedules} onRefresh={loadMaintenanceData} onRegisterActions={setActions} />;
       default:

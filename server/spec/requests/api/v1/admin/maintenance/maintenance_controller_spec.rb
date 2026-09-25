@@ -429,21 +429,4 @@ RSpec.describe 'Api::V1::Admin::Maintenance::MaintenanceController', type: :requ
       end
     end
   end
-
-  describe 'GET /api/v1/admin/maintenance/metrics' do
-    context 'with admin maintenance permission' do
-      it 'returns system metrics' do
-        get '/api/v1/admin/maintenance/metrics', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data).to include(
-          'database',
-          'cache',
-          'background_jobs',
-          'storage'
-        )
-      end
-    end
-  end
 end

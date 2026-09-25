@@ -192,12 +192,13 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # Status endpoint
   def status
+    checks = ::Platform::Health::CoreChecks.all(only: %i[database redis sidekiq])
     render_success({
 
         maintenance_mode: Admin::MaintenanceMode.enabled?,
-        database_status: check_database_status,
-        redis_status: check_redis_status,
-        sidekiq_status: check_sidekiq_status,
+        database_status: connection_status(checks[:database]),
+        redis_status: redis_status(checks[:redis]),
+        sidekiq_status: sidekiq_status(checks[:sidekiq]),
         last_backup: get_last_backup_info,
         system_uptime: get_system_uptime
       }
@@ -225,35 +226,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
         overall_status: overall_status,
         checks: health_check,
         timestamp: Time.current
-      }
-    )
-  end
-
-  # Metrics endpoint
-  def metrics
-    render_success({
-
-        database: {
-          total_records: get_total_records_count,
-          connections: ActiveRecord::Base.connection_pool.stat
-        },
-        cache: {
-          size: begin
-            Rails.cache.stats
-          rescue StandardError
-            nil
-          end
-        },
-        background_jobs: {
-          processed: get_processed_jobs_count,
-          failed: get_failed_jobs_count,
-          pending: get_pending_jobs_count
-        },
-        storage: {
-          uploads_size: calculate_uploads_size,
-          logs_size: calculate_logs_size,
-          cache_size: calculate_cache_size
-        }
       }
     )
   end
@@ -348,26 +320,21 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
     )
   end
 
-  # Helper methods for status checks
-  def check_database_status
-    ActiveRecord::Base.connection.active? ? "connected" : "disconnected"
-  rescue StandardError => e
-    Rails.logger.error "Database status check failed: #{e.message}"
-    "error"
+  # The /status labels for Platform::Health::CoreChecks readings.
+  def connection_status(reading)
+    reading[:status] == "healthy" ? "connected" : "disconnected"
   end
 
-  def check_redis_status
-    Powernode::Redis.new_client.ping == "PONG" ? "connected" : "disconnected"
-  rescue StandardError => e
-    Rails.logger.error "Redis status check failed: #{e.message}"
-    "unavailable"
+  def redis_status(reading)
+    reading[:status] == "healthy" ? "connected" : "unavailable"
   end
 
-  def check_sidekiq_status
-    Sidekiq::Stats.new.processes_size > 0 ? "running" : "stopped"
-  rescue StandardError => e
-    Rails.logger.error "Sidekiq status check failed: #{e.message}"
-    "unavailable"
+  def sidekiq_status(reading)
+    case reading[:status]
+    when "healthy" then "running"
+    when "unhealthy" then "stopped"
+    else "unavailable"
+    end
   end
 
   def get_last_backup_info
@@ -384,42 +351,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       seconds: uptime_seconds,
       formatted: format_duration(uptime_seconds)
     }
-  end
-
-  def get_total_records_count
-    {
-      users: User.count,
-      accounts: Account.count,
-      subscriptions: (Powernode::BillingBridge.subscription_model&.count || 0),
-      payments: (Powernode::BillingBridge.payment_model&.count || 0)
-    }
-  rescue StandardError => e
-    Rails.logger.error "Failed to get total records count: #{e.message}"
-    {}
-  end
-
-  def get_processed_jobs_count
-    Sidekiq::Stats.new.processed rescue 0
-  end
-
-  def get_failed_jobs_count
-    Sidekiq::Stats.new.failed rescue 0
-  end
-
-  def get_pending_jobs_count
-    Sidekiq::Stats.new.enqueued rescue 0
-  end
-
-  def calculate_uploads_size
-    Dir.glob(Rails.root.join("storage", "**", "*")).sum { |f| File.size(f) if File.file?(f) }.to_i / 1.megabyte rescue 0
-  end
-
-  def calculate_logs_size
-    Dir.glob(Rails.root.join("log", "**", "*.log")).sum { |f| File.size(f) }.to_i / 1.megabyte rescue 0
-  end
-
-  def calculate_cache_size
-    Dir.glob(Rails.root.join("tmp", "cache", "**", "*")).sum { |f| File.size(f) if File.file?(f) }.to_i / 1.megabyte rescue 0
   end
 
   def format_duration(seconds)
