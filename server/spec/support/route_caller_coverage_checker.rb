@@ -98,6 +98,14 @@ module RouteCallerCoverageChecker
   # path happens to share those words. Stripped before either tier scans.
   IMPORT_LINE = /^\s*import\b|\bfrom\s+['"`]/.freeze
 
+  # A base-path declaration: `const BASE = '/platform/component_statuses';`,
+  # `private basePath = '/ai/monitoring';`, `protected baseNamespace: string = '/ai';`.
+  # Only path-like values (leading `/`) — the value is spliced back into the
+  # `${NAME}` / `${this.NAME}` interpolations that use it, so a service that
+  # builds every path on a base variable reads as the literal it really sends.
+  BASE_PATH_ASSIGNMENT = %r{\b([A-Za-z_]\w*)\s*(?::\s*string\s*)?=\s*(['"`])(/[^'"`\s]*)\2}.freeze
+  BASE_PATH_INTERPOLATION = /\$\{(this\.)?([A-Za-z_]\w*)\}/.freeze
+
   class << self
     # All non-internal api/v1 routes currently mounted, deduped by
     # controller#action (a controller action reachable via >1 HTTP verb/path
@@ -139,11 +147,21 @@ module RouteCallerCoverageChecker
       end
     end
 
+    # Tier 1 against a single piece of source text: true if `path` appears in
+    # `text` as a contiguous literal once base-path variables are resolved
+    # (from `text` itself, then from `known_bases`). The corpus scan applies
+    # the same resolution per file; this is its unit-testable form.
+    def literal_caller_in?(path, text, known_bases: {})
+      resolved = resolve_base_paths(strip_import_lines(text), known_bases)
+      resolved.match?(contiguous_regex(path_segments(path)))
+    end
+
     def reset_memoized_corpus!
       @frontend_file_index = nil
       @service_file_index = nil
       @frontend_blob = nil
       @service_blob = nil
+      @corpus_base_paths = nil
       @non_internal_api_v1_routes = nil
     end
 
@@ -167,7 +185,7 @@ module RouteCallerCoverageChecker
 
     # file => { text:, tokens: Set[quoted string contents], api_hint: bool }
     def build_file_index(dirs, exts)
-      index = {}
+      sources = {}
       dirs.each do |rel_dir|
         dir = File.join(REPO_ROOT, rel_dir)
         next unless Dir.exist?(dir)
@@ -176,18 +194,71 @@ module RouteCallerCoverageChecker
           next unless exts.include?(File.extname(file))
           next if file.include?("/node_modules/")
 
-          text = strip_import_lines(File.read(file))
-          tokens = text.scan(QUOTED_TOKEN).map { |_quote, body| body }.to_set
-          index[file] = { text: text, tokens: tokens, api_hint: API_CALL_HINT.match?(text) }
+          sources[file] = strip_import_lines(File.read(file))
         rescue StandardError
           next
         end
       end
-      index
+
+      sources.transform_values do |source|
+        text = resolve_base_paths(source, corpus_base_paths)
+        tokens = text.scan(QUOTED_TOKEN).map { |_quote, body| body }.to_set
+        { text: text, tokens: tokens, api_hint: API_CALL_HINT.match?(text) }
+      end
     end
 
     def strip_import_lines(text)
       text.lines.reject { |line| IMPORT_LINE.match?(line) }.join
+    end
+
+    # Base-path names with exactly ONE value across the whole frontend
+    # corpus — the fallback for a variable a service inherits rather than
+    # declares (`this.baseNamespace` from BaseApiService). A name declared
+    # with different values in different files (`basePath`, `BASE_URL`) is
+    # left out: guessing which one applies would credit the wrong route.
+    def corpus_base_paths
+      @corpus_base_paths ||= begin
+        values = Hash.new { |h, k| h[k] = Set.new }
+        FRONTEND_DIRS.each do |rel_dir|
+          Dir.glob(File.join(REPO_ROOT, rel_dir, "**", "*.{ts,tsx}")).each do |file|
+            next if file.include?("/node_modules/")
+
+            base_path_declarations(File.read(file)).each { |name, value| values[name] << value }
+          rescue StandardError
+            next
+          end
+        end
+        values.select { |_name, set| set.size == 1 }.transform_values(&:first)
+      end
+    end
+
+    # name => value for this text's own base-path declarations; a name
+    # declared twice with different values is ambiguous and dropped.
+    def base_path_declarations(text)
+      found = Hash.new { |h, k| h[k] = Set.new }
+      text.scan(BASE_PATH_ASSIGNMENT) { |name, _quote, value| found[name] << value }
+      found.select { |_name, set| set.size == 1 }.transform_values(&:first)
+    end
+
+    # Splices each resolvable `${NAME}` / `${this.NAME}` back to its declared
+    # path, so `` `${this.basePath}/health/detailed` `` with basePath
+    # '/ai/monitoring' reads as `` `/ai/monitoring/health/detailed` `` — the
+    # route it really calls. A bare `${NAME}` resolves only from this file's
+    # own declarations (it is a local or module constant; a same-named
+    # function parameter elsewhere, like `${base}` in a compare path, must not
+    # pick up some other file's value). `${this.NAME}` may also fall back to
+    # `known_bases`, for a field inherited from a base class. An unresolvable
+    # interpolation is left as-is and does NOT anchor a match: a bare leading
+    # `}` would credit the un-prefixed route (/health/detailed), which is a
+    # different endpoint.
+    def resolve_base_paths(text, known_bases)
+      local = base_path_declarations(text)
+      return text if local.empty? && known_bases.empty?
+
+      text.gsub(BASE_PATH_INTERPOLATION) do
+        this_ref, name = Regexp.last_match.captures
+        local[name] || (this_ref && known_bases[name]) || Regexp.last_match(0)
+      end
     end
 
     # Splits "/api/v1/ai/agents/:id/conversations/active" into segment
@@ -204,14 +275,14 @@ module RouteCallerCoverageChecker
     # unrelated — a fake route `/components/:id` must NOT be "covered" by
     # `@/shared/components/Foo` just because "components/Foo" appears in it.
     # Requires, immediately before the path: a quote, a backtick, or the
-    # literal `/api/v1`. And immediately after: a quote, `?`, `/`, or
-    # end-of-line. A base-path VARIABLE spliced into a template literal
-    # (`` `${BASE_PATH}/pipelines` ``) does NOT satisfy this (the char before
-    # "/pipelines" is `}`, not a quote) — that shape lands in the baseline
-    # rather than loosening the anchor, since a looser leading boundary
-    # reopens exactly the false-positive class this anchor exists to close
-    # (e.g. a real `.../components/${id}/vulnerabilities` route would then
-    # cover an unrelated fake `/components/:id`).
+    # literal `/api/v1`. And immediately after: a quote, `?`, `/`, `$` (the
+    # start of a trailing `${...}`, e.g. `` `/audit_logs/security_summary${params}` ``),
+    # or end-of-line. A base-path VARIABLE spliced into a template literal
+    # (`` `${BASE_PATH}/pipelines` ``) is resolved to its declared value by
+    # #resolve_base_paths before this runs; an unresolvable one does NOT
+    # satisfy the anchor, since a bare `}` boundary reopens the false-positive
+    # class this anchor exists to close (a real `.../components/${id}/...`
+    # route would cover an unrelated fake `/components/:id`).
     def contiguous_regex(segments)
       parts = segments.map do |seg|
         seg[:dynamic] ? "[^/'\"`\\s]+" : Regexp.escape(seg[:text])
@@ -220,7 +291,7 @@ module RouteCallerCoverageChecker
       # $ (not \z): the corpus is many files concatenated by "\n" into one
       # blob, and Ruby's $ matches at each line boundary regardless of the
       # /m flag, so "end of string" here really means "end of this line".
-      Regexp.new("(?:['\"`]|/api/v1)/#{path_pattern}(?:['\"`?/]|$)")
+      Regexp.new("(?:['\"`]|/api/v1)/#{path_pattern}(?:['\"`?/$]|$)")
     end
   end
 end

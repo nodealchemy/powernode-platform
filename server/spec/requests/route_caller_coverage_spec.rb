@@ -19,12 +19,12 @@ require "rails_helper"
 # spec/fixtures/route_caller_coverage/baseline_allowlist.txt for the
 # pre-existing surface the heuristic cannot currently prove covered (real
 # dead code and heuristic gaps both land there — this guard's job is to catch
-# a NEW zero-caller route, not to re-litigate the existing 750).
+# a NEW zero-caller route, not to re-litigate the existing surface).
 RSpec.describe "Route caller coverage", type: :routing do
-  # One-way ratchet: the baseline may shrink (a route gets a caller, or is
-  # deleted) but must never silently grow. Bumping this is a deliberate,
-  # reviewed diff — never a side effect of adding a route with no caller.
-  MAX_BASELINE_SIZE = 750
+  # One-way ratchet: pinned to the baseline's EXACT size. A shrink (a route
+  # gets a caller, or is deleted) must lower this in the same diff, so the
+  # freed slot can never be silently re-spent; growing it is never an option.
+  MAX_BASELINE_SIZE = 552
   # controller#action => human reason it is legitimately caller-less from
   # OUR OWN code's point of view. Every entry here is a receiver: the request
   # originates from a third party (a git/registry provider, a spawned agent
@@ -91,9 +91,9 @@ RSpec.describe "Route caller coverage", type: :routing do
 
       #{new_hits.map(&:key).sort.join("\n")}
 
-      For each: wire a real caller, add a reasoned entry to WEBHOOK_ALLOWLIST above
-      (inbound receivers ONLY), or — if it's pre-existing and genuinely out of this
-      change's scope — add it to spec/fixtures/route_caller_coverage/baseline_allowlist.txt.
+      For each: add a caller or delete the route. (A genuine INBOUND receiver — a
+      third party calls it, never our frontend/MCP — takes a reasoned
+      WEBHOOK_ALLOWLIST entry above instead.) The baseline is closed to new entries.
     MSG
   end
 
@@ -135,6 +135,81 @@ RSpec.describe "Route caller coverage", type: :routing do
     end
   end
 
+  # Review round 2 (HIGH): false negatives. Real callers written in these
+  # shapes used to read as uncovered and landed in the baseline.
+  describe "caller shapes (Tier 1 literal matching)" do
+    def literal_caller?(path, text, known_bases: {})
+      RouteCallerCoverageChecker.literal_caller_in?(path, text, known_bases: known_bases)
+    end
+
+    it "counts a path followed directly by a trailing ${...} interpolation" do
+      expect(literal_caller?("/api/v1/audit_logs/security_summary",
+                             "const response = await api.get(`/audit_logs/security_summary${params}`);")).to be(true)
+      expect(literal_caller?("/api/v1/ai/agents/:agent_id/intelligence/experience_replays",
+                             "this.get(`/ai/agents/${agentId}/intelligence/experience_replays${queryString}`);"))
+        .to be(true)
+      expect(literal_caller?("/api/v1/ai/coordination/pressure_fields",
+                             "this.get(`/ai/coordination/pressure_fields${queryString}`);")).to be(true)
+    end
+
+    it "resolves a base-path variable declared in the same file" do
+      text = <<~TS
+        class MonitoringApiService {
+          private basePath = '/ai/monitoring';
+          detailed() { return this.get(`${this.basePath}/health/detailed`); }
+        }
+      TS
+
+      expect(literal_caller?("/api/v1/ai/monitoring/health/detailed", text)).to be(true)
+    end
+
+    it "resolves an inherited base-path variable from the corpus-wide map" do
+      text = "return this.get(`${this.baseNamespace}/execution_traces/${traceId}`);"
+
+      expect(literal_caller?("/api/v1/ai/execution_traces/:id", text, known_bases: { "baseNamespace" => "/ai" }))
+        .to be(true)
+    end
+
+    # A bare leading `}` would credit the route the call does NOT go to:
+    # `${this.basePath}/health/detailed` with basePath '/ai/monitoring' calls
+    # ai/monitoring#health_detailed, not the top-level health#detailed.
+    it "does not credit the un-prefixed route a base-path variable was spliced onto" do
+      text = <<~TS
+        private basePath = '/ai/monitoring';
+        detailed() { return this.get(`${this.basePath}/health/detailed`); }
+      TS
+
+      expect(literal_caller?("/api/v1/health/detailed", text)).to be(false)
+    end
+
+    it "does not treat an unresolved leading variable as a base path" do
+      expect(literal_caller?("/api/v1/pipelines", "this.get(`${somethingUnknown}/pipelines`);")).to be(false)
+    end
+
+    it "does not treat a mid-string interpolation's closing brace as a path boundary" do
+      text = "api.get(`/supply_chain/sboms/${sbomId}/components/${componentId}/vulnerabilities`);"
+
+      expect(literal_caller?("/api/v1/components/:id", text)).to be(false)
+    end
+
+    it "credits the real callers these shapes used to miss" do
+      routes = RouteCallerCoverageChecker.non_internal_api_v1_routes.index_by(&:key)
+
+      %w[
+        api/v1/audit_logs#security_summary
+        api/v1/ai/agent_intelligence#experience_replays
+        api/v1/ai/coordination_dashboard#pressure_fields
+        api/v1/ai/coordination_dashboard#team_events
+        api/v1/ai/governance_reports#collusion_indicators
+        api/v1/devops/overview#show
+        api/v1/ai/execution_traces#show
+      ].each do |key|
+        expect(routes).to have_key(key)
+        expect(RouteCallerCoverageChecker.covered?(routes[key])).to be(true), "#{key} should read as covered"
+      end
+    end
+  end
+
   # Review round 1 (MED): the baseline is a ONE-WAY RATCHET — it may shrink
   # (a route gets a real caller, or is deleted) but must never silently grow,
   # and it must never keep citing a route that has already moved on. Every
@@ -157,8 +232,8 @@ RSpec.describe "Route caller coverage", type: :routing do
 
       expect(stale).to be_empty, <<~MSG
         #{stale.size} baseline entr#{stale.size == 1 ? 'y is' : 'ies are'} stale — the route
-        no longer exists, or now has a real caller. Add a caller or delete the route;
-        do not leave a stale line in the baseline:
+        no longer exists, or now has a real caller. Remove this line from the baseline
+        (and lower MAX_BASELINE_SIZE to match):
 
         #{stale.sort.join("\n")}
       MSG
@@ -168,19 +243,18 @@ RSpec.describe "Route caller coverage", type: :routing do
       unknown = WEBHOOK_ALLOWLIST.keys.reject { |key| current_route_keys.include?(key) }
 
       expect(unknown).to be_empty, <<~MSG
-        WEBHOOK_ALLOWLIST names route(s) that no longer exist. Add a caller or delete
-        the route; a webhook entry for a route that isn't mounted proves nothing:
+        WEBHOOK_ALLOWLIST names route(s) that are not mounted. Remove the allowlist
+        entry; a webhook entry for a route that isn't mounted proves nothing:
 
         #{unknown.sort.join("\n")}
       MSG
     end
 
-    it "keeps the baseline at or below its committed ceiling" do
-      expect(baseline_allowlist.size).to be <= MAX_BASELINE_SIZE, <<~MSG
-        baseline_allowlist.txt has #{baseline_allowlist.size} entries, over the
-        committed ceiling of #{MAX_BASELINE_SIZE}. Add a caller or delete the route —
-        growing the baseline is not an option this guard offers; raising the ceiling
-        constant is a separate, deliberately reviewed decision.
+    it "keeps the baseline exactly at its committed size" do
+      expect(baseline_allowlist.size).to eq(MAX_BASELINE_SIZE), <<~MSG
+        baseline_allowlist.txt has #{baseline_allowlist.size} entries; MAX_BASELINE_SIZE
+        is #{MAX_BASELINE_SIZE}. If it shrank, lower MAX_BASELINE_SIZE to match. If it
+        grew, add a caller or delete the route instead — the baseline takes no new entries.
       MSG
     end
   end
