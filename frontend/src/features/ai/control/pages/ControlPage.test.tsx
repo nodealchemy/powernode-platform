@@ -161,6 +161,36 @@ describe('ControlPage — seven leaves on one rail', () => {
   });
 });
 
+// Unknown or inaccessible paths fall back to the first view the operator can
+// use, as the sibling hubs (Cost) do, instead of an empty pane.
+describe('ControlPage — unknown and inaccessible paths', () => {
+  it('sends an unknown leaf to the first accessible leaf', () => {
+    renderAt('/app/ai/control/no-such-leaf');
+    expect(currentPath).toBe('/app/ai/control/approvals/queue');
+    expect(screen.getByTestId('approval-queue')).toBeInTheDocument();
+  });
+
+  it('sends an unknown tab to the leaf\'s first accessible tab', () => {
+    renderAt('/app/ai/control/safety/no-such-tab');
+    expect(currentPath).toBe('/app/ai/control/safety/kill-switch');
+    expect(screen.getByTestId('kill-switch')).toBeInTheDocument();
+  });
+
+  it('sends a tab the operator cannot use to one they can', () => {
+    mockPermissions = EVERYTHING.filter((p) => p !== 'ai.kill_switch.manage');
+    renderAt('/app/ai/control/safety/kill-switch');
+    expect(currentPath).toBe('/app/ai/control/safety/identities');
+    expect(screen.queryByTestId('kill-switch')).not.toBeInTheDocument();
+  });
+
+  it('sends a leaf the operator cannot use to one they can', () => {
+    mockPermissions = ['ai.governance.read'];
+    renderAt('/app/ai/control/goals');
+    expect(currentPath).toBe('/app/ai/control/policies/compliance-rules');
+    expect(screen.queryByTestId('goals')).not.toBeInTheDocument();
+  });
+});
+
 describe('ControlPage — Safety has no circuit breakers', () => {
   it('points at Observability for breakers instead of showing them', () => {
     renderAt('/app/ai/control/safety/kill-switch');

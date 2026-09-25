@@ -132,6 +132,8 @@ const ControlLeaf: React.FC<{ leaf: ControlLeafSpec; hasPermission: (p: string) 
           {leaf.tabs.filter((t) => hasPermission(t.permission)).map((t) => (
             <Route key={t.key} path={t.key} element={t.element} />
           ))}
+          {/* An unknown tab, or one this operator cannot use. */}
+          <Route path="*" element={fallback ? <Navigate to={fallback} replace /> : null} />
         </Routes>
       </PathTabs>
     </>
@@ -152,6 +154,7 @@ export const ControlPage: React.FC = () => {
   // The rail asks about a leaf by its key; its own `permission` field is unused.
   const railItems: PathTabSpec[] = LEAVES.map(({ key, label, icon }) => ({ key, label, icon, permission: key }));
   const firstLeaf = LEAVES.find(canUseLeaf);
+  const fallback = firstLeaf ? `${CONTROL_BASE_PATH}/${firstLeaf.key}` : null;
 
   const segments = location.pathname.slice(CONTROL_BASE_PATH.length).split('/').filter(Boolean);
   const activeLeaf = LEAVES.find((l) => l.key === segments[0]);
@@ -177,7 +180,7 @@ export const ControlPage: React.FC = () => {
         emptyState={<p className="text-theme-secondary">You do not have permission to view AI control.</p>}
       >
         <Routes>
-          <Route index element={firstLeaf ? <Navigate to={`${CONTROL_BASE_PATH}/${firstLeaf.key}`} replace /> : null} />
+          <Route index element={fallback ? <Navigate to={fallback} replace /> : null} />
           {LEAVES.filter(canUseLeaf).map((leaf) => (
             <Route
               key={leaf.key}
@@ -185,6 +188,8 @@ export const ControlPage: React.FC = () => {
               element={<ControlLeaf leaf={leaf} hasPermission={hasPermission} />}
             />
           ))}
+          {/* An unknown leaf, or one this operator cannot use (CostPage does the same). */}
+          <Route path="*" element={fallback ? <Navigate to={fallback} replace /> : null} />
         </Routes>
       </SubNavRail>
     </PageContainer>
