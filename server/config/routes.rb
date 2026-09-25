@@ -1870,9 +1870,7 @@ Rails.application.routes.draw do
             put :resolve
           end
           collection do
-            get :summary
             get :collusion_indicators
-            get :collusion_summary
           end
         end
 

@@ -12,8 +12,10 @@ module Ai
       # resolve_governance_report, whose REST twin requires ai.governance.manage.
       #
       # Floor: Api::V1::Ai::GovernanceReportsController gates its READ_ACTIONS
-      # (index, show, summary, collusion_indicators, collusion_summary) on this,
-      # and list/get/dashboard are exactly those reads.
+      # (index, show, collusion_indicators) on this, and list/get/dashboard
+      # read the same governance-report data. (The REST summary and
+      # collusion_summary actions had no caller and were deleted in fc-27;
+      # dashboard's read gate is unchanged.)
       REQUIRED_PERMISSION = "ai.governance.read"
 
       # Each entry names the permission the REST twin of that action requires.

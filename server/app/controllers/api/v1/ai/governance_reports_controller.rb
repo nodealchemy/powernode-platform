@@ -7,7 +7,7 @@ module Api
         # Authorization on the dedicated ai.governance.* family: reads gate on
         # ai.governance.read, resolve (write) on ai.governance.manage. Decoupled
         # from the coarse ai.manage gate (mirrors GovernanceController).
-        READ_ACTIONS  = %i[index show summary collusion_indicators collusion_summary].freeze
+        READ_ACTIONS  = %i[index show collusion_indicators].freeze
         WRITE_ACTIONS = %i[resolve].freeze
 
         before_action -> { require_permission("ai.governance.read") },   only: READ_ACTIONS
@@ -55,24 +55,6 @@ module Api
           render_error("Failed to resolve report: #{e.message}", status: :unprocessable_content)
         end
 
-        # GET /api/v1/ai/governance_reports/summary
-        def summary
-          reports = current_account.ai_governance_reports
-          open_reports = reports.open_reports
-
-          render_success(
-            summary: {
-              total: reports.count,
-              open: open_reports.count,
-              critical: reports.critical.count,
-              by_type: reports.group(:report_type).count,
-              by_severity: reports.group(:severity).count,
-              by_status: reports.group(:status).count,
-              auto_remediated: reports.where(auto_remediated: true).count
-            }
-          )
-        end
-
         # GET /api/v1/ai/collusion_indicators
         def collusion_indicators
           scope = current_account.ai_collusion_indicators.recent
@@ -86,21 +68,6 @@ module Api
             total: indicators.total_count,
             page: indicators.current_page,
             per_page: indicators.limit_value
-          )
-        end
-
-        # GET /api/v1/ai/collusion_indicators/summary
-        def collusion_summary
-          indicators = current_account.ai_collusion_indicators
-
-          render_success(
-            summary: {
-              total: indicators.count,
-              high_confidence: indicators.high_confidence.count,
-              by_type: indicators.group(:indicator_type).count,
-              avg_correlation: indicators.average(:correlation_score)&.to_f&.round(3) || 0,
-              recent_24h: indicators.where("created_at >= ?", 24.hours.ago).count
-            }
           )
         end
 

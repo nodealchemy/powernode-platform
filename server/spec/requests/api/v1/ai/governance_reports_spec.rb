@@ -67,15 +67,6 @@ RSpec.describe 'Api::V1::Ai::GovernanceReports', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/governance_reports/summary' do
-    it 'returns the governance report summary' do
-      get '/api/v1/ai/governance_reports/summary', headers: headers, as: :json
-
-      expect_success_response
-      expect(json_response_data['summary']).to be_present
-    end
-  end
-
   describe 'GET /api/v1/ai/governance_reports/collusion_indicators' do
     it 'returns collusion indicators' do
       get '/api/v1/ai/governance_reports/collusion_indicators', headers: headers, as: :json
