@@ -94,7 +94,6 @@ frontend/src/features/admin/workers/components/WorkerTable.tsx|status-fn|getStat
 frontend/src/features/ai/a2a-tasks/components/A2aTaskListPanel.tsx|empty-state
 frontend/src/features/ai/a2a-tasks/components/TaskDetail.tsx|empty-state
 frontend/src/features/ai/agent-cards/components/AgentCardDetail.tsx|empty-state
-frontend/src/features/ai/agent-teams/components/CompositionHealthBanner.tsx|status-fn|getStatusColor
 frontend/src/features/ai/agent-teams/components/TeamConfigTab.tsx|empty-state
 frontend/src/features/ai/agent-teams/components/TeamConfigTab.tsx|empty-state
 frontend/src/features/ai/agent-teams/components/TeamConfigTab.tsx|empty-state

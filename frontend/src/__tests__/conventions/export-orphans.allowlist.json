@@ -20,31 +20,6 @@
     "reason": "unused exported type; swept by the export-orphan offers"
   },
   {
-    "path": "frontend/src/features/ai/agent-teams/components/CompositionHealthBanner.tsx",
-    "name": "CompositionHealthBanner",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/agent-teams/components/CompositionOptimizer.tsx",
-    "name": "CompositionOptimizer",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/agent-teams/components/RoleProfileSelector.tsx",
-    "name": "RoleProfileSelector",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/agent-teams/components/TeamAutonomyConfig.tsx",
-    "name": "TeamAutonomyConfig",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/agent-teams/hooks/useTeamExecutionWebSocket.ts",
-    "name": "useTeamExecutionWebSocket",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/ai/agui/api/aguiApi.ts",
     "name": "usePushStateDelta",
     "reason": "pending deletion (operator-confirm)"
