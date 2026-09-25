@@ -57,10 +57,15 @@ export function useMcpTopology(): McpTopologyData {
   } = useQuery({
     queryKey: TOPOLOGY_KEY,
     queryFn: async () => {
-      const [mcpData, agentResponse] = await Promise.all([
+      // Servers are required; agents are optional. A viewer with
+      // mcp.servers.read but not ai.agents.read still sees the servers and
+      // their tools, just without agent edges.
+      const [serversResult, agentsResult] = await Promise.allSettled([
         mcpApi.getServers(),
         agentsApi.getAgents({ per_page: 100 }),
       ]);
+      if (serversResult.status === 'rejected') throw serversResult.reason;
+      const mcpData = serversResult.value;
 
       const servers: TopologyServer[] = mcpData.servers.map((s) => ({
         id: s.id,
@@ -80,7 +85,7 @@ export function useMcpTopology(): McpTopologyData {
       }));
 
       // Map agents and infer connections from metadata/mcp_metadata
-      const agentItems = agentResponse.items || [];
+      const agentItems = agentsResult.status === 'fulfilled' ? agentsResult.value.items || [] : [];
       const serverIdSet = new Set(servers.map((s) => s.id));
 
       const agents: TopologyAgent[] = agentItems.map((a) => {
