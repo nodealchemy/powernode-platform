@@ -456,7 +456,9 @@ const ALLOWLIST: readonly string[] = [
   // moved to AI → Control in fc-41.)
   // fc-25 review item 3 deleted the /ai/agents/marketplace alias (it also
   // collided with a private extension's own /ai/agents/marketplace route).
-  'DashboardPage.tsx: AIAgentsPage -> /ai/agents/*, /ai/agents/cards, /ai/agents/community',
+  // fc-46 review widened /ai/agents/community to /ai/agents/community/* (its
+  // Community tab has its own sub-paths).
+  'DashboardPage.tsx: AIAgentsPage -> /ai/agents/*, /ai/agents/cards, /ai/agents/community/*',
   // Docker hub's static tab paths, each `ProtectedRoute`-gated on
   // devops.docker.read, plus the `/*` fallback.
   'DashboardPage.tsx: DockerHubPage -> /devops/docker/*, /devops/docker/containers, /devops/docker/images, /devops/docker/monitoring, /devops/docker/networks, /devops/docker/volumes',

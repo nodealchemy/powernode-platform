@@ -147,7 +147,11 @@ const DashboardPage: React.FC = () => {
         {/* AI Pages - Primary navigation */}
         <Route path="/ai" element={<AIOverviewPage />} />
         <Route path="/ai/agents/cards" element={<AIAgentsPage />} />
-        <Route path="/ai/agents/community" element={<AIAgentsPage />} />
+        {/* `/*`: the Community tab has its own sub-paths (`/community/federation`).
+            Without it, `/ai/agents/community/federation` fell through past this
+            exact route to `/ai/agents/:agentId/*` below with agentId="community",
+            opening AgentDetailPage instead of the Community tab (fc-46 review). */}
+        <Route path="/ai/agents/community/*" element={<AIAgentsPage />} />
         <Route path="/ai/agents/:agentId/memory/*" element={<AgentMemoryPage />} />
         <Route path="/ai/agents/:agentId/*" element={<AgentDetailPage />} />
         <Route path="/ai/agents/*" element={<AIAgentsPage />} />
