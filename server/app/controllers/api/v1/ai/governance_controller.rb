@@ -234,6 +234,13 @@ module Api
           entries = entries.by_action(params[:action_type]) if params[:action_type].present?
           entries = entries.by_resource(params[:resource_type]) if params[:resource_type].present?
 
+          start_date = parse_date_param(:start_date)
+          end_date = parse_date_param(:end_date)
+          return if performed?
+
+          entries = entries.where(occurred_at: start_date.beginning_of_day..) if start_date
+          entries = entries.where(occurred_at: ..end_date.end_of_day) if end_date
+
           render_success(
             entries: entries.map { |e| audit_entry_json(e) },
             pagination: pagination_meta(entries)
@@ -252,6 +259,17 @@ module Api
                                   .page(params[:page])
                                   .per([ per_page, SECURITY_EVENTS_MAX_PER_PAGE ].min)
 
+          %i[severity risk_level].each do |field|
+            value = params[field]
+            next if value.blank?
+            unless SECURITY_EVENT_LEVELS.include?(value)
+              return render_error("Invalid #{field}: must be one of #{SECURITY_EVENT_LEVELS.join(', ')}",
+                                  status: :unprocessable_content)
+            end
+
+            events = events.where(field => value)
+          end
+
           render_success(
             events: events.map { |e| security_event_json(e) },
             pagination: pagination_meta(events)
@@ -262,6 +280,21 @@ module Api
 
         SECURITY_EVENTS_PER_PAGE = 50
         SECURITY_EVENTS_MAX_PER_PAGE = 100
+        # AuditLog validates severity and risk_level against this same set.
+        SECURITY_EVENT_LEVELS = %w[low medium high critical].freeze
+
+        # A YYYY-MM-DD date param, or nil when absent. An unparseable date is
+        # refused (422) rather than silently ignored, so a filter the operator
+        # set never quietly widens to "everything".
+        def parse_date_param(key)
+          raw = params[key]
+          return nil if raw.blank?
+
+          Date.iso8601(raw.to_s)
+        rescue Date::Error
+          render_error("Invalid #{key}: expected YYYY-MM-DD", status: :unprocessable_content)
+          nil
+        end
 
         def security_event_json(entry)
           {

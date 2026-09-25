@@ -83,6 +83,26 @@ describe('ComplianceTab — lists from the governance endpoints', () => {
   });
 });
 
+describe('ComplianceTab — security event filters the server honours', () => {
+  it('offers exactly the severity and risk levels an audit log can hold, and sends the chosen one', async () => {
+    const user = userEvent.setup();
+    renderTab();
+    await screen.findByText('login_failed');
+
+    const events = screen.getByRole('region', { name: 'Security events' });
+    const risk = within(events).getByRole('group', { name: 'Risk filter' });
+    const severity = within(events).getByRole('group', { name: 'Severity filter' });
+    const labels = (group: HTMLElement) => within(group).getAllByRole('button').map((b) => b.textContent);
+    expect(labels(risk)).toEqual(['All', 'critical', 'high', 'medium', 'low']);
+    expect(labels(severity)).toEqual(['All', 'critical', 'high', 'medium', 'low']);
+
+    await user.click(within(risk).getByRole('button', { name: 'high' }));
+
+    await waitFor(() => expect(mockGet).toHaveBeenCalledWith(
+      '/ai/governance/security_events', { params: expect.objectContaining({ risk_level: 'high' }) }));
+  });
+});
+
 describe('ComplianceTab — writes, for ai.governance.manage holders', () => {
   it('toggles a policy through the toggle endpoint', async () => {
     const user = userEvent.setup();

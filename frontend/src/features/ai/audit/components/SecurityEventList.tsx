@@ -17,14 +17,13 @@ const SEVERITY_VARIANTS: Record<string, 'danger' | 'warning' | 'info' | 'default
 const RISK_VARIANTS: Record<string, 'danger' | 'warning' | 'info' | 'default'> = {
   critical: 'danger',
   high: 'danger',
-  elevated: 'warning',
   medium: 'warning',
   low: 'info',
-  minimal: 'default',
 };
 
 const SEVERITY_OPTIONS = ['critical', 'high', 'medium', 'low'];
-const RISK_OPTIONS = ['critical', 'high', 'elevated', 'medium', 'low', 'minimal'];
+// The levels AuditLog stores, and the only ones the security_events endpoint accepts.
+const RISK_OPTIONS = ['critical', 'high', 'medium', 'low'];
 
 export const SecurityEventList: React.FC = () => {
   const [filters, setFilters] = useState<SecurityEventFilterParams>({ page: 1, per_page: 20 });
@@ -112,7 +111,7 @@ export const SecurityEventList: React.FC = () => {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         {/* Severity Filter */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Severity filter" className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-theme-secondary font-medium">Severity:</span>
           <Button
             variant={severityFilter === undefined ? 'primary' : 'outline'}
@@ -134,7 +133,7 @@ export const SecurityEventList: React.FC = () => {
         </div>
 
         {/* Risk Level Filter */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div role="group" aria-label="Risk filter" className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-theme-secondary font-medium">Risk:</span>
           <Button
             variant={riskFilter === undefined ? 'primary' : 'outline'}

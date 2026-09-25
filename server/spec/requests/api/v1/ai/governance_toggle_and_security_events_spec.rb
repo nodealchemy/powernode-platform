@@ -118,4 +118,56 @@ RSpec.describe "AI governance: policy toggle and security events", type: :reques
       expect(response).to have_http_status(:forbidden)
     end
   end
+
+  # The Compliance tab's filter controls send these; each must narrow the list,
+  # and a value the server cannot honour is refused rather than ignored.
+  describe "GET /api/v1/ai/governance/security_events filters" do
+    let!(:high_high) { create(:audit_log, account: account, action: "login_failed", severity: "high", risk_level: "high") }
+    let!(:high_low)  { create(:audit_log, account: account, action: "login_failed", severity: "high", risk_level: "low") }
+    let!(:low_low)   { create(:audit_log, account: account, action: "login_failed", severity: "low", risk_level: "low") }
+
+    def ids_for(params)
+      get "/api/v1/ai/governance/security_events", params: params, headers: auth_headers_for(reader)
+      json_response_data["events"].map { |e| e["id"] }
+    end
+
+    it "filters by severity and by risk level, alone and together" do
+      expect(ids_for(severity: "high")).to contain_exactly(high_high.id, high_low.id)
+      expect(ids_for(risk_level: "low")).to contain_exactly(high_low.id, low_low.id)
+      expect(ids_for(severity: "high", risk_level: "low")).to eq([ high_low.id ])
+    end
+
+    it "refuses a severity or risk level outside the known set" do
+      get "/api/v1/ai/governance/security_events", params: { severity: "extreme" }, headers: auth_headers_for(reader)
+      expect(response).to have_http_status(:unprocessable_content)
+
+      get "/api/v1/ai/governance/security_events", params: { risk_level: "1 OR 1=1" }, headers: auth_headers_for(reader)
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+  end
+
+  describe "GET /api/v1/ai/governance/audit_log date filters" do
+    let!(:early) { create(:ai_compliance_audit_entry, account: account, occurred_at: Time.zone.parse("2026-09-01 12:00")) }
+    let!(:mid)   { create(:ai_compliance_audit_entry, account: account, occurred_at: Time.zone.parse("2026-09-10 23:30")) }
+    let!(:late)  { create(:ai_compliance_audit_entry, account: account, occurred_at: Time.zone.parse("2026-09-20 08:00")) }
+
+    def ids_for(params)
+      get "/api/v1/ai/governance/audit_log", params: params, headers: auth_headers_for(reader)
+      json_response_data["entries"].map { |e| e["id"] }
+    end
+
+    it "keeps entries from the start of start_date through the end of end_date" do
+      expect(ids_for(start_date: "2026-09-10")).to contain_exactly(mid.id, late.id)
+      expect(ids_for(end_date: "2026-09-10")).to contain_exactly(early.id, mid.id)
+      expect(ids_for(start_date: "2026-09-02", end_date: "2026-09-19")).to eq([ mid.id ])
+    end
+
+    it "refuses a date it cannot parse" do
+      get "/api/v1/ai/governance/audit_log", params: { start_date: "yesterday" }, headers: auth_headers_for(reader)
+      expect(response).to have_http_status(:unprocessable_content)
+
+      get "/api/v1/ai/governance/audit_log", params: { end_date: "2026-02-31" }, headers: auth_headers_for(reader)
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+  end
 end
