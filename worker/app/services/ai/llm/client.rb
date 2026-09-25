@@ -516,6 +516,8 @@ module Ai
           role = m[:role] || m["role"]; content = m[:content] || m["content"]
           role == "tool" ? { role: "tool", content: content.is_a?(String) ? content : content.to_json } : { role: role, content: content }
         end
+        # Same contract as the OpenAI/Anthropic builders: opts[:system_prompt] reaches the model.
+        fm.unshift({ role: "system", content: opts[:system_prompt] }) if opts[:system_prompt].present?
         body = { model: model, messages: fm, stream: stream }
         options = {}
         options[:temperature] = opts[:temperature] if opts[:temperature]

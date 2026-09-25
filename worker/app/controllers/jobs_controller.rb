@@ -226,7 +226,7 @@ class JobsController
     return error if error
 
     with_llm_proxy_error_handling('LLM complete_with_tools') do
-      opts = extract_llm_opts(data, :max_tokens, :temperature, :tool_choice, :effort)
+      opts = extract_llm_opts(data, :max_tokens, :temperature, :tool_choice, :system_prompt, :effort)
       llm_opts = apply_llm_provider_target({ messages: data['messages'], tools: data['tools'] || [], model: data['model'], **opts }, data)
       result = build_llm_proxy_client.complete_with_tools(**llm_opts)
       success_response(result)
@@ -260,10 +260,7 @@ class JobsController
     return error if error
 
     begin
-      opts = {}
-      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
-      opts[:effort] = data['effort'] if data['effort']
-
+      opts = extract_llm_opts(data, :max_tokens, :system_prompt, :effort)
       llm_opts = apply_llm_provider_target({ messages: data['messages'], schema: data['schema'], model: data['model'], **opts }, data)
       result = build_llm_proxy_client.complete_structured(**llm_opts)
       success_response(result)
@@ -296,10 +293,7 @@ class JobsController
 
     begin
       client = build_llm_proxy_client
-      opts = {}
-      opts[:max_iterations] = data['max_iterations'] if data['max_iterations']
-      opts[:max_tokens] = data['max_tokens'] if data['max_tokens']
-      opts[:effort] = data['effort'] if data['effort']
+      opts = extract_llm_opts(data, :max_iterations, :max_tokens, :system_prompt, :effort)
 
       result = client.execute_tool_loop(
         agent_id: agent_id,
