@@ -44,14 +44,35 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "delete_ralph_loop", mutating: true, destructive: true
+      declare_action "delete_ralph_loop", mutating: true, destructive: true,
+                     returns: "deleted: the removed loop's name",
+                     refuses: "no loop in this account matches loop_id by id or name"
       declare_action "get_ralph_loop", mutating: false, returns: "the loop with its 5 most recent iterations"
-      declare_action "get_ralph_loop_statistics", mutating: false
-      declare_action "list_ralph_loops", mutating: false
-      declare_action "pause_ralph_loop", mutating: true
-      declare_action "reopen_ralph_loop", mutating: true
-      declare_action "resume_ralph_loop", mutating: true
-      declare_action "update_ralph_loop", mutating: true
+      declare_action "get_ralph_loop_statistics", mutating: false,
+                     returns: "total_loops, active, paused, total_iterations_today, improvement, convergence, storage " \
+                              "(byte totals and the loops over their storage limit) and a per-loop summary"
+      declare_action "list_ralph_loops", mutating: false,
+                     returns: "count and every loop in the account, newest first, with no row cap and no pagination"
+      declare_action "pause_ralph_loop", mutating: true,
+                     returns: "loop_id, name and schedule_paused true",
+                     refuses: [ "no loop in this account matches loop_id by id or name", "the schedule is already paused" ],
+                     see_also: { "resume_ralph_loop" => "restarting the schedule" }
+      declare_action "reopen_ralph_loop", mutating: true,
+                     returns: "loop_id, name and status running",
+                     refuses: [ "no loop in this account matches loop_id by id or name", "the loop is not terminal" ],
+                     see_also: { "resume_ralph_loop" => "a loop whose schedule is only paused" }
+      declare_action "resume_ralph_loop", mutating: true,
+                     returns: "loop_id, name, schedule_paused false and next_scheduled_at",
+                     refuses: [ "no loop in this account matches loop_id by id or name", "the schedule is not paused" ],
+                     see_also: { "reopen_ralph_loop" => "a completed, failed or cancelled loop" }
+      declare_action "update_ralph_loop", mutating: true,
+                     returns: "the updated loop",
+                     refuses: [
+                       "no loop in this account matches loop_id by id or name",
+                       "default_agent_id matches no agent",
+                       "max_concurrent_claims is outside 1..#{MAX_CONCURRENT_CLAIMS_CEILING}",
+                       "the update fails validation"
+                     ]
 
       def self.definition
         {
@@ -91,8 +112,8 @@ module Ai
             }
           },
           "update_ralph_loop" => {
-            description: "Update mutable Ralph Loop config: name, default_agent_id, cycle_interval_minutes, max_iterations_per_day, max_iterations, schedule_paused, " \
-                         "max_concurrent_claims. Useful for repointing default_agent_id when consolidating duplicate agents, adjusting cadence without delete+recreate, " \
+            description: "Update a Ralph Loop's mutable config. The fields are name, default_agent_id, cycle_interval_minutes, " \
+                         "max_iterations_per_day, max_iterations, schedule_paused and max_concurrent_claims. Useful for repointing default_agent_id when consolidating duplicate agents, adjusting cadence without delete+recreate, " \
                          "raising a loop's lifetime iteration cap before it halts on max_iterations_reached, or letting one driver hold several claims at once.",
             parameters: {
               loop_id: { type: "string", required: true, description: "Ralph loop ID or name" },
@@ -116,13 +137,14 @@ module Ai
             }
           },
           "get_ralph_loop_statistics" => {
-            description: "Get aggregate statistics across all Ralph Loops — iteration counts, success rates, timing, " \
-                         "improvement scoreboard, and the convergence metric (recurrence rate of already-learned bug classes per discovery window)",
+            description: "Get aggregate statistics across all of the account's Ralph Loops. They cover loop and iteration " \
+                         "counts, storage, the improvement scoreboard, and the convergence metric (recurrence rate of " \
+                         "already-learned bug classes per discovery window).",
             parameters: {}
           },
           "reopen_ralph_loop" => {
-            description: "Non-destructively reopen a terminal (completed/failed/cancelled) Ralph Loop back to " \
-                         "running — preserves ralph_iterations and every task's status (contrast with the " \
+            description: "Reopen a terminal (completed/failed/cancelled) Ralph Loop back to running, non-destructively. " \
+                         "It preserves ralph_iterations and every task's status (contrast with the " \
                          "destructive reset!, which wipes iteration history and requeues non-skipped tasks). Use " \
                          "when more work needs to be queued onto a loop that already finished draining.",
             parameters: {

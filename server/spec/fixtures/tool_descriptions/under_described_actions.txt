@@ -11,16 +11,10 @@
 add_team_member
 compose_skills
 create_team
-delete_ralph_loop
 dispatch_to_runner
 generate_video
-get_ralph_loop_statistics
 get_schedule
 get_team
-list_ralph_loops
-pause_ralph_loop
-reopen_ralph_loop
-resume_ralph_loop
 system_abort_task
 system_acme_get_certificate
 system_acme_provision_certificate
@@ -176,5 +170,4 @@ system_update_instance
 system_update_package_repository
 system_update_volume
 update_gitea_repository
-update_ralph_loop
 update_team
