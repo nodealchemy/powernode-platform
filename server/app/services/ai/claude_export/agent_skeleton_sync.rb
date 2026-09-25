@@ -406,9 +406,9 @@ module Ai
           step += 1
         end
 
-        lines << "#{step}. Operate strictly under the fetched system prompt and skill context for the remainder " \
-          "of this task — this file intentionally carries NO duplicated prompt content; the platform agent " \
-          "record is the source of truth."
+        lines << "#{step}. Use the fetched system prompt and skill context as your operating instructions; the " \
+          "delegating prompt defines the task and what to return. The platform agent record is the source of " \
+          "truth for the persona, so this file does not repeat it."
         step += 1
 
         lines << "#{step}. #{self_report_instruction(slug)}"

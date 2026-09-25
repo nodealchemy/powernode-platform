@@ -341,6 +341,20 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
     # STOP and say so, never proceed under a generic identity with no
     # specialist system_prompt (the file already says the platform record —
     # fetched only by that verb — is the sole source of truth).
+    # B5: the fetched prompt is the operating instructions, but the delegating
+    # prompt defines the deliverable, so a persona's fixed response format does
+    # not override what the caller asked for. No "strictly".
+    it "lets the delegating prompt define the task and what to return" do
+      agent = build_agent(name: "Operating Agent", resolved_model: "claude-sonnet-4-6")
+      stub_syncable([ agent ])
+
+      service.sync!
+      body = body_of(content_for(agent))
+
+      expect(body).to include("the delegating prompt defines the task and what to return")
+      expect(body).not_to include("Operate strictly")
+    end
+
     it "tells the executor not to proceed to the skill-context/operate steps when get_agent is unavailable, " \
        "without foreclosing the self-report exception" do
       agent = build_agent(name: "Bootstrapped Agent", resolved_model: "claude-sonnet-4-6")
