@@ -108,7 +108,6 @@ const PipelineCreatePage = React.lazy(() => import('@/pages/app/devops/PipelineC
 const PipelineDetailPage = React.lazy(() => import('@/pages/app/devops/PipelineDetailPage').then(m => ({ default: m.PipelineDetailPage })));
 const PipelineEditPage = React.lazy(() => import('@/pages/app/devops/PipelineEditPage').then(m => ({ default: m.PipelineEditPage })));
 const RunnerDetailPage = React.lazy(() => import('@/pages/app/devops/RunnerDetailPage').then(m => ({ default: m.RunnerDetailPage })));
-const ModuleBuildDetailPage = React.lazy(() => import('@/features/devops/module-builds').then(m => ({ default: m.ModuleBuildDetailPage })));
 
 // DevOps Hub Pages
 const DevOpsHubPage = React.lazy(() => import('@/pages/app/devops/DevOpsHubPage').then(m => ({ default: m.DevOpsHubPage })));
@@ -249,7 +248,10 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops/ci-cd/pipelines/:id/runs" element={<PipelineDetailPage />} />
         <Route path="/devops/ci-cd/pipelines/:id" element={<PipelineDetailPage />} />
         <Route path="/devops/ci-cd/runners/:id" element={<RunnerDetailPage />} />
-        <Route path="/devops/ci-cd/module-builds/:id" element={<ModuleBuildDetailPage />} />
+        {/* fc-34: /devops/ci-cd/module-builds[/...] is now the system
+            extension's own registered route (featureRegistry.getRoutes()
+            below) — its detail view is a modal (BatchDetailModal), not a
+            separate route, so there is no ":id" path to carry over. */}
         <Route path="/devops/ci-cd/*" element={<CiCdPage />} />
 
         {/* Connections - detail routes before catch-all */}

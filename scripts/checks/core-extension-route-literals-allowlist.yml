@@ -10,7 +10,3 @@ frontend/src/features/system/storage/services/storageCredentialsApi.ts:
   count: 3
   reason: "blessed cross-boundary seam: core storage-assignments UI calls /system/storage_* by URL"
   ref: IMP-ca6b51d65114
-frontend/src/features/devops/module-builds/services/moduleBuildBatchesApi.ts:
-  count: 3
-  reason: "owned by fc-34 (module builds move into the system extension)"
-  ref: fc-34

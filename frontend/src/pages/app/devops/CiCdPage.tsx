@@ -1,19 +1,25 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { LayoutDashboard, Workflow, Server, Package, FileText } from 'lucide-react';
+import { LayoutDashboard, Workflow, Server, FileText } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { CiCdOverviewTab } from '@/pages/app/devops/CiCdOverviewTab';
 import { PipelinesPage } from '@/pages/app/devops/PipelinesPage';
 import { RunnersPage as AiPipelinesRunnersPage } from '@/features/devops/pipelines';
-import { ModuleBuildsPage } from '@/features/devops/module-builds';
 import { TemplatesContent } from '@/pages/app/ai/DevOpsTemplatesPage';
 
+// fc-34: the "Module Builds" tab (features/devops/module-builds) was deleted
+// as a duplicate of the system extension's own Module Builds surface, which
+// registers its OWN route at this same URL (/app/devops/ci-cd/module-builds)
+// via featureRegistry — core must not import or reference it. React Router
+// resolves that more-specific literal path ahead of this page's own
+// `/devops/ci-cd/*` wildcard mount, so the URL keeps working without a tab
+// entry here; the sidebar's DevOps section carries the discoverable nav link
+// (registered by the extension) since it no longer lives in this tab strip.
 const tabs = [
   { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} />, path: '/' },
   { id: 'pipelines', label: 'Pipelines', icon: <Workflow size={16} />, path: '/pipelines' },
   { id: 'runners', label: 'Runners', icon: <Server size={16} />, path: '/runners' },
-  { id: 'module-builds', label: 'Module Builds', icon: <Package size={16} />, path: '/module-builds' },
   { id: 'templates', label: 'Templates', icon: <FileText size={16} />, path: '/templates', permissions: ['ai.devops.read'] },
 ];
 
@@ -24,7 +30,6 @@ export const CiCdPage: React.FC = () => {
     const path = location.pathname;
     if (path.includes('/ci-cd/pipelines')) return 'pipelines';
     if (path.includes('/ci-cd/runners')) return 'runners';
-    if (path.includes('/ci-cd/module-builds')) return 'module-builds';
     if (path.includes('/ci-cd/templates')) return 'templates';
     return 'overview';
   };
@@ -87,9 +92,6 @@ export const CiCdPage: React.FC = () => {
         </TabPanel>
         <TabPanel tabId="runners" activeTab={activeTab}>
           <AiPipelinesRunnersPage onActionsReady={handleActionsReady} />
-        </TabPanel>
-        <TabPanel tabId="module-builds" activeTab={activeTab}>
-          <ModuleBuildsPage onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="templates" activeTab={activeTab}>
           <TemplatesContent onActionsReady={handleActionsReady} />
