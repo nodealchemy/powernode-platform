@@ -9,8 +9,13 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "generate_image", mutating: true
-      declare_action "list_generated_images", mutating: false
+      declare_action "generate_image", mutating: true,
+                                       returns: "the revised prompt, model, size, quality and style, plus the stored file's id, filename, content type, size and metadata",
+                                       refuses: [ "prompt is missing", "size, quality or style is not one of the listed values",
+                                                  "the image provider has no API key, or the provider call fails or returns no image" ]
+      declare_action "list_generated_images", mutating: false, limit: 100,
+                                              returns: "count, and id, filename, content_type, file_size, metadata and created_at per image, " \
+                                                       "newest first; 20 unless limit is set"
 
       def self.definition
         {
@@ -32,7 +37,7 @@ module Ai
       def self.action_definitions
         {
           "generate_image" => {
-            description: "Generate an image using DALL-E 3 AI model. Returns the generated image file with metadata including the revised prompt.",
+            description: "Generate an image from a text prompt and store it as an ai_generated file.",
             parameters: {
               prompt: { type: "string", required: true, description: "Detailed description of the image to generate" },
               size: { type: "string", required: false, description: "Image size: 1024x1024, 1024x1792, 1792x1024 (default: 1024x1024)" },
@@ -43,7 +48,7 @@ module Ai
             }
           },
           "list_generated_images" => {
-            description: "List AI-generated images in the current account",
+            description: "List AI-generated images in the current account.",
             parameters: {
               limit: { type: "integer", required: false, description: "Max results (default: 20)" }
             }
