@@ -23,6 +23,7 @@ export interface DevopsOverviewResponse {
     containers: {
       total: number;
       active: number;
+      paused: number;
       completed: number;
       failed: number;
       finished: number;

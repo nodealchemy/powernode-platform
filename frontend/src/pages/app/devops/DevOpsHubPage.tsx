@@ -207,6 +207,7 @@ export function DevOpsHubPage() {
       icon: Container,
       stats: [
         { label: 'Active', value: infra.containers.active },
+        { label: 'Paused', value: infra.containers.paused },
         { label: 'Success Rate', value: infra.containers.total > 0 ? `${Math.round(infra.containers.success_rate)}%` : '-' },
       ],
       status: infra.containers.active > 0 ? 'success' : 'neutral',
