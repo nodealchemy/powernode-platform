@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_20_182328) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_25_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9458,6 +9458,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_20_182328) do
   create_table "system_module_services", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.jsonb "capabilities"
+    t.boolean "capabilities_presence_recorded", default: false, null: false
     t.datetime "created_at", null: false
     t.jsonb "env", default: {}, null: false
     t.jsonb "exposed_ports", default: [], null: false
