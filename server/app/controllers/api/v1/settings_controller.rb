@@ -100,44 +100,6 @@ class Api::V1::SettingsController < ApplicationController
     end
   end
 
-  # GET /api/v1/settings/notifications
-  def notifications
-    render_success(current_notification_preferences)
-  end
-
-  # PUT /api/v1/settings/notifications
-  def update_notifications
-    if update_user_preferences("notifications", notification_params)
-      # Broadcast the notification preferences update to all user's sessions
-      broadcast_settings_update("notifications_updated", current_notification_preferences)
-
-      render_success(current_notification_preferences.merge({
-        message: "Notification preferences updated"
-      }))
-    else
-      render_error("Failed to update notification preferences", :unprocessable_content, details: { errors: current_user.errors.full_messages })
-    end
-  end
-
-  # GET /api/v1/settings/preferences
-  def preferences
-    render_success(current_user_preferences)
-  end
-
-  # PUT /api/v1/settings/preferences
-  def update_preferences
-    if update_user_preferences("preferences", preference_params)
-      # Broadcast the preferences update to all user's sessions
-      broadcast_settings_update("preferences_updated", current_user_preferences)
-
-      render_success(current_user_preferences.merge({
-        message: "User preferences updated"
-      }))
-    else
-      render_error("Failed to update preferences", :unprocessable_content, details: { errors: current_user.errors.full_messages })
-    end
-  end
-
   private
 
   # Reads the raw params rather than settings_params so the gate does not
@@ -158,41 +120,10 @@ class Api::V1::SettingsController < ApplicationController
     )
   end
 
-  def notification_params
-    params.require(:notifications).permit(
-      :email_notifications,
-      :invoice_notifications,
-      :security_alerts,
-      :marketing_emails,
-      :account_updates,
-      :system_maintenance,
-      :new_features,
-      :usage_reports,
-      :payment_reminders
-    )
-  end
-
-  def preference_params
-    params.require(:preferences).permit(
-      :theme,
-      :language,
-      :timezone,
-      :date_format,
-      :currency_display,
-      :dashboard_layout,
-      :analytics_default_period,
-      :items_per_page,
-      :auto_refresh_interval,
-      :keyboard_shortcuts_enabled
-    )
-  end
-
   # IMP-550e44e24220 follow-up — the payload now has ONE definition
   # (SettingsSerializer), shared with SettingsUpdateService so the read and
   # write halves of this resource cannot drift. These stay as named readers
-  # because #show and three single-section actions below render them
-  # individually. Built fresh per call rather than memoized: the preference and
-  # notification update actions serialize AFTER mutating current_user.
+  # because #show renders them individually.
   def settings_serializer
     SettingsSerializer.new(user: current_user, account: current_account)
   end
@@ -211,37 +142,6 @@ class Api::V1::SettingsController < ApplicationController
 
   def current_security_settings
     settings_serializer.security_settings
-  end
-
-  def update_user_preferences(key, new_preferences)
-    # Map key to actual attribute name
-    attribute_key = case key
-    when "notifications" then "notification_preferences"
-    else key
-    end
-
-    current_preferences = current_user.send(attribute_key) || {}
-    updated_preferences = current_preferences.merge(new_preferences.to_h)
-
-    current_user.update(attribute_key.to_sym => updated_preferences)
-  end
-
-  # Syncs a preferences save to the SAVING user's other open sessions — and only
-  # theirs (IMP-01a04dac-1083). It used to publish to the account stream, so
-  # every coworker's ProfilePage merged these preferences into its own form
-  # state and, on a theme change, called setTheme.
-  def broadcast_settings_update(message_type, data)
-    NotificationChannel.broadcast_to_user(
-      current_user,
-      {
-        type: message_type,
-        data: data,
-        user_id: current_user.id,
-        timestamp: Time.current.iso8601
-      }
-    )
-  rescue StandardError => e
-    Rails.logger.error "Failed to broadcast settings update: #{e.message}"
   end
 
   def formatted_copyright_text
