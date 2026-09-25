@@ -5,8 +5,7 @@ require "rails_helper"
 # Campaign 01a08c9b, E3 review F2 — DesignAgentTeamFromIntentExecutor had NO
 # spec anywhere, so E3's change to how it picks a model was untested.
 #
-# `llm` may be the openai client OR the account fallback, so the model must
-# come from the provider THAT client is bound to. Three resolving arms and the
+# The model must come from the provider the account's client is bound to. Three resolving arms and the
 # refusal; a blank configured default falls through to Provider#default_model's
 # lightest-tier rule, and there is no catalog[0] arm (E3b).
 RSpec.describe Ai::Skills::DesignAgentTeamFromIntentExecutor, "model resolution" do
@@ -28,9 +27,9 @@ RSpec.describe Ai::Skills::DesignAgentTeamFromIntentExecutor, "model resolution"
     llm = double("WorkerLlmClient", provider: provider)
     allow(::WorkerLlmClient).to receive(:for_account).and_return(llm)
     sent = :no_call
-    allow(llm).to receive(:complete) do |**opts|
+    allow(llm).to receive(:complete_structured) do |**opts|
       sent = opts[:model]
-      double(success?: true, content: '{"members": []}', finish_reason: "stop")
+      double(success?: true, content: '{"members": [], "output": []}', finish_reason: "stop")
     end
     [ executor.send(:generate_team_design, "a support team", [], "Support", 3, "auto"), sent ]
   end
@@ -59,5 +58,26 @@ RSpec.describe Ai::Skills::DesignAgentTeamFromIntentExecutor, "model resolution"
 
     expect(result).to eq(error: "No model configured for the account's LLM provider")
     expect(sent).to eq(:no_call)
+  end
+
+  # C8: structured output. output is a map with arbitrary keys, which strict
+  # structured output cannot express, so it travels as [{name, value}] pairs.
+  describe "structured team design" do
+    it "has a schema the strict normalizer accepts (no open maps)" do
+      strict = Ai::Llm::StructuredSchema.normalize(executor.send(:team_design_schema), provider: :openai)
+      member = strict.dig("properties", "members", "items")
+      expect(member["required"]).to include("agent_slug", "agent_spec")
+      expect(member.dig("properties", "agent_spec", "type")).to eq(%w[object null])
+    end
+
+    it "folds output pairs into a hash and drops each member's null alternative" do
+      spec = executor.send(:spec_from_design,
+                           "members" => [ { "role" => "r", "agent_slug" => "a", "agent_spec" => nil,
+                                            "priority" => 1, "required" => true } ],
+                           "output" => [ { "name" => "summary", "value" => "{{ r.text }}" } ])
+
+      expect(spec["members"].first).to eq("role" => "r", "agent_slug" => "a", "priority" => 1, "required" => true)
+      expect(spec["output"]).to eq("summary" => "{{ r.text }}")
+    end
   end
 end

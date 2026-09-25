@@ -135,25 +135,24 @@ module Ai
         # Attributed to the INVOKING agent only: this is skill design, not
         # provisioning, so falling back to a provisioning agent would file the
         # cost under the wrong actor. With no invoking agent the call stays
-        # untracked rather than mis-attributed. The openai preference and the
-        # provider that serves the call are unchanged — this only wraps.
-        llm = ::WorkerLlmClient.for_account(@account, provider_type: "openai") ||
-              ::WorkerLlmClient.for_account(@account)
-        llm = tracked_client_for(llm, agent: @agent)
+        # untracked rather than mis-attributed. The account's own provider serves
+        # it: the old OpenAI preference worked around structured output failing
+        # on Anthropic, which Ai::Llm::StructuredSchema now fixes at the adapter.
+        llm = tracked_client_for(::WorkerLlmClient.for_account(@account), agent: @agent)
         return { error: "No LLM provider configured for account" } unless llm
 
         messages = build_design_messages(intent, existing_agents, suggested_name, max_members, preferred_strategy)
 
         # E3: resolve from the provider this client is bound to, never a
-        # literal — `llm` may be the openai client OR the account fallback, and
-        # a pinned id is wrong for one of them.
+        # literal.
         # No `|| available_models.first`: that is catalog[0], the priciest
         # model; Provider#default_model already applies the tier rule (E3b).
         model = llm.provider&.default_model.presence
         return { error: "No model configured for the account's LLM provider" } if model.blank?
 
-        result = llm.complete(
+        result = llm.complete_structured(
           messages: messages,
+          schema:   { name: "team_design", schema: team_design_schema },
           model:    model,
           temperature: 0.2,
           max_tokens: 2048
@@ -163,10 +162,7 @@ module Ai
           return { error: "LLM call failed (finish_reason=#{result&.finish_reason || 'no response'})" }
         end
 
-        content = result.content.to_s.strip
-        content = content.sub(/\A```(?:json)?\s*\n?/i, "").sub(/\n?```\s*\z/, "").strip
-        parsed = JSON.parse(content)
-        { spec: parsed }
+        { spec: spec_from_design(JSON.parse(result.content.to_s)) }
       rescue JSON::ParserError => e
         { error: "LLM returned malformed JSON: #{e.message.truncate(120)}" }
       rescue StandardError => e
@@ -185,32 +181,14 @@ module Ai
           and a list of existing agents in the account, produce a team
           specification.
 
-          Team spec format (JSON):
-          {
-            "name":        "<short team name>",
-            "description": "<one-sentence purpose>",
-            "coordination_strategy": "parallel" | "sequential" | "hierarchical" | "mesh",
-            "members": [
-              {
-                "role": "<role name e.g. 'security_reviewer'>",
-                "agent_slug": "<existing agent slug from shortlist>",
-                "priority": <integer; lower = higher priority>,
-                "required": true | false
-              },
-              // OR for a NEW agent the operator should create:
-              {
-                "role": "<role name>",
-                "agent_spec": {
-                  "name": "<proposed agent name>",
-                  "agent_type": "assistant",
-                  "system_prompt_summary": "<one-line description of this agent's purpose>"
-                },
-                "priority": <integer>,
-                "required": true | false
-              }
-            ],
-            "output": { "<key>": "<{{ role.field }} reference>" }
-          }
+          A team spec has a short name, a one-sentence purpose, a coordination
+          strategy, its members, and its output. Each member has a role name
+          (e.g. "security_reviewer"), a priority (lower = higher priority),
+          whether it is required, and EITHER the agent_slug of an existing agent
+          from the shortlist OR, for a new agent the operator should create, an
+          agent_spec (name, agent_type "assistant", and a one-line
+          system_prompt_summary); set the other one to null. The output is
+          name/value pairs whose values are `{{ role.field }}` references.
 
           Coordination strategy hints:
             * parallel     — members work concurrently on the same input (good for reviews/audits)
@@ -236,14 +214,66 @@ module Ai
           #{name_hint}#{strategy_hint}EXISTING AGENTS (shortlist of #{existing_agents.size}):
           #{agents_section}
 
-          Design the team to accomplish the intent above. Output only the
-          JSON team spec — no commentary, no markdown fences.
+          Design the team to accomplish the intent above.
         USER
 
         [
           { role: "system", content: system_prompt },
           { role: "user",   content: user_prompt }
         ]
+      end
+
+      # Structured-output schema. output is a map with arbitrary keys, which
+      # strict structured output cannot express, so it travels as [{name, value}]
+      # pairs and #spec_from_design folds it back. A member names an existing
+      # agent_slug or a new agent_spec; Ai::Llm::StructuredSchema makes both
+      # nullable (neither is in `required`), and the unused one is dropped.
+      def team_design_schema
+        {
+          type: "object",
+          required: %w[name description coordination_strategy members output],
+          properties: {
+            name: { type: "string" },
+            description: { type: "string" },
+            coordination_strategy: { type: "string", enum: %w[parallel sequential hierarchical mesh] },
+            members: {
+              type: "array",
+              items: {
+                type: "object",
+                required: %w[role priority required],
+                properties: {
+                  role: { type: "string" },
+                  agent_slug: { type: "string" },
+                  agent_spec: {
+                    type: "object",
+                    required: %w[name agent_type system_prompt_summary],
+                    properties: {
+                      name: { type: "string" },
+                      agent_type: { type: "string" },
+                      system_prompt_summary: { type: "string" }
+                    }
+                  },
+                  priority: { type: "integer" },
+                  required: { type: "boolean" }
+                }
+              }
+            },
+            output: {
+              type: "array",
+              items: { type: "object", required: %w[name value],
+                       properties: { name: { type: "string" }, value: { type: "string" } } }
+            }
+          }
+        }
+      end
+
+      # The spec shape #validate_spec and the team builder read: output as a
+      # hash, and each member without the null alternative.
+      def spec_from_design(design)
+        design.merge(
+          "output" => Array(design["output"]).to_h { |pair| [ pair["name"].to_s, pair["value"] ] },
+          "members" => Array(design["members"]).map(&:compact)
+        )
       end
 
       # === Validation ===================================================
