@@ -353,6 +353,21 @@ class AgentsApiService extends BaseApiService {
   }
 
   /**
+   * Get the current user's active conversation with this agent, if any.
+   * GET /api/v1/ai/agents/:agent_id/conversations/active
+   *
+   * Distinct from getActiveConversations, which filters the INDEX action by
+   * `?status=active`: this hits its own agent- and user-scoped collection
+   * route (conversations_controller.rb#active), returning at most one
+   * conversation — the caller's most-recently-active one.
+   */
+  async getActiveConversation(agentId: string): Promise<AiConversation | null> {
+    const path = `${this.buildPath(this.resource, agentId, 'conversations')}/active`;
+    const conversations = await this.get<AiConversation[]>(path);
+    return conversations[0] ?? null;
+  }
+
+  /**
    * Create new conversation
    * POST /api/v1/ai/agents/:agent_id/conversations
    */

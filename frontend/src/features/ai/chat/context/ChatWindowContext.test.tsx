@@ -13,6 +13,16 @@ jest.mock('@/shared/services/ai/ConversationsApiService', () => ({
   },
 }));
 
+// fc-37 item 7: openConversation/openConversationMaximized's getOrCreateConversation
+// (previously chatApi.getOrCreateConversation, now deleted) migrated to a local
+// helper built on the canonical agentsApi.
+jest.mock('@/shared/services/ai/AgentsApiService', () => ({
+  agentsApi: {
+    getActiveConversation: jest.fn(),
+    createConversation: jest.fn(),
+  },
+}));
+
 jest.mock('@/shared/hooks/useNotifications', () => ({
   useNotifications: () => ({ addNotification: jest.fn() }),
 }));
@@ -28,15 +38,20 @@ jest.mock('@/shared/hooks/useWebSocket', () => ({
 }));
 
 import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
+import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 
 const mockCreateConcierge = conversationsApi.createConciergeConversation as jest.Mock;
 const mockCreateProvisioning = conversationsApi.createProvisioningConversation as jest.Mock;
+const mockGetActiveConversation = agentsApi.getActiveConversation as jest.Mock;
+const mockCreateConversation = agentsApi.createConversation as jest.Mock;
 
 describe('ChatWindowContext conversation creation (fc-37 migration)', () => {
   beforeEach(() => {
     localStorage.clear();
     mockCreateConcierge.mockReset();
     mockCreateProvisioning.mockReset();
+    mockGetActiveConversation.mockReset();
+    mockCreateConversation.mockReset();
   });
 
   const wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -79,5 +94,33 @@ describe('ChatWindowContext conversation creation (fc-37 migration)', () => {
     });
 
     expect(mockCreateProvisioning).toHaveBeenCalledWith(pendingTab.conversationId);
+  });
+
+  it('openConversation reuses an existing active conversation via agentsApi.getActiveConversation', async () => {
+    mockGetActiveConversation.mockResolvedValueOnce({ id: 'conv-active' });
+
+    const { result } = renderHook(() => useChatWindow(), { wrapper });
+
+    await act(async () => {
+      await result.current.openConversation('agent-1', 'Assistant');
+    });
+
+    expect(mockGetActiveConversation).toHaveBeenCalledWith('agent-1');
+    expect(mockCreateConversation).not.toHaveBeenCalled();
+    expect(result.current.state.tabs.some(t => t.conversationId === 'conv-active')).toBe(true);
+  });
+
+  it('openConversation creates a new conversation via agentsApi.createConversation when none is active', async () => {
+    mockGetActiveConversation.mockResolvedValueOnce(null);
+    mockCreateConversation.mockResolvedValueOnce({ id: 'conv-new' });
+
+    const { result } = renderHook(() => useChatWindow(), { wrapper });
+
+    await act(async () => {
+      await result.current.openConversation('agent-1', 'Assistant');
+    });
+
+    expect(mockCreateConversation).toHaveBeenCalledWith('agent-1', { title: 'Chat Session' });
+    expect(result.current.state.tabs.some(t => t.conversationId === 'conv-new')).toBe(true);
   });
 });

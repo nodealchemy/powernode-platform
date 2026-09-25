@@ -8,13 +8,25 @@ import type {
 } from './chatWindowTypes';
 import { chatWindowReducer, initialChatWindowState } from './chatWindowReducer';
 import { saveChatState, loadChatState, createBroadcastChannel } from './chatWindowPersistence';
-import { chatApi } from '../services/chatApi';
+import { agentsApi } from '@/shared/services/ai/AgentsApiService';
 import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { uuid7 } from '@/shared/utils/uuid7';
 
 const ChatWindowContext = createContext<ChatWindowContextValue | null>(null);
+
+// fc-37: replaces chatApi.getOrCreateConversation (the last method left in
+// the now-deleted chatApi.ts) — its GET half hit the agent- and user-scoped
+// active-conversation route with no prior canonical equivalent, now covered
+// by agentsApi.getActiveConversation; its POST half already duplicated
+// agentsApi.createConversation.
+async function getOrCreateAgentConversation(agentId: string): Promise<string> {
+  const active = await agentsApi.getActiveConversation(agentId);
+  if (active) return active.id;
+  const created = await agentsApi.createConversation(agentId, { title: 'Chat Session' });
+  return created.id;
+}
 
 interface ChatWindowProviderProps {
   children: React.ReactNode;
@@ -169,8 +181,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     try {
       let convId = conversationId;
       if (!convId) {
-        const conv = await chatApi.getOrCreateConversation(agentId);
-        convId = conv.id;
+        convId = await getOrCreateAgentConversation(agentId);
       }
 
       const tab: ChatTab = {
@@ -207,8 +218,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     try {
       let convId = conversationId;
       if (!convId) {
-        const conv = await chatApi.getOrCreateConversation(agentId);
-        convId = conv.id;
+        convId = await getOrCreateAgentConversation(agentId);
       }
 
       const tab: ChatTab = {
@@ -241,14 +251,6 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
   const openConcierge = useCallback(async () => {
     try {
       const conv = await conversationsApi.createConciergeConversation();
-      if (!conv) {
-        addNotification({
-          type: 'warning',
-          title: 'No Assistant',
-          message: 'No concierge agent configured. Please select an agent manually.',
-        });
-        return;
-      }
 
       const tab: ChatTab = {
         id: `tab-${conv.id}`,
@@ -322,14 +324,6 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
 
     try {
       const conv = await conversationsApi.createProvisioningConversation(tab.conversationId);
-      if (!conv) {
-        addNotification({
-          type: 'error',
-          title: 'Provisioning Error',
-          message: 'No concierge agent configured. Cannot create provisioning conversation.',
-        });
-        return null;
-      }
       const agentId = conv.ai_agent?.id || '';
       dispatch({
         type: 'UPDATE_TAB',

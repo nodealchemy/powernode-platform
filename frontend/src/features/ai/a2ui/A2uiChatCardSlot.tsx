@@ -11,9 +11,11 @@ import type { A2uiSurfacePayload } from './types';
  * analogue of ChatProvisioningCardSlot. Feeds the stored A2UI v0.9 message
  * frames into the themed runtime and routes user actions back.
  *
- * Phase-1 next increment: `onAction` will POST to `chatApi.a2uiAction` →
- * backend action_router → agent re-invocation. For now it surfaces the action
- * so the interaction round-trip is observable end-to-end on the client.
+ * Phase-1 next increment: `onAction` will POST to `conversationsApi.a2uiAction`
+ * (fc-37 — chatApi.ts, this comment's original reference, was deleted; the
+ * canonical conversations client is `conversationsApi`) → backend
+ * action_router → agent re-invocation. For now it surfaces the action so the
+ * interaction round-trip is observable end-to-end on the client.
  */
 export interface A2uiChatCardSlotProps {
   card: ChatCard;
