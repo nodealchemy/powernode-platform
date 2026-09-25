@@ -7,7 +7,7 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Key,
   Play, Rocket, DollarSign, Code2, Building2, Megaphone,
-  Route, MessageSquare, MessageSquareText, MessagesSquare, Share2, Lock, Puzzle, Database
+  Route, MessageSquare, MessageSquareText, MessagesSquare, Lock, Puzzle, Database
 } from 'lucide-react';
 import type { NavigationConfig, NavigationItem } from '@/shared/types/navigation';
 import { CONTROL_PERMISSIONS } from '@/shared/constants/controlPermissions';
@@ -325,7 +325,7 @@ export const defaultNavigationConfig: NavigationConfig = {
       items: [
         {
           id: 'profile',
-          name: 'My Profile',
+          name: 'Profile',
           href: '/app/profile',
           icon: User,
           description: 'Your personal information',
@@ -344,28 +344,19 @@ export const defaultNavigationConfig: NavigationConfig = {
         // 'Billing' (order 4) is registered by the business extension via
         // featureRegistry.registerNavItems('business', [{ section: 'account', ... }]),
         // since billing is a commercial concern owned by that extension.
-        {
-          id: 'users',
-          name: 'Users',
-          href: '/app/profile/users',
-          icon: Users,
-          description: 'Manage your team members',
-          permissions: ['team.read'],
-          order: 5
-        },
-        // Delegations: grant another user account access scoped to a role or
-        // specific permissions. Placed right after Users -- both are "who has
-        // access to this account" concerns, and this is the resource-management
-        // permission Api::V1::DelegationsController#authorize_delegation_management!
+        // Users & Invitations: team members, invitations, and (as a sub-tab)
+        // Delegations — all "who has access to this account" concerns. Shown
+        // to a holder of either sub-tab's permissions; the Delegations ones
+        // are what Api::V1::DelegationsController#authorize_delegation_management!
         // itself checks (permissions only, never roles).
         {
-          id: 'delegations',
-          name: 'Delegations',
-          href: '/app/profile/delegations',
-          icon: Share2,
-          description: 'Grant other users delegated access to this account',
-          permissions: ['accounts.manage', 'admin.access'],
-          order: 6
+          id: 'users',
+          name: 'Users & Invitations',
+          href: '/app/profile/users',
+          icon: Users,
+          description: 'Team members, invitations, and delegated access',
+          permissions: ['team.read', 'accounts.manage', 'admin.access'],
+          order: 5
         },
         {
           id: 'preferences',

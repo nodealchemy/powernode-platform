@@ -16,6 +16,20 @@ import { TwoFactorSettings } from '@/features/account/components/TwoFactorSettin
 import { DelegationsManagement } from '@/features/delegations';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 
+// Users & Invitations sub-tabs. Members keeps the team.read gate the Users
+// tab always had; Delegations the one
+// Api::V1::DelegationsController#authorize_delegation_management! enforces
+// server-side (permissions only, never roles).
+const USERS_SUBTAB_PERMISSIONS = {
+  members: ['team.read'],
+  delegations: ['accounts.manage', 'admin.access'],
+};
+
+const USERS_SUBTABS = [
+  { id: 'members', label: 'Users', icon: '👥', path: '/', permissions: USERS_SUBTAB_PERMISSIONS.members },
+  { id: 'delegations', label: 'Delegations', icon: '🔗', path: '/delegations', permissions: USERS_SUBTAB_PERMISSIONS.delegations },
+];
+
 // Type guard for settings update data
 const isSettingsUpdateData = (data: unknown): data is Partial<UserSettings> => {
   return typeof data === 'object' && data !== null;
@@ -40,8 +54,7 @@ export const ProfilePage: React.FC = () => {
     if (path === '/app/profile/account') return 'account';
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/security') return 'security';
-    if (path === '/app/profile/users') return 'users';
-    if (path === '/app/profile/delegations') return 'delegations';
+    if (path === '/app/profile/users' || path.startsWith('/app/profile/users/')) return 'users';
 
     // Default to profile for base settings path or any other case
     return 'profile';
@@ -54,10 +67,14 @@ export const ProfilePage: React.FC = () => {
     if (path === '/app/profile/account') return 'account';
     if (path === '/app/profile/preferences') return 'preferences';
     if (path === '/app/profile/security') return 'security';
-    if (path === '/app/profile/users') return 'users';
-    if (path === '/app/profile/delegations') return 'delegations';
+    if (path === '/app/profile/users' || path.startsWith('/app/profile/users/')) return 'users';
     return 'profile';
   });
+
+  // Users & Invitations sub-tab, from the URL (/app/profile/users[/delegations]).
+  // A user who may manage delegations but not read the team lands on Delegations.
+  const usersSubTab = location.pathname === '/app/profile/users/delegations' ||
+    !hasPermissions(user, USERS_SUBTAB_PERMISSIONS.members) ? 'delegations' : 'members';
 
   // Form states
   const [profileForm, setProfileForm] = useState({
@@ -366,12 +383,12 @@ export const ProfilePage: React.FC = () => {
     setChildActions(actions);
   }, []);
 
-  // Clear child actions when leaving a tab that provides them
+  // Clear child actions when leaving the tab that provides them
   useEffect(() => {
-    if (activeTab !== 'users') {
+    if (activeTab !== 'users' || usersSubTab !== 'members') {
       setChildActions([]);
     }
-  }, [activeTab]);
+  }, [activeTab, usersSubTab]);
 
   const profileActions: PageAction[] = [
     {
@@ -404,19 +421,11 @@ export const ProfilePage: React.FC = () => {
     ];
 
 
-    const canManageTeam = user?.permissions?.includes('team.read');
-    if (canManageTeam) {
-      baseTabs.push({ id: 'users', label: 'Users', icon: '👥', path: '/users' });
-    }
-
-    // Same gate as the sidebar's Delegations nav item (through the same
-    // hasPermissions helper, so system.admin and wildcard grants behave
-    // identically in both places), and the one
-    // Api::V1::DelegationsController#authorize_delegation_management! itself
-    // enforces server-side (permissions only, never roles).
-    const canManageDelegations = hasPermissions(user, [ 'accounts.manage', 'admin.access' ]);
-    if (canManageDelegations) {
-      baseTabs.push({ id: 'delegations', label: 'Delegations', icon: '🔗', path: '/delegations' });
+    // Same gate as the sidebar's Users & Invitations nav item: a holder of
+    // either sub-tab's permissions (hasPermissions, so system.admin and
+    // wildcard grants behave identically in both places).
+    if (hasPermissions(user, [...USERS_SUBTAB_PERMISSIONS.members, ...USERS_SUBTAB_PERMISSIONS.delegations])) {
+      baseTabs.push({ id: 'users', label: 'Users & Invitations', icon: '👥', path: '/users' });
     }
 
     baseTabs.push(
@@ -440,9 +449,12 @@ export const ProfilePage: React.FC = () => {
         label: activeTabInfo.label
       });
     }
+    if (activeTab === 'users' && usersSubTab === 'delegations') {
+      baseBreadcrumbs.push({ label: 'Delegations' });
+    }
 
     return baseBreadcrumbs;
-  }, [activeTab, tabs]);
+  }, [activeTab, tabs, usersSubTab]);
 
   
   // Update active tab when URL changes
@@ -917,11 +929,21 @@ export const ProfilePage: React.FC = () => {
         </TabPanel>
 
             <TabPanel tabId="users" activeTab={activeTab}>
-              <UsersContent onActionsReady={handleActionsReady} />
-            </TabPanel>
-
-            <TabPanel tabId="delegations" activeTab={activeTab}>
-              <DelegationsManagement />
+              <TabContainer
+                tabs={USERS_SUBTABS}
+                activeTab={usersSubTab}
+                basePath="/app/profile/users"
+                variant="pills"
+                size="sm"
+                className="mb-4"
+              >
+                <TabPanel tabId="members" activeTab={usersSubTab}>
+                  <UsersContent onActionsReady={handleActionsReady} />
+                </TabPanel>
+                <TabPanel tabId="delegations" activeTab={usersSubTab}>
+                  <DelegationsManagement />
+                </TabPanel>
+              </TabContainer>
             </TabPanel>
       </TabContainer>
       </div>

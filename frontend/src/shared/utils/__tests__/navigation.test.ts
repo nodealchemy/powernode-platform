@@ -45,32 +45,35 @@ describe('defaultNavigationConfig — AI category consolidation', () => {
   });
 });
 
-// fc-20: the delegations management UI is now linked into navigation rather
-// than orphaned. Placed in the Account section, right after Users (both are
-// "who has access to this account" concerns), gated on the same permissions
-// Api::V1::DelegationsController#authorize_delegation_management! itself
-// checks -- permissions only, never roles.
-describe('defaultNavigationConfig — Delegations (fc-20)', () => {
-  it('is in the account section, right after Users', () => {
-    const account = itemIds('account');
-    const usersIndex = account.indexOf('users');
-    const delegationsIndex = account.indexOf('delegations');
+// fc-45: the Account section — Delegations is a sub-tab of Users &
+// Invitations (both are "who has access to this account" concerns), so it has
+// no sidebar item of its own.
+describe('defaultNavigationConfig — Account (fc-45)', () => {
+  const account = () => section('account')?.items ?? [];
 
-    expect(usersIndex).toBeGreaterThanOrEqual(0);
-    expect(delegationsIndex).toBe(usersIndex + 1);
+  it('has exactly the six core Account items, in order', () => {
+    expect(account().map((i) => [i.name, i.href])).toEqual([
+      ['Profile', '/app/profile'],
+      ['Account', '/app/profile/account'],
+      ['Users & Invitations', '/app/profile/users'],
+      ['Preferences', '/app/profile/preferences'],
+      ['Security', '/app/profile/security'],
+      ['Privacy Center', '/app/privacy'],
+    ]);
   });
 
-  it('points at the URL-addressable Delegations tab on the Profile page', () => {
-    const delegations = section('account')?.items.find((i) => i.id === 'delegations');
-    expect(delegations?.href).toBe('/app/profile/delegations');
+  it('links Delegations only through Users & Invitations', () => {
+    expect(account().map((i) => i.href)).not.toContain('/app/profile/delegations');
   });
 
-  it('gates on the same permissions the server enforces, permissions only', () => {
-    const delegations = section('account')?.items.find((i) => i.id === 'delegations');
-    expect(delegations?.permissions).toEqual(
-      expect.arrayContaining(['accounts.manage', 'admin.access']),
-    );
-    expect(delegations).not.toHaveProperty('roles');
+  // The item leads to the Users & Invitations tab and its Delegations
+  // sub-tab, so it shows to a holder of either tab's permission — the same
+  // permissions Api::V1::DelegationsController#authorize_delegation_management!
+  // checks, permissions only, never roles.
+  it('gates Users & Invitations on the team and delegation permissions', () => {
+    const users = account().find((i) => i.id === 'users');
+    expect(users?.permissions).toEqual(['team.read', 'accounts.manage', 'admin.access']);
+    expect(users).not.toHaveProperty('roles');
   });
 });
 
@@ -201,8 +204,8 @@ describe('defaultNavigationConfig — AI Agents / Work / Platform (fc-43)', () =
   });
 
   // Equality ratchet: a section growing past 7 fails, and so does a listed
-  // one that got back under (remove it here). Account is fc-45's regroup.
-  const KNOWN_OVERSIZED = ['account'];
+  // one that got back under (remove it here).
+  const KNOWN_OVERSIZED: string[] = [];
 
   it('keeps every section at 7 items or fewer', () => {
     const oversized = sections.filter((s) => s.items.length > 7).map((s) => s.id);

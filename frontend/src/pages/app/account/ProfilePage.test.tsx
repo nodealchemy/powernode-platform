@@ -295,11 +295,11 @@ describe('ProfilePage - Security tab - 2FA enrolment', () => {
   });
 });
 
-// fc-20: the delegations UI is now reachable as a Profile tab. This pins the
-// ROUTING/gating wiring (a permitted user reaches it at /app/profile/delegations,
-// with the breadcrumb agreeing with the nav label); DelegationsManagement's own
-// behaviour has its own full test suite and is not re-asserted here.
-describe('ProfilePage - Delegations tab', () => {
+// fc-45: Delegations is a sub-tab of Users & Invitations at
+// /app/profile/users/delegations. This pins the ROUTING/gating wiring;
+// DelegationsManagement's own behaviour has its own full test suite and is
+// not re-asserted here.
+describe('ProfilePage - Users & Invitations > Delegations', () => {
   const renderProfileAt = (path: string, permissions: string[]) => {
     const store = configureStore({
       reducer: {
@@ -326,29 +326,55 @@ describe('ProfilePage - Delegations tab', () => {
     mockGet.mockResolvedValue(ok({ delegations: [], meta: { total_count: 0, active_count: 0, expired_count: 0 } }));
   });
 
-  it('shows the Delegations tab, and its content, for a user who holds accounts.manage', async () => {
-    renderProfileAt('/app/profile/delegations', ['accounts.manage']);
+  it('shows the Delegations sub-tab, and its content, at /app/profile/users/delegations', async () => {
+    renderProfileAt('/app/profile/users/delegations', ['accounts.manage']);
 
     await waitFor(() => {
       expect(screen.getByText('Account Delegations')).toBeInTheDocument();
     });
+    expect(screen.getByRole('tab', { name: /Users & Invitations/, selected: true })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Delegations/, selected: true })).toBeInTheDocument();
   });
 
-  it('agrees with the sidebar nav label in the breadcrumb trail', async () => {
+  it('names both tabs in the breadcrumb trail', async () => {
+    renderProfileAt('/app/profile/users/delegations', ['accounts.manage']);
+
+    const trail = await screen.findByRole('navigation', { name: 'Breadcrumb' });
+    await waitFor(() => {
+      expect(trail).toHaveTextContent('Users & Invitations');
+      expect(trail).toHaveTextContent('Delegations');
+    });
+  });
+
+  it('no longer serves delegations at /app/profile/delegations', async () => {
     renderProfileAt('/app/profile/delegations', ['accounts.manage']);
 
-    await waitFor(() => {
-      expect(screen.getByText('Delegations')).toBeInTheDocument();
-    });
+    await screen.findByText('Profile Information');
+    expect(screen.queryByText('Account Delegations')).not.toBeInTheDocument();
   });
 
-  it('does not offer the tab to a user without accounts.manage or admin.access', async () => {
-    renderProfileAt('/app/profile', ['team.read']);
+  it('does not offer the Delegations sub-tab to a user without accounts.manage or admin.access', async () => {
+    mockGet.mockResolvedValue(ok({ users: [], stats: {} }));
+    renderProfileAt('/app/profile/users', ['team.read']);
+
+    await screen.findByRole('tab', { name: /Users & Invitations/, selected: true });
+    expect(screen.queryByRole('tab', { name: /Delegations/ })).not.toBeInTheDocument();
+  });
+
+  it('opens Delegations at /app/profile/users for a user who may not read the team', async () => {
+    renderProfileAt('/app/profile/users', ['accounts.manage']);
 
     await waitFor(() => {
-      expect(screen.getByText('Profile Information')).toBeInTheDocument();
+      expect(screen.getByText('Account Delegations')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Delegations')).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /^👥\s*Users$/ })).not.toBeInTheDocument();
+  });
+
+  it('offers no Users & Invitations tab to a user with none of its permissions', async () => {
+    renderProfileAt('/app/profile', []);
+
+    await screen.findByText('Profile Information');
+    expect(screen.queryByRole('tab', { name: /Users & Invitations/ })).not.toBeInTheDocument();
   });
 });
 
