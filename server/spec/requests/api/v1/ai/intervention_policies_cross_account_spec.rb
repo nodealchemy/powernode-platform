@@ -110,6 +110,37 @@ RSpec.describe "Intervention-policy writes referencing another account", type: :
       end
     end
 
+    # user_id names whose row it is, and the serializer ships that user's email:
+    # another account's user would leak their address to this account.
+    it "refuses creating or re-pointing a row at another account's user, or one that does not exist" do
+      foreign_user = create(:user, account: other_account)
+
+      post "/api/v1/ai/intervention_policies",
+           params: { scope: "global", action_category: "dev.task_requeue", policy: "block", user_id: foreign_user.id }.to_json,
+           headers: headers
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response["error"]).to include("unknown user")
+      expect(Ai::InterventionPolicy.where(user_id: foreign_user.id)).to be_empty
+
+      row = Ai::InterventionPolicy.create!(account: account, action_category: "dev.task_requeue", scope: "global",
+                                           user_id: operator.id, policy: "require_approval", priority: 5)
+      [ foreign_user.id, missing_id ].each do |user_id|
+        patch "/api/v1/ai/intervention_policies/#{row.id}", params: { user_id: user_id }.to_json, headers: headers
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(row.reload.user_id).to eq(operator.id)
+      end
+      expect(response.body).not_to include(foreign_user.email)
+    end
+
+    it "still accepts the account's own user" do
+      post "/api/v1/ai/intervention_policies",
+           params: { scope: "global", action_category: "dev.task_requeue", policy: "block", user_id: operator.id }.to_json,
+           headers: headers
+
+      expect(response).to have_http_status(:created)
+    end
+
     it "still creates a row for the account's own agent" do
       post "/api/v1/ai/intervention_policies", params: body.merge(ai_agent_id: own_agent.id).to_json, headers: headers
 

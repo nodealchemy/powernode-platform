@@ -139,6 +139,15 @@ RSpec.describe "Api::V1::Ai::InterventionPolicies grouped view and bulk save", t
       expect(json_response_data["total_count"]).to eq(60)
     end
 
+    it "ignores a limit that is not positive rather than handing it to the database" do
+      %w[-1 0 abc].each do |limit|
+        get "/api/v1/ai/intervention_policies", params: { limit: limit }, headers: auth_headers_for(operator)
+
+        expect(response).to have_http_status(:ok)
+        expect(json_response_data["policies"].size).to eq(60)
+      end
+    end
+
     it "pages only when asked, and still reports the true total" do
       get "/api/v1/ai/intervention_policies", params: { limit: 10 }, headers: auth_headers_for(operator)
 

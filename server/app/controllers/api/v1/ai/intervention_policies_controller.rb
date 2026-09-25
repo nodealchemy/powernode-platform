@@ -23,7 +23,8 @@ module Api
           # total_count is the account's whole matching set, not the page.
           total_count = policies.count
           policies = policies.by_specificity
-          policies = policies.limit(params[:limit].to_i) if params[:limit].present?
+          limit = params[:limit].to_i
+          policies = policies.limit(limit) if limit.positive?
 
           render_success(
             policies: policies.map { |p| serialize_policy(p) },
@@ -40,6 +41,7 @@ module Api
         def create
           policy = current_user.account.ai_intervention_policies.build(policy_params)
           return refuse_unknown_agent if unknown_agent?(policy)
+          return refuse_unknown_user if unknown_user?(policy)
           return refuse_mark_write unless mark_write_permitted?(before: nil, after: policy.conditions)
 
           if policy.save
@@ -53,6 +55,7 @@ module Api
         def update
           @policy.assign_attributes(policy_params)
           return refuse_unknown_agent if unknown_agent?(@policy)
+          return refuse_unknown_user if unknown_user?(@policy)
           unless mark_write_permitted?(before: @policy.attribute_in_database(:conditions), after: @policy.conditions)
             return refuse_mark_write
           end
@@ -151,6 +154,18 @@ module Api
 
         def refuse_unknown_agent
           render_error("unknown agent", status: :unprocessable_content)
+        end
+
+        # Same for user_id, resolved through the account's users as #resolve
+        # does: the serializer ships the user's email, so another account's user
+        # would leak it here.
+        def unknown_user?(policy)
+          policy.user_id.present? && policy.user_id_changed? &&
+            !current_user.account.users.exists?(id: policy.user_id)
+        end
+
+        def refuse_unknown_user
+          render_error("unknown user", status: :unprocessable_content)
         end
 
         def refuse_mark_write
