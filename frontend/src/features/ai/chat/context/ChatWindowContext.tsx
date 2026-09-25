@@ -9,6 +9,7 @@ import type {
 import { chatWindowReducer, initialChatWindowState } from './chatWindowReducer';
 import { saveChatState, loadChatState, createBroadcastChannel } from './chatWindowPersistence';
 import { chatApi } from '../services/chatApi';
+import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { uuid7 } from '@/shared/utils/uuid7';
@@ -239,7 +240,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
 
   const openConcierge = useCallback(async () => {
     try {
-      const conv = await chatApi.createConciergeConversation();
+      const conv = await conversationsApi.createConciergeConversation();
       if (!conv) {
         addNotification({
           type: 'warning',
@@ -320,7 +321,7 @@ export const ChatWindowProvider: React.FC<ChatWindowProviderProps> = ({
     if (!tab || !tab.isPending) return tab?.agentId || null;
 
     try {
-      const conv = await chatApi.createProvisioningConversation(tab.conversationId);
+      const conv = await conversationsApi.createProvisioningConversation(tab.conversationId);
       if (!conv) {
         addNotification({
           type: 'error',

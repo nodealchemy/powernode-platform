@@ -1,5 +1,6 @@
 import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
 import type { AiMessage } from '@/shared/types/ai';
+import type { SendMessageResponse } from '@/shared/services/ai/types/agent-api-types';
 
 /**
  * ConversationsApiService - Global Conversations Controller API Client
@@ -325,6 +326,112 @@ class ConversationsApiService extends BaseApiService {
       title,
     });
     return response.conversation;
+  }
+
+  /**
+   * Resume (or create) the account's concierge conversation.
+   * POST /api/v1/ai/conversations/concierge
+   *
+   * Returns null when no concierge agent is configured for the account
+   * (a 200 response with a nullish conversation, not an error).
+   */
+  async createConciergeConversation(): Promise<ConversationDetail | null> {
+    const response = await this.post<{ conversation: ConversationDetail | null }>(`${this.basePath}/concierge`);
+    return response.conversation;
+  }
+
+  /**
+   * Create a fresh provisioning-typed conversation.
+   * POST /api/v1/ai/conversations/provisioning
+   *
+   * Distinct from createConciergeConversation, which resumes the user's
+   * existing concierge conversation. Returns null when no concierge agent
+   * is configured (a 200 response with a nullish conversation).
+   *
+   * @param conversationId Materializes a previously-pending tab at this id
+   *   (a client-generated UUIDv7) instead of letting the server assign one.
+   */
+  async createProvisioningConversation(conversationId?: string): Promise<ConversationDetail | null> {
+    const body = conversationId ? { conversation_id: conversationId } : undefined;
+    const response = await this.post<{ conversation: ConversationDetail | null }>(`${this.basePath}/provisioning`, body);
+    return response.conversation;
+  }
+
+  /**
+   * Confirm (or reject) a pending concierge action embedded in a message.
+   * POST /api/v1/ai/conversations/:id/confirm_action
+   */
+  async confirmConciergeAction(
+    conversationId: string,
+    actionType: string,
+    actionParams: Record<string, unknown> = {}
+  ): Promise<void> {
+    await this.post(`${this.basePath}/${conversationId}/confirm_action`, {
+      action_type: actionType,
+      action_params: actionParams,
+    });
+  }
+
+  /**
+   * Get messages for a conversation not bound to a single agent_id (e.g.
+   * concierge/provisioning chat). Shares its controller action with
+   * AgentsApiService#getMessages (the agent-nested route); same response
+   * shape, same cursor-based pagination.
+   * GET /api/v1/ai/conversations/:id/messages
+   */
+  async getMessages(
+    conversationId: string,
+    params?: { before?: number; after?: number; limit?: number }
+  ): Promise<{
+    messages: AiMessage[];
+    pagination: {
+      has_older: boolean;
+      oldest_cursor: number | null;
+      newest_cursor: number | null;
+      total_count: number;
+    };
+  }> {
+    const query = params ? '?' + new URLSearchParams(
+      Object.entries(params)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, String(v)])
+    ).toString() : '';
+    const response = await this.get<{
+      messages: AiMessage[];
+      pagination: {
+        has_older: boolean;
+        oldest_cursor: number | null;
+        newest_cursor: number | null;
+        total_count: number;
+      };
+    }>(`${this.basePath}/${conversationId}/messages${query}`);
+    // Handle legacy responses that return a bare array
+    if (Array.isArray(response)) {
+      return {
+        messages: response,
+        pagination: { has_older: false, oldest_cursor: null, newest_cursor: null, total_count: response.length }
+      };
+    }
+    return {
+      messages: response.messages || [],
+      pagination: response.pagination || { has_older: false, oldest_cursor: null, newest_cursor: null, total_count: 0 }
+    };
+  }
+
+  /**
+   * Send a message on a conversation not bound to a single agent_id (e.g.
+   * concierge/provisioning chat). Shares its controller action with
+   * AgentsApiService#sendMessage (the agent-nested route).
+   * POST /api/v1/ai/conversations/:id/messages
+   */
+  async sendMessage(
+    conversationId: string,
+    content: string | { content: string; message_type?: string; metadata?: Record<string, unknown> }
+  ): Promise<SendMessageResponse> {
+    const message = typeof content === 'string'
+      ? { message: { content } }
+      : { message: content };
+    return this.post<SendMessageResponse>(`${this.basePath}/${conversationId}/messages`, message, { timeout: 120000 });
   }
 
   // ===================================================================

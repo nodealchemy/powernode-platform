@@ -10,13 +10,15 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 
-const mockGet = jest.fn();
-const mockPost = jest.fn();
+// fc-37: getConversationMessages/sendConversationMessage moved from a raw
+// apiClient call to the canonical conversationsApi — mock at that boundary.
+const mockGetMessages = jest.fn();
+const mockSendMessage = jest.fn();
 
-jest.mock('@/shared/services/apiClient', () => ({
-  apiClient: {
-    get: (...args: unknown[]) => mockGet(...args),
-    post: (...args: unknown[]) => mockPost(...args),
+jest.mock('@/shared/services/ai/ConversationsApiService', () => ({
+  conversationsApi: {
+    getMessages: (...args: unknown[]) => mockGetMessages(...args),
+    sendMessage: (...args: unknown[]) => mockSendMessage(...args),
   },
 }));
 
@@ -54,12 +56,15 @@ jest.mock('@/shared/components/concierge/ConciergeActionCard', () => ({
 }));
 
 const buildMessages = (msgs: ProvisioningChatMessage[]) => {
-  mockGet.mockResolvedValue({ data: { data: { messages: msgs } } });
+  mockGetMessages.mockResolvedValue({
+    messages: msgs,
+    pagination: { has_older: false, oldest_cursor: null, newest_cursor: null, total_count: msgs.length },
+  });
 };
 
 beforeEach(() => {
-  mockGet.mockReset();
-  mockPost.mockReset();
+  mockGetMessages.mockReset();
+  mockSendMessage.mockReset();
   mockSubscribe.mockClear();
 });
 
@@ -83,7 +88,7 @@ describe('ProjectProvisioningChat', () => {
     render(<ProjectProvisioningChat conversationId="conv-1" onOpenPlan={jest.fn()} />);
 
     await waitFor(() => {
-      expect(mockGet).toHaveBeenCalledWith('/ai/conversations/conv-1/messages');
+      expect(mockGetMessages).toHaveBeenCalledWith('conv-1');
     });
     expect(await screen.findByText('Provision an API')).toBeInTheDocument();
     expect(await screen.findByText('Got it — drafting a brief.')).toBeInTheDocument();
@@ -200,9 +205,9 @@ describe('ProjectProvisioningChat', () => {
     expect(await screen.findByTestId('brief-card-mount')).toHaveTextContent('Project Brief');
   });
 
-  it('sends a message via apiClient.post when the form is submitted', async () => {
+  it('sends a message via conversationsApi.sendMessage when the form is submitted', async () => {
     buildMessages([]);
-    mockPost.mockResolvedValue({ data: { data: {} } });
+    mockSendMessage.mockResolvedValue({});
 
     render(<ProjectProvisioningChat conversationId="conv-1" onOpenPlan={jest.fn()} />);
 
@@ -211,9 +216,7 @@ describe('ProjectProvisioningChat', () => {
     fireEvent.submit(input.closest('form')!);
 
     await waitFor(() =>
-      expect(mockPost).toHaveBeenCalledWith('/ai/conversations/conv-1/messages', {
-        message: { content: 'I want a static site' },
-      })
+      expect(mockSendMessage).toHaveBeenCalledWith('conv-1', 'I want a static site')
     );
   });
 

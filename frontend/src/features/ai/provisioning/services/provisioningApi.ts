@@ -1,4 +1,5 @@
 import { apiClient } from '@/shared/services/apiClient';
+import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
 import type { ProjectBrief, ProvisioningPlan } from '../types';
 
 /**
@@ -75,24 +76,28 @@ export const provisioningApi = {
   },
 
   /**
-   * Load conversation messages. Returns the raw `response.data` so the caller
-   * keeps its existing `data?.data ?? data ?? {}` unwrapping untouched.
+   * Load conversation messages via the canonical conversations client
+   * (fc-37 — this used to be a raw apiClient call to the same endpoint).
+   * Returns the already-unwrapped `{ messages, pagination }` object; the
+   * caller's existing `data?.data ?? data ?? {}` fallback still resolves it
+   * correctly (there is no `.data` key, so it falls through to the object
+   * itself, whose `.messages` array the caller reads).
    */
   getConversationMessages: async (
     conversationId: string
   ): Promise<ConversationMessagesResponse> => {
-    const response = await apiClient.get(`/ai/conversations/${conversationId}/messages`);
-    return response.data as ConversationMessagesResponse;
+    return conversationsApi.getMessages(conversationId) as unknown as ConversationMessagesResponse;
   },
 
-  /** Send a chat message to a conversation. No return value (matches prior usage). */
+  /**
+   * Send a chat message to a conversation via the canonical conversations
+   * client. No return value (matches prior usage).
+   */
   sendConversationMessage: async (
     conversationId: string,
     content: string
   ): Promise<void> => {
-    await apiClient.post(`/ai/conversations/${conversationId}/messages`, {
-      message: { content },
-    });
+    await conversationsApi.sendMessage(conversationId, content);
   },
 };
 

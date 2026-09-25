@@ -3,7 +3,7 @@ import { Loader2, Server, Bot, Globe, Cpu, ExternalLink } from 'lucide-react';
 import { useWebSocket } from '@/shared/hooks/useWebSocket';
 import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreamingRenderer';
 import { ConciergeActionCard } from '@/shared/components/concierge/ConciergeActionCard';
-import { chatApi } from '@/features/ai/chat/services/chatApi';
+import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
 import { logger } from '@/shared/utils/logger';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { provisioningApi } from './services/provisioningApi';
@@ -341,7 +341,7 @@ export const ProjectProvisioningChat: React.FC<ProjectProvisioningChatProps> = (
                         resolved_at: meta.action_context?.resolved_at,
                       }}
                       actionParams={meta.action_params ?? {}}
-                      onConfirm={(actionType, actionParams) => chatApi.confirmConciergeAction(conversationId, actionType, actionParams)}
+                      onConfirm={(actionType, actionParams) => conversationsApi.confirmConciergeAction(conversationId, actionType, actionParams)}
                       onConfirmed={handleConciergeConfirmed}
                     />
                   )}

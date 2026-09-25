@@ -26,7 +26,7 @@ import { ChatStreamingRenderer } from '@/features/ai/chat/components/ChatStreami
 import { MessageEditor } from '@/features/ai/chat/components/MessageEditor';
 import { PlanApprovalActions } from '@/features/ai/chat/components/PlanApprovalActions';
 import { ConciergeActionCard } from '@/shared/components/concierge/ConciergeActionCard';
-import { chatApi } from '@/features/ai/chat/services/chatApi';
+import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
 import { ChatProvisioningCardSlot } from '@/features/ai/provisioning/ChatProvisioningCardSlot';
 import { A2uiChatCardSlot } from '@/features/ai/a2ui';
 import type { AiMessage } from '@/shared/types/ai';
@@ -416,7 +416,7 @@ export const MessageList = React.memo<MessageListProps>(({
                 resolved_at: message.metadata.action_context?.resolved_at,
               }}
               actionParams={(message.metadata.action_params || {}) as Record<string, unknown>}
-              onConfirm={(actionType, actionParams) => chatApi.confirmConciergeAction(conversationId, actionType, actionParams)}
+              onConfirm={(actionType, actionParams) => conversationsApi.confirmConciergeAction(conversationId, actionType, actionParams)}
               onConfirmed={onConciergeConfirm}
             />
           )}
