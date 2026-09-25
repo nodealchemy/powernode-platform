@@ -90,8 +90,8 @@ module Ai
       def self.action_definitions
         {
           "get_remediation_route" => {
-            description: "Resolve the remediation front door for a component and a signal kind: " \
-                         "which registered lane claims the signal, the policy and consent headroom " \
+            description: "Resolve the remediation front door for a component and a signal kind. " \
+                         "It reports which registered lane claims the signal, the policy and consent headroom " \
                          "that lane reports, its blast radius and environment ceiling, whether it " \
                          "can proceed, and the runbook. Read-only — core resolves and reports; it " \
                          "never acts and never constructs a proceed. A signal kind no lane claims " \

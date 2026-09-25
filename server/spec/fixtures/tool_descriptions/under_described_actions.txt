@@ -21,7 +21,6 @@ generate_video
 get_component_status
 get_llm_provider
 get_ralph_loop_statistics
-get_remediation_route
 get_schedule
 get_team
 list_knowledge_bases
