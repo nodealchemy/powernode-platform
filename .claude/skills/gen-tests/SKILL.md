@@ -61,7 +61,7 @@ Use these mandatory patterns from the project:
 require 'rails_helper'
 
 RSpec.describe "Api::V1::ResourceName", type: :request do
-  include_examples 'requires authentication'
+  include_examples 'requires authentication', :get, '/api/v1/resources'
 
   let(:user) { user_with_permissions('resource.read', 'resource.manage') }
   let(:headers) { auth_headers_for(user) }
