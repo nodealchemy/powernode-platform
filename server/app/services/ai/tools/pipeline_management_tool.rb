@@ -10,7 +10,9 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "get_pipeline_status", mutating: false
-      declare_action "list_pipelines", mutating: false, returns: "only count, the number of matching pipelines capped at 50; the pipelines themselves are not returned"
+      declare_action "list_pipelines", mutating: false, paginated: true,
+                                       returns: "id, name, status, conclusion, repository_id, ref, sha, run number and timings per pipeline run, newest first",
+                                       refuses: "repository_id names a repository outside this account"
       declare_action "trigger_pipeline", mutating: true
 
       def self.definition
@@ -35,10 +37,10 @@ module Ai
             }
           },
           "list_pipelines" => {
-            description: "List DevOps pipelines, optionally filtered by repository",
+            description: "List CI pipeline runs synced from the account's git repositories, optionally for one repository.",
             parameters: {
-              repository_id: { type: "string", required: false, description: "Filter by repository ID" }
-            }
+              repository_id: { type: "string", required: false, description: "Only this repository's runs" }
+            }.merge(PAGINATION_PARAMETERS)
           },
           "get_pipeline_status" => {
             description: "Get the current status of a specific pipeline",
@@ -104,10 +106,16 @@ module Ai
       end
 
       def list_pipelines(params)
-        scope = account.git_repositories
-        scope = scope.find(params[:repository_id]).pipelines if params[:repository_id].present?
-        pipelines = (scope.respond_to?(:pipelines) ? scope : Devops::GitPipeline.joins(:repository).where(git_repositories: { account_id: account.id })).limit(50)
-        { success: true, count: pipelines.count }
+        scope = Devops::GitPipeline.joins(:repository).where(git_repositories: { account_id: account.id })
+        scope = scope.where(git_repository_id: account.git_repositories.find(params[:repository_id]).id) if params[:repository_id].present?
+
+        paginated_result(:pipelines, scope, params) do |pipeline|
+          { id: pipeline.id, name: pipeline.name, status: pipeline.status, conclusion: pipeline.conclusion,
+            repository_id: pipeline.git_repository_id, ref: pipeline.ref, sha: pipeline.sha,
+            run_number: pipeline.run_number, started_at: pipeline.started_at, completed_at: pipeline.completed_at }
+        end
+      rescue ActiveRecord::RecordNotFound
+        { success: false, error: "Repository not found" }
       end
 
       def get_pipeline_status(params)

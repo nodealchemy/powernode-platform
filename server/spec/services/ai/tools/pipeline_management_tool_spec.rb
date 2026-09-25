@@ -57,10 +57,41 @@ RSpec.describe Ai::Tools::PipelineManagementTool do
     end
 
     context "with list_pipelines action" do
-      it "returns pipelines for the account" do
+      let(:repo) { create(:git_repository, account: account) }
+      let(:other_repo) { create(:git_repository, account: account) }
+      let!(:mine) { create(:git_pipeline, account: account, repository: repo, name: "CI main") }
+      let!(:sibling) { create(:git_pipeline, account: account, repository: other_repo, name: "CI other") }
+      let!(:foreign) { create(:git_pipeline, name: "CI foreign") }
+
+      # It used to return only `count` (of a .limit(50) relation) and never the
+      # pipelines, and its repository filter fell through to the account scope.
+      it "returns the account's pipelines, paginated" do
         result = tool.execute(params: { action: "list_pipelines" })
+
         expect(result[:success]).to be true
-        expect(result).to have_key(:count)
+        expect(result[:data][:pipelines].map { |p| p[:id] }).to contain_exactly(mine.id, sibling.id)
+        expect(result[:data][:pipelines].first).to include(:name, :status, :conclusion, :repository_id, :ref)
+        expect(result[:data]).to include(count: 2, has_more: false)
+      end
+
+      it "narrows to one repository" do
+        result = tool.execute(params: { action: "list_pipelines", repository_id: repo.id })
+
+        expect(result[:data][:pipelines].map { |p| p[:id] }).to eq([ mine.id ])
+      end
+
+      it "pages with the cursor" do
+        first = tool.execute(params: { action: "list_pipelines", limit: 1 })
+        second = tool.execute(params: { action: "list_pipelines", limit: 1, cursor: first[:data][:next_cursor] })
+
+        expect(first[:data][:has_more]).to be true
+        expect((first[:data][:pipelines] + second[:data][:pipelines]).map { |p| p[:id] }).to contain_exactly(mine.id, sibling.id)
+      end
+
+      it "refuses another account's repository" do
+        result = tool.execute(params: { action: "list_pipelines", repository_id: foreign.repository.id })
+
+        expect(result[:success]).to be false
       end
     end
 
