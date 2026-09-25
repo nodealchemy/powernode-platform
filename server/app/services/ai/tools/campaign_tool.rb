@@ -14,7 +14,10 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "campaign_answer_question", mutating: true
+      declare_action "campaign_answer_question", mutating: true,
+                                                 returns: "the answered question's summary",
+                                                 refuses: [ "no campaign matches campaign_id by id or name", "question_id or answer is blank",
+                                                           "the question is not one of this campaign's parked questions" ]
       declare_action "campaign_approve_proposal", mutating: true
       # IMP-eb68dc28c0c7: this reaches Ai::Land::RebaseAdvisor#notify_stale!, which creates a
       # Notification and persists a rebase_advisory + decision on each stale campaign — a
@@ -22,14 +25,30 @@ module Ai
       # and the CC export's default-read-only allowlist (Ai::ClaudeExport::ToolAllowlist),
       # both of which would have told a read-only caller this verb never writes.
       declare_action "campaign_check_rebase", mutating: true
-      declare_action "campaign_claim", mutating: true
-      declare_action "campaign_delegate", mutating: true
-      declare_action "campaign_list", mutating: false
-      declare_action "campaign_list_proposals", mutating: false
+      declare_action "campaign_claim", mutating: true,
+                                       refuses: "no campaign matches campaign_id by id or name",
+                                       see_also: { "campaign_release" => "giving the lease up when done driving" }
+      declare_action "campaign_delegate", mutating: true,
+                                          returns: "campaign_id, driver_kind, the resolved target, the lease taken (if any) " \
+                                                   "and each loop's driver_kind, scheduling_mode, status and git_tools flag",
+                                          refuses: [ "no campaign matches campaign_id by id or name", "driver_kind is blank or unknown",
+                                                    "a platform target is missing or not in this account" ]
+      declare_action "campaign_list", mutating: false,
+                                      returns: "campaign summaries (status, task counts, completion_pct, driver lease, rebase advisory), " \
+                                               "newest first, capped by limit (default 50)",
+                                      see_also: { "campaign_list_proposals" => "proposals that have not spawned a campaign yet" }
+      declare_action "campaign_list_proposals", mutating: false,
+                                                returns: "proposal summaries (title, objective, status, fingerprint, spawned_campaign_id), " \
+                                                         "newest first, capped by limit (default 50)",
+                                                see_also: { "campaign_list" => "campaigns that already exist" }
       declare_action "campaign_propose", mutating: true
-      declare_action "campaign_record_increment", mutating: true
+      declare_action "campaign_record_increment", mutating: true,
+                                                  returns: "task_key, task status, iteration_number, decision_id and the refreshed campaign summary",
+                                                  refuses: [ "no campaign matches campaign_id by id or name", "title is blank", "the campaign has no loop" ]
       declare_action "campaign_reject_proposal", mutating: true
-      declare_action "campaign_release", mutating: true
+      declare_action "campaign_release", mutating: true,
+                                         returns: "ok: true once the lease is free, ok: false when a different driver holds it",
+                                         refuses: "no campaign matches campaign_id by id or name"
       # A resume re-arms a campaign past a stop that fired: a PERSON's decision. Human-only
       # (MCP identity plan R2): from any tool door it parks for a person to confirm in their
       # own session, and it runs as that person. The REST door stays direct for a person.
@@ -38,12 +57,19 @@ module Ai
                                         executor_class: "Ai::Executors::DeferredToolCall",
                                         gate_context: :deferred_tool_call_context,
                                         on_proceed: :deferred_tool_call_result
-      declare_action "campaign_start", mutating: true
+      declare_action "campaign_start", mutating: true,
+                                       returns: "the campaign summary and the loop's id, name and branch",
+                                       refuses: [ "name is blank", "the campaign fails validation" ],
+                                       see_also: { "campaign_propose" => "queueing a campaign for review before it is created" }
       # IMP-eb68dc28c0c7 (same declaration defect as campaign_check_rebase): CampaignDriver
       # #status calls campaign.snapshot_progress!, which creates an Ai::ProgressEntry row and
       # updates the campaign — a write on a verb named like a read.
-      declare_action "campaign_status", mutating: true
-      declare_action "campaign_stop", mutating: true
+      declare_action "campaign_status", mutating: true,
+                                        refuses: "no campaign matches campaign_id by id or name"
+      declare_action "campaign_stop", mutating: true,
+                                      returns: "the completed campaign's summary",
+                                      refuses: "no campaign matches campaign_id by id or name",
+                                      see_also: { "campaign_resume" => "reopening a completed or paused campaign" }
       declare_action "campaign_update_proposal", mutating: true
 
       def self.definition
@@ -111,8 +137,8 @@ module Ai
             }
           },
           "campaign_update_proposal" => {
-            description: "Revise a proposed/queued CampaignProposal's fields before it's approved — the " \
-                         "operator-directed review-round counterpart to campaign_propose (which is for " \
+            description: "Revise a proposed or queued CampaignProposal's fields before it is approved. It is " \
+                         "the operator-directed review-round counterpart to campaign_propose (which is for " \
                          "creating/rediscovery-refreshing). Errors if the proposal is already approved, " \
                          "rejected, or spawned. Recomputes the dedupe fingerprint when scope/objective/" \
                          "suggested_workload change. Only the fields you pass are updated.",
@@ -139,8 +165,8 @@ module Ai
             }
           },
           "campaign_list_proposals" => {
-            description: "List the CAMPAIGN PROPOSAL QUEUE (the discovery/delegation control plane) for this " \
-                         "account — the proposed/queued/approved/rejected/spawned campaign proposals awaiting " \
+            description: "List this account's CAMPAIGN PROPOSAL QUEUE, the discovery/delegation control plane. " \
+                         "It holds the proposed/queued/approved/rejected/spawned campaign proposals awaiting " \
                          "review. Use THIS to answer 'what campaigns are proposed / in the discovery queue'.",
             parameters: {
               status: { type: "string", required: false, description: "Filter: proposed|queued|approved|rejected|spawned" },
@@ -164,9 +190,9 @@ module Ai
             }
           },
           "campaign_delegate" => {
-            description: "Route a campaign's dev-loop to a driver — claude_code (a Claude Code session " \
-                         "drains the pull queue) or platform_agent|platform_team|platform_mission (the " \
-                         "platform executor drains it). Reassignment releases the current single-driver " \
+            description: "Route a campaign's dev-loop to a driver. With claude_code a Claude Code session " \
+                         "drains the pull queue; with platform_agent|platform_team|platform_mission the " \
+                         "platform executor drains it. Reassignment releases the current single-driver " \
                          "lease so the new driver can claim it; for claude_code, pass holder to take the " \
                          "lease immediately.",
             parameters: {
@@ -189,7 +215,9 @@ module Ai
           },
           "campaign_status" => {
             description: "Live status: refreshes the ledger and returns the campaign summary, open parked " \
-                         "questions, recent decisions, and its loops.",
+                         "questions, recent decisions, and its loops. It writes: the refresh records a " \
+                         "progress snapshot. The activity feed is capped at 20 entries and decisions at the " \
+                         "10 most recent.",
             parameters: { campaign_id: { type: "string", required: true, description: "Campaign UUID or name" } }
           },
           "campaign_claim" => {
@@ -217,9 +245,9 @@ module Ai
             }
           },
           "campaign_record_increment" => {
-            description: "Record one completed campaign increment: marks a passed RalphTask on the campaign " \
-                         "loop, logs a decision, and snapshots progress (so completion% reflects real work). " \
-                         "Idempotent on task_key.",
+            description: "Record one completed campaign increment on the campaign's loop. It marks a passed " \
+                         "RalphTask on the loop, logs a decision, and snapshots progress (so completion% " \
+                         "reflects real work). Idempotent on task_key.",
             parameters: {
               campaign_id: { type: "string", required: true, description: "Campaign UUID or name" },
               title: { type: "string", required: true, description: "Short increment title" },
@@ -236,8 +264,8 @@ module Ai
           },
           "campaign_check_rebase" => {
             description: "Advise the drivers of any open campaign whose branch is behind the target " \
-                         "branch (default develop) that a rebase is needed — notifies them + flags " \
-                         "likely conflicts. Run after a manual land or on a schedule (auto-lands trigger " \
+                         "branch that a rebase is needed. It notifies them and flags likely conflicts; the " \
+                         "target defaults to develop. Run after a manual land or on a schedule (auto-lands trigger " \
                          "it automatically). Deduped per target tip.",
             parameters: {
               target_branch: { type: "string", required: false, description: "Target branch (default develop)" },
@@ -252,8 +280,8 @@ module Ai
             }
           },
           "campaign_resume" => {
-            description: "Resume a completed or paused campaign — typically one a stop condition auto-completed — " \
-                         "and adjust its stop conditions in the same call. stop_conditions is MERGED into the " \
+            description: "Resume a completed or paused campaign and adjust its stop conditions in the same call. " \
+                         "It is typically one a stop condition auto-completed. stop_conditions is MERGED into the " \
                          "existing ones (e.g. { max_failed: 6 } raises only that cap). Refused, by name, for an " \
                          "archived or already-active campaign, and when a merged stop condition is still met " \
                          "(the campaign would complete again on its next progress snapshot). Each stop condition " \
