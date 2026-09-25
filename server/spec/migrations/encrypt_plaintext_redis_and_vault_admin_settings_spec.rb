@@ -34,6 +34,17 @@ RSpec.describe EncryptPlaintextRedisAndVaultAdminSettings do
   end
 
   describe "#up" do
+    # fc-38 review item #6: a row whose value parses as valid JSON but ISN'T
+    # a Hash (e.g. a bare array or number — not the shape this migration
+    # expects, but not impossible if something else ever wrote one) must be
+    # skipped, not raise and abort the whole migration mid-boot.
+    it "skips (does not raise) a redis_config row whose value is valid JSON but not a Hash" do
+      AdminSetting.create!(key: "redis_config", value: "[1,2,3]")
+
+      expect { migration.up }.not_to raise_error
+      expect(AdminSetting.exists?(key: "redis_config_password_encrypted")).to be(false)
+    end
+
     it "does nothing when neither redis_config nor vault_config rows exist" do
       expect { migration.up }.not_to raise_error
 
@@ -72,6 +83,26 @@ RSpec.describe EncryptPlaintextRedisAndVaultAdminSettings do
       secret_row = AdminSetting.find_by(key: "vault_secret_id_encrypted")
       expect(Security::CredentialEncryptionService.decrypt_value(role_row.value)).to eq(role_id)
       expect(Security::CredentialEncryptionService.decrypt_value(secret_row.value)).to eq(secret_id)
+    end
+
+    # fc-38 review item #3(a): the "already migrated" check
+    # (AdminSetting.exists?(key: encrypted_key)) used to short-circuit BEFORE
+    # ever looking at the blob, so a blob that still carried the plaintext
+    # key — because the encrypted row was created some OTHER way (a fresh
+    # save through the now-hardened write path, run before this migration) —
+    # kept its plaintext forever. The blob must be stripped regardless of
+    # whether the encrypted row already existed; the existing row's value
+    # (and the credential it decrypts to) must not change.
+    it "strips a leftover plaintext password from the blob even when the encrypted row already exists" do
+      already_encrypted = Security::CredentialEncryptionService.encrypt_value("already-encrypted-real-password")
+      AdminSetting.create!(key: "redis_config_password_encrypted", value: already_encrypted)
+      seed_redis_config(password: "leftover-plaintext-in-blob")
+
+      migration.up
+
+      blob = AdminSetting.find_by(key: "redis_config").value
+      expect(JSON.parse(blob)).not_to have_key("password")
+      expect(AdminSetting.find_by(key: "redis_config_password_encrypted").value).to eq(already_encrypted)
     end
 
     it "is a no-op for a redis_config row with no password key" do

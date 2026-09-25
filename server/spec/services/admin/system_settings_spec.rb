@@ -123,6 +123,23 @@ RSpec.describe Admin::SystemSettings do
 
       expect(AdminSetting.find_by(key: "redis_config").value).not_to include("redis-unit-blob-check")
     end
+
+    # fc-38 review item #3(b): AdminSetting.update_redis_config's own
+    # `current_config = redis_config` deep-merges default_redis_config —
+    # which carries ENV["REDIS_PASSWORD"] as its default "password" — into
+    # whatever gets saved. A save that never even mentions "password" (e.g.
+    # changing only "host") would silently bake the current ENV redis
+    # password into the blob as plaintext, defeating the encryption above
+    # for any deployment that sets REDIS_PASSWORD.
+    it "never writes a password key into the blob at all, even when ENV['REDIS_PASSWORD'] is set and the save omits password" do
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("env-redis-password-should-never-be-in-blob")
+
+      described_class.update_redis_config!("host" => "127.0.0.1")
+
+      blob = AdminSetting.find_by(key: "redis_config").value
+      expect(JSON.parse(blob)).not_to have_key("password")
+    end
   end
 
   describe ".vault_config / .update_vault_config! (fc-38 decision #3 — role_id/secret_id are encrypted, never in the blob)" do
@@ -176,6 +193,24 @@ RSpec.describe Admin::SystemSettings do
 
       expect(AdminSetting.find_by(key: "vault_config")&.value.to_s).not_to include("role-blob-check")
       expect(AdminSetting.find_by(key: "vault_config")&.value.to_s).not_to include("secret-blob-check")
+    end
+
+    # fc-38 review item #3(b): update_vault_config! reads raw_vault_blob and
+    # merges "vault_addr" into it — if the blob already carries a stale
+    # vault_role_id/vault_secret_id (a leftover from before this hardening,
+    # or a row the migration hasn't reached yet), a vault_addr-only save
+    # would round-trip that stale value straight back into the blob via the
+    # merge, keeping the plaintext alive indefinitely.
+    it "strips a pre-existing plaintext vault_role_id/vault_secret_id from the blob on a vault_addr-only save" do
+      AdminSetting.create!(
+        key: "vault_config",
+        value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "stale-plaintext-role", "vault_secret_id" => "stale-plaintext-secret" }.to_json
+      )
+
+      described_class.update_vault_config!("vault_addr" => "http://vault.updated.internal:8200")
+
+      blob = JSON.parse(AdminSetting.find_by(key: "vault_config").value)
+      expect(blob).to eq("vault_addr" => "http://vault.updated.internal:8200")
     end
   end
 

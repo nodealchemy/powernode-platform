@@ -41,27 +41,41 @@ class EncryptPlaintextRedisAndVaultAdminSettings < ActiveRecord::Migration[8.0]
 
   private
 
-  # Returns true if this field was migrated (existing plaintext moved to a
-  # new encrypted row), false if there was nothing to do (no blob, no field,
-  # blank value, or already migrated).
+  # Returns true only when a NEW encrypted row was created (existing
+  # plaintext moved into it) — the caller's count is "how many fields did I
+  # just encrypt", not "how many fields did I touch". Regardless of that
+  # return value, a plaintext `field` key present in the blob is ALWAYS
+  # stripped when found (fc-38 review item #3(a)): the old "already migrated"
+  # check short-circuited on `encrypted_key` existing BEFORE ever looking at
+  # the blob, so a blob that still carried the plaintext key — because the
+  # encrypted row was created some OTHER way, e.g. a fresh save through the
+  # now-hardened write path run before this migration — kept its plaintext
+  # forever. An already-existing encrypted row's value is never touched.
   def migrate_field!(blob_key:, field:, encrypted_key:)
-    return false if AdminSetting.exists?(key: encrypted_key)
-
     setting = AdminSetting.find_by(key: blob_key)
     return false unless setting
 
     config = parse_blob(setting.value)
-    value = config[field]
-    return false if value.blank?
+    return false unless config.is_a?(Hash) && config.key?(field)
 
-    AdminSetting.create!(key: encrypted_key, value: Security::CredentialEncryptionService.encrypt_value(value))
+    value = config[field]
+    newly_encrypted = false
+
+    if value.present? && !AdminSetting.exists?(key: encrypted_key)
+      AdminSetting.create!(key: encrypted_key, value: Security::CredentialEncryptionService.encrypt_value(value))
+      newly_encrypted = true
+    end
 
     config.delete(field)
     setting.update!(value: config.to_json)
 
-    true
+    newly_encrypted
   end
 
+  # A row whose value parses as valid JSON but isn't a Hash (fc-38 review
+  # item #6 — not the shape this migration expects, but not impossible) is
+  # skipped, not raised on: the caller's `config.is_a?(Hash) && ...` check
+  # handles that once this returns whatever JSON.parse gave it, Hash or not.
   def parse_blob(raw)
     return raw if raw.is_a?(Hash)
     return {} if raw.blank?

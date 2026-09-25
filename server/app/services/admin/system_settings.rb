@@ -282,6 +282,15 @@ module Admin
           AdminSetting.set("redis_config_password_encrypted", encrypt_secret(password))
         end
         AdminSetting.update_redis_config(config_hash)
+
+        # fc-38 review item #3(b): AdminSetting.update_redis_config's own
+        # `current_config = redis_config` deep-merges default_redis_config —
+        # which defaults "password" to ENV["REDIS_PASSWORD"] — into whatever
+        # gets saved. Without this, a save that never mentions "password" at
+        # all (e.g. changing only "host") would silently bake the current
+        # ENV redis password into the blob as plaintext on every write, for
+        # any deployment that sets REDIS_PASSWORD.
+        strip_secret_keys_from_blob!("redis_config", %w[password])
       end
 
       # vault_addr (non-secret) plus the real decrypted vault_role_id/
@@ -313,6 +322,15 @@ module Admin
         end
         AdminSetting.set("vault_role_id_encrypted", encrypt_secret(updates["vault_role_id"])) if updates.key?("vault_role_id")
         AdminSetting.set("vault_secret_id_encrypted", encrypt_secret(updates["vault_secret_id"])) if updates.key?("vault_secret_id")
+
+        # fc-38 review item #3(b): the vault_addr-only branch above merges
+        # `raw_vault_blob` (whatever the blob currently holds) with the new
+        # vault_addr — a pre-existing plaintext vault_role_id/vault_secret_id
+        # in that blob (a leftover from before this hardening shipped, or a
+        # row the migration hasn't reached) would otherwise round-trip
+        # straight back into the blob on every subsequent vault_addr-only
+        # save, keeping the plaintext alive indefinitely.
+        strip_secret_keys_from_blob!("vault_config", %w[vault_role_id vault_secret_id])
       end
 
       private
@@ -337,6 +355,26 @@ module Admin
 
       def non_scalar?(value)
         value.is_a?(Hash) || value.is_a?(Array)
+      end
+
+      # Removes `secret_fields` from the `blob_key` AdminSetting row's JSON
+      # value, if present — called after every write to redis_config/
+      # vault_config (fc-38 review item #3(b)) so a secret field re-merged in
+      # by another code path (ENV defaults, a stale blob) never survives a
+      # save. A no-op when the row doesn't exist, isn't valid JSON, or
+      # already carries none of `secret_fields`.
+      def strip_secret_keys_from_blob!(blob_key, secret_fields)
+        setting = AdminSetting.find_by(key: blob_key)
+        return unless setting
+
+        blob = JSON.parse(setting.value)
+        return unless blob.is_a?(Hash)
+        return unless secret_fields.any? { |field| blob.key?(field) }
+
+        secret_fields.each { |field| blob.delete(field) }
+        setting.update!(value: blob.to_json)
+      rescue JSON::ParserError
+        nil
       end
 
       def raw_vault_blob
