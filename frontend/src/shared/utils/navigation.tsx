@@ -10,6 +10,7 @@ import {
   Route, MessageSquare, Share2, Lock, Lightbulb
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
+import { CONTROL_PERMISSIONS } from '@/features/ai/control/controlPaths';
 
 export const defaultNavigationConfig: NavigationConfig = {
   items: [
@@ -165,17 +166,13 @@ export const defaultNavigationConfig: NavigationConfig = {
         {
           // AI → Control: approvals, policies, budgets, safety, trust &
           // lineage, goals and compliance audit. Gated on the same list as the
-          // /ai/control/* route (CONTROL_PERMISSIONS, pinned by the nav test).
+          // /ai/control/* route.
           id: 'ai-control',
           name: 'Control',
           href: '/app/ai/control',
           icon: ShieldCheck,
           description: 'Approvals, policies, budgets, safety, trust and compliance audit',
-          permissions: [
-            'ai.agents.read', 'ai.proposals.view', 'ai.escalations.view', 'ai.approval_chains.manage',
-            'ai.intervention_policies.manage', 'ai.governance.read', 'ai.kill_switch.manage',
-            'ai.security.manage', 'ai.feedback.view', 'ai.goals.manage',
-          ],
+          permissions: CONTROL_PERMISSIONS,
           order: 13
         },
         {
@@ -192,7 +189,12 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 13.6
         },
       ],
-      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai.monitoring.read', 'ai_monitoring.read', 'ai.governance.read', 'ai.routing.read', 'ai.approval_chains.manage', 'chat.channels.read'],
+      // Every item's permission opens the section, Control's whole set included.
+      permissions: Array.from(new Set([
+        'ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read',
+        'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai.monitoring.read',
+        'ai_monitoring.read', 'ai.routing.read', 'chat.channels.read', ...CONTROL_PERMISSIONS,
+      ])),
       collapsible: true,
       defaultExpanded: true,
       order: 10

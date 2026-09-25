@@ -126,6 +126,15 @@ describe('defaultNavigationConfig — Control (fc-41)', () => {
       .toEqual([]);
   });
 
+  // The AI section is shown only to holders of one of ITS permissions; a user
+  // whose only Control permission (e.g. ai.goals.manage) is missing there
+  // would never see the section, and so never the Control item inside it.
+  it.each(CONTROL_PERMISSIONS)('shows the AI section, and Control in it, to a holder of only %s', (permission) => {
+    const user = userWith([permission]);
+    expect(hasAccess(user, section('ai')?.permissions)).toBe(true);
+    expect(hasAccess(user, control()?.permissions)).toBe(true);
+  });
+
   it('is gated on exactly the Control route permissions', () => {
     expect([...(control()?.permissions ?? [])].sort()).toEqual([...CONTROL_PERMISSIONS].sort());
     expect(hasAccess(userWith(['ai.governance.read']), control()?.permissions)).toBe(true);
