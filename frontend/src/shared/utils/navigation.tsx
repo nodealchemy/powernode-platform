@@ -7,10 +7,11 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Key,
   Play, Rocket, DollarSign, Code2, Building2, Megaphone,
-  Route, MessageSquare, Share2, Lock, Lightbulb
+  Route, MessageSquare, MessageSquareText, Share2, Lock, Puzzle
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 import { CONTROL_PERMISSIONS } from '@/shared/constants/controlPermissions';
+import { KNOWLEDGE_PERMISSIONS } from '@/shared/constants/knowledgePermissions';
 
 export const defaultNavigationConfig: NavigationConfig = {
   items: [
@@ -99,29 +100,33 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 6
         },
         {
+          id: 'ai-skills',
+          name: 'Skills',
+          href: '/app/ai/skills',
+          icon: Puzzle,
+          description: 'Skill bundles agents use, and the skill graph',
+          permissions: ['ai.skills.read'],
+          order: 6.2
+        },
+        {
+          id: 'ai-prompts',
+          name: 'Prompts',
+          href: '/app/ai/prompts',
+          icon: MessageSquareText,
+          description: 'Prompt templates for agents and workflows',
+          permissions: ['ai.prompt_templates.read'],
+          order: 6.4
+        },
+        {
+          // Contexts, Tiered Memory, RAG, Graph and Learning; each tab is
+          // gated on its own permission, so any one of them opens the item.
           id: 'ai-knowledge',
           name: 'Knowledge',
           href: '/app/ai/knowledge',
           icon: BookOpen,
-          description: 'Manage agent knowledge, prompts, skills, and memory tiers',
-          permissions: ['ai.context.read'],
+          description: 'Contexts, tiered memory, document bases, the knowledge graph and learning',
+          permissions: KNOWLEDGE_PERMISSIONS,
           order: 7
-        },
-        {
-          // fc-26: routed but previously unlinked — reachable only by
-          // typing the URL, and the guard's own basePath declaration was
-          // the sole thing satisfying its own discoverability check.
-          // Named "Learning Insights" rather than "Learning" — Knowledge's
-          // own tab is already "Compound Learning", easy to confuse
-          // otherwise. Gated on the same permission the route (DashboardPage
-          // .tsx) and the backend (LearningController) both enforce.
-          id: 'ai-learning-insights',
-          name: 'Learning Insights',
-          href: '/app/ai/learning',
-          icon: Lightbulb,
-          description: 'Improvement recommendations and trajectory insights from agent execution history',
-          permissions: ['ai.analytics.read'],
-          order: 7.5
         },
         {
           id: 'ai-infrastructure',
@@ -191,7 +196,8 @@ export const defaultNavigationConfig: NavigationConfig = {
       ],
       // Every item's permission opens the section, Control's whole set included.
       permissions: Array.from(new Set([
-        'ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read',
+        'ai.agents.read', 'ai.conversations.read', 'ai.providers.read', 'ai.skills.read', 'ai.prompt_templates.read',
+        ...KNOWLEDGE_PERMISSIONS,
         'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai.monitoring.read',
         'ai_monitoring.read', 'ai.routing.read', 'chat.channels.read', ...CONTROL_PERMISSIONS,
       ])),

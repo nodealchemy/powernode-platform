@@ -1,47 +1,38 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { BookOpen, MessageSquare, Puzzle, Database, Share2, Layers, Lightbulb } from 'lucide-react';
+import { BookOpen, Database, Share2, Layers, Lightbulb } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { usePermissions } from '@/shared/hooks/usePermissions';
+import { KNOWLEDGE_TAB_PERMISSIONS } from '@/shared/constants/knowledgePermissions';
 import { ContextsContent } from '@/pages/app/ai/ContextsPage';
-import { PromptsContent } from '@/features/ai/prompts/pages/PromptsPage';
-import { SkillsContent } from '@/pages/app/ai/SkillsPage';
 import { RagContent } from '@/pages/app/ai/RagPage';
 import { KnowledgeGraphContent } from '@/features/ai/knowledge-graph';
 import { KnowledgeMemoryContent } from '@/features/ai/memory';
-import { CompoundLearningContent } from '@/pages/app/ai/CompoundLearningPage';
+import { LearningContent } from '@/pages/app/ai/LearningPage';
 
+const P = KNOWLEDGE_TAB_PERMISSIONS;
 const tabs = [
-  { id: 'contexts', label: 'Contexts', icon: <BookOpen size={16} />, path: '/contexts' },
-  { id: 'prompts', label: 'Prompts', icon: <MessageSquare size={16} />, path: '/prompts' },
-  { id: 'skills', label: 'Skills', icon: <Puzzle size={16} />, path: '/skills' },
-  { id: 'rag', label: 'RAG', icon: <Database size={16} />, path: '/rag' },
-  { id: 'graph', label: 'Knowledge Graph', icon: <Share2 size={16} />, path: '/graph' },
-  { id: 'memory', label: 'Tiered Memory', icon: <Layers size={16} />, path: '/memory' },
-  { id: 'learning', label: 'Compound Learning', icon: <Lightbulb size={16} />, path: '/learning' },
+  { id: 'contexts', label: 'Contexts', icon: <BookOpen size={16} />, path: '/contexts', permissions: [P.contexts] },
+  { id: 'memory', label: 'Tiered Memory', icon: <Layers size={16} />, path: '/memory', permissions: [P.memory] },
+  { id: 'rag', label: 'RAG', icon: <Database size={16} />, path: '/rag', permissions: [P.rag] },
+  { id: 'graph', label: 'Graph', icon: <Share2 size={16} />, path: '/graph', permissions: [P.graph] },
+  { id: 'learning', label: 'Learning', icon: <Lightbulb size={16} />, path: '/learning', permissions: [P.learning] },
 ];
 
+// fc-43: Knowledge is what agents know. Prompts and Skills are their own AI
+// Agents items (/app/ai/prompts, /app/ai/skills), and Learning Insights
+// folded in under Learning.
 export const KnowledgePage: React.FC = () => {
   const location = useLocation();
+  const { hasPermission } = usePermissions();
   const [actions, setActions] = useState<PageAction[]>([]);
 
-  const getActiveTab = () => {
-    const path = location.pathname;
-    if (path.includes('/knowledge/prompts')) return 'prompts';
-    if (path.includes('/knowledge/skills')) return 'skills';
-    if (path.includes('/knowledge/rag')) return 'rag';
-    if (path.includes('/knowledge/graph')) return 'graph';
-    if (path.includes('/knowledge/memory')) return 'memory';
-    if (path.includes('/knowledge/learning')) return 'learning';
-    return 'contexts';
-  };
-
-  const [activeTab, setActiveTab] = useState(getActiveTab());
-
-  useEffect(() => {
-    const newTab = getActiveTab();
-    if (newTab !== activeTab) setActiveTab(newTab);
-  }, [location.pathname]);
+  const visibleTabs = tabs.filter((t) => t.permissions.every((p) => hasPermission(p)));
+  const segment = location.pathname.replace(/^\/app\/ai\/knowledge/, '').split('/')[1] || '';
+  // The bare path opens the first tab the viewer may read; a tab reached by
+  // URL that the viewer may not read does the same.
+  const activeTab = visibleTabs.find((t) => t.path === `/${segment}`)?.id ?? visibleTabs[0]?.id ?? '';
 
   // Clear actions on tab change so stale actions don't persist
   useEffect(() => {
@@ -56,28 +47,23 @@ export const KnowledgePage: React.FC = () => {
     const base: Array<{ label: string; href?: string }> = [
       { label: 'Dashboard', href: '/app' },
       { label: 'AI', href: '/app/ai' },
+      { label: 'Knowledge', href: '/app/ai/knowledge' },
     ];
     const activeTabInfo = tabs.find(t => t.id === activeTab);
-    if (activeTab === 'contexts') {
-      base.push({ label: 'Knowledge' });
-    } else {
-      base.push({ label: 'Knowledge', href: '/app/ai/knowledge' });
-      if (activeTabInfo) base.push({ label: activeTabInfo.label });
-    }
+    if (activeTabInfo) base.push({ label: activeTabInfo.label });
     return base;
   };
 
   return (
     <PageContainer
       title="Knowledge"
-      description="Manage agent knowledge, prompts, skills, and document bases"
+      description="Contexts, tiered memory, document bases, the knowledge graph and compound learning"
       breadcrumbs={getBreadcrumbs()}
       actions={actions}
     >
       <TabContainer
         tabs={tabs}
         activeTab={activeTab}
-        onTabChange={setActiveTab}
         basePath="/app/ai/knowledge"
         variant="underline"
         className="mb-6"
@@ -85,11 +71,8 @@ export const KnowledgePage: React.FC = () => {
         <TabPanel tabId="contexts" activeTab={activeTab}>
           <ContextsContent onActionsReady={handleActionsReady} />
         </TabPanel>
-        <TabPanel tabId="prompts" activeTab={activeTab}>
-          <PromptsContent onActionsReady={handleActionsReady} />
-        </TabPanel>
-        <TabPanel tabId="skills" activeTab={activeTab}>
-          <SkillsContent onActionsReady={handleActionsReady} />
+        <TabPanel tabId="memory" activeTab={activeTab}>
+          <KnowledgeMemoryContent onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="rag" activeTab={activeTab}>
           <RagContent onActionsReady={handleActionsReady} />
@@ -97,11 +80,8 @@ export const KnowledgePage: React.FC = () => {
         <TabPanel tabId="graph" activeTab={activeTab}>
           <KnowledgeGraphContent onActionsReady={handleActionsReady} />
         </TabPanel>
-        <TabPanel tabId="memory" activeTab={activeTab}>
-          <KnowledgeMemoryContent onActionsReady={handleActionsReady} />
-        </TabPanel>
         <TabPanel tabId="learning" activeTab={activeTab}>
-          <CompoundLearningContent onActionsReady={handleActionsReady} />
+          <LearningContent onActionsReady={handleActionsReady} />
         </TabPanel>
       </TabContainer>
     </PageContainer>

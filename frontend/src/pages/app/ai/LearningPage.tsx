@@ -1,78 +1,54 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Lightbulb, BarChart3 } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { Lightbulb, BarChart3, Layers } from 'lucide-react';
+import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
+import { CompoundLearningContent } from '@/pages/app/ai/CompoundLearningPage';
 import { RecommendationsContent } from '@/features/ai/learning/RecommendationsDashboard';
 import { TrajectoryInsights } from '@/features/ai/learning/TrajectoryInsights';
 
-// fc-26: /app/ai/learning/recommendations and /app/ai/learning/insights were
-// each their own standalone route with no nav entry and no in-app link —
-// reachable only by typing the URL. Folded into one hub page (same
-// basePath+tabs convention as DockerHubPage/SwarmHubPage/AIAgentsPage) so
-// each is a click away from the other, rather than deleting either — both
-// render real data off the `/ai/learning/*` API (gated on ai.analytics.read
-// server-side; DashboardPage.tsx's ProtectedRoute mirrors it).
-//
-// Named "Learning Insights" throughout (nav label, page title, breadcrumb)
-// rather than plain "Learning" — Knowledge's own tab is already named
-// "Compound Learning" and the two are easy to confuse in a sidebar.
-//
-// Recommendations is the default tab, at the bare hub path ('/', not
-// '/recommendations') — a route registered at /ai/learning/recommendations
-// AND one at /ai/learning would have been the same duplicate-mount shape
-// fc-25's guard exists to catch, just one level down.
+// Knowledge › Learning (fc-43): everything the /ai/learning endpoint family
+// serves, in one place — the compounding learnings themselves, and the
+// improvement recommendations and trajectory insights mined from execution
+// history. fc-26 had given the latter two their own "Learning Insights" page;
+// fc-43 folded it in here so Learning has one home. All three read endpoints
+// LearningController gates on ai.analytics.read.
+const LEARNING_BASE_PATH = '/app/ai/knowledge/learning';
+
 const tabs = [
-  { id: 'recommendations', label: 'Recommendations', icon: <Lightbulb size={16} />, path: '/' },
+  { id: 'compound', label: 'Compound Learning', icon: <Layers size={16} />, path: '/' },
+  { id: 'recommendations', label: 'Recommendations', icon: <Lightbulb size={16} />, path: '/recommendations' },
   { id: 'insights', label: 'Insights', icon: <BarChart3 size={16} />, path: '/insights' },
 ];
 
-export const LearningPage: React.FC = () => {
+interface LearningContentProps {
+  onActionsReady?: (actions: PageAction[]) => void;
+}
+
+export const LearningContent: React.FC<LearningContentProps> = ({ onActionsReady }) => {
   const location = useLocation();
+  const segment = location.pathname.startsWith(LEARNING_BASE_PATH)
+    ? location.pathname.slice(LEARNING_BASE_PATH.length).split('/')[1] || ''
+    : '';
+  const activeTab = tabs.find((t) => t.path === `/${segment}`)?.id ?? 'compound';
 
-  const getActiveTab = () => (location.pathname.includes('/learning/insights') ? 'insights' : 'recommendations');
-
-  const [activeTab, setActiveTab] = useState(getActiveTab());
-
+  // Only Compound Learning contributes page actions; don't leave its actions
+  // showing over the other two.
   useEffect(() => {
-    const newTab = getActiveTab();
-    if (newTab !== activeTab) setActiveTab(newTab);
-  }, [location.pathname]);
-
-  const getBreadcrumbs = () => {
-    const base: Array<{ label: string; href?: string }> = [
-      { label: 'Dashboard', href: '/app' },
-      { label: 'AI', href: '/app/ai' },
-    ];
-    const activeTabInfo = tabs.find((t) => t.id === activeTab);
-    base.push({ label: 'Learning Insights' });
-    if (activeTabInfo) base.push({ label: activeTabInfo.label });
-    return base;
-  };
+    if (activeTab !== 'compound') onActionsReady?.([]);
+  }, [activeTab, onActionsReady]);
 
   return (
-    <PageContainer
-      title="Learning Insights"
-      description="Improvement recommendations and trajectory insights from agent execution history"
-      breadcrumbs={getBreadcrumbs()}
-    >
-      <TabContainer
-        tabs={tabs}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        basePath="/app/ai/learning"
-        variant="underline"
-        className="mb-6"
-      >
-        <TabPanel tabId="recommendations" activeTab={activeTab}>
-          <RecommendationsContent />
-        </TabPanel>
-        <TabPanel tabId="insights" activeTab={activeTab}>
-          <TrajectoryInsights />
-        </TabPanel>
-      </TabContainer>
-    </PageContainer>
+    <TabContainer tabs={tabs} activeTab={activeTab} basePath="/app/ai/knowledge/learning" variant="pills" size="sm">
+      <TabPanel tabId="compound" activeTab={activeTab}>
+        <CompoundLearningContent onActionsReady={onActionsReady} />
+      </TabPanel>
+      <TabPanel tabId="recommendations" activeTab={activeTab}>
+        <RecommendationsContent />
+      </TabPanel>
+      <TabPanel tabId="insights" activeTab={activeTab}>
+        <TrajectoryInsights />
+      </TabPanel>
+    </TabContainer>
   );
 };
-
-export default LearningPage;

@@ -300,7 +300,7 @@ export const AgentDetailPage: React.FC = () => {
             <div className="text-xs">
               <button
                 type="button"
-                onClick={() => navigate('/app/ai/knowledge/skills/graph')}
+                onClick={() => navigate('/app/ai/skills/graph')}
                 className="text-theme-info-fg hover:underline"
               >
                 View skills in graph →

@@ -134,3 +134,30 @@ describe('DashboardPage route table (fc-44): the regrouped DevOps URLs resolve t
     expect(swallowed).toEqual([]);
   });
 });
+
+describe('DashboardPage route table (fc-43): the AI Agents / Work / Platform regroup', () => {
+  it.each([
+    // One agent detail page; its Memory tab is at the old memory URLs.
+    ['/ai/agents/some-agent-id/memory', 'AgentDetailPage'],
+    ['/ai/agents/some-agent-id/memory/pools', 'AgentDetailPage'],
+    ['/ai/agents/some-agent-id/history', 'AgentDetailPage'],
+    // Skills and Prompts left the Knowledge hub for their own AI Agents items.
+    ['/ai/skills', 'SkillsPage'],
+    ['/ai/skills/graph', 'SkillsPage'],
+    ['/ai/prompts', 'PromptsPage'],
+    // Learning Insights folded into Knowledge › Learning.
+    ['/ai/knowledge/learning', 'KnowledgePage'],
+    ['/ai/knowledge/learning/recommendations', 'KnowledgePage'],
+    ['/ai/knowledge/learning/insights', 'KnowledgePage'],
+  ])('%s resolves to %s', (pathname, expected) => {
+    expect(resolvedComponent(pathname)).toBe(expected);
+  });
+
+  // Deleted, never redirected: nothing may still answer at the old paths.
+  it.each([
+    '/ai/learning',
+    '/ai/learning/insights',
+  ])('%s no longer resolves to any page', (pathname) => {
+    expect(resolvedComponent(pathname)).toBeUndefined();
+  });
+});

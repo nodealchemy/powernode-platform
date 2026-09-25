@@ -64,10 +64,12 @@ const AIConversationsPage = React.lazy(() => import('./ai/AIConversationsPage').
 const ChatChannelsPage = React.lazy(() => import('@/features/ai/chat-channels/pages/ChatChannelsPage'));
 
 // SelfHealingDashboard absorbed into Observability Overview
-// fc-26: RecommendationsDashboard + TrajectoryInsights were each their own
-// undiscoverable standalone route (no nav entry, no in-app link) — merged
-// into LearningPage as two tabs of one hub (see that file).
-const LearningPage = React.lazy(() => import('@/pages/app/ai/LearningPage'));
+// fc-43: Learning Insights (RecommendationsDashboard + TrajectoryInsights)
+// folded into Knowledge › Learning beside Compound Learning.
+
+// fc-43: Skills and Prompts left the Knowledge hub for their own AI Agents items.
+const SkillsPage = React.lazy(() => import('./ai/SkillsPage').then(m => ({ default: m.SkillsPage })));
+const PromptsPage = React.lazy(() => import('@/features/ai/prompts/pages/PromptsPage').then(m => ({ default: m.PromptsPage })));
 
 // AI Orchestration
 // SandboxDashboardPage → Execution/Containers, CompoundLearningPage → Knowledge/Learning
@@ -165,13 +167,11 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/campaigns" element={<ProtectedRoute requiredPermissions={['ai.campaigns.read']}><CampaignsPageWrapper /></ProtectedRoute>} />
 
         {/* AI Pages - Additional standalone routes */}
-        {/* Learning Insights — gated on ai.analytics.read (defense-in-depth;
-            backend LearningController#validate_permissions also enforces it
-            for recommendations/agent_trends/cache_metrics). No standalone
-            /ai/learning/recommendations route: recommendations is the
-            default tab at the bare hub path. */}
-        <Route path="/ai/learning" element={<ProtectedRoute requiredPermissions={['ai.analytics.read']}><LearningPage /></ProtectedRoute>} />
-        <Route path="/ai/learning/insights" element={<ProtectedRoute requiredPermissions={['ai.analytics.read']}><LearningPage /></ProtectedRoute>} />
+        {/* Skills (SkillsController: ai.skills.read) and Prompts
+            (PromptTemplatesController: ai.prompt_templates.read). Skills keeps
+            its own sub-paths (/graph, …), hence `/*`. */}
+        <Route path="/ai/skills/*" element={<ProtectedRoute requiredPermissions={['ai.skills.read']}><SkillsPage /></ProtectedRoute>} />
+        <Route path="/ai/prompts" element={<ProtectedRoute requiredPermissions={['ai.prompt_templates.read']}><PromptsPage /></ProtectedRoute>} />
         <Route path="/ai/analytics/system" element={<AIAnalyticsPage />} />
         <Route path="/ai/conversations" element={<ProtectedRoute requiredPermissions={['ai.conversations.read']}><AIConversationsPage /></ProtectedRoute>} />
         <Route path="/ai/chat-channels" element={<ProtectedRoute requiredPermissions={['chat.channels.read']}><ChatChannelsPage /></ProtectedRoute>} />

@@ -177,7 +177,8 @@ const INTERP_PLACEHOLDER = '\u0001';
 // so a hub can never satisfy its own discoverability requirement just by
 // declaring its own basePath, and a route registered in App.tsx can never
 // satisfy itself just by being registered. This is exactly how the Learning
-// hub passed the guard while orphaned: LearningPage.tsx's own
+// hub passed the guard while orphaned (fc-26; fc-43 later folded it into
+// Knowledge): LearningPage.tsx's own
 // `basePath="/app/ai/learning"` was the ONLY /app/ai/learning literal
 // anywhere, and extractLinkLiterals could not tell a declaration from a
 // link. Scoped to the `path=` (JSX-attribute, equals-sign) shape only —

@@ -12,7 +12,7 @@ import { AgentMemoryContent } from '../components/AgentMemoryContent';
 // `/app/ai/knowledge/contexts` tab (same ContextsContent); that tab is canonical.
 const tabs = [
   { id: 'tiers', label: 'Tier Explorer', icon: <Database size={16} />, path: '/' },
-  { id: 'agent-memory', label: 'Per Agent', icon: <Brain size={16} />, path: '/agent-memory' },
+  { id: 'per-agent', label: 'Per Agent', icon: <Brain size={16} />, path: '/per-agent' },
 ];
 
 /**
@@ -24,7 +24,7 @@ export const KnowledgeMemoryContent: React.FC<{ onActionsReady?: (actions: PageA
 
   const getActiveTab = () => {
     const path = location.pathname;
-    if (path.includes('/memory/agent-memory') || path.includes('/knowledge/memory/agent-memory')) return 'agent-memory';
+    if (path.includes('/knowledge/memory/per-agent')) return 'per-agent';
     return 'tiers';
   };
 
@@ -51,7 +51,7 @@ export const KnowledgeMemoryContent: React.FC<{ onActionsReady?: (actions: PageA
       <TabPanel tabId="tiers" activeTab={activeTab}>
         <MemoryExplorerContent onActionsReady={handleActionsReady} />
       </TabPanel>
-      <TabPanel tabId="agent-memory" activeTab={activeTab}>
+      <TabPanel tabId="per-agent" activeTab={activeTab}>
         <AgentMemoryContent onActionsReady={handleActionsReady} />
       </TabPanel>
     </TabContainer>

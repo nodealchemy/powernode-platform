@@ -52,7 +52,7 @@ const ALL_CATEGORIES: { value: SkillCategory | ''; label: string }[] = [
 
 type TopTab = 'skills' | 'graph' | 'proposals' | 'optimization';
 
-const SKILLS_BASE_PATH = '/app/ai/knowledge/skills';
+const SKILLS_BASE_PATH = '/app/ai/skills';
 
 const getSubTab = (pathname: string): TopTab => {
   if (pathname.includes('/skills/graph')) return 'graph';

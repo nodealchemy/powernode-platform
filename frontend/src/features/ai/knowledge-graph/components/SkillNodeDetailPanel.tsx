@@ -191,7 +191,7 @@ export const SkillNodeDetailPanel: React.FC<SkillNodeDetailPanelProps> = ({
               if (onViewSkill && node.skill_id) {
                 onViewSkill(node.skill_id);
               } else {
-                navigate('/app/ai/knowledge/skills');
+                navigate('/app/ai/skills');
               }
             }}
           >

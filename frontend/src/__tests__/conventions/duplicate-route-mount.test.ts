@@ -466,14 +466,8 @@ const ALLOWLIST: readonly string[] = [
   // Swarm hubs' per-tab routes that used to be listed here are now nested
   // inside ContainersHubPage's own <Routes>, outside this scan.
   'DashboardPage.tsx: IntegrationsWebhooksPage -> /devops/integrations, /devops/integrations/webhook-endpoints',
-  // AI ▸ Learning's two genuinely different tabs — Recommendations is the
-  // default tab at the bare hub path (not its own /recommendations route,
-  // which would have been the same duplicate-mount shape one level down),
-  // Insights is the other. fc-26 merged the two previously-unlinked
-  // standalone routes /ai/learning/recommendations and /ai/learning/insights
-  // into one hub page (same basePath+tabs shape as Docker/Swarm/Agents
-  // above), rather than deleting either.
-  'DashboardPage.tsx: LearningPage -> /ai/learning, /ai/learning/insights',
+  // (fc-43: the LearningPage entry left with its routes — Learning is a tab
+  // of the /ai/knowledge/* hub now, routed inside KnowledgePage.)
   // AI ▸ Missions' two genuinely different tabs (Missions default, Code
   // Factory) — not an alias pair; fc-25 review item 3 deleted the
   // /ai/missions/all and /ai/missions/completed aliases (both were byte-
