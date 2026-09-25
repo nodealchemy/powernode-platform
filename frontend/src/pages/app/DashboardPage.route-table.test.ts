@@ -77,12 +77,13 @@ describe('DashboardPage route table (fc-46 review): a deep link resolves to the 
   });
 
   // The other fc-46 conversions all live under an ALREADY-wildcarded parent
-  // route at this level (/ai/execution/*, /ai/knowledge/*,
-  // /ai/infrastructure/*, /ai/observability/*) — checked here so a future
-  // narrowing of one of those wildcards is caught the same way.
+  // route at this level (/ai/execution/*, /ai/knowledge/*, /ai/model-router/*,
+  // /ai/mcp/*, /ai/observability/*) — checked here so a future narrowing of
+  // one of those wildcards is caught the same way. (fc-43 split the former
+  // /ai/infrastructure/* hub into Model Router and MCP.)
   it.each([
-    ['/ai/infrastructure/model-router/decisions', 'InfrastructurePage'],
-    ['/ai/infrastructure/mcp-apps/configure', 'InfrastructurePage'],
+    ['/ai/model-router/decisions', 'ModelRouterPage'],
+    ['/ai/mcp/apps/configure', 'McpPage'],
     ['/ai/knowledge/rag/query', 'KnowledgePage'],
     ['/ai/knowledge/graph/hybrid-search', 'KnowledgePage'],
     ['/ai/observability/evaluation/benchmarks', 'ObservabilityPage'],
@@ -149,6 +150,15 @@ describe('DashboardPage route table (fc-43): the AI Agents / Work / Platform reg
     ['/ai/knowledge/learning', 'KnowledgePage'],
     ['/ai/knowledge/learning/recommendations', 'KnowledgePage'],
     ['/ai/knowledge/learning/insights', 'KnowledgePage'],
+    // AI Platform: the Infrastructure hub split into its own items, and its
+    // MCP tabs became the MCP hub.
+    ['/ai/providers', 'ProvidersPage'],
+    ['/ai/data-sources', 'DataSourcesPage'],
+    ['/ai/model-router', 'ModelRouterPage'],
+    ['/ai/mcp', 'McpPage'],
+    ['/ai/mcp/apps', 'McpPage'],
+    ['/ai/mcp/studio', 'McpPage'],
+    ['/ai/mcp/sessions', 'McpPage'],
   ])('%s resolves to %s', (pathname, expected) => {
     expect(resolvedComponent(pathname)).toBe(expected);
   });
@@ -157,6 +167,13 @@ describe('DashboardPage route table (fc-43): the AI Agents / Work / Platform reg
   it.each([
     '/ai/learning',
     '/ai/learning/insights',
+    '/ai/infrastructure',
+    '/ai/infrastructure/data-sources',
+    '/ai/infrastructure/mcp',
+    '/ai/infrastructure/mcp-apps',
+    '/ai/infrastructure/mcp-studio',
+    '/ai/infrastructure/mcp-sessions',
+    '/ai/infrastructure/model-router',
   ])('%s no longer resolves to any page', (pathname) => {
     expect(resolvedComponent(pathname)).toBeUndefined();
   });

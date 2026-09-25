@@ -66,7 +66,7 @@ const PATHS = {
   controlTrust: `${CONTROL_BASE_PATH}/trust-lineage/trust`,
   controlBudgets: `${CONTROL_BASE_PATH}/budgets`,
   missions: '/app/ai/missions',
-  modelRouter: '/app/ai/infrastructure/model-router',
+  modelRouter: '/app/ai/model-router',
   observability: '/app/ai/observability',
   sourceControl: '/app/devops/source-control',
   devops: '/app/devops',

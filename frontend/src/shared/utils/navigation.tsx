@@ -7,11 +7,12 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Key,
   Play, Rocket, DollarSign, Code2, Building2, Megaphone,
-  Route, MessageSquare, MessageSquareText, Share2, Lock, Puzzle
+  Route, MessageSquare, MessageSquareText, Share2, Lock, Puzzle, Database
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 import { CONTROL_PERMISSIONS } from '@/shared/constants/controlPermissions';
 import { KNOWLEDGE_PERMISSIONS } from '@/shared/constants/knowledgePermissions';
+import { MCP_PERMISSIONS } from '@/shared/constants/mcpPermissions';
 
 export const defaultNavigationConfig: NavigationConfig = {
   items: [
@@ -129,22 +130,42 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 7
         },
         {
-          id: 'ai-infrastructure',
-          name: 'Infrastructure',
-          href: '/app/ai/infrastructure',
-          icon: Server,
-          description: 'Configure AI providers, MCP servers, and model routing',
+          id: 'ai-providers',
+          name: 'Providers',
+          href: '/app/ai/providers',
+          icon: Brain,
+          description: 'AI providers and their credentials',
           permissions: ['ai.providers.read'],
           order: 9
         },
         {
           id: 'ai-model-router',
           name: 'Model Router',
-          href: '/app/ai/infrastructure/model-router',
+          href: '/app/ai/model-router',
           icon: Route,
           description: 'Model routing rules and bandit performance',
           permissions: ['ai.routing.read'],
           order: 9.5
+        },
+        {
+          // Servers, Apps, Studio and Sessions — the MCP tabs of the former
+          // "Infrastructure" hub, whose name did not say it held MCP.
+          id: 'ai-mcp',
+          name: 'MCP',
+          href: '/app/ai/mcp',
+          icon: Server,
+          description: 'Model Context Protocol servers, apps, studio and sessions',
+          permissions: MCP_PERMISSIONS,
+          order: 9.6
+        },
+        {
+          id: 'ai-data-sources',
+          name: 'Data Sources',
+          href: '/app/ai/data-sources',
+          icon: Database,
+          description: 'External data sources agents can query',
+          permissions: ['ai.data_sources.read'],
+          order: 9.8
         },
         {
           // fc-42: merged with the former Operations hub (AiOps/alerts/traces) —
@@ -199,7 +220,8 @@ export const defaultNavigationConfig: NavigationConfig = {
         'ai.agents.read', 'ai.conversations.read', 'ai.providers.read', 'ai.skills.read', 'ai.prompt_templates.read',
         ...KNOWLEDGE_PERMISSIONS,
         'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai.monitoring.read',
-        'ai_monitoring.read', 'ai.routing.read', 'chat.channels.read', ...CONTROL_PERMISSIONS,
+        'ai_monitoring.read', 'ai.routing.read', 'chat.channels.read', 'ai.data_sources.read',
+        ...MCP_PERMISSIONS, ...CONTROL_PERMISSIONS,
       ])),
       collapsible: true,
       defaultExpanded: true,

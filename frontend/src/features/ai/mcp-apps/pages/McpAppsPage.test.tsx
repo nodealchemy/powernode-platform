@@ -40,35 +40,35 @@ const renderAt = (path: string) =>
 
 describe('McpAppsPage path tabs', () => {
   it('lands on Gallery by default', () => {
-    renderAt('/app/ai/infrastructure/mcp-apps');
+    renderAt('/app/ai/mcp/apps');
     expect(screen.getByTestId('mcp-app-gallery')).toBeInTheDocument();
     expect(screen.queryByTestId('mcp-app-renderer')).not.toBeInTheDocument();
   });
 
   it('deep-links directly to the Preview tab', () => {
-    renderAt('/app/ai/infrastructure/mcp-apps/preview');
+    renderAt('/app/ai/mcp/apps/preview');
     expect(screen.queryByTestId('mcp-app-gallery')).not.toBeInTheDocument();
     expect(screen.getByText('Select an app from the gallery to preview.')).toBeInTheDocument();
   });
 
   it('updates the URL when selecting an app moves to Preview', async () => {
-    renderAt('/app/ai/infrastructure/mcp-apps');
+    renderAt('/app/ai/mcp/apps');
     fireEvent.click(screen.getByTestId('select-app-btn'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/infrastructure/mcp-apps/preview')
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/mcp/apps/preview')
     );
     expect(screen.getByTestId('mcp-app-renderer')).toBeInTheDocument();
   });
 
   it('updates the URL when the Gallery tab is clicked from Preview', async () => {
-    renderAt('/app/ai/infrastructure/mcp-apps/preview');
+    renderAt('/app/ai/mcp/apps/preview');
     await waitFor(() => expect(screen.getByText('Gallery')).toBeInTheDocument());
 
     fireEvent.click(screen.getByText('Gallery'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/infrastructure/mcp-apps')
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/mcp/apps')
     );
     expect(screen.getByTestId('mcp-app-gallery')).toBeInTheDocument();
   });

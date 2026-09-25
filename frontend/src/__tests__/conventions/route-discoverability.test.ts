@@ -498,7 +498,7 @@ describe('route-discoverability matcher (unit)', () => {
     });
 
     it('requires a route with a static multi-segment path', () => {
-      expect(requiresDiscoverability('/app/ai/infrastructure/providers/new')).toBe(true);
+      expect(requiresDiscoverability('/app/devops/source-control/providers/new')).toBe(true);
     });
   });
 

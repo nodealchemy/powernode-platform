@@ -9,11 +9,11 @@ import { McpAppRenderer } from '../components/McpAppRenderer';
 import { McpAppConfigurator } from '../components/McpAppConfigurator';
 import type { McpApp } from '../types/mcpApps';
 
-const MCP_APPS_BASE_PATH = '/app/ai/infrastructure/mcp-apps';
+const MCP_APPS_BASE_PATH = '/app/ai/mcp/apps';
 
 const getActiveMcpAppsTab = (pathname: string): string => {
-  if (pathname.includes('/mcp-apps/preview')) return 'preview';
-  if (pathname.includes('/mcp-apps/configure')) return 'configure';
+  if (pathname.startsWith(`${MCP_APPS_BASE_PATH}/preview`)) return 'preview';
+  if (pathname.startsWith(`${MCP_APPS_BASE_PATH}/configure`)) return 'configure';
   return 'gallery';
 };
 

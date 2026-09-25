@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/shared/components/layout/DashboardLayout';
 import { featureRegistry } from '@/shared/services/featureRegistry';
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
 import { CONTROL_PERMISSIONS } from '@/features/ai/control/controlPaths';
+import { MCP_PERMISSIONS } from '@/shared/constants/mcpPermissions';
 import { DashboardOverview } from '@/pages/app/dashboard/DashboardOverview';
 
 // Context providers used inline in route elements (must be synchronous)
@@ -44,7 +45,11 @@ const CostPage = React.lazy(() => import('./ai/CostPage').then(m => ({ default: 
 // AI Tabbed wrappers
 const ExecutionPage = React.lazy(() => import('./ai/ExecutionPage').then(m => ({ default: m.ExecutionPage })));
 const KnowledgePage = React.lazy(() => import('./ai/KnowledgePage').then(m => ({ default: m.KnowledgePage })));
-const InfrastructurePage = React.lazy(() => import('./ai/InfrastructurePage').then(m => ({ default: m.InfrastructurePage })));
+// AI Platform (fc-43: the former Infrastructure hub, split into its own items)
+const ProvidersPage = React.lazy(() => import('./ai/ProvidersPage').then(m => ({ default: m.ProvidersPage })));
+const DataSourcesPage = React.lazy(() => import('./ai/DataSourcesPage').then(m => ({ default: m.DataSourcesPage })));
+const ModelRouterPage = React.lazy(() => import('./ai/ModelRouterPage'));
+const McpPage = React.lazy(() => import('./ai/McpPage').then(m => ({ default: m.McpPage })));
 // Credits, FinOps, ROI, and Outcome Billing are consolidated into CostPage
 // (above); Execution Traces is rendered inside ObservabilityPage.
 const DeveloperPortal = React.lazy(() => import('@/features/developer/pages/DeveloperPortal').then(m => ({ default: m.DeveloperPortal })));
@@ -153,7 +158,14 @@ const DashboardPage: React.FC = () => {
         <Route path="/ai/execution/*" element={<ExecutionPage />} />
         <Route path="/ai/knowledge/contexts/:id" element={<ContextDetailPage />} />
         <Route path="/ai/knowledge/*" element={<KnowledgePage />} />
-        <Route path="/ai/infrastructure/*" element={<InfrastructurePage />} />
+        {/* AI → Platform, each gated like its endpoints (ProvidersController
+            ai.providers.read, DataSourcesController ai.data_sources.read,
+            ModelRouterController ai.routing.read; MCP opens on any of its
+            tabs' permissions). */}
+        <Route path="/ai/providers" element={<ProtectedRoute requiredPermissions={['ai.providers.read']}><ProvidersPage /></ProtectedRoute>} />
+        <Route path="/ai/data-sources" element={<ProtectedRoute requiredPermissions={['ai.data_sources.read']}><DataSourcesPage /></ProtectedRoute>} />
+        <Route path="/ai/model-router/*" element={<ProtectedRoute requiredPermissions={['ai.routing.read']}><ModelRouterPage /></ProtectedRoute>} />
+        <Route path="/ai/mcp/*" element={<ProtectedRoute requiredPermissions={MCP_PERMISSIONS}><McpPage /></ProtectedRoute>} />
         {/* fc-42: Observability = monitoring + AIOps + circuit breakers + alerts
             + conversations + traces + evaluation (merged); Cost = billing/finops/roi. */}
         <Route path="/ai/observability/*" element={<ObservabilityPage />} />

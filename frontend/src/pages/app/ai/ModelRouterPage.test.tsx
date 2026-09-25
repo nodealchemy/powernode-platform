@@ -47,25 +47,25 @@ describe('ModelRouterContent path tabs', () => {
   });
 
   it('lands on Rules by default', async () => {
-    renderAt('/app/ai/infrastructure/model-router');
+    renderAt('/app/ai/model-router');
     await waitFor(() => expect(screen.getByText('Rules')).toBeInTheDocument());
   });
 
   it('deep-links directly to the Decisions tab', async () => {
-    renderAt('/app/ai/infrastructure/model-router/decisions');
+    renderAt('/app/ai/model-router/decisions');
     await waitFor(() => expect(screen.getByText('Decisions')).toBeInTheDocument());
     expect(screen.getByText('Decisions').closest('button')).toHaveClass('border-theme-interactive-primary');
   });
 
   it('deep-links directly to the Escalations tab (permission granted)', async () => {
-    renderAt('/app/ai/infrastructure/model-router/escalations');
+    renderAt('/app/ai/model-router/escalations');
     await waitFor(() => expect(screen.getByText('Escalations')).toBeInTheDocument());
     expect(screen.getByText('Escalations').closest('button')).toHaveClass('border-theme-interactive-primary');
   });
 
   it('falls back to Rules on an escalations deep link without ai.routing.read, not a blank area', async () => {
     mockPermissions = [];
-    renderAt('/app/ai/infrastructure/model-router/escalations');
+    renderAt('/app/ai/model-router/escalations');
 
     await waitFor(() => expect(screen.getByText('Rules')).toBeInTheDocument());
     expect(screen.getByText('Rules').closest('button')).toHaveClass('border-theme-interactive-primary');
@@ -74,13 +74,13 @@ describe('ModelRouterContent path tabs', () => {
   });
 
   it('updates the URL when a tab is clicked', async () => {
-    renderAt('/app/ai/infrastructure/model-router');
+    renderAt('/app/ai/model-router');
     await waitFor(() => expect(screen.getByText('Optimization')).toBeInTheDocument());
 
     fireEvent.click(screen.getByText('Optimization'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/infrastructure/model-router/optimization')
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/model-router/optimization')
     );
   });
 });

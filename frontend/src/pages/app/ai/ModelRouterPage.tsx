@@ -51,7 +51,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'rules' | 'decisions' | 'analytics' | 'optimization' | 'escalations';
 
-const MODEL_ROUTER_BASE_PATH = '/app/ai/infrastructure/model-router';
+const MODEL_ROUTER_BASE_PATH = '/app/ai/model-router';
 
 // Escalations requires ai.routing.read: a deep link to it without that
 // permission must fall back to Rules, not resolve to a tab that's neither
