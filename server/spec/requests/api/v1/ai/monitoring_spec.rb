@@ -9,6 +9,38 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
   let(:headers) { auth_headers_for(user) }
   let(:limited_headers) { auth_headers_for(limited_user) }
 
+  # fc-42 review item 0: the specs above use the `permissions:` factory trait,
+  # which mints an AD-HOC role holding exactly those literal strings — it never
+  # exercises whether a REAL, catalog-synced role (Role.sync_from_config!,
+  # from Permissions.permissions_for_role) actually grants ai.monitoring.read/
+  # .manage. That question was live: ai.monitoring.read/.manage are generated
+  # by the `resource :monitoring, actions: %i[read manage]` DSL call in
+  # permissions.rb (namespace "ai"), not a literal hash entry — the kind of
+  # permission a plain grep for the string misses (fc-40 precedent). Verified
+  # via Permissions.permission_exists?/permissions_for_role before writing
+  # this: both exist, granted to exactly admin/ai_specialist/manager/owner —
+  # the same roster that holds ai.analytics.read — so no permissions.rb change
+  # was needed. This spec proves it end-to-end through a REAL "manager" role
+  # rather than re-deriving the same conclusion by reading the DSL.
+  describe 'a non-admin ROLE (not an ad-hoc permission list) reaching Observability endpoints' do
+    let(:manager) { create(:user, :manager, account: account) }
+    let(:manager_headers) { auth_headers_for(manager) }
+
+    it 'GET /ai/monitoring/dashboard returns 200 for a manager, the same roster ai.analytics.read grants to' do
+      allow_any_instance_of(Monitoring::UnifiedService).to receive(:get_dashboard).and_return({})
+
+      get '/api/v1/ai/monitoring/dashboard', headers: manager_headers, as: :json
+
+      expect_success_response
+    end
+
+    it 'POST /ai/monitoring/circuit_breakers/:service_name/reset (ai.monitoring.manage) returns 200 for a manager' do
+      post '/api/v1/ai/monitoring/circuit_breakers/openai/reset', headers: manager_headers, as: :json
+
+      expect_success_response
+    end
+  end
+
   describe 'GET /api/v1/ai/monitoring/dashboard' do
     context 'with proper permissions' do
       it 'returns dashboard data' do
