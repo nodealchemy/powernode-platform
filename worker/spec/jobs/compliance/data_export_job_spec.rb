@@ -22,7 +22,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       'account_id' => account_id,
       'status' => 'pending',
       'format' => 'json',
-      'include_data_types' => %w[profile activity payments],
+      'include_data_types' => %w[profile files payments],
       'exclude_data_types' => []
     }
   end
@@ -61,13 +61,15 @@ RSpec.describe Compliance::DataExportJob, type: :job do
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
           .and_return('success' => true, 'data' => export_request_data)
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/users/#{user_id}/export/profile")
+          .with("/api/v1/internal/users/#{user_id}/export/profile", {})
           .and_return('success' => true, 'data' => { 'name' => 'Test User', 'email' => 'test@example.com' })
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/users/#{user_id}/export/activity")
-          .and_return('success' => true, 'data' => [{ 'action' => 'login', 'timestamp' => '2024-01-01' }])
+          .with("/api/v1/internal/accounts/#{account_id}/export/files", { user_id: user_id })
+          .and_return('success' => true,
+                      'data' => [{ 'id' => 'f1', 'filename' => 'a.pdf' }, { 'id' => 'f2', 'filename' => 'b.pdf' }],
+                      'meta' => { 'count' => 2 })
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/accounts/#{account_id}/export/payments")
+          .with("/api/v1/internal/accounts/#{account_id}/export/payments", {})
           .and_return('success' => true, 'data' => [{ 'amount' => 99.99, 'date' => '2024-01-01' }])
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(api_client).to receive(:post).and_return(success: true)
@@ -92,11 +94,11 @@ RSpec.describe Compliance::DataExportJob, type: :job do
 
       it 'gathers data for requested data types' do
         expect(api_client).to receive(:get)
-          .with("/api/v1/internal/users/#{user_id}/export/profile")
+          .with("/api/v1/internal/users/#{user_id}/export/profile", {})
         expect(api_client).to receive(:get)
-          .with("/api/v1/internal/users/#{user_id}/export/activity")
+          .with("/api/v1/internal/accounts/#{account_id}/export/files", { user_id: user_id })
         expect(api_client).to receive(:get)
-          .with("/api/v1/internal/accounts/#{account_id}/export/payments")
+          .with("/api/v1/internal/accounts/#{account_id}/export/payments", {})
 
         job.execute(export_request_id)
       end
@@ -121,7 +123,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         # nil and the job silently produced an empty GDPR export.
         expect(job).to receive(:write_export_file) do |_export_request, export_data|
           expect(export_data['profile']).to eq('name' => 'Test User', 'email' => 'test@example.com')
-          expect(export_data['activity']).to eq([{ 'action' => 'login', 'timestamp' => '2024-01-01' }])
+          expect(export_data['files'].map { |f| f['id'] }).to eq(%w[f1 f2])
           expect(export_data['payments']).to eq([{ 'amount' => 99.99, 'date' => '2024-01-01' }])
           ['/tmp/test_export.json', 512]
         end
@@ -138,6 +140,73 @@ RSpec.describe Compliance::DataExportJob, type: :job do
               type: 'data_export_ready'
             )
           )
+
+        job.execute(export_request_id)
+      end
+      # IMP-8aab38f3ad62 — the archive and the log must say what the export
+      # actually holds: per-type counts, and a named warning for anything
+      # absent, instead of "completed successfully" either way.
+      it 'records a manifest with the real per-type counts in the archive' do
+        expect(job).to receive(:write_export_file) do |_export_request, export_data|
+          manifest = export_data[:export_info][:manifest]
+          expect(manifest['files']).to eq(status: 'exported', count: 2)
+          expect(manifest['payments']).to eq(status: 'exported', count: 1)
+          expect(manifest['profile']).to eq(status: 'exported', count: 1)
+          ['/tmp/test_export.json', 512]
+        end
+
+        job.execute(export_request_id)
+      end
+
+      it 'logs the per-type counts on completion' do
+        expect(job).to receive(:log_info).with(/completed: profile=1 files=2 payments=1/)
+        expect(job).not_to receive(:log_warn)
+
+        job.execute(export_request_id)
+      end
+    end
+
+    context 'when a section is absent from the archive' do
+      let(:mixed_request) do
+        export_request_data.merge('include_data_types' => %w[files invoices activity])
+      end
+
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_export_requests/#{export_request_id}")
+          .and_return('success' => true, 'data' => mixed_request)
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/accounts/#{account_id}/export/files", { user_id: user_id })
+          .and_return('success' => true, 'data' => [{ 'id' => 'f1' }], 'meta' => { 'count' => 1 })
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/accounts/#{account_id}/export/invoices", {})
+          .and_return('success' => true, 'data' => [],
+                      'meta' => { 'available' => false, 'reason' => 'no_export_provider_installed' })
+        allow(api_client).to receive(:patch).and_return(success: true)
+        allow(api_client).to receive(:post).and_return(success: true)
+      end
+
+      it 'marks an unavailable provider and a withdrawn type in the manifest, not as empty exports' do
+        expect(job).to receive(:write_export_file) do |_export_request, export_data|
+          manifest = export_data[:export_info][:manifest]
+          expect(manifest['files']).to eq(status: 'exported', count: 1)
+          expect(manifest['invoices']).to eq(status: 'unavailable', reason: 'no_export_provider_installed')
+          expect(manifest['activity']).to eq(status: 'not_exportable')
+          ['/tmp/test_export.json', 512]
+        end
+
+        job.execute(export_request_id)
+      end
+
+      it 'never requests the withdrawn activity endpoint' do
+        expect(api_client).not_to receive(:get).with("/api/v1/internal/users/#{user_id}/export/activity", anything)
+        expect(api_client).not_to receive(:get).with("/api/v1/internal/users/#{user_id}/export/activity")
+
+        job.execute(export_request_id)
+      end
+
+      it 'names every absent section in a warning' do
+        expect(job).to receive(:log_warn).with(/omits invoices \(unavailable\), activity \(not_exportable\)/)
 
         job.execute(export_request_id)
       end
@@ -186,7 +255,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(api_client).to receive(:post).and_return(success: true)
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/users/#{user_id}/export/profile")
+          .with("/api/v1/internal/users/#{user_id}/export/profile", {})
           .and_raise(StandardError, 'API error')
       end
 
@@ -228,7 +297,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
           .and_return('success' => true, 'data' => csv_request)
         allow(api_client).to receive(:get)
-          .with("/api/v1/internal/users/#{user_id}/export/profile")
+          .with("/api/v1/internal/users/#{user_id}/export/profile", {})
           .and_return('success' => true, 'data' => { 'name' => 'Test', 'email' => 'test@example.com' })
         allow(api_client).to receive(:patch).and_return(success: true)
         allow(api_client).to receive(:post).and_return(success: true)
@@ -256,8 +325,8 @@ RSpec.describe Compliance::DataExportJob, type: :job do
     context 'with excluded data types' do
       let(:request_with_exclusions) do
         export_request_data.merge(
-          'include_data_types' => %w[profile activity payments],
-          'exclude_data_types' => ['activity']
+          'include_data_types' => %w[profile files payments],
+          'exclude_data_types' => ['payments']
         )
       end
 
@@ -279,10 +348,10 @@ RSpec.describe Compliance::DataExportJob, type: :job do
 
       it 'excludes specified data types' do
         expect(api_client).to receive(:get)
-          .with("/api/v1/internal/users/#{user_id}/export/profile")
+          .with("/api/v1/internal/users/#{user_id}/export/profile", {})
           .and_return('success' => true, 'data' => { 'name' => 'Test User' })
         expect(api_client).not_to receive(:get)
-          .with("/api/v1/internal/users/#{user_id}/export/activity")
+          .with("/api/v1/internal/accounts/#{account_id}/export/payments", {})
 
         job.execute(export_request_id)
       end

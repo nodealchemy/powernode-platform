@@ -53,7 +53,7 @@ module Compliance
           }
         )
 
-        log_info "Data export #{export_request_id} completed successfully"
+        log_export_outcome(export_request_id, export_data.dig(:export_info, :manifest) || {})
 
         # Send notification to user
         notify_user_export_ready(export_request, download_token)
@@ -81,46 +81,83 @@ module Compliance
       data_types = export_request['include_data_types'] || []
       excluded = export_request['exclude_data_types'] || []
 
+      manifest = {}
       export_data = {
         export_info: {
           generated_at: Time.current.iso8601,
           user_id: user_id,
           account_id: account_id,
-          format: export_request['format']
+          format: export_request['format'],
+          # Per data type: what the archive actually holds. `exported` with a
+          # count, or why the section is absent — `unavailable` (no provider
+          # installed), `not_exportable` (no export path exists), `failed`.
+          # An empty section is never left to read as "the subject has none".
+          manifest: manifest
         }
       }
 
       (data_types - excluded).each do |data_type|
-        export_data[data_type] = fetch_data_type(data_type, user_id, account_id)
+        section, entry = fetch_data_type(data_type, user_id, account_id)
+        export_data[data_type] = section
+        manifest[data_type] = entry
       end
 
       export_data
     end
 
+    # Returns [section, manifest_entry].
     def fetch_data_type(data_type, user_id, account_id)
-      case data_type
-      when 'profile'
-        api_client.get("/api/v1/internal/users/#{user_id}/export/profile")['data']
-      when 'activity'
-        api_client.get("/api/v1/internal/users/#{user_id}/export/activity")['data']
-      when 'audit_logs'
-        api_client.get("/api/v1/internal/users/#{user_id}/export/audit_logs")['data']
-      when 'payments'
-        api_client.get("/api/v1/internal/accounts/#{account_id}/export/payments")['data']
-      when 'invoices'
-        api_client.get("/api/v1/internal/accounts/#{account_id}/export/invoices")['data']
-      when 'subscriptions'
-        api_client.get("/api/v1/internal/accounts/#{account_id}/export/subscriptions")['data']
-      when 'files'
-        api_client.get("/api/v1/internal/accounts/#{account_id}/export/files")['data']
-      when 'consents'
-        api_client.get("/api/v1/internal/users/#{user_id}/export/consents")['data']
+      path, params = export_path(data_type, user_id, account_id)
+      unless path
+        return [{ note: "Data type '#{data_type}' is not exportable" },
+                { status: 'not_exportable' }]
+      end
+
+      response = api_client.get(path, params)
+      data = response['data']
+      meta = response['meta'] || {}
+
+      if response['success'] == false || data.nil?
+        log_warn "Failed to fetch #{data_type}: backend answered without data"
+        [{ error: "Failed to fetch #{data_type}" }, { status: 'failed' }]
+      elsif meta['available'] == false
+        [data, { status: 'unavailable', reason: meta['reason'] }]
       else
-        { note: "Data type '#{data_type}' not supported" }
+        [data, { status: 'exported', count: data.is_a?(Array) ? data.size : 1 }]
       end
     rescue => e
       log_warn "Failed to fetch #{data_type}: #{e.message}"
-      { error: "Failed to fetch #{data_type}" }
+      [{ error: "Failed to fetch #{data_type}" }, { status: 'failed' }]
+    end
+
+    def export_path(data_type, user_id, account_id)
+      case data_type
+      when 'profile' then ["/api/v1/internal/users/#{user_id}/export/profile", {}]
+      when 'audit_logs' then ["/api/v1/internal/users/#{user_id}/export/audit_logs", {}]
+      when 'consents' then ["/api/v1/internal/users/#{user_id}/export/consents", {}]
+      when 'payments' then ["/api/v1/internal/accounts/#{account_id}/export/payments", {}]
+      when 'invoices' then ["/api/v1/internal/accounts/#{account_id}/export/invoices", {}]
+      when 'subscriptions' then ["/api/v1/internal/accounts/#{account_id}/export/subscriptions", {}]
+      # The subject's own files in their account (account_id + uploaded_by_id).
+      when 'files' then ["/api/v1/internal/accounts/#{account_id}/export/files", { user_id: user_id }]
+      end
+    end
+
+    # The completion line carries the per-type counts, and anything the
+    # archive does NOT hold is warned about by name — "completed successfully"
+    # alone read the same whether the archive held the subject's data or
+    # nothing at all.
+    def log_export_outcome(export_request_id, manifest)
+      summary = manifest.map do |type, entry|
+        entry[:status] == 'exported' ? "#{type}=#{entry[:count]}" : "#{type}=#{entry[:status]}"
+      end
+      log_info "Data export #{export_request_id} completed: #{summary.join(' ')}"
+
+      missing = manifest.reject { |_type, entry| entry[:status] == 'exported' }
+      return if missing.empty?
+
+      log_warn "Data export #{export_request_id} archive omits " \
+               "#{missing.map { |type, entry| "#{type} (#{entry[:status]})" }.join(', ')}"
     end
 
     def write_export_file(export_request, data)
