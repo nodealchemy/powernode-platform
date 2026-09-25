@@ -21,15 +21,15 @@ RSpec.describe 'Job Queue Management', type: :integration do
       with_sidekiq_testing_mode(:fake) do
         # Enqueue different types of jobs
         Notifications::EmailDeliveryJob.perform_async(sample_email_data)
-        Services::HealthCheckJob.perform_async('production')
+        TestWorkerJob.perform_async('production')
         
         # In fake mode, check the job classes directly
         expect(Notifications::EmailDeliveryJob.jobs.size).to eq(1)
-        expect(Services::HealthCheckJob.jobs.size).to eq(1)
+        expect(TestWorkerJob.jobs.size).to eq(1)
         
         # Verify queue configuration via job options
         expect(Notifications::EmailDeliveryJob.sidekiq_options['queue'].to_s).to eq('email')
-        expect(Services::HealthCheckJob.sidekiq_options['queue'].to_s).to eq('services')
+        expect(TestWorkerJob.sidekiq_options['queue'].to_s).to eq('services')
       end
     end
 
@@ -203,12 +203,12 @@ RSpec.describe 'Job Queue Management', type: :integration do
 
     it 'handles job scheduling with delays' do
       with_sidekiq_testing_mode(:fake) do
-        Services::HealthCheckJob.perform_in(30.minutes, 'production')
+        TestWorkerJob.perform_in(30.minutes, 'production')
         
         # In fake mode, check scheduled job via job class
-        expect(Services::HealthCheckJob.jobs.size).to eq(1)
+        expect(TestWorkerJob.jobs.size).to eq(1)
         
-        job = Services::HealthCheckJob.jobs.first
+        job = TestWorkerJob.jobs.first
         expect(job['at']).to be_within(1).of(30.minutes.from_now.to_f)
       end
     end
@@ -239,18 +239,18 @@ RSpec.describe 'Job Queue Management', type: :integration do
       with_sidekiq_testing_mode(:fake) do
         # Set up various jobs for monitoring tests
         3.times { |i| Notifications::EmailDeliveryJob.perform_async(sample_email_data.merge('to' => "test#{i}@example.com")) }
-        2.times { Services::HealthCheckJob.perform_async('production') }
-        1.times { Services::HealthCheckJob.perform_in(1.hour, 'staging') }
+        2.times { TestWorkerJob.perform_async('production') }
+        1.times { TestWorkerJob.perform_in(1.hour, 'staging') }
       end
     end
 
     it 'provides queue statistics and visibility' do
       # In fake mode, check job counts directly from job classes
       expect(Notifications::EmailDeliveryJob.jobs.size).to eq(3)
-      expect(Services::HealthCheckJob.jobs.size).to eq(3) # 2 immediate + 1 scheduled
+      expect(TestWorkerJob.jobs.size).to eq(3) # 2 immediate + 1 scheduled
       
       # Verify scheduled jobs exist - in fake mode, scheduled jobs are included in .jobs
-      scheduled_jobs = Services::HealthCheckJob.jobs.select { |job| job['at'].present? }
+      scheduled_jobs = TestWorkerJob.jobs.select { |job| job['at'].present? }
       expect(scheduled_jobs.size).to eq(1)
     end
 
@@ -316,7 +316,7 @@ RSpec.describe 'Job Queue Management', type: :integration do
         # Mix different job types and queues
         job_data = [
           [Notifications::EmailDeliveryJob, 'email', sample_email_data],
-          [Services::HealthCheckJob, 'services', ['production']]
+          [TestWorkerJob, 'services', ['production']]
         ]
         
         # Enqueue jobs in batches
@@ -329,7 +329,7 @@ RSpec.describe 'Job Queue Management', type: :integration do
         
         # Check queue distribution
         email_queue_size = Notifications::EmailDeliveryJob.jobs.size
-        services_queue_size = Services::HealthCheckJob.jobs.size
+        services_queue_size = TestWorkerJob.jobs.size
         
         # Verify queues maintained their organization - in fake mode, count jobs directly
         total_jobs = email_queue_size + services_queue_size
@@ -399,7 +399,7 @@ RSpec.describe 'Job Queue Management', type: :integration do
     it 'handles queue-specific configurations' do
       # Different job types can have different queue configurations
       email_options = Notifications::EmailDeliveryJob.sidekiq_options
-      services_options = Services::HealthCheckJob.sidekiq_options
+      services_options = TestWorkerJob.sidekiq_options
       
       expect(email_options['queue'].to_s).to eq('email')
       expect(services_options['queue'].to_s).to eq('services')

@@ -170,55 +170,6 @@ RSpec.describe 'Job Performance and Reliability', type: :performance do
         expect(performance[:result][:success]).to be true
       end
     end
-
-    describe 'Health check job performance' do
-      let(:api_client_double) { double('BackendApiClient') }
-      let(:health_response) do
-        {
-          'services' => (1..10).each_with_object({}) do |i, hash|
-            hash["service_#{i}"] = { 'status' => 'healthy', 'response_time' => rand(10..50) }
-          end
-        }
-      end
-
-      before do
-        allow_any_instance_of(Services::HealthCheckJob).to receive(:api_client).and_return(api_client_double)
-        allow(api_client_double).to receive(:post).and_return(health_response)
-        allow(api_client_double).to receive(:patch).and_return({ 'success' => true })
-      end
-
-      it 'completes health checks within time limits' do
-        performance = expect_job_performance_within(
-          Services::HealthCheckJob,
-          2.0, # 2 seconds for health check
-          'production',
-          nil,
-          job_id: 'perf-test-123'
-        )
-        
-        expect(performance[:result][:status]).to eq('completed')
-        expect(performance[:result][:total_count]).to eq(10)
-      end
-
-      it 'scales with number of services checked' do
-        # Test with varying numbers of services
-        [5, 10, 25].each do |service_count|
-          services = (1..service_count).each_with_object({}) do |i, hash|
-            hash["service_#{i}"] = { 'status' => 'healthy' }
-          end
-          
-          allow(api_client_double).to receive(:post).and_return({ 'services' => services })
-          
-          performance = measure_job_performance(
-            Services::HealthCheckJob,
-            'production'
-          )
-          
-          # Performance should scale reasonably with service count
-          expect(performance[:duration]).to be < (service_count * 0.01) # Max 10ms per service
-        end
-      end
-    end
   end
 
   describe 'Memory Usage and Resource Management' do

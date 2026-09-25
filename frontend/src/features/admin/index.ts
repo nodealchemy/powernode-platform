@@ -14,7 +14,6 @@ export { rolesApi } from './roles/services/rolesApi';
 
 // Services
 export { adminSettingsApi } from './services/adminSettingsApi';
-export { servicesApi } from './services/servicesApi';
 
 // Settings
 export { siteSettingsApi } from './settings/services/siteSettingsApi';

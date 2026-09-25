@@ -130,19 +130,6 @@ module ApiTestHelpers
     })
   end
 
-  def stub_service_health_check
-    stub_backend_api_success(:post, '/api/v1/internal/services/health_check', {
-      success: true,
-      data: {
-        services: {
-          'redis' => { status: 'healthy', response_time: 5 },
-          'database' => { status: 'healthy', response_time: 12 },
-          'email_service' => { status: 'healthy', response_time: 8 }
-        }
-      }
-    })
-  end
-
   def stub_email_delivery_success
     stub_backend_api_success(:post, '/api/v1/internal/notifications/email', {
       success: true,

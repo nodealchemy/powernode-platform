@@ -12,14 +12,16 @@ describes what it is, how it actually works, how to use it, its current health, 
 to (a) let it fully replace an external proxy and (b) resolve where it should live
 (core vs the `system` extension).
 
-> **Terminology trap.** "Reverse proxy" means **two unrelated things** in this codebase:
-> 1. **The bundled Traefik** (this doc) — the live process that serves traffic. Config is
->    generated from Rails by `Acme::TraefikConfigWriter` (in the `system` extension).
-> 2. **A legacy "Services Configuration" feature** in core (`ServicesController` +
->    `url_mappings` + the `ServiceConfiguration` concern, plus the older
->    `internal/` and `admin/` `reverse_proxy_controller`s) that only **generates
->    nginx/apache/traefik config *text* for an EXTERNAL proxy** and writes nothing to the
->    running Traefik. Do not confuse the two.
+> **Terminology trap (historical).** "Reverse proxy" used to mean **two unrelated things** in
+> this codebase: this doc's bundled Traefik, and a separate, dead "Services Configuration"
+> feature (`ServicesController` + `url_mappings` + the `ServiceConfiguration` concern's
+> `reverse_proxy_config`/`service_discovery_config`/`service_templates`, plus
+> `internal/reverse_proxy_controller`) that only generated nginx/apache/traefik config *text*
+> for an EXTERNAL proxy and wrote nothing to the running Traefik. That whole feature — routes,
+> controllers, service object, AdminSetting keys, and its unrouted frontend admin tab — was
+> confirmed to have no live caller (its one reachable action, `health_check`, always read a
+> config key nothing ever wrote) and was deleted (campaign fc-38, 2026-09-25). The name
+> "reverse proxy" in this repo now refers only to the bundled Traefik below.
 
 ---
 
@@ -127,9 +129,12 @@ controllers re-verify via core `Security::MtlsTrust`. This is fleet/federation m
 | `System::AcmeCertificate` model + migration | **system ext** | cert source for routers |
 | `Api::V1::System::IngressRoutesController` (read-only) | **system ext** | derived projection of routers |
 | `reverse_proxy_compose_executor` (MCP skill) | **system ext** | thin per-account regen |
-| `internal/reverse_proxy_controller` | **core** | LEGACY config-text generator; worker-only; not the running proxy |
-| `ServicesController` + `url_mappings` + `ServiceConfiguration` concern | **core** | LIVE legacy: generates external-proxy config text; `AdminSetting`-backed, single-tenant |
 | `manage-proxy-hosts.sh` (+ its `AdminSetting` methods) | **core** | trusted-host allowlist only |
+
+`internal/reverse_proxy_controller` and `ServicesController` + `url_mappings` + the
+`ServiceConfiguration` concern's `reverse_proxy_config`/`service_discovery_config`/
+`service_templates` methods are **removed** (fc-38, 2026-09-25) — see the terminology-trap note
+above.
 
 **Dependency direction:** core application code never references the `Acme::`/`System::` proxy stack
 (clean). The *only* core→extension coupling is in the launcher **script** (binary path + the

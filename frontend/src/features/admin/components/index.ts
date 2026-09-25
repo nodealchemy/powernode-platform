@@ -8,7 +8,6 @@ export { PerformanceMetricsCard } from './PerformanceMetricsCard';
 
 // Settings Components
 export { EmailConfiguration } from './settings/EmailConfiguration';
-export { PlatformConfiguration } from './settings/PlatformConfiguration';
 export * from './settings/SettingsComponents';
 
 // User Management Components

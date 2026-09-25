@@ -198,16 +198,6 @@ Rails.application.routes.draw do
           end
         end
 
-        # Reverse proxy internal operations
-        scope :reverse_proxy do
-          post :validate, to: "reverse_proxy#validate_config"
-          post :test_connectivity, to: "reverse_proxy#test_connectivity"
-          post :generate_config, to: "reverse_proxy#generate_config"
-          post :service_discovery, to: "reverse_proxy#service_discovery"
-          post :health_check, to: "reverse_proxy#health_check"
-          post :validate_services, to: "reverse_proxy#validate_services"
-        end
-
         # GDPR Compliance endpoints for worker service
         resources :data_deletion_requests, only: [ :show, :create, :update ]
         resources :data_export_requests, only: [ :show, :create, :update ]
@@ -1014,34 +1004,6 @@ Rails.application.routes.draw do
         get :vault, on: :member, action: :vault_config
         put :vault, on: :member, action: :update_vault_config
         post "vault/test", on: :member, action: :test_vault_connection
-      end
-
-      # Services Configuration (system-level)
-      resource :services, only: [ :show, :update ], controller: "services" do
-        post :test_configuration, on: :member
-        post :generate_config, on: :member
-        get :health_check, on: :member
-        get :status, on: :member
-
-        # Service Discovery endpoints
-        get :discovered_services, on: :member
-        post :service_discovery, on: :member
-        post :add_discovered_service, on: :member
-        get "health_history/:service_name", to: "services#health_history", on: :member
-        put "health_config/:service_name", to: "services#update_health_config", on: :member
-
-        # Service Management endpoints
-        post :test_service, on: :member
-        post :validate_service, on: :member
-        get :service_templates, on: :member
-        post :duplicate_service, on: :member
-        get "export_services/:environment", to: "services#export_services", on: :member
-        post :import_services, on: :member
-
-        resources :url_mappings, only: [ :create, :destroy ], controller: "services" do
-          put :update_url_mapping, on: :member, controller: "services"
-          patch :toggle, on: :member, controller: "services"
-        end
       end
 
       # Admin endpoints (restricted to admin permissions)

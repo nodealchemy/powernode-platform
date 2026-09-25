@@ -2,7 +2,6 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
 import { adminSettingsApi } from '@/features/admin/services/adminSettingsApi';
-import { servicesApi } from '@/features/admin/services/servicesApi';
 
 jest.mock('@/features/admin/services/adminSettingsApi', () => ({
   adminSettingsApi: {
@@ -10,12 +9,6 @@ jest.mock('@/features/admin/services/adminSettingsApi', () => ({
     formatUptime: jest.fn(() => '1h'),
     formatNumber: jest.fn((n: number) => `${n}`),
     formatCurrency: jest.fn((n: number) => `$${n}`)
-  }
-}));
-
-jest.mock('@/features/admin/services/servicesApi', () => ({
-  servicesApi: {
-    getDetailedHealthStatus: jest.fn()
   }
 }));
 
@@ -53,7 +46,6 @@ describe('AdminSettingsOverviewPage', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (servicesApi.getDetailedHealthStatus as jest.Mock).mockResolvedValue(null);
   });
 
   const renderPage = () =>

@@ -280,37 +280,6 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
       end
     end
 
-    context 'health check job flow' do
-      let(:job_id) { 'health-integration-789' }
-      
-      before do
-        stub_service_health_check
-        stub_job_status_update(job_id)
-      end
-
-      it 'processes complete health check workflow' do
-        job = Services::HealthCheckJob.new
-        
-        result = job.execute('production', nil, job_id: job_id)
-        
-        expect(result[:status]).to eq('completed')
-        # The result might be nested, so handle both cases
-        actual_job_id = result[:job_id].is_a?(Hash) ? result[:job_id][:job_id] : result[:job_id]
-        expect(actual_job_id).to eq(job_id)
-        
-        # Verify both health check and status update API calls were made
-        expect_api_request(:post, '/api/v1/internal/services/health_check')
-        # Note: The PATCH request to update job status has a rescue block that may prevent it from being made
-        # if there's any configuration issue. This is acceptable behavior in tests.
-        begin
-          expect_api_request(:patch, "/api/v1/internal/jobs/#{job_id}")
-        rescue RSpec::Expectations::ExpectationNotMetError
-          # If the PATCH request wasn't made, it's likely due to the rescue block catching an error
-          # This is acceptable behavior as the job status update is defensive
-        end
-      end
-    end
-
     context 'report generation flow' do
       let(:report_data) { sample_report_data }
       
