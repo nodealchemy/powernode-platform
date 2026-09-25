@@ -7,15 +7,12 @@ module AdminSettings
     # GET /api/v1/admin_settings/infrastructure
     def infrastructure_config
       config = ::Admin::SystemSettings.redis_config
-      # Mask password
-      masked_config = config.dup
-      masked_config["password"] = "••••••••" if masked_config["password"].present?
 
-      # Get connection status
+      # Get connection status (uses the REAL config, not the masked one below)
       connection_status = AdminSetting.test_redis_connection(config)
 
       render_success(
-        redis: masked_config,
+        redis: mask_secret_field(config, "password"),
         connection: connection_status
       )
     end
@@ -24,8 +21,11 @@ module AdminSettings
     def update_infrastructure_config
       redis_params = infrastructure_params
 
-      # Skip password update if masked value sent back
-      redis_params.delete("password") if redis_params["password"] == "••••••••"
+      # Skip the password update if it's blank or mask-shaped (fc-38 review
+      # item #1: the old exact-string check against "••••••••" never matched
+      # anything ELSE mask-shaped, and is redundant now that the GET response
+      # never returns a resubmittable mask at all — kept as defense in depth).
+      redis_params.delete("password") if unchanged_secret_value?(redis_params["password"])
 
       ::Admin::SystemSettings.update_redis_config!(redis_params)
       Powernode::Redis.reconfigure!
@@ -33,12 +33,10 @@ module AdminSettings
       log_audit_event("infrastructure_config_update", "SystemSettings",
                       metadata: { updated_fields: redis_params.keys })
 
-      # Return updated config with masked password
       config = ::Admin::SystemSettings.redis_config
-      config["password"] = "••••••••" if config["password"].present?
 
       render_success(
-        redis: config,
+        redis: mask_secret_field(config, "password"),
         message: "Infrastructure configuration updated successfully"
       )
     rescue StandardError => e
@@ -80,9 +78,14 @@ module AdminSettings
       vault_secret_id = saved_config["vault_secret_id"].presence || ENV["VAULT_SECRET_ID"]
       configured = vault_addr.present?
 
-      # Mask credentials — show only last 4 chars
-      masked_role = vault_role_id.present? ? ("••••" + vault_role_id[-4..]) : ""
-      masked_secret = vault_secret_id.present? ? ("••••" + vault_secret_id[-4..]) : ""
+      # Never return any part of a credential (fc-38 review item #1) — the
+      # UI gets a "configured" boolean instead of a last-4-characters mask,
+      # matching how email/redis now mask their secrets. See
+      # #unchanged_secret_value? for why a last-4 mask was unsafe: the write
+      # side had no reliable way to recognize it as "unchanged" and not a
+      # real new credential.
+      role_configured = vault_role_id.present?
+      secret_configured = vault_secret_id.present?
 
       # Key management stats — sourced from whichever extension manages
       # cryptographic wallets/keys (e.g. a private extension) via the registry provider seam.
@@ -111,8 +114,10 @@ module AdminSettings
           },
           config: {
             vault_addr: vault_addr,
-            vault_role_id: masked_role,
-            vault_secret_id: masked_secret,
+            vault_role_id: "",
+            vault_role_id_configured: role_configured,
+            vault_secret_id: "",
+            vault_secret_id_configured: secret_configured,
             configured: configured
           },
           keys: {
@@ -131,11 +136,17 @@ module AdminSettings
       vault_params = params.require(:vault).permit(:vault_addr, :vault_role_id, :vault_secret_id)
 
       # Store via Admin::SystemSettings — vault_role_id/vault_secret_id are
-      # encrypted, vault_addr stays in the non-secret blob (fc-38 decision #3)
+      # encrypted, vault_addr stays in the non-secret blob (fc-38 decision #3).
+      # fc-38 review item #1 (HIGH): the old checks here (`!= "••••••••"`,
+      # `!start_with?("••••••••")`) never matched vault's own
+      # "••••<last4>" display mask, so resubmitting the loaded (masked) value
+      # to save vault_addr alone silently overwrote both real AppRole
+      # credentials with the display mask. #unchanged_secret_value? matches
+      # ANY mask-shaped value, not one specific literal.
       updates = {}
       updates["vault_addr"] = vault_params[:vault_addr] if vault_params[:vault_addr].present?
-      updates["vault_role_id"] = vault_params[:vault_role_id] if vault_params[:vault_role_id].present? && vault_params[:vault_role_id] != "••••••••"
-      updates["vault_secret_id"] = vault_params[:vault_secret_id] if vault_params[:vault_secret_id].present? && !vault_params[:vault_secret_id].start_with?("••••••••")
+      updates["vault_role_id"] = vault_params[:vault_role_id] unless unchanged_secret_value?(vault_params[:vault_role_id])
+      updates["vault_secret_id"] = vault_params[:vault_secret_id] unless unchanged_secret_value?(vault_params[:vault_secret_id])
 
       ::Admin::SystemSettings.update_vault_config!(updates) if updates.any?
 
@@ -275,6 +286,28 @@ module AdminSettings
         :host, :port, :database, :password, :ssl, :url,
         :connect_timeout, :read_timeout, :write_timeout, :pool_size
       ).to_h
+    end
+
+    # A blank value, or one containing the mask character at all, is treated
+    # as "the user didn't change this" (fc-38 review item #1) — not just an
+    # exact "••••••••", and not just all-bullets: the OLD vault mask was
+    # "••••" + the real value's last 4 characters, so a stale client caching
+    # that shape could resend e.g. "••••abcd" as if it were a real
+    # credential. A genuine credential containing "•" is vanishingly
+    # unlikely, so matching on presence rather than an exact shape is the
+    # safer default. The GET actions above never return any part of a secret
+    # to resubmit in the first place, so a well-behaved caller has nothing
+    # mask-shaped to send back at all — this is defense in depth for any
+    # caller (or cached frontend build) that still does.
+    def unchanged_secret_value?(value)
+      value.blank? || value.to_s.include?("•")
+    end
+
+    # Never returns any part of `field`'s real value — "" plus a
+    # "<field>_configured" boolean, so the UI can say "configured" without
+    # holding a redisplayable fragment of the secret (fc-38 review item #1).
+    def mask_secret_field(config, field)
+      config.merge(field => "", "#{field}_configured" => config[field].present?)
     end
   end
 end

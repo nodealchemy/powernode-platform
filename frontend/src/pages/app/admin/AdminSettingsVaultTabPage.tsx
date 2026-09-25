@@ -15,8 +15,12 @@ interface VaultStatus {
 
 interface VaultConfig {
   vault_addr: string;
+  // Always "" from the server (fc-38 review item #1) — the *_configured
+  // flags say whether a credential is set, never the value or a fragment.
   vault_role_id: string;
+  vault_role_id_configured: boolean;
   vault_secret_id: string;
+  vault_secret_id_configured: boolean;
   configured: boolean;
 }
 
@@ -48,6 +52,12 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
   const [vaultAddr, setVaultAddr] = useState('');
   const [roleId, setRoleId] = useState('');
   const [secretId, setSecretId] = useState('');
+  // fc-38 review item #1: the server never returns any part of a credential
+  // to pre-populate these fields with (see loadConfig below), so there is
+  // nothing safe to "resend unchanged" — only send a credential the user
+  // actually typed THIS session.
+  const [roleIdEdited, setRoleIdEdited] = useState(false);
+  const [secretIdEdited, setSecretIdEdited] = useState(false);
 
   const loadConfig = useCallback(async () => {
     setLoading(true);
@@ -57,8 +67,12 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
         const vaultData = result.data as VaultData;
         setData(vaultData);
         setVaultAddr(vaultData.config?.vault_addr || '');
-        setRoleId(vaultData.config?.vault_role_id || '');
-        setSecretId(vaultData.config?.vault_secret_id || '');
+        // Never pre-populate a credential field from the server — it never
+        // sends one back (see VaultConfig above).
+        setRoleId('');
+        setSecretId('');
+        setRoleIdEdited(false);
+        setSecretIdEdited(false);
       }
     } catch {
       showNotification('Failed to load Vault configuration', 'error');
@@ -72,11 +86,18 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const result = await adminSettingsApi.updateVaultConfig({
+      // Only send a credential field the user actually edited this session
+      // (fc-38 review item #1) — the round-trip bug this fixes: the old
+      // code always resent whatever loadConfig had put in state, which used
+      // to be the server's own display mask, silently overwriting both
+      // real AppRole credentials on a vault_addr-only save.
+      const payload: { vault_addr: string; vault_role_id?: string; vault_secret_id?: string } = {
         vault_addr: vaultAddr,
-        vault_role_id: roleId,
-        vault_secret_id: secretId,
-      });
+      };
+      if (roleIdEdited) payload.vault_role_id = roleId;
+      if (secretIdEdited) payload.vault_secret_id = secretId;
+
+      const result = await adminSettingsApi.updateVaultConfig(payload);
       if (result.success) {
         showNotification('Vault configuration saved. Restart backend to apply.', 'success');
         await loadConfig();
@@ -173,8 +194,9 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
       <SettingsCard title="Connection Settings" description="Configure the Vault server address and AppRole credentials">
         <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-theme-secondary mb-1">Vault Address</label>
+            <label htmlFor="vault-addr" className="block text-xs font-medium text-theme-secondary mb-1">Vault Address</label>
             <input
+              id="vault-addr"
               type="url"
               value={vaultAddr}
               onChange={(e) => setVaultAddr(e.target.value)}
@@ -184,24 +206,30 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-theme-secondary mb-1">AppRole Role ID</label>
+            <label htmlFor="vault-role-id" className="block text-xs font-medium text-theme-secondary mb-1">AppRole Role ID</label>
             <input
+              id="vault-role-id"
               type="text"
               value={roleId}
-              onChange={(e) => setRoleId(e.target.value)}
-              placeholder="Role ID from vault read auth/approle/role/powernode-app/role-id"
+              onChange={(e) => { setRoleId(e.target.value); setRoleIdEdited(true); }}
+              placeholder={
+                data?.config?.vault_role_id_configured
+                  ? 'Configured — enter a new value to change'
+                  : 'Role ID from vault read auth/approle/role/powernode-app/role-id'
+              }
               autoComplete="off"
               className="w-full px-3 py-2 text-sm border border-theme rounded bg-theme-surface text-theme-primary"
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-theme-secondary mb-1">AppRole Secret ID</label>
+            <label htmlFor="vault-secret-id" className="block text-xs font-medium text-theme-secondary mb-1">AppRole Secret ID</label>
             <div className="relative">
               <input
+                id="vault-secret-id"
                 type={showSecretId ? 'text' : 'password'}
                 value={secretId}
-                onChange={(e) => setSecretId(e.target.value)}
-                placeholder="Secret ID"
+                onChange={(e) => { setSecretId(e.target.value); setSecretIdEdited(true); }}
+                placeholder={data?.config?.vault_secret_id_configured ? 'Configured — enter a new value to change' : 'Secret ID'}
                 autoComplete="new-password"
                 className="w-full px-3 py-2 pr-10 text-sm border border-theme rounded bg-theme-surface text-theme-primary"
               />

@@ -167,7 +167,10 @@ export interface RedisConfig {
   host: string;
   port: number;
   database: number;
+  // Always "" from the server (fc-38 review item #1) — never any part of
+  // the real password. password_configured says whether one is set.
   password: string | null;
+  password_configured?: boolean;
   ssl: boolean;
   url: string | null;
   connect_timeout: number;
@@ -209,8 +212,12 @@ export interface VaultConfigData {
   status: VaultStatus;
   config: {
     vault_addr: string;
+    // Always "" from the server (fc-38 review item #1) — never any part of
+    // the real credential. The *_configured flags say whether one is set.
     vault_role_id: string;
+    vault_role_id_configured: boolean;
     vault_secret_id: string;
+    vault_secret_id_configured: boolean;
     configured: boolean;
   };
   keys: {

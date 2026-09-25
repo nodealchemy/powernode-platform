@@ -14,6 +14,10 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
   const [testing, setTesting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  // fc-38 review item #1: the server never returns any part of the real
+  // password (see RedisConfig), so there is nothing safe to "resend
+  // unchanged" — only send a password the user actually typed this session.
+  const [passwordEdited, setPasswordEdited] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -23,8 +27,11 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
     setLoading(true);
     const result = await adminSettingsApi.getInfrastructureConfig();
     if (result.success && result.data) {
-      setConfig(result.data.redis);
+      // password is always "" from the server — never pre-populate it as if
+      // it were a real (or resendable) value.
+      setConfig({ ...result.data.redis, password: '' });
       setConnection(result.data.connection);
+      setPasswordEdited(false);
     } else {
       showNotification(result.error || 'Failed to load infrastructure config', 'error');
     }
@@ -34,11 +41,18 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
   const handleSave = async () => {
     if (!config) return;
     setSaving(true);
-    const result = await adminSettingsApi.updateInfrastructureConfig(config);
+    // Only send the password if the user actually edited it this session
+    // (fc-38 review item #1) — the round-trip risk this avoids: resending
+    // whatever loadConfig put in state would silently overwrite the real
+    // saved password the moment that value stopped being the real thing.
+    const { password: _password, ...rest } = config;
+    const payload: Partial<RedisConfig> = passwordEdited ? config : rest;
+    const result = await adminSettingsApi.updateInfrastructureConfig(payload);
     if (result.success) {
       if (result.data?.redis) {
-        setConfig(result.data.redis);
+        setConfig({ ...result.data.redis, password: '' });
       }
+      setPasswordEdited(false);
       showNotification(result.data?.message || 'Infrastructure config updated', 'success');
     } else {
       showNotification(result.error || 'Failed to update config', 'error');
@@ -163,8 +177,9 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">Host</label>
+              <label htmlFor="redis-host" className="block text-sm font-medium text-theme-primary mb-2">Host</label>
               <input
+                id="redis-host"
                 type="text"
                 value={config.host}
                 onChange={(e) => updateConfig({ host: e.target.value })}
@@ -197,14 +212,15 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-theme-primary mb-2">Password</label>
+              <label htmlFor="redis-password" className="block text-sm font-medium text-theme-primary mb-2">Password</label>
               <div className="relative">
                 <input
+                  id="redis-password"
                   type={showPassword ? 'text' : 'password'}
                   value={config.password || ''}
-                  onChange={(e) => updateConfig({ password: e.target.value || null })}
+                  onChange={(e) => { updateConfig({ password: e.target.value || null }); setPasswordEdited(true); }}
                   disabled={saving}
-                  placeholder="Optional"
+                  placeholder={config.password_configured ? 'Configured — enter a new value to change' : 'Optional'}
                   className="w-full px-3 py-2 pr-10 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
                 />
                 <button
