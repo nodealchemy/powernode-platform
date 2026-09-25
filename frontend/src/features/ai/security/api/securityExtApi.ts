@@ -1,17 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
-import type {
-  AgentIdentity,
-  QuarantineRecord,
-  SecurityReport,
-  ComplianceMatrix,
-  VerifySignatureParams,
-  VerifySignatureResult,
-  IdentityFilterParams,
-  QuarantineFilterParams,
-  SecurityReportParams,
-  PaginatedSecurityResponse,
-} from '../types/security';
+import type { AgentIdentity, QuarantineRecord, SecurityReport, ComplianceMatrix, IdentityFilterParams, QuarantineFilterParams, SecurityReportParams, PaginatedSecurityResponse } from '../types/security';
 
 const SECURITY_EXT_KEYS = {
   all: ['security-ext'] as const,
@@ -87,15 +76,6 @@ export function useRevokeIdentity() {
   });
 }
 
-export function useVerifySignature() {
-  return useMutation({
-    mutationFn: async (params: VerifySignatureParams) => {
-      const response = await apiClient.post('/ai/security/identities/verify', params);
-      return response.data?.data as VerifySignatureResult;
-    },
-  });
-}
-
 // === Quarantine Hooks ===
 
 export function useQuarantineRecords(params?: QuarantineFilterParams) {
@@ -116,20 +96,6 @@ export function useQuarantineRecord(id: string) {
       return response.data?.data as QuarantineRecord;
     },
     enabled: !!id,
-  });
-}
-
-export function useQuarantineAgent() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (params: { agent_id: string; severity: string; reason: string }) => {
-      const response = await apiClient.post('/ai/security/quarantine', params);
-      return response.data?.data as QuarantineRecord;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SECURITY_EXT_KEYS.quarantine() });
-      queryClient.invalidateQueries({ queryKey: SECURITY_EXT_KEYS.securityReport() });
-    },
   });
 }
 

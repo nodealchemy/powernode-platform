@@ -18,19 +18,13 @@ export type {
 // API hooks - queries
 export {
   useTrustScores,
-  useTrustScore,
   useAgentLineage,
   useAutonomyStats,
   useCapabilityMatrix,
-  useAgentCapabilities,
   useCircuitBreakers,
-  useAgentCircuitBreakers,
   useShadowExecutions,
-  useAgentShadowExecutions,
   useTelemetryEvents,
-  useAgentTelemetry,
   useDelegationPolicies,
-  useAgentDelegationPolicy,
   useBehavioralFingerprints,
 } from './api/autonomyApi';
 
@@ -40,9 +34,6 @@ export {
   useOverrideTrustScore,
   useEmergencyDemote,
   useResetCircuitBreaker,
-  useCreateDelegationPolicy,
-  useUpdateDelegationPolicy,
-  useDeleteDelegationPolicy,
 } from './api/autonomyApi';
 
 // Components

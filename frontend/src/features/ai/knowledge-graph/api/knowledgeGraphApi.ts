@@ -1,23 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
-import type {
-  KnowledgeNode,
-  KnowledgeEdge,
-  NodeDetail,
-  SubgraphResult,
-  ShortestPathResult,
-  HybridSearchResult,
-  HybridSearchRawResult,
-  GraphStatistics,
-  NodeListParams,
-  EdgeListParams,
-  SearchParams,
-  SubgraphParams,
-  ShortestPathParams,
-  CreateNodeParams,
-  CreateEdgeParams,
-  PaginatedResponse,
-} from '../types/knowledgeGraph';
+import type { KnowledgeNode, KnowledgeEdge, NodeDetail, HybridSearchResult, HybridSearchRawResult, GraphStatistics, NodeListParams, EdgeListParams, SearchParams, SubgraphParams, ShortestPathParams, PaginatedResponse } from '../types/knowledgeGraph';
 
 const KG_KEYS = {
   all: ['knowledge-graph'] as const,
@@ -92,40 +75,6 @@ export function useKnowledgeEdges(params?: EdgeListParams, enabled = true) {
   });
 }
 
-export function useNodeNeighbors(id: string, enabled = true) {
-  return useQuery({
-    queryKey: KG_KEYS.neighbors(id),
-    queryFn: async () => {
-      const response = await apiClient.get(`/ai/knowledge_graph/nodes/${id}/neighbors`);
-      const body = unwrap(response.data) as { neighbors?: KnowledgeNode[] };
-      return (body?.neighbors || body) as KnowledgeNode[];
-    },
-    enabled: enabled && !!id,
-  });
-}
-
-export function useSubgraph(params: SubgraphParams, enabled = true) {
-  return useQuery({
-    queryKey: KG_KEYS.subgraph(params),
-    queryFn: async () => {
-      const response = await apiClient.post('/ai/knowledge_graph/subgraph', params);
-      return unwrap(response.data) as SubgraphResult;
-    },
-    enabled: enabled && params.node_ids.length > 0,
-  });
-}
-
-export function useShortestPath(params: ShortestPathParams, enabled = true) {
-  return useQuery({
-    queryKey: KG_KEYS.shortestPath(params),
-    queryFn: async () => {
-      const response = await apiClient.get('/ai/knowledge_graph/shortest_path', { params });
-      return unwrap(response.data) as ShortestPathResult;
-    },
-    enabled: enabled && !!params.source_id && !!params.target_id,
-  });
-}
-
 export function useHybridSearch(params: SearchParams, enabled = true) {
   return useQuery({
     queryKey: KG_KEYS.search(params),
@@ -171,35 +120,3 @@ export function useGraphStatistics() {
   });
 }
 
-export function useCreateNode() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (params: CreateNodeParams) => {
-      const response = await apiClient.post('/ai/knowledge_graph/nodes', { node: params });
-      const body = unwrap(response.data) as { node?: KnowledgeNode };
-      return (body?.node || body) as KnowledgeNode;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: KG_KEYS.nodes() });
-      queryClient.invalidateQueries({ queryKey: KG_KEYS.statistics() });
-    },
-  });
-}
-
-export function useCreateEdge() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (params: CreateEdgeParams) => {
-      const response = await apiClient.post('/ai/knowledge_graph/edges', { edge: params });
-      const body = unwrap(response.data) as { edge?: KnowledgeEdge };
-      return (body?.edge || body) as KnowledgeEdge;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: KG_KEYS.edges() });
-      queryClient.invalidateQueries({ queryKey: KG_KEYS.statistics() });
-      queryClient.invalidateQueries({ queryKey: KG_KEYS.nodes() });
-    },
-  });
-}

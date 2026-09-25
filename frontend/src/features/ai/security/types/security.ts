@@ -77,21 +77,6 @@ export interface ComplianceMatrix {
   matrix: AsiComplianceItem[];
 }
 
-// === Verification Types ===
-
-export interface VerifySignatureParams {
-  agent_id: string;
-  payload: string;
-  signature: string;
-}
-
-export interface VerifySignatureResult {
-  valid: boolean;
-  agent_id: string;
-  identity_id: string;
-  verified_at: string;
-}
-
 // === Pagination & Filter Types ===
 
 export interface SecurityPaginationParams {

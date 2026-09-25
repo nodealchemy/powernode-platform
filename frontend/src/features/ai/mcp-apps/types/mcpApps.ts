@@ -35,12 +35,6 @@ export interface McpAppRenderResult {
   sandbox_attrs: string;
 }
 
-// Process input result
-export interface McpAppProcessResult {
-  response: Record<string, unknown>;
-  state_update: Record<string, unknown> | null;
-}
-
 // API params
 export interface McpAppFilterParams {
   status?: McpAppStatus;
@@ -72,8 +66,3 @@ export interface RenderMcpAppParams {
   context?: Record<string, unknown>;
 }
 
-export interface ProcessMcpAppInputParams {
-  id: string;
-  instance_id: string;
-  input_data: Record<string, unknown>;
-}

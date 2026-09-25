@@ -30,14 +30,6 @@ export interface GitWebhookEvent {
   };
 }
 
-export interface GitWebhookEventDetail extends GitWebhookEvent {
-  payload: Record<string, unknown>;
-  headers: Record<string, string>;
-  error_message?: string;
-  processing_result?: Record<string, unknown>;
-  sender_info?: Record<string, unknown>;
-}
-
 export interface WebhookEventStats {
   total_events: number;
   pending: number;

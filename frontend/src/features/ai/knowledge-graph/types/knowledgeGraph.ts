@@ -45,17 +45,6 @@ export interface NeighborInfo {
   direction: 'incoming' | 'outgoing';
 }
 
-export interface SubgraphResult {
-  nodes: KnowledgeNode[];
-  edges: KnowledgeEdge[];
-}
-
-export interface ShortestPathResult {
-  path: KnowledgeNode[];
-  edges: KnowledgeEdge[];
-  total_weight: number;
-}
-
 export interface HybridSearchResult {
   id: string;
   node: KnowledgeNode;
@@ -125,21 +114,6 @@ export interface SubgraphParams {
 export interface ShortestPathParams {
   source_id: string;
   target_id: string;
-}
-
-export interface CreateNodeParams {
-  name: string;
-  entity_type: EntityType;
-  description: string;
-  properties?: Record<string, unknown>;
-}
-
-export interface CreateEdgeParams {
-  source_id: string;
-  target_id: string;
-  relation_type: RelationType;
-  weight?: number;
-  properties?: Record<string, unknown>;
 }
 
 export interface PaginatedResponse<T> {

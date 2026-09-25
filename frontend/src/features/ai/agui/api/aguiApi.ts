@@ -1,14 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
-import type {
-  AguiSession,
-  AguiEvent,
-  AguiSessionFilterParams,
-  CreateSessionParams,
-  AguiEventsParams,
-  PushStateParams,
-  StatePushResult,
-} from '../types/agui';
+import type { AguiSession, AguiEvent, AguiSessionFilterParams, CreateSessionParams, AguiEventsParams } from '../types/agui';
 
 const AGUI_KEYS = {
   all: ['agui'] as const,
@@ -84,22 +76,6 @@ export function useDestroyAguiSession() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AGUI_KEYS.sessions() });
-    },
-  });
-}
-
-export function usePushStateDelta() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ session_id, state_delta }: PushStateParams) => {
-      const response = await apiClient.post(`/ai/agui/sessions/${session_id}/state`, {
-        state_delta,
-      });
-      return response.data?.data as StatePushResult;
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: AGUI_KEYS.session(variables.session_id) });
     },
   });
 }

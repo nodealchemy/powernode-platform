@@ -72,20 +72,6 @@ export interface AguiEvent {
   timestamp: string;
 }
 
-// RFC 6902 JSON Patch operation
-export interface JsonPatchOperation {
-  op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test';
-  path: string;
-  value?: unknown;
-  from?: string;
-}
-
-// State push result
-export interface StatePushResult {
-  sequence: number;
-  snapshot: Record<string, unknown>;
-}
-
 // API params
 export interface AguiSessionFilterParams {
   status?: AguiSessionStatus;
@@ -105,7 +91,3 @@ export interface AguiEventsParams {
   limit?: number;
 }
 
-export interface PushStateParams {
-  session_id: string;
-  state_delta: JsonPatchOperation[];
-}

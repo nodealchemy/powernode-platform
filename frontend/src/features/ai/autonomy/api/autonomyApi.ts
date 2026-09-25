@@ -1,28 +1,7 @@
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
-import type {
-  TrustScore,
-  AgentLineage,
-  AgentLineageNode,
-  AutonomyStats,
-  CircuitBreaker,
-  CapabilityMatrix,
-  AgentCapabilities,
-  BehavioralFingerprint,
-  ShadowExecution,
-  TelemetryEvent,
-  DelegationPolicy,
-  KillSwitchStatus,
-  KillSwitchEvent,
-  AgentGoal,
-  AgentProposal,
-  AgentEscalation,
-  AgentFeedback,
-  InterventionPolicy,
-  PolicyResolutionResult,
-  BatchReviewResult,
-} from '../types/autonomy';
+import type { TrustScore, AgentLineage, AgentLineageNode, AutonomyStats, CircuitBreaker, CapabilityMatrix, BehavioralFingerprint, ShadowExecution, TelemetryEvent, DelegationPolicy, KillSwitchStatus, KillSwitchEvent, AgentGoal, AgentProposal, AgentEscalation, AgentFeedback, InterventionPolicy, PolicyResolutionResult, BatchReviewResult } from '../types/autonomy';
 
 const AUTONOMY_KEYS = {
   all: ['autonomy'] as const,
@@ -67,17 +46,6 @@ export function useTrustScores() {
       const response = await apiClient.get('/ai/autonomy/trust_scores');
       return (response.data?.data ?? []) as TrustScore[];
     },
-  });
-}
-
-export function useTrustScore(agentId: string) {
-  return useQuery({
-    queryKey: AUTONOMY_KEYS.trustScore(agentId),
-    queryFn: async () => {
-      const response = await apiClient.get(`/ai/autonomy/trust_scores/${agentId}`);
-      return (response.data?.data ?? null) as TrustScore;
-    },
-    enabled: !!agentId,
   });
 }
 
@@ -129,17 +97,6 @@ export function useCapabilityMatrix() {
   });
 }
 
-export function useAgentCapabilities(agentId: string) {
-  return useQuery({
-    queryKey: AUTONOMY_KEYS.agentCapabilities(agentId),
-    queryFn: async () => {
-      const response = await apiClient.get(`/ai/autonomy/capability_matrix/${agentId}`);
-      return (response.data?.data ?? null) as AgentCapabilities;
-    },
-    enabled: !!agentId,
-  });
-}
-
 export function useCircuitBreakers() {
   return useQuery({
     queryKey: AUTONOMY_KEYS.circuitBreakers(),
@@ -147,17 +104,6 @@ export function useCircuitBreakers() {
       const response = await apiClient.get('/ai/autonomy/circuit_breakers');
       return (response.data?.data ?? []) as CircuitBreaker[];
     },
-  });
-}
-
-export function useAgentCircuitBreakers(agentId: string) {
-  return useQuery({
-    queryKey: AUTONOMY_KEYS.agentCircuitBreakers(agentId),
-    queryFn: async () => {
-      const response = await apiClient.get(`/ai/autonomy/circuit_breakers/${agentId}`);
-      return (response.data?.data ?? []) as CircuitBreaker[];
-    },
-    enabled: !!agentId,
   });
 }
 
@@ -171,17 +117,6 @@ export function useShadowExecutions() {
   });
 }
 
-export function useAgentShadowExecutions(agentId: string) {
-  return useQuery({
-    queryKey: AUTONOMY_KEYS.agentShadowExecutions(agentId),
-    queryFn: async () => {
-      const response = await apiClient.get(`/ai/autonomy/shadow_executions/${agentId}`);
-      return (response.data?.data ?? []) as ShadowExecution[];
-    },
-    enabled: !!agentId,
-  });
-}
-
 export function useTelemetryEvents() {
   return useQuery({
     queryKey: AUTONOMY_KEYS.telemetry(),
@@ -189,17 +124,6 @@ export function useTelemetryEvents() {
       const response = await apiClient.get('/ai/autonomy/telemetry');
       return (response.data?.data ?? []) as TelemetryEvent[];
     },
-  });
-}
-
-export function useAgentTelemetry(agentId: string) {
-  return useQuery({
-    queryKey: AUTONOMY_KEYS.agentTelemetry(agentId),
-    queryFn: async () => {
-      const response = await apiClient.get(`/ai/autonomy/telemetry/${agentId}`);
-      return (response.data?.data ?? []) as TelemetryEvent[];
-    },
-    enabled: !!agentId,
   });
 }
 
@@ -213,17 +137,6 @@ export function useDelegationPolicies() {
   });
 }
 
-export function useAgentDelegationPolicy(agentId: string) {
-  return useQuery({
-    queryKey: AUTONOMY_KEYS.agentDelegationPolicy(agentId),
-    queryFn: async () => {
-      const response = await apiClient.get(`/ai/autonomy/delegation_policies/${agentId}`);
-      return (response.data?.data ?? null) as DelegationPolicy;
-    },
-    enabled: !!agentId,
-  });
-}
-
 export function useBehavioralFingerprints(agentId: string) {
   return useQuery({
     queryKey: AUTONOMY_KEYS.behavioralFingerprints(agentId),
@@ -234,7 +147,6 @@ export function useBehavioralFingerprints(agentId: string) {
     enabled: !!agentId,
   });
 }
-
 
 // ===== Write Mutations =====
 
@@ -289,45 +201,6 @@ export function useResetCircuitBreaker() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.circuitBreakers() });
-    },
-  });
-}
-
-export function useCreateDelegationPolicy() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (params: Partial<DelegationPolicy> & { agent_id: string }) => {
-      const response = await apiClient.post('/ai/autonomy/delegation_policies', params);
-      return response.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.delegationPolicies() });
-    },
-  });
-}
-
-export function useUpdateDelegationPolicy() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, ...params }: Partial<DelegationPolicy> & { id: string }) => {
-      const response = await apiClient.put(`/ai/autonomy/delegation_policies/${id}`, params);
-      return response.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.delegationPolicies() });
-    },
-  });
-}
-
-export function useDeleteDelegationPolicy() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const response = await apiClient.delete(`/ai/autonomy/delegation_policies/${id}`);
-      return response.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.delegationPolicies() });
     },
   });
 }

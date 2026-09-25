@@ -9,11 +9,9 @@ export { CommitDetailModal } from './components/CommitDetailModal';
 
 // Services
 export { repositoriesApi } from './services/git/repositoriesApi';
-export { gitWebhooksApi } from './services/git/webhooksApi';
 
 // Hooks
 export { useGitProviders, useGitCredentials } from './hooks/useGitProviders';
-export { useRepositories, useRepository } from './hooks/useRepositories';
 
 // Types
 export type {
@@ -24,11 +22,7 @@ export type {
   GitRepository,
   GitRepositoryDetail,
   GitPipeline,
-  GitPipelineDetail,
-  GitPipelineJob,
-  GitPipelineJobDetail,
   GitWebhookEvent,
-  GitWebhookEventDetail,
   AvailableProvider,
   CreateCredentialData,
   PipelineStats,

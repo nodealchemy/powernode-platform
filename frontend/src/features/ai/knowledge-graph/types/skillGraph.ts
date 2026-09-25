@@ -78,25 +78,3 @@ export interface SkillEdgeCreationState {
   targetName: string;
 }
 
-export interface AutoDetectSuggestion {
-  target_skill_id: string;
-  target_skill_name: string;
-  suggested_relation: SkillEdgeRelation;
-  confidence: number;
-  similarity: number;
-}
-
-export interface AgentSkillContext {
-  agent_id: string;
-  agent_name: string;
-  skills: SkillGraphNode[];
-  edges: SkillGraphEdge[];
-  total_skills: number;
-  total_dependencies: number;
-}
-
-export interface SkillDiscoveryResult {
-  traversal_path: SkillGraphNode[];
-  discovered_skills: SkillGraphNode[];
-  recommended_edges: SkillGraphEdge[];
-}

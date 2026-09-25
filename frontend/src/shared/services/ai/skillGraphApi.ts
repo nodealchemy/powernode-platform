@@ -1,15 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
-import type {
-  SkillGraphResult,
-  SkillGraphEdge,
-  SkillCoverageResult,
-  SkillRecommendation,
-  AgentSkillContext,
-  AutoDetectSuggestion,
-  SkillDiscoveryResult,
-  SkillEdgeRelation,
-} from '@/features/ai/knowledge-graph/types/skillGraph';
+import type { SkillGraphResult, SkillGraphEdge, SkillCoverageResult, SkillRecommendation, SkillEdgeRelation } from '@/features/ai/knowledge-graph/types/skillGraph';
 import type {
   ResearchRequest,
   ProposalsListResponse,
@@ -59,17 +50,6 @@ export function useSkillCoverage(teamId: string | undefined) {
   });
 }
 
-export function useAgentSkillContext(agentId: string | undefined) {
-  return useQuery({
-    queryKey: SG_KEYS.agentContext(agentId || ''),
-    queryFn: async (): Promise<AgentSkillContext> => {
-      const response = await apiClient.get(`/ai/skill_graph/agent_context/${agentId}`);
-      return response.data?.data || response.data;
-    },
-    enabled: !!agentId,
-  });
-}
-
 export function useCreateSkillEdge() {
   const queryClient = useQueryClient();
 
@@ -83,38 +63,6 @@ export function useCreateSkillEdge() {
     }): Promise<SkillGraphEdge> => {
       const response = await apiClient.post('/ai/skill_graph/edges', params);
       return response.data?.data || response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SG_KEYS.all });
-    },
-  });
-}
-
-export function useUpdateSkillEdge() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (params: {
-      id: string;
-      weight?: number;
-      confidence?: number;
-    }): Promise<SkillGraphEdge> => {
-      const { id, ...body } = params;
-      const response = await apiClient.patch(`/ai/skill_graph/edges/${id}`, body);
-      return response.data?.data || response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SG_KEYS.all });
-    },
-  });
-}
-
-export function useDeleteSkillEdge() {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (id: string): Promise<void> => {
-      await apiClient.delete(`/ai/skill_graph/edges/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SG_KEYS.all });
@@ -136,24 +84,6 @@ export function useSyncSkills() {
   });
 }
 
-export function useAutoDetect() {
-  return useMutation({
-    mutationFn: async (skillId: string): Promise<AutoDetectSuggestion[]> => {
-      const response = await apiClient.post('/ai/skill_graph/auto_detect', { skill_id: skillId });
-      return response.data?.data?.suggestions || response.data?.suggestions || [];
-    },
-  });
-}
-
-export function useSkillDiscovery() {
-  return useMutation({
-    mutationFn: async (taskContext: string): Promise<SkillDiscoveryResult> => {
-      const response = await apiClient.post('/ai/skill_graph/discover', { task_context: taskContext });
-      return response.data?.data || response.data;
-    },
-  });
-}
-
 export function useSkillRecommendations() {
   return useMutation({
     mutationFn: async ({ teamId, taskContext }: { teamId: string; taskContext?: string }): Promise<SkillRecommendation[]> => {
@@ -164,7 +94,6 @@ export function useSkillRecommendations() {
     },
   });
 }
-
 
 const handleApiError = (error: unknown, defaultMessage: string): string => {
   if (error && typeof error === 'object' && 'response' in error) {

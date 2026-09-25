@@ -28,7 +28,7 @@ export { SharedLearningsPanel } from './components/SharedLearningsPanel';
 export { contextApi } from './api/contextApi';
 
 // Hooks
-export { useContexts, useContext, useEntries, useEntry } from './hooks/useContext';
+export { useContext } from './hooks/useContext';
 
 // Types - Memory
 export type {

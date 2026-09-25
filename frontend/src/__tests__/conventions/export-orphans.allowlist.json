@@ -20,11 +20,6 @@
     "reason": "unused exported type; swept by the export-orphan offers"
   },
   {
-    "path": "frontend/src/features/ai/agui/api/aguiApi.ts",
-    "name": "usePushStateDelta",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/ai/agui/pages/AguiPage.tsx",
     "name": "AguiStandalonePage",
     "reason": "found by H1 fix (an export statement is no longer counted as its own use); pending its sweep"
@@ -38,51 +33,6 @@
     "path": "frontend/src/features/ai/approvals/types/approvalChainTypes.ts",
     "name": "ApprovalNotificationMetadata",
     "reason": "unused exported type; swept by the export-orphan offers"
-  },
-  {
-    "path": "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
-    "name": "useAgentCapabilities",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
-    "name": "useAgentCircuitBreakers",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
-    "name": "useAgentDelegationPolicy",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
-    "name": "useAgentShadowExecutions",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
-    "name": "useAgentTelemetry",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
-    "name": "useCreateDelegationPolicy",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
-    "name": "useDeleteDelegationPolicy",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
-    "name": "useTrustScore",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
-    "name": "useUpdateDelegationPolicy",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/features/ai/autonomy/types/autonomy.ts",
@@ -105,59 +55,9 @@
     "reason": "test oracle: ControlPage.test asserts CONTROL_PERMISSIONS (the route and nav gate) equals the permissions the leaves and tabs are gated on; kept from the fc-48 deletion so that permission-gate drift guard survives"
   },
   {
-    "path": "frontend/src/features/ai/finops/api/finopsApi.ts",
-    "name": "useCostBreakdown",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/knowledge-graph/api/knowledgeGraphApi.ts",
-    "name": "useCreateEdge",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/knowledge-graph/api/knowledgeGraphApi.ts",
-    "name": "useCreateNode",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/knowledge-graph/api/knowledgeGraphApi.ts",
-    "name": "useNodeNeighbors",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/knowledge-graph/api/knowledgeGraphApi.ts",
-    "name": "useShortestPath",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/knowledge-graph/api/knowledgeGraphApi.ts",
-    "name": "useSubgraph",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/ai/knowledge-graph/types/skillGraph.ts",
     "name": "SkillEdgeCreationState",
     "reason": "unused exported type; swept by the export-orphan offers"
-  },
-  {
-    "path": "frontend/src/features/ai/mcp-apps/api/mcpAppsApi.ts",
-    "name": "useProcessMcpAppInput",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/memory/hooks/useContext.ts",
-    "name": "useContexts",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/memory/hooks/useContext.ts",
-    "name": "useEntries",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/memory/hooks/useContext.ts",
-    "name": "useEntry",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/features/ai/memory/types/context.ts",
@@ -215,69 +115,14 @@
     "reason": "unused exported type; swept by the export-orphan offers"
   },
   {
-    "path": "frontend/src/features/ai/prompts/hooks/usePromptTemplates.ts",
-    "name": "usePromptTemplate",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/security/api/securityExtApi.ts",
-    "name": "useQuarantineAgent",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/security/api/securityExtApi.ts",
-    "name": "useVerifySignature",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/ai/security/types/security.ts",
     "name": "IdentityAlgorithm",
     "reason": "unused exported type; swept by the export-orphan offers"
   },
   {
-    "path": "frontend/src/features/content/scoped/helpers.ts",
-    "name": "canEditContent",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/content/scoped/scopedContentApi.ts",
-    "name": "applyScopeParam",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/content/scoped/scopedContentApi.ts",
-    "name": "scopeParams",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/content/scoped/types.ts",
     "name": "ScopedContent",
     "reason": "unused exported type; swept by the export-orphan offers"
-  },
-  {
-    "path": "frontend/src/features/devops/git/hooks/useRepositories.ts",
-    "name": "useRepositories",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/devops/git/hooks/useRepositories.ts",
-    "name": "useRepository",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/devops/git/services/git/pipelinesApi.ts",
-    "name": "pipelinesApi",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/devops/git/services/git/schedulesApi.ts",
-    "name": "schedulesApi",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/devops/git/services/git/webhooksApi.ts",
-    "name": "gitWebhooksApi",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/features/devops/git/types/approvals.ts",
@@ -345,34 +190,9 @@
     "reason": "unused exported type; swept by the export-orphan offers"
   },
   {
-    "path": "frontend/src/features/devops/integrations/hooks/useIntegrations.ts",
-    "name": "useIntegration",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/devops/integrations/hooks/useIntegrations.ts",
-    "name": "useIntegrations",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/devops/integrations/hooks/useIntegrations.ts",
-    "name": "useTemplate",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/devops/integrations/hooks/useIntegrations.ts",
-    "name": "useTemplates",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/devops/pipelines/components/JobLogViewer.tsx",
     "name": "JobLogViewer",
     "reason": "found by H1 fix (an export statement is no longer counted as its own use); pending its sweep"
-  },
-  {
-    "path": "frontend/src/features/devops/pipelines/hooks/usePipelines.ts",
-    "name": "usePipeline",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/features/devops/swarm/types/index.ts",
@@ -503,31 +323,6 @@
     "path": "frontend/src/shared/services/ai/RoiApiService.ts",
     "name": "RoiFilters",
     "reason": "unused exported type; swept by the export-orphan offers"
-  },
-  {
-    "path": "frontend/src/shared/services/ai/skillGraphApi.ts",
-    "name": "useAgentSkillContext",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/services/ai/skillGraphApi.ts",
-    "name": "useAutoDetect",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/services/ai/skillGraphApi.ts",
-    "name": "useDeleteSkillEdge",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/services/ai/skillGraphApi.ts",
-    "name": "useSkillDiscovery",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/services/ai/skillGraphApi.ts",
-    "name": "useUpdateSkillEdge",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/shared/services/ai/types/a2a-types.ts",

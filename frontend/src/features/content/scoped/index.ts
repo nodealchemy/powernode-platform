@@ -14,12 +14,10 @@ export type {
   ConflictResolutions,
 } from './types';
 
-export { isGlobal, isClone, canEditContent } from './helpers';
+export { isGlobal, isClone } from './helpers';
 
 export {
   createScopedContentApi,
-  applyScopeParam,
-  scopeParams,
 } from './scopedContentApi';
 export type { ScopedContentApi } from './scopedContentApi';
 

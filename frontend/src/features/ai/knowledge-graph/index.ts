@@ -7,8 +7,6 @@ export type {
   KnowledgeEdge,
   NodeDetail,
   NeighborInfo,
-  SubgraphResult,
-  ShortestPathResult,
   HybridSearchResult,
   GraphStatistics,
   NodeListParams,
@@ -16,8 +14,6 @@ export type {
   SearchParams,
   SubgraphParams,
   ShortestPathParams,
-  CreateNodeParams,
-  CreateEdgeParams,
   PaginatedResponse,
 } from './types/knowledgeGraph';
 
@@ -32,9 +28,6 @@ export type {
   SkillRecommendation,
   AgentSkillMapping,
   SkillEdgeCreationState,
-  AutoDetectSuggestion,
-  AgentSkillContext,
-  SkillDiscoveryResult,
 } from './types/skillGraph';
 export { SKILL_EDGE_DISPLAY } from './types/skillGraph';
 
@@ -43,26 +36,16 @@ export {
   useKnowledgeNodes,
   useKnowledgeNodeDetail,
   useKnowledgeEdges,
-  useNodeNeighbors,
-  useSubgraph,
-  useShortestPath,
   useHybridSearch,
   useGraphStatistics,
-  useCreateNode,
-  useCreateEdge,
 } from './api/knowledgeGraphApi';
 
 // API hooks - Skill Graph
 export {
   useSkillGraph,
   useSkillCoverage,
-  useAgentSkillContext,
   useCreateSkillEdge,
-  useUpdateSkillEdge,
-  useDeleteSkillEdge,
   useSyncSkills,
-  useAutoDetect,
-  useSkillDiscovery,
   useSkillRecommendations,
 } from '@/shared/services/ai/skillGraphApi';
 

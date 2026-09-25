@@ -5,12 +5,10 @@ export type {
   McpApp,
   McpAppDetailed,
   McpAppRenderResult,
-  McpAppProcessResult,
   McpAppFilterParams,
   CreateMcpAppParams,
   UpdateMcpAppParams,
   RenderMcpAppParams,
-  ProcessMcpAppInputParams,
 } from './types/mcpApps';
 
 // API hooks
@@ -21,7 +19,6 @@ export {
   useUpdateMcpApp,
   useDeleteMcpApp,
   useRenderMcpApp,
-  useProcessMcpAppInput,
 } from './api/mcpAppsApi';
 
 // Page

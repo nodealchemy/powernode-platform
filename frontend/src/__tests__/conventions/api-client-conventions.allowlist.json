@@ -40,11 +40,6 @@
       "frontend/src/features/devops/git/services/git/providersApi.ts",
       "frontend/src/features/onboarding/services/onboardingApi.ts"
     ],
-    "/git/repositories": [
-      "frontend/src/features/devops/git/services/git/pipelinesApi.ts",
-      "frontend/src/features/devops/git/services/git/repositoriesApi.ts",
-      "frontend/src/features/devops/git/services/git/schedulesApi.ts"
-    ],
     "/roles": [
       "frontend/src/features/account/users/services/usersApi.ts",
       "frontend/src/features/admin/roles/services/rolesApi.ts"

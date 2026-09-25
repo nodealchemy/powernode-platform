@@ -5,15 +5,12 @@
  * (a pure `{...providersApi, ...credentialsApi, ...}` merge with no behaviour
  * of its own) was deleted fc-24 — every former caller now imports the
  * specific domain API it actually uses from here. fc-39 gave the providers
- * and webhooks APIs git-prefixed names (gitProvidersApi, gitWebhooksApi) so
+ * API a git-prefixed name (gitProvidersApi; its webhooks sibling was deleted fc-48) so
  * no two clients across core and extensions share an export name.
  */
 
 export { gitProvidersApi } from './providersApi';
 export { credentialsApi } from './credentialsApi';
 export { repositoriesApi } from './repositoriesApi';
-export { pipelinesApi } from './pipelinesApi';
-export { gitWebhooksApi } from './webhooksApi';
 export { runnersApi } from './runnersApi';
-export { schedulesApi } from './schedulesApi';
 export { approvalsApi } from './approvalsApi';

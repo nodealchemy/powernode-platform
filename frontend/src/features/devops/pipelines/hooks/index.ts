@@ -1,2 +1,2 @@
-export { usePipelines, usePipeline } from './usePipelines';
+export { usePipelines } from './usePipelines';
 export { useJobLogsWebSocket } from './useJobLogsWebSocket';

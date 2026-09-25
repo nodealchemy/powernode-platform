@@ -24,17 +24,3 @@ export function isClone(item: HasClonedFromId | null | undefined): boolean {
   return item?.cloned_from_id != null && item.cloned_from_id !== '';
 }
 
-/**
- * Whether the current user may edit/delete this item: it must be account-owned
- * (not global) AND the user must hold the relevant write permission.
- *
- * @param item    the content item
- * @param canWrite result of the caller's permission check (e.g.
- *                 `hasPermission('ai.skills.update')`)
- */
-export function canEditContent(
-  item: HasAccountId | null | undefined,
-  canWrite: boolean,
-): boolean {
-  return canWrite && !isGlobal(item);
-}

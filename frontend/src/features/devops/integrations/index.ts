@@ -4,14 +4,6 @@ export * from './types';
 // API Service
 export { integrationsApi } from './services/integrationsApi';
 
-// Hooks
-export {
-  useIntegrations,
-  useIntegration,
-  useTemplates,
-  useTemplate,
-} from './hooks/useIntegrations';
-
 // Components
 export { IntegrationCard } from './components/IntegrationCard';
 export { IntegrationStatusBadge } from './components/IntegrationStatusBadge';

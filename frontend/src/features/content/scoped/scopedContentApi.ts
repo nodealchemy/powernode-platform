@@ -17,25 +17,7 @@
  * helper unwraps that so callers always receive the bare record.
  */
 import { api } from '@/shared/services/api';
-import type {
-  ContentScope,
-  UpdateFromSourcePreview,
-  ConflictResolutions,
-} from './types';
-
-/** Append `?scope=` to a params object when a non-default scope is selected. */
-export function applyScopeParam(
-  params: URLSearchParams,
-  scope?: ContentScope,
-): URLSearchParams {
-  if (scope) params.set('scope', scope);
-  return params;
-}
-
-/** Plain object form of the scope param, for axios `{ params }` callers. */
-export function scopeParams(scope?: ContentScope): Record<string, string> {
-  return scope ? { scope } : {};
-}
+import type { UpdateFromSourcePreview, ConflictResolutions } from './types';
 
 export interface ScopedContentApi<T> {
   /** Fork a global (read-only) item into the account as an editable copy. */

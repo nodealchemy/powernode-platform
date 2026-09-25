@@ -1,16 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
-import type {
-  McpApp,
-  McpAppDetailed,
-  McpAppRenderResult,
-  McpAppProcessResult,
-  McpAppFilterParams,
-  CreateMcpAppParams,
-  UpdateMcpAppParams,
-  RenderMcpAppParams,
-  ProcessMcpAppInputParams,
-} from '../types/mcpApps';
+import type { McpApp, McpAppDetailed, McpAppRenderResult, McpAppFilterParams, CreateMcpAppParams, UpdateMcpAppParams, RenderMcpAppParams } from '../types/mcpApps';
 
 const MCP_APPS_KEYS = {
   all: ['mcp-apps'] as const,
@@ -87,15 +77,6 @@ export function useRenderMcpApp() {
     mutationFn: async ({ id, ...params }: RenderMcpAppParams) => {
       const response = await apiClient.post(`/ai/mcp_apps/${id}/render`, params);
       return response.data?.data as McpAppRenderResult;
-    },
-  });
-}
-
-export function useProcessMcpAppInput() {
-  return useMutation({
-    mutationFn: async ({ id, ...params }: ProcessMcpAppInputParams) => {
-      const response = await apiClient.post(`/ai/mcp_apps/${id}/process`, params);
-      return response.data?.data as McpAppProcessResult;
     },
   });
 }

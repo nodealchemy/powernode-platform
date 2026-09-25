@@ -5,12 +5,9 @@ export type {
   AguiEventCategory,
   AguiSession,
   AguiEvent,
-  JsonPatchOperation,
-  StatePushResult,
   AguiSessionFilterParams,
   CreateSessionParams,
   AguiEventsParams,
-  PushStateParams,
 } from './types/agui';
 
 export { EVENT_CATEGORIES } from './types/agui';
@@ -22,7 +19,6 @@ export {
   useListAguiEvents,
   useCreateAguiSession,
   useDestroyAguiSession,
-  usePushStateDelta,
 } from './api/aguiApi';
 
 // Page

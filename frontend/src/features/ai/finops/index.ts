@@ -22,7 +22,6 @@ export type {
 // API hooks
 export {
   useFinOpsOverview,
-  useCostBreakdown,
   useCostTrends,
   useTokenAnalytics,
   useOptimizationScore,

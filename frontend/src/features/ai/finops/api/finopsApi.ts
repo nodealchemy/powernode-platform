@@ -1,15 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
-import type {
-  FinOpsOverview,
-  CostBreakdown,
-  CostTrends,
-  CostTrendPoint,
-  TokenAnalytics,
-  OptimizationScore,
-  CostBreakdownParams,
-  TrendParams,
-} from '../types/finops';
+import type { FinOpsOverview, CostTrends, CostTrendPoint, TokenAnalytics, OptimizationScore, CostBreakdownParams, TrendParams } from '../types/finops';
 
 const FINOPS_KEYS = {
   all: ['finops'] as const,
@@ -26,16 +17,6 @@ export function useFinOpsOverview() {
     queryFn: async () => {
       const response = await apiClient.get('/ai/finops');
       return response.data?.data as FinOpsOverview;
-    },
-  });
-}
-
-export function useCostBreakdown(params?: CostBreakdownParams) {
-  return useQuery({
-    queryKey: FINOPS_KEYS.costBreakdown(params),
-    queryFn: async () => {
-      const response = await apiClient.get('/ai/finops/cost_breakdown', { params });
-      return response.data?.data as CostBreakdown;
     },
   });
 }
