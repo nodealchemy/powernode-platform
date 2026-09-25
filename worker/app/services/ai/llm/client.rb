@@ -240,13 +240,17 @@ module Ai
 
       # -- OpenAI -------
       def build_openai_body(messages, model, **opts)
-        sys_msgs = messages.select { |m| (m[:role] || m["role"]) == "system" }
-        other = messages.reject { |m| (m[:role] || m["role"]) == "system" }
-        sys = sys_msgs.map { |m| m[:content] || m["content"] }.join("\n")
+        # Only the leading system messages (+ opts[:system_prompt]) form the first
+        # system message; a later one stays at its position (OpenAI accepts them
+        # anywhere). Same rule as AnthropicMessages; mirrors the server adapter.
+        leading = messages.take_while { |m| (m[:role] || m["role"]) == "system" }
+        sys = leading.map { |m| m[:content] || m["content"] }.join("\n")
         sys = [sys, opts[:system_prompt]].reject(&:blank?).join("\n") if opts[:system_prompt].present?
         fm = []
         fm << { role: "system", content: sys } if sys.present?
-        other.each { |m| fm << openai_normalize_message(m) }
+        messages.drop(leading.size).each do |m|
+          fm << ((m[:role] || m["role"]) == "system" ? { role: "system", content: m[:content] || m["content"] } : openai_normalize_message(m))
+        end
         body = { model: model, messages: fm }
         if model.to_s.match?(/\Ao\d/)
           # OpenAI reasoning models (o3, o4-mini, etc.) use max_completion_tokens and don't support temperature

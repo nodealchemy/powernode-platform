@@ -233,22 +233,21 @@ module Ai
         end
 
         def build_chat_body(messages, model, **opts)
-          # Separate system messages
-          system_msgs = messages.select { |m| (m[:role] || m["role"]) == "system" }
-          other_msgs = messages.reject { |m| (m[:role] || m["role"]) == "system" }
-
-          formatted_messages = []
-
-          # Add system messages first
-          system_content = system_msgs.map { |m| m[:content] || m["content"] }.join("\n")
+          # Only the leading system messages (+ opts[:system_prompt]) form the first
+          # system message, so it stays byte-identical across turns. A later system
+          # message stays at its position (OpenAI accepts them anywhere), keeping an
+          # append-only history append-only. Same rule as Ai::Llm::AnthropicMessages.
+          leading = messages.take_while { |m| (m[:role] || m["role"]) == "system" }
+          system_content = leading.map { |m| m[:content] || m["content"] }.join("\n")
           if opts[:system_prompt].present?
             system_content = [system_content, opts[:system_prompt]].reject(&:blank?).join("\n")
           end
-          formatted_messages << { role: "system", content: system_content } if system_content.present?
 
-          # Add other messages
-          other_msgs.each do |m|
-            formatted_messages << normalize_message(m)
+          formatted_messages = []
+          formatted_messages << { role: "system", content: system_content } if system_content.present?
+          messages.drop(leading.size).each do |m|
+            system = (m[:role] || m["role"]) == "system"
+            formatted_messages << (system ? { role: "system", content: m[:content] || m["content"] } : normalize_message(m))
           end
 
           body = { model: model, messages: formatted_messages }

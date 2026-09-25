@@ -5,6 +5,24 @@ require "rails_helper"
 RSpec.describe Ai::Llm::Adapters::OpenaiAdapter do
   subject(:adapter) { described_class.new(api_key: "sk-test", base_url: "https://api.openai.com/v1") }
 
+  # M-5: a later system message (turn-scoped context) stays at its position, so
+  # the leading system message is byte-stable as the history grows. Mirrors
+  # worker/spec/services/ai/llm/client_system_prompt_spec.rb.
+  describe "mid-conversation system messages" do
+    let(:messages) { [ { role: "user", content: "hi" } ] }
+
+    it "keeps a later system message in place and the leading one byte-stable" do
+      first = adapter.send(:build_chat_body, messages, "gpt-test", system_prompt: "core")
+      grown = messages + [ { role: "system", content: "turn context", clear_at: "next_user_message" },
+                           { role: "assistant", content: "ok" } ]
+      body = adapter.send(:build_chat_body, grown, "gpt-test", system_prompt: "core")
+
+      expect(body[:messages].first).to eq(first[:messages].first)
+      expect(body[:messages].map { |m| m[:role] }).to eq(%w[system user system assistant])
+      expect(body[:messages][2]).to eq(role: "system", content: "turn context")
+    end
+  end
+
   describe "#transcribe" do
     it "uploads the audio as multipart and returns the transcript text" do
       resp = double("HTTPartyResponse", code: 200, parsed_response: { "text" => "hello world" })
