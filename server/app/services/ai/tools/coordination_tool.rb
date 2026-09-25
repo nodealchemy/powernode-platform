@@ -68,13 +68,27 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "emit_signal", mutating: true
-      declare_action "measure_pressure", mutating: true
-      declare_action "optimize_team", mutating: true
-      declare_action "perceive_pressure", mutating: true
-      declare_action "perceive_signals", mutating: true
-      declare_action "recruit_agent", mutating: true
-      declare_action "reinforce_signal", mutating: true
+      declare_action "emit_signal", mutating: true,
+                                    returns: "signal_id, signal_key and strength of the new signal",
+                                    refuses: "signal_type is not a lowercase, optionally dot-namespaced token, signal_key is missing, or strength or decay_rate is outside 0-1"
+      declare_action "measure_pressure", mutating: true,
+                                         returns: "the field's id, field_type, artifact_ref, pressure_value, threshold, dimensions and last_measured_at",
+                                         refuses: "field_type is not one of the six supported types, or the calculator returns no measurement"
+      declare_action "optimize_team", mutating: true,
+                                      returns: "counts: gaps_detected, recruited, released and reassigned",
+                                      refuses: "the team is not in this account",
+                                      see_also: { "recruit_agent" => "adding a member for a named capability" }
+      declare_action "perceive_pressure", mutating: true,
+                                          returns: "fields (id, field_type, artifact_ref, artifact_type, pressure_value, threshold, dimensions, measurement and address times, address_count), highest pressure first, and count"
+      declare_action "perceive_signals", mutating: true,
+                                         returns: "signals (id, signal_type, signal_key, strength, payload, perceive_count), strongest first, and count",
+                                         refuses: "the caller has no agent identity"
+      declare_action "recruit_agent", mutating: true,
+                                      returns: "recruited: true with member_id, agent_id and agent_name, or recruited: false with reason no_suitable_agent",
+                                      refuses: [ "the team is not in this account", "capability is missing" ]
+      declare_action "reinforce_signal", mutating: true,
+                                         returns: "signal_id and new_strength",
+                                         refuses: [ "no signal with that id exists in this account", "the caller has no agent identity" ]
 
       def self.definition
         {
@@ -87,7 +101,9 @@ module Ai
       def self.action_definitions
         {
           "emit_signal" => {
-            description: "Emit a stigmergic signal (pheromone, pressure, beacon, warning, discovery) for decentralized coordination",
+            description: "Emit a stigmergic signal that other agents in the account can perceive. " \
+                         "The base types are pheromone, pressure, beacon, warning and discovery; a dot-namespaced type is also accepted. " \
+                         "The signal is broadcast when created and fades as its strength decays.",
             parameters: {
               signal_type: { type: "string", required: true, description: "Signal type: pheromone, pressure, beacon, warning, discovery" },
               signal_key: { type: "string", required: true, description: "Namespaced signal key" },
@@ -98,21 +114,26 @@ module Ai
             }
           },
           "perceive_signals" => {
-            description: "Perceive active stigmergic signals, optionally filtered by type",
+            description: "Perceive the account's active stigmergic signals, strongest first, optionally filtered by type. " \
+                         "Active means strength above 0.01 and not expired. " \
+                         "Each returned signal's perceive_count is incremented.",
             parameters: {
               signal_types: { type: "array", required: false, description: "Filter by signal types" },
               limit: { type: "integer", required: false, description: "Max signals to return (default 20)" }
             }
           },
           "reinforce_signal" => {
-            description: "Reinforce an existing stigmergic signal (ant-trail reinforcement pattern)",
+            description: "Reinforce an existing stigmergic signal by adding to its strength. " \
+                         "Strength is capped at 1.0 and the reinforcing agent is recorded on the signal.",
             parameters: {
               signal_id: { type: "string", required: true, description: "Signal ID to reinforce" },
               strength_delta: { type: "number", required: false, description: "Reinforcement amount (default 0.1)" }
             }
           },
           "measure_pressure" => {
-            description: "Measure a pressure field on an artifact (code_quality, test_coverage, etc.)",
+            description: "Measure a pressure field on an artifact and record the measurement. " \
+                         "Supported field types are code_quality, test_coverage, doc_readability, security_posture, performance and dependency_health. " \
+                         "The field is created for the artifact and type on first measurement.",
             parameters: {
               artifact_ref: { type: "string", required: true, description: "Artifact reference (e.g., file path, module name)" },
               artifact_type: { type: "string", required: false, description: "Artifact type (e.g., file, module, service)" },
@@ -120,20 +141,26 @@ module Ai
             }
           },
           "perceive_pressure" => {
-            description: "Perceive actionable pressure fields sorted by highest pressure",
+            description: "Perceive the account's actionable pressure fields, highest pressure first. " \
+                         "Actionable means pressure_value is at or above the field's threshold. " \
+                         "team_id is accepted but not applied as a filter.",
             parameters: {
               team_id: { type: "string", required: false, description: "Filter by team context" },
               limit: { type: "integer", required: false, description: "Max fields to return (default 10)" }
             }
           },
           "optimize_team" => {
-            description: "Run full team composition optimization (gap detection, leader emergence, member rebalancing)",
+            description: "Run team composition optimization on one team. " \
+                         "It moves the lead role from the current lead to the top-scoring member when that member's leadership score exceeds 0.7. " \
+                         "It does not recruit or release members, and gaps_detected is checked against an empty requirement list, so it reads 0.",
             parameters: {
               team_id: { type: "string", required: true, description: "Team ID to optimize" }
             }
           },
           "recruit_agent" => {
-            description: "Recruit an agent into a team to fill a capability gap",
+            description: "Recruit an agent into a team to fill a capability gap. " \
+                         "It picks a random active account agent that declares the capability and is not already a member, " \
+                         "adds it as a specialist and records a restructure event.",
             parameters: {
               team_id: { type: "string", required: true, description: "Team ID to recruit into" },
               capability: { type: "string", required: true, description: "Required capability" }

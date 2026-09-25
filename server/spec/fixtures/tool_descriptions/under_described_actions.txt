@@ -46,7 +46,6 @@ dismiss_all_notifications
 dismiss_improvement
 dismiss_notification
 dispatch_to_runner
-emit_signal
 enable_autonomy
 environment_list
 execute_agent
@@ -92,11 +91,7 @@ list_knowledge_bases
 list_ralph_loops
 list_roles
 mark_all_notifications_read
-measure_pressure
-optimize_team
 pause_ralph_loop
-perceive_pressure
-perceive_signals
 platform_provisioning_approve_plan
 platform_provisioning_compose_plan
 platform_provisioning_status
@@ -106,8 +101,6 @@ project_list
 project_status
 reason_knowledge_graph
 record_agent_execution
-recruit_agent
-reinforce_signal
 reopen_ralph_loop
 resolve_governance_report
 resume_ralph_loop
