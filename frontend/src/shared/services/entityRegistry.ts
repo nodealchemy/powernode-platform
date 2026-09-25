@@ -16,7 +16,8 @@ export interface EntityFieldConfig {
 
 /**
  * One object type's cross-reference definition. The host (`EntityReferenceHost`)
- * picks a render mode from the fields present:
+ * picks a render mode from the fields present (a `detailPath` type never reaches
+ * the host — EntityLink links straight to its page):
  *  - id modal:     `component` + `idProp`                  → modal self-fetches by id
  *  - object modal: `component` + `objectProp` + `fetchById`→ host fetches, passes the object
  *  - generic:      `fetchById` only                        → host renders the generic EntityDetailModal
@@ -34,12 +35,18 @@ export interface EntityDefinition {
   icon?: string;
   /**
    * For types backed by a pre-existing global modal driven by its OWN url search
-   * param (e.g. core's agent/team/mission modals read `?agent=`/`?team=`/`?mission=`
+   * param (e.g. core's team/mission modals read `?team=`/`?mission=`
    * and are mounted separately from EntityReferenceHost). Set the param name and
    * EntityLink opens that legacy modal directly — reusing the rich existing modal
    * instead of the generic field view. Takes precedence over component/fetchById.
    */
   legacyParam?: string;
+  /**
+   * For types whose detail surface is a routed page rather than a modal (e.g.
+   * core's agent → `/app/ai/agents/:id`). EntityLink renders a real link to the
+   * returned path. Takes precedence over legacyParam/component/fetchById.
+   */
+  detailPath?: (id: string) => string;
   /** A detail modal component (bespoke or wrapper). */
   component?: ComponentType<Record<string, unknown>>;
   /** If set, the id is passed to `component` under this prop (modal self-fetches by id). */

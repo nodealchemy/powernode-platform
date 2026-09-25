@@ -41,7 +41,7 @@ export function useEntityModal() {
     });
   }, [setSearchParams]);
 
-  // Open a legacy per-type modal that reads its own search param (e.g. `?agent=<id>`).
+  // Open a legacy per-type modal that reads its own search param (e.g. `?team=<id>`).
   // Used by EntityLink for types registered with a `legacyParam`.
   const openByParam = useCallback(
     (param: string, id: string) => {

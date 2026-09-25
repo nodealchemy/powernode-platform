@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { entityRegistry } from '@/shared/services/entityRegistry';
 import { useEntityModal } from '@/shared/hooks/useEntityModal';
 import { usePermissions } from '@/shared/hooks/usePermissions';
@@ -17,8 +18,9 @@ interface EntityLinkProps {
 }
 
 /**
- * Reusable clickable reference. Opens the target object's detail surface via the
- * global EntityReferenceHost. Degrades gracefully to plain text when the type is
+ * Reusable clickable reference. Opens the target object's detail surface: its
+ * routed detail page for a `detailPath` type, otherwise the global
+ * EntityReferenceHost. Degrades gracefully to plain text when the type is
  * not registered, the id is missing, or the viewer lacks the read permission —
  * so it is always safe to drop in place of a `<span>{name}</span>`.
  *
@@ -31,17 +33,34 @@ export const EntityLink: React.FC<EntityLinkProps> = ({ type, id, label, classNa
   const def = entityRegistry.getEntity(type);
   const content = label ?? id ?? '';
 
-  // Openable only if the registered type has a way to open (legacy param,
-  // bespoke component, or a generic fetcher) and the read permission is held.
+  // Openable only if the registered type has a way to open (detail page,
+  // legacy param, bespoke component, or a generic fetcher) and the read
+  // permission is held.
   const canOpen =
     !disabled &&
     !!id &&
     !!def &&
-    (!!def.legacyParam || !!def.component || !!def.fetchById) &&
+    (!!def.detailPath || !!def.legacyParam || !!def.component || !!def.fetchById) &&
     (!def.permission || hasPermission(def.permission));
 
   if (!canOpen) {
     return <span className={cn('text-theme-secondary', className)}>{content}</span>;
+  }
+
+  const linkClassName = cn('text-theme-link hover:underline cursor-pointer text-left', className);
+  const title = def?.label ? `View ${def.label}` : undefined;
+
+  if (def && def.detailPath) {
+    return (
+      <Link
+        to={def.detailPath(String(id))}
+        onClick={(e) => e.stopPropagation()}
+        className={linkClassName}
+        title={title}
+      >
+        {content}
+      </Link>
+    );
   }
 
   return (
@@ -55,8 +74,8 @@ export const EntityLink: React.FC<EntityLinkProps> = ({ type, id, label, classNa
           openEntity(type, String(id));
         }
       }}
-      className={cn('text-theme-link hover:underline cursor-pointer text-left', className)}
-      title={def?.label ? `View ${def.label}` : undefined}
+      className={linkClassName}
+      title={title}
     >
       {content}
     </button>

@@ -5,17 +5,20 @@
 // own types under the "core" owner, exactly as the system extension registers
 // under "system" (see extensions/system/.../features/system/entityRegistry.ts).
 // `<EntityLink>` / `<EntityReferenceHost>` (mounted once in DashboardLayout)
-// then resolve a `type` and render one of three modes:
+// then resolve a `type` and render one of these modes:
 //
+//   0. detail page  — `detailPath`                           → a real link to the type's
+//        routed detail page (agent → /app/ai/agents/:id). Takes precedence.
 //   1. legacy modal — `legacyParam`                          → opens a pre-existing
-//        global modal driven by its OWN url param (?agent=/?team=/?mission=).
-//        Takes precedence; no `component`/`fetchById` needed.
+//        global modal driven by its OWN url param (?team=/?mission=).
+//        No `component`/`fetchById` needed.
 //   2. id modal     — `component` + `idProp`                 → bespoke modal self-fetches
 //   3. object modal — `component` + `objectProp` + `fetchById`→ host fetches, passes object
 //   4. generic      — `fetchById` only                       → field-driven EntityDetailModal
 //
-// Phase A registers (1) legacy modals for agent/team/mission (reuse the rich
-// existing modals) and (4) generic field modals for ~20 read-only types.
+// Phase A registers (0) the agent detail page, (1) legacy modals for team/mission
+// (reuse the rich existing modals) and (4) generic field modals for ~20
+// read-only types.
 //
 // Every registered type traces to a VERIFIED `*Api` read method and a permission
 // confirmed against the backend controller's `show`/`validate_permissions`.
@@ -70,6 +73,9 @@ function requireCompositeId(id: string, parts: number, shape: string): string[] 
   return segments;
 }
 
+/** The one agent detail surface (fc-43 folded the AgentDetailModal into it). */
+const agentDetailPath = (id: string): string => `/app/ai/agents/${encodeURIComponent(id)}`;
+
 /**
  * Register every Phase-A core object type with the core entity registry.
  * Idempotent at the call site (re-registration overwrites by type); called once
@@ -78,16 +84,14 @@ function requireCompositeId(id: string, parts: number, shape: string): string[] 
 export function registerCoreEntities(): void {
   entityRegistry.registerEntities('core', [
     // ================================================================
-    // Mode 1: legacy modals (reuse the rich existing global modals).
-    // These are mounted in DashboardLayout and read their own url param.
-    // No component/fetchById — `legacyParam` takes precedence.
+    // Mode 0: routed detail page. EntityLink links straight to it.
     // ================================================================
     {
       type: 'agent',
       label: 'Agent',
       permission: 'ai.agents.read',
       icon: 'Bot',
-      legacyParam: 'agent',
+      detailPath: agentDetailPath,
     },
     {
       // Alias: backend polymorphic refs surface as "Ai::Agent"/"AiAgent".
@@ -95,8 +99,14 @@ export function registerCoreEntities(): void {
       label: 'Agent',
       permission: 'ai.agents.read',
       icon: 'Bot',
-      legacyParam: 'agent',
+      detailPath: agentDetailPath,
     },
+
+    // ================================================================
+    // Mode 1: legacy modals (reuse the rich existing global modals).
+    // These are mounted in DashboardLayout and read their own url param.
+    // No component/fetchById — `legacyParam` takes precedence.
+    // ================================================================
     {
       // The team detail modal fetches via `teamsApi.getTeam` → GET /ai/teams/:id
       // → TeamsController#show, which is authenticated-only (no resource read
