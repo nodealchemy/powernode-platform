@@ -112,6 +112,7 @@ export const AuditLogList: React.FC = () => {
           <label className="block text-xs text-theme-secondary mb-1">Start Date</label>
           <input
             type="date"
+            aria-label="Start date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
             className="px-3 py-1.5 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
@@ -121,6 +122,7 @@ export const AuditLogList: React.FC = () => {
           <label className="block text-xs text-theme-secondary mb-1">End Date</label>
           <input
             type="date"
+            aria-label="End date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
             className="px-3 py-1.5 text-sm border border-theme rounded-md bg-theme-surface text-theme-primary focus:outline-none focus:ring-1 focus:ring-theme-interactive-primary"
