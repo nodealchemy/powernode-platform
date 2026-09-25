@@ -45,7 +45,7 @@ export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ ref
   const [selectedTemplate, setSelectedTemplate] = useState<ContainerTemplateSummary | null>(null);
   const [viewLogsContainer, setViewLogsContainer] = useState<ContainerInstanceSummary | null>(null);
 
-  const basePath = '/app/ai/execution/containers';
+  const basePath = '/app/ai/execution/sandboxes';
 
   const getActiveSubTab = () => {
     const path = location.pathname;

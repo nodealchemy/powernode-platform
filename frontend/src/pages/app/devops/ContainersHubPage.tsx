@@ -19,7 +19,7 @@ import { SwarmServiceDetailPage } from '@/features/devops/swarm/pages/SwarmServi
 /**
  * ContainersHubPage — the single DevOps home for container runtimes: Docker,
  * Swarm and Kubernetes. (Sandboxes live once, under AI › Execution —
- * /app/ai/execution/containers — so they are not a leaf here.) Follows the Cost hub's pattern
+ * /app/ai/execution/sandboxes — so they are not a leaf here.) Follows the Cost hub's pattern
  * (pages/app/ai/CostPage.tsx): ONE vertical SubNavRail whose leaves are
  * path-addressable under `/app/devops/containers/<leaf>`.
  *

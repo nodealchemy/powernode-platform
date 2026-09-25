@@ -77,7 +77,7 @@ const SkillsPage = React.lazy(() => import('./ai/SkillsPage').then(m => ({ defau
 const PromptsPage = React.lazy(() => import('@/features/ai/prompts/pages/PromptsPage').then(m => ({ default: m.PromptsPage })));
 
 // AI Orchestration
-// SandboxDashboardPage → Execution/Containers, CompoundLearningPage → Knowledge/Learning
+// SandboxDashboardPage → Execution/Sandboxes, CompoundLearningPage → Knowledge/Learning
 // Autonomy, Governance (with its audit and security views), Approval Chains and
 // Budgets → AI → Control (/ai/control/*)
 // EvaluationDashboardPage absorbed into Observability, CodeFactoryPage absorbed into Missions
@@ -243,8 +243,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops/integrations/:id/*" element={<IntegrationDetailPage />} />
         <Route path="/devops/integrations" element={<IntegrationsWebhooksPage />} />
 
-        {/* Sandboxes: merged into AI Execution's Containers tab —
-            /app/ai/execution/containers. Deliberately no redirect route. */}
+        {/* Sandboxes: merged into AI Execution's Sandboxes tab —
+            /app/ai/execution/sandboxes. Deliberately no redirect route. */}
 
         <Route path="/devops/api-keys" element={<ApiKeysPage />} />
 

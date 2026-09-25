@@ -52,7 +52,7 @@ const renderAt = (path: string) =>
 
 describe('ContainerSandboxContent sub-tab deep links (real TabContainer)', () => {
   it('lands on Executions by default', async () => {
-    renderAt('/app/ai/execution/containers');
+    renderAt('/app/ai/execution/sandboxes');
     await waitFor(() => expect(screen.getByTestId('container-list')).toBeInTheDocument());
 
     expect(screen.queryByTestId('template-list')).not.toBeInTheDocument();
@@ -60,14 +60,14 @@ describe('ContainerSandboxContent sub-tab deep links (real TabContainer)', () =>
   });
 
   it('deep-links directly to the Templates sub-tab', async () => {
-    renderAt('/app/ai/execution/containers/templates');
+    renderAt('/app/ai/execution/sandboxes/templates');
     await waitFor(() => expect(screen.getByTestId('template-list')).toBeInTheDocument());
 
     expect(screen.queryByTestId('container-list')).not.toBeInTheDocument();
   });
 
   it('deep-links directly to the Quotas sub-tab', async () => {
-    renderAt('/app/ai/execution/containers/quotas');
+    renderAt('/app/ai/execution/sandboxes/quotas');
     await waitFor(() => expect(screen.getByTestId('quota-display')).toBeInTheDocument());
 
     expect(screen.queryByTestId('container-list')).not.toBeInTheDocument();

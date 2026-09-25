@@ -19,7 +19,7 @@ const tabs = [
   { id: 'resources', label: 'Resources', icon: <FolderOutput size={16} />, path: '/resources' },
   { id: 'agui', label: 'AG-UI', icon: <Radio size={16} />, path: '/agui' },
   { id: 'testing', label: 'Agent Testing', icon: <TestTube size={16} />, path: '/testing' },
-  { id: 'containers', label: 'Sandboxes', icon: <Box size={16} />, path: '/containers' },
+  { id: 'sandboxes', label: 'Sandboxes', icon: <Box size={16} />, path: '/sandboxes' },
 ];
 
 export const ExecutionPage: React.FC = () => {
@@ -32,7 +32,7 @@ export const ExecutionPage: React.FC = () => {
     if (path.includes('/execution/resources')) return 'resources';
     if (path.includes('/execution/agui')) return 'agui';
     if (path.includes('/execution/testing')) return 'testing';
-    if (path.includes('/execution/containers')) return 'containers';
+    if (path.includes('/execution/sandboxes')) return 'sandboxes';
     return 'ralph-loops';
   };
 
@@ -100,7 +100,7 @@ export const ExecutionPage: React.FC = () => {
         <TabPanel tabId="testing" activeTab={activeTab}>
           <SandboxContent refreshKey={refreshKey} />
         </TabPanel>
-        <TabPanel tabId="containers" activeTab={activeTab}>
+        <TabPanel tabId="sandboxes" activeTab={activeTab}>
           <ContainerSandboxContent refreshKey={refreshKey} />
         </TabPanel>
       </TabContainer>
