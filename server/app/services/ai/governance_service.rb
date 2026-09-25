@@ -24,37 +24,6 @@ module Ai
       )
     end
 
-    def activate_policy(policy)
-      policy.activate!
-      { success: true, policy: policy }
-    end
-
-    def evaluate_policies(context, resource: nil)
-      policies = account.ai_compliance_policies.active.ordered_by_priority
-
-      results = []
-      blocked = false
-
-      policies.each do |policy|
-        next if resource && !policy.applies_to?(resource)
-
-        result = policy.evaluate(context)
-        results << {
-          policy: policy,
-          allowed: result[:allowed],
-          reason: result[:reason],
-          enforcement: result[:enforcement]
-        }
-
-        if !result[:allowed] && policy.blocking?
-          blocked = true
-          break
-        end
-      end
-
-      { allowed: !blocked, results: results }
-    end
-
     # Approval Chains
     def request_approval(chain:, source_type:, source_id:, description:, request_data: {}, user: nil)
       request = chain.create_request!(
@@ -75,74 +44,6 @@ module Ai
       chains = account.ai_approval_chains.active.by_trigger(trigger_type)
 
       chains.find { |chain| chain.matches_trigger?(context) }
-    end
-
-    # Data Classification
-    def create_classification(name:, level:, detection_patterns: [], handling_requirements: {}, user: nil)
-      Ai::DataClassification.create!(
-        account: account,
-        classified_by: user,
-        name: name,
-        classification_level: level,
-        detection_patterns: detection_patterns,
-        handling_requirements: handling_requirements
-      )
-    end
-
-    def scan_for_sensitive_data(text, source_type:, source_id:)
-      classifications = account.ai_data_classifications.ordered_by_sensitivity
-      detections = []
-
-      classifications.each do |classification|
-        matches = classification.detect_in_text(text)
-        matches.each do |match|
-          detection = classification.record_detection!(
-            source_type: source_type,
-            source_id: source_id,
-            field_path: match[:position].to_s,
-            original: match[:match],
-            action: classification.requires_masking ? "masked" : "logged",
-            confidence: 1.0
-          )
-          detections << detection
-        end
-      end
-
-      { detections: detections, has_sensitive_data: detections.any? }
-    end
-
-    def mask_sensitive_data(text)
-      classifications = account.ai_data_classifications.requiring_masking.ordered_by_sensitivity
-      masked_text = text.dup
-
-      classifications.each do |classification|
-        matches = classification.detect_in_text(masked_text)
-        matches.sort_by { |m| -m[:position] }.each do |match|
-          masked_value = classification.mask_value(match[:match])
-          masked_text[match[:position], match[:match].length] = masked_value
-        end
-      end
-
-      masked_text
-    end
-
-    # Compliance Reports
-    def generate_report(report_type:, period_start: nil, period_end: nil, config: {}, user: nil, format: "pdf")
-      report = Ai::ComplianceReport.create!(
-        account: account,
-        generated_by: user,
-        report_type: report_type,
-        status: "generating",
-        format: format,
-        period_start: period_start,
-        period_end: period_end,
-        report_config: config
-      )
-
-      # Generate report asynchronously
-      # Ai::GenerateComplianceReportJob.perform_async(report.id)
-
-      report
     end
 
     def get_compliance_summary(start_date: 30.days.ago, end_date: Time.current)
