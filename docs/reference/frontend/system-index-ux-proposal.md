@@ -50,11 +50,11 @@ field-driven `EntityDetailModal` (fed by their existing `getById`) and/or inline
 | `node_platform` | platformsApi.getPlatform | — |
 | `package_repository` | packageRepositoriesApi.get | — |
 | `platform_peer` | platformPeersApi.getPeer | — |
-| `provider_availability_zone` | providersApi.getProviderAvailabilityZone | — |
-| `provider_connection` | providersApi.getProviderConnection | — |
-| `provider_instance_type` | providersApi.getProviderInstanceType | — |
+| `provider_availability_zone` | fleetProvidersApi.getProviderAvailabilityZone | — |
+| `provider_connection` | fleetProvidersApi.getProviderConnection | — |
+| `provider_instance_type` | fleetProvidersApi.getProviderInstanceType | — |
 | `provider_network_subnet` | networksApi.getNetworkSubnet | — |
-| `provider_region` | providersApi.getProviderRegion | — |
+| `provider_region` | fleetProvidersApi.getProviderRegion | — |
 | `sdwan_bridge` | sdwanApi.getBridge | — |
 | `sdwan_peer` | sdwanApi.getPeer | — |
 | `sdwan_virtual_ip` | sdwanApi.getVirtualIp | — |

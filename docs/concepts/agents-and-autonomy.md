@@ -1122,7 +1122,7 @@ import { KillSwitchPanel } from '@/features/ai/autonomy/components/KillSwitchPan
 import { TrustScoreCard } from '@/features/ai/autonomy/components/TrustScoreCard';
 
 import { LearningsList } from '@/features/ai/learning/components/LearningsList';
-import { compoundLearningApi } from '@/features/ai/learning/services/compoundLearningApi';
+import { learningApi } from '@/features/ai/learning/api/learningApi';
 ```
 
 ### AI permission catalog (concept-level summary)
