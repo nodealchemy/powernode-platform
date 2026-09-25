@@ -29,25 +29,6 @@ export interface CompliancePolicy {
   created_at: string;
 }
 
-export interface PolicyViolation {
-  id: string;
-  violation_id: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'open' | 'acknowledged' | 'investigating' | 'resolved' | 'dismissed' | 'escalated';
-  description: string;
-  context: Record<string, unknown>;
-  source_type: string | null;
-  source_id: string | null;
-  remediation_steps: unknown[];
-  resolution_notes: string | null;
-  detected_at: string;
-  resolved_at: string | null;
-  policy: {
-    id: string;
-    name: string;
-  };
-}
-
 export interface ApprovalChain {
   id: string;
   name: string;
@@ -60,60 +41,6 @@ export interface ApprovalChain {
   timeout_hours: number | null;
   usage_count: number;
   created_at: string;
-}
-
-export interface DataClassification {
-  id: string;
-  name: string;
-  classification_level: 'public' | 'internal' | 'confidential' | 'restricted' | 'pii' | 'phi' | 'pci';
-  description: string | null;
-  detection_patterns: unknown[];
-  handling_requirements: Record<string, unknown>;
-  requires_encryption: boolean;
-  requires_masking: boolean;
-  requires_audit: boolean;
-  is_system: boolean;
-  detection_count: number;
-}
-
-export interface DataDetection {
-  id: string;
-  detection_id: string;
-  classification_level: string;
-  source_type: string;
-  field_path: string | null;
-  action_taken: 'logged' | 'masked' | 'blocked' | 'encrypted' | 'flagged';
-  masked_snippet: string | null;
-  confidence_score: number | null;
-  created_at: string;
-}
-
-export interface ComplianceReport {
-  id: string;
-  report_id: string;
-  report_type: string;
-  status: 'generating' | 'completed' | 'failed' | 'expired';
-  format: 'pdf' | 'html' | 'json' | 'csv';
-  period_start: string | null;
-  period_end: string | null;
-  summary_data: Record<string, unknown>;
-  file_path: string | null;
-  file_size_bytes: number | null;
-  generated_at: string | null;
-  expires_at: string | null;
-}
-
-export interface AuditEntry {
-  id: string;
-  entry_id: string;
-  action_type: string;
-  resource_type: string;
-  resource_id: string | null;
-  outcome: 'success' | 'failure' | 'blocked' | 'warning';
-  description: string | null;
-  ip_address: string | null;
-  occurred_at: string;
-  user_id: string | null;
 }
 
 export interface ComplianceSummary {
@@ -170,53 +97,8 @@ export interface CollusionIndicator {
   created_at: string;
 }
 
-export interface GovernanceReportSummary {
-  total: number;
-  open: number;
-  critical: number;
-  by_type: Record<string, number>;
-  by_severity: Record<string, number>;
-  by_status: Record<string, number>;
-  auto_remediated: number;
-}
-
-export interface CollusionSummary {
-  total: number;
-  high_confidence: number;
-  by_type: Record<string, number>;
-  avg_correlation: number;
-  recent_24h: number;
-}
-
-export interface PolicyEvaluationResult {
-  policy_id: string;
-  policy_name: string;
-  allowed: boolean;
-  reason: string | null;
-  enforcement: string;
-}
-
-export interface PolicyFilters extends QueryFilters {
-  type?: string;
-}
-
-export interface ViolationFilters extends QueryFilters {
-  severity?: string;
-}
-
-export interface AuditFilters extends QueryFilters {
-  action_type?: string;
-  resource_type?: string;
-}
-
 class GovernanceApiService extends BaseApiService {
   private basePath = '/ai/governance';
-
-  // Policies
-  async getPolicies(filters: PolicyFilters = {}): Promise<PaginatedResponse<CompliancePolicy>> {
-    const queryString = this.buildQueryString(filters);
-    return this.get<PaginatedResponse<CompliancePolicy>>(`${this.basePath}/policies${queryString}`);
-  }
 
   async createPolicy(data: {
     name: string;
@@ -230,33 +112,6 @@ class GovernanceApiService extends BaseApiService {
     return this.post(`${this.basePath}/policies`, data);
   }
 
-  async activatePolicy(id: string): Promise<{ policy: CompliancePolicy }> {
-    return this.put(`${this.basePath}/policies/${id}/activate`);
-  }
-
-  async evaluatePolicies(
-    context: Record<string, unknown>
-  ): Promise<{ allowed: boolean; results: PolicyEvaluationResult[] }> {
-    return this.post(`${this.basePath}/policies/evaluate`, { context });
-  }
-
-  // Violations
-  async getViolations(filters: ViolationFilters = {}): Promise<PaginatedResponse<PolicyViolation>> {
-    const queryString = this.buildQueryString(filters);
-    return this.get<PaginatedResponse<PolicyViolation>>(`${this.basePath}/violations${queryString}`);
-  }
-
-  async acknowledgeViolation(id: string): Promise<{ violation: PolicyViolation }> {
-    return this.put(`${this.basePath}/violations/${id}/acknowledge`);
-  }
-
-  async resolveViolation(
-    id: string,
-    data: { notes?: string; action?: string }
-  ): Promise<{ violation: PolicyViolation }> {
-    return this.put(`${this.basePath}/violations/${id}/resolve`, data);
-  }
-
   // Single-chain show lives on the standalone Ai::ApprovalChainsController
   // (GET /ai/approval_chains/:id), NOT under /ai/governance — the governance
   // approval_chains route was index/create only, and both were deleted with
@@ -265,61 +120,13 @@ class GovernanceApiService extends BaseApiService {
     return this.get<ApprovalChain>(`/ai/approval_chains/${id}`);
   }
 
-  // Data Classifications
-  async getClassifications(page = 1, perPage = 20): Promise<PaginatedResponse<DataClassification>> {
-    const queryString = this.buildQueryString({ page, per_page: perPage });
-    return this.get<PaginatedResponse<DataClassification>>(`${this.basePath}/classifications${queryString}`);
-  }
-
-  async createClassification(data: {
-    name: string;
-    classification_level: string;
-    detection_patterns?: unknown[];
-    handling_requirements?: Record<string, unknown>;
-  }): Promise<{ classification: DataClassification }> {
-    return this.post(`${this.basePath}/classifications`, data);
-  }
-
-  // Data Scanning
-  async scanData(
-    text: string,
-    sourceType: string,
-    sourceId: string
-  ): Promise<{ has_sensitive_data: boolean; detections: DataDetection[] }> {
-    return this.post(`${this.basePath}/scan`, { text, source_type: sourceType, source_id: sourceId });
-  }
-
-  async maskData(text: string): Promise<{ masked_text: string }> {
-    return this.post(`${this.basePath}/mask`, { text });
-  }
-
-  // Reports
-  async getReports(page = 1, perPage = 20): Promise<PaginatedResponse<ComplianceReport>> {
-    const queryString = this.buildQueryString({ page, per_page: perPage });
-    return this.get<PaginatedResponse<ComplianceReport>>(`${this.basePath}/reports${queryString}`);
-  }
-
-  async generateReport(data: {
-    report_type: string;
-    period_start?: string;
-    period_end?: string;
-    config?: Record<string, unknown>;
-  }): Promise<{ report: ComplianceReport }> {
-    return this.post(`${this.basePath}/reports`, data);
-  }
-
-  // Summary and Audit
+  // Summary
   async getSummary(startDate?: string, endDate?: string): Promise<{ summary: ComplianceSummary }> {
     const params: Record<string, string> = {};
     if (startDate) params.start_date = startDate;
     if (endDate) params.end_date = endDate;
     const queryString = this.buildQueryString(params);
     return this.get(`${this.basePath}/summary${queryString}`);
-  }
-
-  async getAuditLog(filters: AuditFilters = {}): Promise<PaginatedResponse<AuditEntry>> {
-    const queryString = this.buildQueryString(filters);
-    return this.get<PaginatedResponse<AuditEntry>>(`${this.basePath}/audit_log${queryString}`);
   }
 
   // Phase 4: Governance Reports
@@ -333,19 +140,11 @@ class GovernanceApiService extends BaseApiService {
     return this.get<PaginatedResponse<GovernanceReport>>(`/ai/governance_reports${queryString}`);
   }
 
-  async getGovernanceReport(id: string): Promise<{ report: GovernanceReport }> {
-    return this.get(`/ai/governance_reports/${id}`);
-  }
-
   async resolveGovernanceReport(id: string, data: {
     resolution_status?: string;
     notes?: string;
   }): Promise<{ report: GovernanceReport }> {
     return this.put(`/ai/governance_reports/${id}/resolve`, data);
-  }
-
-  async getGovernanceReportSummary(): Promise<{ summary: GovernanceReportSummary }> {
-    return this.get('/ai/governance_reports/summary');
   }
 
   // Phase 4: Collusion Detection
@@ -355,10 +154,6 @@ class GovernanceApiService extends BaseApiService {
   } = {}): Promise<PaginatedResponse<CollusionIndicator>> {
     const queryString = this.buildQueryString(filters);
     return this.get<PaginatedResponse<CollusionIndicator>>(`/ai/governance_reports/collusion_indicators${queryString}`);
-  }
-
-  async getCollusionSummary(): Promise<{ summary: CollusionSummary }> {
-    return this.get('/ai/governance_reports/collusion_summary');
   }
 }
 

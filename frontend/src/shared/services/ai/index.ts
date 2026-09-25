@@ -251,14 +251,8 @@ export type {
 export { governanceApi };
 export type {
   CompliancePolicy,
-  PolicyViolation,
   ApprovalChain,
-  DataClassification,
-  DataDetection,
-  ComplianceReport,
-  AuditEntry,
   ComplianceSummary,
-  PolicyEvaluationResult,
 } from '@/shared/services/ai/GovernanceApiService';
 
 // Re-export DevOps service (Phase 4 - AI Pipeline Templates for CI/CD)
