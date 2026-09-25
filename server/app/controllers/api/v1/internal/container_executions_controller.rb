@@ -42,7 +42,10 @@ module Api
 
           case params[:status]
           when "running"
-            instance.start_running!
+            # fc-32 review: an operator pausing a sandbox is a deliberate
+            # action; a "running" callback from the workflow (which doesn't
+            # know about the pause) must not silently resurrect it.
+            instance.start_running! unless instance.paused?
           when "provisioning"
             instance.start_provisioning!
           end
