@@ -58,4 +58,24 @@ describe('PipelineRunsSummary', () => {
     expect(await screen.findByText('No pipeline runs yet')).toBeInTheDocument();
     expect(screen.getByText('No run data available')).toBeInTheDocument();
   });
+
+  it('shows a loading state until the runs arrive, not "No pipeline runs yet"', () => {
+    mockGetAll.mockReturnValue(new Promise(() => {}));
+
+    render(<PipelineRunsSummary />);
+
+    expect(screen.getByText('Loading pipeline runs…')).toBeInTheDocument();
+    expect(screen.queryByText('No pipeline runs yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('No run data available')).not.toBeInTheDocument();
+  });
+
+  it('shows an error state when the runs fail to load, not "No pipeline runs yet"', async () => {
+    mockGetAll.mockRejectedValue(new Error('boom'));
+
+    render(<PipelineRunsSummary />);
+
+    expect(await screen.findByText('Could not load pipeline runs.')).toBeInTheDocument();
+    expect(screen.queryByText('No pipeline runs yet')).not.toBeInTheDocument();
+    expect(screen.queryByText('No run data available')).not.toBeInTheDocument();
+  });
 });

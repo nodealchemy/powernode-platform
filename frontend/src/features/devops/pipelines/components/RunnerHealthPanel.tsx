@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Server } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { logger } from '@/shared/utils/logger';
 import { runnersApi } from '@/features/devops/git/services/git/runnersApi';
 import type { RunnerStats } from '@/features/devops/git/types';
@@ -25,6 +26,7 @@ const Count: React.FC<{ label: string; value: number; total: number; dot: string
  */
 export const RunnerHealthPanel: React.FC = () => {
   const [stats, setStats] = useState<RunnerStats | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,13 +35,32 @@ export const RunnerHealthPanel: React.FC = () => {
       .then((data) => {
         if (!cancelled) setStats(data.stats);
       })
-      .catch((error) => logger.error('Failed to load runner health', error));
+      .catch((error) => {
+        logger.error('Failed to load runner health', error);
+        if (!cancelled) setFailed(true);
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!stats) return null;
+  if (failed) {
+    return (
+      <div className="flex items-center gap-2 p-4 mb-6 bg-theme-error-fg/10 border border-theme-error-border/30 rounded-lg text-sm text-theme-error-fg">
+        <AlertTriangle className="w-4 h-4" />
+        <span>Could not load runner health.</span>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="flex items-center justify-center gap-3 py-6 mb-6 bg-theme-surface border border-theme rounded-lg">
+        <LoadingSpinner size="sm" />
+        <span className="text-sm text-theme-secondary">Loading runner health…</span>
+      </div>
+    );
+  }
 
   const total = stats.total || 0;
 

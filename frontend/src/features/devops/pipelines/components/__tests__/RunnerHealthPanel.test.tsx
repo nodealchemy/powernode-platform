@@ -39,4 +39,22 @@ describe('RunnerHealthPanel', () => {
 
     expect(await screen.findByText('No runners configured')).toBeInTheDocument();
   });
+
+  it('shows a loading state until the stats arrive', () => {
+    mockGetRunners.mockReturnValue(new Promise(() => {}));
+
+    render(<RunnerHealthPanel />);
+
+    expect(screen.getByText('Loading runner health…')).toBeInTheDocument();
+    expect(screen.queryByText('No runners configured')).not.toBeInTheDocument();
+  });
+
+  it('shows an error state when the stats fail to load, not "No runners configured"', async () => {
+    mockGetRunners.mockRejectedValue(new Error('boom'));
+
+    render(<RunnerHealthPanel />);
+
+    expect(await screen.findByText('Could not load runner health.')).toBeInTheDocument();
+    expect(screen.queryByText('No runners configured')).not.toBeInTheDocument();
+  });
 });

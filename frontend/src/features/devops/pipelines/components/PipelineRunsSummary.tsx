@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, CheckCircle, Clock, Play, XCircle } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle, Clock, Play, XCircle } from 'lucide-react';
+import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { logger } from '@/shared/utils/logger';
 import { devopsPipelineRunsApi } from '@/services/devopsPipelinesApi';
 import type { DevopsPipelineRun } from '@/types/devops-pipelines';
@@ -21,6 +22,7 @@ const runStatusConfig: Record<string, { icon: React.ComponentType<{ className?: 
 export const PipelineRunsSummary: React.FC = () => {
   const [recentRuns, setRecentRuns] = useState<DevopsPipelineRun[]>([]);
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
 
   useEffect(() => {
     let cancelled = false;
@@ -30,12 +32,36 @@ export const PipelineRunsSummary: React.FC = () => {
         if (cancelled) return;
         setRecentRuns(data.pipeline_runs);
         setStatusCounts(data.meta.status_counts ?? {});
+        setStatus('loaded');
       })
-      .catch((error) => logger.error('Failed to load recent pipeline runs', error));
+      .catch((error) => {
+        logger.error('Failed to load recent pipeline runs', error);
+        if (!cancelled) setStatus('error');
+      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Until the runs load (or if they fail), neither panel may claim "no runs":
+  // that would read as an empty history rather than an unknown one.
+  if (status === 'loading') {
+    return (
+      <div className="flex items-center justify-center gap-3 py-6 bg-theme-surface border border-theme rounded-lg">
+        <LoadingSpinner size="sm" />
+        <span className="text-sm text-theme-secondary">Loading pipeline runs…</span>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="flex items-center gap-2 p-4 bg-theme-error-fg/10 border border-theme-error-border/30 rounded-lg text-sm text-theme-error-fg">
+        <AlertTriangle className="w-4 h-4" />
+        <span>Could not load pipeline runs.</span>
+      </div>
+    );
+  }
 
   const successCount = (statusCounts['completed'] || 0) + (statusCounts['success'] || 0);
   const failedCount = statusCounts['failed'] || 0;
