@@ -9,11 +9,29 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "add_document", mutating: true
-      declare_action "create_knowledge_base", mutating: true
-      declare_action "delete_document", mutating: true, destructive: true
-      declare_action "list_knowledge_bases", mutating: false
-      declare_action "process_document", mutating: true
+      declare_action "add_document", mutating: true,
+                                     returns: "the document's id, name, knowledge_base_id, source_type, content_type, status, " \
+                                              "chunk_count, token_count, content_size_bytes and created_at",
+                                     refuses: [ "knowledge_base_id, name or content is blank",
+                                                "the knowledge base is not owned by this account" ],
+                                     see_also: { "process_document" => "chunking and embedding the stored document" }
+      declare_action "create_knowledge_base", mutating: true,
+                                              returns: "the knowledge base's id, name, description, status, counts, embedding_model, " \
+                                                       "chunking_strategy and created_at",
+                                              refuses: "name is blank, or the record fails validation"
+      declare_action "delete_document", mutating: true, destructive: true,
+                                        returns: "a confirmation message",
+                                        refuses: [ "knowledge_base_id or document_id is blank",
+                                                   "the document is not in that knowledge base, or the knowledge base is not owned by this account" ]
+      declare_action "list_knowledge_bases", mutating: false,
+                                             returns: "count and knowledge bases newest first (id, name, description, status, " \
+                                                      "document, chunk and token counts, embedding_model, chunking_strategy, created_at)",
+                                             see_also: { "query_knowledge_base" => "searching the documents in one knowledge base" }
+      declare_action "process_document", mutating: true,
+                                         returns: "the reloaded document, chunks_created and chunks_embedded",
+                                         refuses: [ "knowledge_base_id or document_id is blank",
+                                                    "the document is not in that knowledge base, or the knowledge base is not owned by this account",
+                                                    "no embedding provider is available" ]
 
       def self.definition
         {
@@ -38,18 +56,20 @@ module Ai
       def self.action_definitions
         {
           "list_knowledge_bases" => {
-            description: "List all RAG knowledge bases in the current account",
+            description: "List all RAG knowledge bases in the current account.",
             parameters: {}
           },
           "create_knowledge_base" => {
-            description: "Create a new RAG knowledge base for document storage and retrieval",
+            description: "Create a new RAG knowledge base for document storage and retrieval. " \
+                         "It is created with recursive chunking, chunk_size 1000 and chunk_overlap 200.",
             parameters: {
               name: { type: "string", required: true, description: "Knowledge base name" },
               description: { type: "string", required: false, description: "Knowledge base description" }
             }
           },
           "add_document" => {
-            description: "Add a document to a RAG knowledge base",
+            description: "Add a document to a RAG knowledge base. " \
+                         "The document is stored without chunks, and searches read chunks, so it is not searchable until process_document runs.",
             parameters: {
               knowledge_base_id: { type: "string", required: true, description: "Knowledge base ID" },
               name: { type: "string", required: true, description: "Document name" },
@@ -59,7 +79,8 @@ module Ai
             }
           },
           "process_document" => {
-            description: "Process a document: chunk and embed it for RAG retrieval",
+            description: "Process a document: chunk and embed it for RAG retrieval. " \
+                         "It uses the knowledge base's chunking settings and embeds only chunks that have no embedding yet.",
             parameters: {
               knowledge_base_id: { type: "string", required: true, description: "Knowledge base ID" },
               document_id: { type: "string", required: true, description: "Document ID to process" }
