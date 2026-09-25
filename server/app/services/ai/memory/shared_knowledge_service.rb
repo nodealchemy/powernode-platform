@@ -278,10 +278,13 @@ module Ai
         end
 
         entries = results.map do |entry|
+          # Judge freshness on the content's own age: touch_usage! sets
+          # updated_at to now, which made every hit read "fresh".
+          freshness = freshness_indicator(entry.updated_at)
           entry.touch_usage!
           serialized = serialize_entry(entry)
           serialized[:similarity] = (1.0 - entry.neighbor_distance).round(4) if entry.respond_to?(:neighbor_distance) && entry.neighbor_distance
-          serialized[:freshness] = freshness_indicator(entry.updated_at)
+          serialized[:freshness] = freshness
           serialized
         end
 

@@ -62,6 +62,17 @@ RSpec.describe Ai::Tools::SharedKnowledgeTool do
       titles = result[:entries].map { |e| e[:title] }
       expect(titles).to include("Alpha Widget Doc", "Beta Widget Doc")
     end
+
+    # touch_usage! bumped updated_at before freshness was judged, so every
+    # hit read "fresh" however old its content was.
+    it "judges freshness on the entry's age before the usage bump" do
+      alpha_entry.update_columns(updated_at: 60.days.ago)
+
+      result = tool.execute(params: { action: "search_knowledge", query: "widget", tags: [ "alpha" ] })
+
+      expect(result[:success]).to be true
+      expect(result[:entries].first[:freshness]).to eq("stale")
+    end
   end
 
   # Found in production 2026-08-02: the tags filter worked in-process but was
