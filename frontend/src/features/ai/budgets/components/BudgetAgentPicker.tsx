@@ -54,6 +54,8 @@ export const BudgetAgentPicker: React.FC<BudgetAgentPickerProps> = ({
         placeholder="Search agents…"
         value={searchInput}
         onChange={(e) => setSearchInput(e.target.value)}
+        // Enter narrows the list; it must not submit the form the picker sits in.
+        onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault(); }}
         className={searchClassName}
       />
       <select

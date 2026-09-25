@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BudgetCreateEditModal } from './BudgetCreateEditModal';
 
@@ -84,5 +85,22 @@ describe('BudgetCreateEditModal (create)', () => {
     await screen.findByRole('option', { name: 'Agent Two' });
     expect(screen.getByRole('option', { name: 'Agent One' })).toBeInTheDocument();
     expect((screen.getByLabelText('Agent') as HTMLSelectElement).value).toBe('a-one');
+  });
+
+  // Enter in the search box narrows the agent list; it must not submit the
+  // surrounding form (which would try to create a budget, or fail validation).
+  it('does not submit the form when Enter is pressed in the agent search', async () => {
+    const user = userEvent.setup();
+    renderModal();
+    await screen.findByRole('option', { name: 'Agent One' });
+    fireEvent.change(screen.getByLabelText('Agent'), { target: { value: 'a-one' } });
+    fireEvent.change(screen.getByPlaceholderText('10.00'), { target: { value: '25' } });
+
+    await user.type(screen.getByLabelText('Search agents'), 'two{Enter}');
+
+    expect((screen.getByLabelText('Search agents') as HTMLInputElement).value).toBe('two');
+    await waitFor(() => expect(mockGetAgents).toHaveBeenCalledWith({ per_page: 100, search: 'two' }));
+    expect(mockPost).not.toHaveBeenCalled();
+    expect(screen.queryByText(/please/i)).not.toBeInTheDocument();
   });
 });
