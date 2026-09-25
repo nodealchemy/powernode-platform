@@ -686,6 +686,80 @@ RSpec.describe Devops::Git::GiteaApiClient do
         expect(runs).to eq([])
       end
     end
+
+    # The Ai::Tools::GiteaActionsTool list action passes { limit:, workflow_file: }.
+    # Both used to be dropped: only page/per_page were read, so a caller got
+    # 30 rows of EVERY workflow regardless of what it asked for.
+    context 'with a limit option' do
+      it 'sends it as the Gitea page size' do
+        limited = stub_request(:get, "#{base_url}/repos/owner/repo/actions/runs")
+                  .with(query: { page: 1, limit: 5 })
+                  .to_return(status: 200, body: runs_response.to_json,
+                             headers: { 'Content-Type' => 'application/json' })
+
+        client.list_workflow_runs('owner', 'repo', limit: 5)
+
+        expect(limited).to have_been_requested
+      end
+
+      it 'still honours per_page from callers that use it' do
+        paged = stub_request(:get, "#{base_url}/repos/owner/repo/actions/runs")
+                .with(query: { page: 1, limit: 1 })
+                .to_return(status: 200, body: runs_response.to_json,
+                           headers: { 'Content-Type' => 'application/json' })
+
+        client.list_workflow_runs('owner', 'repo', per_page: 1)
+
+        expect(paged).to have_been_requested
+      end
+    end
+
+    context 'with a workflow_file option' do
+      # Gitea's run list has no workflow filter; each run carries
+      # path "<workflow file>@<ref>", which is what the client matches on.
+      def run_row(id, path)
+        { id: id, display_title: "commit #{id}", path: path, status: 'completed', event: 'push' }
+      end
+
+      def stub_runs_page(page, rows)
+        stub_request(:get, "#{base_url}/repos/owner/repo/actions/runs")
+          .with(query: { page: page, limit: described_class::WORKFLOW_FILTER_PAGE_SIZE })
+          .to_return(status: 200, body: { workflow_runs: rows }.to_json,
+                     headers: { 'Content-Type' => 'application/json' })
+      end
+
+      it 'returns only runs of that workflow' do
+        stub_runs_page(1, [
+                         run_row(3, 'validate.yaml@refs/heads/develop'),
+                         run_row(2, 'build.yaml@refs/tags/v1'),
+                         run_row(1, 'validate.yaml@refs/heads/develop')
+                       ])
+
+        runs = client.list_workflow_runs('owner', 'repo', workflow_file: 'build.yaml', limit: 20)
+
+        expect(runs.map { |r| r['id'] }).to eq([ 2 ])
+      end
+
+      it 'matches a workflow given with its directory prefix' do
+        stub_runs_page(1, [ run_row(2, 'build.yaml@refs/heads/main'), run_row(1, 'other.yaml@refs/heads/main') ])
+
+        runs = client.list_workflow_runs('owner', 'repo', workflow_file: '.gitea/workflows/build.yaml')
+
+        expect(runs.map { |r| r['id'] }).to eq([ 2 ])
+      end
+
+      it 'pages past non-matching runs until limit matches are found, then caps at limit' do
+        page_size = described_class::WORKFLOW_FILTER_PAGE_SIZE
+        first_page = Array.new(page_size) { |i| run_row(1000 - i, 'validate.yaml@refs/heads/develop') }
+        stub_runs_page(1, first_page)
+        stub_runs_page(2, [ run_row(10, 'build.yaml@refs/tags/v2'), run_row(9, 'build.yaml@refs/tags/v1'),
+                            run_row(8, 'build.yaml@refs/tags/v0') ])
+
+        runs = client.list_workflow_runs('owner', 'repo', workflow_file: 'build.yaml', limit: 2)
+
+        expect(runs.map { |r| r['id'] }).to eq([ 10, 9 ])
+      end
+    end
   end
 
   describe '#get_workflow_run' do

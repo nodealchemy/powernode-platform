@@ -182,12 +182,12 @@ module Ai
             }
           },
           "list_gitea_workflow_runs" => {
-            description: "List recent workflow runs for a repo (optionally filtered by workflow_file)",
+            description: "List recent workflow runs for a repo, newest first (optionally filtered by workflow_file)",
             parameters: {
               owner:         { type: "string", required: true, description: "Repository owner — the user or organization login that owns the repo" },
               repo:          { type: "string", required: true, description: "Repository name (without the owner/ prefix)" },
-              workflow_file: { type: "string", required: false, description: "Filter to a specific workflow filename" },
-              limit:         { type: "integer", required: false, description: "Max results (default 20)" }
+              workflow_file: { type: "string", required: false, description: "Only runs of this workflow filename (e.g. 'build-disk-image.yaml'). Gitea has no server-side filter, so this is matched against each run's workflow path over the 500 most recent runs; older runs of the workflow are not found" },
+              limit:         { type: "integer", required: false, description: "Max runs returned (default 20)" }
             }
           },
           "get_gitea_workflow_run" => {

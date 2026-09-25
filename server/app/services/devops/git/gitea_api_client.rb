@@ -250,14 +250,24 @@ module Devops
 
     # Gitea Actions (Act Runner CI/CD)
 
-    def list_workflow_runs(owner, repo, options = {})
-      params = {
-        page: options[:page] || 1,
-        limit: options[:per_page] || 30
-      }
+    # Gitea's run list takes no workflow filter (its query params are event,
+    # status, actor, branch, head_sha, page, limit), so a workflow_file filter
+    # is applied here against each run's `path` ("<workflow file>@<ref>"),
+    # scanning at most WORKFLOW_FILTER_MAX_PAGES pages of recent runs.
+    WORKFLOW_FILTER_PAGE_SIZE = 50
+    WORKFLOW_FILTER_MAX_PAGES = 10
 
-      result = get("/repos/#{owner}/#{repo}/actions/runs", params)
-      runs = result["workflow_runs"] || result || []
+    # options: :limit (alias :per_page) is the page size / max rows; :page;
+    # :workflow_file restricts to runs of that workflow file.
+    def list_workflow_runs(owner, repo, options = {})
+      limit = (options[:limit] || options[:per_page] || 30).to_i
+      workflow_file = options[:workflow_file].to_s
+      runs =
+        if workflow_file.present?
+          workflow_runs_for_file(owner, repo, ::File.basename(workflow_file), limit)
+        else
+          fetch_workflow_runs_page(owner, repo, options[:page] || 1, limit)
+        end
       runs.map { |r| normalize_workflow_run(r) }
     rescue NotFoundError
       [] # Actions may not be enabled
@@ -903,6 +913,21 @@ module Devops
           "login" => repo.dig("owner", "login") || repo.dig("owner", "username")
         }
       }
+    end
+
+    def fetch_workflow_runs_page(owner, repo, page, limit)
+      result = get("/repos/#{owner}/#{repo}/actions/runs", { page: page, limit: limit })
+      result["workflow_runs"] || result || []
+    end
+
+    def workflow_runs_for_file(owner, repo, workflow_file, limit)
+      matched = []
+      (1..WORKFLOW_FILTER_MAX_PAGES).each do |page|
+        batch = Array(fetch_workflow_runs_page(owner, repo, page, WORKFLOW_FILTER_PAGE_SIZE))
+        matched.concat(batch.select { |r| r.is_a?(Hash) && r["path"].to_s.split("@", 2).first == workflow_file })
+        break if matched.length >= limit || batch.length < WORKFLOW_FILTER_PAGE_SIZE
+      end
+      matched.first(limit)
     end
 
     def normalize_workflow_run(run)
