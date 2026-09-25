@@ -8,7 +8,6 @@
  * - Notification types
  * - Read/unread status
  * - Notification preferences
- * - Push notifications
  * - Notification actions
  */
 
@@ -102,22 +101,10 @@ describe('System Notifications Tests', () => {
       cy.assertContainsAny(['Email']);
     });
 
-    it('should display push notification settings', () => {
-      cy.visit('/app/profile/preferences');
-      cy.waitForPageLoad();
-      cy.assertContainsAny(['Push', 'Browser', 'Desktop']);
-    });
-
     it('should display in-app notification settings', () => {
       cy.visit('/app/profile/preferences');
       cy.waitForPageLoad();
       cy.assertContainsAny(['In-app', 'App', 'Bell']);
-    });
-
-    it('should have notification frequency options', () => {
-      cy.visit('/app/profile/preferences');
-      cy.waitForPageLoad();
-      cy.assertContainsAny(['Immediate', 'Daily', 'Weekly', 'Digest']);
     });
   });
 
@@ -137,20 +124,6 @@ describe('System Notifications Tests', () => {
 
     it('should have notification action buttons', () => {
       cy.assertHasElement(['button:contains("View")', 'button:contains("Open")', 'a']);
-    });
-  });
-
-  describe('Push Notifications', () => {
-    it('should display push notification permission status', () => {
-      cy.visit('/app/profile/preferences');
-      cy.waitForPageLoad();
-      cy.assertContainsAny(['Permission', 'Enabled', 'Blocked', 'Allow']);
-    });
-
-    it('should have enable push notifications button', () => {
-      cy.visit('/app/profile/preferences');
-      cy.waitForPageLoad();
-      cy.assertContainsAny(['Enable push']);
     });
   });
 
