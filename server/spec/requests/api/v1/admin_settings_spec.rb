@@ -107,6 +107,69 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
         expect(response).to have_http_status(:forbidden)
       end
     end
+
+    context 'rate_limiting (a nested Hash param)' do
+      let(:headers) { auth_headers_for(user_with_settings_update) }
+
+      before do
+        allow(Audit::LoggingService.instance).to receive(:log).and_return(nil)
+      end
+
+      # Regression for the fc-38 finding: a permitted nested param comes back
+      # from Rails as an ActionController::Parameters, never a Hash, so this
+      # MUST go through the real request/params-parsing stack (as: :json) —
+      # a controller spec handed a plain Hash double would pass against the
+      # bug this pins.
+      it 'writes one dotted AdminSetting row per rate_limiting sub-field' do
+        put '/api/v1/admin_settings',
+            params: {
+              admin_settings: {
+                rate_limiting: {
+                  enabled: true,
+                  api_requests_per_minute: 120,
+                  login_attempts_per_hour: 15
+                }
+              }
+            },
+            headers: headers,
+            as: :json
+
+        expect_success_response
+
+        expect(AdminSetting.find_by(key: 'rate_limiting.enabled')&.value).to eq('true')
+        expect(AdminSetting.find_by(key: 'rate_limiting.api_requests_per_minute')&.value).to eq('120')
+        expect(AdminSetting.find_by(key: 'rate_limiting.login_attempts_per_hour')&.value).to eq('15')
+
+        # The bug this pins: no row is EVER stored under the bare parent key
+        # with a stringified-Parameters value.
+        expect(AdminSetting.find_by(key: 'rate_limiting')).to be_nil
+      end
+
+      it 'reads back what was saved via GET settings_summary (the round trip the form relies on)' do
+        put '/api/v1/admin_settings',
+            params: { admin_settings: { rate_limiting: { enabled: false, api_requests_per_minute: 42 } } },
+            headers: headers,
+            as: :json
+        expect_success_response
+
+        get '/api/v1/admin_settings', headers: headers, as: :json
+
+        rate_limiting = json_response_data.dig('settings_summary', 'rate_limiting')
+        expect(rate_limiting['enabled']).to eq(false)
+        expect(rate_limiting['api_requests_per_minute']).to eq(42)
+      end
+
+      it 'a saved limit is actually applied by the readers that enforce/report it' do
+        put '/api/v1/admin_settings',
+            params: { admin_settings: { rate_limiting: { login_attempts_per_hour: 7 } } },
+            headers: headers,
+            as: :json
+        expect_success_response
+
+        expect(Admin::SystemSettings.rate_limit(:login_attempts_per_hour)).to eq(7)
+        expect(RateLimiting::BaseService.get_statistics.dig(:configuration, :limits, :login_attempts_per_hour)).to eq(7)
+      end
+    end
   end
 
   describe 'GET /api/v1/admin_settings/users' do

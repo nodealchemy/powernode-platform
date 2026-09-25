@@ -124,7 +124,10 @@ export interface AdminSettings {
   max_failed_login_attempts: number;
   account_lockout_duration: number;
   rate_limiting: RateLimitingSettings;
-  feature_flags: Record<string, boolean>;
+  // feature_flags and system_notifications were removed here (fc-38): a
+  // command grep across core, every extension and the worker found no
+  // reader of either backing AdminSetting key — write-only form fields
+  // nothing ever read back.
   smtp_settings: {
     host: string;
     port: number;

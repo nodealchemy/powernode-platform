@@ -13,8 +13,6 @@ module Admin
   #     AdminSetting (Flipper/FeatureGateService, Rails.cache, and the
   #     redis_config/vault_config keys respectively — the latter is being
   #     hardened separately, see fc-38 decision #3).
-  #   - Rate limiting's dotted "rate_limiting.*" keys — read through a
-  #     dedicated accessor added alongside the key-mismatch fix, not here.
   class SystemSettings
     # The flat, non-secret keys AdminSettingsController#update accepts.
     # rate_limiting/system_notifications/feature_flags are intentionally not
@@ -34,6 +32,22 @@ module Admin
     TRUE_STRINGS = %w[true 1 yes on enabled].freeze
     FALSE_STRINGS = %w[false 0 no off disabled].freeze
 
+    # The rate_limiting sub-fields AdminSettingsController#update permits,
+    # stored under "rate_limiting.<key>" (see .update_general_settings! and
+    # .rate_limit / .rate_limiting_config below).
+    RATE_LIMIT_KEYS = %w[
+      enabled api_requests_per_minute login_attempts_per_hour registration_attempts_per_hour
+      password_reset_attempts_per_hour email_verification_attempts_per_hour
+      authenticated_requests_per_hour impersonation_attempts_per_hour
+      webhook_requests_per_minute websocket_connections_per_minute
+    ].freeze
+
+    # Raised when a value that reached .update_general_settings! is neither a
+    # scalar nor a Hash of scalars — a caller must never see it silently
+    # `.to_s`'d into storage (fc-38 decision #1). The controller's existing
+    # `rescue StandardError` renders this as a 422.
+    NonScalarSettingValue = Class.new(StandardError)
+
     class << self
       # -- General ------------------------------------------------------------
 
@@ -42,21 +56,40 @@ module Admin
         GENERAL_KEYS.index_with { |key| AdminSetting.find_by(key: key)&.value }
       end
 
-      # Mirrors AdminSettingsController#update's pre-move writer exactly: a
-      # flat key writes its `.to_s` directly; a Hash value (system_notifications,
-      # rate_limiting, feature_flags) fans out to "key.sub_key" rows. Returns
-      # the flat map of what was written (original, un-stringified values),
-      # the same shape the controller already renders back to the caller.
+      # `settings_params` MUST already be a plain Hash — the caller
+      # (AdminSettingsController#update) normalizes at the request boundary
+      # via `.to_h` before calling this, because a permitted nested param
+      # comes back from Rails as an ActionController::Parameters, which
+      # `is_a?(Hash)` never matches (fc-38: this was the actual cause of
+      # rate_limiting/system_notifications/feature_flags never persisting —
+      # see db/migrate/20260925010000_delete_garbage_admin_settings_
+      # nested_writer_rows.rb). This class has no dependency on
+      # ActionController and must never be handed one.
+      #
+      # A flat key writes its `.to_s` directly; a Hash value (currently only
+      # rate_limiting) fans out to "key.sub_key" rows. Returns the flat map
+      # of what was written (original, un-stringified values), the same
+      # shape the controller already renders back to the caller.
+      #
+      # A value that is itself non-scalar (an Array, or a Hash nested more
+      # than one level deep) raises NonScalarSettingValue rather than being
+      # silently stringified — the flat `.to_s` fallback that used to catch
+      # this (and, before the boundary fix, caught EVERY nested Hash) is gone.
       def update_general_settings!(settings_params)
         updated = {}
 
         settings_params.each do |key, value|
-          if value.is_a?(Hash)
+          case value
+          when Hash
             value.each do |sub_key, sub_value|
+              raise NonScalarSettingValue, "#{key}.#{sub_key} must be a scalar value" if non_scalar?(sub_value)
+
               setting_key = "#{key}.#{sub_key}"
               AdminSetting.find_or_initialize_by(key: setting_key).update!(value: sub_value.to_s)
               updated[setting_key] = sub_value
             end
+          when Array
+            raise NonScalarSettingValue, "#{key} must be a scalar or a Hash of scalars, got an Array"
           else
             AdminSetting.find_or_initialize_by(key: key.to_s).update!(value: value.to_s)
             updated[key] = value
@@ -64,6 +97,33 @@ module Admin
         end
 
         updated
+      end
+
+      # -- Rate limiting ----------------------------------------------------
+
+      # Single-field read used by the readers that report/enforce a
+      # configured limit (RateLimitingController#extract_limit_from_key,
+      # Admin::SettingsService#check_unusual_api_activity,
+      # RateLimiting::BaseService#extract_limit_from_key/
+      # #get_current_configuration). nil when unset, matching the pre-move
+      # `AdminSetting.find_by(key: ...)&.value&.to_i` contract exactly.
+      def rate_limit(key)
+        AdminSetting.find_by(key: "rate_limiting.#{key}")&.value&.to_i
+      end
+
+      # Rebuilds the nested hash the settings form expects from the dotted
+      # rows .update_general_settings! wrote — the GET/show path this backs
+      # (Admin::SettingsService#settings_summary_data) used to dump AdminSetting
+      # rows RAW, so before fc-38 this key was either absent or the garbage
+      # stringified-Parameters value; now it is the typed hash actually saved.
+      # A field with no row yet is nil, matching what
+      # RateLimitingSettings.tsx's own per-field fallbacks (`?? true`,
+      # `|| 60`) already expect.
+      def rate_limiting_config
+        RATE_LIMIT_KEYS.each_with_object({}) do |key, hash|
+          setting = AdminSetting.find_by(key: "rate_limiting.#{key}")
+          hash[key] = setting && (key == "enabled" ? parse_boolean_string(setting.value, default: true) : setting.value.to_i)
+        end
       end
 
       # config_controller.rb's public /config payload — folded in per fc-38
@@ -188,14 +248,22 @@ module Admin
         setting = AdminSetting.find_by(key: key)
         return default unless setting
 
-        value_str = setting.value.to_s.downcase.strip
+        parse_boolean_string(setting.value, default: default)
+      rescue StandardError
+        default
+      end
+
+      def parse_boolean_string(value, default:)
+        value_str = value.to_s.downcase.strip
 
         return false if FALSE_STRINGS.include?(value_str)
         return true if TRUE_STRINGS.include?(value_str)
 
         default
-      rescue StandardError
-        default
+      end
+
+      def non_scalar?(value)
+        value.is_a?(Hash) || value.is_a?(Array)
       end
     end
   end

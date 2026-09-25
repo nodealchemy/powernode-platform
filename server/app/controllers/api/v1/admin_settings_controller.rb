@@ -42,7 +42,13 @@ class Api::V1::AdminSettingsController < ApplicationController
   # PUT /api/v1/admin_settings
   def update
     settings_params = admin_settings_params
-    updated_settings = ::Admin::SystemSettings.update_general_settings!(settings_params)
+    # Normalize at THIS boundary: a permitted nested param comes back from
+    # Rails as an ActionController::Parameters, never a Hash, so
+    # Admin::SystemSettings must never see one (fc-38) — #to_h on an
+    # already-permitted Parameters object recursively converts every nested
+    # Parameters into a real Hash, which is what makes its own Hash-fanout
+    # check actually fire.
+    updated_settings = ::Admin::SystemSettings.update_general_settings!(settings_params.to_h)
 
     update_settings_metadata
 
@@ -169,7 +175,11 @@ class Api::V1::AdminSettingsController < ApplicationController
       :webhook_timeout_seconds,
       :allow_account_deletion,
       :copyright_text,
-      system_notifications: {},
+      # system_notifications and feature_flags were removed here (fc-38):
+      # command grep across core, every extension and the worker found no
+      # reader of either AdminSetting key — a write-only form section with no
+      # reader is dead by construction, so the permit entries went rather
+      # than fixing a writer for a value nothing would ever read back.
       rate_limiting: [
         :enabled,
         :api_requests_per_minute,
@@ -181,8 +191,7 @@ class Api::V1::AdminSettingsController < ApplicationController
         :impersonation_attempts_per_hour,
         :webhook_requests_per_minute,
         :websocket_connections_per_minute
-      ],
-      feature_flags: {}
+      ]
     )
   end
 

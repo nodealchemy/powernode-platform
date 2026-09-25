@@ -371,7 +371,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
 
     controller_name = parts[1]
     limit_type = determine_limit_type_for_controller(controller_name)
-    AdminSetting.find_by(key: limit_type)&.value&.to_i
+    Admin::SystemSettings.rate_limit(limit_type)
   end
 
   def determine_limit_type_for_controller(controller_name)

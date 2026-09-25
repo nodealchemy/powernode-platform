@@ -223,6 +223,12 @@ module Admin
       # is the single source of truth for this flag.
       settings[:maintenance_mode] = Admin::MaintenanceMode.enabled?
 
+      # Same reasoning for rate_limiting: it is stored as dotted
+      # "rate_limiting.<field>" rows (fc-38), not a single row, so the raw
+      # dump above never captures it as a nested object at all. Rebuild the
+      # nested hash the settings form expects from those rows.
+      settings[:rate_limiting] = Admin::SystemSettings.rate_limiting_config
+
       metadata = Rails.cache.fetch("system_settings_metadata", expires_in: 1.year) do
         {
           created_at: Time.current,
@@ -445,7 +451,7 @@ module Admin
 
           controller_name = parts[1]
           limit_type = determine_limit_type(controller_name)
-          expected_limit = AdminSetting.find_by(key: limit_type)&.value&.to_i
+          expected_limit = Admin::SystemSettings.rate_limit(limit_type)
 
           if expected_limit && current_count >= (expected_limit * 0.8).to_i
             rate_limit_violations += 1

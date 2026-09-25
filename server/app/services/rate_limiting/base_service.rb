@@ -168,7 +168,7 @@ module RateLimiting
           webhook_requests_per_minute websocket_connections_per_minute
         ]
         limits = rate_limit_keys.each_with_object({}) do |key, hash|
-          hash[key.to_sym] = AdminSetting.find_by(key: key)&.value&.to_i
+          hash[key.to_sym] = Admin::SystemSettings.rate_limit(key)
         end
 
         {
@@ -183,7 +183,7 @@ module RateLimiting
 
         controller_name = parts[1]
         limit_type = determine_limit_type_for_controller(controller_name)
-        AdminSetting.find_by(key: limit_type)&.value&.to_i
+        Admin::SystemSettings.rate_limit(limit_type)
       end
 
       def determine_limit_type_for_controller(controller_name)
