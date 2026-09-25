@@ -19,8 +19,6 @@ delete_ralph_loop
 dispatch_to_runner
 generate_video
 get_component_status
-get_investigation
-get_investigations
 get_llm_provider
 get_ralph_loop_statistics
 get_remediation_route

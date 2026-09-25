@@ -48,8 +48,14 @@ module Ai
       }.freeze
 
       declare_action "platform_investigate", mutating: true, action_category: "investigation"
-      declare_action "get_investigation", mutating: false
-      declare_action "get_investigations", mutating: false
+      declare_action "get_investigation", mutating: false,
+                                          returns: "the investigation with its evidence, hypotheses, conclusion, ranking record, cost and timestamps",
+                                          refuses: "investigation_id is missing, or no investigation with that id is visible to this account",
+                                          see_also: { "get_investigations" => "finding an investigation id" }
+      declare_action "get_investigations", mutating: false, limit: 100,
+                                           returns: "investigations (without evidence) and count, newest first, including shared " \
+                                                    "investigations that belong to no account; 20 unless limit is set",
+                                           see_also: { "get_investigation" => "one investigation with its evidence" }
 
       # THE UMBRELLA. BaseTool#validate_params! validates against this hash for
       # every action on the class, so the only parameter it may mark required
