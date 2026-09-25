@@ -1,6 +1,5 @@
 import React from 'react';
 import { DollarSign } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { CostTrendChart } from '../components/CostTrendChart';
 import { OptimizationRecommendations } from '../components/OptimizationRecommendations';
@@ -33,16 +32,3 @@ export const FinOpsContent: React.FC = () => {
   );
 };
 
-export const FinOpsPage: React.FC = () => (
-  <PageContainer
-    title="AI FinOps"
-    description="Monitor AI costs, token usage, and optimization opportunities"
-    breadcrumbs={[
-      { label: 'Dashboard', href: '/app' },
-      { label: 'AI', href: '/app/ai' },
-      { label: 'FinOps' },
-    ]}
-  >
-    <FinOpsContent />
-  </PageContainer>
-);

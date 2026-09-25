@@ -67,7 +67,7 @@ export {
 } from '@/shared/services/ai/skillGraphApi';
 
 // Page
-export { KnowledgeGraphPage, KnowledgeGraphContent } from './pages/KnowledgeGraphPage';
+export { KnowledgeGraphContent } from './pages/KnowledgeGraphPage';
 
 // Components - Knowledge Graph
 export { KnowledgeGraphVisualization } from './components/KnowledgeGraphVisualization';

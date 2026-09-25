@@ -135,11 +135,6 @@
     "reason": "pending deletion (operator-confirm)"
   },
   {
-    "path": "frontend/src/features/ai/finops/pages/FinOpsPage.tsx",
-    "name": "FinOpsPage",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/ai/knowledge-graph/api/knowledgeGraphApi.ts",
     "name": "useCreateEdge",
     "reason": "pending deletion (operator-confirm)"
@@ -165,11 +160,6 @@
     "reason": "pending deletion (operator-confirm)"
   },
   {
-    "path": "frontend/src/features/ai/knowledge-graph/pages/KnowledgeGraphPage.tsx",
-    "name": "KnowledgeGraphPage",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/ai/knowledge-graph/types/skillGraph.ts",
     "name": "SkillEdgeCreationState",
     "reason": "unused exported type; swept by the export-orphan offers"
@@ -177,11 +167,6 @@
   {
     "path": "frontend/src/features/ai/mcp-apps/api/mcpAppsApi.ts",
     "name": "useProcessMcpAppInput",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/mcp-apps/pages/McpAppsPage.tsx",
-    "name": "McpAppsStandalonePage",
     "reason": "pending deletion (operator-confirm)"
   },
   {
@@ -197,11 +182,6 @@
   {
     "path": "frontend/src/features/ai/memory/hooks/useContext.ts",
     "name": "useEntry",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/memory/pages/KnowledgeMemoryPage.tsx",
-    "name": "KnowledgeMemoryPage",
     "reason": "pending deletion (operator-confirm)"
   },
   {
@@ -448,11 +428,6 @@
     "path": "frontend/src/features/missions/types/mission.ts",
     "name": "RepoAnalysis",
     "reason": "unused exported type; swept by the export-orphan offers"
-  },
-  {
-    "path": "frontend/src/pages/app/ai/SkillsPage.tsx",
-    "name": "SkillsContent",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/shared/components/ui/Card.tsx",

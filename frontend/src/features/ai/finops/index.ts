@@ -29,7 +29,7 @@ export {
 } from './api/finopsApi';
 
 // Page
-export { FinOpsPage, FinOpsContent } from './pages/FinOpsPage';
+export { FinOpsContent } from './pages/FinOpsPage';
 
 // Components
 export { CostOverviewPanel } from './components/CostOverviewPanel';

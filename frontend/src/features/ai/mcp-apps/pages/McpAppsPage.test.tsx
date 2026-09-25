@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
-import { McpAppsPage } from './McpAppsPage';
+import { McpAppsContent } from './McpAppsPage';
 
 jest.mock('@/shared/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: () => true }),
@@ -33,7 +33,7 @@ const LocationProbe = () => {
 const renderAt = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
-      <McpAppsPage />
+      <McpAppsContent />
       <LocationProbe />
     </MemoryRouter>
   );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { GitBranch, Search, Network } from 'lucide-react';
-import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
+import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
@@ -78,16 +78,3 @@ export const KnowledgeGraphContent: React.FC<KnowledgeGraphContentProps> = ({ on
   );
 };
 
-export const KnowledgeGraphPage: React.FC = () => (
-  <PageContainer
-    title="Knowledge Graph"
-    description="Explore entity relationships, search across vector and keyword indexes"
-    breadcrumbs={[
-      { label: 'Dashboard', href: '/app' },
-      { label: 'AI', href: '/app/ai' },
-      { label: 'Knowledge Graph' },
-    ]}
-  >
-    <KnowledgeGraphContent />
-  </PageContainer>
-);

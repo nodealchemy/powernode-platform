@@ -28,7 +28,7 @@
 | Monitoring / Observability | `/ai/monitoring`, `/ai/aiops` | ai_monitoring_*, ai_self_healing_monitor, ai_predictive_monitor | ActivityMonitorTool | `/ai/observability` hub | ✅ |
 | Sandboxes / Execution | `/ai/sandboxes`, `/ai/container_sandboxes` | ai_container_agent, ai_execution_* | ContainerDeployment/Status/Logs/Terminate | `/ai/execution` hub (Ralph/A2A/Parallel/Resources/AG-UI/Testing/Sandboxes) | ✅ |
 | A2A / Federation / Community | `/ai/a2a`, `/ai/federation`, `/ai/community/agents` | federation_* (4) | (federation jobs) | `/ai/agents` → Community (incl. FederationPartner* components) | ✅ |
-| **FinOps** | `/ai/finops` | (analytics jobs) | — | `features/ai/finops` built (FinOpsPage + 5 components) | 🔌 **orphaned** |
+| **FinOps** | `/ai/finops` | (analytics jobs) | — | `features/ai/finops` built (FinOpsContent + 5 components) | 🔌 **orphaned** |
 | **ROI** | `/ai/roi` | (analytics jobs) | — | `features/ai/roi` built (RoiDashboard + RoiApiService) | 🔌 **orphaned** |
 | **Execution Traces** | `execution_traces_controller` | ai_trajectory_* (2) | — | `features/ai/debugging` built (TraceViewer/Timeline/SpanDetail) | 🔌 **orphaned** |
 

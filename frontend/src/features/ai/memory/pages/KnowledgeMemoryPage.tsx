@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Database, Brain } from 'lucide-react';
-import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
+import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { MemoryExplorerContent } from './MemoryExplorerPage';
 import { AgentMemoryContent } from '../components/AgentMemoryContent';
@@ -58,26 +58,3 @@ export const KnowledgeMemoryContent: React.FC<{ onActionsReady?: (actions: PageA
   );
 };
 
-export const KnowledgeMemoryPage: React.FC = () => {
-  const [actions, setActions] = useState<PageAction[]>([]);
-
-  const getBreadcrumbs = () => {
-    const base: Array<{ label: string; href?: string }> = [
-      { label: 'Dashboard', href: '/app' },
-      { label: 'AI', href: '/app/ai' },
-    ];
-    base.push({ label: 'Knowledge & Memory' });
-    return base;
-  };
-
-  return (
-    <PageContainer
-      title="Knowledge & Memory"
-      description="Manage agent memory tiers, persistent contexts, and shared knowledge"
-      breadcrumbs={getBreadcrumbs()}
-      actions={actions}
-    >
-      <KnowledgeMemoryContent onActionsReady={setActions} />
-    </PageContainer>
-  );
-};

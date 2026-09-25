@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AppWindow, Plus, Eye, Settings } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { McpAppGallery } from '../components/McpAppGallery';
@@ -17,7 +16,7 @@ const getActiveMcpAppsTab = (pathname: string): string => {
   return 'gallery';
 };
 
-export const McpAppsPage: React.FC = () => {
+const McpAppsPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { hasPermission } = usePermissions();
@@ -155,17 +154,3 @@ export const McpAppsPage: React.FC = () => {
 // Re-export as named content component for embedding
 export { McpAppsPage as McpAppsContent };
 
-// Standalone page wrapper
-export const McpAppsStandalonePage: React.FC = () => (
-  <PageContainer
-    title="MCP Apps"
-    description="Model Context Protocol apps gallery, sandboxed rendering, and configuration"
-    breadcrumbs={[
-      { label: 'Dashboard', href: '/app' },
-      { label: 'AI', href: '/app/ai' },
-      { label: 'MCP Apps' },
-    ]}
-  >
-    <McpAppsPage />
-  </PageContainer>
-);
