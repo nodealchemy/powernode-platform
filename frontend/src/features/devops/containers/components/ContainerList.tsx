@@ -7,7 +7,9 @@ import { Button } from '@/shared/components/ui/Button';
 import { Select } from '@/shared/components/ui/Select';
 import { Loading } from '@/shared/components/ui/Loading';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
+import { ConfirmationModal } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePermissions } from '@/shared/hooks/usePermissions';
 import { containerExecutionApi } from '@/shared/services/ai';
 import { ContainerCard } from './ContainerCard';
 import { cn } from '@/shared/utils/cn';
@@ -52,6 +54,7 @@ export const ContainerList: React.FC<ContainerListProps> = ({
   className,
 }) => {
   const { addNotification } = useNotifications();
+  const { hasPermission } = usePermissions();
   const [containers, setContainers] = useState<ContainerInstanceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +62,14 @@ export const ContainerList: React.FC<ContainerListProps> = ({
   const [activeFilter, setActiveFilter] = useState<string>('');
   const [sandboxFilter, setSandboxFilter] = useState<string>('');
   const [totalCount, setTotalCount] = useState(0);
+  const [pendingDestroy, setPendingDestroy] = useState<ContainerInstanceSummary | null>(null);
+
+  // Permissions only, never roles — gate each row action on the permission
+  // its endpoint actually checks (see Api::V1::Ai::ContainerSandboxesController
+  // and Api::V1::Devops::ContainersController).
+  const canPauseResume = hasPermission('ai.agents.execute');
+  const canDestroy = hasPermission('ai.agents.delete');
+  const canCancel = hasPermission('devops.containers.cancel');
 
   const loadContainers = useCallback(async () => {
     try {
@@ -129,7 +140,14 @@ export const ContainerList: React.FC<ContainerListProps> = ({
     }
   };
 
-  const handleDestroy = async (container: ContainerInstanceSummary) => {
+  const handleDestroyClick = (container: ContainerInstanceSummary) => {
+    setPendingDestroy(container);
+  };
+
+  const confirmDestroy = async () => {
+    const container = pendingDestroy;
+    if (!container) return;
+
     try {
       await containerExecutionApi.destroySandbox(container.id);
       loadContainers();
@@ -138,6 +156,8 @@ export const ContainerList: React.FC<ContainerListProps> = ({
         type: 'error',
         message: err instanceof Error ? err.message : 'Failed to destroy sandbox',
       });
+    } finally {
+      setPendingDestroy(null);
     }
   };
 
@@ -227,15 +247,29 @@ export const ContainerList: React.FC<ContainerListProps> = ({
               key={container.id}
               container={container}
               onSelect={onSelectContainer}
-              onCancel={handleCancel}
+              onCancel={canCancel ? handleCancel : undefined}
               onViewLogs={onViewLogs}
-              onPause={handlePause}
-              onResume={handleResume}
-              onDestroy={handleDestroy}
+              onPause={canPauseResume ? handlePause : undefined}
+              onResume={canPauseResume ? handleResume : undefined}
+              onDestroy={canDestroy ? handleDestroyClick : undefined}
             />
           ))}
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={!!pendingDestroy}
+        onClose={() => setPendingDestroy(null)}
+        onConfirm={confirmDestroy}
+        title="Destroy Sandbox"
+        message={
+          pendingDestroy
+            ? `Destroy sandbox ${pendingDestroy.execution_id}? This stops the container and cannot be undone.`
+            : ''
+        }
+        confirmLabel="Destroy Sandbox"
+        variant="danger"
+      />
     </div>
   );
 };

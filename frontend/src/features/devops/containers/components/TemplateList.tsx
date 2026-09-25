@@ -278,17 +278,19 @@ export const TemplateList: React.FC<TemplateListProps> = ({
                         Build
                       </Button>
                     )}
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onExecuteTemplate?.(template);
-                      }}
-                    >
-                      <Play className="w-3 h-3 mr-1" />
-                      Execute
-                    </Button>
+                    {onExecuteTemplate && (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onExecuteTemplate(template);
+                        }}
+                      >
+                        <Play className="w-3 h-3 mr-1" />
+                        Execute
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

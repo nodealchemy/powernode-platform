@@ -63,6 +63,10 @@ export interface ContainerInstanceSummary {
   runner_name?: string;
   /** True for an agent sandbox (Ai::Runtime::SandboxManagerService-created); false for a plain template execution. */
   sandbox: boolean;
+  /** Present only for an agent sandbox (from input_parameters); undefined for a plain template execution. */
+  agent_name?: string;
+  memory_used_mb?: number;
+  cpu_used_millicores?: number;
 }
 
 export interface SecurityViolation {

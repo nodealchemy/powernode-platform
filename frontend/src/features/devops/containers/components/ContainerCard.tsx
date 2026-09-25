@@ -100,6 +100,12 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
               <h3 className="font-medium text-theme-primary truncate">
                 {container.image_name}
               </h3>
+              {container.agent_name && (
+                <p className="text-xs text-theme-secondary truncate flex items-center gap-1">
+                  <Bot className="w-3 h-3" />
+                  {container.agent_name}
+                </p>
+              )}
               <p className="text-xs text-theme-secondary truncate">
                 {container.execution_id}
               </p>
@@ -140,6 +146,18 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
           <div className="flex items-center gap-2 text-sm text-theme-secondary mb-3">
             <Cpu className="w-4 h-4" />
             <span>Runner: {container.runner_name}</span>
+          </div>
+        )}
+
+        {/* Resource usage (sandbox rows only — cheap fields carried on instance_summary) */}
+        {(container.memory_used_mb != null || container.cpu_used_millicores != null) && (
+          <div className="flex items-center gap-4 text-sm text-theme-secondary mb-3">
+            {container.memory_used_mb != null && (
+              <span>Mem: {container.memory_used_mb}MB</span>
+            )}
+            {container.cpu_used_millicores != null && (
+              <span>CPU: {container.cpu_used_millicores}m</span>
+            )}
           </div>
         )}
 
@@ -215,7 +233,7 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
                 Cancel
               </Button>
             )}
-            {container.sandbox && onDestroy && (
+            {container.sandbox && (container.status === 'running' || container.status === 'paused') && onDestroy && (
               <Button
                 variant="outline"
                 size="sm"

@@ -54,19 +54,33 @@ jest.mock('@/shared/components/layout/TabContainer', () => ({
 }));
 
 jest.mock('@/features/devops/containers/components/ContainerList', () => ({
-  ContainerList: () => <div data-testid="container-list">Container List</div>,
+  ContainerList: ({ onViewLogs }: { onViewLogs?: (c: { id: string; execution_id: string }) => void }) => (
+    <div data-testid="container-list">
+      Container List
+      <button data-testid="view-logs-btn" onClick={() => onViewLogs?.({ id: 'exec-1', execution_id: 'exec-1' })}>
+        View Logs
+      </button>
+    </div>
+  ),
+}));
+
+jest.mock('@/features/devops/containers/components/ContainerLogsModal', () => ({
+  ContainerLogsModal: ({ container }: { container: { execution_id: string } | null }) =>
+    container ? <div data-testid="container-logs-modal">Logs for {container.execution_id}</div> : null,
 }));
 
 jest.mock('@/features/devops/containers/components/TemplateList', () => ({
-  TemplateList: ({ onSelectTemplate, onExecuteTemplate }: { onSelectTemplate: (t: { id: string; name: string }) => void; onExecuteTemplate: (t: { id: string; name: string }) => void }) => (
+  TemplateList: ({ onSelectTemplate, onExecuteTemplate }: { onSelectTemplate: (t: { id: string; name: string }) => void; onExecuteTemplate?: (t: { id: string; name: string }) => void }) => (
     <div data-testid="template-list">
       Template List
       <button data-testid="select-template-btn" onClick={() => onSelectTemplate({ id: 'template-1', name: 'Test Template' })}>
         Select Template
       </button>
-      <button data-testid="execute-template-btn" onClick={() => onExecuteTemplate({ id: 'template-1', name: 'Test Template' })}>
-        Execute Template
-      </button>
+      {onExecuteTemplate && (
+        <button data-testid="execute-template-btn" onClick={() => onExecuteTemplate({ id: 'template-1', name: 'Test Template' })}>
+          Execute Template
+        </button>
+      )}
     </div>
   ),
 }));
@@ -182,5 +196,58 @@ describe('ContainerSandboxContent (merged Sandboxes surface)', () => {
 
     const modal = screen.getByTestId('execute-container-modal');
     expect(modal).toHaveAttribute('data-template-id', 'template-1');
+  });
+
+  it('wires View Logs to the logs modal', async () => {
+    renderComponent();
+    await waitFor(() => expect(screen.getByTestId('container-list')).toBeInTheDocument());
+
+    expect(screen.queryByTestId('container-logs-modal')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('view-logs-btn'));
+
+    expect(screen.getByTestId('container-logs-modal')).toBeInTheDocument();
+    expect(screen.getByText('Logs for exec-1')).toBeInTheDocument();
+  });
+
+  describe('permission gates (permissions only, never roles)', () => {
+    it('does not fetch or show sandbox stats without ai.agents.read', async () => {
+      mockHasPermission.mockImplementation((perm: string) => perm !== 'ai.agents.read');
+      renderComponent();
+      await waitFor(() => expect(screen.getByTestId('container-list')).toBeInTheDocument());
+
+      expect(mockApi.getSandboxStats).not.toHaveBeenCalled();
+      expect(screen.queryByText('Total')).not.toBeInTheDocument();
+    });
+
+    it('labels the stats as sandbox-only when shown', async () => {
+      renderComponent();
+      await waitFor(() => expect(screen.getByText('Total')).toBeInTheDocument());
+
+      expect(screen.getByText(/Agent sandboxes only/i)).toBeInTheDocument();
+    });
+
+    it('hides the Templates panel without devops.container_templates.read', async () => {
+      mockHasPermission.mockImplementation((perm: string) => perm !== 'devops.container_templates.read');
+      renderComponent();
+      await waitFor(() => expect(mockApi.getSandboxStats).toHaveBeenCalled());
+
+      expect(screen.queryByTestId('template-list')).not.toBeInTheDocument();
+    });
+
+    it('hides Create Template without devops.container_templates.write', async () => {
+      mockHasPermission.mockImplementation((perm: string) => perm !== 'devops.container_templates.write');
+      renderComponent();
+      await waitFor(() => expect(mockApi.getSandboxStats).toHaveBeenCalled());
+
+      expect(screen.queryByText('Create Template')).not.toBeInTheDocument();
+    });
+
+    it('hides the per-template Execute action without devops.containers.execute', async () => {
+      mockHasPermission.mockImplementation((perm: string) => perm !== 'devops.containers.execute');
+      renderComponent();
+      await waitFor(() => expect(screen.getByTestId('template-list')).toBeInTheDocument());
+
+      expect(screen.queryByTestId('execute-template-btn')).not.toBeInTheDocument();
+    });
   });
 });

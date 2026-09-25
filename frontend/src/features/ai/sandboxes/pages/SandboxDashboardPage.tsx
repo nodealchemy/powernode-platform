@@ -7,12 +7,13 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { containerExecutionApi } from '@/shared/services/ai';
-import type { SandboxStats, ContainerTemplateSummary } from '@/shared/services/ai';
+import type { SandboxStats, ContainerTemplateSummary, ContainerInstanceSummary } from '@/shared/services/ai';
 import { ContainerList } from '@/features/devops/containers/components/ContainerList';
 import { TemplateList } from '@/features/devops/containers/components/TemplateList';
 import { QuotaDisplay } from '@/features/devops/containers/components/QuotaDisplay';
 import { TemplateFormModal } from '@/features/devops/containers/components/TemplateFormModal';
 import { ExecuteContainerModal } from '@/features/devops/containers/components/ExecuteContainerModal';
+import { ContainerLogsModal } from '@/features/devops/containers/components/ContainerLogsModal';
 import { CreateSandboxModal } from '@/features/ai/sandboxes/components/CreateSandboxModal';
 
 const subTabs = [
@@ -42,6 +43,7 @@ export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ ref
   const [showEditTemplate, setShowEditTemplate] = useState(false);
   const [showExecuteModal, setShowExecuteModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<ContainerTemplateSummary | null>(null);
+  const [viewLogsContainer, setViewLogsContainer] = useState<ContainerInstanceSummary | null>(null);
 
   const basePath = '/app/ai/execution/containers';
 
@@ -59,6 +61,11 @@ export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ ref
     if (newTab !== activeSubTab) setActiveSubTab(newTab);
   }, [location.pathname]);
 
+  // GET /ai/container_sandboxes/stats requires ai.agents.read — a user who
+  // only holds devops.containers.read (enough to reach this page at all)
+  // would otherwise get a 403 toast on every load.
+  const canViewSandboxStats = hasPermission('ai.agents.read');
+
   const loadStats = useCallback(async () => {
     try {
       setStatsLoading(true);
@@ -72,11 +79,13 @@ export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ ref
   }, [addNotification]);
 
   useEffect(() => {
-    loadStats();
-  }, [loadStats, externalRefreshKey, refreshKey]);
+    if (canViewSandboxStats) loadStats();
+  }, [loadStats, externalRefreshKey, refreshKey, canViewSandboxStats]);
 
   const canCreateSandbox = hasPermission('ai.agents.create');
-  const canManageTemplates = hasPermission('devops.containers.read');
+  const canReadTemplates = hasPermission('devops.container_templates.read');
+  const canWriteTemplates = hasPermission('devops.container_templates.write');
+  const canExecuteTemplate = hasPermission('devops.containers.execute');
 
   const statCards = [
     { label: 'Total', value: stats?.total ?? 0, icon: Box, colorClass: 'text-theme-info-fg', bgClass: 'bg-theme-info-bg' },
@@ -100,32 +109,41 @@ export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ ref
 
   return (
     <>
-      {/* Sandbox stats (agent sandboxes only — the merged list below covers both sources) */}
-      {statsLoading ? (
-        <LoadingSpinner size="sm" className="py-4" />
-      ) : (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-          {statCards.map((stat) => {
-            const Icon = stat.icon;
-            return (
-              <Card key={stat.label} className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-theme-tertiary">{stat.label}</p>
-                    <p className="text-2xl font-semibold text-theme-primary">{stat.value}</p>
-                  </div>
-                  <div className={`h-10 w-10 ${stat.bgClass} rounded-lg flex items-center justify-center`}>
-                    <Icon className={`h-5 w-5 ${stat.colorClass}`} />
-                  </div>
-                </div>
-              </Card>
-            );
-          })}
-        </div>
+      {/* Sandbox stats — agent sandboxes only, NOT the merged list's total (which
+          also includes plain template executions); the endpoint itself needs
+          ai.agents.read, separate from the devops.containers.read this page runs on. */}
+      {canViewSandboxStats && (
+        <>
+          <p className="text-xs uppercase tracking-wide text-theme-tertiary mb-2">
+            Agent sandboxes only
+          </p>
+          {statsLoading ? (
+            <LoadingSpinner size="sm" className="py-4" />
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+              {statCards.map((stat) => {
+                const Icon = stat.icon;
+                return (
+                  <Card key={stat.label} className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-theme-tertiary">{stat.label}</p>
+                        <p className="text-2xl font-semibold text-theme-primary">{stat.value}</p>
+                      </div>
+                      <div className={`h-10 w-10 ${stat.bgClass} rounded-lg flex items-center justify-center`}>
+                        <Icon className={`h-5 w-5 ${stat.colorClass}`} />
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
 
       <div className="flex items-center justify-end gap-2 mb-4">
-        {canManageTemplates && (
+        {canWriteTemplates && (
           <button type="button" className="btn-theme btn-theme-outline" onClick={() => setShowCreateTemplate(true)}>
             Create Template
           </button>
@@ -151,15 +169,18 @@ export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ ref
         className="mb-4"
       >
         <TabPanel tabId="executions" activeTab={activeSubTab}>
-          <ContainerList key={`sandbox-executions-${externalRefreshKey}-${refreshKey}`} />
+          <ContainerList
+            key={`sandbox-executions-${externalRefreshKey}-${refreshKey}`}
+            onViewLogs={setViewLogsContainer}
+          />
         </TabPanel>
 
         <TabPanel tabId="templates" activeTab={activeSubTab}>
-          {canManageTemplates && (
+          {canReadTemplates && (
             <TemplateList
               key={`sandbox-templates-${externalRefreshKey}-${refreshKey}`}
               onSelectTemplate={handleSelectTemplate}
-              onExecuteTemplate={handleExecuteTemplate}
+              onExecuteTemplate={canExecuteTemplate ? handleExecuteTemplate : undefined}
             />
           )}
         </TabPanel>
@@ -168,6 +189,8 @@ export const ContainerSandboxContent: React.FC<{ refreshKey?: number }> = ({ ref
           <QuotaDisplay key={`sandbox-quotas-${externalRefreshKey}-${refreshKey}`} />
         </TabPanel>
       </TabContainer>
+
+      <ContainerLogsModal container={viewLogsContainer} onClose={() => setViewLogsContainer(null)} />
 
       <CreateSandboxModal
         isOpen={showCreateSandbox}

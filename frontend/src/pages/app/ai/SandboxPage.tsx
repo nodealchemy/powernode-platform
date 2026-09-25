@@ -1,11 +1,9 @@
 // Sandbox Page - AI Agent Testing Infrastructure
 import React, { useState, useEffect } from 'react';
 import { TestTube, Play, Search, Filter, Beaker, FlaskConical, BarChart3 } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { useDispatch } from 'react-redux';
 import { addNotification } from '@/shared/services/slices/uiSlice';
 import { AppDispatch } from '@/shared/services';
-import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import {
   sandboxApi,
   Sandbox,
@@ -54,7 +52,7 @@ function getStatusColor(status: string): string {
 type TabType = 'sandboxes' | 'scenarios' | 'mocks' | 'runs' | 'benchmarks' | 'ab-tests';
 
 const sandboxTabs = [
-  { id: 'sandboxes' as TabType, label: 'Sandboxes', icon: Beaker },
+  { id: 'sandboxes' as TabType, label: 'Test Environments', icon: Beaker },
   { id: 'scenarios' as TabType, label: 'Test Scenarios', icon: TestTube },
   { id: 'mocks' as TabType, label: 'Mock Responses', icon: FlaskConical },
   { id: 'runs' as TabType, label: 'Test Runs', icon: Play },
@@ -512,27 +510,3 @@ export const SandboxContent: React.FC<{ refreshKey?: number }> = ({ refreshKey: 
   );
 };
 
-const SandboxPage: React.FC = () => {
-  const [refreshKey, setRefreshKey] = useState(0);
-
-  const { refreshAction } = useRefreshAction({
-    onRefresh: () => setRefreshKey(k => k + 1),
-  });
-
-  return (
-    <PageContainer
-      title="Agent Testing"
-      description="Isolated testing environments for AI agents with recording, playback, and performance profiling"
-      breadcrumbs={[
-        { label: 'Dashboard', href: '/app' },
-        { label: 'AI', href: '/app/ai' },
-        { label: 'Agent Testing' }
-      ]}
-      actions={[refreshAction]}
-    >
-      <SandboxContent refreshKey={refreshKey} />
-    </PageContainer>
-  );
-};
-
-export default SandboxPage;
