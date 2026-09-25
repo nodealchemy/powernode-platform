@@ -319,17 +319,30 @@ RSpec.describe Admin::SystemSettings do
       expect(described_class.url_contains_credentials?("not a url at all")).to be(true)
     end
 
-    # Same string as the detection test above — URI can't parse it (that's
-    # exactly WHY url_contains_credentials? fails closed on it), so there is
-    # no safe rewrite: strip_url_credentials returns it unchanged rather
-    # than guessing. The 422 at the request boundary is what actually keeps
-    # this shape out of storage; this pins that strip_url_credentials never
-    # corrupts what it can't parse.
-    it "returns an unparseable credentialed-looking URL unchanged rather than guessing" do
-      expect(described_class.strip_url_credentials("redis://:my/pass@host:6379/0")).to eq("redis://:my/pass@host:6379/0")
+    # fc-38 round 4 RE-review (security, MEDIUM): strip_url_credentials used
+    # to return an unparseable URL UNCHANGED — failing OPEN. Every shape
+    # below is a REAL password Ruby's URI.parse can't handle (unencoded "/",
+    # "@", "#", "?", or a literal space in the userinfo), and this method is
+    # called UNCONDITIONALLY on every infrastructure_config GET/PUT response
+    # (never gated by url_contains_credentials? first) — returning it
+    # unchanged leaked the plaintext credential straight into the response
+    # body, and left it un-sanitized in the blob via sanitize_url_in_blob!.
+    # It must redact on a parse failure, not pass the value through.
+    it "redacts credentials from an unparseable URL rather than passing it through" do
+      [
+        "redis://:my/pass@host:6379/0",
+        "redis://:p@ss@host:6379/0",
+        "redis://:p#w@host:6379/0",
+        "redis://:p?w@host:6379/0",
+        "redis://:p w@host:6379/0"
+      ].each do |url|
+        result = described_class.strip_url_credentials(url)
+        expect(result).not_to match(/my\/pass|p@ss|p#w|p\?w|p w/), "expected #{url.inspect} to be redacted, got #{result.inspect}"
+        expect(result).to eq("redis://host:6379/0")
+      end
     end
 
-    it "never raises on strip_url_credentials for an unparseable string — returns it unchanged" do
+    it "never raises on strip_url_credentials for an unparseable string — returns it unchanged when there's no credential to redact" do
       expect(described_class.strip_url_credentials("not a url at all")).to eq("not a url at all")
     end
 

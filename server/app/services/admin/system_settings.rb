@@ -308,12 +308,37 @@ module Admin
         true
       end
 
+      # fc-38 round 4 RE-review (security, MEDIUM): a URI::InvalidURIError
+      # used to fall through to returning the URL UNCHANGED — failing OPEN.
+      # Ruby 3.2's RFC2396 URI.parse raises on a credentialed URL whose
+      # userinfo contains an unencoded "/", "@", "#", "?" or a literal space
+      # (e.g. "redis://:my/pass@host", "redis://:p@ss@host",
+      # "redis://:p#w@host", "redis://:p?w@host", "redis://:p w@host") —
+      # every one of those is a shape a REAL password can take, and
+      # strip_url_credentials is called UNCONDITIONALLY on every
+      # infrastructure_config GET/PUT response (never gated by
+      # url_contains_credentials? first), so returning it unchanged leaked
+      # the plaintext credential straight into the response body, and left
+      # it un-sanitized in the blob via sanitize_url_in_blob!.
+      #
+      # On a parse failure this now REDACTS everything between "scheme://"
+      # and the LAST "@" in the string, rather than passing it through.
+      # Deliberately `.*@` (matches through whitespace), not `[^\s]*@`
+      # (excludes whitespace) — the latter fails to match AT ALL on the
+      # literal-space shape above (nothing bridges the space to reach the
+      # "@"), which would leave that one shape unredacted. A string with no
+      # "@" at all was never credentialed and is left byte-for-byte
+      # unchanged — nothing to redact.
+      UNPARSEABLE_URL_CREDENTIAL_PATTERN = %r{\A([a-z][a-z0-9+.-]*://).*@}i.freeze
+
       # Removes a URL's userinfo (user + password), leaving host/port/path
       # untouched — a URL's host portion isn't secret, only whatever
       # credential was embedded before the "@". Called unconditionally on
       # every infrastructure_config GET/PUT response (not just ones already
-      # confirmed credentialed), so this must never raise: an unparseable or
-      # already-credential-free URL comes back byte-for-byte unchanged.
+      # confirmed credentialed), so this must never raise, and must never
+      # leak a credential it can't structurally parse (see the pattern's own
+      # comment above) — an already-credential-free URL still comes back
+      # byte-for-byte unchanged.
       def strip_url_credentials(url)
         return url if url.blank?
 
@@ -324,7 +349,7 @@ module Admin
         uri.password = nil
         uri.to_s
       rescue URI::InvalidURIError
-        url
+        url.to_s.sub(UNPARSEABLE_URL_CREDENTIAL_PATTERN, '\1')
       end
 
       # The non-secret redis fields (host/port/etc, from the
