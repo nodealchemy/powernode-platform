@@ -18,8 +18,9 @@ jest.mock('@/shared/hooks/usePageWebSocket', () => ({
   usePageWebSocket: () => undefined,
 }));
 
+let mockPermissions: string[] = ['ai.routing.read'];
 jest.mock('@/shared/hooks/useAuth', () => ({
-  useAuth: () => ({ currentUser: { permissions: ['ai.routing.read'] } }),
+  useAuth: () => ({ currentUser: { permissions: mockPermissions } }),
 }));
 
 jest.mock('react-redux', () => ({
@@ -41,6 +42,10 @@ const renderAt = (path: string) =>
   );
 
 describe('ModelRouterContent path tabs', () => {
+  beforeEach(() => {
+    mockPermissions = ['ai.routing.read'];
+  });
+
   it('lands on Rules by default', async () => {
     renderAt('/app/ai/infrastructure/model-router');
     await waitFor(() => expect(screen.getByText('Rules')).toBeInTheDocument());
@@ -56,6 +61,16 @@ describe('ModelRouterContent path tabs', () => {
     renderAt('/app/ai/infrastructure/model-router/escalations');
     await waitFor(() => expect(screen.getByText('Escalations')).toBeInTheDocument());
     expect(screen.getByText('Escalations').closest('button')).toHaveClass('border-theme-interactive-primary');
+  });
+
+  it('falls back to Rules on an escalations deep link without ai.routing.read, not a blank area', async () => {
+    mockPermissions = [];
+    renderAt('/app/ai/infrastructure/model-router/escalations');
+
+    await waitFor(() => expect(screen.getByText('Rules')).toBeInTheDocument());
+    expect(screen.getByText('Rules').closest('button')).toHaveClass('border-theme-interactive-primary');
+    // The Escalations tab itself isn't even offered to this user.
+    expect(screen.queryByText('Escalations')).not.toBeInTheDocument();
   });
 
   it('updates the URL when a tab is clicked', async () => {

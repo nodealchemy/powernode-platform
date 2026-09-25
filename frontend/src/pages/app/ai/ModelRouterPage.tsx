@@ -53,11 +53,14 @@ type TabType = 'rules' | 'decisions' | 'analytics' | 'optimization' | 'escalatio
 
 const MODEL_ROUTER_BASE_PATH = '/app/ai/infrastructure/model-router';
 
-const getActiveModelRouterTab = (pathname: string): TabType => {
+// Escalations requires ai.routing.read: a deep link to it without that
+// permission must fall back to Rules, not resolve to a tab that's neither
+// in the tab strip nor rendered as a TabPanel (a blank content area).
+const getActiveModelRouterTab = (pathname: string, canReadRouting: boolean): TabType => {
   if (pathname.includes('/model-router/decisions')) return 'decisions';
   if (pathname.includes('/model-router/analytics')) return 'analytics';
   if (pathname.includes('/model-router/optimization')) return 'optimization';
-  if (pathname.includes('/model-router/escalations')) return 'escalations';
+  if (pathname.includes('/model-router/escalations') && canReadRouting) return 'escalations';
   return 'rules';
 };
 
@@ -66,12 +69,12 @@ export const ModelRouterContent: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { currentUser } = useAuth();
   const canReadRouting = currentUser?.permissions?.includes('ai.routing.read') || false;
-  const [activeTab, setActiveTab] = useState<TabType>(getActiveModelRouterTab(location.pathname));
+  const [activeTab, setActiveTab] = useState<TabType>(getActiveModelRouterTab(location.pathname, canReadRouting));
 
   useEffect(() => {
-    const newTab = getActiveModelRouterTab(location.pathname);
+    const newTab = getActiveModelRouterTab(location.pathname, canReadRouting);
     if (newTab !== activeTab) setActiveTab(newTab);
-  }, [location.pathname]);
+  }, [location.pathname, canReadRouting]);
   const [rules, setRules] = useState<RoutingRule[]>([]);
   const [decisions, setDecisions] = useState<RoutingDecision[]>([]);
   const [statistics, setStatistics] = useState<RoutingStatistics | null>(null);
