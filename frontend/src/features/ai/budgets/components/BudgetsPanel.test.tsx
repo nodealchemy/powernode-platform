@@ -177,12 +177,50 @@ describe('BudgetsPanel — filters the data supports, in the URL', () => {
     await waitFor(() => expect(listedAgents()).toEqual(['Child Agent']));
   });
 
-  it('offers no account or team filter: every budget is an agent budget', async () => {
+  // Every budget is an AGENT budget, so the filters are exactly agent, period
+  // and status — no account or team filter, no free-text search.
+  it('offers exactly the agent, period and status filters', async () => {
     renderPanel();
     await waitFor(() => expect(listedAgents()).toHaveLength(4));
 
-    expect(screen.queryByRole('button', { name: 'Teams' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Accounts' })).not.toBeInTheDocument();
+    const filters = screen.getByRole('group', { name: 'Budget filters' });
+    const controls = within(filters).getAllByRole('combobox').map((c) => c.getAttribute('aria-label'));
+    expect(controls).toEqual(['Agent', 'Period', 'Status']);
+    expect(within(filters).queryAllByRole('textbox')).toHaveLength(0);
+    expect(within(filters).queryAllByRole('button')).toHaveLength(0);
+    expect(within(filters).queryAllByRole('checkbox')).toHaveLength(0);
+
+    const optionText = (label: string) =>
+      within(within(filters).getByLabelText(label)).getAllByRole('option').map((o) => o.textContent);
+    expect(optionText('Agent')).toEqual(['All agents', 'Child Agent', 'Hot Agent', 'Old Agent', 'Parent Agent']);
+    expect(optionText('Period')).toEqual(['All periods', 'monthly', 'weekly']);
+    expect(optionText('Status')).toEqual(['All', 'Active', 'Exceeded', 'Expired']);
+  });
+});
+
+describe('BudgetsPanel — row detail', () => {
+  it('shows the remaining balance on every row, reserved or not', async () => {
+    renderPanel();
+    await waitFor(() => expect(listedAgents()).toHaveLength(4));
+
+    expect(within(row('Old Agent')).getByText(/Remaining: \$100\.00/)).toBeInTheDocument();
+    expect(within(row('Hot Agent')).getByText(/Remaining: \$0\.00/)).toBeInTheDocument();
+    expect(within(row('Parent Agent')).getByText(/Remaining: \$75\.00/)).toBeInTheDocument();
+  });
+
+  it('indents each generation one level deeper than its parent', async () => {
+    const tree = [
+      budget({ id: 'grand', agent_id: 'a-grand', agent_name: 'Grand Agent', parent_budget_id: 'child' }),
+      budget({ id: 'child', agent_id: 'a-child', agent_name: 'Child Agent', parent_budget_id: 'root' }),
+      budget({ id: 'root', agent_id: 'a-root', agent_name: 'Root Agent' }),
+    ];
+    mockGet.mockImplementation((url: string) =>
+      url === '/ai/autonomy/budgets' ? Promise.resolve({ data: { success: true, data: tree } }) : routeGets(url));
+    renderPanel();
+
+    await waitFor(() => expect(listedAgents()).toEqual(['Root Agent', 'Child Agent', 'Grand Agent']));
+    expect(screen.getAllByTestId('budget-row').map((r) => r.getAttribute('data-depth'))).toEqual(['0', '1', '2']);
+    expect(row('Grand Agent').style.marginLeft).not.toBe(row('Child Agent').style.marginLeft);
   });
 });
 
@@ -262,6 +300,22 @@ describe('BudgetsPanel — delete asks in the app, not the browser', () => {
     await waitFor(() => expect(screen.queryByText(/delete the budget for Old Agent/i)).not.toBeInTheDocument());
     expect(mockDelete).not.toHaveBeenCalled();
     expect(nativeConfirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('BudgetsPanel — allocating from a non-USD budget', () => {
+  it('labels the amount in the parent budget\'s currency', async () => {
+    mockGet.mockImplementation((url: string) =>
+      url === '/ai/autonomy/budgets'
+        ? Promise.resolve({ data: { success: true, data: [budget({ id: 'eur', agent_name: 'Euro Agent', currency: 'EUR' })] } })
+        : routeGets(url));
+    renderPanel();
+    await waitFor(() => expect(listedAgents()).toEqual(['Euro Agent']));
+
+    fireEvent.click(within(row('Euro Agent')).getByRole('button', { name: /allocate/i }));
+
+    expect(screen.getByLabelText('Amount (EUR)')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Amount (USD)')).not.toBeInTheDocument();
   });
 });
 

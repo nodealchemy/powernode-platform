@@ -53,10 +53,11 @@ function matchesStatus(budget: AgentBudget, status: StatusFilter): boolean {
 
 /**
  * Parents in server order, each followed directly by the children allocated
- * from it. A child whose parent is not in the list (filtered out) keeps its own
- * place rather than disappearing.
+ * from it, with each budget's depth in that tree. A child whose parent is not
+ * in the list (filtered out) keeps its own place, at depth 0, rather than
+ * disappearing.
  */
-function nestUnderParents(budgets: AgentBudget[]): Array<{ budget: AgentBudget; nested: boolean }> {
+function nestUnderParents(budgets: AgentBudget[]): Array<{ budget: AgentBudget; depth: number }> {
   const ids = new Set(budgets.map((b) => b.id));
   const childrenOf = new Map<string, AgentBudget[]>();
   budgets.forEach((b) => {
@@ -65,14 +66,14 @@ function nestUnderParents(budgets: AgentBudget[]): Array<{ budget: AgentBudget; 
     }
   });
 
-  const ordered: Array<{ budget: AgentBudget; nested: boolean }> = [];
-  const visit = (budget: AgentBudget, nested: boolean) => {
-    ordered.push({ budget, nested });
-    (childrenOf.get(budget.id) || []).forEach((child) => visit(child, true));
+  const ordered: Array<{ budget: AgentBudget; depth: number }> = [];
+  const visit = (budget: AgentBudget, depth: number) => {
+    ordered.push({ budget, depth });
+    (childrenOf.get(budget.id) || []).forEach((child) => visit(child, depth + 1));
   };
   budgets
     .filter((b) => !(b.parent_budget_id && ids.has(b.parent_budget_id)))
-    .forEach((b) => visit(b, false));
+    .forEach((b) => visit(b, 0));
   return ordered;
 }
 
@@ -146,9 +147,9 @@ const AllocateChildForm: React.FC<{ parent: AgentBudget; onDone: () => void }> =
           </select>
         </label>
         <label className="text-xs text-theme-tertiary">
-          Amount (USD)
+          Amount ({parent.currency})
           <input
-            aria-label="Amount (USD)"
+            aria-label={`Amount (${parent.currency})`}
             type="number"
             min="0.01"
             step="0.01"
@@ -244,7 +245,7 @@ export const BudgetsPanel: React.FC = () => {
           ) : undefined}
         />
         <CardContent>
-          <div className="flex flex-wrap items-center gap-3 mb-4">
+          <div role="group" aria-label="Budget filters" className="flex flex-wrap items-center gap-3 mb-4">
             <label className="flex items-center gap-2 text-xs text-theme-tertiary">
               Agent
               <select aria-label="Agent" value={agentFilter} onChange={(e) => setFilter('agent', e.target.value)} className={selectClass}>
@@ -276,14 +277,17 @@ export const BudgetsPanel: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {rows.map(({ budget, nested }) => {
+              {rows.map(({ budget, depth }) => {
+                const nested = depth > 0;
                 const parent = budget.parent_budget_id ? byId.get(budget.parent_budget_id) : undefined;
                 const isExpanded = expandedId === budget.id;
                 return (
                   <div
                     key={budget.id}
                     data-testid="budget-row"
-                    className={cn('rounded-lg bg-theme-surface border border-theme', nested && 'ml-6')}
+                    data-depth={depth}
+                    style={nested ? { marginLeft: `${depth * 1.5}rem` } : undefined}
+                    className="rounded-lg bg-theme-surface border border-theme"
                   >
                     <div className="p-3">
                       <div className="flex items-center justify-between mb-2">
@@ -344,13 +348,12 @@ export const BudgetsPanel: React.FC = () => {
                         <span>Spent: {formatCurrency(budget.spent_cents, budget.currency)}</span>
                         <span>Total: {formatCurrency(budget.total_budget_cents, budget.currency)}</span>
                       </div>
-                      {budget.reserved_cents > 0 && (
-                        <div className="text-xs text-theme-tertiary mt-1">
-                          Reserved: {formatCurrency(budget.reserved_cents, budget.currency)}
-                          {' · '}
-                          Remaining: {formatCurrency(budget.remaining_cents, budget.currency)}
-                        </div>
-                      )}
+                      <div className="text-xs text-theme-tertiary mt-1">
+                        Remaining: {formatCurrency(budget.remaining_cents, budget.currency)}
+                        {budget.reserved_cents > 0 && (
+                          <>{' · '}Reserved: {formatCurrency(budget.reserved_cents, budget.currency)}</>
+                        )}
+                      </div>
                     </div>
 
                     {allocatingId === budget.id && canManage && (
