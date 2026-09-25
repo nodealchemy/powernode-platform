@@ -23,7 +23,7 @@ interface ApprovalTokenEnvelope<T> {
 }
 
 const unwrapApprovalToken = <T>(body: ApprovalTokenEnvelope<T>, fallback: string): T => {
-  if (!body.success || body.data === undefined) {
+  if (!body.success || body.data == null) {
     throw new Error(body.error || fallback);
   }
   return body.data;

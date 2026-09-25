@@ -82,4 +82,12 @@ describe('ApprovalResponsePage', () => {
 
     expect(await screen.findByText('This approval link has expired')).toBeInTheDocument();
   });
+
+  it('treats a success envelope with null data as a failure, not as details', async () => {
+    mockGet.mockResolvedValueOnce({ data: { success: true, data: null } });
+
+    renderAtToken('/ci-cd/approve/tok-1');
+
+    expect(await screen.findByText('Failed to load approval details')).toBeInTheDocument();
+  });
 });
