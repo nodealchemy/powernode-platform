@@ -101,8 +101,9 @@ interface AllowlistEntry {
 
 interface ExtensionDir {
   srcDir: string;
-  /** Repo-relative root, e.g. "extensions/supply-chain" — derived from the
-   * directory name on disk at discovery time, never a literal in source. */
+  /** Repo-relative root, "extensions/<dir>" or "extensions/private/<dir>" —
+   * derived from the directory name on disk at discovery time, never a
+   * literal in source. */
   repoRelRoot: string;
 }
 
@@ -214,7 +215,7 @@ function walkPageFiles(dir: string, acc: string[] = []): string[] {
 // real one. Left untreated, that apostrophe opens a phantom string that
 // doesn't close until the NEXT quote anywhere later in the file — which can
 // swallow real code (a `<PathTabs` usage, a whole other function) between
-// them (caught empirically: ServiceDeliveryPage.tsx's "don't" ate ~1200
+// them (caught empirically: one extension page's "don't" ate ~1200
 // characters including its own `<PathTabs>` usage). The fix: a real
 // single/double-quoted JS string can never contain a literal newline
 // (unescaped) — that's a syntax error — so hitting one while "inString" for
