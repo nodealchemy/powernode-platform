@@ -255,6 +255,36 @@ RSpec.describe Ai::Tools::AgentManagementTool do
         expect(result[:status]).to eq("execution_dispatched")
       end
 
+      # W2-7: the description said "assistant type only" while the code refuses
+      # only mcp_client agents (0b2873edc, which added both, is titled "prevent
+      # execute_agent on MCP clients"). The code is the intended contract:
+      # monitor, code_assistant and the other server-side types execute.
+      it "describes the mcp_client refusal, not an assistant-only restriction" do
+        description = described_class.action_definitions.dig("execute_agent", :description)
+
+        expect(description).not_to match(/assistant type only/i)
+        expect(description).to include("mcp_client")
+      end
+
+      it "executes a server-side agent of a non-assistant type" do
+        agent = create(:ai_agent, :monitor, account: account)
+
+        result = tool.execute(params: { action: "execute_agent", agent_id: agent.id })
+
+        expect(result[:success]).to be true
+        expect(result[:status]).to eq("execution_dispatched")
+      end
+
+      it "refuses an mcp_client agent and points at @mention" do
+        agent = create(:ai_agent, :mcp_client, account: account)
+
+        result = tool.execute(params: { action: "execute_agent", agent_id: agent.id })
+
+        expect(result[:success]).to be false
+        expect(result[:error]).to include("Cannot execute MCP client agent").and include("@#{agent.name}")
+        expect(Ai::AgentExecution.where(ai_agent_id: agent.id)).to be_empty
+      end
+
       it "returns error for non-existent agent" do
         result = tool.execute(params: { action: "execute_agent", agent_id: SecureRandom.uuid })
         expect(result[:success]).to be false

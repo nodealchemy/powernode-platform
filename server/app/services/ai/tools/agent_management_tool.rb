@@ -176,7 +176,7 @@ module Ai
             }
           },
           "execute_agent" => {
-            description: "Queue execution of a server-side AI agent (assistant type only). " \
+            description: "Queue execution of a server-side AI agent (any agent_type except mcp_client). " \
                          "Cannot execute MCP client agents — use @mention in workspace messages to reach them.",
             parameters: {
               agent_id: { type: "string", required: true, description: "Agent ID, slug, or exact name" },
