@@ -32,9 +32,13 @@ export interface ComposePlanEnvelope {
 }
 
 /**
- * Raw `response.data` body from the messages endpoint. Returned verbatim so the
- * caller keeps owning its `data?.data ?? data ?? {}` unwrapping (and the exact
- * undefined-handling that implies).
+ * The already-unwrapped `{ messages, pagination }` object from
+ * conversationsApi.getMessages (fc-37 — this used to be the raw
+ * `response.data` body from a direct apiClient call, returned verbatim). The
+ * type stays this loose because the caller keeps owning its
+ * `data?.data ?? data ?? {}` unwrapping: there is no `.data` key on this
+ * shape, so it falls through to the object itself, whose `.messages` array
+ * the caller reads — unchanged behavior, just no longer literally verbatim.
  */
 export type ConversationMessagesResponse = Record<string, unknown> | unknown[] | undefined;
 
