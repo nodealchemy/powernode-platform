@@ -398,7 +398,7 @@ module AiMonitoringConcern
   end
 
   def check_redis_health
-    ::Platform::Health::CoreChecks.redis
+    ::Platform::Health::CoreChecks.redis(client: redis)
   end
 
   def check_providers_health

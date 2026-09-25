@@ -15,10 +15,19 @@ module Platform
       # infrastructure" section. Every service is structural, so nothing is
       # ever "gone" and there is no terminated arm.
       #
-      # ── ONE MEASUREMENT PER SWEEP ───────────────────────────────────────────
-      # `each_component` reads every service once and yields the readings; the
-      # other methods are pure functions of a reading. The checks are cheap (a
-      # SELECT 1, a PING, two /proc reads, a statfs, sidekiq's counters).
+      # ── ONE MEASUREMENT PER INTERVAL, NOT PER ACCOUNT ───────────────────────
+      # The sweep reads, it does not probe — and these checks open sockets (a
+      # SELECT 1, a PING, the worker Redis). The sweep runs once per account
+      # every interval, so the readings are cached for one sweep interval and
+      # every account's sweep in that interval reads the same measurement: one
+      # probe per interval however many accounts there are. The other methods
+      # are pure functions of a reading.
+      #
+      # ── ONE ROW PER SERVICE ─────────────────────────────────────────────────
+      # A registered contributor that already reports a core service claims it
+      # through `reports_core_services` (see Contributor), and that service is
+      # neither measured nor yielded here. Core mode has no such contributor
+      # and reports all six.
       class CoreService < Contributor
         KIND = "core_service"
 
@@ -41,15 +50,25 @@ module Platform
 
         Reading = Struct.new(:service, :values, keyword_init: true)
 
+        CACHE_KEY = "platform:status:core_service:readings"
+
         def kind = KIND
 
         def account_scoped? = false
 
         # The account is ignored on purpose: these services have no tenant.
         def each_component(_account)
-          ::Platform::Health::CoreChecks.all.each do |service, values|
+          readings.each do |service, values|
             yield Reading.new(service: service.to_s, values: values)
           end
+        end
+
+        # The services no other registered contributor reports.
+        def services_to_measure
+          claimed = Registry.contributors.except(KIND).values.flat_map do |other|
+            other.respond_to?(:reports_core_services) ? Array(other.reports_core_services).map(&:to_sym) : []
+          end
+          ::Platform::Health::CoreChecks::SERVICES - claimed
         end
 
         def ref_for(reading) = reading.service
@@ -71,14 +90,15 @@ module Platform
           values = reading.values.to_h.transform_keys(&:to_s)
           status = values["status"].to_s
           mapped = STATUS_CONDITIONS[status]
-          evidence = values.except("status", "error")
+          evidence = values.except("status", "error_class")
+          name = display_name_for(reading)
+          cause = values["error_class"].presence && " (#{values['error_class']})"
 
           unless mapped
             return [
               Condition.build(
                 type: HEALTHY, status: Condition::UNKNOWN, reason: NOT_OBSERVED,
-                message: [ "#{display_name_for(reading)} could not be read", values["error"].presence ].compact.join(": "),
-                evidence: evidence
+                message: "#{name} could not be read#{cause}", evidence: evidence
               )
             ]
           end
@@ -89,10 +109,19 @@ module Platform
               status: mapped[:status],
               severity: mapped[:severity],
               reason: mapped[:reason],
-              message: values["error"].presence || "#{display_name_for(reading)} is #{status}",
+              message: "#{name} is #{status}#{cause}",
               evidence: evidence
             )
           ]
+        end
+
+        private
+
+        def readings
+          services = services_to_measure
+          Rails.cache.fetch([ CACHE_KEY, *services ].join(":"), expires_in: SweepService.sweep_interval_seconds.seconds) do
+            ::Platform::Health::CoreChecks.all(only: services)
+          end
         end
       end
     end

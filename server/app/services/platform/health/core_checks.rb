@@ -13,6 +13,11 @@ module Platform
     #
     # `unknown` means "could not read it", and is never reported as healthy: a
     # host where /proc is missing is unmeasured, not fine.
+    #
+    # ── WHAT A READING MAY CARRY ────────────────────────────────────────────
+    # The readings land on shared status rows that every member can see, so a
+    # failure carries the exception CLASS and the message goes to the log; a
+    # success carries counts, never a queue name or a memory figure.
     module CoreChecks
       SERVICES = %i[database redis sidekiq disk memory cpu].freeze
 
@@ -21,11 +26,18 @@ module Platform
       MEMORY_WARNING_PERCENT = 80
       LOAD_WARNING = 2.0
 
+      # A Sidekiq process heartbeats every few seconds; one silent for longer
+      # than this has crashed, even though its identity stays registered until
+      # something prunes it. Same window as the system extension's probe.
+      LIVE_BEAT_SECONDS = 60
+
       module_function
 
-      # @return [Hash{Symbol=>Hash}] every service's reading, in SERVICES order
-      def all
-        SERVICES.index_with { |service| public_send(service) }
+      # @param only [Array<Symbol>] the services to measure; the rest are not
+      #   touched at all
+      # @return [Hash{Symbol=>Hash}] each reading, in SERVICES order
+      def all(only: SERVICES)
+        (SERVICES & only.map(&:to_sym)).index_with { |service| public_send(service) }
       end
 
       def database
@@ -39,47 +51,61 @@ module Platform
           connection_pool: pool.slice(:size, :connections, :busy, :idle)
         }
       rescue StandardError => e
-        { status: "unhealthy", error: e.message }
+        failure("unhealthy", :database, e)
       end
 
-      def redis
-        client = ::Powernode::Redis.new_client
+      # Reads the app's memoized client unless handed one, so a check opens no
+      # connection of its own.
+      def redis(client: ::Powernode::Redis.client)
         started = monotonic_now
         client.ping
         response_time_ms = elapsed_ms(started)
-        info = client.info
 
         {
           status: "healthy",
           response_time_ms: response_time_ms,
-          used_memory: info["used_memory_human"],
-          connected_clients: info["connected_clients"].to_i
+          connected_clients: client.info["connected_clients"].to_i
         }
       rescue StandardError => e
-        { status: "unhealthy", error: e.message }
+        failure("unhealthy", :redis, e)
       end
 
       # Sidekiq runs in the standalone worker app and this app stays
       # Sidekiq-free, so its state is read from the process registry and the
       # counters Sidekiq keeps in the worker's Redis — never through the gem.
-      # No registered process means nothing is working the queues, however
-      # healthy the counters look. A Redis we cannot read tells us nothing
-      # about Sidekiq: unknown, not unhealthy.
+      # Only an identity whose heartbeat is recent counts as a worker: a
+      # crashed one stays in `processes` until pruned. A Redis we cannot read
+      # tells us nothing about Sidekiq: unknown, not unhealthy.
       def sidekiq
         client = ::Powernode::Redis.new_worker_client
-        processes = client.smembers("processes")
-        queues = client.smembers("queues").sort.index_with { |queue| client.llen("queue:#{queue}") }
+        beats = client.smembers("processes").map { |identity| client.hget(identity, "beat").presence&.to_f }
+        live = beats.compact.count { |beat| beat >= Time.current.to_f - LIVE_BEAT_SECONDS }
+        queues = client.smembers("queues")
 
         {
-          status: processes.any? ? "healthy" : "unhealthy",
-          processes: processes.size,
+          status: live.positive? ? "healthy" : "unhealthy",
+          processes: live,
+          stale_processes: beats.size - live,
           processed: client.get("stat:processed").to_i,
           failed: client.get("stat:failed").to_i,
-          enqueued: queues.values.sum,
-          queues: queues
-        }
+          enqueued: queues.sum { |queue| client.llen("queue:#{queue}") },
+          queue_count: queues.size
+        }.merge(last_seen(beats))
       rescue StandardError => e
-        { status: "unknown", error: e.message }
+        failure("unknown", :sidekiq, e)
+      ensure
+        client&.close
+      end
+
+      # The newest heartbeat, absent when no identity carries one.
+      def last_seen(beats)
+        newest = beats.compact.max
+        newest ? { last_seen_at: Time.at(newest).utc.iso8601 } : {}
+      end
+
+      def failure(status, service, error)
+        Rails.logger.warn "[CoreChecks] #{service} check failed: #{error.class}: #{error.message}"
+        { status: status, error_class: error.class.name }
       end
 
       def disk

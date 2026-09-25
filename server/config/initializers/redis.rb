@@ -38,6 +38,10 @@ module Powernode
     # 3 because 0/1/2 are the application's own (cache, worker, ActionCable);
     # the default 16-database range therefore affords six lanes, which is above
     # the worktree cap the fan-out script enforces.
+    # Seconds. See new_worker_client.
+    WORKER_CONNECT_TIMEOUT = 2
+    WORKER_READ_TIMEOUT = 2
+
     TEST_LANE_STRIDE = 2
     TEST_DATABASE_FLOOR = 3
     MAX_TEST_LANES = ((TEST_WORKER_DATABASE - TEST_DATABASE_FLOOR) / TEST_LANE_STRIDE) + 1
@@ -96,8 +100,16 @@ module Powernode
         ::Redis.new(client_options)
       end
 
+      # Explicit, short timeouts: the worker Redis is read by status sweeps and
+      # request paths, and one that accepts the TCP connection but never
+      # answers must fail fast rather than hold the caller open.
       def new_worker_client
-        ::Redis.new(url: worker_url)
+        ::Redis.new(
+          url: worker_url,
+          connect_timeout: WORKER_CONNECT_TIMEOUT,
+          read_timeout: WORKER_READ_TIMEOUT,
+          write_timeout: WORKER_READ_TIMEOUT
+        )
       end
 
       def url

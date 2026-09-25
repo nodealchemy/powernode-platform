@@ -15,8 +15,8 @@ RSpec.describe Platform::Status::Contributors::CoreService do
   def readings(overrides = {})
     {
       database: { status: "healthy", response_time_ms: 1.2, connection_pool: { size: 5, connections: 2, busy: 1, idle: 1 } },
-      redis: { status: "healthy", response_time_ms: 0.4, used_memory: "12M", connected_clients: 7 },
-      sidekiq: { status: "healthy", processes: 1, processed: 10, failed: 0, enqueued: 0, queues: {} },
+      redis: { status: "healthy", response_time_ms: 0.4, connected_clients: 7 },
+      sidekiq: { status: "healthy", processes: 1, stale_processes: 0, processed: 10, failed: 0, enqueued: 0, queue_count: 1 },
       disk: { status: "healthy", used_percentage: 40.0, free_gb: 60 },
       memory: { status: "healthy", used_percentage: 50.0, used_mb: 500, total_mb: 1000 },
       cpu: { status: "healthy", load_1min: 0.5, load_5min: 0.4, load_15min: 0.3 }
@@ -29,7 +29,13 @@ RSpec.describe Platform::Status::Contributors::CoreService do
 
   def only_condition(record) = contributor.conditions_for(record).first
 
-  before { allow(checks).to receive(:all).and_return(readings) }
+  before do
+    Rails.cache.delete_matched("#{described_class::CACHE_KEY}*")
+    allow(checks).to receive(:all) { |only: checks::SERVICES| readings.slice(*only) }
+    # Core mode by default: no other contributor claims a core service. A
+    # checked-out extension may register one that does; see the claim specs.
+    allow(Platform::Status::Registry).to receive(:contributors).and_return({ "core_service" => contributor }.freeze)
+  end
 
   describe "the contract" do
     it "answers the registry key" do
@@ -70,10 +76,10 @@ RSpec.describe Platform::Status::Contributors::CoreService do
     end
 
     it "is healthy, with the reading as evidence and no status key in it" do
-      condition = condition_for(:redis, { status: "healthy", response_time_ms: 0.4, used_memory: "12M", connected_clients: 7 })
+      condition = condition_for(:redis, { status: "healthy", response_time_ms: 0.4, connected_clients: 7 })
 
       expect(condition).to include("type" => "Healthy", "status" => true, "reason" => "Healthy")
-      expect(condition["evidence"]).to eq("response_time_ms" => 0.4, "used_memory" => "12M", "connected_clients" => 7)
+      expect(condition["evidence"]).to eq("response_time_ms" => 0.4, "connected_clients" => 7)
     end
 
     it "is degraded on a warning" do
@@ -82,10 +88,13 @@ RSpec.describe Platform::Status::Contributors::CoreService do
       expect(condition).to include("status" => false, "severity" => "degraded", "reason" => "Warning")
     end
 
-    it "is down, with the error as the message, when the service is unhealthy" do
-      condition = condition_for(:database, { status: "unhealthy", error: "no db" })
+    it "is down, naming the exception class, when the service is unhealthy" do
+      condition = condition_for(:database, { status: "unhealthy", error_class: "ActiveRecord::ConnectionNotEstablished" })
 
-      expect(condition).to include("status" => false, "severity" => "down", "reason" => "Unhealthy", "message" => "no db")
+      expect(condition).to include(
+        "status" => false, "severity" => "down", "reason" => "Unhealthy",
+        "message" => "Database is unhealthy (ActiveRecord::ConnectionNotEstablished)"
+      )
     end
 
     it "is unknown (not measured), never healthy, when the check could not read it" do
@@ -98,6 +107,72 @@ RSpec.describe Platform::Status::Contributors::CoreService do
       condition = condition_for(:memory, { status: "bogus" })
 
       expect(condition).to include("status" => "unknown", "reason" => "NotObserved")
+    end
+  end
+
+  # fc-47 review H2: the checks open sockets, and the sweep runs once per
+  # account every interval. They are measured at most once per interval and
+  # every account's sweep reads that one measurement.
+  describe "measurement cadence" do
+    let(:accounts) { create_list(:account, 3) }
+
+    it "probes once across every account's sweep in one interval" do
+      accounts.each { |account| enumerate(account) }
+
+      expect(checks).to have_received(:all).once
+    end
+
+    it "probes again once the sweep interval has passed" do
+      enumerate(accounts.first)
+      travel(Platform::Status::SweepService.sweep_interval_seconds.seconds + 1.second) { enumerate(accounts.last) }
+
+      expect(checks).to have_received(:all).twice
+    end
+
+    it "probes once when run through the sweep itself for several accounts" do
+      accounts.each { |account| Platform::Status::SweepService.run_once!(account) }
+
+      expect(checks).to have_received(:all).once
+    end
+  end
+
+  # fc-47 review M4: a registered contributor that already reports a core
+  # service (the system extension reports postgres, redis and sidekiq from
+  # its own probe) claims it, and core does not add a second row for it.
+  # Core names no contributor: it reads the claim off whatever is registered.
+  describe "services another registered contributor reports" do
+    let(:claimer) do
+      Class.new(Platform::Status::Contributor) do
+        def kind = "zz_core_service_claimer"
+        def each_component(_account) = nil
+        def reports_core_services = %w[database redis sidekiq]
+      end.new
+    end
+
+    # The registry as seen by the contributor, controlled per example: in this
+    # tree a checked-out extension may claim services of its own.
+    def registered(contributors)
+      allow(Platform::Status::Registry).to receive(:contributors).and_return(contributors.freeze)
+    end
+
+    it "reports all six services when nothing else claims any" do
+      registered("core_service" => contributor)
+
+      expect(enumerate.map { |r| contributor.ref_for(r) }).to eq(%w[database redis sidekiq disk memory cpu])
+      expect(checks).to have_received(:all).with(only: checks::SERVICES)
+    end
+
+    it "leaves out, and does not measure, the services a registered contributor reports" do
+      registered("core_service" => contributor, "zz_core_service_claimer" => claimer)
+
+      expect(enumerate.map { |r| contributor.ref_for(r) }).to eq(%w[disk memory cpu])
+      expect(checks).to have_received(:all).with(only: %i[disk memory cpu])
+    end
+
+    it "ignores a contributor that does not answer the claim" do
+      registered("core_service" => contributor, "zz_plain" => Object.new.tap { |o| o.define_singleton_method(:each_component) { |_| nil } })
+
+      expect(enumerate.size).to eq(6)
     end
   end
 

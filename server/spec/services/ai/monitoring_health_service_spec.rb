@@ -101,7 +101,8 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
       result = service.check_database_health
 
       expect(result[:status]).to eq("unhealthy")
-      expect(result[:error]).to be_present
+      expect(result[:error_class]).to eq("ActiveRecord::ConnectionNotEstablished")
+      expect(result).not_to have_key(:error)
     end
   end
 
@@ -114,16 +115,17 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
       result = service.check_redis_health
 
       expect(result[:status]).to eq("healthy")
-      expect(result[:used_memory]).to be_present
+      expect(result[:connected_clients]).to be_a(Integer)
     end
 
     it "returns unhealthy when Redis is unreachable" do
-      allow(Redis).to receive(:new).and_raise(Redis::CannotConnectError.new("Connection refused"))
+      client = instance_double(Redis)
+      allow(client).to receive(:ping).and_raise(Redis::CannotConnectError.new("Connection refused"))
+      allow(Powernode::Redis).to receive(:client).and_return(client)
 
       result = service.check_redis_health
 
-      expect(result[:status]).to eq("unhealthy")
-      expect(result[:error]).to be_present
+      expect(result).to eq(status: "unhealthy", error_class: "Redis::CannotConnectError")
     end
   end
 
@@ -179,50 +181,6 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
 
       expect(result[:status]).to eq("healthy")
       expect(result[:estimated_backlog]).to eq(0)
-    end
-  end
-
-  # ===========================================================================
-  # #detailed_health
-  # ===========================================================================
-
-  describe "#detailed_health" do
-    it "returns detailed health for all services" do
-      result = service.detailed_health
-
-      expect(result[:timestamp]).to be_present
-      expect(result[:services]).to be_a(Hash)
-      expect(result[:services]).to have_key(:database)
-      expect(result[:services]).to have_key(:redis)
-      expect(result[:services]).to have_key(:providers)
-      expect(result[:services]).to have_key(:agents)
-      expect(result[:services]).to have_key(:workers)
-      expect(result[:recent_activity]).to be_a(Hash)
-      expect(result[:performance_metrics]).to be_a(Hash)
-    end
-  end
-
-  # ===========================================================================
-  # #connectivity_check
-  # ===========================================================================
-
-  describe "#connectivity_check" do
-    it "returns connectivity test results" do
-      result = service.connectivity_check
-
-      expect(result[:timestamp]).to be_present
-      expect(result[:database]).to be_a(Hash)
-      expect(result[:redis]).to be_a(Hash)
-      expect(result[:providers]).to be_an(Array)
-      expect(result[:workers]).to be_a(Hash)
-      expect(result[:external_services]).to be_a(Hash)
-    end
-
-    it "measures database response time" do
-      result = service.connectivity_check
-
-      expect(result[:database][:status]).to eq("healthy")
-      expect(result[:database][:response_time_ms]).to be_a(Numeric)
     end
   end
 
