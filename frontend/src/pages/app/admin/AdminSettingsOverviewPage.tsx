@@ -69,7 +69,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
 
   if (!data) return null;
 
-  const { metrics, recent_users, recent_accounts, recent_logs, payment_gateways, settings_summary } = data;
+  const { metrics, recent_accounts, recent_logs, payment_gateways, settings_summary } = data;
 
   // Determine overall system status
   const getSystemStatus = () => {
@@ -376,54 +376,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           <span>📈</span>
           <span>Recent Activity</span>
         </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Users */}
-          <div className="bg-theme-surface rounded-xl border border-theme overflow-hidden">
-            <div className="px-6 py-4 border-b border-theme bg-theme-background-secondary">
-              <h3 className="font-semibold text-theme-primary flex items-center gap-2">
-                <span>👥</span>
-                <span>Recent Users</span>
-                <span className="bg-theme-interactive-primary text-theme-on-primary text-xs px-2 py-1 rounded-full">
-                  {recent_users.length}
-                </span>
-              </h3>
-            </div>
-            <div className="max-h-80 overflow-y-auto">
-              {recent_users.length === 0 ? (
-                <div className="p-6 text-center text-theme-secondary">
-                  <span className="text-4xl mb-2 block">👥</span>
-                  <p>No recent users</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-theme">
-                  {recent_users.filter(user => user && user.email).map((user) => (
-                    <div key={user.id} className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-theme-interactive-primary rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-theme-on-primary font-medium text-sm">
-                            {user.name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '??'}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-theme-primary truncate">{user.full_name}</p>
-                          <p className="text-sm text-theme-secondary truncate">{user.email}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs bg-theme-background px-2 py-1 rounded text-theme-secondary">
-                              {Array.isArray(user.roles) && user.roles.length > 0 ? (typeof user.roles[0] === 'object' ? (user.roles[0] as { display_name?: string; name?: string })?.display_name || (user.roles[0] as { display_name?: string; name?: string })?.name : user.roles[0]) : 'N/A'}
-                            </span>
-                            <span className="text-xs text-theme-tertiary">
-                              {adminSettingsApi.formatRelativeTime(user.created_at)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Recent Accounts */}
           <div className="bg-theme-surface rounded-xl border border-theme overflow-hidden">
             <div className="px-6 py-4 border-b border-theme bg-theme-background-secondary">

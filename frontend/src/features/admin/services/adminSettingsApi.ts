@@ -40,22 +40,6 @@ export interface SystemMetrics {
   uptime: number;
 }
 
-export interface AdminUser {
-  id: string;
-  name: string;
-  full_name?: string;
-  email: string;
-  email_verified: boolean;
-  last_login_at: string | null;
-  created_at: string;
-  account: {
-    id: string;
-    name: string;
-    status: string;
-  };
-  roles: string[];
-}
-
 export interface AdminAccount {
   id: string;
   name: string;
@@ -156,7 +140,6 @@ export interface PaymentGatewayStatus {
 
 export interface AdminOverviewData {
   metrics: SystemMetrics;
-  recent_users: AdminUser[];
   recent_accounts: AdminAccount[];
   recent_logs: SystemLog[];
   payment_gateways: PaymentGatewayStatus;

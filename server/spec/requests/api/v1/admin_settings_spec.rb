@@ -21,6 +21,15 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
         expect_success_response
       end
 
+      # fc-33: the overview no longer lists recent users; Administration →
+      # All Users is the one place that lists users.
+      it 'does not carry a recent_users list' do
+        get '/api/v1/admin_settings', headers: headers, as: :json
+
+        expect(json_response['data']).not_to have_key('recent_users')
+        expect(json_response['data']).to have_key('recent_accounts')
+      end
+
       # settings_summary used to dump AdminSetting#value RAW (a string), so a
       # disabled "false" read back as a non-empty — therefore truthy — JS
       # string. settings_summary.maintenance_mode must be the typed

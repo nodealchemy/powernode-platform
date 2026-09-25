@@ -34,7 +34,6 @@ describe('AdminSettingsOverviewPage', () => {
       active_subscriptions: 1,
       total_subscriptions: 2
     },
-    recent_users: [],
     recent_accounts: [],
     recent_logs: [],
     payment_gateways: {
@@ -103,5 +102,15 @@ describe('AdminSettingsOverviewPage', () => {
     const link = await screen.findByRole('link', { name: /Workers/i });
     expect(link).toHaveAttribute('href', '/app/admin/workers');
     expect(screen.queryByText('Services')).not.toBeInTheDocument();
+  });
+
+  // fc-33: Administration → All Users is the one place that lists users.
+  it('lists no recent users', async () => {
+    (adminSettingsApi.getOverview as jest.Mock).mockResolvedValue({ success: true, data: baseOverview });
+
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText('Recent Accounts')).toBeInTheDocument());
+    expect(screen.queryByText('Recent Users')).not.toBeInTheDocument();
   });
 });

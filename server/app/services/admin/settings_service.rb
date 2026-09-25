@@ -28,7 +28,6 @@ module Admin
     def admin_overview
       {
         metrics: system_metrics,
-        recent_users: recent_users_data,
         recent_accounts: recent_accounts_data,
         recent_logs: recent_system_logs,
         payment_gateways: payment_gateway_status,
@@ -55,16 +54,6 @@ module Admin
         system_health: calculate_system_health,
         uptime: calculate_uptime
       }
-    end
-
-    # Get recent users data
-    # @param limit [Integer] Number of users to return
-    # @return [Array<Hash>] Recent users
-    def recent_users_data(limit: 10)
-      User.includes(:account)
-          .order(created_at: :desc)
-          .limit(limit)
-          .map { |user| serialize_user(user) }
     end
 
     # Get recent accounts data
@@ -246,24 +235,6 @@ module Admin
     def calculate_uptime
       process_start_time = File.stat("/proc/self").ctime rescue (Time.current - 1.day)
       [ Time.current - process_start_time, 0 ].max
-    end
-
-    def serialize_user(user)
-      {
-        id: user.id,
-        name: user.name,
-        full_name: user.full_name,
-        email: user.email,
-        email_verified: user.email_verified?,
-        last_login_at: user.last_login_at,
-        created_at: user.created_at,
-        account: {
-          id: user.account.id,
-          name: user.account.name,
-          status: user.account.status
-        },
-        roles: user.roles
-      }
     end
 
     def serialize_account(account)
