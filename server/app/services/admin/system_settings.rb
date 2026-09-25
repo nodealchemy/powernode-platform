@@ -284,10 +284,20 @@ module Admin
 
       # The non-secret redis fields (host/port/etc, from the
       # ServiceConfiguration concern) plus the real decrypted password.
+      #
+      # fc-38 review round 3 item #2: a decrypt failure returns nil from
+      # decrypt_infrastructure_secret — `config.merge("password" => nil)`
+      # used to ship that nil straight over config["password"]'s own ENV/
+      # blob default, so a corrupted encrypted row sent the real Redis
+      # connection out UNAUTHENTICATED rather than falling back to whatever
+      # credential was configured before the corruption. `||` instead of an
+      # unconditional merge: only a decrypt SUCCESS (even an intentionally
+      # blank "") overrides the blob's own value; a nil falls through to it.
       def redis_config
         config = AdminSetting.redis_config
         encrypted = AdminSetting.find_by(key: "redis_config_password_encrypted")
-        config.merge("password" => encrypted ? decrypt_infrastructure_secret(encrypted.value, field: "redis_config_password") : config["password"])
+        decrypted = encrypted ? decrypt_infrastructure_secret(encrypted.value, field: "redis_config_password") : nil
+        config.merge("password" => decrypted || config["password"])
       end
 
       # `new_config`'s "password" key (if PRESENT — even blank, meaning

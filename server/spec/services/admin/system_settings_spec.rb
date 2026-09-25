@@ -106,7 +106,15 @@ RSpec.describe Admin::SystemSettings do
     # here can only mean real corruption or a key-rotation gap, and the
     # ciphertext itself must never be handed anywhere as if it were the
     # actual password.
-    it "returns nil (never the ciphertext) when the stored value fails to decrypt, and logs only the field name and error class" do
+    # round 3 review item #2 (LOW): a decrypt failure used to merge
+    # "password" => nil straight over ENV["REDIS_PASSWORD"]'s default,
+    # sending the actual Redis connection out UNAUTHENTICATED instead of
+    # with whatever credential was configured before the corruption. A
+    # decrypt failure must fall back to the blob's own password (ENV or the
+    # default), never nil — never the ciphertext either.
+    it "falls back to the blob's own password (e.g. the ENV default), never nil, when the stored value fails to decrypt" do
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("env-fallback-password")
       AdminSetting.create!(key: "redis_config_password_encrypted", value: "not-valid-ciphertext")
       expect(Rails.logger).to receive(:error) do |message|
         expect(message).to include("redis_config_password")
@@ -114,7 +122,7 @@ RSpec.describe Admin::SystemSettings do
         expect(message).not_to include("not-valid-ciphertext")
       end
 
-      expect(described_class.redis_config["password"]).to be_nil
+      expect(described_class.redis_config["password"]).to eq("env-fallback-password")
     end
 
     it "falls back to the non-secret blob's own password (e.g. the ENV default) when no encrypted row exists yet" do
