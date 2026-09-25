@@ -132,7 +132,7 @@ describe('ObservabilityPage', () => {
     expect(screen.getByRole('link', { name: 'Systems' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Circuit Breakers' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Conversations' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Conversation Analytics' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Execution Traces' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Evaluation' })).toBeInTheDocument();
   });
@@ -162,7 +162,7 @@ describe('ObservabilityPage', () => {
       expect(screen.getByRole('link', { name: 'Circuit Breakers' })).toBeInTheDocument();
       expect(screen.getByRole('link', { name: 'Alerts' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'Systems' })).not.toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: 'Conversations' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Conversation Analytics' })).not.toBeInTheDocument();
     });
 
     it('ai.aiops.read alone unlocks only Systems', () => {
@@ -176,7 +176,7 @@ describe('ObservabilityPage', () => {
     it('ai.conversations.read alone unlocks only Conversations (fixes the old ai.analytics.read mismatch)', () => {
       mockAllowed = ['ai.conversations.read'];
       renderAt('/app/ai/observability/conversations');
-      expect(screen.getByRole('link', { name: 'Conversations' })).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Conversation Analytics' })).toBeInTheDocument();
       expect(screen.queryByRole('link', { name: 'System Health' })).not.toBeInTheDocument();
     });
 
@@ -193,7 +193,7 @@ describe('ObservabilityPage', () => {
       renderAt('/app/ai/observability/evaluation');
       expect(screen.getByRole('link', { name: 'Evaluation' })).toBeInTheDocument();
       expect(screen.getByTestId('evaluation-leaf')).toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: 'Conversations' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: 'Conversation Analytics' })).not.toBeInTheDocument();
     });
   });
 

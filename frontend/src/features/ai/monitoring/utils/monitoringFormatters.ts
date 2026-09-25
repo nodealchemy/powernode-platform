@@ -76,7 +76,7 @@ export const MONITORING_TABS: PathTabSpec<MonitoringTabId>[] = [
   { key: 'systems', label: 'Systems', permission: 'ai.aiops.read', icon: React.createElement(Server, { size: 16 }) },
   { key: 'circuit-breakers', label: 'Circuit Breakers', permission: 'ai.monitoring.read', icon: React.createElement(Zap, { size: 16 }) },
   { key: 'alerts', label: 'Alerts', permission: 'ai.monitoring.read', icon: React.createElement(Bell, { size: 16 }) },
-  { key: 'conversations', label: 'Conversations', permission: 'ai.conversations.read', icon: React.createElement(MessageSquare, { size: 16 }) },
+  { key: 'conversations', label: 'Conversation Analytics', permission: 'ai.conversations.read', icon: React.createElement(MessageSquare, { size: 16 }) },
   { key: 'traces', label: 'Execution Traces', permission: 'ai_monitoring.read', icon: React.createElement(Workflow, { size: 16 }) },
   { key: 'evaluation', label: 'Evaluation', permission: 'ai.analytics.read', icon: React.createElement(ClipboardCheck, { size: 16 }) },
 ];

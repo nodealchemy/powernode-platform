@@ -21,7 +21,7 @@ export const SkillsPage: React.FC = () => {
 
   return (
     <PageContainer
-      title="AI Skills"
+      title="Skills"
       description="Domain-specific skill bundles for AI agents with commands and MCP connectors"
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
