@@ -327,9 +327,6 @@ These endpoints are available when the `business` extension is loaded; in core m
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/impersonations` | POST/DELETE | Start/stop impersonation |
-| `/impersonations` | GET | Active sessions |
-| `/impersonations/history` | GET | Impersonation history |
-| `/impersonations/users` | GET | Impersonatable users |
 | `/impersonations/validate` | POST | Validate impersonation token |
 
 ### Analytics & Reporting
