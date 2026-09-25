@@ -3,6 +3,7 @@ import { MessageCircle, Archive, Download } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { agentsApi } from '@/shared/services/ai';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { downloadJson } from '@/shared/utils/downloadJson';
 import type { AiConversation } from '@/shared/types/ai';
 
 interface ConversationActionsProps {
@@ -59,9 +60,7 @@ export const ConversationActions: React.FC<ConversationActionsProps> = ({
   const handleExport = async () => {
     try {
       const response = await agentsApi.exportConversation(agentId, conversation.id);
-      if (response.download_url) {
-        window.open(response.download_url, '_blank');
-      }
+      downloadJson(response, `conversation-${conversation.id}.json`);
       addNotification({
         type: 'success',
         title: 'Export Started',

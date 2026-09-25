@@ -24,6 +24,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { downloadJson } from '@/shared/utils/downloadJson';
 import { AiAgent } from '@/shared/types/ai';
 import { EntityLink } from '@/shared/components/entity';
 import { ConversationCreateModal } from '@/features/ai/conversations/components/ConversationCreateModal';
@@ -177,10 +178,18 @@ export const AIConversationsPage: React.FC = () => {
     setChatConversationId(conversationId);
   };
 
-  const handleExportConversation = async (_conversation: ConversationBase) => {
+  const handleExportConversation = async (conversation: ConversationBase) => {
+    if (!conversation.ai_agent) {
+      addNotification({
+        type: 'error',
+        title: 'Export Failed',
+        message: 'Failed to export conversation'
+      });
+      return;
+    }
     try {
-      const response = await agentsApi.exportConversation(_conversation.id, 'json');
-      window.open(response.download_url, '_blank');
+      const response = await agentsApi.exportConversation(conversation.ai_agent.id, conversation.id);
+      downloadJson(response, `conversation-${conversation.id}.json`);
 
       addNotification({
         type: 'success',

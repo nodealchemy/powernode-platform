@@ -25,10 +25,12 @@ jest.mock('@/shared/services/ai/ConversationsApiService', () => ({
 
 // Mock AgentsApiService
 const mockGetAgents = jest.fn();
+const mockExportConversation = jest.fn();
 
 jest.mock('@/shared/services/ai/AgentsApiService', () => ({
   agentsApi: {
-    getAgents: () => mockGetAgents()
+    getAgents: () => mockGetAgents(),
+    exportConversation: (...args: unknown[]) => mockExportConversation(...args)
   }
 }));
 
@@ -41,9 +43,18 @@ jest.mock('@/shared/services/ai', () => ({
     deleteConversation: (id: string) => mockDeleteConversation(id)
   },
   agentsApi: {
-    getAgents: () => mockGetAgents()
+    getAgents: () => mockGetAgents(),
+    exportConversation: (...args: unknown[]) => mockExportConversation(...args)
   },
   GlobalConversationFilters: {}
+}));
+
+// fc-37: exportConversation now returns the export payload inline
+// ({conversation, export_format, exported_at}), not a download_url — the
+// page triggers a client-side Blob download via downloadJson instead.
+const mockDownloadJson = jest.fn();
+jest.mock('@/shared/utils/downloadJson', () => ({
+  downloadJson: (...args: unknown[]) => mockDownloadJson(...args)
 }));
 
 // Mock useAuth
@@ -187,6 +198,12 @@ describe('AIConversationsPage', () => {
     mockArchiveConversation.mockResolvedValue({ id: 'conv-1', status: 'archived' });
     mockDuplicateConversation.mockResolvedValue({ id: 'conv-3', title: 'Copy of Test' });
     mockDeleteConversation.mockResolvedValue(undefined);
+    mockExportConversation.mockResolvedValue({
+      conversation: mockConversations[0],
+      export_format: 'json',
+      exported_at: '2024-01-02T00:00:00Z'
+    });
+    mockDownloadJson.mockReset();
   });
 
   // The agent name now renders via <EntityLink type="agent">, which reads Redux
@@ -384,6 +401,50 @@ describe('AIConversationsPage', () => {
         const deleteButtons = screen.getAllByTitle('Delete Conversation');
         expect(deleteButtons.length).toBeGreaterThan(0);
       });
+    });
+
+    it('exports a conversation via agentsApi.exportConversation(agentId, id) and triggers a Blob download', async () => {
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Conversation 1')).toBeInTheDocument();
+      });
+
+      const exportButtons = screen.getAllByTitle('Export Conversation');
+      fireEvent.click(exportButtons[0]);
+
+      await waitFor(() => {
+        expect(mockExportConversation).toHaveBeenCalledWith('agent-1', 'conv-1');
+      });
+      await waitFor(() => {
+        expect(mockDownloadJson).toHaveBeenCalledWith(
+          expect.objectContaining({ export_format: 'json' }),
+          expect.stringContaining('conv-1')
+        );
+      });
+    });
+
+    it('fails gracefully when a conversation has no ai_agent, without calling exportConversation', async () => {
+      mockGetConversations.mockResolvedValueOnce({
+        items: [{ ...mockConversations[0], ai_agent: undefined }],
+        pagination: { current_page: 1, per_page: 25, total_pages: 1, total_count: 1 }
+      });
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByText('Test Conversation 1')).toBeInTheDocument();
+      });
+
+      const exportButtons = screen.getAllByTitle('Export Conversation');
+      fireEvent.click(exportButtons[0]);
+
+      await waitFor(() => {
+        expect(mockAddNotification).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'error', title: 'Export Failed' })
+        );
+      });
+      expect(mockExportConversation).not.toHaveBeenCalled();
     });
 
     it('handles archive error gracefully', async () => {

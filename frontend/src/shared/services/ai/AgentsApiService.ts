@@ -521,9 +521,15 @@ class AgentsApiService extends BaseApiService {
    * Export conversation
    * GET /api/v1/ai/agents/:agent_id/conversations/:id/export
    */
-  async exportConversation(agentId: string, conversationId: string): Promise<{ download_url?: string }> {
+  async exportConversation(
+    agentId: string,
+    conversationId: string,
+    format: string = 'json'
+  ): Promise<{ conversation: AiConversation; export_format: string; exported_at: string }> {
     const path = this.buildPath(this.resource, agentId, 'conversations', conversationId, 'export');
-    return this.get<{ download_url?: string }>(path);
+    return this.get<{ conversation: AiConversation; export_format: string; exported_at: string }>(path, {
+      params: { format },
+    });
   }
 
   // ===================================================================
