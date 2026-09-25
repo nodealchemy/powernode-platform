@@ -1,15 +1,33 @@
 // Teams Management Page — Full-Width Index Table
 import React, { useState } from 'react';
-import { Plus, Users, Play } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Plus, Users, Play, Radio } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotification } from '@/shared/hooks/useNotification';
+import { usePermissions } from '@/shared/hooks/usePermissions';
 import { teamsApi } from '@/shared/services/ai/TeamsApiService';
 import type { Team } from '@/shared/services/ai/TeamsApiService';
 import { TeamsIndexTable } from '@/features/ai/agent-teams/components/TeamsIndexTable';
+import { CoordinationPanel } from '@/features/ai/agent-teams/components/CoordinationPanel';
+
+const TEAMS_BASE_PATH = '/app/ai/teams';
+
+// The team list stays at /app/ai/teams; coordination is its own URL, offered
+// to the holders of ai.manage, which the coordination endpoints check.
+const TEAMS_TABS = [
+  { id: 'teams', label: 'Teams', icon: <Users size={16} />, path: '/' },
+  { id: 'coordination', label: 'Coordination', icon: <Radio size={16} />, path: '/coordination', permissions: ['ai.manage'] },
+];
 
 const TeamsPage: React.FC = () => {
+  const location = useLocation();
+  const { hasPermission } = usePermissions();
+  const activeTab = hasPermission('ai.manage') && location.pathname.startsWith(`${TEAMS_BASE_PATH}/coordination`)
+    ? 'coordination'
+    : 'teams';
   const { confirm, ConfirmationDialog } = useConfirmation();
   const { showNotification } = useNotification();
 
@@ -88,17 +106,26 @@ const TeamsPage: React.FC = () => {
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'AI', href: '/app/ai' },
-        { label: 'Teams' },
+        ...(activeTab === 'coordination'
+          ? [{ label: 'Teams', href: TEAMS_BASE_PATH }, { label: 'Coordination' }]
+          : [{ label: 'Teams' }]),
       ]}
       actions={[
         { id: 'create-team', label: 'Create Team', onClick: () => setShowCreateModal(true), icon: Plus, variant: 'primary' as const },
       ]}
     >
-      <TeamsIndexTable
-        onStartExecution={handleOpenExecution}
-        onDeleteTeam={handleDeleteTeam}
-        refreshKey={refreshKey}
-      />
+      <TabContainer tabs={TEAMS_TABS} activeTab={activeTab} basePath={TEAMS_BASE_PATH} variant="underline">
+        <TabPanel tabId="teams" activeTab={activeTab}>
+          <TeamsIndexTable
+            onStartExecution={handleOpenExecution}
+            onDeleteTeam={handleDeleteTeam}
+            refreshKey={refreshKey}
+          />
+        </TabPanel>
+        <TabPanel tabId="coordination" activeTab={activeTab}>
+          <CoordinationPanel />
+        </TabPanel>
+      </TabContainer>
 
       {/* Create Team Modal */}
       <Modal
