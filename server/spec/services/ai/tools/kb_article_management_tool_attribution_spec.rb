@@ -19,8 +19,9 @@ require "rails_helper"
 #
 # It is reachable on the ordinary path, not an edge case: BaseTool#user is nil
 # for BOTH agent and instance principals, and the 53 seeded GLOBAL articles are
-# deliberately authorless (db/seeds/kb/*.rb), so the fallback chain runs
-# whenever an agent touches one.
+# deliberately authorless (db/seeds/kb/*.rb), so the fallback chain ran
+# whenever an agent touched one. (Agents can no longer modify a GLOBAL article;
+# the chain still runs for the account's own articles.)
 RSpec.describe Ai::Tools::KbArticleManagementTool, "cross-account attribution" do
   # Creation ORDER is load-bearing in this file: `::User.first` carries no ORDER
   # BY, so it resolves to the earliest-inserted row. Account A's users are
@@ -113,13 +114,16 @@ RSpec.describe Ai::Tools::KbArticleManagementTool, "cross-account attribution" d
     end
 
     # The other half of the same leak: the chain's `article.author` link is
-    # unscoped too. A GLOBAL article (account_id nil) is visible to every tenant
-    # through for_account, so its author is routinely someone else's user.
-    it "does not name a GLOBAL article's foreign author as account B's actor" do
-      global_article = create(:kb_article, category: category, account: nil,
-                                           author: foreign_user, status: "draft")
+    # unscoped too, so an author from another account must be skipped. (A
+    # GLOBAL article, whose author is routinely someone else's user, can no
+    # longer be edited by an agent at all — only a system.admin holder may
+    # change one, see kb_article_management_tool_spec.rb — so the link is
+    # exercised here on an account-B article carrying a foreign author.)
+    it "does not name an article's foreign author as account B's actor" do
+      article = create(:kb_article, category: category, account: account_b,
+                                    author: foreign_user, status: "draft")
 
-      tool_b.send(:update_article, article_id: global_article.id, title: "Edited From B")
+      tool_b.send(:update_article, article_id: article.id, title: "Edited From B")
 
       expect(latest_workflow.user_id).not_to eq(foreign_user.id)
       expect(account_a_user_ids).not_to include(latest_workflow.user_id)

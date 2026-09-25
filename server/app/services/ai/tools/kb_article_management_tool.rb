@@ -9,12 +9,17 @@ module Ai
       # carries its own permission on the human path — see #publication_allowed?.
       PUBLISH_PERMISSION = "kb.publish"
 
+      # GLOBAL articles (account_id nil) are platform-provided content every
+      # tenant reads. Changing one is a platform act, not a tenant one, so it
+      # needs the platform-admin permission — see #global_modification_allowed?.
+      GLOBAL_EDIT_PERMISSION = "system.admin"
+
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "create_kb_article", mutating: true,
-                                          returns: "article_id, slug and title",
+                                          returns: "article_id, slug and title of an article owned by the caller's account",
                                           refuses: [ "the category slug is not found",
                                                      "status is published and the caller lacks kb.publish",
                                                      "the article fails validation, or no user in the account can be recorded as its actor" ]
@@ -27,6 +32,7 @@ module Ai
       declare_action "update_kb_article", mutating: true,
                                           returns: "article_id and slug",
                                           refuses: [ "the article is not found",
+                                                     "the article is global and the caller lacks system.admin",
                                                      "the status change enters or leaves published and the caller lacks kb.publish",
                                                      "the article fails validation, or no user in the account can be recorded as its actor" ]
 
@@ -67,7 +73,7 @@ module Ai
             }
           },
           "create_kb_article" => {
-            description: "Create a new Knowledge Base article in a category. " \
+            description: "Create a new Knowledge Base article in a category, owned by this account. " \
                          "The status defaults to draft, and every create is recorded as a workflow transition.",
             parameters: {
               title: { type: "string", required: true, description: "Article title" },
@@ -81,7 +87,8 @@ module Ai
           },
           "update_kb_article" => {
             description: "Update an existing Knowledge Base article. " \
-                         "Only the fields you pass are changed, and each update is recorded as a workflow row.",
+                         "Only the fields you pass are changed, and each update is recorded as a workflow row. " \
+                         "Global platform articles are read-only unless the caller holds system.admin.",
             parameters: {
               article_id: { type: "string", required: true, description: "Article ID" },
               title: { type: "string", required: false, description: "New article title" },
@@ -144,7 +151,11 @@ module Ai
         article = nil
 
         ActiveRecord::Base.transaction do
+          # Owned by the caller's account, like the human path
+          # (Api::V1::Kb::ArticlesController#create). Left nil, the row would be
+          # GLOBAL and every tenant would read it.
           article = ::KnowledgeBase::Article.create!(
+            account: account,
             title: params[:title],
             content: params[:content],
             category: category,
@@ -181,6 +192,7 @@ module Ai
       def update_article(params)
         article = find_article(params)
         return { success: false, error: "Article not found" } unless article
+        return global_modification_denied_result unless global_modification_allowed?(article)
 
         attrs = {}
         attrs[:title] = params[:title] if params[:title].present?
@@ -294,6 +306,27 @@ module Ai
         return true unless user.respond_to?(:has_permission?)
 
         user.has_permission?(PUBLISH_PERMISSION)
+      end
+
+      # find_article is override-aware (global + own), which is right for
+      # reading but not for writing: a GLOBAL article is platform content every
+      # tenant sees, so a tenant-level permission (kb.manage, kb.update) must
+      # not be enough to change it. Only a user holding the platform-admin
+      # permission may. No internal/instance bypass: neither carries a user
+      # whose platform-admin standing could be checked.
+      def global_modification_allowed?(article)
+        return true unless article.global?
+        return false if user.nil? || !user.respond_to?(:has_permission?)
+
+        user.has_permission?(GLOBAL_EDIT_PERMISSION)
+      end
+
+      def global_modification_denied_result
+        {
+          success: false,
+          error: "Not authorized: this article is global (platform-managed) and can only be " \
+                 "modified with the #{GLOBAL_EDIT_PERMISSION} permission"
+        }
       end
 
       def publication_denied_result(from_status, to_status)
@@ -420,6 +453,9 @@ module Ai
         end
       end
 
+      # Categories carry no account: KnowledgeBase::Category is a shared
+      # taxonomy (no account_id column; audit_without_account!), so there is no
+      # tenant scope to apply here.
       def find_category(slug)
         return nil unless slug.present?
         ::KnowledgeBase::Category.find_by(slug: slug)
