@@ -10,9 +10,9 @@ Determine the intent from the user's message (or the automated daemon trigger) a
 
 When invoked with no arguments or by the SSE daemon:
 
-1. Read the `<workspace-messages>` context injected by the `UserPromptSubmit` hook
+1. Read new messages from the `<workspace-messages>` block if one is in context; otherwise fetch them with `platform.list_messages`
 2. For each message requiring a response, reply via the `platform.send_message` MCP tool with `conversation_id` and `message` params
-3. Always acknowledge — never silently ignore workspace communications
+3. Reply to every message that asks a question or assigns work; pure acknowledgments ("thanks", "great") need no reply (see Response Rules)
 4. Process messages in chronological order
 5. After responding, continue with any current work in progress
 
@@ -92,4 +92,3 @@ Acknowledge the command in the workspace after executing it.
 - **Errors**: if sending fails, inform the workspace with the error details
 - **Context**: when workspace messages reference ongoing CLI work, bridge the context — summarize what you're doing or share results
 - **Acknowledgments**: don't reply to simple "thanks" or "great" messages — break the courtesy loop
-- **MCP tools still used for**: list_workspaces, list_messages, create_workspace, invite_agent, active_sessions, concierge operations
