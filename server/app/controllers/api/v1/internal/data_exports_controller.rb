@@ -66,8 +66,10 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
   # this account (account_id), not every file in the account — an export
   # request belongs to one user, and a co-member's files are that co-member's
   # personal data, not the requester's. Soft-deleted rows are included (with
-  # deleted_at): the platform still holds them. Metadata only; storage_key and
-  # other internal locators are not personal data and stay out.
+  # deleted_at): the platform still holds them. Metadata only, not file
+  # content; exif_data is included because it can hold GPS/location, which is
+  # the subject's personal data. storage_key and other internal locators are
+  # not personal data and stay out.
   def account_files
     return render_error("user_id is required", status: :unprocessable_content) if params[:user_id].blank?
 
@@ -125,6 +127,7 @@ class Api::V1::Internal::DataExportsController < Api::V1::Internal::InternalBase
       file_size: file.file_size,
       visibility: file.visibility,
       version: file.version,
+      exif_data: file.exif_data,
       created_at: file.created_at,
       updated_at: file.updated_at,
       deleted_at: file.deleted_at

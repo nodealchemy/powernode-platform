@@ -253,7 +253,8 @@ RSpec.describe 'Api::V1::Internal::DataExports (subject-access files and activit
 
   describe 'GET /api/v1/internal/accounts/:account_id/export/files' do
     let!(:subject_file) do
-      create(:file_object, account: account, storage: storage, uploaded_by: user, filename: 'subject-contract.pdf')
+      create(:file_object, account: account, storage: storage, uploaded_by: user, filename: 'subject-contract.pdf',
+                           exif_data: { 'gps_latitude' => '48.8584', 'gps_longitude' => '2.2945' })
     end
 
     def export_files(for_account: account, user_id: user.id)
@@ -273,7 +274,17 @@ RSpec.describe 'Api::V1::Internal::DataExports (subject-access files and activit
         'content_type' => subject_file.content_type,
         'file_size' => subject_file.file_size
       )
+      # EXIF can carry GPS/location: the subject's personal data.
+      expect(exported['exif_data']).to eq('gps_latitude' => '48.8584', 'gps_longitude' => '2.2945')
+      expect(exported).not_to have_key('storage_key')
       expect(json_response['meta']).to include('count' => 1)
+    end
+
+    it 'rejects a request without mTLS worker authentication' do
+      get "/api/v1/internal/accounts/#{account.id}/export/files", params: { user_id: user.id }
+
+      expect(response).to have_http_status(:unauthorized)
+      expect(response.body).not_to include(subject_file.id)
     end
 
     it "includes a soft-deleted file the platform still holds, marked with deleted_at" do
