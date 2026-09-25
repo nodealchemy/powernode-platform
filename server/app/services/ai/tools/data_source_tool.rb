@@ -16,7 +16,7 @@ module Ai
     # mirrors the established pattern used by AgentAutonomyTool/AgentManagementTool.
     #
     # WRITE ENDPOINT GATE: data_source_query and the other actions that execute a
-    # single endpoint (data_source_contract, each target of data_source_reconcile,
+    # single endpoint (each target of data_source_reconcile,
     # data_source_failover_query) additionally check whether the ENDPOINT itself is
     # a write/side-effecting external call (http_method not GET/HEAD, or
     # metadata["side_effecting"] == true — e.g. the X.com template's POST
@@ -25,6 +25,8 @@ module Ai
     # call; it gets the same proposal fallback as a data-source-level mutation.
     # This closes the gap where QUERY_PERMISSION alone would let an unprivileged
     # agent silently publish (e.g. post a tweet) through the governed-fetch path.
+    # data_source_contract (declared read-only) refuses a write endpoint outright,
+    # for every caller, before any fetch or proposal.
     #
     # PUBLISHED-POST CAPTURE (growth analytics, G1): #guarded_fetch, the single
     # choke point every one of those actions dispatches through, also records an
@@ -123,8 +125,8 @@ module Ai
                                                     see_also: { "data_source_rollback_config" => "restoring one of these versions" }
       declare_action "data_source_contract", mutating: false,
                                              returns: "the data source, the endpoint with its SLA and owner, contract (met and " \
-                                                      "violations), fetch_status and fetch_success, #{PROPOSAL_RETURN}",
-                                             refuses: ENDPOINT_NOT_FOUND,
+                                                      "violations), fetch_status and fetch_success",
+                                             refuses: "#{ENDPOINT_NOT_FOUND}, or the endpoint is a write/side-effecting endpoint",
                                              see_also: { "data_source_quality" => "the last recorded quality outcome, without a new fetch" }
       declare_action "data_source_create", mutating: true,
                                            returns: "the created source's details, #{PROPOSAL_RETURN}",
@@ -383,8 +385,8 @@ module Ai
                          "Ai::DataSources::ContractService aggregates the fetch's schema_valid + quality_passed + " \
                          "within_sla into a single contract verdict (met + violations). Requires ai.data_sources.query, " \
                          "like data_source_query. " \
-                         "A write/side-effecting endpoint additionally requires ai.data_sources.manage; without it, files a " \
-                         "proposal instead of dispatching the live call.",
+                         "Read endpoints only: a write/side-effecting endpoint is refused before any fetch, whatever the " \
+                         "caller's grants.",
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" },
               endpoint_id: { type: "string", required: true, description: "Endpoint UUID or slug" },
@@ -1039,8 +1041,15 @@ module Ai
         ds = resolve_source(params[:data_source_id])
         endpoint = resolve_endpoint(ds, params[:endpoint_id])
 
+        # Declared mutating: false — so it must never execute a write/side-effecting
+        # endpoint, not even for a caller holding WRITE_ENDPOINT_PERMISSION, and it
+        # never files a proposal either. Refuse before any fetch.
+        if write_endpoint?(endpoint)
+          return error_result("data_source_contract checks read endpoints only; #{endpoint.slug} is a " \
+                              "write/side-effecting endpoint")
+        end
+
         envelope = guarded_fetch(ds, endpoint, action: "data_source_contract", query_params: params[:params])
-        return envelope if envelope[:requires_approval]
 
         verdict = Ai::DataSources::ContractService.new.validate(
           data_source: ds, endpoint: endpoint, envelope: envelope

@@ -428,15 +428,22 @@ RSpec.describe Ai::Tools::DataSourceTool do
         expect(Ai::AgentProposal.count).to eq(0)
       end
 
-      it "blocks the write endpoint via data_source_contract too, without dispatching" do
+      # data_source_contract is declared mutating: false, so it refuses a write
+      # endpoint outright rather than filing a proposal to execute it.
+      it "refuses the write endpoint via data_source_contract, without dispatching or proposing" do
         agent_tool = described_class.new(account: account, agent: agent, user: user)
         expect(Ai::DataSources::QueryService).not_to receive(:new)
 
-        result = agent_tool.execute(params: {
-          action: "data_source_contract", data_source_id: "x-com", endpoint_id: "create-post"
-        })
+        result = nil
+        expect do
+          result = agent_tool.execute(params: {
+            action: "data_source_contract", data_source_id: "x-com", endpoint_id: "create-post"
+          })
+        end.not_to change(Ai::AgentProposal, :count)
 
-        expect(result[:requires_approval]).to be true
+        expect(result[:success]).to be false
+        expect(result).not_to include(:requires_approval)
+        expect(result[:error]).to match(%r{write/side-effecting endpoint})
       end
 
       it "refuses the whole failover call up front when any target is an unauthorized write endpoint" do
@@ -476,6 +483,42 @@ RSpec.describe Ai::Tools::DataSourceTool do
 
         expect(result[:success]).to be true
         expect(result).not_to include(:requires_approval)
+      end
+
+      # The read-only declaration must hold even for a caller that COULD execute
+      # the write endpoint via data_source_query: contract never dispatches it.
+      it "refuses data_source_contract against the write endpoint, with no fetch and no proposal" do
+        agent_tool = described_class.new(account: account, agent: agent, user: user)
+        expect(Ai::DataSources::QueryService).not_to receive(:new)
+
+        result = nil
+        expect do
+          result = agent_tool.execute(params: {
+            action: "data_source_contract", data_source_id: "x-com",
+            endpoint_id: "create-post", params: { "text" => "hello world" }
+          })
+        end.not_to change(Ai::AgentProposal, :count)
+
+        expect(result[:success]).to be false
+        expect(result).not_to include(:requires_approval)
+        expect(result[:error]).to match(%r{write/side-effecting endpoint})
+      end
+
+      it "still runs data_source_contract against a read endpoint" do
+        agent_tool = described_class.new(account: account, agent: agent, user: user)
+        fake = instance_double(Ai::DataSources::QueryService,
+                                call: { success: true, data: [], provenance: { schema_valid: true, quality_passed: true },
+                                        status: "success", duration_ms: 1, bytes: 0, error: nil })
+        expect(Ai::DataSources::QueryService).to receive(:new).with(
+          hash_including(data_source: write_source, endpoint: read_endpoint)
+        ).and_return(fake)
+
+        result = agent_tool.execute(params: {
+          action: "data_source_contract", data_source_id: "x-com", endpoint_id: "get-me"
+        })
+
+        expect(result[:success]).to be true
+        expect(result[:data][:fetch_success]).to be true
       end
     end
   end
