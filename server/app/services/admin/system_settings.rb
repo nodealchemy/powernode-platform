@@ -284,23 +284,47 @@ module Admin
 
       # fc-38 review round 3 item #4: a redis:// / rediss:// URL can embed a
       # credential as userinfo (redis://[user]:password@host:port/db) —
-      # matches EITHER `user:pass@` or the password-only `:pass@` form Redis
+      # either the `user:pass@` or the password-only `:pass@` form Redis
       # itself uses. Public (not `private`) because both the controller
       # (write-side rejection, GET-side masking) and this class's own
       # update_redis_config! (blob sanitization) need it.
-      CREDENTIALED_URL_PATTERN = %r{\A(rediss?://)[^/@]*@}i.freeze
-
+      #
+      # round 4 review: this used to be a hand-rolled regex
+      # (`%r{\A(rediss?://)[^/@]*@}i`) matching the userinfo segment as
+      # "anything but / or @" — which meant an UNENCODED "/" inside a
+      # password made the whole pattern silently fail to match (the
+      # character class stops at the "/", never reaches the "@" that
+      # follows), so a credentialed URL like "redis://:my/pass@host:6379/0"
+      # read as credential-free. URI parsing is authoritative instead of a
+      # hand-maintained pattern.
       def url_contains_credentials?(url)
-        url.present? && url.to_s.match?(CREDENTIALED_URL_PATTERN)
+        return false if url.blank?
+
+        URI.parse(url.to_s).userinfo.present?
+      rescue URI::InvalidURIError
+        # Can't verify an unparseable string is credential-free — fail
+        # CLOSED so a request-boundary check rejects it rather than
+        # silently accepting something nobody actually validated.
+        true
       end
 
-      # Removes the userinfo (and its "@") from a credentialed URL, leaving
-      # host/port/path untouched — a URL's host portion isn't secret, only
-      # whatever was embedded before the "@".
+      # Removes a URL's userinfo (user + password), leaving host/port/path
+      # untouched — a URL's host portion isn't secret, only whatever
+      # credential was embedded before the "@". Called unconditionally on
+      # every infrastructure_config GET/PUT response (not just ones already
+      # confirmed credentialed), so this must never raise: an unparseable or
+      # already-credential-free URL comes back byte-for-byte unchanged.
       def strip_url_credentials(url)
         return url if url.blank?
 
-        url.to_s.sub(CREDENTIALED_URL_PATTERN, '\1')
+        uri = URI.parse(url.to_s)
+        return url unless uri.userinfo.present?
+
+        uri.user = nil
+        uri.password = nil
+        uri.to_s
+      rescue URI::InvalidURIError
+        url
       end
 
       # The non-secret redis fields (host/port/etc, from the
@@ -341,15 +365,17 @@ module Admin
       # "" written anywhere.
       #
       # The destroy happens LAST, after AdminSetting.update_redis_config and
-      # the strip below, not first — a genuine ordering bug found while
-      # writing this: AdminSetting.update_redis_config's own `current_config
-      # = redis_config` deep-merges the ENV password default into whatever
-      # gets (transiently) written to the blob (see the strip's own comment
-      # below), and item #1's backfill-before-strip fix means THAT transient
-      # ENV-sourced value would otherwise get read as "a leftover plaintext
-      # with no encrypted row" the moment the row was destroyed first, and
-      # re-encrypted right back in — silently undoing the clear inside the
-      # very call that requested it.
+      # the strip below, not first — kept this way as defense in depth even
+      # though the root cause it originally guarded against (round 3) is now
+      # fixed at the source: AdminSetting.update_redis_config used to
+      # deep-merge the ENV-merged `redis_config` read into whatever got
+      # (transiently) written to the blob, so destroying the encrypted row
+      # FIRST let the strip's item #1 backfill see that transient ENV value
+      # as "a leftover plaintext with no encrypted row" and re-encrypt it
+      # right back in — silently undoing the clear. AdminSetting.
+      # update_redis_config now merges into the raw stored blob only (fc-38
+      # round 4), so this can no longer happen either way — but destroy-last
+      # costs nothing and removes any doubt.
       def update_redis_config!(new_config, clear_password: false)
         config_hash = new_config.to_h.stringify_keys
         if clear_password
@@ -360,22 +386,25 @@ module Admin
         end
         AdminSetting.update_redis_config(config_hash)
 
-        # fc-38 review item #3(b): AdminSetting.update_redis_config's own
-        # `current_config = redis_config` deep-merges default_redis_config —
-        # which defaults "password" to ENV["REDIS_PASSWORD"] — into whatever
-        # gets saved. Without this, a save that never mentions "password" at
-        # all (e.g. changing only "host") would silently bake the current
-        # ENV redis password into the blob as plaintext on every write, for
-        # any deployment that sets REDIS_PASSWORD.
+        # fc-38 review item #3(b), root-caused in round 4: this used to
+        # exist because AdminSetting.update_redis_config baked
+        # ENV["REDIS_PASSWORD"] into the blob on every write that omitted
+        # "password" (fixed at the source now — see
+        # ServiceConfiguration#update_redis_config). What's left for this to
+        # do is genuine defense in depth: a blob can still carry a plaintext
+        # "password" left over from before encryption existed (the one-time
+        # migration's job) or from a row this hardening hasn't reached yet —
+        # this backfills that into its own encrypted row before stripping it.
         strip_secret_keys_from_blob!("redis_config", "password" => "redis_config_password_encrypted")
 
-        # fc-38 review round 3 item #4: the SAME ENV-merge mechanism the
-        # comment above describes for "password" applies to "url" too —
-        # default_redis_config defaults "url" to ENV["REDIS_URL"], so a save
-        # that never mentions "url" would otherwise bake a credentialed ENV
-        # REDIS_URL (redis://:pw@host) into the blob as plaintext. Unlike
-        # password, a URL isn't wholly secret — only its userinfo portion —
-        # so this SANITIZES it in place rather than stripping the whole key.
+        # fc-38 review round 3 item #4, root-caused in round 4: same history
+        # as the password strip above — ServiceConfiguration#update_redis_config
+        # no longer bakes ENV["REDIS_URL"] into the blob, so this now only
+        # ever sanitizes a URL an admin genuinely submitted with embedded
+        # credentials (the controller also 422s that at the request
+        # boundary; this is the service-layer backstop). Unlike password, a
+        # URL isn't wholly secret — only its userinfo portion — so this
+        # SANITIZES it in place rather than stripping the whole key.
         sanitize_url_in_blob!("redis_config")
 
         AdminSetting.find_by(key: "redis_config_password_encrypted")&.destroy if clear_password
@@ -467,9 +496,15 @@ module Admin
       # Removes each key of `field_to_encrypted_key` from the `blob_key`
       # AdminSetting row's JSON value, if present — called after every write
       # to redis_config/vault_config (fc-38 review item #3(b)) so a secret
-      # field re-merged in by another code path (ENV defaults, a stale blob)
-      # never survives a save. A no-op when the row doesn't exist, isn't
-      # valid JSON, or already carries none of the fields.
+      # field re-merged in by another code path (a stale/legacy blob) never
+      # survives a save. A no-op when the row doesn't exist, isn't valid
+      # JSON, or already carries none of the fields.
+      #
+      # redis's ENV-defaults route into this (ServiceConfiguration#
+      # update_redis_config deep-merging the ENV-merged read back into the
+      # blob) is closed at the source now (fc-38 round 4) — see that
+      # method's doc comment — so this no longer sees a freshly ENV-baked
+      # value on an ordinary save, only genuine leftovers.
       #
       # fc-38 review round 3 item #1 (MEDIUM): stripping used to be
       # unconditional — a plaintext field found in the blob was simply
@@ -518,12 +553,13 @@ module Admin
 
       # Rewrites the `blob_key` row's "url" in place, stripped of any
       # embedded credential — called after every redis_config write (fc-38
-      # review round 3 item #4) for the same reason strip_secret_keys_from_
-      # blob! exists for "password": AdminSetting.update_redis_config's own
-      # ENV-default merge can persist a credentialed ENV REDIS_URL into the
-      # blob even on a save that never mentions "url" at all. A no-op when
-      # the row doesn't exist, isn't valid JSON, or its "url" already has no
-      # credentials.
+      # review round 3 item #4; root-caused in round 4, see
+      # ServiceConfiguration#update_redis_config). Now purely defense in
+      # depth for a URL an admin genuinely submitted with embedded
+      # credentials — the write path no longer bakes ENV["REDIS_URL"] into
+      # the blob, so there is nothing ENV-derived left for this to sanitize.
+      # A no-op when the row doesn't exist, isn't valid JSON, or its "url"
+      # already has no credentials.
       def sanitize_url_in_blob!(blob_key)
         setting = AdminSetting.find_by(key: blob_key)
         return unless setting

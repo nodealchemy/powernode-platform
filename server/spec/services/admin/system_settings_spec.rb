@@ -134,10 +134,10 @@ RSpec.describe Admin::SystemSettings do
 
     it "update_redis_config! with no password key present leaves the encrypted row untouched (masked-resubmission skip)" do
       password = "redis-unit-#{SecureRandom.hex(4)}"
-      described_class.update_redis_config!({"password" => password, "host" => "127.0.0.1"})
+      described_class.update_redis_config!({ "password" => password, "host" => "127.0.0.1" })
       before_value = AdminSetting.find_by(key: "redis_config_password_encrypted").value
 
-      described_class.update_redis_config!({"host" => "192.168.1.1"})
+      described_class.update_redis_config!({ "host" => "192.168.1.1" })
 
       expect(AdminSetting.find_by(key: "redis_config_password_encrypted").value).to eq(before_value)
       expect(described_class.redis_config["password"]).to eq(password)
@@ -145,26 +145,70 @@ RSpec.describe Admin::SystemSettings do
     end
 
     it "update_redis_config! never writes 'password' into the non-secret AdminSetting.redis_config blob" do
-      described_class.update_redis_config!({"password" => "redis-unit-blob-check", "host" => "127.0.0.1"})
+      described_class.update_redis_config!({ "password" => "redis-unit-blob-check", "host" => "127.0.0.1" })
 
       expect(AdminSetting.find_by(key: "redis_config").value).not_to include("redis-unit-blob-check")
     end
 
-    # fc-38 review item #3(b): AdminSetting.update_redis_config's own
-    # `current_config = redis_config` deep-merges default_redis_config —
-    # which carries ENV["REDIS_PASSWORD"] as its default "password" — into
-    # whatever gets saved. A save that never even mentions "password" (e.g.
-    # changing only "host") would silently bake the current ENV redis
-    # password into the blob as plaintext, defeating the encryption above
-    # for any deployment that sets REDIS_PASSWORD.
-    it "never writes a password key into the blob at all, even when ENV['REDIS_PASSWORD'] is set and the save omits password" do
+    # round 4 review (root cause): AdminSetting.update_redis_config used to
+    # deep-merge `current_config = redis_config` — which ITSELF deep-merges
+    # default_redis_config (ENV["REDIS_PASSWORD"]/ENV["REDIS_URL"]) — into
+    # whatever got saved, and wrote THAT merged result back into the blob.
+    # A save that never even mentions "password" (e.g. changing only "host")
+    # silently baked the current ENV redis password into the blob. The old
+    # fix (round 3 item #3(b)) only stripped that baked-in value back out of
+    # the blob via strip_secret_keys_from_blob! — but that helper's OWN
+    # backfill (round 3 item #1) saw a "password" present with no encrypted
+    # row yet and ENCRYPTED IT, creating a redis_config_password_encrypted
+    # row that then PERMANENTLY SHADOWS ENV: rotating REDIS_PASSWORD and
+    # restarting would keep sending the old (captured) password — a live
+    # auth outage — and a later clear_password: true would have nothing to
+    # revert to but that same stale captured value on the next save.
+    #
+    # The actual fix is at the source: AdminSetting.update_redis_config now
+    # merges the submitted config into the RAW STORED blob only (never into
+    # the ENV-merged read-time result), so a host-only save never introduces
+    # a "password" key into the blob in the first place — nothing for the
+    # backfill to (wrongly) encrypt.
+    it "a host-only save with REDIS_PASSWORD set creates no encrypted row and writes no password into the blob" do
       allow(ENV).to receive(:fetch).and_call_original
-      allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("env-redis-password-should-never-be-in-blob")
+      allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("env-redis-password-should-never-be-captured")
 
-      described_class.update_redis_config!({"host" => "127.0.0.1"})
+      described_class.update_redis_config!({ "host" => "127.0.0.1" })
 
+      expect(AdminSetting.find_by(key: "redis_config_password_encrypted")).to be_nil
       blob = AdminSetting.find_by(key: "redis_config").value
       expect(JSON.parse(blob)).not_to have_key("password")
+    end
+
+    it "reflects a REDIS_PASSWORD rotation immediately after a host-only save (no stale value captured into a row)" do
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("first-env-password")
+      described_class.update_redis_config!({ "host" => "127.0.0.1" })
+      expect(described_class.redis_config["password"]).to eq("first-env-password")
+
+      allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("rotated-env-password")
+
+      expect(described_class.redis_config["password"]).to eq("rotated-env-password")
+    end
+
+    # The regression this specifically guards: the OLD destroy-last ordering
+    # was a workaround for the backfill re-encrypting an ENV-derived value
+    # the instant the row was cleared — fixing the root cause (above) means
+    # a later, unrelated save can no longer resurrect a cleared password via
+    # that path either.
+    it "a cleared password stays cleared after a later unrelated save, even with REDIS_PASSWORD set" do
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("env-password-after-clear")
+      described_class.update_redis_config!({ "password" => "to-be-cleared", "host" => "127.0.0.1" })
+      described_class.update_redis_config!({}, clear_password: true)
+
+      described_class.update_redis_config!({ "host" => "192.168.1.1" })
+
+      expect(AdminSetting.find_by(key: "redis_config_password_encrypted")).to be_nil
+      blob = JSON.parse(AdminSetting.find_by(key: "redis_config").value)
+      expect(blob).not_to have_key("password")
+      expect(described_class.redis_config["password"]).to eq("env-password-after-clear")
     end
 
     # round 3 review item #3(b): a blank "password" means "unchanged" (see
@@ -176,7 +220,7 @@ RSpec.describe Admin::SystemSettings do
     it "clear_password: true removes the encrypted row so redis_config falls back to the ENV/blob default" do
       allow(ENV).to receive(:fetch).and_call_original
       allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("env-fallback-after-clear")
-      described_class.update_redis_config!({"password" => "to-be-cleared", "host" => "127.0.0.1"})
+      described_class.update_redis_config!({ "password" => "to-be-cleared", "host" => "127.0.0.1" })
       expect(described_class.redis_config["password"]).to eq("to-be-cleared")
 
       described_class.update_redis_config!({}, clear_password: true)
@@ -186,29 +230,111 @@ RSpec.describe Admin::SystemSettings do
     end
   end
 
-  describe "redis url credential handling (round 3 review item #4)" do
-    # AdminSetting.update_redis_config's own `current_config = redis_config`
-    # deep-merges default_redis_config — which defaults "url" to
-    # ENV["REDIS_URL"] — into whatever gets saved, the same mechanism that
-    # made review item #3(b) necessary for "password". A save that never
-    # mentions "url" at all (e.g. changing only "host") would otherwise bake
-    # a credentialed ENV REDIS_URL into the blob as plaintext on every write.
-    it "strips credentials from a URL that the default ENV merge would otherwise persist into the blob" do
+  describe "redis url credential handling (round 4 review — root cause)" do
+    # round 3 item #4 introduced sanitize_url_in_blob!, which stripped
+    # credentials from a URL the ENV-merge bug (see the .redis_config /
+    # .update_redis_config! describe block above) had baked into the blob —
+    # but a SANITIZED credentialed ENV URL still persisted (now with its
+    # userinfo silently removed), and that stripped blob value then beat ENV
+    # at read time: redis_url_from_config uses config["url"] directly when
+    # present, so the resolved URL lost its password entirely — a live
+    # NOAUTH regression for any deployment using REDIS_URL=redis://:pw@host.
+    # The actual fix is the same one as "password": a host-only (or any
+    # unrelated-field) save must never introduce a "url" key at all when the
+    # blob didn't already have one — nothing for the sanitizer to (wrongly)
+    # persist a stripped copy of.
+    it "a host-only save with a credentialed ENV REDIS_URL writes no url into the blob, and the resolved config keeps the credential" do
       allow(ENV).to receive(:fetch).and_call_original
       allow(ENV).to receive(:fetch).with("REDIS_URL", nil).and_return("redis://:env-secret-password@redis.internal:6379/0")
 
-      described_class.update_redis_config!({"host" => "127.0.0.1"})
+      described_class.update_redis_config!({ "host" => "127.0.0.1" })
 
       blob = JSON.parse(AdminSetting.find_by(key: "redis_config").value)
-      expect(blob["url"]).to eq("redis://redis.internal:6379/0")
-      expect(blob["url"]).not_to include("env-secret-password")
+      expect(blob).not_to have_key("url")
+      expect(described_class.redis_config["url"]).to eq("redis://:env-secret-password@redis.internal:6379/0")
+    end
+
+    it "a credentialed ENV REDIS_URL survives an unrelated save (connect_timeout) — the resolved config still carries the credential" do
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with("REDIS_URL", nil).and_return("redis://:env-url-password@redis.internal:6379/0")
+
+      described_class.update_redis_config!({ "connect_timeout" => 10 })
+
+      blob = JSON.parse(AdminSetting.find_by(key: "redis_config").value)
+      expect(blob).not_to have_key("url")
+      expect(described_class.redis_config["url"]).to eq("redis://:env-url-password@redis.internal:6379/0")
+      expect(AdminSetting.redis_config["connect_timeout"]).to eq(10)
     end
 
     it "leaves a URL with no credentials untouched" do
-      described_class.update_redis_config!({"url" => "redis://redis.internal:6379/0"})
+      described_class.update_redis_config!({ "url" => "redis://redis.internal:6379/0" })
 
       blob = JSON.parse(AdminSetting.find_by(key: "redis_config").value)
       expect(blob["url"]).to eq("redis://redis.internal:6379/0")
+    end
+
+    # An admin-SUBMITTED credentialed URL (not ENV-derived) still gets
+    # sanitized in the blob by sanitize_url_in_blob! — this is the
+    # defense-in-depth case that method still exists for (the controller
+    # also rejects this at the request boundary with a 422; this pins the
+    # service layer independently).
+    it "still sanitizes an admin-submitted credentialed URL in the blob" do
+      described_class.update_redis_config!({ "url" => "redis://:admin-typed-password@redis.internal:6379/0" })
+
+      blob = JSON.parse(AdminSetting.find_by(key: "redis_config").value)
+      expect(blob["url"]).to eq("redis://redis.internal:6379/0")
+      expect(blob["url"]).not_to include("admin-typed-password")
+    end
+  end
+
+  describe ".url_contains_credentials? / .strip_url_credentials (round 4 review — tightened to URI parsing)" do
+    # The old hand-rolled regex (`[^/@]*@` for the userinfo segment) could
+    # not reach an "@" past an unencoded "/" in what was meant as a
+    # password: `[^/@]*` stops the instant it hits "/", so the pattern never
+    # finds the "@" that follows and the whole match silently fails —
+    # url_contains_credentials? returned false for a URL that DOES carry a
+    # credential. URI.parse is authoritative instead of a hand-maintained
+    # pattern, and — cheaply, as a side effect of using a real parser —
+    # fails CLOSED (treats as credentialed) on anything it can't parse at
+    # all, rather than defaulting an unparseable string to "safe".
+    it "detects a credential even when the password contains an unencoded '/'" do
+      expect(described_class.url_contains_credentials?("redis://:my/pass@host:6379/0")).to be(true)
+    end
+
+    it "still detects the ordinary password-only and user:password forms" do
+      expect(described_class.url_contains_credentials?("redis://:plainpass@host:6379/0")).to be(true)
+      expect(described_class.url_contains_credentials?("rediss://user:pass@host:6379/0")).to be(true)
+    end
+
+    it "returns false for a URL with no credentials" do
+      expect(described_class.url_contains_credentials?("redis://host:6379/0")).to be(false)
+    end
+
+    it "returns false for a blank/nil URL" do
+      expect(described_class.url_contains_credentials?(nil)).to be(false)
+      expect(described_class.url_contains_credentials?("")).to be(false)
+    end
+
+    it "fails closed (treats as credentialed) for a string URI can't parse at all" do
+      expect(described_class.url_contains_credentials?("not a url at all")).to be(true)
+    end
+
+    # Same string as the detection test above — URI can't parse it (that's
+    # exactly WHY url_contains_credentials? fails closed on it), so there is
+    # no safe rewrite: strip_url_credentials returns it unchanged rather
+    # than guessing. The 422 at the request boundary is what actually keeps
+    # this shape out of storage; this pins that strip_url_credentials never
+    # corrupts what it can't parse.
+    it "returns an unparseable credentialed-looking URL unchanged rather than guessing" do
+      expect(described_class.strip_url_credentials("redis://:my/pass@host:6379/0")).to eq("redis://:my/pass@host:6379/0")
+    end
+
+    it "never raises on strip_url_credentials for an unparseable string — returns it unchanged" do
+      expect(described_class.strip_url_credentials("not a url at all")).to eq("not a url at all")
+    end
+
+    it "leaves a credential-free URL byte-for-byte unchanged" do
+      expect(described_class.strip_url_credentials("redis://host:6379/0")).to eq("redis://host:6379/0")
     end
   end
 
@@ -243,14 +369,14 @@ RSpec.describe Admin::SystemSettings do
         key: "vault_config",
         value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "stale-plaintext-role" }.to_json
       )
-      described_class.update_vault_config!({"vault_role_id" => "fresh-encrypted-role"})
+      described_class.update_vault_config!({ "vault_role_id" => "fresh-encrypted-role" })
 
       expect(described_class.vault_config["vault_role_id"]).to eq("fresh-encrypted-role")
     end
 
     it "update_vault_config! writes only the keys present, leaving the others untouched" do
-      described_class.update_vault_config!({"vault_addr" => "http://vault.example.internal:8200", "vault_role_id" => "role-a"})
-      described_class.update_vault_config!({"vault_secret_id" => "secret-b"})
+      described_class.update_vault_config!({ "vault_addr" => "http://vault.example.internal:8200", "vault_role_id" => "role-a" })
+      described_class.update_vault_config!({ "vault_secret_id" => "secret-b" })
 
       config = described_class.vault_config
       expect(config["vault_addr"]).to eq("http://vault.example.internal:8200")
@@ -259,7 +385,7 @@ RSpec.describe Admin::SystemSettings do
     end
 
     it "never writes vault_role_id/vault_secret_id into the vault_config blob" do
-      described_class.update_vault_config!({"vault_role_id" => "role-blob-check", "vault_secret_id" => "secret-blob-check"})
+      described_class.update_vault_config!({ "vault_role_id" => "role-blob-check", "vault_secret_id" => "secret-blob-check" })
 
       expect(AdminSetting.find_by(key: "vault_config")&.value.to_s).not_to include("role-blob-check")
       expect(AdminSetting.find_by(key: "vault_config")&.value.to_s).not_to include("secret-blob-check")
@@ -277,7 +403,7 @@ RSpec.describe Admin::SystemSettings do
         value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "stale-plaintext-role", "vault_secret_id" => "stale-plaintext-secret" }.to_json
       )
 
-      described_class.update_vault_config!({"vault_addr" => "http://vault.updated.internal:8200"})
+      described_class.update_vault_config!({ "vault_addr" => "http://vault.updated.internal:8200" })
 
       blob = JSON.parse(AdminSetting.find_by(key: "vault_config").value)
       expect(blob).to eq("vault_addr" => "http://vault.updated.internal:8200")
@@ -295,7 +421,7 @@ RSpec.describe Admin::SystemSettings do
         value: { "host" => "127.0.0.1", "port" => 6379, "password" => "pre-migration-redis-password" }.to_json
       )
 
-      described_class.update_redis_config!({"host" => "192.168.1.1"})
+      described_class.update_redis_config!({ "host" => "192.168.1.1" })
 
       encrypted = AdminSetting.find_by(key: "redis_config_password_encrypted")
       expect(encrypted).not_to be_nil
@@ -310,7 +436,7 @@ RSpec.describe Admin::SystemSettings do
         value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "pre-migration-role", "vault_secret_id" => "pre-migration-secret" }.to_json
       )
 
-      described_class.update_vault_config!({"vault_addr" => "http://vault.updated.internal:8200"})
+      described_class.update_vault_config!({ "vault_addr" => "http://vault.updated.internal:8200" })
 
       expect(AdminSetting.find_by(key: "vault_role_id_encrypted")).not_to be_nil
       expect(AdminSetting.find_by(key: "vault_secret_id_encrypted")).not_to be_nil
@@ -323,7 +449,7 @@ RSpec.describe Admin::SystemSettings do
     # way to clear it" gap as redis's password — clear_vault_role_id/
     # clear_vault_secret_id are the explicit signal.
     it "clear_vault_role_id: true removes the encrypted role_id row, leaving secret_id untouched" do
-      described_class.update_vault_config!({"vault_role_id" => "role-to-clear", "vault_secret_id" => "secret-to-keep"})
+      described_class.update_vault_config!({ "vault_role_id" => "role-to-clear", "vault_secret_id" => "secret-to-keep" })
 
       described_class.update_vault_config!({}, clear_vault_role_id: true)
 
@@ -334,7 +460,7 @@ RSpec.describe Admin::SystemSettings do
     end
 
     it "clear_vault_secret_id: true removes the encrypted secret_id row, leaving role_id untouched" do
-      described_class.update_vault_config!({"vault_role_id" => "role-to-keep", "vault_secret_id" => "secret-to-clear"})
+      described_class.update_vault_config!({ "vault_role_id" => "role-to-keep", "vault_secret_id" => "secret-to-clear" })
 
       described_class.update_vault_config!({}, clear_vault_secret_id: true)
 

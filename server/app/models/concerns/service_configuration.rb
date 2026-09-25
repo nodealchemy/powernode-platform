@@ -223,10 +223,23 @@ module ServiceConfiguration
     end
 
     # Update Redis configuration
+    #
+    # fc-38 round 4 review (root cause of two MEDIUM bugs): this used to
+    # merge the submitted config into `current_config = redis_config` —
+    # which ITSELF deep-merges default_redis_config (ENV["REDIS_PASSWORD"],
+    # ENV["REDIS_URL"]) — and wrote THAT merged result back into the blob.
+    # A save that never mentioned "password"/"url" at all silently
+    # persisted the current ENV values into storage as if an admin had
+    # typed them, which then permanently SHADOWED ENV (a rotated
+    # REDIS_PASSWORD stopped taking effect — a live auth outage — and a
+    # cleared password could come back on the next save). Merging into the
+    # RAW STORED blob only (never the ENV-merged read-time result) means a
+    # save never introduces a key the blob didn't already have; ENV/default
+    # precedence still applies, but only at READ time (see #redis_config
+    # below), never baked into what gets persisted.
     def update_redis_config(new_config)
       setting = find_or_initialize_by(key: "redis_config")
-      current_config = redis_config
-      merged_config = current_config.deep_merge(new_config.with_indifferent_access)
+      merged_config = raw_redis_blob.deep_merge(new_config.with_indifferent_access)
       setting.value = merged_config.to_json
       setting.save!
     end
@@ -278,6 +291,21 @@ module ServiceConfiguration
     end
 
     private
+
+    # The redis_config AdminSetting row's own JSON value, with NO
+    # default_redis_config (ENV) merge — mirrors AdminSetting.get's raw
+    # pattern for vault_config (system_settings.rb's raw_vault_blob). Used
+    # by #update_redis_config so a write only ever sees what was genuinely
+    # persisted before, never an ENV value transiting through #redis_config.
+    def raw_redis_blob
+      setting = find_by(key: "redis_config")
+      return {} unless setting
+
+      parsed = setting.value.is_a?(String) ? JSON.parse(setting.value) : setting.value
+      parsed.is_a?(Hash) ? parsed : {}
+    rescue JSON::ParserError
+      {}
+    end
 
     def default_redis_config
       {
