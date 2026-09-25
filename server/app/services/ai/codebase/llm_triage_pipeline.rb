@@ -3,9 +3,10 @@
 module Ai
   module Codebase
     # Shared LLM-triage plumbing for the analyzer-detects + AI-judges codebase
-    # services (DuplicateAnalysisService, DeadCodeAnalysisService): account-scoped
-    # client resolution, batched best-effort triage, tolerant JSON extraction,
-    # default-model pick, and the capped shell-out helper.
+    # services (DuplicateAnalysisService, DeadCodeAnalysisService,
+    # SymbolSummaryService): account-scoped client resolution, batched best-effort
+    # triage, the structured-output {"results": [...]} request, default-model pick,
+    # and the capped shell-out helper.
     #
     # Including services must define:
     #   TRIAGE_BATCH             — items per LLM call
@@ -13,6 +14,18 @@ module Ai
     #   #triage_batch(client, model, batch) — builds the prompt and merges results
     #   #triage_log_tag          — short tag for log lines (e.g. "DeadCodeAnalysis")
     module LlmTriagePipeline
+      # A {"results": [item, ...]} schema for structured output. Every object is
+      # closed and lists every property as required: Anthropic output_config.format
+      # requires additionalProperties false, and OpenAI strict json_schema requires
+      # both. No numeric or length constraints (unsupported).
+      def self.results_schema(name, item_properties)
+        item = { type: "object", additionalProperties: false,
+                 required: item_properties.keys.map(&:to_s), properties: item_properties }
+        { name: name,
+          schema: { type: "object", additionalProperties: false, required: [ "results" ],
+                    properties: { results: { type: "array", items: item } } } }.freeze
+      end
+
       private
 
       # Batched, best-effort triage: a failed batch is passed through untriaged.
@@ -32,18 +45,19 @@ module Ai
         [triaged, "completed (#{resolved})"]
       end
 
-      # Robustly pull the {"results":[...]} array from an LLM text response,
-      # tolerating markdown fences / surrounding prose.
-      def extract_results(content)
-        return [] if content.blank?
-
-        text = content.to_s.gsub(/```(?:json)?/i, "")
-        first = text.index("{")
-        last  = text.rindex("}")
-        return [] unless first && last && last > first
-
-        parsed = JSON.parse(text[first..last]) rescue nil
-        parsed.is_a?(Hash) ? Array(parsed["results"]) : []
+      # One structured-output request; the API enforces the schema, so the
+      # content parses as-is. An empty or unparseable reply (a refusal, a
+      # max_tokens cut) raises, and the caller's batch rescue counts it.
+      def request_results(client, model:, prompt:, system_prompt:, schema:, max_tokens:)
+        resp = client.complete_structured(
+          messages: [ { role: "user", content: prompt } ],
+          schema: schema,
+          model: model,
+          system_prompt: system_prompt,
+          max_tokens: max_tokens,
+          temperature: 0
+        )
+        Array(JSON.parse(resp.content.to_s)["results"])
       end
 
       def default_model(client)

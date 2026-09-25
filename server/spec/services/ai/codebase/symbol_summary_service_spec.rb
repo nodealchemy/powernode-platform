@@ -33,7 +33,7 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
     provider = double("provider", available_models: [ { "id" => model } ])
     client   = double("client", provider: provider)
     allow(Ai::Llm::Client).to receive(:for_account).and_return(client)
-    allow(client).to receive(:complete).and_return(double("resp", content: content))
+    allow(client).to receive(:complete_structured).and_return(double("resp", content: content))
     client
   end
 
@@ -61,7 +61,7 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
 
       # Only the method was ever sent to the model.
       prompt = nil
-      expect(client).to have_received(:complete) { |args| prompt = args[:messages].first[:content] }
+      expect(client).to have_received(:complete_structured) { |args| prompt = args[:messages].first[:content] }
       expect(prompt).to include("Svc#halt!")
       expect(prompt).not_to include("Svc::LIMIT")
       expect(prompt).not_to include("app/svc.rb")
@@ -85,7 +85,7 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
       expect(stats[:candidates]).to eq(1)
       expect(todo.reload.properties["llm_summary"]).to eq("newly described")
       expect(done.reload.properties["llm_summary"]).to eq("already described")
-      expect(client).to have_received(:complete).once
+      expect(client).to have_received(:complete_structured).once
     end
 
     it "treats a blank summary as pending, not as done" do
@@ -142,7 +142,7 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
 
       expect(stats[:candidates]).to eq(3)
       expect(stats[:estimated_calls]).to eq(1)
-      expect(client).not_to have_received(:complete)
+      expect(client).not_to have_received(:complete_structured)
       expect(knowledge_base.knowledge_graph_nodes.where("properties ? 'llm_summary'").count).to eq(0)
     end
 
@@ -164,7 +164,7 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
       service.summarize!
 
       # 45 nodes => 3 calls at SUMMARY_BATCH=20, not 45.
-      expect(client).to have_received(:complete).exactly(3).times
+      expect(client).to have_received(:complete_structured).exactly(3).times
     end
 
     it "skips entirely when the account has no LLM credential" do
@@ -184,7 +184,7 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
       provider = double("provider", available_models: [ { "id" => "test-model-1" } ])
       client = double("client", provider: provider)
       allow(Ai::Llm::Client).to receive(:for_account).and_return(client)
-      allow(client).to receive(:complete).and_raise(StandardError, "provider exploded")
+      allow(client).to receive(:complete_structured).and_raise(StandardError, "provider exploded")
 
       stats = service.summarize!
 
@@ -204,13 +204,17 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
       expect(stats[:failures]).to eq(1)
     end
 
-    it "tolerates markdown fences around the JSON" do
-      node = symbol_node(name: "S#m")
-      stub_llm(content: "```json\n#{results_json('fenced but valid')}\n```")
+    # C8: structured output parses as-is; an unparseable reply (a refusal, a
+    # max_tokens cut) is a failed batch, counted, never a silent zero.
+    it "counts an unparseable reply as a failed batch" do
+      symbol_node(name: "S#m")
+      stub_llm(content: "")
+      allow(service).to receive(:sleep) # with_retries backs off between attempts
 
-      service.summarize!
+      stats = service.summarize!
 
-      expect(node.reload.properties["llm_summary"]).to eq("fenced but valid")
+      expect(stats[:failures]).to eq(1)
+      expect(stats[:summarized]).to eq(0)
     end
   end
 
@@ -282,7 +286,7 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
       service.summarize!
 
       prompt = nil
-      expect(client).to have_received(:complete) { |args| prompt = args[:messages].first[:content] }
+      expect(client).to have_received(:complete_structured) { |args| prompt = args[:messages].first[:content] }
       # The body is the ONLY behavioural text for the ~61% of symbols with no doc
       # comment — precisely the ones retrieval loses today.
       expect(prompt).to include("line3", "line4", "line5")
@@ -312,7 +316,7 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
       service.summarize!
 
       prompt = nil
-      expect(client).to have_received(:complete) { |args| prompt = args[:messages].first[:content] }
+      expect(client).to have_received(:complete_structured) { |args| prompt = args[:messages].first[:content] }
       expect(prompt).not_to include("TOP_SECRET_CONTENT")
     ensure
       FileUtils.rm_f(secret)
@@ -328,7 +332,7 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
       service.summarize!
 
       prompt = nil
-      expect(client).to have_received(:complete) { |args| prompt = args[:messages].first[:content] }
+      expect(client).to have_received(:complete_structured) { |args| prompt = args[:messages].first[:content] }
       expect(prompt).to include("row#{described_class::BODY_MAX_LINES}")
       expect(prompt).not_to include("row#{described_class::BODY_MAX_LINES + 1}")
     end

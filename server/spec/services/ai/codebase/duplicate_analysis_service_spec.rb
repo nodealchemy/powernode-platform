@@ -37,7 +37,7 @@ RSpec.describe Ai::Codebase::DuplicateAnalysisService do
       it "merges LLM classifications back onto each clone group" do
         response = instance_double(Ai::Llm::Response, content:
           { results: [{ index: 0, category: "extract_candidate", reason: "same logic", action: "extract helper" }] }.to_json)
-        client = instance_double(Ai::Llm::Client, complete: response)
+        client = instance_double(Ai::Llm::Client, complete_structured: response)
         allow(Ai::Llm::Client).to receive(:for_account).with(account).and_return(client)
 
         triaged, status = service.send(:run_triage, [clone_group], model: "test-model")
@@ -50,7 +50,7 @@ RSpec.describe Ai::Codebase::DuplicateAnalysisService do
 
       it "falls back to untriaged items when a triage batch raises" do
         client = instance_double(Ai::Llm::Client)
-        allow(client).to receive(:complete).and_raise(StandardError, "boom")
+        allow(client).to receive(:complete_structured).and_raise(StandardError, "boom")
         allow(Ai::Llm::Client).to receive(:for_account).with(account).and_return(client)
         allow(Rails.logger).to receive(:warn)
 
@@ -62,15 +62,25 @@ RSpec.describe Ai::Codebase::DuplicateAnalysisService do
       end
     end
 
-    describe "#extract_results" do
-      it "parses fenced JSON with surrounding prose" do
-        content = "Here you go:\n```json\n{\"results\":[{\"index\":0,\"category\":\"acceptable\"}]}\n```"
-        expect(service.send(:extract_results, content)).to eq([{ "index" => 0, "category" => "acceptable" }])
-      end
+    # C8: the API enforces the schema, so the reply parses as-is. The schema is
+    # strict (closed objects, every property required) for Anthropic
+    # output_config.format and OpenAI strict json_schema.
+    describe "structured output" do
+      it "requests the triage schema and sends no JSON-forcing prose" do
+        response = instance_double(Ai::Llm::Response, content: { results: [] }.to_json)
+        client = instance_double(Ai::Llm::Client)
+        allow(client).to receive(:complete_structured).and_return(response)
+        allow(Ai::Llm::Client).to receive(:for_account).with(account).and_return(client)
 
-      it "returns [] for blank or non-JSON content" do
-        expect(service.send(:extract_results, nil)).to eq([])
-        expect(service.send(:extract_results, "no json here")).to eq([])
+        service.send(:run_triage, [ clone_group ], model: "test-model")
+
+        expect(client).to have_received(:complete_structured) do |messages:, schema:, **|
+          expect(schema).to eq(described_class::TRIAGE_SCHEMA)
+          expect(messages.first[:content]).not_to match(/ONLY a JSON object|markdown fences/)
+        end
+        item = described_class::TRIAGE_SCHEMA.dig(:schema, :properties, :results, :items)
+        expect(item[:additionalProperties]).to be(false)
+        expect(item[:required]).to match_array(item[:properties].keys.map(&:to_s))
       end
     end
   end

@@ -30,6 +30,12 @@ module Ai
       CMD_BYTE_CAP   = 4_000_000
 
       TRIAGE_CATEGORIES = %w[real_dead public_api dynamic_dispatch test_only uncertain].freeze
+      TRIAGE_SCHEMA = LlmTriagePipeline.results_schema(
+        "dead_code_triage",
+        index: { type: "integer", description: "The candidate's index in the listing" },
+        category: { type: "string", enum: TRIAGE_CATEGORIES },
+        reason: { type: "string", description: "Short reason for the category" }
+      )
       VERIFY_ROOTS      = %w[frontend/src server/app worker/app extensions].freeze
 
       def initialize(account:, base_path:)
@@ -140,22 +146,12 @@ module Ai
                        .map { |c, i| "#{i}: #{c[:language]} #{c[:kind]} `#{c[:symbol]}` — #{c[:file]}:#{c[:line]}" }
                        .join("\n")
 
-        prompt = "Each candidate below is grep-verified to have ZERO references in the repo (an internal app). Classify each. Reply with ONLY a JSON object (no prose, no markdown fences):\n" \
-                 "{\"results\":[{\"index\":<int>,\"category\":\"#{TRIAGE_CATEGORIES.join('|')}\",\"reason\":\"<short>\"}]}\n\n" \
-                 "Candidates:\n#{listing}"
+        prompt = "Each candidate below is grep-verified to have ZERO references in the repo (an internal app). " \
+                 "Classify each, with a short reason, by its index.\n\nCandidates:\n#{listing}"
 
-        # Plain completion + tolerant JSON extraction — portable across providers
-        # and avoids the provider-specific structured-output (output_config) path,
-        # which errors on the current Anthropic adapter.
-        resp = client.complete(
-          messages: [{ role: "user", content: prompt }],
-          model: model,
-          system_prompt: triage_system_prompt,
-          max_tokens: 2000,
-          temperature: 0
-        )
-
-        by_index = extract_results(resp.content).index_by { |r| r["index"] }
+        results = request_results(client, model: model, prompt: prompt, system_prompt: triage_system_prompt,
+                                          schema: TRIAGE_SCHEMA, max_tokens: 2000)
+        by_index = results.index_by { |r| r["index"] }
         batch.each_with_index.map do |c, i|
           r = by_index[i] || {}
           c.merge(triage: r["category"], triage_reason: r["reason"])

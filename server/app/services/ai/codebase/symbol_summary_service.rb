@@ -52,6 +52,11 @@ module Ai
       BODY_MAX_LINES  = 40
       BODY_MAX_CHARS  = 1_500
       SUMMARY_MAX_CHARS = 400
+      SUMMARY_SCHEMA = LlmTriagePipeline.results_schema(
+        "symbol_summaries",
+        index: { type: "integer", description: "The symbol's index in the listing" },
+        summary: { type: "string", description: "The one-sentence search description" }
+      )
       FILE_MAX_BYTES  = 2_000_000 # don't slurp a generated megafile for one snippet
       MAX_RETRIES     = 3
 
@@ -205,20 +210,12 @@ module Ai
       def request_summaries(client, model, nodes)
         listing = nodes.each_with_index.map { |node, i| symbol_listing(node, i) }.join("\n\n")
 
-        resp = client.complete(
-          messages: [ { role: "user", content: user_prompt(listing) } ],
-          model: model,
-          system_prompt: system_prompt,
-          max_tokens: 4000,
-          temperature: 0
-        )
-        extract_results(resp.content)
+        request_results(client, model: model, prompt: user_prompt(listing), system_prompt: system_prompt,
+                                schema: SUMMARY_SCHEMA, max_tokens: 4000)
       end
 
       def user_prompt(listing)
-        "Summarise each symbol below. Reply with ONLY a JSON object (no prose, no markdown fences):\n" \
-        "{\"results\":[{\"index\":<int>,\"summary\":\"<one sentence>\"}]}\n\n" \
-        "Symbols:\n#{listing}"
+        "Summarise each symbol below, by its index.\n\nSymbols:\n#{listing}"
       end
 
       # The retrieval goal is explicit here: the summary is the text a SEARCH will be

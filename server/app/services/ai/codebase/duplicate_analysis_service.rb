@@ -33,6 +33,13 @@ module Ai
       CMD_BYTE_CAP   = 2_000_000
 
       TRIAGE_CATEGORIES = %w[extract_candidate acceptable generated coincidental].freeze
+      TRIAGE_SCHEMA = LlmTriagePipeline.results_schema(
+        "duplicate_triage",
+        index: { type: "integer", description: "The clone's index in the listing" },
+        category: { type: "string", enum: TRIAGE_CATEGORIES },
+        reason: { type: "string", description: "Short reason for the category" },
+        action: { type: "string", description: "Short suggested refactor, or 'none'" }
+      )
       IGNORE_GLOBS = "**/node_modules/**,**/dist/**,**/build/**,**/coverage/**,**/vendor/**,**/*.min.*,**/*.test.*,**/*.spec.*,**/*_spec.rb,**/*.d.ts".freeze
 
       def initialize(account:, base_path:)
@@ -123,19 +130,12 @@ module Ai
           "```\n#{g[:fragment]}\n```"
         end.join("\n\n")
 
-        prompt = "Classify each code clone below. Reply with ONLY a JSON object (no prose, no markdown fences):\n" \
-                 "{\"results\":[{\"index\":<int>,\"category\":\"#{TRIAGE_CATEGORIES.join('|')}\",\"reason\":\"<short>\",\"action\":\"<short suggested refactor, or 'none'>\"}]}\n\n" \
-                 "Clones:\n#{listing}"
+        prompt = "Classify each code clone below by its index, with a short reason and a short suggested " \
+                 "refactor (or 'none').\n\nClones:\n#{listing}"
 
-        resp = client.complete(
-          messages: [{ role: "user", content: prompt }],
-          model: model,
-          system_prompt: triage_system_prompt,
-          max_tokens: 2200,
-          temperature: 0
-        )
-
-        by_index = extract_results(resp.content).index_by { |r| r["index"] }
+        results = request_results(client, model: model, prompt: prompt, system_prompt: triage_system_prompt,
+                                          schema: TRIAGE_SCHEMA, max_tokens: 2200)
+        by_index = results.index_by { |r| r["index"] }
         batch.each_with_index.map do |g, i|
           r = by_index[i] || {}
           g.merge(triage: r["category"], triage_reason: r["reason"], suggested_action: r["action"])
