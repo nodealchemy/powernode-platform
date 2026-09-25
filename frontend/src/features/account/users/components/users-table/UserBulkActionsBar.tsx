@@ -1,10 +1,12 @@
 import React from 'react';
 import { Download, UserCheck, Shield } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import { TeamBulkActionsBarProps } from './types';
+import { UserBulkActionsBarProps } from './types';
 
-export const TeamBulkActionsBar: React.FC<TeamBulkActionsBarProps> = ({
+export const UserBulkActionsBar: React.FC<UserBulkActionsBarProps> = ({
   selectedCount,
+  showStatusActions,
+  showDelete,
   onClearSelection,
   onExport,
   onActivate,
@@ -35,32 +37,38 @@ export const TeamBulkActionsBar: React.FC<TeamBulkActionsBarProps> = ({
           <Download className="h-4 w-4 mr-1" />
           Export Selected
         </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onActivate}
-          disabled={actionLoading}
-        >
-          <UserCheck className="h-4 w-4 mr-1" />
-          Activate
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={onSuspend}
-          disabled={actionLoading}
-        >
-          <Shield className="h-4 w-4 mr-1" />
-          Suspend
-        </Button>
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={onDelete}
-          disabled={actionLoading}
-        >
-          Delete Selected
-        </Button>
+        {showStatusActions && (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onActivate}
+              disabled={actionLoading}
+            >
+              <UserCheck className="h-4 w-4 mr-1" />
+              Activate
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onSuspend}
+              disabled={actionLoading}
+            >
+              <Shield className="h-4 w-4 mr-1" />
+              Suspend
+            </Button>
+          </>
+        )}
+        {showDelete && (
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={onDelete}
+            disabled={actionLoading}
+          >
+            Delete Selected
+          </Button>
+        )}
       </div>
     </div>
   </div>

@@ -3,9 +3,9 @@ import { Settings, UserPlus, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { FormField } from '@/shared/components/ui/FormField';
 import { Modal } from '@/shared/components/ui/Modal';
-import { CreateTeamMemberModalProps, EditTeamMemberModalProps, DeleteTeamMemberModalProps } from './types';
+import { CreateUserModalProps, EditUserModalProps, DeleteUserModalProps } from './types';
 
-export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
+export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   isOpen,
   formData,
   formErrors,
@@ -96,7 +96,7 @@ export const CreateTeamMemberModal: React.FC<CreateTeamMemberModalProps> = ({
   </Modal>
 );
 
-export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
+export const EditUserModal: React.FC<EditUserModalProps> = ({
   isOpen,
   formData,
   formErrors,
@@ -171,7 +171,7 @@ export const EditTeamMemberModal: React.FC<EditTeamMemberModalProps> = ({
   </Modal>
 );
 
-export const DeleteTeamMemberModal: React.FC<DeleteTeamMemberModalProps> = ({
+export const DeleteUserModal: React.FC<DeleteUserModalProps> = ({
   isOpen,
   userName,
   actionLoading,

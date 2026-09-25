@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { UserCheck, Shield, Settings, BadgeCheck, KeyRound, ChevronRight, ChevronDown } from 'lucide-react';
+import {
+  UserCheck, Shield, Settings, BadgeCheck, KeyRound, Unlock, Mail, ChevronRight, ChevronDown,
+} from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Badge } from '@/shared/components/ui/Badge';
 import { EntityLink } from '@/shared/components/entity';
 import { getUserInitials } from '@/shared/utils/userUtils';
 import { usersApi } from '@/features/account/users/services/usersApi';
-import { TeamMembersTableProps } from './types';
+import { UsersTableRowsProps } from './types';
 
-export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
+export const UsersTableRows: React.FC<UsersTableRowsProps> = ({
   users,
   selectedUsers,
-  currentUserId,
   actionLoading,
+  showAccountColumn,
+  gatesFor,
   onToggleSelectAll,
   onToggleUserSelection,
   onEditUser,
@@ -34,6 +37,8 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
     });
   };
 
+  const columnCount = showAccountColumn ? 8 : 7;
+
   return (
   <div className="bg-theme-surface rounded-lg shadow-sm overflow-hidden">
     <div className="overflow-x-auto">
@@ -43,6 +48,7 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
             <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
               <input
                 type="checkbox"
+                aria-label="Select all users"
                 checked={selectedUsers.size === users.length && users.length > 0}
                 onChange={onToggleSelectAll}
                 className="rounded border-theme focus:ring-theme-focus"
@@ -51,6 +57,11 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
             <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
               User
             </th>
+            {showAccountColumn && (
+              <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
+                Account
+              </th>
+            )}
             <th className="px-6 py-3 text-left text-xs font-medium text-theme-secondary uppercase tracking-wider">
               Roles
             </th>
@@ -71,12 +82,14 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
         <tbody className="divide-y divide-theme">
           {users.map((user) => {
             const isExpanded = expandedUsers.has(user.id);
+            const gates = gatesFor(user);
             return (
             <React.Fragment key={user.id}>
-            <tr className="hover:bg-theme-surface-hover">
+            <tr className="hover:bg-theme-surface-hover" data-testid={`user-row-${user.id}`}>
               <td className="px-6 py-4 whitespace-nowrap">
                 <input
                   type="checkbox"
+                  aria-label={`Select ${user.name}`}
                   checked={selectedUsers.has(user.id)}
                   onChange={() => onToggleUserSelection(user.id)}
                   className="rounded border-theme focus:ring-theme-focus"
@@ -123,10 +136,25 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
                   </div>
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
-                <Badge className={usersApi.getRoleColor(user.roles?.[0] || 'account.member')}>
-                  {usersApi.formatRoles(user.roles || [])}
-                </Badge>
+              {showAccountColumn && (
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-theme-secondary">
+                  {user.account?.name || '—'}
+                </td>
+              )}
+              <td className="px-6 py-4">
+                <div className="flex flex-wrap gap-1">
+                  {(user.roles || []).length === 0 ? (
+                    <Badge className="bg-theme-surface border-theme text-theme-tertiary">
+                      No roles
+                    </Badge>
+                  ) : (
+                    user.roles.map((role) => (
+                      <Badge key={role} className={usersApi.getRoleColor([role])}>
+                        {usersApi.formatRoles([role])}
+                      </Badge>
+                    ))
+                  )}
+                </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <Badge className={usersApi.getStatusColor(user.status)}>
@@ -144,25 +172,29 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                 <div className="flex items-center justify-end space-x-1">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onEditUser(user)}
-                    title="Edit User"
-                  >
-                    Edit
-                  </Button>
+                  {gates.edit && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onEditUser(user)}
+                      title="Edit User"
+                    >
+                      Edit
+                    </Button>
+                  )}
 
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onRolesModal(user)}
-                    title="Manage Roles"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
+                  {gates.roles && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onRolesModal(user)}
+                      title="Manage Roles"
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                  )}
 
-                  {user.id !== currentUserId && (
+                  {gates.impersonate && (
                     <Button
                       variant="secondary"
                       size="sm"
@@ -174,7 +206,7 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
                     </Button>
                   )}
 
-                  {user.id !== currentUserId && (
+                  {gates.manage && (
                     user.status === 'suspended' ? (
                       <Button
                         variant="secondary"
@@ -198,7 +230,31 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
                     )
                   )}
 
-                  {user.id !== currentUserId && (
+                  {gates.manage && user.locked && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onUserAction(user, 'unlock')}
+                      disabled={actionLoading}
+                      title="Unlock Account"
+                    >
+                      <Unlock className="h-4 w-4" />
+                    </Button>
+                  )}
+
+                  {gates.manage && !user.email_verified && (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => onUserAction(user, 'resend_verification')}
+                      disabled={actionLoading}
+                      title="Resend Verification"
+                    >
+                      <Mail className="h-4 w-4" />
+                    </Button>
+                  )}
+
+                  {gates.manage && (
                     <Button
                       variant="secondary"
                       size="sm"
@@ -210,7 +266,7 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
                     </Button>
                   )}
 
-                  {process.env.NODE_ENV === 'development' && !user.email_verified && user.id !== currentUserId && (
+                  {process.env.NODE_ENV === 'development' && gates.manage && !user.email_verified && (
                     <Button
                       variant="secondary"
                       size="sm"
@@ -222,7 +278,7 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
                     </Button>
                   )}
 
-                  {user.id !== currentUserId && (
+                  {gates.delete && (
                     <Button
                       variant="danger"
                       size="sm"
@@ -238,7 +294,7 @@ export const TeamMembersTable: React.FC<TeamMembersTableProps> = ({
             </tr>
             {isExpanded && (
               <tr className="bg-theme-background">
-                <td colSpan={7} className="px-6 py-4">
+                <td colSpan={columnCount} className="px-6 py-4">
                   <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 text-sm">
                     <div>
                       <dt className="text-theme-secondary">Status</dt>

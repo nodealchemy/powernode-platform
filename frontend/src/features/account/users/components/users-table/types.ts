@@ -1,13 +1,17 @@
-// Types for AdminUsersPage components
+// Types for the UsersTable components (one table, two scopes — see userScopes.ts)
 import { User, UserFormData, UserStats } from '@/features/account/users/services/usersApi';
+import type { RowGates } from './userScopes';
 
 export type StatusFilter = 'all' | 'active' | 'suspended' | 'inactive';
 export type SortBy = 'name' | 'email' | 'created_at' | 'last_login_at';
 export type SortOrder = 'asc' | 'desc';
 
+export type UserRowAction = 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification' | 'manual_verify';
+
 export interface UserFiltersState {
   searchTerm: string;
   statusFilter: StatusFilter;
+  roleFilter: string;
   sortBy: SortBy;
   sortOrder: SortOrder;
 }
@@ -20,13 +24,18 @@ export interface UserFiltersPanelProps {
   filters: UserFiltersState;
   totalUsers: number;
   filteredCount: number;
+  availableRoles: Array<{ value: string; label: string; description: string }>;
+  rolesLoading: boolean;
   onSearchChange: (value: string) => void;
   onStatusFilterChange: (value: StatusFilter) => void;
+  onRoleFilterChange: (value: string) => void;
   onSortByChange: (value: SortBy) => void;
 }
 
-export interface BulkActionsBarProps {
+export interface UserBulkActionsBarProps {
   selectedCount: number;
+  showStatusActions: boolean;
+  showDelete: boolean;
   onClearSelection: () => void;
   onExport: () => void;
   onActivate: () => void;
@@ -35,20 +44,19 @@ export interface BulkActionsBarProps {
   actionLoading: boolean;
 }
 
-export interface UsersTableProps {
+export interface UsersTableRowsProps {
   users: User[];
   selectedUsers: Set<string>;
-  currentUserId: string | undefined;
-  openDropdownUserId: string | null;
   actionLoading: boolean;
+  showAccountColumn: boolean;
+  gatesFor: (user: User) => RowGates;
   onToggleSelectAll: () => void;
   onToggleUserSelection: (userId: string) => void;
   onEditUser: (user: User) => void;
   onRolesModal: (user: User) => void;
   onImpersonateUser: (user: User) => void;
-  onUserAction: (user: User, action: 'suspend' | 'activate' | 'unlock' | 'reset_password' | 'resend_verification') => void;
+  onUserAction: (user: User, action: UserRowAction) => void;
   onDeleteUser: (user: User) => void;
-  onToggleDropdown: (userId: string) => void;
 }
 
 export interface CreateUserModalProps {
@@ -56,11 +64,8 @@ export interface CreateUserModalProps {
   formData: UserFormData;
   formErrors: string[];
   actionLoading: boolean;
-  availableRoles: Array<{ value: string; label: string; description: string }>;
-  rolesLoading: boolean;
   onClose: () => void;
   onFormChange: (field: keyof UserFormData, value: string | string[]) => void;
-  onRolesChange: (roles: string[]) => void;
   onSubmit: () => void;
 }
 

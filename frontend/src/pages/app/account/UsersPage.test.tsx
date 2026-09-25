@@ -45,14 +45,10 @@ jest.mock('@/features/account/users/components/UserRolesModal', () => ({
   UserRolesModal: () => null
 }));
 
-jest.mock('./users-page', () => ({
-  TeamStatsCards: () => null,
-  TeamFiltersPanel: () => null,
-  TeamBulkActionsBar: () => null,
-  TeamMembersTable: () => <div data-testid="team-members-table" />,
-  CreateTeamMemberModal: () => null,
-  EditTeamMemberModal: () => null,
-  DeleteTeamMemberModal: () => null
+// The table itself has its own suite (users-table/UsersTable.test.tsx); this
+// one pins the invite wiring, so the table is a stub here.
+jest.mock('@/features/account/users/components/users-table/UsersTableRows', () => ({
+  UsersTableRows: () => <div data-testid="users-table" />
 }));
 
 const LocationDisplay = () => {
@@ -108,7 +104,7 @@ describe('UsersContent (fc-06: invite flow mounted on the Users tab)', () => {
       renderAt('/app/profile/users', [ 'team.read' ]);
 
       await waitFor(() => {
-        expect(screen.getByTestId('team-members-table')).toBeInTheDocument();
+        expect(screen.getByTestId('users-table')).toBeInTheDocument();
       });
       expect(screen.queryByText('Invite Team Member')).not.toBeInTheDocument();
     });
@@ -138,7 +134,7 @@ describe('UsersContent (fc-06: invite flow mounted on the Users tab)', () => {
       renderAt('/app/profile/users?invite=1', [ 'team.read' ]);
 
       await waitFor(() => {
-        expect(screen.getByTestId('team-members-table')).toBeInTheDocument();
+        expect(screen.getByTestId('users-table')).toBeInTheDocument();
       });
       expect(screen.queryByTestId('invite-modal')).not.toBeInTheDocument();
     });

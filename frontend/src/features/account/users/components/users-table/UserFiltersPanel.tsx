@@ -6,8 +6,11 @@ export const UserFiltersPanel: React.FC<UserFiltersPanelProps> = ({
   filters,
   totalUsers,
   filteredCount,
+  availableRoles,
+  rolesLoading,
   onSearchChange,
   onStatusFilterChange,
+  onRoleFilterChange,
   onSortByChange
 }) => (
   <div className="bg-theme-surface rounded-xl p-6 shadow-sm mb-6">
@@ -44,6 +47,25 @@ export const UserFiltersPanel: React.FC<UserFiltersPanelProps> = ({
           <option value="active">Active</option>
           <option value="suspended">Suspended</option>
           <option value="inactive">Inactive</option>
+        </select>
+      </div>
+
+      {/* Role Filter */}
+      <div>
+        <label className="block text-sm font-medium text-theme-primary mb-2">Roles</label>
+        <select
+          value={filters.roleFilter}
+          onChange={(e) => onRoleFilterChange(e.target.value)}
+          className="select-theme"
+        >
+          <option value="all">All Roles</option>
+          {rolesLoading ? (
+            <option value="">Loading roles...</option>
+          ) : (
+            availableRoles.map(role => (
+              <option key={role.value} value={role.value}>{role.label}</option>
+            ))
+          )}
         </select>
       </div>
 

@@ -302,7 +302,7 @@ row expansion). High-severity items to look at (23):
 | Surface (file · component) | Object type | Current layout | Proposed target | Effort | Rationale |
 |---|---|---|---|---|---|
 | `pages/app/admin/AdminUsersPage.tsx` · AdminUsersPage | user | index-table | **Expand** rows (status/roles/timestamps inline) OR keep edit modal; keep bulk/impersonation | Med | Full user table; edit modal stays as form |
-| `pages/app/admin/admin-users/UsersTable.tsx` · UsersTable | user | index-table | **Expand** rows; link `role` cells; keep inline actions | Med | Presentational table; roles plaintext |
+| `features/account/users/components/users-table/UsersTableRows.tsx` · UsersTableRows (both scopes, fc-33) | user | index-table | **Expand** rows; link `role` cells; keep inline actions | Med | Presentational table; roles plaintext |
 | `pages/app/admin/AdminRolesPage.tsx` · AdminRolesPage | role | card-grid | **Keep (exception — built-in/custom grid)**; keep RoleForm + RoleUsers modals | Low | Two-column role grid; mgmt modals exist |
 | `features/admin/roles/.../RoleUsersModal.tsx` · RoleUsersModal | user | detail-modal | **Keep (mgmt)** — add/remove users; link `user` rows | Low | Role↔user assignment console |
 | `pages/app/admin/AuditLogsPage.tsx` · AuditLogsPage | audit_log | index-table-expandable | **Keep (conforms)**; link `user`, `account`, `resource` in expanded row | Low | Already expandable + analytics tab |
@@ -318,8 +318,7 @@ row expansion). High-severity items to look at (23):
 |---|---|---|---|---|---|
 | `pages/app/account/ProfilePage.tsx` · ProfilePage | user_settings | detail-modal (tabs) | **Keep (mgmt)** — Profile/Account/Subscription/Prefs/Notifs/Security/Users settings console; link `account` cells | Low | Settings editor surface |
 | `pages/app/account/UsersPage.tsx` · UsersContent | user | index-table | **Expand** rows OR keep edit/roles modals; link `user` rows; keep bulk actions | Med | Full team-mgmt table |
-| `pages/app/account/users-page/TeamMembersTable.tsx` · TeamMembersTable | user | index-table | **Expand** rows; link `role` cells; keep action column | Med | Presentational table; roles plaintext |
-| `pages/app/account/users-page/TeamStatsCards.tsx` · TeamStatsCards | user | card-grid | **Keep (exception — stats)** | — | Aggregate stat cards |
+| `features/account/users/components/users-table/UserStatsCards.tsx` · UserStatsCards | user | card-grid | **Keep (exception — stats)** | — | Aggregate stat cards |
 | `pages/app/account/NotificationsPage.tsx` · NotificationsPage | notification | index-table | **Keep (conforms — expandable items + detail modal)**; rich content opens modal | Low | Expandable list; modal for markdown/AI/approval |
 | `features/account/users/.../UserRolesModal.tsx` · UserRolesModal | user_role_assignment | detail-modal | **Keep (mgmt)** — role toggle console; link `user` header, `role` grid | Low | Multi-select assignment editor |
 | `features/account/.../InviteTeamMemberModal.tsx` · InviteTeamMemberModal | user_invitation | detail-modal (form) | **Keep (form)** | Low | Invite form |
@@ -451,13 +450,13 @@ row expansion). High-severity items to look at (23):
 | AI Ops | 16 | 6 | 0 | 22 | 4 log/event tables → Expand; rest dashboards |
 | Code | 9 | 0 | 0 | 9 | All conform/exception/form |
 | Admin | 5 | 5 | 0 | 10 | User/worker tables → Expand + link roles |
-| Account | 6 | 6 | 0 | 12 | Team-member tables → Expand; settings/forms kept |
+| Account | 6 | 5 | 0 | 11 | Team-member tables → Expand; settings/forms kept |
 | Missions | 6 | 2 | 0 | 8 | Index conforms; MissionDetail mgmt |
 | Content | 11 | 1 | 0 | 12 | KB/pages galleries/threads/editors |
 | DevOps | 14 | 2 | 0 | 16 | Cards→detail-page pattern dominates; Repo/Webhook = Med |
 | Governance | 9 | 8 | 0 | 17 | **Highest Med density** — 8 non-interactive GovernancePage panels → Expand |
 | Developer / Shared | 8 | 3 | 0 | 11 | Marketplace/portal exceptions; ApprovalChainList + subs = Med |
 
-**Totals:** ~**194 Low** / ~**47 Med** / **0 High** across **~241 surface entries** (inventory rows incl. cross-domain duplicates; distinct files ≈ 180).
+**Totals:** ~**194 Low** / ~**46 Med** / **0 High** across **~240 surface entries** (inventory rows incl. cross-domain duplicates; distinct files ≈ 180).
 
 **Why zero High:** every transformation is (a) adding a chevron + inline own-detail region to a list already on `DataTable` (Low–Med), (b) leaving a dashboard/canvas/feed/chat/secret surface untouched (Low/—), or (c) swapping a plaintext cross-ref cell for `<EntityLink>` (Low). The single gating dependency is the **one-time `registerEntities('core', […])` manifest** — without it `EntityLink` renders plaintext (safe, but no navigation). The largest concentrated work is **Governance** (8 stacked-card panels on one page → expandable tables, two of which also fix decision-blind UX and one noop button) and the **user/team tables** across Admin + Account (near-duplicate tables → expandable rows + linked role cells; `TeamMembersManagement`, the retire candidate flagged here, was deleted in favor of `UsersPage` — fc-23).

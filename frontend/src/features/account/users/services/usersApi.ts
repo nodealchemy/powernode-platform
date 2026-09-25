@@ -184,6 +184,12 @@ class UsersApiService {
     return response.data;
   }
 
+  // Delete a user in any account via the admin endpoint (admin only)
+  async deleteAdminUser(user_id: string): Promise<{ success: boolean; message?: string }> {
+    const response = await api.delete(`/admin/users/${user_id}`);
+    return response.data;
+  }
+
   // Update user role within account
   async updateUserRole(user_id: string, role: string, account_id?: string): Promise<UserResponse> {
     const response = await api.put(`/users/${user_id}/role`, {
