@@ -172,6 +172,39 @@ RSpec.describe Ai::Tools::DiskImageOperatorTool do
       expect(result[:error]).to match(/No active Gitea credential/)
     end
 
+    # W2-4: the refusal used to come AFTER the webhook secret and the worker
+    # token were rotated, so a re-run with no usable Gitea credential silently
+    # invalidated the values the repo's CI already held and delivered nothing.
+    it "refuses with no Gitea credential BEFORE rotating the existing webhook secret or worker token" do
+      webhook, = ::System::DiskImageWebhook.create_with_secret!(account: account, label: "live-pipeline")
+      worker = ::Worker.create_worker!(name: "live-pipeline", account: account, roles: [ "ci_worker" ])
+      secret_before  = webhook.reload.secret
+      preview_before = webhook.secret_preview
+      digest_before  = worker.reload.token_digest
+
+      credential.update!(is_active: false)
+      expect_any_instance_of(::System::DiskImageWebhook).not_to receive(:rotate_secret!)
+      expect(::System::DiskImageWebhook).not_to receive(:create_with_secret!)
+      expect(::Worker).not_to receive(:create_worker!)
+      expect(::Devops::Git::ApiClient).not_to receive(:for)
+
+      result = nil
+      expect {
+        result = tool.execute(params: {
+          action: "bootstrap_disk_image_ci",
+          owner: "x", repo: "y", label: "live-pipeline"
+        })
+      }.not_to change { [ ::System::DiskImageWebhook.count, ::Worker.count ] }
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/No active Gitea credential/)
+      webhook.reload
+      expect(webhook.secret).to eq(secret_before)
+      expect(webhook.secret_preview).to eq(preview_before)
+      expect(webhook.last_rotated_at).to be_nil
+      expect(worker.reload.token_digest).to eq(digest_before)
+    end
+
     it "reports per-secret failures via gitea_secrets_set" do
       allow(gitea_client).to receive(:create_or_update_action_secret).and_return({ success: false, error: "rejected" })
 
@@ -188,10 +221,10 @@ RSpec.describe Ai::Tools::DiskImageOperatorTool do
       it "mints a PAT, sets PLATFORM_READ_TOKEN secret, and reports delivery without echoing the token" do
         allow(gitea_client).to receive(:delete_user_token) # idempotent cleanup; may noop
         expect(gitea_client).to receive(:create_user_token)
-          .with("plat-test-platform-ci-readonly", scopes: %w[read:repository read:user])
+          .with("plat-test-platform-ci-readonly", scopes: %w[read:repository])
           .and_return({
             success: true, token_id: 99, name: "plat-test-platform-ci-readonly",
-            token: "abcdef0123456789abcdef0123456789abcdef01", scopes: %w[read:repository read:user]
+            token: "abcdef0123456789abcdef0123456789abcdef01", scopes: %w[read:repository]
           })
         expect(gitea_client).to receive(:create_or_update_action_secret)
           .with("o", "r", "PLATFORM_READ_TOKEN", "abcdef0123456789abcdef0123456789abcdef01")
@@ -215,7 +248,7 @@ RSpec.describe Ai::Tools::DiskImageOperatorTool do
         allow(gitea_client).to receive(:delete_user_token).and_raise(StandardError.new("not found"))
         expect(gitea_client).to receive(:create_user_token).and_return({
           success: true, token_id: 100, name: "plat-test-platform-ci-readonly",
-          token: "x" * 40, scopes: %w[read:repository read:user]
+          token: "x" * 40, scopes: %w[read:repository]
         })
         allow(gitea_client).to receive(:create_or_update_action_secret).and_return({ success: true })
 
@@ -228,10 +261,30 @@ RSpec.describe Ai::Tools::DiskImageOperatorTool do
         expect(result[:platform_read_token][:token_id]).to eq(100)
       end
 
+      # W2-4: PLATFORM_READ_TOKEN is only ever used for git over HTTPS
+      # (checkout + ls-remote), which Gitea authorizes on the repository scope
+      # alone. read:user was surplus reach and is no longer requested.
+      it "requests read:repository only — never read:user or any write scope" do
+        allow(gitea_client).to receive(:delete_user_token)
+        requested = nil
+        allow(gitea_client).to receive(:create_user_token) do |_name, scopes:|
+          requested = scopes
+          { success: true, token_id: 5, name: "n", token: "x" * 40, scopes: scopes }
+        end
+
+        tool.execute(params: {
+          action: "bootstrap_disk_image_ci",
+          owner: "o", repo: "r", label: "scope-test",
+          create_platform_read_token: true
+        })
+
+        expect(requested).to eq(%w[read:repository])
+      end
+
       it "respects platform_read_token_name override" do
         allow(gitea_client).to receive(:delete_user_token)
         expect(gitea_client).to receive(:create_user_token)
-          .with("custom-token-name", scopes: %w[read:repository read:user])
+          .with("custom-token-name", scopes: %w[read:repository])
           .and_return({ success: true, token_id: 1, name: "custom-token-name", token: "x" * 40, scopes: [] })
         allow(gitea_client).to receive(:create_or_update_action_secret).and_return({ success: true })
 

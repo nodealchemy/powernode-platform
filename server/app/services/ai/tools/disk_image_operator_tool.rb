@@ -180,7 +180,7 @@ module Ai
               repo:            { type: "string",  required: true,  description: "Gitea repo name" },
               label:           { type: "string",  required: true,  description: "Operator-chosen identifier (used for both webhook label and CI worker name)" },
               platform_api_base: { type: "string", required: false, description: "Public-routable platform API base URL CI runners will call back to (default: ENV['POWERNODE_PUBLIC_URL'] or 'http://localhost:3000')" },
-              create_platform_read_token: { type: "boolean", required: false, description: "When true (default false), mint a Gitea PAT with read:repository scope and set it as PLATFORM_READ_TOKEN secret in the same repo. Closes the manual 'go to Gitea web UI to generate a PAT' step." },
+              create_platform_read_token: { type: "boolean", required: false, description: "When true (default false), mint a Gitea PAT with read:repository scope only (git-over-HTTPS clone/ls-remote needs nothing else) and set it as PLATFORM_READ_TOKEN secret in the same repo. Closes the manual 'go to Gitea web UI to generate a PAT' step." },
               platform_read_token_name:   { type: "string",  required: false, description: "Override the auto-generated PAT name (default: '<label>-platform-ci-readonly')" }
             }
           }
@@ -284,6 +284,16 @@ module Ai
         platform_api_base = params[:platform_api_base].to_s.presence ||
                             ENV.fetch("POWERNODE_PUBLIC_URL", "http://localhost:3000")
 
+        # Resolve the delivery channel BEFORE any rotation. Rotating first and
+        # refusing after would invalidate the webhook secret / worker token the
+        # repo's CI already holds, with no new value ever reaching Gitea — a
+        # refusal that breaks the existing pipeline. Every refusal below this
+        # point must stay ahead of the first write.
+        gitea_credential = find_gitea_credential
+        return { success: false, error: "No active Gitea credential found for this account" } unless gitea_credential
+
+        gitea_client = ::Devops::Git::ApiClient.for(gitea_credential)
+
         # Reuse-or-create webhook (same label = rotate secret on existing).
         existing_webhook = ::System::DiskImageWebhook.find_by(account: account, label: label)
         if existing_webhook
@@ -315,17 +325,13 @@ module Ai
           worker_action = "created_new"
         end
 
-        # Push all 4 secrets to Gitea via the GiteaActionsTool's underlying client.
-        gitea_credential = find_gitea_credential
-        return { success: false, error: "No active Gitea credential found for this account" } unless gitea_credential
-
         # Build the webhook URL using the operator-supplied platform_api_base
         # so the URL CI hits is reachable from the runner. POWERNODE_PUBLIC_URL
         # env (set on the platform host) is the secondary fallback. Default
         # localhost:3000 is the last resort for tests/dev.
         webhook_url = build_webhook_url(webhook, host_override: platform_api_base)
 
-        gitea_client = ::Devops::Git::ApiClient.for(gitea_credential)
+        # Push all 4 secrets to Gitea via the client resolved above.
         secret_results = {}
         {
           "POWERNODE_DISK_IMAGE_WEBHOOK_URL"    => webhook_url,
@@ -351,7 +357,12 @@ module Ai
           # room for a fresh one (Gitea rejects duplicate-name creates).
           gitea_client.delete_user_token(token_name) rescue nil
 
-          token_result = gitea_client.create_user_token(token_name, scopes: %w[read:repository read:user])
+          # read:repository only. PLATFORM_READ_TOKEN is consumed by git over
+          # HTTPS (actions/checkout of the platform repo + its submodules, and
+          # `git ls-remote` in ci-resolve-core-ref.sh); Gitea's git-HTTP handler
+          # checks the repository scope category alone, and none of those calls
+          # touch a /user endpoint, so read:user was surplus reach.
+          token_result = gitea_client.create_user_token(token_name, scopes: %w[read:repository])
           if token_result[:success]
             set_secret_result = gitea_client.create_or_update_action_secret(owner, repo, "PLATFORM_READ_TOKEN", token_result[:token])
             secret_results["PLATFORM_READ_TOKEN"] = set_secret_result[:success] ? "ok" : "error: #{set_secret_result[:error]}"
