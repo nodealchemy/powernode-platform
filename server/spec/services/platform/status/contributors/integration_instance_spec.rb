@@ -41,7 +41,7 @@ RSpec.describe Platform::Status::Contributors::IntegrationInstance do
       instance = create(:devops_integration_instance, account: account)
 
       expect(contributor.links_for(instance))
-        .to eq([ { "label" => "Integration", "path" => "/app/devops/connections/integrations/#{instance.id}" } ])
+        .to eq([ { "label" => "Integration", "path" => "/app/devops/integrations/#{instance.id}" } ])
     end
 
     it "declares no dependencies — a template and a credential are not components" do

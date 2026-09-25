@@ -68,7 +68,7 @@ module Platform
         def display_name_for(host) = host.name.presence || host.slug
 
         def links_for(host)
-          [ { "label" => "Docker host", "path" => "/app/devops/docker/#{host.id}" } ]
+          [ { "label" => "Docker host", "path" => "/app/devops/containers/docker/#{host.id}" } ]
         end
 
         def presentation

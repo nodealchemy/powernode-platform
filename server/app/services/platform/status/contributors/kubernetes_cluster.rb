@@ -74,7 +74,7 @@ module Platform
         def display_name_for(cluster) = cluster.name.presence || cluster.slug
 
         def links_for(cluster)
-          [ { "label" => "Cluster", "path" => "/app/devops/kubernetes/#{cluster.id}" } ]
+          [ { "label" => "Cluster", "path" => "/app/devops/containers/kubernetes/#{cluster.id}" } ]
         end
 
         def presentation

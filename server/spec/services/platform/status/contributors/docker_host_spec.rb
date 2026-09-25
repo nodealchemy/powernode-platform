@@ -32,7 +32,7 @@ RSpec.describe Platform::Status::Contributors::DockerHost do
       host = create(:devops_docker_host, account: account)
 
       expect(contributor.links_for(host))
-        .to eq([ { "label" => "Docker host", "path" => "/app/devops/docker/#{host.id}" } ])
+        .to eq([ { "label" => "Docker host", "path" => "/app/devops/containers/docker/#{host.id}" } ])
       expect(contributor.actions_for(host)).to eq([])
     end
 

@@ -121,7 +121,7 @@ module Platform
         def display_name_for(instance) = instance.name.presence || instance.slug
 
         def links_for(instance)
-          [ { "label" => "Integration", "path" => "/app/devops/connections/integrations/#{instance.id}" } ]
+          [ { "label" => "Integration", "path" => "/app/devops/integrations/#{instance.id}" } ]
         end
 
         def presentation

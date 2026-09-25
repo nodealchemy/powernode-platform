@@ -33,7 +33,7 @@ RSpec.describe Platform::Status::Contributors::KubernetesCluster do
       cluster = create(:devops_kubernetes_cluster, account: account)
 
       expect(contributor.links_for(cluster))
-        .to eq([ { "label" => "Cluster", "path" => "/app/devops/kubernetes/#{cluster.id}" } ])
+        .to eq([ { "label" => "Cluster", "path" => "/app/devops/containers/kubernetes/#{cluster.id}" } ])
       expect(contributor.actions_for(cluster)).to eq([])
     end
 
