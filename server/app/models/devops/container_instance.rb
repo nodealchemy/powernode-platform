@@ -48,6 +48,10 @@ module Devops
       status == "pending"
     end
 
+    def provisioning?
+      status == "provisioning"
+    end
+
     def running?
       status == "running"
     end

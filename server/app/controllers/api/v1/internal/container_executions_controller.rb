@@ -4,7 +4,6 @@ module Api
   module V1
     module Internal
       class ContainerExecutionsController < InternalBaseController
-
         # POST /api/v1/internal/container_executions/:execution_id/complete
         # Callback from Gitea workflow when container execution completes
         def complete
@@ -40,14 +39,20 @@ module Api
         def status
           instance = find_instance
 
-          case params[:status]
-          when "running"
-            # fc-32 review: an operator pausing a sandbox is a deliberate
-            # action; a "running" callback from the workflow (which doesn't
-            # know about the pause) must not silently resurrect it.
-            instance.start_running! unless instance.paused?
-          when "provisioning"
-            instance.start_provisioning!
+          # The workflow doesn't know about operator actions, so each callback
+          # only advances the instance from the states that precede it: a
+          # "running" callback must not resurrect a paused sandbox, nor restamp
+          # started_at (the reaper's timeout clock) on one already running,
+          # and a stale "provisioning" callback must not rewind anything past
+          # pending. with_lock reloads the row under FOR UPDATE, so a pause
+          # committed after find_instance is seen before the transition.
+          instance.with_lock do
+            case params[:status]
+            when "running"
+              instance.start_running! if instance.pending? || instance.provisioning?
+            when "provisioning"
+              instance.start_provisioning! if instance.pending?
+            end
           end
 
           render_success({ status: "ok", instance_status: instance.status })

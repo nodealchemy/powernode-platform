@@ -36,5 +36,56 @@ RSpec.describe 'Api::V1::Internal::ContainerExecutions#status', type: :request d
       expect(response).to have_http_status(:ok)
       expect(instance.reload.status).to eq('running')
     end
+
+    # The paused guard used to be check-then-act on the in-memory row: a pause
+    # committed between find_instance and start_running! was overwritten. The
+    # stale copy below stands in for that window — the row is paused in the
+    # database, but the controller's loaded object still says provisioning.
+    it 'does not resurrect a sandbox paused after the instance was loaded' do
+      instance = create(:devops_container_instance, :provisioning, account: account, template: template)
+      stale = Devops::ContainerInstance.find(instance.id)
+      instance.update_column(:status, 'paused')
+      allow(Devops::ContainerInstance).to receive(:find_by!).and_return(stale)
+
+      post "/api/v1/internal/container_executions/#{instance.execution_id}/status",
+           params: { status: 'running' }, headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(instance.reload.status).to eq('paused')
+    end
+
+    # start_running! stamps started_at, which is the reaper's timeout clock;
+    # a repeated "running" callback must not restart the budget.
+    it 'does not reset started_at when a running instance gets another running callback' do
+      original_start = 2.hours.ago.change(usec: 0)
+      instance = create(:devops_container_instance, :running, account: account, template: template,
+                         started_at: original_start)
+
+      post "/api/v1/internal/container_executions/#{instance.execution_id}/status",
+           params: { status: 'running' }, headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(instance.reload.started_at).to eq(original_start)
+    end
+
+    it 'does not move a paused instance back to provisioning on a stale provisioning callback' do
+      instance = create(:devops_container_instance, :paused, account: account, template: template)
+
+      post "/api/v1/internal/container_executions/#{instance.execution_id}/status",
+           params: { status: 'provisioning' }, headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(instance.reload.status).to eq('paused')
+    end
+
+    it 'still moves a pending instance to provisioning' do
+      instance = create(:devops_container_instance, :pending, account: account, template: template)
+
+      post "/api/v1/internal/container_executions/#{instance.execution_id}/status",
+           params: { status: 'provisioning' }, headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(instance.reload.status).to eq('provisioning')
+    end
   end
 end
