@@ -1,10 +1,12 @@
 // RAG Knowledge Base Page - Knowledge-Augmented Agents
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   FileText, Search, Database, Upload, Pencil,
   Trash2, Play, Link, BarChart3, MessageSquare, RefreshCw, Plus
 } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useDispatch } from 'react-redux';
@@ -48,14 +50,30 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type TabType = 'knowledge-bases' | 'documents' | 'query' | 'connectors' | 'analytics';
 
+const RAG_BASE_PATH = '/app/ai/knowledge/rag';
+
+const getActiveRagTab = (pathname: string): TabType => {
+  if (pathname.includes('/rag/documents')) return 'documents';
+  if (pathname.includes('/rag/query')) return 'query';
+  if (pathname.includes('/rag/connectors')) return 'connectors';
+  if (pathname.includes('/rag/analytics')) return 'analytics';
+  return 'knowledge-bases';
+};
+
 interface RagContentProps {
   onActionsReady?: (actions: PageAction[]) => void;
 }
 
 export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
+  const location = useLocation();
   const { confirm, ConfirmationDialog } = useConfirmation();
   const dispatch = useDispatch<AppDispatch>();
-  const [activeTab, setActiveTab] = useState<TabType>('knowledge-bases');
+  const [activeTab, setActiveTab] = useState<TabType>(getActiveRagTab(location.pathname));
+
+  useEffect(() => {
+    const newTab = getActiveRagTab(location.pathname);
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [selectedKb, setSelectedKb] = useState<KnowledgeBase | null>(null);
   const [documents, setDocuments] = useState<RagDocument[]>([]);
@@ -322,11 +340,11 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
   };
 
   const ragTabs = [
-    { id: 'knowledge-bases' as TabType, label: 'Knowledge Bases', icon: Database },
-    { id: 'documents' as TabType, label: 'Documents', icon: FileText },
-    { id: 'query' as TabType, label: 'Query', icon: Search },
-    { id: 'connectors' as TabType, label: 'Connectors', icon: Link },
-    { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 }
+    { id: 'knowledge-bases', label: 'Knowledge Bases', icon: <Database size={16} />, path: '/' },
+    { id: 'documents', label: 'Documents', icon: <FileText size={16} />, path: '/documents' },
+    { id: 'query', label: 'Query', icon: <Search size={16} />, path: '/query' },
+    { id: 'connectors', label: 'Connectors', icon: <Link size={16} />, path: '/connectors' },
+    { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={16} />, path: '/analytics' }
   ];
 
   return (
@@ -358,26 +376,6 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="border-b border-theme mb-6">
-        <nav className="flex gap-4">
-          {ragTabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-theme-info-border text-theme-info-fg'
-                  : 'border-transparent text-theme-secondary hover:text-theme-primary'
-              }`}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
-
       {/* Tab Content */}
       {loading ? (
         <div className="text-center py-12">
@@ -385,8 +383,16 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
           <p className="mt-4 text-theme-secondary">Loading knowledge base data...</p>
         </div>
       ) : (
-        <>
+        <TabContainer
+          tabs={ragTabs}
+          activeTab={activeTab}
+          onTabChange={(id) => setActiveTab(id as TabType)}
+          basePath={RAG_BASE_PATH}
+          variant="underline"
+          className="mb-6"
+        >
           {/* Knowledge Bases Tab */}
+          <TabPanel tabId="knowledge-bases" activeTab={activeTab}>
           {activeTab === 'knowledge-bases' && (
             <div className="space-y-4">
               {knowledgeBases.length === 0 ? (
@@ -445,8 +451,10 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               )}
             </div>
           )}
+          </TabPanel>
 
           {/* Documents Tab */}
+          <TabPanel tabId="documents" activeTab={activeTab}>
           {activeTab === 'documents' && (
             <div className="space-y-4">
               {!selectedKb ? (
@@ -507,8 +515,10 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               )}
             </div>
           )}
+          </TabPanel>
 
           {/* Query Tab */}
+          <TabPanel tabId="query" activeTab={activeTab}>
           {activeTab === 'query' && (
             <div className="space-y-6">
               {!selectedKb ? (
@@ -586,8 +596,10 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               )}
             </div>
           )}
+          </TabPanel>
 
           {/* Connectors Tab */}
+          <TabPanel tabId="connectors" activeTab={activeTab}>
           {activeTab === 'connectors' && (
             <div className="space-y-4">
               {!selectedKb ? (
@@ -635,8 +647,10 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               )}
             </div>
           )}
+          </TabPanel>
 
           {/* Analytics Tab */}
+          <TabPanel tabId="analytics" activeTab={activeTab}>
           {activeTab === 'analytics' && (
             <div className="space-y-4">
               {!selectedKb ? (
@@ -661,7 +675,8 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
               )}
             </div>
           )}
-        </>
+          </TabPanel>
+        </TabContainer>
       )}
 
       {/* Create/Edit KB Modal */}
