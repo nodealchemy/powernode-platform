@@ -55,7 +55,7 @@ If a specific scope is given (`ruby`, `typescript`, `migration`, `seed`), only r
 2. **Find related tests**: Look for `*.test.ts` or `*.test.tsx` alongside changed files
 3. **Run related tests** (if they exist):
    ```bash
-   cd frontend && CI=true npx react-scripts test --testPathPattern="<pattern>" --watchAll=false
+   cd frontend && CI=true npm test -- --testPathPatterns "<pattern>" --watchAll=false
    ```
 
 ## Step 4: Migration Verification (if migration files changed)
