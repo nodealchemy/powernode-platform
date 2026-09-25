@@ -25,7 +25,7 @@ Plausible-looking theme classes that lack a defining token compile to **nothing*
 
 ### Role-based access → VERIFICATION PASS (not a rewrite)
 The access layer is already 100% permission-based (`permissionUtils.hasAdminAccess` etc. delegate to `hasPermission`). The 9 originally-flagged sites are **legitimate display/stat/list-filter usage of role *names***, not access gating:
-- `features/account/components/TeamMembersManagement.tsx:137` (admin stat count) — real gate at `:22` is permission-based.
+- `features/account/components/TeamMembersManagement.tsx:137` (admin stat count) — real gate at `:22` was permission-based; the file itself was later deleted as a duplicate of `UsersPage` (fc-23).
 - `features/admin/components/users/SystemUserManagement.tsx:165,231` (role list-filter + stat).
 - `pages/app/account/UsersPage.tsx:143`, `pages/app/admin/WorkersPage.tsx:192` (role list-filters).
 - `pages/app/admin/AdminSettingsOverviewPage.tsx:543` (role badge display).
