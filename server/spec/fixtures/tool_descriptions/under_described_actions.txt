@@ -13,14 +13,9 @@ add_team_member
 agent_container_status
 approve_improvement
 bootstrap_disk_image_ci
-code_context_tree
 code_create_relation
-code_feature_hub
-code_file_skeleton
-code_identifier_search
 code_prune_stale
 code_search_graph
-code_semantic_navigate
 code_upsert_node
 compose_skills
 content_production_status

@@ -11,11 +11,37 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "context_tree", mutating: false
-      declare_action "feature_hub", mutating: false
-      declare_action "file_skeleton", mutating: false
-      declare_action "identifier_search", mutating: false
-      declare_action "semantic_navigate", mutating: false
+      declare_action "context_tree", mutating: false,
+                                     returns: "a nested tree of directories and files with relative paths, and for each parseable file " \
+                                              "its language and symbols (name, kind, line, visibility, params)",
+                                     refuses: [
+                                       "neither repository_id nor base_path is given, or the repository has no local_path",
+                                       "the path is outside /home, /opt, /var, /srv or /tmp, or is not a directory"
+                                     ],
+                                     see_also: { "code_file_skeleton" => "the full symbol outline of one file" }
+      declare_action "feature_hub", mutating: false,
+                                    returns: "hub files ordered by link count, every markdown file with its title and wikilinks " \
+                                             "(each marked as resolving or not), orphan files, and total file and link counts",
+                                    refuses: [
+                                      "neither repository_id nor base_path is given, or the repository has no local_path",
+                                      "the scanned directory does not exist under the codebase root"
+                                    ]
+      declare_action "file_skeleton", mutating: false,
+                                      returns: "the file's language and per symbol its name, qualified name, kind, visibility, " \
+                                               "line range, params, return type, parent and superclass",
+                                      refuses: [
+                                        "file_path is missing or the file does not exist under the codebase root",
+                                        "neither repository_id nor base_path is given, or the repository has no local_path"
+                                      ]
+      declare_action "identifier_search", mutating: false,
+                                          returns: "up to top_k (default 10) matching code nodes with name, entity type, file path, line, " \
+                                                   "visibility, params, mention count and connection count, most-mentioned first",
+                                          refuses: "query or repository_id is missing, or the repository is not in this account",
+                                          see_also: { "code_semantic_search" => "finding code by meaning rather than by name" }
+      declare_action "semantic_navigate", mutating: false,
+                                          returns: "each cluster's id, label, member count, representative symbols and entity-type breakdown, " \
+                                                   "or the full cluster when cluster_id is given",
+                                          refuses: "repository_id is missing or not in this account, or cluster_id names no cluster"
       declare_action "semantic_search", mutating: false
 
       def self.definition
@@ -41,7 +67,7 @@ module Ai
       def self.action_definitions
         {
           "code_context_tree" => {
-            description: "Get an AST-based structural tree of the codebase with file headers and symbol ranges. Dynamic pruning by depth.",
+            description: "Get an AST-based structural tree of the codebase or a subdirectory, with each file's parsed symbols. Hidden entries and the indexer's skip directories are left out, and the tree stops at max_depth.",
             parameters: {
               repository_id: { type: "string", required: false, description: "Git repository ID, name, or full_name" },
               base_path: { type: "string", required: false, description: "Filesystem path to codebase root" },
@@ -68,7 +94,7 @@ module Ai
             }
           },
           "code_identifier_search" => {
-            description: "Search for identifiers (functions, classes, variables) by name or semantic meaning with usage counts.",
+            description: "Search code identifiers (functions, classes, variables) by case-insensitive name substring, with usage counts.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
               query: { type: "string", required: true, description: "Identifier name or description" },
@@ -77,7 +103,7 @@ module Ai
             }
           },
           "code_semantic_navigate" => {
-            description: "Browse the codebase by meaning using semantic clustering. Groups related files and symbols into labeled clusters.",
+            description: "Browse the codebase by meaning using semantic clustering. Groups related files and symbols into labeled clusters; clustering samples at most 500 nodes with embeddings.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
               query: { type: "string", required: false, description: "Optional focus query to filter clusters" },
