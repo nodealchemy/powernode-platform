@@ -972,10 +972,6 @@ Rails.application.routes.draw do
         get :extensions, on: :member
         put "extensions/:slug/toggle", on: :member, action: :toggle_extension
 
-        # Development / business toggle
-        get :development, on: :member
-        put :development, on: :member, action: :update_development
-
         # Security configuration endpoints
         #
         # security_config/update_security_config/test_security_config (fc-21):

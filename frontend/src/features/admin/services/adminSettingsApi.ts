@@ -13,16 +13,6 @@ export interface ExtensionInfo {
   enabled: boolean;
 }
 
-export interface DevelopmentExtension {
-  slug: string;
-  version?: string;
-  enabled: boolean;
-}
-
-export interface DevelopmentInfo {
-  extensions: DevelopmentExtension[];
-}
-
 export interface SystemMetrics {
   total_users: number;
   total_accounts: number;
@@ -596,34 +586,6 @@ class AdminSettingsApi {
           : 'Failed to toggle extension';
       return { success: false, error: errorMessage };
     }
-  }
-
-  // Development / Business Toggle
-  async getDevelopmentInfo(): Promise<{ success: boolean; data?: DevelopmentInfo; error?: string }> {
-    try {
-      const response = await api.get('/admin_settings/development');
-      const responseData = response.data;
-      if (responseData.success !== undefined) {
-        return responseData;
-      }
-      return { success: true, data: responseData };
-    } catch (error) {
-      const errorMessage =
-        error && typeof error === 'object' && 'response' in error
-          ? (error as { response?: { data?: { error?: string } } }).response?.data?.error ||
-            'Failed to fetch development info'
-          : 'Failed to fetch development info';
-      return { success: false, error: errorMessage };
-    }
-  }
-
-  async updateExtensionEnabled(slug: string, enabled: boolean): Promise<{ success: boolean; data: { slug: string; enabled: boolean; message: string } }> {
-    const response = await api.put('/admin_settings/development', { slug, enabled });
-    const responseData = response.data;
-    if (responseData.success !== undefined) {
-      return responseData;
-    }
-    return { success: true, data: responseData };
   }
 
   formatRelativeTime(dateString: string): string {

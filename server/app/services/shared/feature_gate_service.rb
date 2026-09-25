@@ -135,14 +135,6 @@ module Shared
       extension_enabled?(slug)
     end
 
-    # Development info payload for admin UI
-    # @return [Hash]
-    def self.development_info
-      {
-        extensions: loaded_extensions
-      }
-    end
-
     private_class_method def self.flipper_enabled?(flag)
       return true unless defined?(Flipper)
 

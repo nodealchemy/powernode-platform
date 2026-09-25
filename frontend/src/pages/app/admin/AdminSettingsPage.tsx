@@ -23,7 +23,6 @@ import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage
 import { AdminSettingsInfrastructureTabPage } from './AdminSettingsInfrastructureTabPage';
 import { AdminSettingsVaultTabPage } from './AdminSettingsVaultTabPage';
 import { AdminSettingsProxyTabPage } from './AdminSettingsProxyTabPage';
-import { AdminSettingsDevelopmentTabPage } from './AdminSettingsDevelopmentTabPage';
 import { AdminSettingsAutonomyTabPage } from './AdminSettingsAutonomyTabPage';
 import { AdminSettingsExtensionsTabPage } from './AdminSettingsExtensionsTabPage';
 
@@ -38,7 +37,6 @@ const CORE_TAB_PAGES: Record<CoreAdminSettingsTabId, React.ComponentType> = {
   'rate-limiting': AdminSettingsRateLimitingTabPage,
   infrastructure: AdminSettingsInfrastructureTabPage,
   vault: AdminSettingsVaultTabPage,
-  development: AdminSettingsDevelopmentTabPage,
   autonomy: AdminSettingsAutonomyTabPage,
 };
 

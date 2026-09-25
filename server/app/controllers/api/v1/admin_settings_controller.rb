@@ -18,7 +18,7 @@ class Api::V1::AdminSettingsController < ApplicationController
   include AdminSettings::InfrastructureConfigActions
 
   before_action -> { require_permission("admin.settings.read") }
-  before_action -> { require_permission("admin.settings.update") }, only: %i[update toggle_extension update_development]
+  before_action -> { require_permission("admin.settings.update") }, only: %i[update toggle_extension]
   before_action -> { require_permission("admin.account.suspend") }, only: %i[suspend_account activate_account]
   before_action -> { require_permission("admin.settings.security") }, only: %i[update_infrastructure_config update_vault_config]
   # test_vault_connection is a READ, so the class-level admin.settings.read gate

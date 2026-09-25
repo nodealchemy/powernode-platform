@@ -263,50 +263,29 @@ describe('AdminSettingsTabs', () => {
     });
   });
 
-  describe('Development tab visibility', () => {
-    it('shows Development tab with admin.settings.read permission', async () => {
-      renderWithProviders(
-        <AdminSettingsTabs />,
-        {
-          preloadedState: {
-            ...mockAuthenticatedState,
-            auth: {
-              ...mockAuthenticatedState.auth,
-              user: {
-                ...mockUsers.adminUser,
-                permissions: ['admin.settings.read']
-              }
+  // fc-45: Development was a second enable/disable surface for the same
+  // extensions the Extensions tab manages; it is deleted.
+  it('offers no Development tab', async () => {
+    renderWithProviders(
+      <AdminSettingsTabs />,
+      {
+        preloadedState: {
+          ...mockAuthenticatedState,
+          auth: {
+            ...mockAuthenticatedState.auth,
+            user: {
+              ...mockUsers.adminUser,
+              permissions: ['admin.settings.read']
             }
           }
         }
-      );
+      }
+    );
 
-      await waitFor(() => {
-        expect(screen.getAllByText('Development')).toHaveLength(2); // Desktop and mobile
-      });
+    await waitFor(() => {
+      expect(screen.getAllByText('Extensions')).toHaveLength(2); // Desktop and mobile
     });
-
-    it('shows Development tab even in core mode (no business)', async () => {
-      renderWithProviders(
-        <AdminSettingsTabs />,
-        {
-          preloadedState: {
-            ...mockAuthenticatedState,
-            auth: {
-              ...mockAuthenticatedState.auth,
-              user: {
-                ...mockUsers.adminUser,
-                permissions: ['admin.settings.read']
-              }
-            }
-          }
-        }
-      );
-
-      await waitFor(() => {
-        expect(screen.getAllByText('Development')).toHaveLength(2); // Desktop and mobile
-      });
-    });
+    expect(screen.queryByText('Development')).not.toBeInTheDocument();
   });
 
   it('shows correct active tab for different routes', async () => {

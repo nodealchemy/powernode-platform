@@ -56,7 +56,8 @@ Remove the business-named methods; expose generic equivalents:
   so `available?` needs no slug literal.
 - `billing_enabled?` → `available?(:billing)` (registry decides which extension
   owns `:billing`).
-- `development_info` → generic `{ extensions: loaded_extensions }` only.
+- `development_info` → generic `{ extensions: loaded_extensions }` only. (Later
+  deleted with its only caller, the Development tab — see Phase 2.)
 
 ### Phase 2 — Generic admin "Extensions" surface (FE + BE) ☑
 Replace the business-specific Development tab + `PUT /admin_settings/development
@@ -65,6 +66,15 @@ Replace the business-specific Development tab + `PUT /admin_settings/development
 per-extension detail (license/version/feature flags) is supplied **by the
 extension** (registered via `featureRegistry`/an engine hook), not core. Removes
 `business_installed`/`business_enabled` payload fields and the business copy.
+
+Done in two steps. The generic per-slug Development tab first replaced the
+business-specific one; it was then deleted (fc-45) as a second enable/disable
+surface for the same extensions. The **Extensions** tab is the one surface:
+`GET /admin_settings/extensions` lists every extension on disk with its manifest
+metadata, and `PUT /admin_settings/extensions/:slug/toggle` sets both the
+runtime Flipper flag and the load-time `ExtensionStateStore` gate.
+`GET/PUT /admin_settings/development` and `FeatureGateService.development_info`
+no longer exist.
 
 ### Phase 3 — Extension-provided presence-gate seams (core + submodules) ☑ (done — implemented as the generic provider+capability seam; see Implementation log)
 The ~10 `loaded?("business")` / `:business_mode` gates in core

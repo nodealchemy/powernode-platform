@@ -398,21 +398,6 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
       end
     end
 
-    describe 'PUT /api/v1/admin_settings/development (update_development) requires admin.settings.update' do
-      let(:params) { { slug: 'business', enabled: false } }
-
-      it 'forbids a read-only admin' do
-        put '/api/v1/admin_settings/development', params: params, headers: read_only_headers, as: :json
-        expect(response).to have_http_status(:forbidden)
-      end
-
-      it 'allows a holder of admin.settings.update' do
-        put '/api/v1/admin_settings/development', params: params,
-            headers: auth_headers_for(user_with_settings_update), as: :json
-        expect(response).not_to have_http_status(:forbidden)
-      end
-    end
-
     describe 'POST /api/v1/admin_settings/suspend_account requires admin.account.suspend' do
       let(:target_account) { create(:account) }
       let(:params) { { account_id: target_account.id, reason: 'Violation of terms' } }

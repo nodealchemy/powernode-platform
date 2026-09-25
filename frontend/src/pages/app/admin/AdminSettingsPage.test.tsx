@@ -37,10 +37,6 @@ jest.mock('./AdminSettingsVaultTabPage', () => ({
   AdminSettingsVaultTabPage: () => <div data-testid="vault-tab-page">Vault Content</div>
 }));
 
-jest.mock('./AdminSettingsDevelopmentTabPage', () => ({
-  AdminSettingsDevelopmentTabPage: () => <div data-testid="development-tab-page">Development Content</div>
-}));
-
 jest.mock('./AdminSettingsAutonomyTabPage', () => ({
   AdminSettingsAutonomyTabPage: () => <div data-testid="autonomy-tab-page">Autonomy Content</div>
 }));
@@ -185,7 +181,11 @@ describe('AdminSettingsPage', () => {
       expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Autonomy');
     });
 
-    it.each(['/app/admin/settings/no-such-tab'])(
+    it('has no Development tab', () => {
+      expect(CORE_ADMIN_SETTINGS_TABS.map((tab) => tab.id)).not.toContain('development');
+    });
+
+    it.each(['/app/admin/settings/development', '/app/admin/settings/no-such-tab'])(
       'does not redirect an unknown settings path (%s) to the overview',
       (path) => {
         renderComponent(mockUserWithPermissions, path);

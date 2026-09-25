@@ -90,31 +90,6 @@ module AdminSettings
       render_error("Invalid extension metadata for '#{slug}'", :unprocessable_content)
     end
 
-    # GET /api/v1/admin_settings/development
-    def development
-      render_success(Shared::FeatureGateService.development_info)
-    end
-
-    # PUT /api/v1/admin_settings/development
-    def update_development
-      slug = params[:slug].to_s
-      unless Shared::FeatureGateService.extension_loaded?(slug)
-        return render_error("Extension '#{slug}' is not loaded", :unprocessable_content)
-      end
-
-      enabled = ActiveModel::Type::Boolean.new.cast(params[:enabled])
-      new_state = Shared::FeatureGateService.set_extension_enabled!(slug, enabled)
-
-      log_audit_event("admin.extension.toggle", "SystemSettings",
-                      metadata: { slug: slug, enabled: new_state })
-
-      render_success(
-        slug: slug,
-        enabled: new_state,
-        message: "Extension '#{slug}' #{new_state ? 'enabled' : 'disabled'}"
-      )
-    end
-
     private
 
     # Check if an extension's engine is loaded in the Rails runtime

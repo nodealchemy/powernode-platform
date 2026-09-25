@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import {
   Mail, Server,
   LayoutDashboard, ShieldAlert,
-  Network, Lock, Wrench, Puzzle, KeyRound, Bot,
+  Network, Lock, Puzzle, KeyRound, Bot,
   icons as lucideIcons
 } from 'lucide-react';
 import { featureRegistry, FeatureSettingsTab } from '@/shared/services/featureRegistry';
@@ -36,7 +36,7 @@ export const CORE_ADMIN_SETTINGS_TABS = [
     label: 'Extensions',
     href: `${ADMIN_SETTINGS_BASE}/extensions`,
     icon: Puzzle,
-    description: 'Manage platform extensions and modules',
+    description: 'Enable, disable and inspect platform extensions',
     requiredPermissions: ['admin.settings.read']
   },
   {
@@ -86,14 +86,6 @@ export const CORE_ADMIN_SETTINGS_TABS = [
     icon: KeyRound,
     description: 'HashiCorp Vault connection and key management',
     requiredPermissions: ['admin.settings.security']
-  },
-  {
-    id: 'development',
-    label: 'Development',
-    href: `${ADMIN_SETTINGS_BASE}/development`,
-    icon: Wrench,
-    description: 'Manage extensions and development tools',
-    requiredPermissions: ['admin.settings.read']
   },
   {
     // D3. Listed under the same read permission as its siblings so the tab is
