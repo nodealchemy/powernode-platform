@@ -9,7 +9,7 @@ module Devops
     include ExecutionTrackable
 
     # Constants
-    STATUSES = %w[pending provisioning running completed failed cancelled timeout].freeze
+    STATUSES = %w[pending provisioning running paused completed failed cancelled timeout].freeze
 
     # Associations
     belongs_to :account
@@ -32,6 +32,8 @@ module Devops
     scope :failed, -> { where(status: "failed") }
     scope :cancelled, -> { where(status: "cancelled") }
     scope :timeout, -> { where(status: "timeout") }
+    scope :paused, -> { where(status: "paused") }
+    scope :sandboxes, -> { where("input_parameters->>'sandbox_mode' = ?", "true") }
     scope :active, -> { where(status: %w[pending provisioning running]) }
     scope :finished, -> { where(status: %w[completed failed cancelled timeout]) }
     scope :recent, -> { order(created_at: :desc) }
@@ -64,6 +66,14 @@ module Devops
 
     def timed_out?
       status == "timeout"
+    end
+
+    def paused?
+      status == "paused"
+    end
+
+    def sandbox?
+      input_parameters.is_a?(Hash) && input_parameters["sandbox_mode"] == true
     end
 
     def active?
@@ -181,7 +191,8 @@ module Devops
         duration_ms: duration_ms,
         started_at: started_at,
         completed_at: completed_at,
-        runner_name: runner_name
+        runner_name: runner_name,
+        sandbox: sandbox?
       }
     end
 

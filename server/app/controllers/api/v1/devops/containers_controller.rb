@@ -22,6 +22,11 @@ module Api
           scope = scope.where(template_id: params[:template_id]) if params[:template_id].present?
           scope = scope.active if params[:active] == "true"
           scope = scope.finished if params[:finished] == "true"
+          if params[:sandbox] == "true"
+            scope = scope.sandboxes
+          elsif params[:sandbox] == "false"
+            scope = scope.where.not(id: scope.sandboxes.select(:id))
+          end
 
           # Date range
           if params[:since].present?

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_24_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_25_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -5424,7 +5424,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_24_020000) do
     t.index ["template_id"], name: "index_devops_container_instances_on_template_id"
     t.index ["triggered_by_id"], name: "index_devops_container_instances_on_triggered_by_id"
     t.index ["trust_level"], name: "index_devops_container_instances_on_trust_level"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'provisioning'::character varying::text, 'running'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'timeout'::character varying::text])", name: "mcp_instances_status_check"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'provisioning'::character varying::text, 'running'::character varying::text, 'paused'::character varying::text, 'completed'::character varying::text, 'failed'::character varying::text, 'cancelled'::character varying::text, 'timeout'::character varying::text])", name: "mcp_instances_status_check"
   end
 
   create_table "devops_container_templates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|

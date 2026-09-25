@@ -13,7 +13,7 @@ RSpec.describe Devops::ContainerInstance, type: :model do
   describe 'validations' do
     subject { build(:devops_container_instance) }
 
-    it { should validate_inclusion_of(:status).in_array(%w[pending provisioning running completed failed cancelled timeout]) }
+    it { should validate_inclusion_of(:status).in_array(%w[pending provisioning running paused completed failed cancelled timeout]) }
   end
 
   describe 'scopes' do
@@ -41,6 +41,24 @@ RSpec.describe Devops::ContainerInstance, type: :model do
         expect(Devops::ContainerInstance.failed).to include(failed_instance)
       end
     end
+
+    describe '.paused' do
+      let!(:paused_instance) { create(:devops_container_instance, :paused) }
+
+      it 'returns only paused instances' do
+        expect(Devops::ContainerInstance.paused).to include(paused_instance)
+        expect(Devops::ContainerInstance.paused).not_to include(running_instance, completed_instance)
+      end
+    end
+
+    describe '.sandboxes' do
+      let!(:sandbox_instance) { create(:devops_container_instance, :sandbox) }
+
+      it 'returns only instances flagged as a sandbox in input_parameters' do
+        expect(Devops::ContainerInstance.sandboxes).to include(sandbox_instance)
+        expect(Devops::ContainerInstance.sandboxes).not_to include(pending_instance, running_instance)
+      end
+    end
   end
 
   describe 'status methods' do
@@ -55,6 +73,30 @@ RSpec.describe Devops::ContainerInstance, type: :model do
       it 'returns true when running' do
         instance = build(:devops_container_instance, :running)
         expect(instance.running?).to be true
+      end
+    end
+
+    describe '#paused?' do
+      it 'returns true when paused' do
+        instance = build(:devops_container_instance, :paused)
+        expect(instance.paused?).to be true
+      end
+
+      it 'returns false otherwise' do
+        instance = build(:devops_container_instance, :running)
+        expect(instance.paused?).to be false
+      end
+    end
+
+    describe '#sandbox?' do
+      it 'returns true when input_parameters flags sandbox_mode' do
+        instance = build(:devops_container_instance, :sandbox)
+        expect(instance.sandbox?).to be true
+      end
+
+      it 'returns false for a plain template execution' do
+        instance = build(:devops_container_instance)
+        expect(instance.sandbox?).to be false
       end
     end
 
@@ -114,6 +156,18 @@ RSpec.describe Devops::ContainerInstance, type: :model do
 
     it 'calculates execution duration' do
       expect(instance.duration_ms).to be_present
+    end
+  end
+
+  describe '#instance_summary' do
+    it 'flags a sandbox instance so list views can filter on it' do
+      instance = create(:devops_container_instance, :sandbox)
+      expect(instance.instance_summary[:sandbox]).to be true
+    end
+
+    it 'flags a plain template execution as not a sandbox' do
+      instance = create(:devops_container_instance)
+      expect(instance.instance_summary[:sandbox]).to be false
     end
   end
 

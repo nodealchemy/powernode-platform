@@ -147,15 +147,14 @@ RSpec.describe Ai::Runtime::SandboxManagerService, type: :service do
         allow(Devops::DockerHost).to receive(:where).and_return(docker_hosts_relation)
         allow(docker_hosts_relation).to receive(:connected).and_return(docker_hosts_relation)
         allow(docker_hosts_relation).to receive(:first).and_return(docker_host)
-        # Stub the update! since "paused" is not a valid ContainerInstance status
-        allow(running_instance).to receive(:update!)
       end
 
-      it 'pauses a running instance' do
+      it 'pauses a running instance and persists the "paused" status' do
         result = service.pause_sandbox(instance: running_instance)
 
         expect(result[:success]).to be true
         expect(result[:execution_id]).to eq(running_instance.execution_id)
+        expect(running_instance.reload.status).to eq("paused")
       end
     end
 

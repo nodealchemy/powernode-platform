@@ -34,6 +34,22 @@ FactoryBot.define do
       runner_name { 'runner-001' }
     end
 
+    trait :paused do
+      status { 'paused' }
+      started_at { 5.minutes.ago }
+      runner_name { 'runner-001' }
+    end
+
+    trait :sandbox do
+      input_parameters do
+        {
+          'agent_id' => SecureRandom.uuid,
+          'agent_name' => 'test-agent',
+          'sandbox_mode' => true
+        }
+      end
+    end
+
     trait :completed do
       status { 'completed' }
       started_at { 10.minutes.ago }
