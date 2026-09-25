@@ -18,7 +18,6 @@ agent_reflect
 agent_remember
 approve_improvement
 archive_by_predicate
-attach_skill_to_agent
 bootstrap_disk_image_ci
 campaign_answer_question
 campaign_check_rebase
@@ -34,7 +33,6 @@ campaign_status
 campaign_stop
 campaign_update_proposal
 check_task_status
-clone_skill
 code_blast_radius
 code_context_tree
 code_create_relation
@@ -61,7 +59,6 @@ create_knowledge_base
 create_learning
 create_memory_pool
 create_page
-create_skill
 create_team
 create_workspace
 data_source_config_versions
@@ -93,19 +90,16 @@ delete_knowledge
 delete_memory_pool
 delete_ralph_loop
 delete_shared_memory
-delete_skill
 deliver
 delivery_list
 delivery_status
 deploy_container_agent
-detach_skill_from_agent
 detect_collusion
 dev_complete_task
 dev_requeue_task
 dev_update_task
 disable_autonomy
 discover_improvements
-discover_skills
 dismiss_all_notifications
 dismiss_improvement
 dismiss_notification
@@ -143,8 +137,6 @@ get_ralph_loop
 get_ralph_loop_statistics
 get_remediation_route
 get_schedule
-get_skill
-get_skill_context
 get_subgraph
 get_system_health
 get_team
@@ -182,7 +174,6 @@ list_pipelines
 list_pools
 list_ralph_loops
 list_roles
-list_skills
 list_teams
 list_workspaces
 mark_all_notifications_read
@@ -227,8 +218,6 @@ search_memory
 send_concierge_message
 set_gitea_action_secret
 set_gitea_action_secrets_bulk
-skill_health
-skill_metrics
 spawn_task
 start_content_production
 system_abort_task
@@ -386,7 +375,6 @@ system_update_instance
 system_update_package_repository
 system_update_volume
 tag_conversation
-toggle_skill
 trigger_pipeline
 unpin_conversation
 update_agent
@@ -395,7 +383,6 @@ update_kb_article
 update_knowledge
 update_page
 update_ralph_loop
-update_skill
 update_team
 verify_learning
 wait_for_task

@@ -41,19 +41,19 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "attach_skill_to_agent", mutating: true
-      declare_action "clone_skill", mutating: true
-      declare_action "create_skill", mutating: true
-      declare_action "delete_skill", mutating: true, destructive: true
-      declare_action "detach_skill_from_agent", mutating: true, destructive: true
-      declare_action "discover_skills", mutating: false
-      declare_action "get_skill", mutating: false
-      declare_action "get_skill_context", mutating: false
-      declare_action "list_skills", mutating: false
-      declare_action "skill_health", mutating: false
-      declare_action "skill_metrics", mutating: false
-      declare_action "toggle_skill", mutating: true
-      declare_action "update_skill", mutating: true
+      declare_action "attach_skill_to_agent", mutating: true, returns: "attached: true, the skill and agent ids, priority and is_active", see_also: { "detach_skill_from_agent" => "removing the binding" }
+      declare_action "clone_skill", mutating: true, returns: "skill, cloned_from_id and source_key", see_also: { "update_skill" => "editing a skill the account already owns" }
+      declare_action "create_skill", mutating: true, returns: "skill, the full record", refuses: "name is missing or the skill fails validation", see_also: { "clone_skill" => "starting from an existing skill" }
+      declare_action "delete_skill", mutating: true, destructive: true, refuses: "the skill is a system skill", see_also: { "toggle_skill" => "disabling it instead" }
+      declare_action "detach_skill_from_agent", mutating: true, destructive: true, returns: "detached: true with the skill and agent ids", refuses: "the skill is not attached to that agent", see_also: { "attach_skill_to_agent" => "re-binding with is_active: false instead" }
+      declare_action "discover_skills", mutating: false, returns: "the skills reached by skill-graph traversal from task_context, within token_budget (default 2000)", see_also: { "get_skill_context" => "the rendered context block for an input" }
+      declare_action "get_skill", mutating: false, returns: "skill, the full record including its system prompt and commands"
+      declare_action "get_skill_context", mutating: false, returns: "the enriched context for input_text within token_budget (default 2000)", see_also: { "discover_skills" => "just the list of relevant skills" }
+      declare_action "list_skills", mutating: false, returns: "count (all matches), page, per_page (default 20, at most 50), total_pages and a summary per skill"
+      declare_action "skill_health", mutating: false, returns: "the comprehensive health report", see_also: { "skill_metrics" => "only the health score and metrics" }
+      declare_action "skill_metrics", mutating: false, returns: "the health score and its metrics", see_also: { "skill_health" => "the full report" }
+      declare_action "toggle_skill", mutating: true, returns: "skill_id and enabled", see_also: { "delete_skill" => "removing it" }
+      declare_action "update_skill", mutating: true, returns: "skill, cloned, and cloned_from_id when the edit landed on a clone"
 
       def self.definition
         {
@@ -127,7 +127,7 @@ module Ai
             parameters: {}
           },
           "create_skill" => {
-            description: "Create a new AI skill",
+            description: "Create a new AI skill in the current account.",
             parameters: {
               name: { type: "string", required: true, description: "Skill name" },
               description: { type: "string", required: false, description: "Skill description" },
@@ -162,7 +162,7 @@ module Ai
             }
           },
           "delete_skill" => {
-            description: "Delete an AI skill permanently",
+            description: "Delete an AI skill permanently.",
             parameters: {
               skill_id: { type: "string", required: true, description: "Skill ID to delete" }
             }
