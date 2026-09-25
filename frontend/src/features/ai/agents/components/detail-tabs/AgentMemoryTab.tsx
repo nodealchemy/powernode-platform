@@ -6,6 +6,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePermissions } from '@/shared/hooks/usePermissions';
 import { MemoryViewer } from '@/features/ai/memory/components/MemoryViewer';
 import { EntryEditor } from '@/features/ai/memory/components/EntryEditor';
 import { contextApi } from '@/features/ai/memory/api/contextApi';
@@ -87,6 +88,7 @@ export const AgentMemoryTab: React.FC<{ agentId: string }> = ({ agentId }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { showNotification } = useNotifications();
+  const { hasPermission } = usePermissions();
   const { confirm, ConfirmationDialog } = useConfirmation();
 
   const [context, setContext] = useState<AiPersistentContextSummary | null>(null);
@@ -98,9 +100,11 @@ export const AgentMemoryTab: React.FC<{ agentId: string }> = ({ agentId }) => {
   const basePath = `/app/ai/agents/${agentId}/memory`;
   const tabs = [
     { id: 'agent', label: 'Agent Memory', icon: <Brain size={16} />, path: '/' },
-    { id: 'pools', label: 'Memory Pools', icon: <Database size={16} />, path: '/pools' },
+    // MemoryPoolsController reads need ai.memory_pools.read.
+    { id: 'pools', label: 'Memory Pools', icon: <Database size={16} />, path: '/pools', permissions: ['ai.memory_pools.read'] },
   ];
-  const activeTab = location.pathname.startsWith(`${basePath}/pools`) ? 'pools' : 'agent';
+  const canReadPools = hasPermission('ai.memory_pools.read');
+  const activeTab = canReadPools && location.pathname.startsWith(`${basePath}/pools`) ? 'pools' : 'agent';
 
   const loadContext = useCallback(async () => {
     setLoading(true);

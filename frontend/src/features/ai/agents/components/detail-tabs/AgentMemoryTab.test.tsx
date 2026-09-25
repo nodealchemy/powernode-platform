@@ -30,13 +30,14 @@ jest.mock('@/features/ai/memory/components/EntryEditor', () => ({
 import { contextApi } from '@/features/ai/memory/api/contextApi';
 import { agentMemoryApiService } from '@/shared/services/ai/AgentMemoryApiService';
 
-const renderAt = (path: string) => {
+const renderAt = (path: string, permissions: string[] = ['ai.memory.read', 'ai.memory_pools.read']) => {
   window.history.pushState({}, '', path);
   return render(
     <Routes>
       <Route path="/app/ai/agents/:agentId/memory/*" element={<AgentMemoryTab agentId="agent-1" />} />
       <Route path="/app/ai/knowledge/contexts/:id" element={<div data-testid="context-detail" />} />
     </Routes>,
+    { preloadedState: { auth: { user: { id: 'u1', permissions }, isAuthenticated: true, isLoading: false } } },
   );
 };
 
@@ -65,6 +66,14 @@ describe('AgentMemoryTab (fc-43)', () => {
 
     expect(await screen.findByText('Shared triage')).toBeInTheDocument();
     expect(screen.queryByTestId('memory-viewer')).not.toBeInTheDocument();
+  });
+
+  it('hides Memory Pools without ai.memory_pools.read (MemoryPoolsController)', async () => {
+    renderAt('/app/ai/agents/agent-1/memory/pools', ['ai.memory.read']);
+
+    expect(await screen.findByText('CVE Responder memory')).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: /Memory Pools/ })).not.toBeInTheDocument();
+    expect(agentMemoryApiService.getMemoryPools).not.toHaveBeenCalled();
   });
 
   it('switches sub-views by path', async () => {
