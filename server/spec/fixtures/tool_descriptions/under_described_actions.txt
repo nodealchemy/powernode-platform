@@ -33,19 +33,15 @@ code_semantic_navigate
 code_static_analysis
 code_upsert_node
 compose_skills
-consolidate_memory
 content_production_status
 create_agent
 create_gitea_repository
 create_kb_article
 create_knowledge_base
-create_memory_pool
 create_page
 create_team
 delete_document
-delete_memory_pool
 delete_ralph_loop
-delete_shared_memory
 deploy_container_agent
 detect_collusion
 disable_autonomy
@@ -101,7 +97,6 @@ list_ralph_loops
 list_roles
 mark_all_notifications_read
 measure_pressure
-memory_stats
 optimize_team
 pause_ralph_loop
 perceive_pressure
@@ -113,7 +108,6 @@ process_document
 project_get
 project_list
 project_status
-read_shared_memory
 reason_knowledge_graph
 record_agent_execution
 recruit_agent
@@ -125,7 +119,6 @@ revert_improvement
 route_task
 scoreboard
 search_knowledge_graph
-search_memory
 spawn_task
 start_content_production
 system_abort_task
@@ -290,4 +283,3 @@ update_page
 update_ralph_loop
 update_team
 wait_for_task
-write_shared_memory

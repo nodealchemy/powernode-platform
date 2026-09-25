@@ -35,15 +35,39 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "consolidate_memory", mutating: true
-      declare_action "create_memory_pool", mutating: true
-      declare_action "delete_memory_pool", mutating: true, destructive: true
-      declare_action "delete_shared_memory", mutating: true, destructive: true
+      declare_action "consolidate_memory", mutating: true,
+                                           returns: "per-stage counts (short_term_consolidation, shared_consolidation, dedup_long_term, dedup_shared, dedup_context)",
+                                           refuses: "no agent_id is given and the caller has no agent, or the agent is not in this account"
+      declare_action "create_memory_pool", mutating: true,
+                                           returns: "the new pool's pool_id, id and name",
+                                           refuses: [ "pool_id or name is missing", "the pool fails validation" ]
+      declare_action "delete_memory_pool", mutating: true, destructive: true,
+                                           returns: "deleted: true with the pool_id and name",
+                                           refuses: [ "pool_id is missing or is 'default'", "no pool in this account matches the slug or UUID" ]
+      declare_action "delete_shared_memory", mutating: true, destructive: true,
+                                             returns: "the key and deleted: true",
+                                             refuses: [ "the named pool does not exist in this account", "the key is absent",
+                                                        "the calling agent may not access the pool, or is neither its owner nor acting on a public shared pool" ]
       declare_action "list_pools", mutating: false, limit: 50, returns: "id, pool_id, name and pool_type per pool, in no particular order"
-      declare_action "memory_stats", mutating: false
-      declare_action "read_shared_memory", mutating: false
-      declare_action "search_memory", mutating: false
-      declare_action "write_shared_memory", mutating: true
+      declare_action "memory_stats", mutating: false,
+                                     returns: "counts per tier (working, short_term, long_term, shared) for one agent, or short_term, long_term, shared and pools counts account-wide"
+      declare_action "read_shared_memory", mutating: false,
+                                           returns: "the key and its stored value (null when the key is absent)",
+                                           refuses: [ "the named pool does not exist in this account", "the calling agent may not access the pool" ]
+      declare_action "search_memory", mutating: false,
+                                      returns: "tier-tagged results (short_term: key, value; long_term: content, category) and count",
+                                      refuses: [ "query is missing", "no agent can be resolved from agent_id, the caller, or the MCP session" ],
+                                      see_also: {
+                                        "agent_recall" => "embedding search of an agent's own agent_remember entries",
+                                        "query_learnings" => "semantic search and filters over compound learnings",
+                                        "search_knowledge" => "account shared knowledge entries",
+                                        "query_knowledge_base" => "documents ingested into a RAG knowledge base",
+                                        "search_knowledge_graph" => "knowledge graph nodes and relations"
+                                      }
+      declare_action "write_shared_memory", mutating: true,
+                                            returns: "the key and written: true",
+                                            refuses: [ "the named pool does not exist in this account",
+                                                       "the calling agent may not access the pool, or is neither its owner nor writing to a public shared pool" ]
 
       def self.definition
         {
@@ -65,7 +89,9 @@ module Ai
       def self.action_definitions
         {
           "write_shared_memory" => {
-            description: "Write a value to shared memory in a specific pool",
+            description: "Write a value under a key in a memory pool's shared data. " \
+                         "Omitting pool_id, or passing 'default', uses the account's default pool, created on first use as a public shared pool. " \
+                         "A dot-separated key writes a nested value.",
             parameters: {
               pool_id: { type: "string", required: false, description: "Memory pool ID (default: 'default')" },
               key: { type: "string", required: true, description: "Data key (dot-separated for nesting)" },
@@ -73,21 +99,27 @@ module Ai
             }
           },
           "read_shared_memory" => {
-            description: "Read a value from shared memory in a specific pool",
+            description: "Read the value stored under a key in a memory pool's shared data. " \
+                         "Omitting pool_id, or passing 'default', reads the account's default pool, created on first use. " \
+                         "A dot-separated key reads a nested value.",
             parameters: {
               pool_id: { type: "string", required: false, description: "Memory pool ID (default: 'default')" },
               key: { type: "string", required: true, description: "Data key to read" }
             }
           },
           "delete_shared_memory" => {
-            description: "Delete a key from shared memory in a specific pool",
+            description: "Delete a key from a memory pool's shared data. " \
+                         "Omitting pool_id, or passing 'default', targets the account's default pool.",
             parameters: {
               pool_id: { type: "string", required: false, description: "Memory pool ID (default: 'default')" },
               key: { type: "string", required: true, description: "Data key to delete (dot-separated for nested keys)" }
             }
           },
           "search_memory" => {
-            description: "Search across memory tiers by keyword query",
+            description: "Keyword-search one agent's short-term memory and the account's compound learnings. " \
+                         "Short-term rows are what the agent runtime writes during executions (unexpired only); " \
+                         "long-term rows are active Ai::CompoundLearning records, the same store query_learnings reads. " \
+                         "Matching is a case-insensitive substring match, up to limit (default 10) rows per tier.",
             parameters: {
               query: { type: "string", required: true, description: "Search query" },
               agent_id: { type: "string", required: false, description: "Target agent ID" },
@@ -95,13 +127,16 @@ module Ai
             }
           },
           "consolidate_memory" => {
-            description: "Run memory consolidation pipeline for an agent (promotes across tiers)",
+            description: "Run the memory consolidation pipeline for an agent. " \
+                         "It promotes that agent's short-term memories to long-term, promotes team memories to shared for every team in the account, " \
+                         "and deduplicates the long-term, shared and context tiers. Skipped while AI is suspended for the account.",
             parameters: {
               agent_id: { type: "string", required: false, description: "Target agent ID" }
             }
           },
           "memory_stats" => {
-            description: "Get memory usage statistics across all tiers",
+            description: "Get memory usage counts across memory tiers. " \
+                         "With agent_id, or when the caller is an agent, counts are for that agent; otherwise they are account-wide.",
             parameters: {
               agent_id: { type: "string", required: false, description: "Agent ID (omit for account-wide stats)" }
             }
@@ -111,7 +146,9 @@ module Ai
             parameters: {}
           },
           "create_memory_pool" => {
-            description: "Create a new memory pool. pool_id should be a unique slug (e.g. 'research_ops'). Pools are account-scoped.",
+            description: "Create a new account-scoped memory pool. " \
+                         "pool_id should be a unique lowercase slug such as 'research_ops'. " \
+                         "pool_type defaults to shared and scope to account.",
             parameters: {
               pool_id: { type: "string", required: true, description: "Unique slug for the pool (lowercase, underscores)" },
               name: { type: "string", required: true, description: "Human-readable display name" },
@@ -123,7 +160,8 @@ module Ai
             }
           },
           "delete_memory_pool" => {
-            description: "Permanently delete a memory pool and all its data. Cannot delete the 'default' pool.",
+            description: "Permanently delete a memory pool and all its data. " \
+                         "The pool is found by slug or UUID within this account.",
             parameters: {
               pool_id: { type: "string", required: true, description: "Pool slug or UUID" }
             }
