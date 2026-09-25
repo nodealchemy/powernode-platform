@@ -233,7 +233,7 @@ module Ai
         "immediately\", not \"emergency halt method\").\n" \
         "- Include obvious synonyms a searcher might use instead of the identifier's own words.\n" \
         "- Plain language. No markdown, no identifier back-ticks, no 'This method...' preamble.\n" \
-        "- One sentence, under 40 words.\n" \
+        "- One sentence.\n" \
         "- If the body is too trivial or opaque to describe, summarise from the name and signature anyway."
       end
 

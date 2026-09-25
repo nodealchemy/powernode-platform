@@ -333,4 +333,14 @@ RSpec.describe Ai::Codebase::SymbolSummaryService do
       expect(prompt).not_to include("row#{described_class::BODY_MAX_LINES + 1}")
     end
   end
+
+  # C12: "one sentence" carries the length intent; a numeric word cap was
+  # tuned against older verbosity, and SUMMARY_MAX_CHARS bounds the stored text.
+  describe "system prompt" do
+    it "asks for one sentence without a numeric word cap" do
+      prompt = service.send(:system_prompt)
+      expect(prompt).to include("- One sentence.")
+      expect(prompt).not_to match(/under \d+ words/)
+    end
+  end
 end
