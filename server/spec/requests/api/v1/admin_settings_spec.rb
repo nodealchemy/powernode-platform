@@ -31,13 +31,24 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
         expect(json_response['data'].keys).to contain_exactly('metrics', 'settings_summary')
       end
 
-      it 'reports core metrics only, no billing figures' do
+      # fc-47: no system_health or uptime either. Platform health is on
+      # /app/status; the old verdict counted failed payments through the
+      # billing bridge, which core does not read for health.
+      it 'reports core account metrics only, no health verdict or billing figures' do
         get '/api/v1/admin_settings', headers: headers, as: :json
 
         expect(json_response['data']['metrics'].keys).to contain_exactly(
           'total_users', 'total_accounts', 'active_accounts', 'suspended_accounts',
-          'cancelled_accounts', 'system_health', 'uptime'
+          'cancelled_accounts'
         )
+      end
+
+      it 'does not consult the billing bridge' do
+        expect(Powernode::BillingBridge).not_to receive(:payment_model)
+
+        get '/api/v1/admin_settings', headers: headers, as: :json
+
+        expect_success_response
       end
 
       # settings_summary used to dump AdminSetting#value RAW (a string), so a

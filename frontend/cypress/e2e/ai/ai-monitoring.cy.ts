@@ -11,7 +11,6 @@
  * - Real-time updates toggle
  * - Time range selection
  * - Refresh functionality
- * - System health dashboard
  * - Provider monitoring
  * - Agent performance
  * - Alert management
@@ -134,20 +133,6 @@ describe('AI Monitoring Page Tests', () => {
 
     it('should have Refresh button', () => {
       cy.assertHasElement(['button:contains("Refresh")', '[aria-label*="refresh"]']);
-    });
-  });
-
-  describe('System Health Dashboard', () => {
-    beforeEach(() => {
-      cy.assertPageReady('/app/ai/monitoring');
-    });
-
-    it('should display system health information', () => {
-      cy.assertContainsAny(['Health', 'System', 'Status', 'Monitoring']);
-    });
-
-    it('should display health score', () => {
-      cy.assertContainsAny(['%', 'Score', 'healthy', 'Monitoring']);
     });
   });
 

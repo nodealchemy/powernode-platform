@@ -30,7 +30,8 @@ module Admin
       }
     end
 
-    # Get system metrics
+    # Account metrics. Platform health is not reported here: it is on
+    # /app/status (Platform::Status, core_service among its contributors).
     # @return [Hash] System-wide metrics
     def system_metrics
       {
@@ -38,9 +39,7 @@ module Admin
         total_accounts: Account.count,
         active_accounts: Account.where(status: "active").count,
         suspended_accounts: Account.where(status: "suspended").count,
-        cancelled_accounts: Account.where(status: "cancelled").count,
-        system_health: calculate_system_health,
-        uptime: calculate_uptime
+        cancelled_accounts: Account.where(status: "cancelled").count
       }
     end
 
@@ -118,30 +117,8 @@ module Admin
 
     private
 
-    def calculate_system_health
-      failed_payments = payment_class&.where(status: "failed", created_at: 24.hours.ago..Time.current)&.count || 0
-      error_logs = AuditLog.where(action: "system_error", created_at: 24.hours.ago..Time.current).count
-
-      if error_logs > 10 || failed_payments > 50
-        "error"
-      elsif error_logs > 5 || failed_payments > 20
-        "warning"
-      else
-        "healthy"
-      end
-    end
-
-    def calculate_uptime
-      process_start_time = File.stat("/proc/self").ctime rescue (Time.current - 1.day)
-      [ Time.current - process_start_time, 0 ].max
-    end
-
     # user_role_distribution's sole caller, user_management_data, was removed
     # here (fc-38), so this went with it rather than being left as dead code.
-
-    def payment_class
-      Powernode::BillingBridge.payment_model
-    end
 
     def log_admin_action(action, resource, metadata = {})
       AuditLog.create!(

@@ -21,8 +21,6 @@ export interface SystemMetrics {
   active_accounts: number;
   suspended_accounts: number;
   cancelled_accounts: number;
-  system_health: 'healthy' | 'warning' | 'error';
-  uptime: number;
 }
 
 export interface RateLimitingSettings {
@@ -220,20 +218,6 @@ class AdminSettingsApi {
     const sizeUnit = sizes[i] || 'Bytes';
 
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizeUnit;
-  }
-
-  formatUptime(uptimeSeconds: number): string {
-    const days = Math.floor(uptimeSeconds / 86400);
-    const hours = Math.floor((uptimeSeconds % 86400) / 3600);
-    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
-    
-    if (days > 0) {
-      return `${days}d ${hours}h ${minutes}m`;
-    } else if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${minutes}m`;
-    }
   }
 
   formatNumber(num: number): string {

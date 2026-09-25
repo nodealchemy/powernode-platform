@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
 import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/adminSettingsApi';
@@ -100,66 +100,25 @@ export const AdminSettingsOverviewPage: React.FC = () => {
 
   const { metrics, settings_summary } = data;
 
-  // Determine overall system status
-  const getSystemStatus = () => {
-    if (settings_summary?.maintenance_mode) return { status: 'maintenance' as const, message: 'System in maintenance mode' };
-    if (metrics.system_health === 'error') return { status: 'error' as const, message: 'System experiencing errors' };
-    if (metrics.system_health === 'warning') return { status: 'warning' as const, message: 'System has warnings' };
-
-    return { status: 'healthy' as const, message: 'All systems operational' };
-  };
-
-  const systemStatus = getSystemStatus();
-
   return (
     <div className="space-y-6">
-      {/* System Status Indicator */}
-      <div className="flex items-center gap-4 p-4 bg-theme-surface rounded-lg border border-theme">
-        <span className="text-theme-secondary">System Status:</span>
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${
-            systemStatus.status === 'healthy' ? 'bg-theme-success-bg' :
-            systemStatus.status === 'warning' ? 'bg-theme-warning-bg' :
-            systemStatus.status === 'error' ? 'bg-theme-error-bg' :
-            'bg-theme-warning-bg'
-          }`} />
-          <span className={`text-sm font-medium ${
-            systemStatus.status === 'healthy' ? 'text-theme-success-fg' :
-            systemStatus.status === 'warning' ? 'text-theme-warning-fg' :
-            systemStatus.status === 'error' ? 'text-theme-error-fg' :
-            'text-theme-warning-fg'
-          }`}>
-            {systemStatus.message}
-          </span>
-        </div>
+      {/* Platform health is on /app/status (fc-47): the overview renders no
+          health verdict of its own. */}
+      <div className="flex items-center justify-between gap-4 p-4 bg-theme-surface rounded-lg border border-theme">
+        <span className="text-theme-secondary">Service health, dependencies and incidents</span>
+        <Link to="/app/status" className="text-sm font-medium text-theme-link hover:text-theme-link-hover">
+          Platform status →
+        </Link>
       </div>
 
-      {/* System Status Alert */}
-      {systemStatus.status !== 'healthy' && (
-        <div className={`p-4 rounded-xl border ${
-          systemStatus.status === 'maintenance' ? 'bg-theme-warning-bg border-theme-warning-border' :
-          systemStatus.status === 'warning' ? 'bg-theme-warning-bg border-theme-warning-border' :
-          'bg-theme-error-bg border-theme-error-border'
-        }`}>
+      {settings_summary?.maintenance_mode && (
+        <div className="p-4 rounded-xl border bg-theme-warning-bg border-theme-warning-border">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">
-              {systemStatus.status === 'maintenance' ? '🔧' :
-               systemStatus.status === 'warning' ? '⚠️' : '❌'}
-            </span>
+            <span className="text-2xl">🔧</span>
             <div>
-              <h3 className={`font-semibold ${
-                systemStatus.status === 'maintenance' ? 'text-theme-warning-fg' :
-                systemStatus.status === 'warning' ? 'text-theme-warning-fg' :
-                'text-theme-error-fg'
-              }`}>
-                System Status Alert
-              </h3>
-              <p className={`text-sm ${
-                systemStatus.status === 'maintenance' ? 'text-theme-warning-fg' :
-                systemStatus.status === 'warning' ? 'text-theme-warning-fg' :
-                'text-theme-error-fg'
-              }`}>
-                {systemStatus.message}. Please review system settings and logs for details.
+              <h3 className="font-semibold text-theme-warning-fg">System Status Alert</h3>
+              <p className="text-sm text-theme-warning-fg">
+                System in maintenance mode. Please review system settings and logs for details.
               </p>
             </div>
           </div>
@@ -168,14 +127,6 @@ export const AdminSettingsOverviewPage: React.FC = () => {
 
       {/* System Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <SystemStatusCard
-          title="System Health"
-          status={metrics.system_health}
-          value={metrics.system_health === 'healthy' ? 'Operational' : 
-                 metrics.system_health === 'warning' ? 'Warnings' : 'Critical'}
-          description={`Uptime: ${adminSettingsApi.formatUptime(metrics.uptime)}`}
-        />
-
         <SystemStatusCard
           title="Maintenance Mode"
           status={settings_summary?.maintenance_mode ? 'maintenance' : 'healthy'}

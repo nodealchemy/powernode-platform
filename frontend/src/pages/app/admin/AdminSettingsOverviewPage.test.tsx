@@ -28,8 +28,6 @@ jest.mock('react-router-dom', () => ({
 // The admin_overview payload core serves: metrics and the settings summary.
 const overview = (settingsSummary: Record<string, unknown> = {}) => ({
   metrics: {
-    system_health: 'healthy',
-    uptime: 3600,
     total_users: 10,
     total_accounts: 3,
     active_accounts: 2,
@@ -127,7 +125,22 @@ describe('AdminSettingsOverviewPage', () => {
       'Recent Activity', 'Recent Accounts', 'System Logs', 'Recent Users',
       'Quick Actions', 'Configuration Overview'
     ].forEach((text) => expect(screen.queryByText(text)).not.toBeInTheDocument());
-    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    // The one link is to the platform status page (fc-47).
+    expect(screen.getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual(['/app/status']);
+  });
+
+  // fc-47: platform health is on /app/status. The overview renders no health
+  // verdict or uptime of its own, only a link to the status page.
+  it('shows no System Health card or uptime, and links to /app/status', async () => {
+    respondWith(overview());
+
+    renderPage();
+
+    await screen.findByText('Total Users');
+    expect(screen.queryByText('System Health')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Uptime/)).not.toBeInTheDocument();
+    expect(screen.queryByText('All systems operational')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Platform status/ })).toHaveAttribute('href', '/app/status');
   });
 
   // Extension status cards mount through a generic component-slot prefix;
