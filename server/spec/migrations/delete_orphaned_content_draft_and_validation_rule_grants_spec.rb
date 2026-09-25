@@ -32,20 +32,30 @@ RSpec.describe DeleteOrphanedContentDraftAndValidationRuleGrants do
     grant("admin.validation_rules.manage")
     grant("ai.agents.read")
     grant("admin.settings.read")
+    # `_` in a LIKE pattern is a one-character wildcard unless escaped; these
+    # differ from the orphaned prefixes only where the `_` is.
+    grant("ai.contentXdrafts.read")
+    grant("admin.validationXrules.manage")
   end
 
   describe "#up" do
     it "deletes only the orphaned grants and keeps every other grant" do
       migration.up
 
-      expect(granted_names).to eq(%w[admin.settings.read ai.agents.read])
+      expect(granted_names).to eq(%w[admin.settings.read admin.validationXrules.manage ai.agents.read ai.contentXdrafts.read])
+    end
+
+    it "matches `_` literally, so a name differing only there survives" do
+      migration.up
+
+      expect(granted_names).to include("ai.contentXdrafts.read", "admin.validationXrules.manage")
     end
 
     it "is idempotent: a second run deletes nothing more and does not raise" do
       migration.up
 
       expect { migration.up }.not_to raise_error
-      expect(granted_names).to eq(%w[admin.settings.read ai.agents.read])
+      expect(granted_names).to eq(%w[admin.settings.read admin.validationXrules.manage ai.agents.read ai.contentXdrafts.read])
     end
 
     it "logs counts only, never a role id" do
