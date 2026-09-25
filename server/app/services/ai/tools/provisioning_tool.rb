@@ -92,10 +92,24 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "platform_provisioning_adapt", mutating: true
-      declare_action "platform_provisioning_approve_plan", mutating: true
+      declare_action "platform_provisioning_approve_plan", mutating: true,
+                                                           returns: "plan_id, the plan's id, status and step count, approval_request_id (currently always null) " \
+                                                                    "and the mission's status",
+                                                           refuses: [
+                                                             "plan_id is missing or names no plan in this account",
+                                                             "decision is not approved, rejected or modified",
+                                                             "the plan is not bound to an infrastructure mission"
+                                                           ]
       declare_action "platform_provisioning_capture_brief", mutating: true
-      declare_action "platform_provisioning_compose_plan", mutating: true
-      declare_action "platform_provisioning_status", mutating: false
+      declare_action "platform_provisioning_compose_plan", mutating: true,
+                                                           returns: "the plan snapshot with cost_estimate, topology_preview and risk, plus mission_id; " \
+                                                                    "or clarification_needed with available_providers when the provider is ambiguous",
+                                                           refuses: [
+                                                             "mission_id is missing, names no mission in this account, or names a non-infrastructure mission",
+                                                             "the brief is incomplete, no agent is available, or composition yields no plan"
+                                                           ]
+      declare_action "platform_provisioning_status", mutating: false,
+                                                     refuses: "mission_id is missing, names no mission in this account, or names a non-infrastructure mission"
 
       def self.definition
         {
@@ -126,18 +140,20 @@ module Ai
             }
           },
           "platform_provisioning_compose_plan" => {
-            description: "Run the LLM goal-decomposition kernel against the mission's brief and produce a " \
-                         "persisted Ai::GoalPlan whose steps are rewritten into provisioning_skill shape. " \
-                         "Returns the DAG plus M1 enrichments: cost_estimate (CostEstimatorService), " \
+            description: "Compose a persisted provisioning plan (an Ai::GoalPlan) from an infrastructure mission's brief. " \
+                         "Recognized provisioning scenarios go through PlanComposerService and novel intents through " \
+                         "MissionComposer, and a mission in capture_intent or compose_plan then moves to review_plan. " \
+                         "The plan snapshot carries the DAG plus cost_estimate (CostEstimatorService), " \
                          "topology_preview (TopologyRendererService), and risk (RiskScorerService).",
             parameters: {
               mission_id: { type: "string", required: true, description: "Infrastructure mission ID" }
             }
           },
           "platform_provisioning_approve_plan" => {
-            description: "Operator decision on a composed plan. decision='approved' advances the mission past " \
-                         "the review_plan gate; 'rejected' sends it back to compose_plan via rejection_mappings; " \
-                         "'modified' applies inline edits to the plan steps before approving. The optional " \
+            description: "Record the operator's decision on a composed provisioning plan. " \
+                         "A decision of 'approved' advances the mission past the review_plan gate; 'rejected' sends it " \
+                         "back to compose_plan via rejection_mappings; 'modified' applies inline edits to the plan " \
+                         "steps before approving. The phase moves only when the mission is at review_plan. The optional " \
                          "approval_request_id field in the response is reserved for M1 when this routes through " \
                          "the formal approval pipeline.",
             parameters: {
@@ -150,8 +166,9 @@ module Ai
             }
           },
           "platform_provisioning_status" => {
-            description: "Snapshot of provisioning progress: mission phase, currently-executing step number, " \
-                         "and step-number lists by status (completed, pending, failed). For live streaming " \
+            description: "Get a snapshot of provisioning progress for an infrastructure mission. " \
+                         "It reports the mission phase, the currently-executing step number, and step-number lists " \
+                         "by status (completed, pending, failed) from the mission's latest plan. For live streaming " \
                          "subscribe to MissionChannel rather than polling this.",
             parameters: {
               mission_id: { type: "string", required: true, description: "Infrastructure mission ID" }

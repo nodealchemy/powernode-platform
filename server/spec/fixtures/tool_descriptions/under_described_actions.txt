@@ -23,9 +23,6 @@ get_team
 list_knowledge_bases
 list_ralph_loops
 pause_ralph_loop
-platform_provisioning_approve_plan
-platform_provisioning_compose_plan
-platform_provisioning_status
 process_document
 reopen_ralph_loop
 resume_ralph_loop
