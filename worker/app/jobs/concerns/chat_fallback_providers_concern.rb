@@ -39,9 +39,9 @@ module ChatFallbackProvidersConcern
       messages: chat_messages,
       max_tokens: max_tokens
     }
-    # Capability-gated request params (sampling params 400 on Fable / Opus 4.7+ /
-    # Sonnet 5) funnel through the single ModelCapabilities gate so this path can't
-    # drift from the builders.
+    # Capability-gated request params (sampling params 400 on adaptive-only models)
+    # funnel through the single ModelCapabilities gate so this path can't drift
+    # from the builders.
     Ai::Llm::ModelCapabilities.apply_anthropic_request_gate!(body_hash, model, temperature: temperature)
     body_hash[:system] = system_content if system_content.present?
 
