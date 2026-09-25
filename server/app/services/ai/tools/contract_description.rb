@@ -7,7 +7,7 @@ module Ai
     # (BaseTool.declare_action), so the contract a caller reads cannot drift
     # from what the code does:
     #
-    #   gate          "May return pending: true …"      (gated_declaration?)
+    #   gate          "May return pending: true …"      (BaseTool.may_park?)
     #   human_only    "Runs only after a person …"
     #   destructive   "Destructive: …" (the MCP destructiveHint sense: MAY delete
     #                 or overwrite state, not necessarily irreversibly)
@@ -67,7 +67,7 @@ module Ai
         out = []
         if declaration[:human_only]
           out << HUMAN_ONLY unless text.match?(ALREADY_SAYS[:gated])
-        elsif tool_class.gated_declaration?(declaration)
+        elsif tool_class.may_park?(declaration)
           out << GATED unless text.match?(ALREADY_SAYS[:gated])
         end
         out << DESTRUCTIVE if declaration[:destructive] && !text.match?(ALREADY_SAYS[:destructive])

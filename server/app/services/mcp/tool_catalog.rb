@@ -445,7 +445,7 @@ module Mcp
       tags = []
       if decl[:human_only]
         tags << "[human-confirmation]"
-      elsif ::Ai::Tools::BaseTool.gated_declaration?(decl)
+      elsif ::Ai::Tools::BaseTool.may_park?(decl)
         tags << "[may require approval]"
       end
       tags << "[destructive]" if decl[:destructive]

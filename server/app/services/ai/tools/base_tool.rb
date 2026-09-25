@@ -598,10 +598,18 @@ module Ai
         #   returns:    one clause naming what comes back
         #   refuses:    state conditions the action refuses (String or Array)
         #   see_also:   { "sibling_action" => "the purpose it serves instead" }
+        #
+        # `gated_in_call: true` declares a gate the action's own #call places
+        # (a hand-placed Ai::AutonomyGate call, e.g. SdwanTool#gated_result)
+        # rather than one #execute arms from the declaration. It changes no
+        # dispatch — .gated_declaration? stays false, so #execute still calls
+        # #call — and exists so a reader of the declaration (.may_park?, the
+        # listing tags, the generated contract) knows the call can park.
         def declare_action(name, mutating:, action_category: nil, executor_class: nil,
                            gate_context: nil, on_proceed: nil, ungated_when: nil,
                            audit: false, destructive: false, human_only: false,
-                           limit: nil, paginated: false, returns: nil, refuses: nil, see_also: nil)
+                           limit: nil, paginated: false, returns: nil, refuses: nil, see_also: nil,
+                           gated_in_call: false)
           if destructive && !mutating
             raise ArgumentError,
                   "#{self}.declare_action(#{name.inspect}): destructive: true implies mutating: true " \
@@ -615,6 +623,10 @@ module Ai
           if human_only && ungated_when
             raise ArgumentError,
                   "#{self}.declare_action(#{name.inspect}): human_only: true takes no ungated_when read arm"
+          end
+          if gated_in_call && !mutating
+            raise ArgumentError,
+                  "#{self}.declare_action(#{name.inspect}): gated_in_call: true implies mutating: true"
           end
 
           declared_actions[name.to_s] = {
@@ -631,7 +643,8 @@ module Ai
             paginated: paginated,
             returns: returns,
             refuses: refuses,
-            see_also: see_also
+            see_also: see_also,
+            gated_in_call: gated_in_call
           }.freeze
         end
 
@@ -674,6 +687,16 @@ module Ai
             declaration[:executor_class].present? &&
             declaration[:gate_context].present? &&
             declaration[:on_proceed].present?
+        end
+
+        # Can a call to this action return pending: true? Either #execute arms
+        # the gate from the declaration, or the action's #call places one
+        # (`gated_in_call:`). What the listing tags and the generated contract
+        # ask; dispatch asks .gated_declaration?.
+        def may_park?(declaration)
+          return false unless declaration
+
+          gated_declaration?(declaration) || declaration[:gated_in_call] == true
         end
 
         # Walks the ancestry so a subclass inherits its parent's declarations

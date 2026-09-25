@@ -160,6 +160,13 @@ RSpec.describe Mcp::ToolCatalog do
         expect(listed(catalog, "platform.create_agent")).to eq("Create an agent.")
       end
 
+      it "tags an action whose own #call places the gate (gated_in_call)" do
+        allow(catalog).to receive(:declaration_for).and_call_original
+        allow(catalog).to receive(:declaration_for).with("create_agent")
+          .and_return({ mutating: true, gated_in_call: true, human_only: false, destructive: false })
+        expect(listed(catalog, "platform.create_agent")).to eq("Create an agent. [may require approval]")
+      end
+
       it "keeps summary and tags within the cap together" do
         allow(described_class).to receive(:list_description_limit).and_return(30)
         allow(catalog).to receive(:declaration_for).and_call_original

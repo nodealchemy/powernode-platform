@@ -39,6 +39,18 @@ RSpec.describe Ai::Tools::ContractDescription do
     expect(described(said)).to eq("Delete a widget permanently.")
   end
 
+  it "states the park for a gate the action's own #call places, and dispatch stays ungated" do
+    klass = tool_class("Create a widget.") { declare_action "spec_action", mutating: true, gated_in_call: true }
+
+    expect(described(klass)).to eq("Create a widget. #{described_class::GATED}")
+    expect(klass.gated_declaration?(klass.declared_action("spec_action"))).to be(false)
+  end
+
+  it "refuses gated_in_call on a read" do
+    expect { tool_class("Read.") { declare_action "spec_action", mutating: false, gated_in_call: true } }
+      .to raise_error(ArgumentError, /implies mutating/)
+  end
+
   it "leaves an undeclared or metadata-free action's text untouched" do
     expect(described(tool_class("Do a thing"))).to eq("Do a thing")
     expect(described(tool_class("Do a thing") { declare_action "spec_action", mutating: false })).to eq("Do a thing")
