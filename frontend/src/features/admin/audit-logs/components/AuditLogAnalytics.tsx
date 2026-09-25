@@ -106,7 +106,7 @@ export const AuditLogAnalytics: React.FC<AuditLogAnalyticsProps> = ({
 
   const tabs: AnalyticsTab[] = [
     { key: 'overview', label: 'Overview', icon: <Activity className="w-4 h-4" /> },
-    { key: 'security', label: 'Security', icon: <Shield className="w-4 h-4" /> },
+    { key: 'security', label: 'Security Events', icon: <Shield className="w-4 h-4" /> },
     { key: 'compliance', label: 'Compliance', icon: <Eye className="w-4 h-4" /> },
     { key: 'risk', label: 'Risk Analysis', icon: <AlertTriangle className="w-4 h-4" /> }
   ];

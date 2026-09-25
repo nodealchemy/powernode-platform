@@ -74,6 +74,13 @@ describe('CostPage hub', () => {
     });
   });
 
+  // fc-47: the Credits sub-tab showing the balance is labelled Balance, so the
+  // Cost hub does not carry two Overview tabs.
+  it('labels the Credits balance sub-tab Balance', () => {
+    const { CREDIT_TABS } = jest.requireActual('@/pages/app/ai/CreditsPage');
+    expect(CREDIT_TABS[0]).toMatchObject({ key: 'overview', label: 'Balance' });
+  });
+
   it('routes to the active leaf and marks its rail item current', () => {
     renderAt('/app/ai/cost/credits');
     expect(screen.getByTestId('credits-leaf')).toBeInTheDocument();

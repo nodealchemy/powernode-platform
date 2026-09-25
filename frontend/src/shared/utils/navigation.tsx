@@ -87,7 +87,7 @@ const aiWorkItems: NavigationItem[] = [
   },
   {
     id: 'ai-campaigns',
-    name: 'Campaigns',
+    name: 'Improvement Campaigns',
     href: '/app/ai/campaigns',
     icon: Megaphone,
     description: 'Autonomous, repeatable improvement campaigns',
@@ -487,10 +487,6 @@ export const defaultNavigationConfig: NavigationConfig = {
       defaultExpanded: true,
       order: 11
     },
-    // NOTE: the former orphan "Cost" and "Developer" sections were consolidated:
-    // FinOps/ROI/Credits/Outcome-Billing now live in the AI section's Cost hub
-    // (/app/ai/cost); Execution Traces moved under the AI "Operations" item; and
-    // the Developer Portal moved into the DevOps section above.
   ],
   
   userMenuItems: [

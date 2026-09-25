@@ -60,7 +60,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
  * Exported so the parent page and tests can reuse the same spec.
  */
 export const CREDIT_TABS: PathTabSpec[] = [
-  { key: 'overview', label: 'Overview', permission: 'ai.analytics.read', icon: <Coins size={16} /> },
+  { key: 'overview', label: 'Balance', permission: 'ai.analytics.read', icon: <Coins size={16} /> },
   { key: 'purchase', label: 'Purchase', permission: 'ai.analytics.read', icon: <ShoppingCart size={16} /> },
   { key: 'transactions', label: 'Transactions', permission: 'ai.analytics.read', icon: <DollarSign size={16} /> },
   { key: 'transfers', label: 'Transfers', permission: 'ai.analytics.read', icon: <ArrowRightLeft size={16} /> },
