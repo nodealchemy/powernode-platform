@@ -120,7 +120,7 @@ describe('Account Settings Update Flow Tests', () => {
 
   describe('Notification Preferences', () => {
     beforeEach(() => {
-      cy.visit('/app/profile/notifications');
+      cy.visit('/app/profile/preferences');
       cy.waitForPageLoad();
     });
 

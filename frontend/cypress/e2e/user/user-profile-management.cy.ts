@@ -115,19 +115,19 @@ describe('User Profile Management Tests', () => {
 
   describe('Notification Preferences', () => {
     it('should navigate to notification settings', () => {
-      cy.visit('/app/profile/notifications');
+      cy.visit('/app/profile/preferences');
       cy.waitForPageLoad();
       cy.assertContainsAny(['Notification', 'Alert', 'Email']);
     });
 
     it('should display email notification toggles', () => {
-      cy.visit('/app/profile/notifications');
+      cy.visit('/app/profile/preferences');
       cy.waitForPageLoad();
       cy.assertHasElement(['input[type="checkbox"]', '[role="switch"]']);
     });
 
     it('should display notification categories', () => {
-      cy.visit('/app/profile/notifications');
+      cy.visit('/app/profile/preferences');
       cy.waitForPageLoad();
       cy.assertContainsAny(['Marketing', 'Security', 'Updates', 'Product']);
     });

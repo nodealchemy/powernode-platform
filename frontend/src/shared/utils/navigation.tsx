@@ -233,6 +233,16 @@ export const defaultNavigationConfig: NavigationConfig = {
       permissions: ['platform.status.read'],
       order: 2
     },
+    {
+      // The inbox. Notification preferences live on Account › Preferences.
+      id: 'notifications',
+      name: 'Notifications',
+      href: '/app/notifications',
+      icon: Bell,
+      description: 'Your notifications inbox',
+      permissions: [],
+      order: 3
+    },
   ],
 
   sections: [
@@ -362,18 +372,9 @@ export const defaultNavigationConfig: NavigationConfig = {
           name: 'Preferences',
           href: '/app/profile/preferences',
           icon: Settings,
-          description: 'Customize your experience',
+          description: 'Display and notification preferences',
           permissions: [],
           order: 7
-        },
-        {
-          id: 'notifications',
-          name: 'Notifications',
-          href: '/app/profile/notifications',
-          icon: Bell,
-          description: 'Notification preferences',
-          permissions: [],
-          order: 8
         },
         {
           id: 'security',

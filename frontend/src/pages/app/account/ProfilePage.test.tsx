@@ -351,3 +351,58 @@ describe('ProfilePage - Delegations tab', () => {
     expect(screen.queryByText('Delegations')).not.toBeInTheDocument();
   });
 });
+
+// fc-45: notification preferences are a section of the Preferences tab; there
+// is no Notifications tab (the inbox lives at /app/notifications).
+describe('ProfilePage - notification preferences', () => {
+  const mockUpdateUserSettings = settingsApi.updateUserSettings as jest.Mock;
+
+  const renderProfileAt = (path: string) => {
+    const store = configureStore({
+      reducer: {
+        auth: (state = { user: { id: 'u1', name: 'Test User', email: 'test@example.com', permissions: [] }, isAuthenticated: true }) => state
+      }
+    });
+
+    return render(
+      <Provider store={store}>
+        <MemoryRouter initialEntries={[path]}>
+          <BreadcrumbProvider>
+            <ProfilePage />
+          </BreadcrumbProvider>
+        </MemoryRouter>
+      </Provider>
+    );
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockGetUserSettings.mockResolvedValue({
+      ...emptyUserSettings,
+      data: { ...emptyUserSettings.data, notification_preferences: { security_alerts: true } }
+    });
+    mockUpdateUserSettings.mockResolvedValue({ success: true, data: {} });
+  });
+
+  it('renders the notification toggles on the Preferences tab and saves a change', async () => {
+    renderProfileAt('/app/profile/preferences');
+
+    const toggle = await screen.findByRole('checkbox', { name: 'Security Alerts' });
+    expect(screen.getByText('Notification Preferences')).toBeInTheDocument();
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Email Notifications' }));
+
+    await waitFor(() => {
+      expect(mockUpdateUserSettings).toHaveBeenCalledWith({ notification_preferences: { email_notifications: true } });
+    });
+  });
+
+  it('offers no Notifications tab', async () => {
+    renderProfileAt('/app/profile');
+
+    await screen.findByText('Profile Information');
+    expect(screen.queryByRole('tab', { name: /Notifications/ })).not.toBeInTheDocument();
+    expect(screen.queryByText('Notifications')).not.toBeInTheDocument();
+  });
+});

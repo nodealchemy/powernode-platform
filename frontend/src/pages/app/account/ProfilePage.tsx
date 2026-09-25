@@ -39,7 +39,6 @@ export const ProfilePage: React.FC = () => {
     if (path === '/app/profile') return 'profile';
     if (path === '/app/profile/account') return 'account';
     if (path === '/app/profile/preferences') return 'preferences';
-    if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
     if (path === '/app/profile/users') return 'users';
     if (path === '/app/profile/delegations') return 'delegations';
@@ -54,7 +53,6 @@ export const ProfilePage: React.FC = () => {
     if (path === '/app/profile') return 'profile';
     if (path === '/app/profile/account') return 'account';
     if (path === '/app/profile/preferences') return 'preferences';
-    if (path === '/app/profile/notifications') return 'notifications';
     if (path === '/app/profile/security') return 'security';
     if (path === '/app/profile/users') return 'users';
     if (path === '/app/profile/delegations') return 'delegations';
@@ -423,7 +421,6 @@ export const ProfilePage: React.FC = () => {
 
     baseTabs.push(
       { id: 'preferences', label: 'Preferences', icon: '⚙️', path: '/preferences' },
-      { id: 'notifications', label: 'Notifications', icon: '🔔', path: '/notifications' },
       { id: 'security', label: 'Security', icon: '🔒', path: '/security' }
     );
 
@@ -605,6 +602,7 @@ export const ProfilePage: React.FC = () => {
 
 
             <TabPanel tabId="preferences" activeTab={activeTab}>
+              <div className="space-y-6">
               {preferences && (
                 <div className="card-theme">
                   <div className="px-6 py-4 border-b border-theme">
@@ -684,6 +682,39 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 </div>
               )}
+              {notifications && (
+                <div className="card-theme">
+                  <div className="px-6 py-4 border-b border-theme">
+                    <h3 className="text-lg font-medium text-theme-primary">Notification Preferences</h3>
+                    <p className="text-sm text-theme-secondary mt-1">Control how and when you receive notifications</p>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    {[
+                      { key: 'email_notifications', label: 'Email Notifications', description: 'Receive general notifications via email' },
+                      { key: 'invoice_notifications', label: 'Invoice Notifications', description: 'Receive invoice and payment notifications' },
+                      { key: 'security_alerts', label: 'Security Alerts', description: 'Receive security-related notifications' },
+                      { key: 'marketing_emails', label: 'Marketing Emails', description: 'Receive product updates and marketing content' },
+                      { key: 'system_maintenance', label: 'System Maintenance', description: 'Receive notifications about system maintenance' }
+                    ].map(({ key, label, description }) => (
+                      <div key={key} className="flex items-center justify-between p-3 bg-theme-background-secondary rounded-lg hover:bg-theme-surface-hover transition-colors duration-150">
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium text-theme-primary">{label}</h4>
+                          <p className="text-sm text-theme-secondary mt-1">{description}</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          className="toggle-theme"
+                          aria-label={label}
+                          checked={(notifications.notification_preferences?.[key as keyof NotificationPreferences] as boolean) || false}
+                          onChange={(e) => handleUpdateNotifications({ notification_preferences: { [key]: e.target.checked } })}
+                          disabled={saving}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              </div>
             </TabPanel>
 
         <TabPanel tabId="security" activeTab={activeTab}>
@@ -883,40 +914,6 @@ export const ProfilePage: React.FC = () => {
               </div>
             )}
           </div>
-        </TabPanel>
-
-        <TabPanel tabId="notifications" activeTab={activeTab}>
-          {notifications && (
-            <div className="card-theme">
-              <div className="px-6 py-4 border-b border-theme">
-                <h3 className="text-lg font-medium text-theme-primary">Notification Preferences</h3>
-                <p className="text-sm text-theme-secondary mt-1">Control how and when you receive notifications</p>
-              </div>
-              <div className="p-6 space-y-4">
-                {[
-                  { key: 'email_notifications', label: 'Email Notifications', description: 'Receive general notifications via email' },
-                  { key: 'invoice_notifications', label: 'Invoice Notifications', description: 'Receive invoice and payment notifications' },
-                  { key: 'security_alerts', label: 'Security Alerts', description: 'Receive security-related notifications' },
-                  { key: 'marketing_emails', label: 'Marketing Emails', description: 'Receive product updates and marketing content' },
-                  { key: 'system_maintenance', label: 'System Maintenance', description: 'Receive notifications about system maintenance' }
-                ].map(({ key, label, description }) => (
-                  <div key={key} className="flex items-center justify-between p-3 bg-theme-background-secondary rounded-lg hover:bg-theme-surface-hover transition-colors duration-150">
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium text-theme-primary">{label}</h4>
-                      <p className="text-sm text-theme-secondary mt-1">{description}</p>
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="toggle-theme"
-                      checked={(notifications.notification_preferences?.[key as keyof NotificationPreferences] as boolean) || false}
-                      onChange={(e) => handleUpdateNotifications({ notification_preferences: { [key]: e.target.checked } })}
-                      disabled={saving}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </TabPanel>
 
             <TabPanel tabId="users" activeTab={activeTab}>

@@ -251,3 +251,27 @@ describe('defaultNavigationConfig — user menu (fc-45)', () => {
     expect(menu.map((i) => i.id)).not.toContain('account-settings');
   });
 });
+
+// fc-45: the notifications inbox is a Home item; its preferences live on the
+// Account › Preferences tab, not a Notifications tab of their own.
+describe('defaultNavigationConfig — notifications (fc-45)', () => {
+  const allHrefs = () => [
+    ...defaultNavigationConfig.items.map((i) => i.href),
+    ...sections.flatMap((s) => s.items.map((i) => i.href)),
+  ];
+
+  it('links the inbox from Home, right after Dashboard and Status', () => {
+    const home = defaultNavigationConfig.items;
+    expect(home.map((i) => i.id)).toEqual(['dashboard', 'platform-status', 'notifications']);
+    expect(home.find((i) => i.id === 'notifications')).toMatchObject({
+      name: 'Notifications',
+      href: '/app/notifications',
+      permissions: [],
+    });
+  });
+
+  it('links no separate notification-preferences page', () => {
+    expect(allHrefs()).not.toContain('/app/profile/notifications');
+    expect(itemIds('account')).not.toContain('notifications');
+  });
+});
