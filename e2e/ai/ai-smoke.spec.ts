@@ -126,12 +126,12 @@ test.describe('AI pages — interactive smoke', () => {
 
   // Render-smoke for the remaining AI pages — each must mount with no uncaught
   // JS errors. Routes come from the shared ROUTES fixture. The dashboards here
-  // (analytics/monitoring/governance) consume the endpoints recently fixed, so
+  // (analytics/monitoring/control) consume the endpoints recently fixed, so
   // this is also a render-level regression guard for those views.
   const PAGE_ROUTES: Array<[string, string]> = [
     ['Analytics', ROUTES.analytics],
     ['Monitoring', ROUTES.monitoring],
-    ['Governance', ROUTES.governance],
+    ['Control', ROUTES.control],
     ['Agent Teams', ROUTES.agentTeams],
     ['Knowledge', ROUTES.knowledge],
     ['Ralph Loops', ROUTES.ralphLoops],

@@ -16,14 +16,14 @@
 
 | Domain | Backend route | Worker job family | MCP tool area | Frontend surface | Status |
 |---|---|---|---|---|---|
-| Agents | `/ai/agents` (+executions, conversations, intelligence) | ai_agent_execution, ai_agent_fleet_* (5) | AgentManagementTool (8) | `/ai/agents` hub (Agents/Cards/Community/Autonomy tabs) + detail | ✅ |
+| Agents | `/ai/agents` (+executions, conversations, intelligence) | ai_agent_execution, ai_agent_fleet_* (5) | AgentManagementTool (8) | `/ai/agents` hub (Agents/Cards/Community tabs) + detail | ✅ |
 | Teams | `/ai/teams` (+roles, channels, templates, executions) | ai_agent_team_execution | TeamManagementTool (8) | `/ai/teams` | ✅ |
 | Missions / Code Factory | `/ai/missions`, `/ai/code_factory` | ai_mission_* (9), ai_code_factory_* (8) | (job-driven) | `/ai/missions` hub (Missions + Code Factory) | ✅ |
 | Providers / Model Router | `/ai/providers`, `/ai/model_router` | ai_provider_* | (provider tools) | `/ai/infrastructure` (Providers, Model Router tabs) | ✅ |
 | Conversations / Chat | `/ai/conversations`, `/chat/*` | ai_chat_* (3), ai_conversation_response | ConversationTool (11) | chat surfaces + `/ai/conversations` | ✅ |
 | Knowledge / RAG / Graph | `/ai/rag`, `/ai/knowledge_graph`, `/ai/skill_graph` | ai_knowledge_* (3) | RagManagementTool, KnowledgeGraphTool | `/ai/knowledge` hub (Contexts/Prompts/Skills/RAG/Graph/Memory/Learning) | ✅ |
 | Memory | `/ai/contexts`, `/ai/memory_pools`, `/tiered_memory` | ai_memory_* (4), ai_consolidate_memory_entry | MemoryTool, AgentMemoryManagementTool | Knowledge → Memory Tiers tab | ✅ |
-| Autonomy / Governance | `/ai/autonomy`, `/ai/governance`, `/ai/kill_switch` | ai_governance_scan, ai_collusion_detection, ai_goal_*, ai_escalation_timeout | GovernanceTool, AgentAutonomyTool, KillSwitchTool | `/ai/governance` hub + Agents → Autonomy | ✅ |
+| Autonomy / Governance | `/ai/autonomy`, `/ai/governance`, `/ai/kill_switch` | ai_governance_scan, ai_collusion_detection, ai_goal_*, ai_escalation_timeout | GovernanceTool, AgentAutonomyTool, KillSwitchTool | `/ai/control` (rail: Approvals / Policies / Budgets / Safety / Trust & Lineage / Goals / Compliance Audit); Coordination is a tab on `/ai/teams` | ✅ |
 | Ralph Loops | `/ai/ralph_loops` | ai_ralph_loop_scheduler, ai_ralph_loop_run_all | RalphLoopTool (7) | `/ai/execution` → Ralph Loops tab | ✅ |
 | Monitoring / Observability | `/ai/monitoring`, `/ai/aiops` | ai_monitoring_*, ai_self_healing_monitor, ai_predictive_monitor | ActivityMonitorTool | `/ai/observability` hub | ✅ |
 | Sandboxes / Execution | `/ai/sandboxes`, `/ai/container_sandboxes` | ai_container_agent, ai_execution_* | ContainerDeployment/Status/Logs/Terminate | `/ai/execution` hub (A2A/Parallel/Resources/AG-UI/Testing/Containers) | ✅ |
