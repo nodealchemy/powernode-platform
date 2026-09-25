@@ -231,7 +231,7 @@ export const PhaseCard: React.FC<PhaseCardProps> = ({ mission, events }) => {
             </p>
             {mission.ralph_loop_id && (
               <a
-                href={`/app/ai/execution?ralph_loop=${mission.ralph_loop_id}`}
+                href={`/app/ai/execution/loop/${mission.ralph_loop_id}/tasks`}
                 className="text-xs text-theme-info-fg hover:underline"
               >
                 View in Execution Dashboard
