@@ -65,11 +65,21 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
 
   // Deep-link support: a URL naming a loop id (and optionally a tab) loads that
   // loop and syncs the active tab, independent of the list panel ever loading.
+  // The bare execution path (no loop id) clears any previously-selected loop
+  // rather than leaving it displayed under a URL that no longer names one;
+  // moving to a DIFFERENT loop id clears the old one immediately too, so a
+  // failed load (an invalid id) can't leave the previous loop's stale data
+  // on screen under the new URL (fc-46 review, item 6).
   useEffect(() => {
     const { loopId, tab } = parseRalphLoopPath(location.pathname);
     if (tab !== activeTab) setActiveTab(tab);
-    if (loopId && loopId !== selectedLoop?.id) {
-      loadLoop(loopId);
+    if (loopId) {
+      if (loopId !== selectedLoop?.id) {
+        setSelectedLoop(null);
+        loadLoop(loopId);
+      }
+    } else if (selectedLoop) {
+      setSelectedLoop(null);
     }
   }, [location.pathname]);
 
@@ -154,7 +164,9 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
 
   const handleSelectLoop = (loop: RalphLoopSummary) => {
     setLiveIterations([]);
-    loadLoop(loop.id);
+    // Navigating (not loading here directly) is enough: the location effect
+    // above sees the new loop id and loads it — calling loadLoop here too
+    // used to fetch the same loop twice (fc-46 review, item 6).
     navigate(`${RALPH_LOOP_BASE_PATH}/${loop.id}/${activeTab}`);
   };
 
@@ -171,7 +183,8 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
 
   const handleLoopCreated = (loopId: string) => {
     setRefreshKey(prev => prev + 1);
-    loadLoop(loopId);
+    // Same as handleSelectLoop: navigating is enough, the location effect
+    // loads the new loop — no need to also load it here.
     setActiveTab('tasks');
     navigate(`${RALPH_LOOP_BASE_PATH}/${loopId}/tasks`);
   };
