@@ -171,6 +171,15 @@ module Ai
       DISPATCH_FALLBACK_GENERIC_MESSAGE = "An internal error occurred processing this request."
 
       class << self
+        # Every tool's advertised action descriptions carry the contract its
+        # declarations state (Ai::Tools::ContractDescription). Prepended on
+        # the subclass's singleton so it wraps the .action_definitions the
+        # subclass defines in its own body.
+        def inherited(subclass)
+          super
+          subclass.singleton_class.prepend(::Ai::Tools::ContractDescription)
+        end
+
         # IMP-1132d66f6f5c — the SAME distinction #run_through_autonomy_gate's
         # own CallerFacingError rescue applies to a gate_context raise,
         # applied here for an exception that escaped EVERY tool-level rescue
@@ -579,9 +588,20 @@ module Ai
         # then AS that person (#human_confirmed_replay?). It therefore requires
         # the full gate wiring, so there is somewhere to park, and it takes no
         # `ungated_when` read arm, which would be a way past the park.
+        #
+        # CONTRACT METADATA (Phase 6 of the 2026-09-25 prompt audit). These keys
+        # change no behaviour; Ai::Tools::ContractDescription turns them into
+        # sentences after the hand-written description, so the advertised
+        # contract is generated from the same place the code reads:
+        #   limit:      a hard row cap the action applies ("Returns at most N rows")
+        #   paginated:  true when the action answers through #paginated_result
+        #   returns:    one clause naming what comes back
+        #   refuses:    state conditions the action refuses (String or Array)
+        #   see_also:   { "sibling_action" => "the purpose it serves instead" }
         def declare_action(name, mutating:, action_category: nil, executor_class: nil,
                            gate_context: nil, on_proceed: nil, ungated_when: nil,
-                           audit: false, destructive: false, human_only: false)
+                           audit: false, destructive: false, human_only: false,
+                           limit: nil, paginated: false, returns: nil, refuses: nil, see_also: nil)
           if destructive && !mutating
             raise ArgumentError,
                   "#{self}.declare_action(#{name.inspect}): destructive: true implies mutating: true " \
@@ -606,7 +626,12 @@ module Ai
             ungated_when: ungated_when,
             audit: audit,
             destructive: destructive,
-            human_only: human_only
+            human_only: human_only,
+            limit: limit,
+            paginated: paginated,
+            returns: returns,
+            refuses: refuses,
+            see_also: see_also
           }.freeze
         end
 

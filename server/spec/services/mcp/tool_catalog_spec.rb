@@ -146,11 +146,11 @@ RSpec.describe Mcp::ToolCatalog do
         expect(catalog.describe("platform.create_agent")["summary"]).to eq(listed(catalog, "platform.create_agent"))
       end
 
-      it "tags a human-only action and an irreversible one" do
+      it "tags a human-only action and a destructive one" do
         allow(catalog).to receive(:declaration_for).and_call_original
         allow(catalog).to receive(:declaration_for).with("create_agent")
           .and_return(gated.merge(human_only: true, destructive: true))
-        expect(listed(catalog, "platform.create_agent")).to eq("Create an agent. [human-confirmation] [irreversible]")
+        expect(listed(catalog, "platform.create_agent")).to eq("Create an agent. [human-confirmation] [destructive]")
       end
 
       it "does not tag a category without the replay wiring (it cannot park)" do

@@ -448,7 +448,7 @@ module Mcp
       elsif ::Ai::Tools::BaseTool.gated_declaration?(decl)
         tags << "[may require approval]"
       end
-      tags << "[irreversible]" if decl[:destructive]
+      tags << "[destructive]" if decl[:destructive]
       tags.join(" ")
     end
 
