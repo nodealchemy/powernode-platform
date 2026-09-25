@@ -48,11 +48,11 @@ RSpec.describe Platform::Status::Contributors::AiProvider do
       )
     end
 
-    it "links to the provider settings page for that provider" do
+    it "links to the providers page (provider detail is a modal there, not a route)" do
       provider = create(:ai_provider, account: account)
 
       expect(contributor.links_for(provider))
-        .to eq([ { "label" => "Provider settings", "path" => "/app/ai/infrastructure/providers/#{provider.id}" } ])
+        .to eq([ { "label" => "Provider settings", "path" => "/app/ai/providers" } ])
     end
 
     it "declares no dependencies and no A3 actions" do

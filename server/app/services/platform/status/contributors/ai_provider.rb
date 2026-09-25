@@ -94,8 +94,10 @@ module Platform
 
         def display_name_for(provider) = provider.name.presence || provider.slug
 
-        def links_for(provider)
-          [ { "label" => "Provider settings", "path" => "/app/ai/infrastructure/providers/#{provider.id}" } ]
+        # The providers page opens a provider's detail in a modal, so there is
+        # no per-provider route to deep-link; link the page itself.
+        def links_for(_provider)
+          [ { "label" => "Provider settings", "path" => "/app/ai/providers" } ]
         end
 
         def presentation

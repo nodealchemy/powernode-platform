@@ -350,7 +350,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
 
       expect(response).to have_http_status(:found)
       location = URI.parse(response.headers["Location"])
-      expect(location.path).to eq("/app/ai/infrastructure/data-sources")
+      expect(location.path).to eq("/app/ai/data-sources")
       query = URI.decode_www_form(location.query.to_s).to_h
       expect(query["oauth"]).to eq("success")
       expect(query["data_source_id"]).to eq(data_source.id)
@@ -368,7 +368,7 @@ RSpec.describe "Api::V1::Ai::DataSourceOauth", type: :request do
 
       expect(response).to have_http_status(:found)
       location = URI.parse(response.headers["Location"])
-      expect(location.path).to eq("/app/ai/infrastructure/data-sources")
+      expect(location.path).to eq("/app/ai/data-sources")
       query = URI.decode_www_form(location.query.to_s).to_h
       expect(query["oauth"]).to eq("failed")
       expect(query["error"]).to include("access_denied")

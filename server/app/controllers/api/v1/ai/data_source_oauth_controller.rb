@@ -112,7 +112,7 @@ module Api
           query = { oauth: result[:success] ? "success" : "failed" }
           query[:data_source_id] = result[:data_source_id] if result[:data_source_id].present?
           query[:error] = result[:error] if result[:error].present?
-          "#{frontend}/app/ai/infrastructure/data-sources?#{query.to_query}"
+          "#{frontend}/app/ai/data-sources?#{query.to_query}"
         end
 
         def oauth_service
