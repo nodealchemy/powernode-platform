@@ -21,10 +21,20 @@ module AdminSettings
     def update_infrastructure_config
       redis_params = infrastructure_params
 
-      # Skip the password update if it's blank or mask-shaped (fc-38 review
-      # item #1: the old exact-string check against "••••••••" never matched
-      # anything ELSE mask-shaped, and is redundant now that the GET response
-      # never returns a resubmittable mask at all — kept as defense in depth).
+      # fc-38 review round 3 item #3(a): a mask-shaped resubmission used to
+      # be silently dropped while the response still reported success — a
+      # caller (a stale client, or a genuine mistake) had no way to
+      # distinguish "your edit was ignored" from "your edit was saved". A
+      # BLANK value still means "unchanged" (the field wasn't touched) and
+      # is silently skipped below; a value that positively LOOKS like the
+      # display mask is a caller error and gets a 422 instead of a lie.
+      if masked_secret_value?(redis_params["password"])
+        return render_error(
+          "The password field still holds the masked display value — enter a new password to change it.",
+          :unprocessable_content
+        )
+      end
+
       redis_params.delete("password") if unchanged_secret_value?(redis_params["password"])
 
       ::Admin::SystemSettings.update_redis_config!(redis_params)
@@ -143,6 +153,22 @@ module AdminSettings
       # to save vault_addr alone silently overwrote both real AppRole
       # credentials with the display mask. #unchanged_secret_value? matches
       # ANY mask-shaped value, not one specific literal.
+      # fc-38 review round 3 item #3(a): same silent-drop-with-success
+      # problem as redis's password (see #update_infrastructure_config) — a
+      # mask-shaped resubmission is a 422 now, not a quiet no-op.
+      if masked_secret_value?(vault_params[:vault_role_id])
+        return render_error(
+          "The AppRole Role ID field still holds the masked display value — enter a new value to change it.",
+          :unprocessable_content
+        )
+      end
+      if masked_secret_value?(vault_params[:vault_secret_id])
+        return render_error(
+          "The AppRole Secret ID field still holds the masked display value — enter a new value to change it.",
+          :unprocessable_content
+        )
+      end
+
       updates = {}
       updates["vault_addr"] = vault_params[:vault_addr] if vault_params[:vault_addr].present?
       updates["vault_role_id"] = vault_params[:vault_role_id] unless unchanged_secret_value?(vault_params[:vault_role_id])
@@ -301,6 +327,16 @@ module AdminSettings
     # caller (or cached frontend build) that still does.
     def unchanged_secret_value?(value)
       value.blank? || value.to_s.include?("•")
+    end
+
+    # A non-blank value that still contains the mask character (fc-38 review
+    # round 3 item #3(a)) — this is the "the caller resubmitted the display
+    # mask" case specifically, distinct from a blank value (which just means
+    # "this field wasn't touched"). Callers use this to return a 422 instead
+    # of silently treating a caller's mistaken resubmission as "unchanged"
+    # and reporting success.
+    def masked_secret_value?(value)
+      value.present? && value.to_s.include?("•")
     end
 
     # Never returns any part of `field`'s real value — "" plus a

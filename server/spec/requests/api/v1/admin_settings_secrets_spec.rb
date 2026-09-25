@@ -102,7 +102,11 @@ RSpec.describe 'Api::V1::AdminSettings secrets hardening', type: :request do
       expect(AdminSetting.redis_config['host']).to eq('10.0.0.5')
     end
 
-    it 'a mask-shaped password value ("••••••••") is ignored, not saved as the literal password' do
+    # round 3 review item #3(a): a mask-shaped resubmission used to be
+    # silently dropped while the response still reported success — the
+    # caller had no way to tell "your edit was ignored" from "your edit was
+    # saved". Now it's a 422 with a message naming the problem.
+    it 'a mask-shaped password value ("••••••••") is rejected with 422, not silently ignored' do
       put '/api/v1/admin_settings/infrastructure',
           params: { redis: { host: '127.0.0.1', port: 6379, password: redis_password } },
           headers: security_headers, as: :json
@@ -111,8 +115,9 @@ RSpec.describe 'Api::V1::AdminSettings secrets hardening', type: :request do
       put '/api/v1/admin_settings/infrastructure',
           params: { redis: { host: '127.0.0.1', port: 6379, password: '••••••••' } },
           headers: security_headers, as: :json
-      expect_success_response
 
+      expect_error_response(nil, :unprocessable_content)
+      expect(json_response['error']).to match(/masked|display value/i)
       expect(Admin::SystemSettings.redis_config['password']).to eq(redis_password)
     end
   end
@@ -194,17 +199,35 @@ RSpec.describe 'Api::V1::AdminSettings secrets hardening', type: :request do
       expect(config['vault_secret_id']).to eq(secret_id)
     end
 
-    it 'a mask-shaped value ("••••xxxx") is ignored for both vault_role_id and vault_secret_id' do
+    # round 3 review item #3(a): same silent-drop-with-success problem as
+    # redis's password — now a 422 for either field.
+    it 'a mask-shaped value ("••••xxxx") is rejected with 422 for vault_role_id' do
       put '/api/v1/admin_settings/vault',
           params: { vault: { vault_role_id: role_id, vault_secret_id: secret_id } },
           headers: security_headers, as: :json
       expect_success_response
 
       put '/api/v1/admin_settings/vault',
-          params: { vault: { vault_role_id: '••••abcd', vault_secret_id: '••••wxyz' } },
+          params: { vault: { vault_role_id: '••••abcd' } },
+          headers: security_headers, as: :json
+
+      expect_error_response(nil, :unprocessable_content)
+      config = Admin::SystemSettings.vault_config
+      expect(config['vault_role_id']).to eq(role_id)
+      expect(config['vault_secret_id']).to eq(secret_id)
+    end
+
+    it 'a mask-shaped value ("••••xxxx") is rejected with 422 for vault_secret_id' do
+      put '/api/v1/admin_settings/vault',
+          params: { vault: { vault_role_id: role_id, vault_secret_id: secret_id } },
           headers: security_headers, as: :json
       expect_success_response
 
+      put '/api/v1/admin_settings/vault',
+          params: { vault: { vault_secret_id: '••••wxyz' } },
+          headers: security_headers, as: :json
+
+      expect_error_response(nil, :unprocessable_content)
       config = Admin::SystemSettings.vault_config
       expect(config['vault_role_id']).to eq(role_id)
       expect(config['vault_secret_id']).to eq(secret_id)
