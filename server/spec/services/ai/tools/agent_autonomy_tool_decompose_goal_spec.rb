@@ -72,7 +72,7 @@ RSpec.describe "agent_autonomy MCP decompose_goal: real service integration" do
       expect(data).to eq(
         plan_id: plan.id,
         goal_id: goal.id,
-        status: "draft",
+        plan_status: "draft",
         version: plan.version,
         estimated_cost_usd: plan.estimated_cost_usd,
         estimated_duration_minutes: plan.estimated_duration_minutes,

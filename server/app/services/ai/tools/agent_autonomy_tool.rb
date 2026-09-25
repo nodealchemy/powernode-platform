@@ -841,7 +841,7 @@ module Ai
         success_result(
           plan_id: plan.id,
           goal_id: plan.goal_id,
-          status: plan.status,
+          plan_status: plan.status,
           version: plan.version,
           estimated_cost_usd: plan.estimated_cost_usd,
           estimated_duration_minutes: plan.estimated_duration_minutes,
