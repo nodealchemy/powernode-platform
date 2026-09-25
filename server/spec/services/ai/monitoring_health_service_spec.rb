@@ -125,7 +125,7 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
 
       result = service.check_redis_health
 
-      expect(result).to eq(status: "unhealthy", error_class: "Redis::CannotConnectError")
+      expect(result).to eq(status: "unhealthy", error_class: "Redis::CannotConnectError", cache_store: Rails.cache.class.name)
     end
   end
 
