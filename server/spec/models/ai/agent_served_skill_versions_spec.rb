@@ -62,6 +62,24 @@ RSpec.describe Ai::Agent, "served skill versions" do
     expect(agent.served_skill_version_ids).to eq([])
   end
 
+  # C11: a per-call draw rebuilt the system prompt between turns of one
+  # conversation. With a draw_key the draw is fixed per (conversation, skill).
+  describe "draw_key (one draw per conversation)" do
+    it "serves the same skill text on every build for one conversation" do
+      key = SecureRandom.uuid
+      prompts = Array.new(5) { agent.build_system_prompt_with_profile(draw_key: key) }
+
+      expect(prompts.uniq.size).to eq(1)
+    end
+
+    it "still splits traffic across conversations" do
+      served = Array.new(40) { agent.send(:build_skill_system_prompts, draw_key: SecureRandom.uuid) }
+
+      expect(served.any? { |p| p.include?("the variant text") }).to be(true)
+      expect(served.any? { |p| p.include?("the active text") }).to be(true)
+    end
+  end
+
   it "names nothing before any prompt is built" do
     expect(described_class.new.served_skill_version_ids).to eq([])
   end

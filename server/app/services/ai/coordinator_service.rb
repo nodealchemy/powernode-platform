@@ -66,7 +66,7 @@ module Ai
       parts = []
 
       # Read base prompt from the coordinator agent's DB record (editable via agents API)
-      base_prompt = @coordinator&.build_system_prompt_with_profile.presence
+      base_prompt = @coordinator&.build_system_prompt_with_profile(draw_key: @conversation.id).presence
       if base_prompt
         parts << base_prompt
       else

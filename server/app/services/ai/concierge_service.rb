@@ -412,7 +412,7 @@ module Ai
       # Static prompt from the agent's DB record (editable via API/UI)
       # Pass workspace context to filter skills (only workspace-tagged skills in workspace mode)
       ctx = @conversation.workspace_conversation? ? :workspace : nil
-      base_prompt = @agent&.build_system_prompt_with_profile(context: ctx).presence
+      base_prompt = @agent&.build_system_prompt_with_profile(context: ctx, draw_key: @conversation.id).presence
       parts << base_prompt if base_prompt
 
       # Delegation-first operating posture (applies every turn, regardless of the agent's
@@ -672,7 +672,7 @@ module Ai
 
       # Static prompt from the agent's DB record (editable via API/UI)
       ctx = @conversation.workspace_conversation? ? :workspace : nil
-      base_prompt = @agent&.build_system_prompt_with_profile(context: ctx).presence
+      base_prompt = @agent&.build_system_prompt_with_profile(context: ctx, draw_key: @conversation.id).presence
       parts << base_prompt if base_prompt
 
       # Delegation-first operating posture (applies every turn, regardless of the agent's

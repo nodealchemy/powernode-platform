@@ -292,9 +292,11 @@ module Ai
       Array(@served_skill_version_ids)
     end
 
-    def build_system_prompt_with_profile(context: nil)
+    # draw_key: pins the skill A/B draw (a conversation id), so each turn of one
+    # conversation gets the same system prompt.
+    def build_system_prompt_with_profile(context: nil, draw_key: nil)
       base_prompt = mcp_metadata&.dig("system_prompt") || ""
-      skill_prompts = build_skill_system_prompts(context: context)
+      skill_prompts = build_skill_system_prompts(context: context, draw_key: draw_key)
 
       profile_lines = []
       if conversation_profile.present?
@@ -509,7 +511,7 @@ module Ai
                   .pluck("ai_skills.model_requirements")
     end
 
-    def build_skill_system_prompts(context: nil)
+    def build_skill_system_prompts(context: nil, draw_key: nil)
       skill_query = agent_skills.where(is_active: true)
         .joins(:skill)
         .where(ai_skills: { status: "active", is_enabled: true })
@@ -525,7 +527,7 @@ module Ai
       # (Ai::SkillGraph::EvolutionService.route_served_versions). A drawn
       # variant serves its own text; otherwise the skill's text serves. Each
       # entry keeps the version that served it, so attribution can follow.
-      routes = Ai::SkillGraph::EvolutionService.route_served_versions(skill_data.map(&:first))
+      routes = Ai::SkillGraph::EvolutionService.route_served_versions(skill_data.map(&:first), draw_key: draw_key)
       prompts = skill_data.filter_map do |skill_id, slug, prompt|
         route = routes[skill_id] || {}
         served = route[:prompt].presence || prompt

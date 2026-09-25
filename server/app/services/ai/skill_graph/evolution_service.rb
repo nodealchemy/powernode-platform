@@ -23,7 +23,13 @@ module Ai
       # a variant on every call. An out-of-range share is not a routing
       # instruction, so it fails closed. One draw per skill per build; `random`
       # is injectable so specs can pin the draw.
-      def self.route_served_versions(skill_ids, random: Random)
+      #
+      # `draw_key` (a conversation id) pins the draw: the same key and skill
+      # always land on the same side of the split, so every turn of one
+      # conversation serves the same skill text. A per-call draw rebuilt the
+      # system prompt between turns, which misses the prompt cache and
+      # invalidates preserved thinking. Without a key, each build draws afresh.
+      def self.route_served_versions(skill_ids, random: Random, draw_key: nil)
         ids = Array(skill_ids).compact.uniq
         return {} if ids.empty?
 
@@ -38,12 +44,18 @@ module Ai
           variant = versions.find { |v| v.is_ab_variant && !v.is_active }
           share = variant&.ab_traffic_pct.to_f
 
-          if variant && variant.system_prompt.present? && share.positive? && share <= 1.0 && random.rand < share
+          draw = draw_key ? keyed_draw(draw_key, skill_id) : random.rand
+          if variant && variant.system_prompt.present? && share.positive? && share <= 1.0 && draw < share
             { version_id: variant.id, prompt: variant.system_prompt }
           else
             { version_id: active&.id, prompt: nil }
           end
         end
+      end
+
+      # A uniform value in [0, 1) fixed by (key, skill): the conversation's draw.
+      def self.keyed_draw(key, skill_id)
+        Digest::SHA256.digest("#{key}:#{skill_id}").unpack1("Q>") / (2.0**64)
       end
 
       # D5 — credit the version that SERVED, never a coin flip.
