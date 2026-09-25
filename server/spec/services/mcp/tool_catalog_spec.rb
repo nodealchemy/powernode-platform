@@ -21,6 +21,19 @@ RSpec.describe Mcp::ToolCatalog do
       expect(described_class.summarize(text, limit: 160)).to eq([text, false])
     end
 
+    it "does not split on an abbreviation followed by an upper-case continuation" do
+      text = "Fetch a Cve by its canonical id (e.g. CVE-2026-12345). Cves are global."
+      expect(described_class.summarize(text, limit: 160))
+        .to eq([ "Fetch a Cve by its canonical id (e.g. CVE-2026-12345).", true ])
+    end
+
+    it "does not end a sentence at i.e., etc. or vs." do
+      [ "Pick a mode, i.e. Fast or Safe, then run.", "Covers VIPs, routes, etc. Nothing else.",
+        "Compare A vs. B before merging." ].each do |text|
+        expect(described_class.summarize(text, limit: 160)).to eq([ text, false ])
+      end
+    end
+
     it "collapses newlines and runs of whitespace into single spaces" do
       text = "Return the\n  full   entry.\nMore."
       expect(described_class.summarize(text, limit: 160)).to eq(["Return the full entry.", true])

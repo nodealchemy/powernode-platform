@@ -57,6 +57,8 @@ module Mcp
     NEAREST_MATCH_LIMIT = 5
 
     PLATFORM_PREFIX = "platform."
+    # See .summarize. The lookbehinds are fixed-width, as Onigmo requires.
+    SENTENCE_END = /(?<=[.!?])(?<!\be\.g\.)(?<!\bi\.e\.)(?<!\betc\.)(?<!\bvs\.)\s+(?=[A-Z0-9"'(\[`])/
 
     # ── SAFETY ANNOTATIONS (2025-03-26+) ────────────────────────────────────
     #
@@ -125,15 +127,16 @@ module Mcp
       # platform.describe_tool has more to say.
       #
       # A sentence ends at `.`, `!` or `?` followed by whitespace and an
-      # upper-case letter, digit, quote or bracket. Requiring the upper-case
-      # continuation keeps "e.g. foo" and "vs. bar" inside the sentence; a
-      # description that ends its first sentence with a lower-case second one
-      # simply keeps both until the cap applies.
+      # upper-case letter, digit, quote or bracket. "e.g.", "i.e.", "etc." and
+      # "vs." never end one, whatever case follows ("e.g. CVE-…" stays whole);
+      # the price is that a genuine sentence ending in "etc." runs on into the
+      # next. A description that ends its first sentence with a lower-case
+      # second one simply keeps both until the cap applies.
       def summarize(text, limit: list_description_limit)
         full = text.to_s.strip.gsub(/\s+/, " ")
         return ["", false] if full.empty?
 
-        first = full.split(/(?<=[.!?])\s+(?=[A-Z0-9"'(\[`])/, 2).first
+        first = full.split(SENTENCE_END, 2).first
         summary = first.length > limit ? cut_at_word_boundary(first, limit) : first
 
         [summary, summary != full]
