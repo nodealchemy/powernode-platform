@@ -201,13 +201,19 @@ module Ai
       end
     end
 
-    # Allocate a child budget
+    # Allocate a child budget. Returns the child, or nil when the parent cannot
+    # cover amount_cents. The decision is made under the parent's row lock (a
+    # stale in-memory remaining_cents cannot over-allocate), and the child is
+    # saved before the reservation so child_budget_within_parent measures it
+    # against the balance it is carved from rather than counting it twice.
     def allocate_child(agent:, amount_cents:, period_type: self.period_type)
-      return nil if remaining_cents < amount_cents
+      return nil unless amount_cents.positive?
 
       transaction do
-        reserve!(amount_cents, metadata: { reason: "child_allocation", child_agent_id: agent.id })
-        child_budgets.create!(
+        lock!
+        raise ActiveRecord::Rollback if remaining_cents < amount_cents
+
+        child = child_budgets.create!(
           account: account,
           agent: agent,
           total_budget_cents: amount_cents,
@@ -216,6 +222,9 @@ module Ai
           period_start: Time.current,
           period_end: period_end
         )
+        raise ActiveRecord::Rollback unless reserve!(amount_cents, metadata: { reason: "child_allocation", child_agent_id: agent.id })
+
+        child
       end
     end
 

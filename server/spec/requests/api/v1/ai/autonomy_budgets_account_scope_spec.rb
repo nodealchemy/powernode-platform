@@ -80,6 +80,32 @@ RSpec.describe "Autonomy budget endpoints stay within the caller's account", typ
     expect(own_budget.reload.reserved_cents).to eq(2_500)
   end
 
+  it "refuses allocating more than the parent has remaining, leaving reservations untouched" do
+    child_agent = create(:ai_agent, account: account)
+    own_budget.update_columns(spent_cents: 8_000)
+
+    post "/api/v1/ai/autonomy/budgets/#{own_budget.id}/allocate_child",
+         params: { agent_id: child_agent.id, amount_cents: 2_001 }.to_json, headers: headers
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(json_response["error"]).to eq("Insufficient budget remaining")
+    expect(own_budget.reload.reserved_cents).to eq(0)
+    expect(own_budget.child_budgets).to be_empty
+  end
+
+  it "refuses allocating a zero or negative amount" do
+    child_agent = create(:ai_agent, account: account)
+
+    [ 0, -100 ].each do |amount|
+      post "/api/v1/ai/autonomy/budgets/#{own_budget.id}/allocate_child",
+           params: { agent_id: child_agent.id, amount_cents: amount }.to_json, headers: headers
+
+      expect(response).to have_http_status(:unprocessable_content), "amount_cents #{amount}"
+    end
+    expect(own_budget.reload.reserved_cents).to eq(0)
+    expect(own_budget.child_budgets).to be_empty
+  end
+
   it "keeps the writes behind ai.autonomy.manage" do
     post "/api/v1/ai/autonomy/budgets/#{own_budget.id}/allocate_child",
          params: { agent_id: own_agent.id, amount_cents: 100 }.to_json, headers: headers(reader)

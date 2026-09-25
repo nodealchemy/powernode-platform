@@ -201,6 +201,42 @@ RSpec.describe Ai::AgentBudget, type: :model do
       child_budget = budget.allocate_child(agent: child_agent, amount_cents: 3_000)
       expect(child_budget.currency).to eq(budget.currency)
     end
+
+    # reserve! is the guard that runs under the row lock. Its refusal must stop
+    # the allocation outright, not fall through to child_budgets.create!.
+    it 'creates no child and reserves nothing when reserve! refuses' do
+      allow(budget).to receive(:reserve!).and_return(false)
+
+      expect(budget.allocate_child(agent: child_agent, amount_cents: 3_000)).to be_nil
+      expect(budget.child_budgets.reload).to be_empty
+      expect(budget.reload.reserved_cents).to eq(0)
+    end
+
+    # Two callers holding the same budget: the second one's in-memory
+    # remaining_cents is stale. The lock-time check must decide, so the parent
+    # is never over-allocated and the loser gets nil rather than an exception.
+    it 'refuses a second allocation made through a stale copy of the parent' do
+      stale = Ai::AgentBudget.find(budget.id)
+      expect(budget.allocate_child(agent: child_agent, amount_cents: 6_000)).to be_persisted
+
+      expect(stale.allocate_child(agent: child_agent, amount_cents: 6_000)).to be_nil
+      expect(budget.reload.reserved_cents).to eq(6_000)
+      expect(budget.child_budgets.count).to eq(1)
+    end
+
+    it 'allocates more than half of the remaining balance' do
+      child_budget = budget.allocate_child(agent: child_agent, amount_cents: 8_000)
+
+      expect(child_budget).to be_persisted
+      expect(budget.reload.reserved_cents).to eq(8_000)
+    end
+
+    it 'refuses a zero or negative amount' do
+      expect(budget.allocate_child(agent: child_agent, amount_cents: 0)).to be_nil
+      expect(budget.allocate_child(agent: child_agent, amount_cents: -500)).to be_nil
+      expect(budget.child_budgets.reload).to be_empty
+      expect(budget.reload.reserved_cents).to eq(0)
+    end
   end
   # IMP-05675d82db79 (dry-run campaign P0.2) — four call sites (context
   # injector budget line, governance resource-abuse remediation, budget
