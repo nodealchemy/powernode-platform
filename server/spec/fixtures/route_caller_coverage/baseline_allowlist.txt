@@ -58,6 +58,11 @@ api/v1/admin/rate_limiting/rate_limiting#ip_blocks
 api/v1/admin/rate_limiting/rate_limiting#override_tier
 api/v1/admin/rate_limiting/rate_limiting#tiers
 api/v1/admin_settings#blacklist_statistics
+# Kept caller-less pending an operator decision (offer 01a0d68f): fc-21
+# deleted their only frontend callers; whether the endpoints go too is
+# not this guard's call. The one sanctioned addition since the baseline closed.
+api/v1/admin_settings#clear_blacklisted_tokens
+api/v1/admin_settings#regenerate_jwt_secret
 api/v1/admin_settings#security_audit_summary
 api/v1/ai/a2a#agent_card
 api/v1/ai/a2a#cancel_task
