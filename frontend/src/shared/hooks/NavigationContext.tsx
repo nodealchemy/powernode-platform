@@ -3,7 +3,7 @@ import React, { createContext, useContext, useReducer, useCallback, useEffect, u
 import { useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/shared/services';
-import { NavigationContext, NavigationConfig, MenuState, NavigationTheme } from '@/shared/types/navigation';
+import { NavigationContext, NavigationConfig, NavigationItem, MenuState, NavigationTheme } from '@/shared/types/navigation';
 import { hasAccess } from '@/shared/utils/permissionUtils';
 import { defaultNavigationConfig, adminNavigationOverrides } from '@/shared/utils/navigation';
 import { featureRegistry } from '@/shared/services/featureRegistry';
@@ -153,6 +153,42 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
         // Top-level items (no section, or section not found)
         config.items = [...config.items, converted];
       }
+    }
+
+    // Fold each item's declared `slotPrefix` permissions (featureRegistry
+    // component slots registered under that prefix, e.g. the system
+    // extension's Module Builds tab under 'devops.ci-cd.tab.') into the
+    // item's own gate, and into its section's — a NavigationSection is
+    // itself permission-gated (hasAccess(user, section.permissions)), so
+    // without this an item made visible only by its slot's permission could
+    // still be hidden by its section. A slot with no declared permissions
+    // (or no registered slot at all) contributes nothing. Runs off
+    // `registryVersion`, so a slot an extension registers after this
+    // provider's first render is picked up on the next rebuild.
+    const withSlotPermissions = (item: NavigationItem): NavigationItem => {
+      if (!item.slotPrefix) return item;
+      const slotPermissions = featureRegistry.getSlotPermissions(item.slotPrefix);
+      if (slotPermissions.length === 0) return item;
+      return { ...item, permissions: Array.from(new Set([...(item.permissions ?? []), ...slotPermissions])) };
+    };
+
+    config.items = config.items.map(withSlotPermissions);
+
+    if (config.sections) {
+      config.sections = config.sections.map((section) => {
+        const items = section.items.map(withSlotPermissions);
+        const slotPermissions = section.items.flatMap((item) =>
+          item.slotPrefix ? featureRegistry.getSlotPermissions(item.slotPrefix) : []
+        );
+        if (slotPermissions.length === 0) return { ...section, items };
+
+        const sectionPermissions = section.permissions ?? [];
+        return {
+          ...section,
+          items,
+          permissions: Array.from(new Set([...sectionPermissions, ...slotPermissions])),
+        };
+      });
     }
 
     // Sort copies: the arrays may still be the shared defaultNavigationConfig

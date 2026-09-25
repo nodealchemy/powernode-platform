@@ -35,6 +35,59 @@ describe('featureRegistry.getComponentSlotIds', () => {
   });
 });
 
+// registerSlotMeta / getSlotMeta / getSlotPermissions — the optional metadata
+// (label, permissions) a slot registration can carry alongside its component,
+// kept in a parallel map so getComponentSlot's return shape never changes.
+
+describe('featureRegistry slot metadata', () => {
+  beforeEach(() => featureRegistry.clear());
+
+  it('has no metadata for a slot nothing registered metadata for', () => {
+    featureRegistry.registerComponentSlots({ 'host.kind.signals': View });
+    expect(featureRegistry.getSlotMeta('host.kind.signals')).toBeUndefined();
+  });
+
+  it('resolves the metadata registered for a slot id', () => {
+    featureRegistry.registerSlotMeta({
+      'host.kind.signals': { label: 'Signals', permissions: ['host.signals.read'] },
+    });
+    expect(featureRegistry.getSlotMeta('host.kind.signals')).toEqual({
+      label: 'Signals',
+      permissions: ['host.signals.read'],
+    });
+  });
+
+  describe('getSlotPermissions', () => {
+    it('unions permissions across every registered slot under the prefix, deduplicated', () => {
+      featureRegistry.registerComponentSlots({ 'host.kind.a': View, 'host.kind.b': View });
+      featureRegistry.registerSlotMeta({
+        'host.kind.a': { permissions: ['host.a.read', 'host.shared.read'] },
+        'host.kind.b': { permissions: ['host.b.read', 'host.shared.read'] },
+      });
+
+      expect(featureRegistry.getSlotPermissions('host.kind.')).toEqual(
+        expect.arrayContaining(['host.a.read', 'host.b.read', 'host.shared.read']),
+      );
+      expect(featureRegistry.getSlotPermissions('host.kind.')).toHaveLength(3);
+    });
+
+    it('is empty when a registered slot under the prefix declares no metadata', () => {
+      featureRegistry.registerComponentSlots({ 'host.kind.a': View });
+      expect(featureRegistry.getSlotPermissions('host.kind.')).toEqual([]);
+    });
+
+    it('is empty when nothing is registered under the prefix at all', () => {
+      expect(featureRegistry.getSlotPermissions('host.kind.')).toEqual([]);
+    });
+
+    it('ignores metadata registered for a slot under a different prefix', () => {
+      featureRegistry.registerComponentSlots({ 'host.other.a': View });
+      featureRegistry.registerSlotMeta({ 'host.other.a': { permissions: ['host.other.read'] } });
+      expect(featureRegistry.getSlotPermissions('host.kind.')).toEqual([]);
+    });
+  });
+});
+
 describe('featureRegistry public route roles', () => {
   afterEach(() => featureRegistry.clear());
 

@@ -386,21 +386,21 @@ export const defaultNavigationConfig: NavigationConfig = {
           name: 'CI/CD',
           href: '/app/devops/ci-cd',
           icon: Workflow,
-          // fc-34 review fix: this used to list system.module_builds.read
-          // (an extension-owned permission core must not name) so a Module
-          // Builds tab lived here too. That tab now mounts through
-          // CiCdPage's generic devops.ci-cd.tab.* component-slot seam
-          // instead — core has no way to make THIS item's visibility
-          // conditional on a slot being registered, so the decision here is:
-          // an operator who holds ONLY system.module_builds.read (no
-          // devops.pipelines.read / git.runners.read) no longer sees this
-          // nav entry. That is a discoverability gap, not a security one —
-          // ModuleBuildsCiCdTab's own hasPermission check is still the real
-          // gate on the tab's content, and the URL
-          // (/app/devops/ci-cd/module-builds) still works for anyone who
-          // reaches it by a direct link.
+          // fc-34: this used to list system.module_builds.read (an
+          // extension-owned permission core must not name) so a Module
+          // Builds tab lived here too. That tab now mounts through CiCdPage's
+          // generic devops.ci-cd.tab.* component-slot seam, and `slotPrefix`
+          // below closes the discoverability gap that left open: a user
+          // holding ONLY the extension's slot permission (registered via
+          // featureRegistry.registerSlotMeta, never written here) still sees
+          // this nav entry, because NavigationContext's buildNavigationConfig
+          // unions every registered slot's declared permissions into this
+          // item's own gate (featureRegistry.getSlotPermissions). Core still
+          // never names the permission — the union is by prefix, not by
+          // literal string.
           description: 'Pipelines and runner management',
           permissions: ['devops.pipelines.read', 'git.runners.read'],
+          slotPrefix: 'devops.ci-cd.tab.',
           order: 3
         },
         {

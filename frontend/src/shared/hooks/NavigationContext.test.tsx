@@ -53,3 +53,95 @@ describe('NavigationProvider extension items targeting a core section', () => {
     expect(snapshot()).toEqual(before);
   });
 });
+
+// A nav item's `slotPrefix` (e.g. the DevOps section's 'ci-cd' item, whose
+// page hosts extension tabs through the devops.ci-cd.tab.* component-slot
+// seam) unions in every registered slot's declared permissions under that
+// prefix — so an extension permission core never writes still shows the item
+// to a user who holds only it. fc-34 round 3.
+describe('NavigationProvider slot-permission union (item.slotPrefix)', () => {
+  const devopsSection = defaultNavigationConfig.sections!.find((s) => s.id === 'devops')!;
+  const ciCdItemBefore = devopsSection.items.find((i) => i.id === 'ci-cd')!;
+
+  let latest: ReturnType<typeof useNavigation> | null = null;
+  const Probe = () => {
+    latest = useNavigation();
+    return null;
+  };
+
+  const renderProvider = () =>
+    render(
+      <Provider store={configureStore({ reducer: { auth: (state = { user: null }) => state } })}>
+        <MemoryRouter initialEntries={['/app']}>
+          <NavigationProvider>
+            <Probe />
+          </NavigationProvider>
+        </MemoryRouter>
+      </Provider>,
+    );
+
+  const ciCdItem = () =>
+    latest!.config.sections!.find((s) => s.id === 'devops')!.items.find((i) => i.id === 'ci-cd')!;
+
+  afterEach(() => featureRegistry.clear());
+
+  it('sanity: the ci-cd nav item declares a slotPrefix, so this test targets the real feature', () => {
+    expect(ciCdItemBefore.slotPrefix).toBe('devops.ci-cd.tab.');
+  });
+
+  it('adds nothing when no slot under the prefix declares a permission', () => {
+    renderProvider();
+    expect(ciCdItem().permissions).toEqual(ciCdItemBefore.permissions);
+  });
+
+  it('unions a registered slot\'s declared permission into the item\'s own gate', () => {
+    featureRegistry.registerComponentSlots({ 'devops.ci-cd.tab.module-builds': () => null });
+    featureRegistry.registerSlotMeta({
+      'devops.ci-cd.tab.module-builds': { permissions: ['system.module_builds.read'] },
+    });
+
+    renderProvider();
+
+    expect(ciCdItem().permissions).toEqual(
+      expect.arrayContaining([...(ciCdItemBefore.permissions ?? []), 'system.module_builds.read']),
+    );
+  });
+
+  it('also unions the permission into the item\'s own section, not just the item', () => {
+    featureRegistry.registerComponentSlots({ 'devops.ci-cd.tab.module-builds': () => null });
+    featureRegistry.registerSlotMeta({
+      'devops.ci-cd.tab.module-builds': { permissions: ['system.module_builds.read'] },
+    });
+
+    renderProvider();
+
+    const section = latest!.config.sections!.find((s) => s.id === 'devops')!;
+    expect(section.permissions).toEqual(expect.arrayContaining(['system.module_builds.read']));
+  });
+
+  it('picks up a slot registered AFTER the provider has already rendered', () => {
+    renderProvider();
+    expect(ciCdItem().permissions).toEqual(ciCdItemBefore.permissions);
+
+    act(() => {
+      featureRegistry.registerComponentSlots({ 'devops.ci-cd.tab.module-builds': () => null });
+      featureRegistry.registerSlotMeta({
+        'devops.ci-cd.tab.module-builds': { permissions: ['system.module_builds.read'] },
+      });
+    });
+
+    expect(ciCdItem().permissions).toEqual(
+      expect.arrayContaining([...(ciCdItemBefore.permissions ?? []), 'system.module_builds.read']),
+    );
+  });
+
+  it('never writes the extension permission literal into the static config itself', () => {
+    featureRegistry.registerComponentSlots({ 'devops.ci-cd.tab.module-builds': () => null });
+    featureRegistry.registerSlotMeta({
+      'devops.ci-cd.tab.module-builds': { permissions: ['system.module_builds.read'] },
+    });
+    renderProvider();
+
+    expect(ciCdItemBefore.permissions).not.toContain('system.module_builds.read');
+  });
+});

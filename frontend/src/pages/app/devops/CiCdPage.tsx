@@ -15,10 +15,12 @@ import { TemplatesContent } from '@/pages/app/ai/DevOpsTemplatesPage';
 // Mirrors ComponentStatusDrawer.tsx's `platform.status.drawer.<kind>.<view>`
 // pattern: `featureRegistry.registerComponentSlots({'devops.ci-cd.tab.<id>':
 // Component})`, discovered here via `getComponentSlotIds(prefix)`. The `<id>`
-// segment becomes both the tab's id/path (`/app/devops/ci-cd/<id>`) and,
-// title-cased with separators turned to spaces, its label — there is no
-// separate label/icon channel in ComponentSlot, so a slot component can't
-// supply either; every slot tab shows the same generic icon.
+// segment becomes the tab's id/path (`/app/devops/ci-cd/<id>`). The label and
+// gating permissions come from the slot's optional metadata
+// (featureRegistry.registerSlotMeta / getSlotMeta) — falling back to a
+// title-cased derivation of `<id>` and no permission restriction when a slot
+// registers no metadata — and every slot tab shows the same generic icon:
+// there is still no icon channel in ComponentSlot or ComponentSlotMeta.
 const CI_CD_TAB_SLOT_PREFIX = 'devops.ci-cd.tab.';
 
 /** `module-builds` / `module_builds` -> `Module builds`. */
@@ -30,6 +32,7 @@ const slotTabLabel = (id: string): string => {
 interface SlotTab {
   id: string;
   label: string;
+  permissions?: string[];
   Component: React.ComponentType<{ onActionsReady?: (actions: PageAction[]) => void }>;
 }
 
@@ -56,7 +59,9 @@ export const CiCdPage: React.FC = () => {
     return featureRegistry.getComponentSlotIds(CI_CD_TAB_SLOT_PREFIX).flatMap((slotId) => {
       const id = slotId.slice(CI_CD_TAB_SLOT_PREFIX.length);
       const Component = featureRegistry.getComponentSlot(slotId) as SlotTab['Component'] | undefined;
-      return id && Component ? [{ id, label: slotTabLabel(id), Component }] : [];
+      if (!id || !Component) return [];
+      const meta = featureRegistry.getSlotMeta(slotId);
+      return [{ id, label: meta?.label ?? slotTabLabel(id), permissions: meta?.permissions, Component }];
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- registryVersion is the real dependency (see comment above); the registry itself is a stable singleton.
   }, [registryVersion]);
@@ -64,7 +69,7 @@ export const CiCdPage: React.FC = () => {
   const tabs = useMemo<Tab[]>(
     () => [
       ...staticTabs,
-      ...slotTabs.map((t) => ({ id: t.id, label: t.label, icon: <Puzzle size={16} />, path: `/${t.id}` })),
+      ...slotTabs.map((t) => ({ id: t.id, label: t.label, icon: <Puzzle size={16} />, path: `/${t.id}`, permissions: t.permissions })),
     ],
     [slotTabs]
   );

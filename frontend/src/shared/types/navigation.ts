@@ -16,6 +16,16 @@ export interface NavigationItem {
   order?: number;
   action?: string;
   activeMatch?: 'exact' | 'prefix';
+  /**
+   * A featureRegistry component-slot id prefix (e.g. 'devops.ci-cd.tab.').
+   * When set, this item's visibility unions in the `permissions` declared by
+   * every registered slot under the prefix (featureRegistry.getSlotPermissions),
+   * on top of its own `permissions` — so an item whose page hosts extension
+   * tabs through a slot seam stays visible to a user who holds only the
+   * extension's slot permission, without core ever naming that permission
+   * itself. Resolved in NavigationContext.tsx's buildNavigationConfig.
+   */
+  slotPrefix?: string;
 }
 
 export interface NavigationSection {

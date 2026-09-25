@@ -48,6 +48,15 @@ jest.mock('@/shared/hooks/BreadcrumbContext', () => ({
 // TabPanel is NOT mocked — its real implementation is pure prop-based
 // filtering (`tabId !== activeTab ? null : children`), which is exactly the
 // "only one panel visible" behaviour these tests rely on.
+// Captures every `tabs` array CiCdPage hands to TabContainer (fc-34 round 3
+// slot-metadata k1): TabContainer's OWN permission filtering is proven
+// generically in TabContainer.test.tsx ("hides a tab whose permissions the
+// user lacks" / "always shows a tab with no permissions declared") — what
+// THIS file needs to prove is that CiCdPage correctly wires a slot's
+// registered metadata (label, permissions) into the Tab object it passes
+// down, so that generic filtering has the right input to act on.
+const tabsPropCalls: Array<Array<{ id: string; label: string; path?: string; permissions?: string[] }>> = [];
+
 jest.mock('@/shared/components/layout/TabContainer', () => {
   const actual = jest.requireActual('@/shared/components/layout/TabContainer');
   const { useNavigate } = jest.requireActual('react-router-dom');
@@ -66,12 +75,13 @@ jest.mock('@/shared/components/layout/TabContainer', () => {
       basePath,
     }: {
       children?: React.ReactNode;
-      tabs?: Array<{ id: string; label: string; path?: string }>;
+      tabs?: Array<{ id: string; label: string; path?: string; permissions?: string[] }>;
       activeTab?: string;
       onTabChange?: (tabId: string) => void;
       basePath?: string;
     }) => {
       const navigate = useNavigate();
+      tabsPropCalls.push(tabs ?? []);
       return (
         <div>
           <div>
@@ -184,6 +194,74 @@ describe('CiCdPage', () => {
 
       // Appears twice: the active tab button and the breadcrumb's last item.
       expect(screen.getAllByText('Module builds').length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  // fc-34 round 3: registerSlotMeta lets a slot declare its own label and
+  // gating permissions, instead of CiCdPage deriving a label from the raw id
+  // and leaving the tab ungated. Runs after the block above, which already
+  // registered the `devops.ci-cd.tab.module-builds` component — this only
+  // adds metadata for it (featureRegistry has no unregister, so the
+  // component from the earlier block is still there).
+  describe('with slot metadata registered for that slot', () => {
+    beforeAll(() => {
+      featureRegistry.registerSlotMeta({
+        'devops.ci-cd.tab.module-builds': {
+          label: 'Module Builds',
+          permissions: ['system.module_builds.read'],
+        },
+      });
+    });
+
+    it('labels the tab from the metadata, in Title Case, instead of deriving one from the id', () => {
+      tabsPropCalls.length = 0;
+      renderPage();
+
+      expect(screen.getByRole('tab', { name: 'Module Builds' })).toBeInTheDocument();
+      expect(screen.queryByRole('tab', { name: 'Module builds' })).not.toBeInTheDocument();
+    });
+
+    // TabContainer.test.tsx already proves generically that a tab whose
+    // `permissions` the user lacks is hidden, and that a tab with none
+    // declared is always shown. What CiCdPage itself must get right is
+    // wiring the slot's registered permissions into the Tab object at all —
+    // proven here by inspecting what CiCdPage actually hands to TabContainer,
+    // composing with that proof into "hidden without the permission" overall.
+    it('wires the slot metadata\'s permissions into the tab CiCdPage hands to TabContainer', () => {
+      tabsPropCalls.length = 0;
+      renderPage();
+
+      const lastTabs = tabsPropCalls[tabsPropCalls.length - 1];
+      const moduleBuildsTab = lastTabs.find((t) => t.id === 'module-builds');
+      expect(moduleBuildsTab?.permissions).toEqual(['system.module_builds.read']);
+    });
+
+    it('a static tab with no slot metadata still carries no permissions restriction', () => {
+      tabsPropCalls.length = 0;
+      renderPage();
+
+      const lastTabs = tabsPropCalls[tabsPropCalls.length - 1];
+      const overviewTab = lastTabs.find((t) => t.id === 'overview');
+      expect(overviewTab?.permissions).toBeUndefined();
+    });
+  });
+
+  // fc-34 round 3, item 3: proves the `[registryVersion]` dependency, not just
+  // that a slot present at mount renders — a slot registered by an extension
+  // that finishes loading asynchronously, after CiCdPage has already
+  // rendered, must still appear without a remount.
+  describe('late slot registration (after first render)', () => {
+    const LateSlotComponent: React.FC = () => <div data-testid="late-slot">Late Slot</div>;
+
+    it('adds a tab for a slot registered after the page has already rendered', async () => {
+      renderPage();
+      expect(screen.queryByRole('tab', { name: 'Late slot' })).not.toBeInTheDocument();
+
+      featureRegistry.registerComponentSlots({
+        'devops.ci-cd.tab.late-slot': LateSlotComponent as React.ComponentType<unknown>,
+      });
+
+      await waitFor(() => expect(screen.getByRole('tab', { name: 'Late slot' })).toBeInTheDocument());
     });
   });
 });

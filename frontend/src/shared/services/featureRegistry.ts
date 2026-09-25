@@ -84,6 +84,24 @@ type SetupStepComponent = LazyExoticComponent<ComponentType<unknown>> | Componen
 type ComponentSlot = LazyExoticComponent<ComponentType<unknown>> | ComponentType<unknown>;
 
 /**
+ * Optional metadata about a registered component slot, kept in a PARALLEL map
+ * rather than folded into `ComponentSlot` itself — `registerComponentSlots`/
+ * `getComponentSlot` already have callers (ComponentStatusDrawer, CostPage's
+ * outcome-billing leaf, CiCdPage) that expect the raw component back, and
+ * changing that return shape would touch all of them for one new consumer.
+ * `permissions`: what a host page's tab/nav-visibility check for this slot
+ * should require (e.g. CiCdPage passes it straight into its Tab, and a nav
+ * item's `slotPrefix` unions it into the item's own gate — see
+ * NavigationContext.tsx). `label`: the human label a host page should show for
+ * this slot (e.g. CiCdPage's tab label) instead of deriving one from the id.
+ * Absent metadata is not an error — a host falls back to its own default.
+ */
+export interface ComponentSlotMeta {
+  permissions?: string[];
+  label?: string;
+}
+
+/**
  * A real-time ActionCable channel an extension contributes. `key` is the logical channel
  * id consumed by usePageWebSocket (e.g. 'subscriptions'); `channelName` is the ActionCable
  * channel class the backend exposes (e.g. 'SubscriptionChannel'); `defaultPageTypes` lists
@@ -166,6 +184,7 @@ interface FeatureRegistryState {
   channels: Map<string, FeatureChannel[]>;
   setupStepComponents: Map<string, SetupStepComponent>;
   componentSlots: Map<string, ComponentSlot>;
+  componentSlotMeta: Map<string, ComponentSlotMeta>;
   providerCategoryHandlers: Map<string, ProviderCategoryHandlers>;
   mentionSources: Map<string, MentionSource[]>;
   policyDomains: Map<string, PolicyDomainPresentation[]>;
@@ -183,6 +202,7 @@ const state: FeatureRegistryState = {
   channels: new Map(),
   setupStepComponents: new Map(),
   componentSlots: new Map(),
+  componentSlotMeta: new Map(),
   providerCategoryHandlers: new Map(),
   mentionSources: new Map(),
   policyDomains: new Map(),
@@ -244,6 +264,37 @@ export const featureRegistry = {
       state.componentSlots.set(id, component);
     });
     notifyListeners();
+  },
+
+  /**
+   * Attach optional metadata (permissions, label) to already- or not-yet-
+   * registered slot ids. Kept separate from `registerComponentSlots` — see
+   * `ComponentSlotMeta`'s doc comment for why.
+   */
+  registerSlotMeta(meta: Record<string, ComponentSlotMeta>): void {
+    Object.entries(meta).forEach(([id, m]) => {
+      state.componentSlotMeta.set(id, m);
+    });
+    notifyListeners();
+  },
+
+  /** The metadata registered for a slot id, or undefined. */
+  getSlotMeta(id: string): ComponentSlotMeta | undefined {
+    return state.componentSlotMeta.get(id);
+  },
+
+  /**
+   * The union of `permissions` declared across every registered slot's
+   * metadata under `prefix` (see `getComponentSlotIds` for prefix matching).
+   * A slot with no metadata, or metadata with no `permissions`, contributes
+   * nothing — it neither widens nor narrows the union. Empty when no
+   * registered slot under the prefix declares any permission. Used by a nav
+   * item's `slotPrefix` to fold a not-yet-known extension permission into its
+   * own visibility gate without core ever naming that permission itself.
+   */
+  getSlotPermissions(prefix: string): string[] {
+    const ids = Array.from(state.componentSlots.keys()).filter((id) => id.startsWith(prefix));
+    return Array.from(new Set(ids.flatMap((id) => state.componentSlotMeta.get(id)?.permissions ?? [])));
   },
 
   /**
@@ -484,6 +535,7 @@ export const featureRegistry = {
     state.channels.clear();
     state.setupStepComponents.clear();
     state.componentSlots.clear();
+    state.componentSlotMeta.clear();
     state.providerCategoryHandlers.clear();
     state.mentionSources.clear();
     state.policyDomains.clear();
