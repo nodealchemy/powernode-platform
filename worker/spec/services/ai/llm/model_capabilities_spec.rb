@@ -76,6 +76,20 @@ RSpec.describe Ai::Llm::ModelCapabilities do
     end
   end
 
+  describe '.mid_conversation_system?' do
+    %w[claude-fable-5 claude-fable-5-1 claude-mythos-5 claude-opus-4-8 claude-opus-5 claude-opus-5-5].each do |model|
+      it "is true for #{model}" do
+        expect(described_class.mid_conversation_system?(model)).to be(true)
+      end
+    end
+
+    %w[claude-sonnet-5 claude-opus-4-7 claude-haiku-5 claude-opus-4-6 gpt-4o].each do |model|
+      it "is false for #{model}" do
+        expect(described_class.mid_conversation_system?(model)).to be(false)
+      end
+    end
+  end
+
   describe '.stream_required?' do
     it 'is false up to the non-streaming ceiling and true above it' do
       expect(described_class.stream_required?(16_000)).to be(false)

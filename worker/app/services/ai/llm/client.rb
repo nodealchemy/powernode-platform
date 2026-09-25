@@ -5,6 +5,7 @@ require 'json'
 require 'uri'
 require_relative 'response'
 require_relative 'model_capabilities'
+require_relative 'anthropic_messages'
 
 module Ai
   module Llm
@@ -359,11 +360,11 @@ module Ai
       # agentic: a tool-loop turn, which gets the larger default max_tokens on an
       # always-thinking model (ModelCapabilities.default_max_tokens).
       def build_anthropic_body(messages, model, agentic: false, **opts)
-        sys_msgs = messages.select { |m| (m[:role] || m["role"]) == "system" }
-        other = messages.reject { |m| (m[:role] || m["role"]) == "system" }
-        sys = sys_msgs.map { |m| m[:content] || m["content"] }.join("\n")
+        # Leading system messages (+ opts[:system_prompt]) become the top-level
+        # `system`; later ones stay in place (AnthropicMessages).
+        sys, other = AnthropicMessages.split(messages, model) { |m| anthropic_normalize_message(m) }
         sys = [sys, opts[:system_prompt]].reject(&:blank?).join("\n") if opts[:system_prompt].present?
-        body = { model: model, messages: other.map { |m| anthropic_normalize_message(m) }, max_tokens: opts[:max_tokens] || ModelCapabilities.default_max_tokens(model, agentic: agentic) || 4096 }
+        body = { model: model, messages: other, max_tokens: opts[:max_tokens] || ModelCapabilities.default_max_tokens(model, agentic: agentic) || 4096 }
         if sys.present?
           body[:system] = anthropic_cache_prompt?(opts) ? [{ type: "text", text: sys, cache_control: { type: "ephemeral" } }] : sys
         end

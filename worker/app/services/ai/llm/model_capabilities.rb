@@ -89,6 +89,18 @@ module Ai
         claude-mythos
       ].freeze
 
+      # Adaptive-only families that reject a role:"system" message inside `messages`
+      # (400 "role 'system' is not supported on this model"). Opus 4.7 predates the
+      # feature, which arrived with Opus 4.8. The Sonnet and Haiku lines are not
+      # documented as supporting it, and Sonnet 5 is documented as unsupported.
+      # Every other adaptive-only model accepts it. Legacy and non-Claude models
+      # never get it (see .mid_conversation_system?).
+      NO_MID_CONVERSATION_SYSTEM_PREFIXES = %w[
+        claude-opus-4-7
+        claude-sonnet
+        claude-haiku
+      ].freeze
+
       # Default max_tokens for a caller that sets none (see .default_max_tokens).
       # Thinking is always on for adaptive-only models and is paid out of max_tokens,
       # so the no-thinking-era 2K/4K defaults cut replies off mid-answer.
@@ -134,6 +146,14 @@ module Ai
         return nil unless thinking_mode(model_id) == :adaptive_only
 
         agentic ? AGENTIC_MAX_TOKENS : COMPLETION_MAX_TOKENS
+      end
+
+      # Whether a role:"system" message may sit inside `messages` (after a user turn)
+      # instead of being lifted into the top-level `system` field.
+      def mid_conversation_system?(model_id)
+        mid = model_id.to_s
+        thinking_mode(mid) == :adaptive_only &&
+          NO_MID_CONVERSATION_SYSTEM_PREFIXES.none? { |prefix| mid.start_with?(prefix) }
       end
 
       # Whether a request with this max_tokens must be sent streamed.

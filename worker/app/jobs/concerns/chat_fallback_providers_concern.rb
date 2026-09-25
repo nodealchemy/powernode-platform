@@ -31,8 +31,8 @@ module ChatFallbackProvidersConcern
   def call_anthropic_non_streaming(api_key, base_url, model, messages, temperature, max_tokens)
     url = "#{base_url || 'https://api.anthropic.com/v1'}/messages"
 
-    system_content = messages.select { |m| m[:role] == 'system' }.map { |m| m[:content] }.join("\n")
-    chat_messages = messages.reject { |m| m[:role] == 'system' }
+    # Leading system messages become the top-level `system`; later ones stay in place.
+    system_content, chat_messages = Ai::Llm::AnthropicMessages.split(messages, model)
 
     body_hash = {
       model: model,

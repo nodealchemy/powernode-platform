@@ -215,16 +215,13 @@ module Ai
         # agentic: a tool-loop turn, which gets the larger default max_tokens on an
         # always-thinking model (ModelCapabilities.default_max_tokens).
         def build_messages_body(messages, model, agentic: false, **opts)
-          # Separate system messages — Anthropic requires system as top-level param
-          system_msgs = messages.select { |m| (m[:role] || m["role"]) == "system" }
-          other_msgs = messages.reject { |m| (m[:role] || m["role"]) == "system" }
-
-          system_content = system_msgs.map { |m| m[:content] || m["content"] }.join("\n")
+          # Leading system messages (+ opts[:system_prompt]) become the top-level
+          # `system`; later ones stay in place (Ai::Llm::AnthropicMessages).
+          system_content, formatted_messages =
+            Ai::Llm::AnthropicMessages.split(messages, model) { |m| normalize_message(m) }
           if opts[:system_prompt].present?
             system_content = [system_content, opts[:system_prompt]].reject(&:blank?).join("\n")
           end
-
-          formatted_messages = other_msgs.map { |m| normalize_message(m) }
 
           body = {
             model: model,

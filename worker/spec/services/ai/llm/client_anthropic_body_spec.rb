@@ -125,4 +125,31 @@ RSpec.describe Ai::Llm::Client, '#build_anthropic_body' do
       expect(captured[:tools].last).not_to have_key(:cache_control)
     end
   end
+
+  # The top-level system must stay byte-identical across the turns of a
+  # conversation (prompt cache, preserved thinking). A system message that appears
+  # later in the history is sent in place, never lifted into it.
+  describe 'mid-conversation system messages' do
+    def body_for_history(history, model) = client.send(:build_anthropic_body, history, model)
+
+    let(:turn1) { [ { role: 'system', content: 'core prompt' }, { role: 'user', content: 'first question' } ] }
+    let(:turn2) do
+      turn1 + [ { role: 'assistant', content: 'first answer' }, { role: 'user', content: 'second question' },
+                { role: 'system', content: 'live context for turn 2' } ]
+    end
+
+    %w[claude-fable-5 claude-sonnet-5].each do |model|
+      it "keeps body[:system] byte-identical when the history gains a mid-array system message (#{model})" do
+        first = body_for_history(turn1, model)
+        second = body_for_history(turn2, model)
+        expect(second[:system]).to eq(first[:system])
+        expect(second[:messages].first(first[:messages].size)).to eq(first[:messages])
+        expect(second[:messages].to_s).to include('live context for turn 2')
+      end
+    end
+
+    it 'sends the later system message natively where the model supports it' do
+      expect(body_for_history(turn2, 'claude-fable-5')[:messages].last).to eq(role: 'system', content: 'live context for turn 2')
+    end
+  end
 end
