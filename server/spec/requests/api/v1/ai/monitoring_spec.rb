@@ -88,36 +88,6 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
     end
   end
 
-  describe 'GET /api/v1/ai/monitoring/metrics' do
-    context 'with proper permissions' do
-      it 'returns metrics data' do
-        allow_any_instance_of(Monitoring::UnifiedService).to receive(:collect_component_metrics)
-          .and_return({ requests: 100, errors: 5 })
-
-        get '/api/v1/ai/monitoring/metrics', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['metrics']).to be_present
-        expect(data).to have_key('timestamp')
-      end
-
-      # E7b, the SECOND call site of the deleted concern method. The lead's
-      # brief named `get_system_overview`; `check_system_health` called it too,
-      # and that one reaches the wire through collect_component_metrics("system")
-      # on THIS endpoint. Deliberately unstubbed, so the real concern runs.
-      it 'returns the system component checks with no rival status string' do
-        get '/api/v1/ai/monitoring/metrics?components=system', headers: headers, as: :json
-
-        expect_success_response
-        system_metrics = json_response_data['metrics']['system']
-        expect(system_metrics['health']).to be_present
-        expect(system_metrics['health']).to have_key('components')
-        expect(system_metrics['health']).not_to have_key('status')
-      end
-    end
-  end
-
   describe 'GET /api/v1/ai/monitoring/overview' do
     context 'with proper permissions' do
       before do

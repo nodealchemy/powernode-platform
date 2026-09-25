@@ -113,7 +113,6 @@ export type {
 export { monitoringApi };
 export type {
   MonitoringDashboard,
-  MetricsData,
   ProviderCircuitBreakerState,
   Alert,
 } from '@/shared/services/ai/MonitoringApiService';

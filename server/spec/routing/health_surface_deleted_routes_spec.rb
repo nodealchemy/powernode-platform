@@ -25,4 +25,12 @@ RSpec.describe "Deleted health surface routes", type: :routing do
     expect(get: "/api/v1/ai/monitoring/health/detailed").not_to be_routable
     expect(get: "/api/v1/ai/monitoring/health/connectivity").not_to be_routable
   end
+
+  # fc-47: MonitoringApiService.getMetrics was the only caller of GET
+  # /ai/monitoring/metrics, and nothing called it. The worker's broadcast is
+  # a different route and stays.
+  it "does not route GET /api/v1/ai/monitoring/metrics, and still routes the broadcast" do
+    expect(get: "/api/v1/ai/monitoring/metrics").not_to be_routable
+    expect(post: "/api/v1/ai/monitoring/broadcast").to route_to("api/v1/ai/monitoring#broadcast_metrics")
+  end
 end

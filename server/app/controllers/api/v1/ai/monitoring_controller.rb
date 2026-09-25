@@ -6,7 +6,7 @@
 # RESTful resource controller following the AI Orchestration Redesign pattern.
 #
 # Consolidates:
-# - MonitoringController (status, metrics, alerts)
+# - MonitoringController (dashboard, overview, alerts)
 # - CircuitBreakersController (circuit breaker management)
 #
 # Health is not served here: platform health is on /app/status, and the
@@ -25,8 +25,8 @@ module Api
         include AuditLogging
 
         before_action :validate_permissions
-        before_action :set_time_range, only: [ :dashboard, :metrics ]
-        before_action :set_components, only: [ :dashboard, :metrics ]
+        before_action :set_time_range, only: [ :dashboard ]
+        before_action :set_components, only: [ :dashboard ]
 
         # =============================================================================
         # DASHBOARD & METRICS
@@ -44,16 +44,6 @@ module Api
             generated_at: Time.current.iso8601
           )
           log_audit_event("ai.monitoring.dashboard", account) if account
-        end
-
-        # GET /api/v1/ai/monitoring/metrics
-        def metrics
-          service = Monitoring::UnifiedService.new(account: current_user.account)
-          metrics_data = @components.each_with_object({}) do |component, hash|
-            hash[component] = service.collect_component_metrics(component, @time_range)
-          end
-
-          render_success(metrics: metrics_data, time_range_seconds: @time_range.to_i, timestamp: Time.current.iso8601)
         end
 
         # GET /api/v1/ai/monitoring/overview
@@ -260,7 +250,7 @@ module Api
           return if current_worker
 
           permission_map = {
-            %w[dashboard metrics overview alerts alerts_check
+            %w[dashboard overview alerts alerts_check
                circuit_breakers_index circuit_breaker_show circuit_breakers_category] => "ai.monitoring.read",
             %w[circuit_breaker_reset broadcast_metrics start_monitoring stop_monitoring] => "ai.monitoring.manage",
             USER_ATTRIBUTED_ACTIONS => "ai.aiops.manage"

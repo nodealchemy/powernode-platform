@@ -102,37 +102,6 @@ RSpec.describe Api::V1::Ai::MonitoringController, type: :controller do
     end
   end
 
-  describe 'GET #metrics' do
-    context 'with valid permissions' do
-      before { sign_in monitoring_read_user }
-
-      it 'returns component metrics' do
-        get :metrics
-
-        expect(response).to have_http_status(:success)
-        json = JSON.parse(response.body)
-        expect(json['success']).to be true
-        expect(json['data']['metrics']).to be_present
-        expect(json['data']['timestamp']).to be_present
-      end
-
-      it 'includes time range in response' do
-        get :metrics, params: { time_range: 3600 }
-
-        json = JSON.parse(response.body)
-        expect(json['data']['time_range_seconds']).to eq(3600)
-      end
-
-      it 'collects metrics for specified components' do
-        expect_any_instance_of(Monitoring::UnifiedService).to receive(:collect_component_metrics).at_least(:once)
-
-        get :metrics, params: { components: 'system,providers' }
-
-        expect(response).to have_http_status(:success)
-      end
-    end
-  end
-
   describe 'GET #overview' do
     context 'with valid permissions' do
       before { sign_in monitoring_read_user }

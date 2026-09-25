@@ -1826,7 +1826,6 @@ Rails.application.routes.draw do
         # ===================================================================
         resource :monitoring, only: [], controller: :monitoring do
           get :dashboard
-          get :metrics
           get :overview
           get :alerts
           post "alerts/check", action: :alerts_check

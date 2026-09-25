@@ -13,7 +13,6 @@ import { type StatusRollup, type Verdict, UNHEALTHY_VERDICTS, isVerdict } from '
  *
  * New endpoint structure:
  * - GET  /api/v1/ai/monitoring/dashboard
- * - GET  /api/v1/ai/monitoring/metrics
  * - GET  /api/v1/ai/monitoring/overview
  * - GET  /api/v1/ai/monitoring/alerts
  * - POST /api/v1/ai/monitoring/alerts/check
@@ -79,14 +78,6 @@ export interface MonitoringDashboard {
     message: string;
     timestamp: string;
   }>;
-}
-
-export interface MetricsData {
-  active_connections: number;
-  request_rate: number;
-  error_rate: number;
-  avg_response_time: number;
-  timestamp: string;
 }
 
 /**
@@ -284,41 +275,6 @@ class MonitoringApiService extends BaseApiService {
       })),
       alerts: []
     };
-  }
-
-  /**
-   * Get system metrics
-   * GET /api/v1/ai/monitoring/metrics
-   * Transforms nested backend response to flat MetricsData array
-   */
-  async getMetrics(timeRange?: string): Promise<MetricsData[]> {
-    interface BackendMetricsResponse {
-      metrics: {
-        system?: {
-          performance?: {
-            avg_response_time?: number;
-            requests_per_second?: number;
-            active_connections?: { total?: number };
-          };
-          errors?: { error_rate?: number };
-        };
-      };
-      timestamp?: string;
-    }
-
-    const metricsPath = timeRange ? `${this.basePath}/metrics?time_range=${timeRange}` : `${this.basePath}/metrics`;
-    const response = await this.get<BackendMetricsResponse>(metricsPath);
-
-    // Transform nested backend response to flat MetricsData format
-    const metricsData: MetricsData = {
-      active_connections: response?.metrics?.system?.performance?.active_connections?.total || 0,
-      request_rate: response?.metrics?.system?.performance?.requests_per_second || 0,
-      error_rate: response?.metrics?.system?.errors?.error_rate || 0,
-      avg_response_time: response?.metrics?.system?.performance?.avg_response_time || 0,
-      timestamp: response?.timestamp || new Date().toISOString()
-    };
-
-    return [metricsData];
   }
 
   /**
