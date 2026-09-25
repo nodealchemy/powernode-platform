@@ -289,6 +289,31 @@ RSpec.describe Ai::Tools::CampaignTool do
     expect(iter.check_results["evidence_verdict"]).to eq("verified")
   end
 
+  it "campaign_record_increment declares the metadata it records" do
+    metadata = described_class.action_definitions.dig("campaign_record_increment", :parameters, :metadata)
+    expect(metadata).to include(type: "object", required: false)
+    expect(metadata[:description]).to include("commit")
+  end
+
+  it "campaign_record_increment records metadata on the task, decision and iteration" do
+    id = exec(action: "campaign_start", name: "Obs")[:data][:campaign][:id]
+    res = exec(action: "campaign_record_increment", campaign_id: id, title: "With metadata",
+               metadata: { "commit" => "abc1234", "pr" => "42" })
+    expect(res[:success]).to be true
+    loop_record = Ai::Campaign.find(id).ralph_loops.first
+    expect(loop_record.ralph_tasks.find_by(task_key: res[:data][:task_key]).metadata).to include("pr" => "42")
+    expect(Ai::CampaignDecision.find(res[:data][:decision_id]).metadata).to include("commit" => "abc1234")
+    expect(loop_record.ralph_iterations.last.git_commit_sha).to eq("abc1234")
+  end
+
+  it "campaign_record_increment refuses metadata that is not an object, recording nothing" do
+    id = exec(action: "campaign_start", name: "Obs")[:data][:campaign][:id]
+    res = exec(action: "campaign_record_increment", campaign_id: id, title: "Bad metadata", metadata: "abc1234")
+    expect(res[:success]).to be false
+    expect(res[:error]).to include("metadata")
+    expect(Ai::Campaign.find(id).ralph_loops.first.ralph_tasks.count).to eq(0)
+  end
+
   it "campaign_start creates a campaign + a campaign-scoped loop" do
     res = exec(action: "campaign_start", name: "Audit billing", decision_authority: "trusted")
     expect(res[:success]).to be true

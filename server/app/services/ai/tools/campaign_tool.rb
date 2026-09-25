@@ -44,7 +44,8 @@ module Ai
       declare_action "campaign_propose", mutating: true
       declare_action "campaign_record_increment", mutating: true,
                                                   returns: "task_key, task status, iteration_number, decision_id and the refreshed campaign summary",
-                                                  refuses: [ "no campaign matches campaign_id by id or name", "title is blank", "the campaign has no loop" ]
+                                                  refuses: [ "no campaign matches campaign_id by id or name", "title is blank",
+                                                            "metadata is given but is not an object", "the campaign has no loop" ]
       declare_action "campaign_reject_proposal", mutating: true
       declare_action "campaign_release", mutating: true,
                                          returns: "ok: true once the lease is free, ok: false when a different driver holds it",
@@ -256,6 +257,10 @@ module Ai
               decision_type: { type: "string", required: false, description: "build|unblock|skip|remove|defer|policy|escalate (default build)" },
               rationale: { type: "string", required: false, description: "Why this increment was done / decided" },
               status: { type: "string", required: false, description: "passed (default) | failed | skipped" },
+              metadata: { type: "object", required: false,
+                          description: "Free-form key/values merged into the task's metadata and stored on the " \
+                                       "decision (e.g. {\"commit\": \"<sha>\", \"pr\": \"42\"}). A \"commit\" " \
+                                       "value is also recorded as the iteration's git commit SHA." },
               check_results: { type: "object", required: false,
                                description: "Verification evidence (e.g. {\"rspec\": \"12 examples, 0 failures\"}). " \
                                             "A passed increment records checks_passed=true ONLY when this carries " \
@@ -526,6 +531,7 @@ module Ai
         campaign = find_campaign(params[:campaign_id])
         return error_result("Campaign not found") unless campaign
         return error_result("title is required") if params[:title].blank?
+        return error_result("metadata must be an object") unless params[:metadata].nil? || params[:metadata].is_a?(Hash)
 
         success_result(
           driver.record_increment!(
