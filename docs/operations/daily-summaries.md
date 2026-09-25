@@ -41,7 +41,7 @@
 
 ## Overview
 
-Daily Summaries is an admin-only feature that produces a Markdown snapshot of key operational metrics for an account each day. Each summary is persisted as a regular `Page` record (slug pattern `daily-summary-{ISO8601-date}`, status `published`), so it inherits the platform's content-linking, permissions, and CMS tooling. A scheduled worker job generates yesterday's summary across all accounts every night; admins can also trigger on-demand generation for a specific date via the UI.
+Daily Summaries is an admin-only feature that produces a Markdown snapshot of key operational metrics for an account each day. Each summary is persisted as a regular `Page` record (slug pattern `daily-summary-{ISO8601-date}`, status `published`), so it inherits the platform's content-linking, permissions, and CMS tooling. A scheduled worker job generates yesterday's summary across all accounts every night; on-demand generation for a specific date is available via the API (see [Procedure](#procedure--generate-on-demand)) — there is no admin UI for it (see [Frontend](#frontend)).
 
 A summary includes up to four sections; sections without data for the day are omitted (never stubbed):
 
@@ -52,11 +52,7 @@ A summary includes up to four sections; sections without data for the day are om
 
 ## Procedure — generate on demand
 
-1. Navigate to **Daily Summaries** in the admin panel.
-2. Click **Generate Now**. The frontend POSTs to `/api/v1/admin/daily_summaries/generate` with `date` defaulting to `Date.yesterday`.
-3. Inspect the rendered Markdown in the detail pane.
-
-CLI alternative:
+There is no admin UI for this (see [Frontend](#frontend)) — use the API directly:
 
 ```bash
 curl -X POST \
@@ -144,12 +140,11 @@ The job operates via the worker → server HTTP API only — it never touches Ra
 
 ## Frontend
 
-| Component | Path | Purpose |
-|-----------|------|---------|
-| `DailySummariesPage` | `frontend/src/pages/app/content/DailySummariesPage.tsx` | Route container for the admin UI |
-| `DailySummariesPanel` | `frontend/src/features/content/pages/components/DailySummariesPanel.tsx` | Timeline sidebar + detail view |
-
-The panel auto-loads the list + latest summary on mount, supports on-demand generation via a "Generate Now" button, and renders selected summaries via `MarkdownRenderer` (admin variant, advanced features enabled).
+Deleted (fc-21): `DailySummariesPage`/`DailySummariesPanel` had no route or importer
+anywhere in the tree — confirmed via a repo-wide search before removal. This feature is
+now backend-only: the scheduled `DailySummaryJob` (worker) is still the sole caller of
+`POST /api/v1/admin/daily_summaries/generate`, and `index`/`latest` remain reachable via
+the API for anyone building a replacement UI, but nothing in core currently renders them.
 
 ## Verification
 
@@ -204,8 +199,6 @@ Re-run on-demand generation afterwards if needed.
 | Service | `server/app/services/daily_summary_service.rb` |
 | Worker job | `worker/app/jobs/daily_summary_job.rb` |
 | Routes | `server/config/routes.rb` (under `namespace :admin`) |
-| Frontend page | `frontend/src/pages/app/content/DailySummariesPage.tsx` |
-| Frontend panel | `frontend/src/features/content/pages/components/DailySummariesPanel.tsx` |
 
 ---
 

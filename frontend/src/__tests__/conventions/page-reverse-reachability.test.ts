@@ -154,14 +154,13 @@ function discoverPageFiles(srcDirs: string[]): string[] {
 // it) is a product decision outside a reverse-reachability lint's scope; flagged to
 // the lead at commit time. Re-add an entry only for a newly discovered orphan —
 // never to make a red run green for one already fixed.
-const ALLOWED_ORPHANED: readonly string[] = [
-  // Small wrapper around a real DailySummariesPanel — no /app/content/... route
-  // registers it anywhere.
-  'DailySummariesPage',
-  // A full admin file browser (permission-gated, upload + browse), distinct from
-  // the routed content/MyFilesPage — no /app/admin/... route registers it.
-  'FilesPage',
-];
+// fc-21: DailySummariesPage and FilesPage, the two entries this list used to
+// carry, were deleted outright (along with DailySummariesPanel/FileBrowser,
+// each only used by its now-deleted page) rather than wired in — confirmed
+// zero importers anywhere (core, extensions including private, jest.mock,
+// docs) before deletion. Empty rather than removed: a future orphan still
+// has somewhere to land without recreating this list's shape.
+const ALLOWED_ORPHANED: readonly string[] = [];
 
 function findOrphans(pageFiles: string[], allFiles: string[]): string[] {
   // Pre-strip every candidate file once; reused for every page's identifier search.
