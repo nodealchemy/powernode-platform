@@ -3284,29 +3284,6 @@ Rails.application.routes.draw do
           patch :overage, action: :update_overage
         end
 
-        # Git Providers (Gitea, GitHub, GitLab)
-        resources :providers do
-          member do
-            post :test_connection
-            post :sync_repositories
-          end
-        end
-
-        # AI Configuration (Anthropic, Bedrock, Vertex)
-        resources :ai_configs do
-          member do
-            post :set_default
-          end
-        end
-
-        # Prompt Templates with Liquid templating
-        resources :prompt_templates do
-          member do
-            post :preview
-            post :duplicate
-          end
-        end
-
         # Pipeline Definitions
         resources :pipelines do
           member do
@@ -3325,22 +3302,6 @@ Rails.application.routes.draw do
             post :cancel
             post :retry
             get :logs
-          end
-        end
-
-        # Scheduled Pipeline Runs
-        resources :schedules do
-          member do
-            post :toggle
-          end
-        end
-
-        # Repository Connections
-        resources :repositories do
-          member do
-            post :sync
-            post :attach_pipeline
-            delete :detach_pipeline
           end
         end
 
