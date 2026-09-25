@@ -65,7 +65,7 @@ module Ai
           body[:output_config] = (body[:output_config] || {}).merge(
             format: {
               type: "json_schema",
-              schema: schema[:schema] || schema
+              schema: Ai::Llm::StructuredSchema.normalize(schema[:schema] || schema, provider: :anthropic)
             }
           )
 

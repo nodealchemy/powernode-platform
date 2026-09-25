@@ -136,7 +136,7 @@ module Ai
 
         def complete_structured(messages:, schema:, model:, **opts)
           body = build_chat_body(messages, model, stream: false, **opts)
-          body[:format] = schema[:schema] || schema
+          body[:format] = Ai::Llm::StructuredSchema.normalize(schema[:schema] || schema, provider: :ollama)
 
           post_chat(body, model)
         end

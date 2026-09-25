@@ -65,7 +65,7 @@ RSpec.describe Ai::Llm::Client, '#build_anthropic_body' do
 
       client.complete_structured(
         messages: messages,
-        schema: { 'type' => 'object' },
+        schema: { 'type' => 'object', 'properties' => { 'answer' => { 'type' => 'string' } } },
         model: 'claude-fable-5',
         effort: 'high'
       )

@@ -6,6 +6,7 @@ require 'uri'
 require_relative 'response'
 require_relative 'model_capabilities'
 require_relative 'anthropic_messages'
+require_relative 'structured_schema'
 
 module Ai
   module Llm
@@ -98,17 +99,17 @@ module Ai
           case provider_format
           when :openai
             body = build_openai_body(messages, model, **opts)
-            body[:response_format] = { type: "json_schema", json_schema: { name: schema[:name] || "response", schema: schema[:schema] || schema, strict: true } }
+            body[:response_format] = { type: "json_schema", json_schema: { name: schema[:name] || "response", schema: StructuredSchema.normalize(schema[:schema] || schema, provider: :openai), strict: true } }
             s, p, _ = http_post(openai_url, body, model)
             s == 200 ? parse_openai_response(p, model) : openai_handle_error(s, p)
           when :anthropic
             body = build_anthropic_body(messages, model, **opts)
             # Merge — don't clobber output_config.effort that the builder may have set.
-            body[:output_config] = (body[:output_config] || {}).merge(format: { type: "json_schema", schema: schema[:schema] || schema })
+            body[:output_config] = (body[:output_config] || {}).merge(format: { type: "json_schema", schema: StructuredSchema.normalize(schema[:schema] || schema, provider: :anthropic) })
             anthropic_send(body, model)
           when :ollama
             body = build_ollama_body(messages, model, stream: false, **opts)
-            body[:format] = schema[:schema] || schema
+            body[:format] = StructuredSchema.normalize(schema[:schema] || schema, provider: :ollama)
             r = HTTParty.post(ollama_url, headers: @headers, body: body.to_json, timeout: 300)
             r.code == 200 ? parse_ollama_response(JSON.parse(r.body), model) : ollama_handle_error(r.code, r.parsed_response)
           end

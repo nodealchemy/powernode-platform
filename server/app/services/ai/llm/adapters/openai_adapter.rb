@@ -203,7 +203,7 @@ module Ai
             type: "json_schema",
             json_schema: {
               name: schema[:name] || "response",
-              schema: schema[:schema] || schema,
+              schema: Ai::Llm::StructuredSchema.normalize(schema[:schema] || schema, provider: :openai),
               strict: true
             }
           }

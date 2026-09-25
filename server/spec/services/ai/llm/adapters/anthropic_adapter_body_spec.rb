@@ -66,7 +66,7 @@ RSpec.describe Ai::Llm::Adapters::AnthropicAdapter, "#build_messages_body" do
 
       adapter.complete_structured(
         messages: messages,
-        schema: { "type" => "object" },
+        schema: { "type" => "object", "properties" => { "answer" => { "type" => "string" } } },
         model: "claude-fable-5",
         effort: "high"
       )
