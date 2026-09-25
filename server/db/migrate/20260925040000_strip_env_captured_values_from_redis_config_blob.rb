@@ -30,6 +30,15 @@
 # NEVER logs, prints, or raises with a plaintext (or ciphertext, or ENV)
 # VALUE in the message — only field names and counts, matching every other
 # migration in this area's own rule.
+#
+# ENV-GATED: this cleanup only acts on a field when the corresponding ENV var
+# (REDIS_PASSWORD / REDIS_URL) is PRESENT in the process that runs
+# `db:migrate`. If db:migrate runs in an environment/shell where those vars
+# aren't set (e.g. a deploy step with a different env than the one the app
+# boots with), any pollution for that field is silently left in place — this
+# migration will need re-running (or the vars supplying) once it does run
+# with them present. See docs/operations/service-and-ops.md for the
+# operational note.
 class StripEnvCapturedValuesFromRedisConfigBlob < ActiveRecord::Migration[8.0]
   def up
     cleaned = []
@@ -95,6 +104,14 @@ class StripEnvCapturedValuesFromRedisConfigBlob < ActiveRecord::Migration[8.0]
     # Admin::SystemSettings#decrypt_infrastructure_secret) — not this
     # migration's concern, and never something to compare a plaintext
     # ENV value against.
+    false
+  rescue Security::CredentialEncryptionService::InvalidKeyError, Security::CredentialEncryptionService::KeyNotFoundError => e
+    # A key-service problem (missing/malformed encryption key) is not this
+    # row's fault and not this migration's concern either — but letting it
+    # raise would abort the ENTIRE db:migrate run, blocking every migration
+    # queued to run after this one in the same invocation. Skip this row,
+    # log only the field name and error class (never a value), keep going.
+    say "Could not check redis_config_password_encrypted (#{e.class}); left in place"
     false
   end
 

@@ -132,6 +132,14 @@ sudo systemctl start powernode.target
 # Run database migrations
 cd server && RAILS_ENV=production bundle exec rails db:migrate
 
+# Note: the one-time ENV-captured-value cleanup migration (fc-38,
+# StripEnvCapturedValuesFromRedisConfigBlob) only cleans up a field when the
+# matching REDIS_PASSWORD / REDIS_URL var is present in *this* db:migrate
+# process's environment. Run db:migrate in the same env the app boots with
+# (e.g. the same systemd EnvironmentFile as <redis-host>'s app service),
+# not a bare shell missing those vars, or leftover ENV-captured values won't
+# be cleaned up until a later db:migrate run that does have them set.
+
 # Seed initial data (first deployment only)
 cd server && RAILS_ENV=production bundle exec rails db:seed
 

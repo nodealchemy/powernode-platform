@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "rails_helper"
-require Rails.root.join("db/migrate/20260925030000_strip_env_captured_values_from_redis_config_blob.rb")
+require Rails.root.join("db/migrate/20260925040000_strip_env_captured_values_from_redis_config_blob.rb")
 
 # fc-38 round 4 review (root-cause fix follow-up) — cleans up rows already
 # polluted by the fixed ServiceConfiguration#update_redis_config bug: a
@@ -127,6 +127,50 @@ RSpec.describe StripEnvCapturedValuesFromRedisConfigBlob do
       AdminSetting.create!(key: "redis_config_password_encrypted", value: "not-valid-ciphertext")
 
       expect { migration.up }.not_to raise_error
+      expect(AdminSetting.find_by(key: "redis_config_password_encrypted")).not_to be_nil
+    end
+
+    # fc-38 round 4 re-review (LOW): DecryptionError was the only rescued
+    # class — a key-rotation-gap error (the encryption key itself missing or
+    # malformed, not just bad ciphertext) would raise straight through #up
+    # and abort the ENTIRE db:migrate run, blocking every migration queued
+    # to run after this one in the same invocation. Rescued per row instead:
+    # skip that row, log the field name only, and keep going.
+    it "leaves an encrypted password row alone and continues (does not raise) when decryption fails with a key error, not just bad ciphertext" do
+      ENV["REDIS_PASSWORD"] = "current-env-password"
+      AdminSetting.create!(key: "redis_config_password_encrypted", value: "irrelevant-ciphertext")
+      allow(Security::CredentialEncryptionService).to receive(:decrypt_value)
+        .and_raise(Security::CredentialEncryptionService::KeyNotFoundError, "Encryption key 'default' not found")
+
+      expect { migration.up }.not_to raise_error
+      expect(AdminSetting.find_by(key: "redis_config_password_encrypted")).not_to be_nil
+    end
+
+    it "also rescues InvalidKeyError without raising or destroying the row" do
+      ENV["REDIS_PASSWORD"] = "current-env-password"
+      AdminSetting.create!(key: "redis_config_password_encrypted", value: "irrelevant-ciphertext")
+      allow(Security::CredentialEncryptionService).to receive(:decrypt_value)
+        .and_raise(Security::CredentialEncryptionService::InvalidKeyError, "Invalid key format: must be base64 encoded")
+
+      expect { migration.up }.not_to raise_error
+      expect(AdminSetting.find_by(key: "redis_config_password_encrypted")).not_to be_nil
+    end
+
+    # fc-38 round 4 re-review (LOW): pins that ENV="" is treated identically
+    # to ENV unset (both are blank), not as a genuine empty-string value to
+    # compare stored values against.
+    it "leaves a blob password and the encrypted row alone when REDIS_PASSWORD is the empty string, not just when it's nil" do
+      ENV["REDIS_PASSWORD"] = ""
+      seed_redis_config(password: "some-stored-password")
+      AdminSetting.create!(
+        key: "redis_config_password_encrypted",
+        value: Security::CredentialEncryptionService.encrypt_value("some-encrypted-password")
+      )
+
+      migration.up
+
+      blob = JSON.parse(AdminSetting.find_by(key: "redis_config").value)
+      expect(blob["password"]).to eq("some-stored-password")
       expect(AdminSetting.find_by(key: "redis_config_password_encrypted")).not_to be_nil
     end
 
