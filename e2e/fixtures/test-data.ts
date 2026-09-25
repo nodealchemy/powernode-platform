@@ -256,6 +256,6 @@ export const ROUTES = {
   webhooks: '/app/devops/webhooks',
   integrations: '/app/devops/integrations',
   apiKeys: '/app/devops/api-keys',
-  dockerHosts: '/app/devops/docker',
-  swarmClusters: '/app/devops/swarm',
+  dockerHosts: '/app/devops/containers/docker',
+  swarmClusters: '/app/devops/containers/swarm',
 };

@@ -169,7 +169,7 @@ export const DockerHostsPage: React.FC<DockerHostsPageProps> = ({ onActionsReady
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {hosts.map((host) => (
-              <Card key={host.id} variant="default" hoverable clickable padding="lg" onClick={() => navigate(`/app/devops/docker/${host.id}`)}>
+              <Card key={host.id} variant="default" hoverable clickable padding="lg" onClick={() => navigate(`/app/devops/containers/docker/${host.id}`)}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-theme-primary truncate">{host.name}</h3>

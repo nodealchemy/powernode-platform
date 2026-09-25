@@ -62,7 +62,7 @@ export const SwarmHubPage: React.FC = () => {
     if (activeTab === 'clusters') {
       base.push({ label: 'Swarm' });
     } else {
-      base.push({ label: 'Swarm', href: '/app/devops/swarm' });
+      base.push({ label: 'Swarm', href: '/app/devops/containers/swarm' });
       const activeTabInfo = tabs.find(t => t.id === activeTab);
       if (activeTabInfo) base.push({ label: activeTabInfo.label });
     }
@@ -81,7 +81,7 @@ export const SwarmHubPage: React.FC = () => {
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          basePath="/app/devops/swarm"
+          basePath="/app/devops/containers/swarm"
           variant="underline"
           className="mb-6"
         >

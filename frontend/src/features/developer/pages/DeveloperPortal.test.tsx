@@ -57,7 +57,7 @@ describe('DeveloperPortal', () => {
         screen.getByText(/Authenticating with an API Key/i),
       ).toBeInTheDocument();
       expect(
-        screen.getByText(/Create, regenerate and revoke API keys from Connections/i),
+        screen.getByText(/Create, regenerate and revoke API keys from DevOps → API Keys/i),
       ).toBeInTheDocument();
       // No key-management affordances (create/regenerate/revoke buttons,
       // a key list) — ApiKeyManager was deleted precisely so this tab
@@ -66,13 +66,13 @@ describe('DeveloperPortal', () => {
       expect(screen.queryByRole('button', { name: /revoke/i })).not.toBeInTheDocument();
     });
 
-    it('links to the canonical API Keys surface at /app/devops/connections/api-keys', () => {
+    it('links to the canonical API Keys surface at /app/devops/api-keys', () => {
       renderPortal();
 
       openKeysTab();
 
       const link = screen.getByRole('link', { name: /manage api keys/i });
-      expect(link).toHaveAttribute('href', '/app/devops/connections/api-keys');
+      expect(link).toHaveAttribute('href', '/app/devops/api-keys');
     });
 
     it('does not render the other tabs’ content while Keys is active', () => {

@@ -40,14 +40,14 @@ export const HostDashboardPage: React.FC = () => {
   };
 
   const pageActions: PageAction[] = [
-    { label: 'Back', onClick: () => navigate('/app/devops/docker'), variant: 'secondary', icon: ArrowLeft },
+    { label: 'Back', onClick: () => navigate('/app/devops/containers/docker'), variant: 'secondary', icon: ArrowLeft },
     { label: 'Sync', onClick: handleSync, variant: 'primary', icon: RefreshCw },
     { label: 'Refresh', onClick: handleRefresh, variant: 'secondary', icon: RefreshCw },
   ];
 
   const breadcrumbs = [
     { label: 'DevOps', href: '/app/devops' },
-    { label: 'Docker Hosts', href: '/app/devops/docker' },
+    { label: 'Docker Hosts', href: '/app/devops/containers/docker' },
     { label: host?.name || 'Host' },
   ];
 
@@ -67,7 +67,7 @@ export const HostDashboardPage: React.FC = () => {
       <PageContainer title="Host Dashboard" breadcrumbs={breadcrumbs}>
         <div className="text-center py-20">
           <p className="text-theme-error-fg mb-4">{error || 'Host not found'}</p>
-          <Button onClick={() => navigate('/app/devops/docker')} variant="secondary" size="sm">Back to Hosts</Button>
+          <Button onClick={() => navigate('/app/devops/containers/docker')} variant="secondary" size="sm">Back to Hosts</Button>
         </div>
       </PageContainer>
     );
@@ -169,13 +169,13 @@ export const HostDashboardPage: React.FC = () => {
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button variant="secondary" onClick={() => navigate(`/app/devops/docker/${hostId}/containers`)} className="justify-start p-4">
+          <Button variant="secondary" onClick={() => navigate(`/app/devops/containers/docker/${hostId}/containers`)} className="justify-start p-4">
             Manage Containers ({health?.container_health.total ?? 0})
           </Button>
-          <Button variant="secondary" onClick={() => navigate(`/app/devops/docker/${hostId}/images`)} className="justify-start p-4">
+          <Button variant="secondary" onClick={() => navigate(`/app/devops/containers/docker/${hostId}/images`)} className="justify-start p-4">
             View Images ({health?.image_stats.total ?? 0})
           </Button>
-          <Button variant="secondary" onClick={() => navigate(`/app/devops/docker/${hostId}/health`)} className="justify-start p-4">
+          <Button variant="secondary" onClick={() => navigate(`/app/devops/containers/docker/${hostId}/health`)} className="justify-start p-4">
             Health Dashboard
           </Button>
         </div>

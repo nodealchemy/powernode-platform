@@ -51,14 +51,14 @@ export const SwarmNodesPage: React.FC = () => {
   };
 
   const pageActions: PageAction[] = [
-    { label: 'Back', onClick: () => navigate(`/app/devops/swarm/${clusterId}`), variant: 'secondary', icon: ArrowLeft },
+    { label: 'Back', onClick: () => navigate(`/app/devops/containers/swarm/${clusterId}`), variant: 'secondary', icon: ArrowLeft },
     { label: 'Refresh', onClick: refetch, variant: 'secondary', icon: RefreshCw },
   ];
 
   const breadcrumbs = [
     { label: 'DevOps', href: '/app/devops' },
-    { label: 'Swarm Clusters', href: '/app/devops/swarm' },
-    { label: cluster?.name || 'Cluster', href: `/app/devops/swarm/${clusterId}` },
+    { label: 'Swarm Clusters', href: '/app/devops/containers/swarm' },
+    { label: cluster?.name || 'Cluster', href: `/app/devops/containers/swarm/${clusterId}` },
     { label: 'Nodes' },
   ];
 

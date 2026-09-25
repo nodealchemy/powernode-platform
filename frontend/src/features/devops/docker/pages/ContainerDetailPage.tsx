@@ -60,7 +60,7 @@ export const ContainerDetailPage: React.FC = () => {
     const execute = async () => {
       if (action === 'delete') {
         await dockerApi.deleteContainer(hostId, containerId);
-        navigate(`/app/devops/docker/${hostId}/containers`);
+        navigate(`/app/devops/containers/docker/${hostId}/containers`);
         return;
       }
       const fn = { start: dockerApi.startContainer, stop: dockerApi.stopContainer, restart: dockerApi.restartContainer }[action];
@@ -77,7 +77,7 @@ export const ContainerDetailPage: React.FC = () => {
   };
 
   const pageActions: PageAction[] = [
-    { label: 'Back', onClick: () => navigate(`/app/devops/docker/${hostId}/containers`), variant: 'secondary', icon: ArrowLeft },
+    { label: 'Back', onClick: () => navigate(`/app/devops/containers/docker/${hostId}/containers`), variant: 'secondary', icon: ArrowLeft },
     { label: 'Refresh', onClick: refresh, variant: 'secondary', icon: RefreshCw },
   ];
 
@@ -85,8 +85,8 @@ export const ContainerDetailPage: React.FC = () => {
     const base: Array<{ label: string; href?: string }> = [
       { label: 'Dashboard', href: '/app' },
       { label: 'DevOps', href: '/app/devops' },
-      { label: 'Docker Hosts', href: '/app/devops/docker' },
-      { label: 'Containers', href: `/app/devops/docker/${hostId}/containers` },
+      { label: 'Docker Hosts', href: '/app/devops/containers/docker' },
+      { label: 'Containers', href: `/app/devops/containers/docker/${hostId}/containers` },
       { label: container?.name || 'Container' },
     ];
     const activeTabInfo = tabs.find(t => t.id === activeTab);
@@ -112,7 +112,7 @@ export const ContainerDetailPage: React.FC = () => {
       <PageContainer title="Container Detail" breadcrumbs={getBreadcrumbs()}>
         <div className="text-center py-20">
           <p className="text-theme-error-fg mb-4">{error || 'Container not found'}</p>
-          <Button onClick={() => navigate(`/app/devops/docker/${hostId}/containers`)} variant="secondary" size="sm">Back to Containers</Button>
+          <Button onClick={() => navigate(`/app/devops/containers/docker/${hostId}/containers`)} variant="secondary" size="sm">Back to Containers</Button>
         </div>
       </PageContainer>
     );
@@ -142,7 +142,7 @@ export const ContainerDetailPage: React.FC = () => {
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          basePath={`/app/devops/docker/${hostId}/containers/${containerId}`}
+          basePath={`/app/devops/containers/docker/${hostId}/containers/${containerId}`}
           variant="underline"
           className="mb-6"
         >

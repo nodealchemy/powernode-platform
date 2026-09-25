@@ -103,7 +103,7 @@ export const SwarmServicesPage: React.FC<{ onActionsReady?: (actions: PageAction
               <ServiceCard
                 key={service.id}
                 service={service}
-                onClick={() => navigate(`/app/devops/swarm/${selectedClusterId}/services/${service.id}`)}
+                onClick={() => navigate(`/app/devops/containers/swarm/${selectedClusterId}/services/${service.id}`)}
                 actions={
                   <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                     <Button size="xs" variant="ghost" onClick={() => setScaleTarget(service)} title="Scale">

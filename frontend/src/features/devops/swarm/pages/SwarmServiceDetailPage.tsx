@@ -64,7 +64,7 @@ export const SwarmServiceDetailPage: React.FC = () => {
   };
 
   const pageActions: PageAction[] = [
-    { label: 'Back', onClick: () => navigate('/app/devops/swarm/services'), variant: 'secondary', icon: ArrowLeft },
+    { label: 'Back', onClick: () => navigate('/app/devops/containers/swarm/services'), variant: 'secondary', icon: ArrowLeft },
     { label: 'Refresh', onClick: handleRefresh, variant: 'secondary', icon: RefreshCw },
   ];
 
@@ -72,7 +72,7 @@ export const SwarmServiceDetailPage: React.FC = () => {
     const base: Array<{ label: string; href?: string }> = [
       { label: 'Dashboard', href: '/app' },
       { label: 'DevOps', href: '/app/devops' },
-      { label: 'Swarm Services', href: '/app/devops/swarm/services' },
+      { label: 'Swarm Services', href: '/app/devops/containers/swarm/services' },
       { label: service?.service_name || 'Service' },
     ];
     const activeTabInfo = tabs.find(t => t.id === activeTab);
@@ -98,7 +98,7 @@ export const SwarmServiceDetailPage: React.FC = () => {
       <PageContainer title="Service Detail" breadcrumbs={getBreadcrumbs()}>
         <div className="text-center py-20">
           <p className="text-theme-error-fg mb-4">{error || 'Service not found'}</p>
-          <Button onClick={() => navigate('/app/devops/swarm/services')} variant="secondary" size="sm">Back to Services</Button>
+          <Button onClick={() => navigate('/app/devops/containers/swarm/services')} variant="secondary" size="sm">Back to Services</Button>
         </div>
       </PageContainer>
     );
@@ -138,7 +138,7 @@ export const SwarmServiceDetailPage: React.FC = () => {
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          basePath={`/app/devops/swarm/${clusterId}/services/${serviceId}`}
+          basePath={`/app/devops/containers/swarm/${clusterId}/services/${serviceId}`}
           variant="underline"
           className="mb-6"
         >

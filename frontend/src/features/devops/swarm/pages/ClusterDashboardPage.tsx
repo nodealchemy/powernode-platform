@@ -42,14 +42,14 @@ export const ClusterDashboardPage: React.FC = () => {
   };
 
   const pageActions: PageAction[] = [
-    { label: 'Back', onClick: () => navigate('/app/devops/swarm'), variant: 'secondary', icon: ArrowLeft },
+    { label: 'Back', onClick: () => navigate('/app/devops/containers/swarm'), variant: 'secondary', icon: ArrowLeft },
     { label: 'Sync', onClick: handleSync, variant: 'primary', icon: RefreshCw },
     { label: 'Refresh', onClick: handleRefresh, variant: 'secondary', icon: RefreshCw },
   ];
 
   const breadcrumbs = [
     { label: 'DevOps', href: '/app/devops' },
-    { label: 'Swarm Clusters', href: '/app/devops/swarm' },
+    { label: 'Swarm Clusters', href: '/app/devops/containers/swarm' },
     { label: cluster?.name || 'Cluster' },
   ];
 
@@ -69,7 +69,7 @@ export const ClusterDashboardPage: React.FC = () => {
       <PageContainer title="Cluster Dashboard" breadcrumbs={breadcrumbs}>
         <div className="text-center py-20">
           <p className="text-theme-error-fg mb-4">{error || 'Cluster not found'}</p>
-          <Button onClick={() => navigate('/app/devops/swarm')} variant="secondary" size="sm">Back to Clusters</Button>
+          <Button onClick={() => navigate('/app/devops/containers/swarm')} variant="secondary" size="sm">Back to Clusters</Button>
         </div>
       </PageContainer>
     );
@@ -104,13 +104,13 @@ export const ClusterDashboardPage: React.FC = () => {
         />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button variant="secondary" onClick={() => navigate(`/app/devops/swarm/${clusterId}/nodes`)} className="justify-start p-4">
+          <Button variant="secondary" onClick={() => navigate(`/app/devops/containers/swarm/${clusterId}/nodes`)} className="justify-start p-4">
             Manage Nodes ({health?.node_health?.total ?? 0})
           </Button>
-          <Button variant="secondary" onClick={() => navigate('/app/devops/swarm/services')} className="justify-start p-4">
+          <Button variant="secondary" onClick={() => navigate('/app/devops/containers/swarm/services')} className="justify-start p-4">
             View Services ({health?.service_health?.total ?? 0})
           </Button>
-          <Button variant="secondary" onClick={() => navigate('/app/devops/swarm/stacks')} className="justify-start p-4">
+          <Button variant="secondary" onClick={() => navigate('/app/devops/containers/swarm/stacks')} className="justify-start p-4">
             View Stacks
           </Button>
         </div>

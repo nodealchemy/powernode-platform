@@ -114,7 +114,7 @@ export const DockerContainersPage: React.FC<DockerContainersPageProps> = ({ onAc
         ) : (
           <div className="space-y-3">
             {containers.map((c) => (
-              <Card key={c.id} variant="default" padding="md" hoverable clickable onClick={() => navigate(`/app/devops/docker/${selectedHostId}/containers/${c.id}`)}>
+              <Card key={c.id} variant="default" padding="md" hoverable clickable onClick={() => navigate(`/app/devops/containers/docker/${selectedHostId}/containers/${c.id}`)}>
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3">

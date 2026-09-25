@@ -79,7 +79,7 @@ export const SwarmSecretsPage: React.FC<{ onActionsReady?: (actions: PageAction[
           }))}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          basePath="/app/devops/swarm/secrets"
+          basePath="/app/devops/containers/swarm/secrets"
           variant="underline"
           className="mb-6"
         >

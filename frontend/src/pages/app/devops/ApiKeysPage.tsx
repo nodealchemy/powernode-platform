@@ -151,7 +151,7 @@ export const ApiKeysPage: React.FC = () => {
 
   return (
     <PageContainer
-      title="API Key Management"
+      title="API Keys"
       description={getPageDescription()}
       breadcrumbs={breadcrumbs}
       actions={getPageActions()}

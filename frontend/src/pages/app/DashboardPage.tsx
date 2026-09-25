@@ -7,8 +7,6 @@ import { CONTROL_PERMISSIONS } from '@/features/ai/control/controlPaths';
 import { DashboardOverview } from '@/pages/app/dashboard/DashboardOverview';
 
 // Context providers used inline in route elements (must be synchronous)
-import { ClusterProvider } from '@/features/devops/swarm/context/ClusterContext';
-import { HostProvider } from '@/features/devops/docker/context/HostContext';
 
 // === Lazy-loaded page components ===
 
@@ -84,15 +82,6 @@ const MissionsPageWrapper = React.lazy(() => import('./ai/MissionsPage').then(m 
 // AI Improvement Campaigns
 const CampaignsPageWrapper = React.lazy(() => import('./ai/CampaignsPage').then(m => ({ default: m.CampaignsPageWrapper })));
 
-// Docker Swarm pages
-const ClusterDashboardPage = React.lazy(() => import('@/features/devops/swarm/pages/ClusterDashboardPage').then(m => ({ default: m.ClusterDashboardPage })));
-const SwarmNodesPage = React.lazy(() => import('@/features/devops/swarm/pages/SwarmNodesPage').then(m => ({ default: m.SwarmNodesPage })));
-const SwarmServiceDetailPage = React.lazy(() => import('@/features/devops/swarm/pages/SwarmServiceDetailPage').then(m => ({ default: m.SwarmServiceDetailPage })));
-
-// Docker Host pages
-const HostDashboardPage = React.lazy(() => import('@/features/devops/docker/pages/HostDashboardPage').then(m => ({ default: m.HostDashboardPage })));
-const ContainerDetailPage = React.lazy(() => import('@/features/devops/docker/pages/ContainerDetailPage').then(m => ({ default: m.ContainerDetailPage })));
-
 // AI Feature Pages (standalone)
 const TeamsPage = React.lazy(() => import('./ai/TeamsPage'));
 // Integration pages
@@ -109,10 +98,9 @@ const RunnerDetailPage = React.lazy(() => import('@/pages/app/devops/RunnerDetai
 const DevOpsHubPage = React.lazy(() => import('@/pages/app/devops/DevOpsHubPage').then(m => ({ default: m.DevOpsHubPage })));
 const SourceControlPage = React.lazy(() => import('@/pages/app/devops/SourceControlPage').then(m => ({ default: m.SourceControlPage })));
 const CiCdPage = React.lazy(() => import('@/pages/app/devops/CiCdPage').then(m => ({ default: m.CiCdPage })));
-const ConnectionsPage = React.lazy(() => import('@/pages/app/devops/ConnectionsPage').then(m => ({ default: m.ConnectionsPage })));
-const SwarmHubPage = React.lazy(() => import('@/pages/app/devops/SwarmHubPage').then(m => ({ default: m.SwarmHubPage })));
-const DockerHubPage = React.lazy(() => import('@/pages/app/devops/DockerHubPage').then(m => ({ default: m.DockerHubPage })));
-const KubernetesHubPage = React.lazy(() => import('@/pages/app/devops/KubernetesHubPage').then(m => ({ default: m.KubernetesHubPage })));
+const IntegrationsWebhooksPage = React.lazy(() => import('@/pages/app/devops/IntegrationsWebhooksPage').then(m => ({ default: m.IntegrationsWebhooksPage })));
+const ApiKeysPage = React.lazy(() => import('@/pages/app/devops/ApiKeysPage').then(m => ({ default: m.ApiKeysPage })));
+const ContainersHubPage = React.lazy(() => import('@/pages/app/devops/ContainersHubPage').then(m => ({ default: m.ContainersHubPage })));
 
 // Component status plane (campaign 01a08c9b, design §6)
 const StatusPage = React.lazy(() => import('@/features/platform/status/pages/StatusPage').then(m => ({ default: m.StatusPage })));
@@ -238,42 +226,22 @@ const DashboardPage: React.FC = () => {
             separate route, so there is no ":id" path to carry over. */}
         <Route path="/devops/ci-cd/*" element={<CiCdPage />} />
 
-        {/* Connections - detail routes before catch-all */}
-        <Route path="/devops/connections/integrations/new/:templateId" element={<NewIntegrationPage />} />
-        <Route path="/devops/connections/integrations/new" element={<NewIntegrationPage />} />
-        <Route path="/devops/connections/integrations/:id/*" element={<IntegrationDetailPage />} />
-        <Route path="/devops/connections/*" element={<ConnectionsPage />} />
+        {/* Integrations & Webhooks - static routes before :id */}
+        <Route path="/devops/integrations/new/:templateId" element={<NewIntegrationPage />} />
+        <Route path="/devops/integrations/new" element={<NewIntegrationPage />} />
+        <Route path="/devops/integrations/webhook-endpoints" element={<IntegrationsWebhooksPage />} />
+        <Route path="/devops/integrations/:id/*" element={<IntegrationDetailPage />} />
+        <Route path="/devops/integrations" element={<IntegrationsWebhooksPage />} />
 
         {/* Sandboxes: merged into AI Execution's Containers tab —
             /app/ai/execution/containers. Deliberately no redirect route. */}
 
-        {/* Swarm - gated on devops.swarm.read (defense-in-depth; backend API also enforces).
-            Static tab routes before :clusterId to prevent "services" etc. matching as an ID. */}
-        <Route path="/devops/swarm/services" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
-        <Route path="/devops/swarm/stacks" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
-        <Route path="/devops/swarm/networks" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
-        <Route path="/devops/swarm/secrets" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
-        <Route path="/devops/swarm/operations" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
-        {/* Swarm - detail routes before catch-all */}
-        <Route path="/devops/swarm/:clusterId/services/:serviceId/*" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><ClusterProvider><SwarmServiceDetailPage /></ClusterProvider></ProtectedRoute>} />
-        <Route path="/devops/swarm/:clusterId/nodes" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><ClusterProvider><SwarmNodesPage /></ClusterProvider></ProtectedRoute>} />
-        <Route path="/devops/swarm/:clusterId" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><ClusterProvider><ClusterDashboardPage /></ClusterProvider></ProtectedRoute>} />
-        <Route path="/devops/swarm/*" element={<ProtectedRoute requiredPermissions={['devops.swarm.read']}><SwarmHubPage /></ProtectedRoute>} />
+        <Route path="/devops/api-keys" element={<ApiKeysPage />} />
 
-        {/* Docker - gated on devops.docker.read (defense-in-depth; backend API also enforces).
-            Static tab routes before :hostId to prevent "containers" etc. matching as an ID. */}
-        <Route path="/devops/docker/containers" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
-        <Route path="/devops/docker/images" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
-        <Route path="/devops/docker/networks" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
-        <Route path="/devops/docker/volumes" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
-        <Route path="/devops/docker/monitoring" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
-        {/* Docker - detail routes before catch-all */}
-        <Route path="/devops/docker/:hostId/containers/:containerId/*" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><HostProvider><ContainerDetailPage /></HostProvider></ProtectedRoute>} />
-        <Route path="/devops/docker/:hostId" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><HostProvider><HostDashboardPage /></HostProvider></ProtectedRoute>} />
-        <Route path="/devops/docker/*" element={<ProtectedRoute requiredPermissions={['devops.docker.read']}><DockerHubPage /></ProtectedRoute>} />
-
-        {/* Kubernetes (Phase 2 — K3s today, kubeadm in Phase 3) — gated on devops.kubernetes.read */}
-        <Route path="/devops/kubernetes/*" element={<ProtectedRoute requiredPermissions={['devops.kubernetes.read']}><KubernetesHubPage /></ProtectedRoute>} />
+        {/* Containers hub: Docker, Swarm and Kubernetes leaves (and their
+            detail routes) are nested routes inside ContainersHubPage, each
+            behind its own permission gate. */}
+        <Route path="/devops/containers/*" element={<ContainersHubPage />} />
 
         {/* Audit Logs */}
         <Route path="/admin/audit-logs/*" element={<AuditLogsPage />} />

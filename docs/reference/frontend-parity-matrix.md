@@ -39,7 +39,7 @@
 | Git / Source Control | `/git/*` | git/* (4) | `/devops/source-control` hub | ✅ |
 | CI/CD Pipelines | `/devops/pipelines` | devops/* (13) | `/devops/ci-cd` hub | ✅ |
 | Docker / Swarm / K8s | `/devops/{docker,swarm,kubernetes}` | docker/* (3) | `/devops/{docker,swarm,kubernetes}` hubs | ✅ (K8s 🟡 clusters-only) |
-| Integrations / Webhooks / API Keys | `/integrations`, `/webhooks`, `/api-keys` | integrations/*, webhooks/* | `/devops/connections` hub | ✅ |
+| Integrations / Webhooks / API Keys | `/integrations`, `/webhooks`, `/api-keys` | integrations/*, webhooks/* | `/devops/integrations` hub + `/devops/api-keys` | ✅ |
 | Supply Chain | `/supply_chain/*` (26 controllers) | (job-driven) | supply-chain extension | ✅ (extension) |
 | Account / Users / Roles | `/accounts`, `/users`, `/roles`, `/delegations` | — | `/profile`, `/admin/users`, `/admin/roles` | ✅ (delegations 🟡) |
 | Admin / Settings / Maintenance | `/admin/*`, `/admin_settings` | maintenance/* (5) | `/admin/*` hubs | ✅ |

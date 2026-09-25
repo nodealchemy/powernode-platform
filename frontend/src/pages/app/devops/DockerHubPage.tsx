@@ -62,7 +62,7 @@ export const DockerHubPage: React.FC = () => {
     if (activeTab === 'hosts') {
       base.push({ label: 'Docker' });
     } else {
-      base.push({ label: 'Docker', href: '/app/devops/docker' });
+      base.push({ label: 'Docker', href: '/app/devops/containers/docker' });
       const activeTabInfo = tabs.find(t => t.id === activeTab);
       if (activeTabInfo) base.push({ label: activeTabInfo.label });
     }
@@ -81,7 +81,7 @@ export const DockerHubPage: React.FC = () => {
           tabs={tabs}
           activeTab={activeTab}
           onTabChange={handleTabChange}
-          basePath="/app/devops/docker"
+          basePath="/app/devops/containers/docker"
           variant="underline"
           className="mb-6"
         >

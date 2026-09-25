@@ -5,7 +5,7 @@ import { IntegrationsPage } from './IntegrationsPage';
 // secreview: the nav-link-reachability lint (C15) found BOTH "Browse
 // Marketplace" actions navigating to /app/marketplace, which no route in
 // core registers — a genuinely dead link, not a naming mismatch. The real
-// browse-a-template experience lives at /app/devops/connections/integrations/new
+// browse-a-template experience lives at /app/devops/integrations/new
 // (NewIntegrationPage's TemplateSelectionStep); repoint both to there instead
 // of inventing a /app/marketplace route the rest of the app never expected.
 const mockNavigate = jest.fn();
@@ -38,7 +38,7 @@ describe('IntegrationsPage — Browse Marketplace links', () => {
 
     fireEvent.click(screen.getByTestId('action-browse-marketplace'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/app/devops/connections/integrations/new');
+    expect(mockNavigate).toHaveBeenCalledWith('/app/devops/integrations/new');
   });
 
   it('the empty-state button navigates to the real template browser, not dead /app/marketplace', async () => {
@@ -53,6 +53,6 @@ describe('IntegrationsPage — Browse Marketplace links', () => {
 
     fireEvent.click(emptyStateButton);
 
-    expect(mockNavigate).toHaveBeenCalledWith('/app/devops/connections/integrations/new');
+    expect(mockNavigate).toHaveBeenCalledWith('/app/devops/integrations/new');
   });
 });

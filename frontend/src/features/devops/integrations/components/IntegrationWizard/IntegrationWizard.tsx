@@ -99,7 +99,7 @@ export function IntegrationWizard() {
 
       if (response.success && response.data) {
         showNotification('Integration created successfully', 'success');
-        navigate(`/app/devops/connections/integrations/${response.data.instance.id}`);
+        navigate(`/app/devops/integrations/${response.data.instance.id}`);
       } else {
         showNotification(response.error || 'Failed to create integration', 'error');
       }
@@ -111,7 +111,7 @@ export function IntegrationWizard() {
   }, [wizardState, navigate, showNotification]);
 
   const handleCancel = useCallback(() => {
-    navigate('/app/devops/connections/integrations');
+    navigate('/app/devops/integrations/integrations');
   }, [navigate]);
 
   return (

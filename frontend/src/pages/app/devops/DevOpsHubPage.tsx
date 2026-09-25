@@ -9,6 +9,8 @@ import {
   Container,
   HardDrive,
   Puzzle,
+  Key,
+  Code2,
   Activity,
   CheckCircle,
   RefreshCw,
@@ -159,7 +161,7 @@ export function DevOpsHubPage() {
   const successRuns = cicd.pipeline_runs.successful;
   const failedRuns = cicd.pipeline_runs.failed;
   const totalStatusRuns = successRuns + failedRuns;
-  const totalConnections = conns.integrations.total + conns.webhooks.total + conns.api_keys.total;
+  const totalIntegrations = conns.integrations.total + conns.webhooks.total;
 
   // Build section cards for navigation
   const sectionCards: SectionCard[] = [
@@ -188,18 +190,47 @@ export function DevOpsHubPage() {
       status: cicd.runners.offline > 0 ? 'warning' : (cicd.pipelines.active > 0 ? 'success' : 'neutral'),
     },
     {
-      id: 'connections',
-      name: 'Connections',
-      description: 'Integrations, webhooks, and API keys',
-      href: '/app/devops/connections',
+      id: 'integrations',
+      name: 'Integrations & Webhooks',
+      description: 'Integrations and webhook endpoints',
+      href: '/app/devops/integrations',
       icon: Puzzle,
       stats: [
         { label: 'Integrations', value: conns.integrations.total },
-        { label: 'Webhooks', value: conns.webhooks.total },
+        { label: 'Webhook endpoints', value: conns.webhooks.total },
       ],
       status: conns.integrations.errored > 0 ? 'error' : (conns.integrations.active > 0 ? 'success' : 'neutral'),
     },
     {
+      id: 'api-keys',
+      name: 'API Keys',
+      description: 'Create, regenerate and revoke API keys',
+      href: '/app/devops/api-keys',
+      icon: Key,
+      stats: [
+        { label: 'Keys', value: conns.api_keys.total },
+      ],
+      status: conns.api_keys.total > 0 ? 'success' : 'neutral',
+    },
+    {
+      id: 'containers',
+      name: 'Containers',
+      description: 'Docker, Swarm, and Kubernetes',
+      href: '/app/devops/containers',
+      icon: Server,
+      stats: [
+        { label: 'Docker hosts', value: infra.docker.hosts },
+        { label: 'Swarm clusters', value: infra.swarm.clusters },
+      ],
+      status:
+        (infra.docker.hosts > 0 && infra.docker.connected < infra.docker.hosts) ||
+        (infra.swarm.clusters > 0 && infra.swarm.connected < infra.swarm.clusters)
+          ? 'error'
+          : (infra.docker.connected > 0 || infra.swarm.connected > 0 ? 'success' : 'neutral'),
+    },
+    {
+      // Sandboxes lives once, under AI › Execution (fc-32), not in the
+      // Containers hub; the card keeps its own stats and links there.
       id: 'sandboxes',
       name: 'Sandboxes',
       description: 'Container execution and resource quotas',
@@ -213,28 +244,13 @@ export function DevOpsHubPage() {
       status: infra.containers.active > 0 ? 'success' : 'neutral',
     },
     {
-      id: 'swarm',
-      name: 'Swarm',
-      description: 'Docker Swarm clusters and orchestration',
-      href: '/app/devops/swarm',
-      icon: Server,
-      stats: [
-        { label: 'Clusters', value: infra.swarm.clusters },
-        { label: 'Connected', value: infra.swarm.connected },
-      ],
-      status: infra.swarm.clusters > 0 && infra.swarm.connected < infra.swarm.clusters ? 'error' : (infra.swarm.connected > 0 ? 'success' : 'neutral'),
-    },
-    {
-      id: 'docker',
-      name: 'Docker',
-      description: 'Docker hosts, containers, and images',
-      href: '/app/devops/docker',
-      icon: HardDrive,
-      stats: [
-        { label: 'Hosts', value: infra.docker.hosts },
-        { label: 'Connected', value: infra.docker.connected },
-      ],
-      status: infra.docker.hosts > 0 && infra.docker.connected < infra.docker.hosts ? 'error' : (infra.docker.connected > 0 ? 'success' : 'neutral'),
+      id: 'developer-portal',
+      name: 'Developer Portal',
+      description: 'API documentation and code samples',
+      href: '/app/developer',
+      icon: Code2,
+      stats: [],
+      status: 'neutral',
     },
   ];
 
@@ -242,7 +258,9 @@ export function DevOpsHubPage() {
   const alertHrefMap: Record<string, string> = {
     source_control: '/app/devops/source-control',
     ci_cd: '/app/devops/ci-cd',
-    connections: '/app/devops/connections',
+    connections: '/app/devops/integrations',
+    // Infrastructure alerts are failed container executions — Sandboxes,
+    // which lives under AI › Execution.
     infrastructure: '/app/ai/execution/containers',
   };
 
@@ -316,7 +334,7 @@ export function DevOpsHubPage() {
             subtitle={`${infra.swarm.clusters} cluster${infra.swarm.clusters !== 1 ? 's' : ''}`}
             icon={Server}
             status={infra.swarm.clusters > 0 && infra.swarm.connected < infra.swarm.clusters ? 'error' : (infra.swarm.connected > 0 ? 'success' : 'neutral')}
-            onClick={() => navigate('/app/devops/swarm')}
+            onClick={() => navigate('/app/devops/containers/swarm')}
           />
           <StatCard
             title="Docker"
@@ -324,7 +342,7 @@ export function DevOpsHubPage() {
             subtitle={`${infra.docker.hosts} host${infra.docker.hosts !== 1 ? 's' : ''}`}
             icon={HardDrive}
             status={infra.docker.hosts > 0 && infra.docker.connected < infra.docker.hosts ? 'error' : (infra.docker.connected > 0 ? 'success' : 'neutral')}
-            onClick={() => navigate('/app/devops/docker')}
+            onClick={() => navigate('/app/devops/containers/docker')}
           />
           <StatCard
             title="Containers"
@@ -335,12 +353,12 @@ export function DevOpsHubPage() {
             onClick={() => navigate('/app/ai/execution/containers')}
           />
           <StatCard
-            title="Connections"
-            value={totalConnections}
+            title="Integrations & Webhooks"
+            value={totalIntegrations}
             subtitle={conns.integrations.errored > 0 ? `${conns.integrations.errored} errors` : `${conns.integrations.active} active`}
             icon={Puzzle}
-            status={conns.integrations.errored > 0 ? 'error' : (totalConnections > 0 ? 'success' : 'neutral')}
-            onClick={() => navigate('/app/devops/connections')}
+            status={conns.integrations.errored > 0 ? 'error' : (totalIntegrations > 0 ? 'success' : 'neutral')}
+            onClick={() => navigate('/app/devops/integrations')}
           />
         </div>
 
@@ -479,7 +497,7 @@ export function DevOpsHubPage() {
                 <Zap className="w-5 h-5" />
                 Webhooks Today
               </h3>
-              <button onClick={() => navigate('/app/devops/connections/webhooks')} className="text-sm text-theme-primary hover:underline">
+              <button onClick={() => navigate('/app/devops/integrations/webhook-endpoints')} className="text-sm text-theme-primary hover:underline">
                 View all
               </button>
             </div>
@@ -530,6 +548,7 @@ export function DevOpsHubPage() {
               return (
                 <div
                   key={section.id}
+                  data-testid={`devops-section-${section.id}`}
                   onClick={() => navigate(section.href)}
                   className={`bg-theme-surface border ${statusColors[section.status]} rounded-lg p-5 cursor-pointer hover:border-theme-primary transition-colors group`}
                 >

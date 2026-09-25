@@ -5,7 +5,7 @@ import {
   HelpCircle, LogOut, Bot, Brain, Bell,
   HardDrive, Workflow, Server, GitBranch,
   Plug, BookOpen, Activity, ShieldCheck,
-  Container, Boxes,
+  Container, Key,
   Play, Rocket, DollarSign, Code2, Building2, Megaphone,
   Route, MessageSquare, Share2, Lock, Lightbulb
 } from 'lucide-react';
@@ -381,63 +381,49 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 3
         },
         {
-          id: 'connections',
-          name: 'Connections',
-          href: '/app/devops/connections',
+          id: 'integrations',
+          name: 'Integrations & Webhooks',
+          href: '/app/devops/integrations',
           icon: Plug,
-          description: 'Integrations, webhooks, and API keys',
-          permissions: ['integrations.read', 'webhook.read', 'api.manage_keys'],
+          description: 'Integrations and webhook endpoints',
+          permissions: ['integrations.read', 'webhook.read'],
           order: 4
         },
         {
-          id: 'devops-sandboxes',
-          name: 'Sandboxes',
-          href: '/app/ai/execution/containers',
-          icon: Container,
-          description: 'Sandboxed container execution and resource quotas',
-          permissions: ['devops.containers.read'],
+          id: 'api-keys',
+          name: 'API Keys',
+          href: '/app/devops/api-keys',
+          icon: Key,
+          description: 'Create, regenerate and revoke API keys',
+          permissions: ['api.manage_keys'],
           order: 5
         },
         {
-          id: 'swarm',
-          name: 'Swarm',
-          href: '/app/devops/swarm',
-          icon: Server,
-          description: 'Docker Swarm clusters, services, stacks, and operations',
-          permissions: ['devops.swarm.read'],
+          // One hub for the container runtimes; its leaves (Docker, Swarm,
+          // Kubernetes) live on the hub's own rail, each gated on its own
+          // family, so this item shows when ANY leaf would. Sandboxes are not
+          // a leaf: they live once, under AI › Execution (fc-32).
+          id: 'containers',
+          name: 'Containers',
+          href: '/app/devops/containers',
+          icon: Container,
+          description: 'Docker, Swarm, and Kubernetes',
+          permissions: ['devops.docker.read', 'devops.swarm.read', 'devops.kubernetes.read'],
           order: 6
-        },
-        {
-          id: 'docker',
-          name: 'Docker',
-          href: '/app/devops/docker',
-          icon: HardDrive,
-          description: 'Docker hosts, containers, images, and monitoring',
-          permissions: ['devops.docker.read'],
-          order: 7
-        },
-        {
-          id: 'kubernetes',
-          name: 'Kubernetes',
-          href: '/app/devops/kubernetes',
-          icon: Boxes,
-          description: 'K3s and kubeadm clusters, nodes, and workloads',
-          permissions: ['devops.kubernetes.read'],
-          order: 8
         },
         {
           id: 'developer-portal',
           name: 'Developer Portal',
           href: '/app/developer',
           icon: Code2,
-          description: 'API documentation, code samples, and API keys',
+          description: 'API documentation and code samples',
           permissions: ['api.manage_keys'],
-          order: 9
+          order: 7
         }
       ],
       // fc-34 review fix: dropped system.module_builds.read (extension-owned;
       // see the 'ci-cd' item's own comment above for the visibility decision).
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'git.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'devops.containers.read', 'devops.swarm.read', 'devops.docker.read', 'devops.kubernetes.read'],
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'git.runners.read', 'integrations.read', 'webhook.read', 'api.manage_keys', 'devops.docker.read', 'devops.swarm.read', 'devops.kubernetes.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 11

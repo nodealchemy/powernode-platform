@@ -41,7 +41,7 @@ export const KubernetesHubPage: React.FC = () => {
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        basePath="/app/devops/kubernetes"
+        basePath="/app/devops/containers/kubernetes"
         variant="underline"
         className="mb-6"
       >

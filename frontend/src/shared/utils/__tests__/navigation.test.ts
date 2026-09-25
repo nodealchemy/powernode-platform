@@ -80,10 +80,12 @@ describe('defaultNavigationConfig — DevOps nav permission alignment', () => {
   const devopsItem = (id: string) =>
     (section('devops')?.items ?? []).find((i) => i.id === id);
 
-  it('gates Swarm/Docker/Kubernetes on the dedicated devops.* families', () => {
-    expect(devopsItem('swarm')?.permissions).toContain('devops.swarm.read');
-    expect(devopsItem('docker')?.permissions).toContain('devops.docker.read');
-    expect(devopsItem('kubernetes')?.permissions).toContain('devops.kubernetes.read');
+  it('gates the Containers hub on every leaf\'s dedicated devops.* family', () => {
+    expect(devopsItem('containers')?.permissions).toEqual([
+      'devops.docker.read',
+      'devops.swarm.read',
+      'devops.kubernetes.read',
+    ]);
   });
 
   it('references no catalog-absent swarm.clusters.read/docker.hosts.read/kubernetes.clusters.read', () => {
@@ -107,6 +109,42 @@ describe('defaultNavigationConfig — DevOps nav permission alignment', () => {
     const childPerms = new Set((devops?.items ?? []).flatMap((i) => i.permissions ?? []));
     expect(new Set(devops?.permissions ?? [])).toEqual(childPerms);
     expect(devops?.permissions).not.toContain('admin.storage.read');
+  });
+});
+
+// fc-44: the DevOps regroup — seven items, Containers as one hub, API Keys
+// as its own item, Connections renamed Integrations & Webhooks at a new URL.
+describe('defaultNavigationConfig — DevOps regroup (fc-44)', () => {
+  const devops = () => section('devops')?.items ?? [];
+
+  it('has exactly the seven DevOps items, in order', () => {
+    expect(devops().map((i) => i.name)).toEqual([
+      'Overview',
+      'Source Control',
+      'CI/CD',
+      'Integrations & Webhooks',
+      'API Keys',
+      'Containers',
+      'Developer Portal',
+    ]);
+  });
+
+  it('points each item at its route', () => {
+    expect(devops().map((i) => i.href)).toEqual([
+      '/app/devops',
+      '/app/devops/source-control',
+      '/app/devops/ci-cd',
+      '/app/devops/integrations',
+      '/app/devops/api-keys',
+      '/app/devops/containers',
+      '/app/developer',
+    ]);
+  });
+
+  it('gates Integrations & Webhooks and API Keys on their own permissions', () => {
+    const byId = (id: string) => devops().find((i) => i.id === id);
+    expect(byId('integrations')?.permissions).toEqual(['integrations.read', 'webhook.read']);
+    expect(byId('api-keys')?.permissions).toEqual(['api.manage_keys']);
   });
 });
 

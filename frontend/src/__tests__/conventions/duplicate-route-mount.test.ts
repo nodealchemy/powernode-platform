@@ -445,8 +445,8 @@ function findRedirectEntriesInExtensionSrc(src: string, label: string): string[]
 // static per-tab paths (each independently permission-gated, or internally
 // branching on the active path) plus, in most cases, a `/*` wildcard
 // fallback for anything else. That is a deliberate navigation pattern
-// already used throughout this codebase (SwarmHubPage, DockerHubPage,
-// AIAgentsPage) — not an accidental "two routes, one panel" duplicate like
+// already used throughout this codebase (AIAgentsPage, LearningPage,
+// IntegrationsWebhooksPage) — not an accidental "two routes, one panel" duplicate like
 // the ones fc-25 fixed. Consolidating any of these into a single `/*` route
 // is a design decision for its own owning campaign, not fc-25's
 // alias/redirect cleanup.
@@ -459,9 +459,13 @@ const ALLOWLIST: readonly string[] = [
   // fc-46 review widened /ai/agents/community to /ai/agents/community/* (its
   // Community tab has its own sub-paths).
   'DashboardPage.tsx: AIAgentsPage -> /ai/agents/*, /ai/agents/cards, /ai/agents/community/*',
-  // Docker hub's static tab paths, each `ProtectedRoute`-gated on
-  // devops.docker.read, plus the `/*` fallback.
-  'DashboardPage.tsx: DockerHubPage -> /devops/docker/*, /devops/docker/containers, /devops/docker/images, /devops/docker/monitoring, /devops/docker/networks, /devops/docker/volumes',
+  // DevOps ▸ Integrations & Webhooks' two genuinely different tabs
+  // (Integrations default at the bare path, Webhook endpoints). The
+  // webhook-endpoints tab needs its own static route so it outranks the
+  // sibling /devops/integrations/:id/* detail route (fc-44). The Docker and
+  // Swarm hubs' per-tab routes that used to be listed here are now nested
+  // inside ContainersHubPage's own <Routes>, outside this scan.
+  'DashboardPage.tsx: IntegrationsWebhooksPage -> /devops/integrations, /devops/integrations/webhook-endpoints',
   // AI ▸ Learning's two genuinely different tabs — Recommendations is the
   // default tab at the bare hub path (not its own /recommendations route,
   // which would have been the same duplicate-mount shape one level down),
@@ -476,9 +480,6 @@ const ALLOWLIST: readonly string[] = [
   // identical to bare /ai/missions: MissionsContent has no status-tab or
   // query-param filtering of its own), leaving just these two real tabs.
   'DashboardPage.tsx: MissionsPageWrapper -> /ai/missions, /ai/missions/code-factory/*',
-  // Swarm hub's static tab paths, each `ProtectedRoute`-gated on
-  // devops.swarm.read, plus the `/*` fallback.
-  'DashboardPage.tsx: SwarmHubPage -> /devops/swarm/*, /devops/swarm/networks, /devops/swarm/operations, /devops/swarm/secrets, /devops/swarm/services, /devops/swarm/stacks',
 ];
 
 describe('nav convention: no component is mounted at two non-parameterised paths (fc-25)', () => {

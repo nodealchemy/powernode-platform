@@ -121,7 +121,7 @@ export const KubernetesClustersPage: React.FC<KubernetesClustersPageProps> = ({ 
                 hoverable
                 clickable
                 padding="lg"
-                onClick={() => navigate(`/app/devops/kubernetes/${cluster.id}`)}
+                onClick={() => navigate(`/app/devops/containers/kubernetes/${cluster.id}`)}
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">

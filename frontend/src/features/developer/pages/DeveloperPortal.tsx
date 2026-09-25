@@ -113,8 +113,8 @@ export const DeveloperPortal: React.FC = () => {
   );
 };
 
-// fc-35: this tab is docs-only. pages/app/devops/ApiKeysPage.tsx (Connections ->
-// API Keys) is the one canonical surface for creating, regenerating and revoking
+// fc-35: this tab is docs-only. pages/app/devops/ApiKeysPage.tsx (DevOps ->
+// API Keys, /app/devops/api-keys) is the one canonical surface for creating, regenerating and revoking
 // keys -- ApiKeyManager duplicated that against the same apiKeysApi client and was
 // deleted.
 const ApiKeyDocs: React.FC = () => {
@@ -135,10 +135,10 @@ const ApiKeyDocs: React.FC = () => {
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-theme-primary mb-2">Managing your keys</h3>
         <p className="text-theme-secondary mb-4">
-          Create, regenerate and revoke API keys from Connections.
+          Create, regenerate and revoke API keys from DevOps → API Keys.
         </p>
         <Link
-          to="/app/devops/connections/api-keys"
+          to="/app/devops/api-keys"
           className="inline-flex items-center text-sm text-theme-info-fg hover:text-theme-info-fg/80"
         >
           Manage API Keys →
