@@ -41,6 +41,31 @@ RSpec.describe Ai::ConciergeService do
       end
     end
 
+    # Thinking is paid out of max_tokens on always-thinking models, so the legacy
+    # path takes the model-aware completion default; other models keep 2048.
+    context "max_tokens on the action-grammar path" do
+      let(:captured) { {} }
+
+      before do
+        allow_any_instance_of(WorkerLlmClient).to receive(:complete) do |_client, **kw|
+          captured[:max_tokens] = kw[:max_tokens]
+          Ai::Llm::Response.new(content: "[RESPOND] ok", usage: {})
+        end
+      end
+
+      it "uses the completion default for an always-thinking model" do
+        allow(service).to receive(:concierge_model).and_return("claude-opus-5")
+        service.process_message("Hello")
+        expect(captured[:max_tokens]).to eq(Ai::Llm::ModelCapabilities::COMPLETION_MAX_TOKENS)
+      end
+
+      it "keeps 2048 for any other model" do
+        allow(service).to receive(:concierge_model).and_return("llama3")
+        service.process_message("Hello")
+        expect(captured[:max_tokens]).to eq(2048)
+      end
+    end
+
     context "when LLM returns [ACTION:check_status]" do
       before do
         allow_any_instance_of(WorkerLlmClient).to receive(:complete).and_return(

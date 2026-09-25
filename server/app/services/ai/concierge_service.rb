@@ -330,7 +330,8 @@ module Ai
       # provider-neutral intent: the OpenAI mappers force the named tool; the
       # Anthropic mappers degrade it to auto (current Claude models reject forced
       # tool use), where the prompt steers and the success check below confirms.
-      opts = { temperature: 0.3, max_tokens: 4096, system_prompt: concierge_tool_system_prompt }
+      opts = { temperature: 0.3, system_prompt: concierge_tool_system_prompt,
+               max_tokens: ::Ai::Llm::ModelCapabilities.default_max_tokens(model, agentic: true) || 4096 }
       if @conversation.workspace_conversation? && content.match?(DELEGATION_PATTERN)
         opts[:tool_choice] = "send_message"
         Rails.logger.info("[ConciergeService] Delegation intent detected — requesting send_message tool_choice")
@@ -475,7 +476,8 @@ module Ai
       messages = build_legacy_messages(content)
       model = concierge_model || credential.provider.default_model
 
-      response = client.complete(messages: messages, model: model, max_tokens: 2048, temperature: 0.3)
+      max_tokens = ::Ai::Llm::ModelCapabilities.default_max_tokens(model) || 2048
+      response = client.complete(messages: messages, model: model, max_tokens: max_tokens, temperature: 0.3)
 
       if response.success?
         response.content
