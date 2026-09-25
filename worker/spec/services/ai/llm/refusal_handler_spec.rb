@@ -33,17 +33,32 @@ RSpec.describe Ai::Llm::RefusalHandler do
   it 'adapts: ONE reframe on the same model resolves the refusal' do
     handler = described_class.new(model: 'claude-fable-5', fallback_models: ['claude-opus-4-8'])
     seen_models = []
-    last_first_role = nil
+    reframed_messages = nil
     resp = handler.run(messages: messages) do |m, msgs|
       seen_models << m
-      last_first_role = msgs.first[:role]
+      reframed_messages = msgs
       seen_models.size == 1 ? refusal_response : ok_response(model: m, content: 'reframed ok')
     end
     expect(seen_models).to eq(%w[claude-fable-5 claude-fable-5]) # same model, one reframe
     expect(resp.content).to eq('reframed ok')
     expect(resp.served_by).to eq('claude-fable-5')
     expect(resp.refusal_recovery).to include('reframed' => true, 'fell_back' => false, 'resolved' => true)
-    expect(last_first_role).to eq('system') # authorized-context note prepended on the reframe
+    # The note is appended after the history (a mid-conversation system message),
+    # so the original messages are an untouched prefix of the retry.
+    expect(reframed_messages.first(messages.size)).to eq(messages)
+    expect(reframed_messages.last).to eq(role: 'system', content: described_class::REFRAME_SYSTEM_NOTE)
+  end
+
+  it 'leaves the top-level system of the retry byte-identical to the refused request' do
+    history = [{ role: 'system', content: 'core prompt' }] + messages
+    reframed = described_class.new(model: 'claude-fable-5').send(:reframe, history)
+    client = Ai::Llm::Client.new(provider_type: 'anthropic', api_key: 'k')
+
+    original_body = client.send(:build_anthropic_body, history, 'claude-fable-5')
+    retry_body = client.send(:build_anthropic_body, reframed, 'claude-fable-5')
+
+    expect(retry_body[:system]).to eq(original_body[:system])
+    expect(retry_body[:messages].first(original_body[:messages].size)).to eq(original_body[:messages])
   end
 
   it 'falls back to a non-Fable model when the reframe still refuses' do

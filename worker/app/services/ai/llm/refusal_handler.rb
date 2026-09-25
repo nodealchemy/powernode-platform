@@ -102,10 +102,15 @@ module Ai
 
       private
 
-      # Prepend the authorized-context system note. The user's own content is left
-      # untouched (no classifier-gaming) — we only add truthful operating context.
+      # Append the authorized-context note as a mid-conversation system message
+      # after the history. The builders send it in place (natively, or as a reminder
+      # on the last user turn), so the top-level system and the cached prefix of the
+      # refused request are reused unchanged. Prepending it made it part of the
+      # top-level system, which rebuilt the whole prefix for the retry. The user's
+      # own content is left untouched (no classifier-gaming); only truthful
+      # operating context is added.
       def reframe(messages)
-        [{ role: 'system', content: REFRAME_SYSTEM_NOTE }] + Array(messages)
+        Array(messages) + [{ role: 'system', content: REFRAME_SYSTEM_NOTE }]
       end
 
       def annotate(response, served_by:, reframed:, fell_back:, resolved:, category:, phase:)
