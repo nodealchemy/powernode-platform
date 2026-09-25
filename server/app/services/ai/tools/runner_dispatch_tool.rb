@@ -9,12 +9,20 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "dispatch_to_runner", mutating: true
+      declare_action "dispatch_to_runner", mutating: true,
+                                           returns: "the created runner dispatch record, with status dispatched",
+                                           refuses: [
+                                             "the worktree session or the worktree is not found in this account",
+                                             "no available runner carries every requested label",
+                                             "no repository resolves for the session or no active GitHub, Gitea or GitLab credential exists"
+                                           ]
 
       def self.definition
         {
           name: "dispatch_to_runner",
-          description: "Dispatch a worktree execution to a self-hosted runner (GitHub Actions, Gitea Actions, or GitLab CI)",
+          description: "Dispatch a worktree execution to a self-hosted runner (GitHub Actions, Gitea Actions, or GitLab CI). " \
+                       "It picks the available runner with the lowest total_jobs_run among those carrying every requested label, " \
+                       "then triggers the agent-execution.yml workflow on the worktree's branch and marks the runner busy.",
           parameters: {
             session_id: { type: "string", required: true, description: "Worktree session ID" },
             worktree_id: { type: "string", required: true, description: "Worktree ID" },
