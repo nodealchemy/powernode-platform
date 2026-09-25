@@ -64,8 +64,12 @@ describe('CircuitBreakersTab', () => {
     expect(screen.getByText(/don't have permission to view circuit breakers/i)).toBeInTheDocument();
   });
 
-  it('shows the recent-errors feed only when the viewer can see provider breakers and errors exist', () => {
-    mockAllowed = ['ai.monitoring.read'];
+  // fc-42 review fix: recent errors is gated on ai.aiops.read — the
+  // permission Api::V1::Ai::AiOpsController#recent_errors actually enforces —
+  // NOT ai.monitoring.read (the provider-breakers permission). A viewer can
+  // hold either without the other.
+  it('shows the recent-errors feed only when the viewer holds ai.aiops.read and errors exist', () => {
+    mockAllowed = ['ai.monitoring.read', 'ai.aiops.read'];
     mockUseAiOpsRecentErrors.mockReturnValue({
       data: [{ execution_id: 'e1', agent_name: 'Researcher', error: 'boom', failed_at: '2026-06-18T01:00:00Z' }],
     });
@@ -75,13 +79,27 @@ describe('CircuitBreakersTab', () => {
     expect(screen.getByText('boom')).toBeInTheDocument();
   });
 
-  it('hides the recent-errors feed without ai.monitoring.read, even if data is present', () => {
-    mockAllowed = ['ai.agents.read'];
+  it('hides the recent-errors feed without ai.aiops.read, even if data is present', () => {
+    mockAllowed = ['ai.agents.read', 'ai.monitoring.read'];
     mockUseAiOpsRecentErrors.mockReturnValue({
       data: [{ execution_id: 'e1', agent_name: 'Researcher', error: 'boom', failed_at: '2026-06-18T01:00:00Z' }],
     });
     render(<CircuitBreakersTab />);
 
     expect(screen.queryByText('Recent Errors')).not.toBeInTheDocument();
+  });
+
+  // The old version called useAiOpsRecentErrors() with no `enabled` at all,
+  // so the request fired for every viewer regardless of permission.
+  it('passes enabled=true to useAiOpsRecentErrors only when the viewer holds ai.aiops.read', () => {
+    mockAllowed = ['ai.aiops.read'];
+    render(<CircuitBreakersTab />);
+    expect(mockUseAiOpsRecentErrors).toHaveBeenLastCalledWith(20, true);
+  });
+
+  it('passes enabled=false to useAiOpsRecentErrors without ai.aiops.read', () => {
+    mockAllowed = ['ai.agents.read', 'ai.monitoring.read'];
+    render(<CircuitBreakersTab />);
+    expect(mockUseAiOpsRecentErrors).toHaveBeenLastCalledWith(20, false);
   });
 });

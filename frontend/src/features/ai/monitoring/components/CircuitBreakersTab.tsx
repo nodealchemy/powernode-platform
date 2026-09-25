@@ -22,14 +22,19 @@ import { ProviderCircuitBreakersPanel } from './ProviderCircuitBreakersPanel';
  *
  * The AIOps recent-errors feed (previously bundled into ReliabilitySection
  * alongside a now-superseded breaker table) lives here too, since this is
- * where a viewer investigating a tripped breaker would look next.
+ * where a viewer investigating a tripped breaker would look next. It has its
+ * own gate — Api::V1::Ai::AiOpsController#recent_errors requires
+ * ai.aiops.read, NOT ai.monitoring.read (the provider-breakers permission) —
+ * and its own `enabled`, so a viewer without that permission never fires the
+ * request at all rather than firing it and hiding the (403'd) result.
  */
 export const CircuitBreakersTab: React.FC = () => {
   const { hasPermission } = usePermissions();
   const canViewAgentBreakers = hasPermission('ai.agents.read');
   const canViewProviderBreakers = hasPermission('ai.monitoring.read');
-  const recentErrorsQuery = useAiOpsRecentErrors();
-  const recentErrors = canViewProviderBreakers ? (recentErrorsQuery.data ?? []) : [];
+  const canViewRecentErrors = hasPermission('ai.aiops.read');
+  const recentErrorsQuery = useAiOpsRecentErrors(20, canViewRecentErrors);
+  const recentErrors = canViewRecentErrors ? (recentErrorsQuery.data ?? []) : [];
 
   if (!canViewAgentBreakers && !canViewProviderBreakers) {
     return (
