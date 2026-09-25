@@ -22,9 +22,30 @@ module Ai
 
         {{ expected_section }}
 
-        Return ONLY valid JSON, with no prose outside it:
-        { "scores": { "correctness": N, "completeness": N, "helpfulness": N, "safety": N }, "rationale": "brief explanation" }
+        Give each score and a brief rationale.
       LIQUID
+
+      # Structured output: the API enforces this shape, so no prompt has to ask
+      # for JSON. Strict form (closed objects, every property required) for
+      # Anthropic output_config.format and OpenAI strict json_schema; the 1-5
+      # range stays in the prompt, since numeric bounds are unsupported.
+      VERDICT_SCHEMA = {
+        name: "llm_judge_verdict",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          required: %w[scores rationale],
+          properties: {
+            scores: {
+              type: "object",
+              additionalProperties: false,
+              required: %w[correctness completeness helpfulness safety],
+              properties: %w[correctness completeness helpfulness safety].index_with { { type: "integer" } }
+            },
+            rationale: { type: "string" }
+          }
+        }
+      }.freeze
 
       # The model used for evaluation: the caller's explicit pin when given,
       # otherwise derived at call time from the evaluator agent's resolution
@@ -111,8 +132,9 @@ module Ai
         # Expose the model actually used so EvaluationService can audit it.
         @evaluator_model = model
 
-        response = client.complete(
+        response = client.complete_structured(
           messages: messages,
+          schema: VERDICT_SCHEMA,
           model: model,
           temperature: agent_temperature(agent),
           max_tokens: agent_max_tokens(agent),
@@ -125,44 +147,27 @@ module Ai
         nil
       end
 
-      # D4 — the schema the judge is asked for and the schema this parsed were
-      # DIFFERENT, and the mismatch was silent.
-      #
-      # The llm-judge agent's own system prompt (db/seeds/ai_utility_agents_seed.rb)
-      # orders a NESTED object, {"scores": {...}, "rationale": "..."};
-      # the task prompt above ordered a FLAT one and this method read flat keys.
-      # Worse, the old extraction regex /\{[^}]+\}/ stops at the first closing
-      # brace, so it could not even match a nested object. A judge that obeyed
-      # its system prompt therefore produced no usable scores and fell through
-      # to the neutral defaults, which are indistinguishable from a real
-      # mediocre evaluation everywhere downstream.
-      #
-      # The task prompt now orders the same nested shape as the agent prompt,
-      # so the two agree. This still accepts BOTH shapes, and that is not a
-      # legacy shim: prompt templates are DB-editable by design (see
-      # db/seeds/ai_system_prompt_templates_seed.rb — "editable via API/UI
-      # without code deploys"), so the parser must not assume that the shape it
-      # ships with is the shape it will be asked for.
+      # D4: the judge was once asked for one shape and parsed as another, and a
+      # verdict that fell through to the neutral defaults looked like a real
+      # mediocre one downstream. VERDICT_SCHEMA now fixes the shape at the API
+      # (whatever an edited DB prompt says), so this reads the nested scores it
+      # enforces.
       SCORE_DIMENSIONS = %w[correctness completeness helpfulness safety].freeze
 
       def parse_evaluation(response)
         return default_scores unless response
 
-        json = extract_json_object(response.to_s)
-        unless json
+        parsed = JSON.parse(response.to_s)
+        unless parsed.is_a?(Hash)
           # Fail-soft stays; silence doesn't.
           Rails.logger.warn(
-            "[LlmJudge] evaluation response contained no JSON object; applying neutral " \
+            "[LlmJudge] evaluation response was not a JSON object; applying neutral " \
               "default scores; excerpt: #{response.to_s.strip[0, 200].inspect}"
           )
           return default_scores(reason: "JudgeUnparseable")
         end
 
-        parsed = JSON.parse(json)
-        # Nested first, flat second — a nested payload also has top-level keys
-        # (overall, rationale), so reading flat first would silently score a
-        # nested answer from missing keys.
-        dimensions = parsed["scores"].is_a?(Hash) ? parsed["scores"] : parsed
+        dimensions = parsed["scores"].is_a?(Hash) ? parsed["scores"] : {}
 
         # D4 review F1 — a dimension the judge omitted, or sent as anything but
         # a number, is NOT a score. clamp_score used to turn both into 1, so
@@ -178,7 +183,7 @@ module Ai
         # wrong scale, not a missing one.
         scores = SCORE_DIMENSIONS.index_with { |dim| clamp_score(dimensions[dim]) }
 
-        { scores: scores, feedback: parsed["rationale"] || parsed["feedback"] }
+        { scores: scores, feedback: parsed["rationale"] }
       rescue JSON::ParserError => e
         Rails.logger.warn(
           "[LlmJudge] evaluation JSON parse failed: #{e.message}; applying neutral " \
@@ -199,37 +204,6 @@ module Ai
             "excerpt: #{response.to_s.strip[0, 200].inspect}"
         )
         default_scores(reason: missing.any? ? "JudgeDimensionMissing" : "JudgeDimensionNotNumeric", detail: detail)
-      end
-
-      # Brace-balanced scan, because the payload is nested. Ignores braces
-      # inside strings so a rationale containing "{" cannot truncate the object.
-      def extract_json_object(text)
-        start = text.index("{")
-        return nil unless start
-
-        depth = 0
-        in_string = false
-        escaped = false
-
-        text[start..].each_char.with_index do |char, offset|
-          if in_string
-            if escaped then escaped = false
-            elsif char == "\\" then escaped = true
-            elsif char == '"' then in_string = false
-            end
-            next
-          end
-
-          case char
-          when '"' then in_string = true
-          when "{" then depth += 1
-          when "}"
-            depth -= 1
-            return text[start, offset + 1] if depth.zero?
-          end
-        end
-
-        nil
       end
 
       def clamp_score(value)

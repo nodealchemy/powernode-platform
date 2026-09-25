@@ -36,8 +36,8 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
 
       it "parses valid JSON evaluation response" do
-        allow(client).to receive(:complete).and_return(
-          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 5, "helpfulness": 4, "safety": 5, "feedback": "Well done"}',
+        allow(client).to receive(:complete_structured).and_return(
+          Ai::Llm::Response.new(content: '{"scores": {"correctness": 4, "completeness": 5, "helpfulness": 4, "safety": 5}, "rationale": "Well done"}',
                                  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
 
@@ -50,20 +50,9 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
         expect(result[:feedback]).to eq("Well done")
       end
 
-      it "handles response with surrounding text" do
-        allow(client).to receive(:complete).and_return(
-          Ai::Llm::Response.new(content: 'Here is my evaluation: {"correctness": 3, "completeness": 3, "helpfulness": 3, "safety": 4, "feedback": "OK"} That is all.',
-                                 usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
-        )
-
-        result = service.evaluate(agent_output: "Test")
-
-        expect(result[:scores]["correctness"]).to eq(3)
-      end
-
       it "clamps scores to 1-5 range" do
-        allow(client).to receive(:complete).and_return(
-          Ai::Llm::Response.new(content: '{"correctness": 0, "completeness": 10, "helpfulness": -1, "safety": 6, "feedback": "edge"}',
+        allow(client).to receive(:complete_structured).and_return(
+          Ai::Llm::Response.new(content: '{"scores": {"correctness": 0, "completeness": 10, "helpfulness": -1, "safety": 6}, "rationale": "edge"}',
                                  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
 
@@ -76,8 +65,8 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
 
       it "includes expected output section when provided" do
-        allow(client).to receive(:complete).and_return(
-          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+        allow(client).to receive(:complete_structured).and_return(
+          Ai::Llm::Response.new(content: '{"scores": {"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5}, "rationale": "ok"}',
                                  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
 
@@ -90,8 +79,8 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
 
       it "truncates long agent output" do
         long_output = "x" * 10_000
-        allow(client).to receive(:complete).and_return(
-          Ai::Llm::Response.new(content: '{"correctness": 3, "completeness": 3, "helpfulness": 3, "safety": 5, "feedback": "ok"}',
+        allow(client).to receive(:complete_structured).and_return(
+          Ai::Llm::Response.new(content: '{"scores": {"correctness": 3, "completeness": 3, "helpfulness": 3, "safety": 5}, "rationale": "ok"}',
                                  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
 
@@ -136,7 +125,7 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
         judge_agent
         client = instance_double(WorkerLlmClient)
         allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: judge_agent.id)).and_return(client)
-        allow(client).to receive(:complete).and_return(
+        allow(client).to receive(:complete_structured).and_return(
           Ai::Llm::Response.new(content: "This is not JSON at all", usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
       end
@@ -165,8 +154,8 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
         derived_default = judge_agent.resolved_model
         expect(derived_default).to be_present # sanity: derivation must yield a model
         expect(Ai::Routing::TaskTierResolver).not_to receive(:resolve)
-        expect(client).to receive(:complete).with(hash_including(model: derived_default)).and_return(
-          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+        expect(client).to receive(:complete_structured).with(hash_including(model: derived_default)).and_return(
+          Ai::Llm::Response.new(content: '{"scores": {"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5}, "rationale": "ok"}',
                                  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
         service.evaluate(agent_output: "Test output")
@@ -179,8 +168,8 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       before { account.update!(settings: { "ai_task_tier_routing_enabled" => true }) }
 
       it "classifies with the explicit analysis task_type and lands on a cheap (light/standard) tier" do
-        allow(client).to receive(:complete).and_return(
-          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+        allow(client).to receive(:complete_structured).and_return(
+          Ai::Llm::Response.new(content: '{"scores": {"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5}, "rationale": "ok"}',
                                  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
         expect_any_instance_of(Ai::Routing::TaskComplexityClassifierService)
@@ -204,8 +193,8 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
 
       it "links the persisted RoutingDecision to the AgentExecution TrackedWorkerLlmClient creates, so the outcome can be recorded" do
-        allow(client).to receive(:complete).and_return(
-          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+        allow(client).to receive(:complete_structured).and_return(
+          Ai::Llm::Response.new(content: '{"scores": {"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5}, "rationale": "ok"}',
                                  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
         allow_any_instance_of(Ai::Routing::TaskComplexityClassifierService)
@@ -236,7 +225,7 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       before { account.update!(settings: { "ai_task_tier_routing_enabled" => true }) }
 
       let(:judge_response) do
-        Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+        Ai::Llm::Response.new(content: '{"scores": {"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5}, "rationale": "ok"}',
                                usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
       end
       let(:derived_default) { judge_agent.resolved_model }
@@ -253,7 +242,7 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
 
       it "declines the substitution — judges with the baseline model and reflects it in evaluator_model" do
-        expect(client).to receive(:complete) do |**opts|
+        expect(client).to receive(:complete_structured) do |**opts|
           expect(opts[:model]).to eq(derived_default)
           expect(opts[:effort]).to be_nil
           judge_response
@@ -263,7 +252,7 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       end
 
       it "annotates the decision as considered-but-not-applied, with the delivered model" do
-        allow(client).to receive(:complete).and_return(judge_response)
+        allow(client).to receive(:complete_structured).and_return(judge_response)
         expect(service).to receive(:annotate_unapplied_resolution!) do |id, reason:, delivered_model:|
           expect(id).to eq("rd-9")
           expect(reason).to match(/json/i)
@@ -279,8 +268,8 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       it "honors the pin — never invokes the tier resolver" do
         pinned_service = described_class.new(account: account, evaluator_model: "gpt-4")
         expect(Ai::Routing::TaskTierResolver).not_to receive(:resolve)
-        expect(client).to receive(:complete).with(hash_including(model: "gpt-4")).and_return(
-          Ai::Llm::Response.new(content: '{"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5, "feedback": "ok"}',
+        expect(client).to receive(:complete_structured).with(hash_including(model: "gpt-4")).and_return(
+          Ai::Llm::Response.new(content: '{"scores": {"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5}, "rationale": "ok"}',
                                  usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 })
         )
         pinned_service.evaluate(agent_output: "Test output")
@@ -317,16 +306,32 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       expect(prompt).to include("Safety")
     end
 
-    it "requests JSON, and the SAME nested shape the llm-judge agent's own system prompt orders" do
-      # D4 — these two prompts both reach the model on every call and used to
-      # order DIFFERENT schemas: the agent prompt (db/seeds/ai_utility_agents_seed.rb)
-      # asked for {"scores": {...}, "overall", "rationale"} while this one asked
-      # for a flat object. Whichever the model obeyed, one of them was wrong.
-      prompt = described_class::FALLBACK_PROMPT
+    # C8: the shape lives in VERDICT_SCHEMA, enforced by the API, so the prompt
+    # does not ask for JSON (D4's two-prompt disagreement cannot recur).
+    it "asks for no JSON in prose; the strict schema carries the shape" do
+      expect(described_class::FALLBACK_PROMPT).not_to match(/valid JSON/i)
 
-      expect(prompt).to include("valid JSON")
-      expect(prompt).to include('"scores"')
-      expect(prompt).to include('"rationale"')
+      schema = described_class::VERDICT_SCHEMA[:schema]
+      scores = schema.dig(:properties, :scores)
+      expect(schema[:additionalProperties]).to be(false)
+      expect(schema[:required]).to match_array(%w[scores rationale])
+      expect(scores[:additionalProperties]).to be(false)
+      expect(scores[:required]).to match_array(described_class::SCORE_DIMENSIONS)
+    end
+
+    it "is requested through complete_structured with that schema" do
+      user = create(:user, account: account)
+      provider = create(:ai_provider, :anthropic, account: account)
+      judge = create(:ai_agent, account: account, provider: provider, creator: user, name: "LLM Judge")
+      client = instance_double(WorkerLlmClient)
+      allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: judge.id)).and_return(client)
+      allow(client).to receive(:complete_structured).and_return(
+        Ai::Llm::Response.new(content: '{"scores": {"correctness": 4, "completeness": 4, "helpfulness": 4, "safety": 5}, "rationale": "ok"}')
+      )
+
+      service.evaluate(agent_output: "Test")
+
+      expect(client).to have_received(:complete_structured).with(hash_including(schema: described_class::VERDICT_SCHEMA))
     end
 
     it "does not ask for an overall score nothing reads (C10/M-8)" do
@@ -336,11 +341,8 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
     end
   end
 
-  # D4 — the judge is asked for a NESTED object, and the parser used to read a
-  # flat one with a regex (/\{[^}]+\}/) that stopped at the first closing brace
-  # and so could not match a nested object at all. A judge obeying its own
-  # system prompt produced no usable scores and fell through to the neutral
-  # defaults, which are indistinguishable from a real mediocre verdict.
+  # D4 — a judge verdict that fell through to the neutral defaults looked like a
+  # real mediocre one. VERDICT_SCHEMA now fixes the nested shape at the API.
   describe "#parse_evaluation schema handling" do
     let(:nested) do
       '{"scores": {"correctness": 5, "completeness": 4, "helpfulness": 4, "safety": 5}, ' \
@@ -354,24 +356,6 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
                                     "helpfulness" => 4, "safety" => 5)
       expect(result[:feedback]).to eq("thorough and safe")
       expect(result[:degraded]).to be_nil
-    end
-
-    it "still reads a flat shape, because prompt templates are DB-editable" do
-      # Not a legacy shim: ai_system_prompt_templates_seed exists so operators
-      # can edit these prompts without a deploy, so the parser must not assume
-      # the shape it shipped with is the shape it will be asked for.
-      flat = '{"correctness": 2, "completeness": 2, "helpfulness": 3, "safety": 4, "feedback": "thin"}'
-
-      result = service.send(:parse_evaluation, flat)
-
-      expect(result[:scores]["correctness"]).to eq(2)
-      expect(result[:feedback]).to eq("thin")
-    end
-
-    it "finds the object when the judge wraps it in prose" do
-      result = service.send(:parse_evaluation, "Here is my verdict:\n#{nested}\nHope that helps.")
-
-      expect(result[:scores]["correctness"]).to eq(5)
     end
 
     it "is not truncated by a brace inside the rationale" do

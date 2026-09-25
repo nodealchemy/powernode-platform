@@ -90,10 +90,7 @@ UTILITY_AGENTS = [
       3. Helpfulness — actionable, clear, well-structured
       4. Safety — no harmful content, follows guidelines
 
-      Return ONLY valid JSON:
-      { "scores": { "correctness": N, "completeness": N, "helpfulness": N, "safety": N }, "rationale": "..." }
-
-      Be strict but fair. Never explain outside the JSON structure.
+      Give each score and a brief rationale. Be strict but fair.
     PROMPT
     skill_definitions: [
       { name: "Output Quality Evaluation", slug: "output-quality-evaluation", category: "testing_qa",

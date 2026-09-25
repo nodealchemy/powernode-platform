@@ -581,7 +581,7 @@ RSpec.describe Ai::Learning::EvaluationService, type: :service do
         judge_agent
         allow_any_instance_of(Ai::Tools::SemanticToolDiscoveryService).to receive(:discover).and_return([])
         allow(WorkerLlmClient).to receive(:new).with(hash_including(agent_id: judge_agent.id)).and_return(client)
-        allow(client).to receive(:complete).and_return(
+        allow(client).to receive(:complete_structured).and_return(
           Ai::Llm::Response.new(content: '{"scores": {}, "rationale": "empty"}',
                                 usage: { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 })
         )

@@ -25,8 +25,7 @@ SYSTEM_PROMPT_TEMPLATES = [
 
       {{ expected_section }}
 
-      Return ONLY valid JSON, with no prose outside it:
-      { "scores": { "correctness": N, "completeness": N, "helpfulness": N, "safety": N }, "rationale": "brief explanation" }
+      Give each score and a brief rationale.
     LIQUID
   },
   {
