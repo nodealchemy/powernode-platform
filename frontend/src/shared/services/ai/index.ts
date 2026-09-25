@@ -444,8 +444,6 @@ export type {
   PressureField,
   TeamRestructureEvent,
   CoordinationSummary,
-  GoalPlan,
-  GoalPlanStep,
 } from '@/shared/services/ai/IntelligenceApiService';
 
 // Re-export Workspaces service (MCP Client Identity & Team Chat)

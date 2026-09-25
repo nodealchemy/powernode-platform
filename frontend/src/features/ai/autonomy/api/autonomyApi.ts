@@ -16,6 +16,7 @@ import type {
   KillSwitchStatus,
   KillSwitchEvent,
   AgentGoal,
+  GoalPlan,
   AgentProposal,
   AgentEscalation,
   AgentFeedback,
@@ -48,6 +49,8 @@ const AUTONOMY_KEYS = {
   killSwitchEvents: () => [...AUTONOMY_KEYS.all, 'kill-switch-events'] as const,
   // Goals
   goals: () => [...AUTONOMY_KEYS.all, 'goals'] as const,
+  goalPlans: (goalId: string) => [...AUTONOMY_KEYS.all, 'goals', goalId, 'plans'] as const,
+  goalPlan: (goalId: string, planId: string) => [...AUTONOMY_KEYS.all, 'goals', goalId, 'plans', planId] as const,
   // Proposals
   proposals: () => [...AUTONOMY_KEYS.all, 'proposals'] as const,
   // Escalations
@@ -410,6 +413,28 @@ export function useGoals(filters?: { agent_id?: string; status?: string }) {
       // Backend returns { goals: [...], total_count } wrapper
       return (raw?.goals ?? raw ?? []) as AgentGoal[];
     },
+  });
+}
+
+export function useGoalPlans(goalId: string) {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.goalPlans(goalId),
+    queryFn: async () => {
+      const response = await apiClient.get(`/ai/goals/${goalId}/plans`);
+      return (response.data?.data?.plans ?? []) as GoalPlan[];
+    },
+    enabled: !!goalId,
+  });
+}
+
+export function useGoalPlan(goalId: string, planId: string) {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.goalPlan(goalId, planId),
+    queryFn: async () => {
+      const response = await apiClient.get(`/ai/goals/${goalId}/plans/${planId}`);
+      return response.data?.data?.plan as GoalPlan;
+    },
+    enabled: !!goalId && !!planId,
   });
 }
 

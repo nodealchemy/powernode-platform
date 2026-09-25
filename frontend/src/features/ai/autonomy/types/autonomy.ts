@@ -317,3 +317,46 @@ export interface AgentObservation {
   processed: boolean;
   created_at: string;
 }
+
+// ===== Goal Plans =====
+export type GoalPlanStatus = 'draft' | 'validated' | 'approved' | 'executing' | 'completed' | 'failed' | 'rejected';
+// Mirror of Ai::GoalPlanStep::STATUSES. `awaiting_approval` is the PARKED
+// state written by Ai::Provisioning::SkillCompositionRunner when a step's
+// skill executor reaches the autonomy gate.
+export type GoalPlanStepStatus =
+  | 'pending'
+  | 'executing'
+  | 'completed'
+  | 'failed'
+  | 'skipped'
+  | 'awaiting_approval';
+export type GoalPlanStepType = 'agent_execution' | 'workflow_run' | 'observation' | 'human_review' | 'sub_goal';
+
+export interface GoalPlanStep {
+  id: string;
+  step_number: number;
+  step_type: GoalPlanStepType;
+  description: string | null;
+  status: GoalPlanStepStatus;
+  dependencies: number[];
+  execution_config: Record<string, unknown>;
+  result_summary: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+}
+
+export interface GoalPlan {
+  id: string;
+  status: GoalPlanStatus;
+  version: number;
+  plan_data: Record<string, unknown>;
+  validation_result: Record<string, unknown>;
+  risk_assessment: Record<string, unknown>;
+  progress_percentage: number;
+  agent: { id: string; name: string } | null;
+  approved_by_id: string | null;
+  approved_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  steps?: GoalPlanStep[];
+}
