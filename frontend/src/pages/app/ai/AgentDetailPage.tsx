@@ -131,7 +131,12 @@ export const AgentDetailPage: React.FC = () => {
   const { agent, stats, analytics, error, reload } = useAgentDetail(agentId ?? null);
   const [showEditModal, setShowEditModal] = useState(false);
 
-  const canManage = hasPermission('ai.agents.manage');
+  // Each action is gated on the permission AgentsController enforces for it
+  // (Ai::AgentHelpers#validate_permissions).
+  const canClone = hasPermission('ai.agents.create');
+  const canEdit = hasPermission('ai.agents.update');
+  const canExecute = hasPermission('ai.agents.execute');
+  const canDelete = hasPermission('ai.agents.delete');
   const basePath = `/app/ai/agents/${agentId}`;
 
   // The first path segment after the agent picks the tab; a tab the viewer
@@ -221,17 +226,19 @@ export const AgentDetailPage: React.FC = () => {
       variant: 'outline' as const,
       icon: MessageSquare,
     },
-    ...(canManage
+    ...(canClone ? [{ id: 'clone', label: 'Clone', onClick: handleClone, variant: 'outline' as const, icon: Copy }] : []),
+    ...(canEdit
+      ? [{ id: 'edit', label: 'Edit', onClick: () => setShowEditModal(true), variant: 'outline' as const, icon: Settings }]
+      : []),
+    ...(canExecute
       ? [
-          { id: 'clone', label: 'Clone', onClick: handleClone, variant: 'outline' as const, icon: Copy },
-          { id: 'edit', label: 'Edit', onClick: () => setShowEditModal(true), variant: 'outline' as const, icon: Settings },
           agent.status === 'active'
             ? { id: 'pause', label: 'Pause', onClick: handleToggleStatus, variant: 'warning' as const, icon: Pause }
             : { id: 'resume', label: 'Resume', onClick: handleToggleStatus, variant: 'success' as const, icon: Play },
           { id: 'archive', label: 'Archive', onClick: handleArchive, variant: 'secondary' as const, icon: Archive },
-          { id: 'delete', label: 'Delete', onClick: handleDelete, variant: 'danger' as const, icon: Trash2 },
         ]
       : []),
+    ...(canDelete ? [{ id: 'delete', label: 'Delete', onClick: handleDelete, variant: 'danger' as const, icon: Trash2 }] : []),
   ];
 
   const getBreadcrumbs = () => {

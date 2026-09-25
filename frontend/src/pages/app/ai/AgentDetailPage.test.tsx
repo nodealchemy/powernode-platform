@@ -76,7 +76,10 @@ const agent = {
   },
 };
 
-const ALL_PERMISSIONS = ['ai.agents.read', 'ai.agents.manage', 'ai.memory.read', 'ai.context.read'];
+const ALL_PERMISSIONS = [
+  'ai.agents.read', 'ai.agents.create', 'ai.agents.update', 'ai.agents.execute', 'ai.agents.delete',
+  'ai.memory.read', 'ai.context.read',
+];
 
 const renderAt = (path: string, permissions: string[] = ALL_PERMISSIONS) => {
   window.history.pushState({}, '', path);
@@ -143,7 +146,33 @@ describe('AgentDetailPage — the one agent detail surface (fc-43)', () => {
     expect(screen.queryByRole('tab', { name: /^Knowledge$/ })).not.toBeInTheDocument();
   });
 
-  it('offers no manage actions without ai.agents.manage', async () => {
+  // Each action is gated on the permission AgentsController enforces for it
+  // (Ai::AgentHelpers#validate_permissions).
+  it.each([
+    ['Clone', 'ai.agents.create'],
+    ['Edit', 'ai.agents.update'],
+    ['Pause', 'ai.agents.execute'],
+    ['Archive', 'ai.agents.execute'],
+    ['Delete', 'ai.agents.delete'],
+  ])('offers %s only with %s', async (label, permission) => {
+    const { unmount } = renderAt('/app/ai/agents/agent-1', ['ai.agents.read', permission]);
+    expect(await screen.findByRole('button', { name: label })).toBeInTheDocument();
+    unmount();
+
+    const others = ALL_PERMISSIONS.filter((p) => p !== permission);
+    renderAt('/app/ai/agents/agent-1', others);
+    await screen.findByRole('button', { name: 'Back to Agents' });
+    expect(screen.queryByRole('button', { name: label })).not.toBeInTheDocument();
+  });
+
+  it('offers Resume for a paused agent with ai.agents.execute', async () => {
+    (agentsApi.getAgent as jest.Mock).mockResolvedValue({ ...agent, status: 'paused' });
+    renderAt('/app/ai/agents/agent-1', ['ai.agents.read', 'ai.agents.execute']);
+
+    expect(await screen.findByRole('button', { name: 'Resume' })).toBeInTheDocument();
+  });
+
+  it('offers no manage actions with ai.agents.read alone', async () => {
     renderAt('/app/ai/agents/agent-1', ['ai.agents.read']);
 
     await screen.findByRole('button', { name: 'Back to Agents' });
