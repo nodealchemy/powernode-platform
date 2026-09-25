@@ -165,11 +165,20 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     // (or no registered slot at all) contributes nothing. Runs off
     // `registryVersion`, so a slot an extension registers after this
     // provider's first render is picked up on the next rebuild.
+    //
+    // Only WIDENS an already-restricted item/section (a non-empty base
+    // `permissions` array) — an item or section with none declared is open to
+    // everyone (hasAccess treats an empty/undefined array as "no restriction",
+    // per permissionUtils.hasPermissions), and unioning a slot's permission
+    // into that would turn "open to all" into "restricted to whoever holds
+    // that one permission", which is backwards from what this is for.
     const withSlotPermissions = (item: NavigationItem): NavigationItem => {
       if (!item.slotPrefix) return item;
+      const basePermissions = item.permissions ?? [];
+      if (basePermissions.length === 0) return item;
       const slotPermissions = featureRegistry.getSlotPermissions(item.slotPrefix);
       if (slotPermissions.length === 0) return item;
-      return { ...item, permissions: Array.from(new Set([...(item.permissions ?? []), ...slotPermissions])) };
+      return { ...item, permissions: Array.from(new Set([...basePermissions, ...slotPermissions])) };
     };
 
     config.items = config.items.map(withSlotPermissions);
@@ -177,12 +186,14 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     if (config.sections) {
       config.sections = config.sections.map((section) => {
         const items = section.items.map(withSlotPermissions);
+        const sectionPermissions = section.permissions ?? [];
+        if (sectionPermissions.length === 0) return { ...section, items };
+
         const slotPermissions = section.items.flatMap((item) =>
           item.slotPrefix ? featureRegistry.getSlotPermissions(item.slotPrefix) : []
         );
         if (slotPermissions.length === 0) return { ...section, items };
 
-        const sectionPermissions = section.permissions ?? [];
         return {
           ...section,
           items,

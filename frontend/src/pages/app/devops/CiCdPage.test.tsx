@@ -208,7 +208,7 @@ describe('CiCdPage', () => {
       featureRegistry.registerSlotMeta({
         'devops.ci-cd.tab.module-builds': {
           label: 'Module Builds',
-          permissions: ['system.module_builds.read'],
+          permissions: ['ext.example.read'],
         },
       });
     });
@@ -233,7 +233,7 @@ describe('CiCdPage', () => {
 
       const lastTabs = tabsPropCalls[tabsPropCalls.length - 1];
       const moduleBuildsTab = lastTabs.find((t) => t.id === 'module-builds');
-      expect(moduleBuildsTab?.permissions).toEqual(['system.module_builds.read']);
+      expect(moduleBuildsTab?.permissions).toEqual(['ext.example.read']);
     });
 
     it('a static tab with no slot metadata still carries no permissions restriction', () => {

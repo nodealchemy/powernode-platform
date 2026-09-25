@@ -97,26 +97,26 @@ describe('NavigationProvider slot-permission union (item.slotPrefix)', () => {
   it('unions a registered slot\'s declared permission into the item\'s own gate', () => {
     featureRegistry.registerComponentSlots({ 'devops.ci-cd.tab.module-builds': () => null });
     featureRegistry.registerSlotMeta({
-      'devops.ci-cd.tab.module-builds': { permissions: ['system.module_builds.read'] },
+      'devops.ci-cd.tab.module-builds': { permissions: ['ext.example.read'] },
     });
 
     renderProvider();
 
     expect(ciCdItem().permissions).toEqual(
-      expect.arrayContaining([...(ciCdItemBefore.permissions ?? []), 'system.module_builds.read']),
+      expect.arrayContaining([...(ciCdItemBefore.permissions ?? []), 'ext.example.read']),
     );
   });
 
   it('also unions the permission into the item\'s own section, not just the item', () => {
     featureRegistry.registerComponentSlots({ 'devops.ci-cd.tab.module-builds': () => null });
     featureRegistry.registerSlotMeta({
-      'devops.ci-cd.tab.module-builds': { permissions: ['system.module_builds.read'] },
+      'devops.ci-cd.tab.module-builds': { permissions: ['ext.example.read'] },
     });
 
     renderProvider();
 
     const section = latest!.config.sections!.find((s) => s.id === 'devops')!;
-    expect(section.permissions).toEqual(expect.arrayContaining(['system.module_builds.read']));
+    expect(section.permissions).toEqual(expect.arrayContaining(['ext.example.read']));
   });
 
   it('picks up a slot registered AFTER the provider has already rendered', () => {
@@ -126,22 +126,72 @@ describe('NavigationProvider slot-permission union (item.slotPrefix)', () => {
     act(() => {
       featureRegistry.registerComponentSlots({ 'devops.ci-cd.tab.module-builds': () => null });
       featureRegistry.registerSlotMeta({
-        'devops.ci-cd.tab.module-builds': { permissions: ['system.module_builds.read'] },
+        'devops.ci-cd.tab.module-builds': { permissions: ['ext.example.read'] },
       });
     });
 
     expect(ciCdItem().permissions).toEqual(
-      expect.arrayContaining([...(ciCdItemBefore.permissions ?? []), 'system.module_builds.read']),
+      expect.arrayContaining([...(ciCdItemBefore.permissions ?? []), 'ext.example.read']),
     );
   });
 
   it('never writes the extension permission literal into the static config itself', () => {
     featureRegistry.registerComponentSlots({ 'devops.ci-cd.tab.module-builds': () => null });
     featureRegistry.registerSlotMeta({
-      'devops.ci-cd.tab.module-builds': { permissions: ['system.module_builds.read'] },
+      'devops.ci-cd.tab.module-builds': { permissions: ['ext.example.read'] },
     });
     renderProvider();
 
-    expect(ciCdItemBefore.permissions).not.toContain('system.module_builds.read');
+    expect(ciCdItemBefore.permissions).not.toContain('ext.example.read');
+  });
+
+  // A slotPrefix's job is to WIDEN an already-restricted item/section (the OR
+  // gate now also accepts the slot's permission). An item or section with NO
+  // permissions of its own is open to everyone (hasPermissions treats an
+  // empty/undefined array as unrestricted) — unioning a slot permission into
+  // that would flip it from open to "must hold this one permission", which is
+  // backwards. These two temporarily borrow an item/section that already
+  // ships with no permissions and add a slotPrefix only for the test.
+  it('leaves an item with no permissions of its own open, even when its slot declares one', () => {
+    const openItem = devopsSection.items.find((i) => i.id === 'devops-overview')!;
+    expect(openItem.permissions).toEqual([]);
+    const originalSlotPrefix = openItem.slotPrefix;
+    openItem.slotPrefix = 'test.open-item.tab.';
+    try {
+      featureRegistry.registerComponentSlots({ 'test.open-item.tab.probe': () => null });
+      featureRegistry.registerSlotMeta({
+        'test.open-item.tab.probe': { permissions: ['ext.example.read'] },
+      });
+
+      renderProvider();
+
+      const item = latest!.config.sections!
+        .find((s) => s.id === 'devops')!
+        .items.find((i) => i.id === 'devops-overview')!;
+      expect(item.permissions).toEqual([]);
+    } finally {
+      openItem.slotPrefix = originalSlotPrefix;
+    }
+  });
+
+  it('leaves a section with no permissions of its own open, even when a member item\'s slot declares one', () => {
+    const accountSection = defaultNavigationConfig.sections!.find((s) => s.id === 'account')!;
+    expect(accountSection.permissions).toBeUndefined();
+    const openItem = accountSection.items.find((i) => i.id === 'preferences')!;
+    const originalSlotPrefix = openItem.slotPrefix;
+    openItem.slotPrefix = 'test.open-section.tab.';
+    try {
+      featureRegistry.registerComponentSlots({ 'test.open-section.tab.probe': () => null });
+      featureRegistry.registerSlotMeta({
+        'test.open-section.tab.probe': { permissions: ['ext.example.read'] },
+      });
+
+      renderProvider();
+
+      const section = latest!.config.sections!.find((s) => s.id === 'account')!;
+      expect(section.permissions).toBeUndefined();
+    } finally {
+      openItem.slotPrefix = originalSlotPrefix;
+    }
   });
 });
