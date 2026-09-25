@@ -12,11 +12,33 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "analyze_section", mutating: false
-      declare_action "blast_radius", mutating: false
-      declare_action "dead_code", mutating: false
-      declare_action "find_duplicates", mutating: false
-      declare_action "index_status", mutating: false
-      declare_action "static_analysis", mutating: false
+      declare_action "blast_radius", mutating: false,
+                                     returns: "the resolved symbol, affected files with their references and relation types " \
+                                              "(shallowest first), total_files and total_references",
+                                     refuses: [
+                                       "repository_id is missing, or neither symbol_name nor node_id is given",
+                                       "the repository is not in this account or has no local_path directory on this server",
+                                       "no active graph node matches node_id or symbol_name"
+                                     ]
+      declare_action "dead_code", mutating: false,
+                                  returns: "status enqueued, the shared-memory result_key and the read_shared_memory call that retrieves it",
+                                  refuses: "repository_id is missing, not in this account, or has no local_path directory on this server",
+                                  see_also: { "code_find_duplicates" => "copy-paste clone detection" }
+      declare_action "find_duplicates", mutating: false,
+                                        returns: "status enqueued, the shared-memory result_key and the read_shared_memory call that retrieves it",
+                                        refuses: "repository_id is missing, not in this account, or has no local_path directory on this server",
+                                        see_also: { "code_dead_code" => "unused-code detection" }
+      declare_action "index_status", mutating: false,
+                                     returns: "files indexed, symbols extracted, nodes with embeddings, stale file count, last_indexed_at, " \
+                                              "per-entity-type counts and contains/imports/defines/inherits edge counts",
+                                     refuses: "repository_id is missing, not in this account, or has no local_path directory on this server"
+      declare_action "static_analysis", mutating: false, limit: 200,
+                                        returns: "diagnostics with file, line, severity and message, a summary with total, error, " \
+                                                 "warning and per-linter status, and truncated when more than 200 were found",
+                                        refuses: [
+                                          "neither repository_id nor base_path is given, or the repository has no local_path",
+                                          "the path is outside /home, /opt, /var, /srv or /tmp, or is not a directory"
+                                        ]
 
       def self.definition
         {
@@ -81,7 +103,7 @@ module Ai
             }
           },
           "code_analyze_section" => {
-            description: "Run focused dead code + duplicate analysis on a codebase section. Omit section to auto-discover sections. Use scope_path to limit discovery to a subtree.",
+            description: "Run focused dead code analysis on a codebase section; duplicate detection is not performed, so duplicates and duplicate_threshold are ignored. Omit section to auto-discover sections. Use scope_path to limit discovery to a subtree.",
             parameters: {
               repository_id: { type: "string", required: true, description: "Git repository ID, name, or full_name" },
               section: { type: "string", required: false, description: "Section path to analyze (e.g. 'server/app/models', 'frontend/src/features'). Omit to list available sections." },
