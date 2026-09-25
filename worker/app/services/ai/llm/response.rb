@@ -93,17 +93,26 @@ module Ai
 
       private
 
+      # INVARIANT, every provider: prompt_tokens is the TOTAL input, and
+      # cached_tokens (cache reads) and cache_creation_tokens (cache writes) are
+      # SUBSETS of it. OpenAI reports it that way; the Anthropic parsers sum
+      # Anthropic's uncached input_tokens with both cache counts
+      # (AnthropicMessages.usage). Ai::CostCalculationService prices
+      # prompt - cached - cache_creation at the input rate.
       def normalize_usage(raw)
+        cached = raw[:cached_tokens] || raw[:cache_read_input_tokens] || 0
+        # Anthropic cache WRITES (billed above the base input rate); 0 elsewhere.
+        creation = raw[:cache_creation_tokens] || raw[:cache_creation_input_tokens] || 0
+        # Raw Anthropic keys: input_tokens is the uncached remainder, so the total
+        # adds the cache counts (the invariant above).
+        prompt = raw[:prompt_tokens] || (raw.key?(:input_tokens) ? raw[:input_tokens].to_i + cached + creation : 0)
+        completion = raw[:completion_tokens] || raw[:output_tokens] || 0
         {
-          prompt_tokens: raw[:prompt_tokens] || raw[:input_tokens] || 0,
-          completion_tokens: raw[:completion_tokens] || raw[:output_tokens] || 0,
-          cached_tokens: raw[:cached_tokens] || raw[:cache_read_input_tokens] || 0,
-          # Anthropic cache WRITES (billed above the base input rate); 0 elsewhere.
-          cache_creation_tokens: raw[:cache_creation_tokens] || raw[:cache_creation_input_tokens] || 0,
-          total_tokens: raw[:total_tokens] || (
-            (raw[:prompt_tokens] || raw[:input_tokens] || 0) +
-            (raw[:completion_tokens] || raw[:output_tokens] || 0)
-          )
+          prompt_tokens: prompt,
+          completion_tokens: completion,
+          cached_tokens: cached,
+          cache_creation_tokens: creation,
+          total_tokens: raw[:total_tokens] || (prompt + completion)
         }
       end
     end

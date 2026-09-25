@@ -449,10 +449,7 @@ module Ai
                        thinking_content: (refusal ? nil : think.presence),
                        content_blocks: (refusal ? nil : AnthropicMessages.replay_blocks(blocks)),
                        refusal: refusal,
-                       usage: { prompt_tokens: u["input_tokens"] || 0, completion_tokens: u["output_tokens"] || 0,
-                                cached_tokens: u["cache_read_input_tokens"] || 0,
-                                cache_creation_tokens: u["cache_creation_input_tokens"] || 0,
-                                total_tokens: (u["input_tokens"] || 0) + (u["output_tokens"] || 0) })
+                       usage: AnthropicMessages.usage(u))
       end
 
       # Structured refusal descriptor (string keys — round-trips to the server as
@@ -542,9 +539,7 @@ module Ai
               usage[:completion_tokens] = p["usage"]["output_tokens"] if p["usage"]
             when "message_start"
               if p.dig("message", "usage")
-                usage[:prompt_tokens] = p["message"]["usage"]["input_tokens"]
-                usage[:cached_tokens] = p["message"]["usage"]["cache_read_input_tokens"] || 0
-                usage[:cache_creation_tokens] = p["message"]["usage"]["cache_creation_input_tokens"] || 0
+                usage.merge!(AnthropicMessages.usage(p["message"]["usage"]).slice(:prompt_tokens, :cached_tokens, :cache_creation_tokens))
               end
             end
           end

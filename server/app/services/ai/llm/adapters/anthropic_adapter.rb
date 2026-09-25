@@ -182,9 +182,10 @@ module Ai
 
               when "message_start"
                 if parsed.dig("message", "usage")
-                  usage_data[:prompt_tokens] = parsed["message"]["usage"]["input_tokens"]
-                  usage_data[:cached_tokens] = parsed["message"]["usage"]["cache_read_input_tokens"] || 0
-                  usage_data[:cache_creation_tokens] = parsed["message"]["usage"]["cache_creation_input_tokens"] || 0
+                  usage_data.merge!(
+                    Ai::Llm::AnthropicMessages.usage(parsed["message"]["usage"])
+                      .slice(:prompt_tokens, :cached_tokens, :cache_creation_tokens)
+                  )
                 end
               end
             end
@@ -338,13 +339,7 @@ module Ai
             tool_calls: (refusal ? [] : tool_calls),
             finish_reason: parsed["stop_reason"],
             model: parsed["model"] || model,
-            usage: {
-              prompt_tokens: usage["input_tokens"] || 0,
-              completion_tokens: usage["output_tokens"] || 0,
-              cached_tokens: usage["cache_read_input_tokens"] || 0,
-              cache_creation_tokens: usage["cache_creation_input_tokens"] || 0,
-              total_tokens: (usage["input_tokens"] || 0) + (usage["output_tokens"] || 0)
-            },
+            usage: Ai::Llm::AnthropicMessages.usage(usage),
             thinking_content: (refusal ? nil : thinking.presence),
             refusal: refusal,
             raw_response: parsed

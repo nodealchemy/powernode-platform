@@ -103,10 +103,14 @@ module AiCostCalculationConcern
     0.0
   end
 
+  # Raw Anthropic usage: input_tokens is only the uncached remainder, so the
+  # total input adds cache reads and writes (the platform's prompt_tokens
+  # contract, Ai::Llm::AnthropicMessages.usage).
   def calculate_anthropic_cost(response_data, model)
-    input_tokens = response_data.dig('usage', 'input_tokens') || 0
-    output_tokens = response_data.dig('usage', 'output_tokens') || 0
-    cached_tokens = response_data.dig('usage', 'cache_read_input_tokens') || 0
+    usage = response_data['usage'] || {}
+    cached_tokens = usage['cache_read_input_tokens'].to_i
+    input_tokens = usage['input_tokens'].to_i + cached_tokens + usage['cache_creation_input_tokens'].to_i
+    output_tokens = usage['output_tokens'].to_i
 
     pricing = resolve_pricing('anthropic', model)
     token_cost(input_tokens: input_tokens, output_tokens: output_tokens, cached_tokens: cached_tokens,

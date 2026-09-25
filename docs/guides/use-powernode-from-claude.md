@@ -443,13 +443,12 @@ statistics and the trust score and **never** toward autonomy budgets
 (`Ai::AgentBudget`), consent ceilings or approval accounting — those are
 platform-execution concepts.
 
-**Token convention.** A report's `tokens.input` is the run's **full billed
-input footprint** — `input_tokens` + `cache_read` + `cache_creation` — because
-that is what the run actually consumed. A long Claude Code session reads a
-large prompt cache on every turn, so a Claude Code run's token figures are
-**not directly comparable** to a platform execution's, which ran without one;
-compare counts and outcomes across executor kinds, not tokens. The hook applies
-this convention when it parses the transcript; a self-report should do the same.
+**Token convention.** A report's `tokens.input` is the run's **full input
+footprint** — `input_tokens` + `cache_read` + `cache_creation` — because that
+is what the run actually consumed. Platform executions count input the same way
+(their `prompt_tokens` includes cache reads and writes), so the two executor
+kinds share one definition. The hook applies this convention when it parses the
+transcript; a self-report should do the same.
 
 **Upgrading an existing install.** `db:seed` runs on FIRST BOOT ONLY, so an
 install that predates the scope has accounts without one and every self-report

@@ -28,10 +28,12 @@ RSpec.describe Ai::Llm::Response do
   describe 'usage normalization' do
     it 'maps Anthropic-style keys and computes total as the sum when total is absent' do
       r = described_class.new(usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 2 })
-      expect(r.prompt_tokens).to eq(10)
+      # Raw input_tokens is the uncached remainder; prompt_tokens is the total
+      # with cache reads inside it.
+      expect(r.prompt_tokens).to eq(12)
       expect(r.completion_tokens).to eq(5)
       expect(r.cached_tokens).to eq(2)
-      expect(r.total_tokens).to eq(15)
+      expect(r.total_tokens).to eq(17)
     end
 
     it 'prefers an explicit total_tokens over the computed sum' do

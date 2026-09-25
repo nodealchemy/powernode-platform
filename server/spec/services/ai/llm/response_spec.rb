@@ -84,6 +84,7 @@ RSpec.describe Ai::Llm::Response do
     it "handles Anthropic cache_read_input_tokens" do
       response = described_class.new(usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 7 })
       expect(response.cached_tokens).to eq(7)
+      expect(response.prompt_tokens).to eq(17) # raw input_tokens is the uncached remainder
     end
   end
 

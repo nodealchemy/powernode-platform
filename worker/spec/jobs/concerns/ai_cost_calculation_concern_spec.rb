@@ -36,11 +36,14 @@ RSpec.describe AiCostCalculationConcern do
   end
 
   describe 'provider cost methods delegate to #token_cost (no formula drift)' do
-    it 'calculate_anthropic_cost matches token_cost' do
+    # Anthropic's raw input_tokens is only the uncached remainder; the total
+    # input (the platform's prompt_tokens) adds cache reads and writes.
+    it 'calculate_anthropic_cost prices the total input, with cache reads inside it' do
       allow(host).to receive(:resolve_pricing).with('anthropic', 'claude').and_return(input: 3.0, output: 15.0, cached: 0.3)
-      data = { 'usage' => { 'input_tokens' => 1000, 'output_tokens' => 500, 'cache_read_input_tokens' => 400 } }
+      data = { 'usage' => { 'input_tokens' => 1000, 'output_tokens' => 500, 'cache_read_input_tokens' => 400,
+                            'cache_creation_input_tokens' => 100 } }
       expect(host.send(:calculate_anthropic_cost, data, 'claude')).to eq(
-        host.send(:token_cost, input_tokens: 1000, output_tokens: 500, cached_tokens: 400,
+        host.send(:token_cost, input_tokens: 1500, output_tokens: 500, cached_tokens: 400,
                                input_per_1k: 3.0, output_per_1k: 15.0, cached_per_1k: 0.3))
     end
 

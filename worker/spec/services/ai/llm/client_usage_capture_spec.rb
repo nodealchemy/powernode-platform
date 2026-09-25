@@ -23,6 +23,10 @@ RSpec.describe Ai::Llm::Client, 'usage capture' do
     expect(response.usage[:cache_creation_tokens]).to eq(300)
     expect(response.usage[:cached_tokens]).to eq(7)
     expect(response.finish_reason).to eq('max_tokens')
+    # Invariant: cache reads and writes are SUBSETS of prompt_tokens. Anthropic's
+    # input_tokens is only the uncached remainder, so the total is the sum.
+    expect(response.usage[:prompt_tokens]).to eq(317)
+    expect(response.usage[:total_tokens]).to eq(322)
   end
 
   it 'reads cache_creation_input_tokens from a stream' do
@@ -38,6 +42,8 @@ RSpec.describe Ai::Llm::Client, 'usage capture' do
     response = client.stream(messages: messages, model: 'claude-fable-5') { |_chunk| }
 
     expect(response.usage[:cache_creation_tokens]).to eq(120)
+    expect(response.usage[:prompt_tokens]).to eq(130)
+    expect(response.usage[:total_tokens]).to eq(133)
   end
 
   it 'defaults cache_creation_tokens to 0 in a normalized usage hash' do

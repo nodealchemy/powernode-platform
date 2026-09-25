@@ -81,6 +81,22 @@ module Ai
       # @param normalize [Proc] maps each non-system message to Anthropic shape
       #   (tool results, tool_use blocks); identity when omitted.
       # @return [Array(String, Array<Hash>)] the top-level system text and the messages
+      # The platform's usage hash from an Anthropic `usage` object. Anthropic's
+      # input_tokens is only the UNCACHED remainder; prompt_tokens is the true
+      # total (input + cache reads + cache writes), so cached_tokens and
+      # cache_creation_tokens are subsets of it, as they are for every provider
+      # (see Response#normalize_usage). Missing keys count 0, so a streamed
+      # message_start (no output yet) works too.
+      def usage(raw)
+        raw ||= {}
+        read = raw["cache_read_input_tokens"].to_i
+        write = raw["cache_creation_input_tokens"].to_i
+        prompt = raw["input_tokens"].to_i + read + write
+        output = raw["output_tokens"].to_i
+        { prompt_tokens: prompt, completion_tokens: output, cached_tokens: read,
+          cache_creation_tokens: write, total_tokens: prompt + output }
+      end
+
       def split(messages, model, &normalize)
         normalize ||= ->(message) { message }
         messages = Array(messages)

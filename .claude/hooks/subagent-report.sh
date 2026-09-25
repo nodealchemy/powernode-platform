@@ -87,11 +87,10 @@ args="$(jq -s --arg slug "$agent_type" --arg default_run_key "$session_id:$agent
     duration_ms: (if ($timestamps | length) >= 2
                   then ((($timestamps | last | epoch) - ($timestamps | first | epoch)) * 1000)
                   else 0 end),
-    # TOKEN CONVENTION: `input` is the FULL billed input footprint —
+    # TOKEN CONVENTION: `input` is the FULL input footprint —
     # input_tokens + cache_read + cache_creation — because that is what the run
-    # actually consumed; a long CC session reads a large cache, so this number
-    # is not comparable to a platform execution that ran without one. Pinned by
-    # server/spec/hooks/subagent_report_spec.rb.
+    # actually consumed; platform executions count prompt_tokens the same way.
+    # Pinned by server/spec/hooks/subagent_report_spec.rb.
     tokens: {
       input:  ($usages | map((.input_tokens // 0) + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0)) | add // 0),
       output: ($usages | map(.output_tokens // 0) | add // 0)
