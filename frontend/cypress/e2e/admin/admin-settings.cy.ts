@@ -62,7 +62,7 @@ describe('Admin Settings', () => {
 
     it('should navigate to security section', () => {
       // Click on Security tab
-      cy.clickTab('Security');
+      cy.clickTab('Security Policy');
       cy.assertContainsAny(['Change Password', 'Security', 'Current Password', 'Password']);
     });
   });

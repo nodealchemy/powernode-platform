@@ -57,7 +57,7 @@ export const CORE_ADMIN_SETTINGS_TABS = [
   },
   {
     id: 'security',
-    label: 'Security',
+    label: 'Security Policy',
     href: `${ADMIN_SETTINGS_BASE}/security`,
     icon: Lock,
     description: 'Security policies and access controls',

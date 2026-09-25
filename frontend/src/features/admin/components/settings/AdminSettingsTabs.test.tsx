@@ -37,7 +37,7 @@ describe('AdminSettingsTabs', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Overview')).toHaveLength(2); // Desktop and mobile
       expect(screen.getAllByText('Email Settings')).toHaveLength(2); // Desktop and mobile
-      expect(screen.getAllByText('Security')).toHaveLength(2); // Desktop and mobile
+      expect(screen.getAllByText('Security Policy')).toHaveLength(2); // Desktop and mobile
       // Payment Gateways requires business extension — not rendered without it
     });
   });
@@ -118,7 +118,7 @@ describe('AdminSettingsTabs', () => {
 
       // Should NOT see permission-restricted tabs
       expect(screen.queryByText('Email Settings')).not.toBeInTheDocument();
-      expect(screen.queryByText('Security')).not.toBeInTheDocument();
+      expect(screen.queryByText('Security Policy')).not.toBeInTheDocument();
       expect(screen.queryByText('Payment Gateways')).not.toBeInTheDocument();
     });
   });

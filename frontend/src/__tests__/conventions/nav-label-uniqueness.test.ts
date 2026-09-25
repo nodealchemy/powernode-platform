@@ -68,9 +68,6 @@ const KNOWN_CLASHES: Record<string, string[]> = {
   operations: ['/app/devops/containers/swarm/operations', '/app/system/operations'],
   optimization: ['/app/ai/model-router/optimization', '/app/ai/skills/optimization'],
   providers: ['/app/ai/providers', '/app/devops/source-control/providers', '/app/system/compute/providers'],
-  // Admin Settings › Security (platform auth policy) and Profile › Security
-  // (the user's own password and 2FA).
-  security: ['/app/admin/settings/security', '/app/profile/security'],
   services: ['/app/devops/containers/swarm/services', '/app/system/compute/platform/services'],
   templates: [
     '/app/ai/execution/sandboxes/templates',
