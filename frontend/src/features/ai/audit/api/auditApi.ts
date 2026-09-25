@@ -42,7 +42,7 @@ export function useViolations(params?: ViolationFilterParams) {
       const page = await fetchList<ServerViolation>('/ai/governance/violations', 'violations', params);
       return {
         ...page,
-        data: page.data.map(({ policy, ...violation }) => ({ ...violation, policy_name: policy?.name })),
+        data: page.data.map(({ policy, ...violation }) => ({ ...violation, policy_id: policy?.id, policy_name: policy?.name })),
       } as PaginatedResponse<PolicyViolation>;
     },
   });
