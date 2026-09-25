@@ -630,6 +630,27 @@ module Ai
             ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.value?(name)
         end
 
+        # A declaration is GATED only when it can actually be replayed. Ai::
+        # AutonomyGate defers by storing `executor_class` and re-invoking it after
+        # approval, so a declaration without an executor could park an approval
+        # that, once granted, performs nothing. Declaring `mutating: true` alone
+        # therefore records intent for the registry without arming a gate that
+        # cannot complete.
+        #
+        # Class-level so a reader of the declaration (Mcp::ToolCatalog's listing
+        # tags) asks the same question #execute does. Gated means "can park":
+        # whether a call does park is decided per call by the ungated_when read
+        # arm and the account's Ai::InterventionPolicy.
+        def gated_declaration?(declaration)
+          return false unless declaration
+          return false unless declaration[:mutating]
+
+          declaration[:action_category].present? &&
+            declaration[:executor_class].present? &&
+            declaration[:gate_context].present? &&
+            declaration[:on_proceed].present?
+        end
+
         # Walks the ancestry so a subclass inherits its parent's declarations
         # without re-declaring them.
         def declared_action(name)
@@ -1040,20 +1061,9 @@ module Ai
         ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.key(action.to_s) || action.to_s
       end
 
-      # A declaration is GATED only when it can actually be replayed. Ai::
-      # AutonomyGate defers by storing `executor_class` and re-invoking it after
-      # approval, so a declaration without an executor could park an approval
-      # that, once granted, performs nothing. Declaring `mutating: true` alone
-      # therefore records intent for the registry without arming a gate that
-      # cannot complete.
+      # See .gated_declaration?.
       def gated_action?(declaration)
-        return false unless declaration
-        return false unless declaration[:mutating]
-
-        declaration[:action_category].present? &&
-          declaration[:executor_class].present? &&
-          declaration[:gate_context].present? &&
-          declaration[:on_proceed].present?
+        self.class.gated_declaration?(declaration)
       end
 
       # True only when the declaration names a read-arm predicate, the tool

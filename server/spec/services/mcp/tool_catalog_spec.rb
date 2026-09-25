@@ -129,6 +129,47 @@ RSpec.describe Mcp::ToolCatalog do
       expect(catalog.describe("platform.nope")).to be_nil
     end
 
+    # D2: the side-effect facts the first sentence may omit ride as tags,
+    # derived from the declare_action record with the gate's own predicate.
+    describe "contract tags" do
+      let(:gated) do
+        { mutating: true, action_category: "agent.create", executor_class: "X", gate_context: :ctx,
+          on_proceed: :run, human_only: false, destructive: false }
+      end
+
+      def listed(catalog, name) = catalog.list_entries.find { |t| t["name"] == name }["description"]
+
+      it "tags an action whose gate can park, as may-require-approval" do
+        allow(catalog).to receive(:declaration_for).and_call_original
+        allow(catalog).to receive(:declaration_for).with("create_agent").and_return(gated)
+        expect(listed(catalog, "platform.create_agent")).to eq("Create an agent. [may require approval]")
+        expect(catalog.describe("platform.create_agent")["summary"]).to eq(listed(catalog, "platform.create_agent"))
+      end
+
+      it "tags a human-only action and an irreversible one" do
+        allow(catalog).to receive(:declaration_for).and_call_original
+        allow(catalog).to receive(:declaration_for).with("create_agent")
+          .and_return(gated.merge(human_only: true, destructive: true))
+        expect(listed(catalog, "platform.create_agent")).to eq("Create an agent. [human-confirmation] [irreversible]")
+      end
+
+      it "does not tag a category without the replay wiring (it cannot park)" do
+        allow(catalog).to receive(:declaration_for).and_call_original
+        allow(catalog).to receive(:declaration_for).with("create_agent")
+          .and_return(gated.merge(executor_class: nil))
+        expect(listed(catalog, "platform.create_agent")).to eq("Create an agent.")
+      end
+
+      it "keeps summary and tags within the cap together" do
+        allow(described_class).to receive(:list_description_limit).and_return(30)
+        allow(catalog).to receive(:declaration_for).and_call_original
+        allow(catalog).to receive(:declaration_for).with("list_agents").and_return(gated)
+        line = listed(catalog, "platform.list_agents")
+        expect(line.length).to be <= 30
+        expect(line).to end_with("[may require approval]")
+      end
+    end
+
     it "keeps the legacy shape for a 2024-11-05 revision" do
       legacy = described_class.new(protocol_version: "2024-11-05").list_entries.first
       expect(legacy.keys).to contain_exactly("name", "description", "inputSchema")

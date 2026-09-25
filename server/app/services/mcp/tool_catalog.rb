@@ -199,7 +199,7 @@ module Mcp
     def list_entries
       limit = self.class.list_description_limit
       entries.map do |tool|
-        summary, _truncated = self.class.summarize(tool["description"], limit: limit)
+        summary, _truncated = listed_summary(tool, limit)
         tool.merge("description" => summary)
       end
     end
@@ -212,7 +212,7 @@ module Mcp
       tool = entry_for(name.to_s)
       return nil unless tool
 
-      summary, truncated = self.class.summarize(tool["description"])
+      summary, truncated = listed_summary(tool, self.class.list_description_limit)
       tool.merge("summary" => summary, "truncated" => truncated)
     end
 
@@ -421,6 +421,37 @@ module Mcp
     # `send`, that spec/support/tool_declaration_coverage.rb documents. It is
     # private there; promoting it to a public seam is a tidier follow-up owned
     # by whoever owns the registrar.
+    # The one line tools/list carries: the first sentence plus the side-effect
+    # tags, together within `limit`. The first sentence often omits the gating
+    # and irreversibility the rest of the description states, and the listing is
+    # all a client like Claude Code shows the model.
+    def listed_summary(tool, limit)
+      tags = contract_tags(tool)
+      room = tags.empty? ? limit : limit - tags.length - 1
+      summary, truncated = self.class.summarize(tool["description"], limit: room)
+      [ [ summary, tags ].reject(&:empty?).join(" "), truncated ]
+    end
+
+    # Side-effect facts from the declare_action record, never from prose.
+    # [may require approval] marks an action BaseTool.gated_declaration? says can
+    # park; whether a call does is decided per call (the ungated_when read arm,
+    # the account's Ai::InterventionPolicy), so the tag says "may". A human_only
+    # action always parks for a person. Undeclared hand-placed gates (SdwanTool)
+    # get no tag until they are declared.
+    def contract_tags(tool)
+      decl = declaration_for(tool["name"].to_s.delete_prefix(PLATFORM_PREFIX))
+      return "" unless decl
+
+      tags = []
+      if decl[:human_only]
+        tags << "[human-confirmation]"
+      elsif ::Ai::Tools::BaseTool.gated_declaration?(decl)
+        tags << "[may require approval]"
+      end
+      tags << "[irreversible]" if decl[:destructive]
+      tags.join(" ")
+    end
+
     def declaration_for(registry_key)
       key = registry_key.to_s
       class_name = registry_map[key]
