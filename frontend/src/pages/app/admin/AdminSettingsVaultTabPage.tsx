@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { adminSettingsApi } from '@/features/admin/services/adminSettingsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { SettingsCard } from '@/features/admin/components/settings/SettingsComponents';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { KeyRound, Shield, Activity, Eye, EyeOff, RefreshCw, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
@@ -42,6 +43,7 @@ interface VaultData {
 
 export const AdminSettingsVaultTabPage: React.FC = () => {
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [data, setData] = useState<VaultData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,6 +111,54 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  // fc-38 review round 3 item #3(b): a blank role_id/secret_id already
+  // means "unchanged" (see handleSave above), so there was no way to
+  // actually remove a saved credential from the UI. clear_vault_role_id/
+  // clear_vault_secret_id are the explicit signal — gated by the same
+  // confirm step as any destructive admin action, and disabled under the
+  // same `saving` condition Save uses (this PUT goes through the identical
+  // endpoint/permission as Save, so there is no separate permission check
+  // to add here).
+  const handleClearRoleId = () => {
+    confirm({
+      title: 'Clear AppRole Role ID',
+      message: 'This removes the saved Vault AppRole Role ID. Vault authentication will fail until a new one is saved (or VAULT_ROLE_ID is set in the environment).',
+      confirmLabel: 'Clear Role ID',
+      variant: 'danger',
+      onConfirm: async () => {
+        setSaving(true);
+        const result = await adminSettingsApi.updateVaultConfig({ clear_vault_role_id: true });
+        if (result.success) {
+          showNotification('Vault Role ID cleared', 'success');
+          await loadConfig();
+        } else {
+          showNotification(result.error || 'Failed to clear Role ID', 'error');
+        }
+        setSaving(false);
+      }
+    });
+  };
+
+  const handleClearSecretId = () => {
+    confirm({
+      title: 'Clear AppRole Secret ID',
+      message: 'This removes the saved Vault AppRole Secret ID. Vault authentication will fail until a new one is saved (or VAULT_SECRET_ID is set in the environment).',
+      confirmLabel: 'Clear Secret ID',
+      variant: 'danger',
+      onConfirm: async () => {
+        setSaving(true);
+        const result = await adminSettingsApi.updateVaultConfig({ clear_vault_secret_id: true });
+        if (result.success) {
+          showNotification('Vault Secret ID cleared', 'success');
+          await loadConfig();
+        } else {
+          showNotification(result.error || 'Failed to clear Secret ID', 'error');
+        }
+        setSaving(false);
+      }
+    });
   };
 
   const handleTest = async () => {
@@ -220,6 +270,16 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
               autoComplete="off"
               className="w-full px-3 py-2 text-sm border border-theme rounded bg-theme-surface text-theme-primary"
             />
+            {data?.config?.vault_role_id_configured && (
+              <button
+                type="button"
+                onClick={handleClearRoleId}
+                disabled={saving}
+                className="mt-1 text-xs text-theme-danger-fg hover:underline"
+              >
+                Clear saved Role ID
+              </button>
+            )}
           </div>
           <div>
             <label htmlFor="vault-secret-id" className="block text-xs font-medium text-theme-secondary mb-1">AppRole Secret ID</label>
@@ -242,6 +302,16 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
                 {showSecretId ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
+            {data?.config?.vault_secret_id_configured && (
+              <button
+                type="button"
+                onClick={handleClearSecretId}
+                disabled={saving}
+                className="mt-1 text-xs text-theme-danger-fg hover:underline"
+              >
+                Clear saved Secret ID
+              </button>
+            )}
           </div>
           <button
             type="submit"
@@ -290,6 +360,8 @@ export const AdminSettingsVaultTabPage: React.FC = () => {
           )}
         </div>
       </SettingsCard>
+
+      {ConfirmationDialog}
     </div>
   );
 };

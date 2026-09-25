@@ -21,27 +21,37 @@ module AdminSettings
     def update_infrastructure_config
       redis_params = infrastructure_params
 
+      # fc-38 review round 3 item #3(b): clear_password: true is the
+      # explicit "remove this credential" signal a blank password can't be
+      # (a blank value means "unchanged" — see unchanged_secret_value?
+      # below). Stripped out of redis_params before it reaches
+      # Admin::SystemSettings, which takes it as its own keyword instead —
+      # this concern owns request-param shape, that method owns storage.
+      clear_password = ActiveModel::Type::Boolean.new.cast(redis_params.delete("clear_password"))
+
       # fc-38 review round 3 item #3(a): a mask-shaped resubmission used to
       # be silently dropped while the response still reported success — a
       # caller (a stale client, or a genuine mistake) had no way to
       # distinguish "your edit was ignored" from "your edit was saved". A
       # BLANK value still means "unchanged" (the field wasn't touched) and
       # is silently skipped below; a value that positively LOOKS like the
-      # display mask is a caller error and gets a 422 instead of a lie.
-      if masked_secret_value?(redis_params["password"])
+      # display mask is a caller error and gets a 422 instead of a lie. Not
+      # checked when clearing — clear_password already says what to do with
+      # the field, so a stray mask-shaped value alongside it is moot.
+      if !clear_password && masked_secret_value?(redis_params["password"])
         return render_error(
           "The password field still holds the masked display value — enter a new password to change it.",
           :unprocessable_content
         )
       end
 
-      redis_params.delete("password") if unchanged_secret_value?(redis_params["password"])
+      redis_params.delete("password") if clear_password || unchanged_secret_value?(redis_params["password"])
 
-      ::Admin::SystemSettings.update_redis_config!(redis_params)
+      ::Admin::SystemSettings.update_redis_config!(redis_params, clear_password: clear_password)
       Powernode::Redis.reconfigure!
 
       log_audit_event("infrastructure_config_update", "SystemSettings",
-                      metadata: { updated_fields: redis_params.keys })
+                      metadata: { updated_fields: redis_params.keys, cleared_password: clear_password })
 
       config = ::Admin::SystemSettings.redis_config
 
@@ -143,7 +153,17 @@ module AdminSettings
 
     # PUT /api/v1/admin_settings/vault
     def update_vault_config
-      vault_params = params.require(:vault).permit(:vault_addr, :vault_role_id, :vault_secret_id)
+      vault_params = params.require(:vault).permit(
+        :vault_addr, :vault_role_id, :vault_secret_id,
+        :clear_vault_role_id, :clear_vault_secret_id
+      )
+
+      # fc-38 review round 3 item #3(b): the explicit "remove this
+      # credential" signal a blank role_id/secret_id can't be (see
+      # #update_infrastructure_config's clear_password for the same
+      # reasoning on the redis side).
+      clear_role = ActiveModel::Type::Boolean.new.cast(vault_params[:clear_vault_role_id])
+      clear_secret = ActiveModel::Type::Boolean.new.cast(vault_params[:clear_vault_secret_id])
 
       # Store via Admin::SystemSettings — vault_role_id/vault_secret_id are
       # encrypted, vault_addr stays in the non-secret blob (fc-38 decision #3).
@@ -155,14 +175,15 @@ module AdminSettings
       # ANY mask-shaped value, not one specific literal.
       # fc-38 review round 3 item #3(a): same silent-drop-with-success
       # problem as redis's password (see #update_infrastructure_config) — a
-      # mask-shaped resubmission is a 422 now, not a quiet no-op.
-      if masked_secret_value?(vault_params[:vault_role_id])
+      # mask-shaped resubmission is a 422 now, not a quiet no-op. Not
+      # checked when clearing that same field — see the redis-side comment.
+      if !clear_role && masked_secret_value?(vault_params[:vault_role_id])
         return render_error(
           "The AppRole Role ID field still holds the masked display value — enter a new value to change it.",
           :unprocessable_content
         )
       end
-      if masked_secret_value?(vault_params[:vault_secret_id])
+      if !clear_secret && masked_secret_value?(vault_params[:vault_secret_id])
         return render_error(
           "The AppRole Secret ID field still holds the masked display value — enter a new value to change it.",
           :unprocessable_content
@@ -171,16 +192,17 @@ module AdminSettings
 
       updates = {}
       updates["vault_addr"] = vault_params[:vault_addr] if vault_params[:vault_addr].present?
-      updates["vault_role_id"] = vault_params[:vault_role_id] unless unchanged_secret_value?(vault_params[:vault_role_id])
-      updates["vault_secret_id"] = vault_params[:vault_secret_id] unless unchanged_secret_value?(vault_params[:vault_secret_id])
+      updates["vault_role_id"] = vault_params[:vault_role_id] if !clear_role && !unchanged_secret_value?(vault_params[:vault_role_id])
+      updates["vault_secret_id"] = vault_params[:vault_secret_id] if !clear_secret && !unchanged_secret_value?(vault_params[:vault_secret_id])
 
-      ::Admin::SystemSettings.update_vault_config!(updates) if updates.any?
+      applied = updates.any? || clear_role || clear_secret
+      ::Admin::SystemSettings.update_vault_config!(updates, clear_vault_role_id: clear_role, clear_vault_secret_id: clear_secret) if applied
 
       # Reset the VaultClient singleton so it re-reads config on next use
-      Security::VaultClient.reconfigure! if updates.any?
+      Security::VaultClient.reconfigure! if applied
 
       log_audit_event("vault_config_update", "SystemSettings",
-                      metadata: { updated_fields: updates.keys })
+                      metadata: { updated_fields: updates.keys, cleared_role_id: clear_role, cleared_secret_id: clear_secret })
 
       render_success(message: "Vault configuration updated and applied.")
     rescue StandardError => e
@@ -310,7 +332,8 @@ module AdminSettings
     def infrastructure_params
       params.require(:redis).permit(
         :host, :port, :database, :password, :ssl, :url,
-        :connect_timeout, :read_timeout, :write_timeout, :pool_size
+        :connect_timeout, :read_timeout, :write_timeout, :pool_size,
+        :clear_password
       ).to_h
     end
 

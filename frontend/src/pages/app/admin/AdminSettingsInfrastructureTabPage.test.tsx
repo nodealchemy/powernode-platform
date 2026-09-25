@@ -13,6 +13,20 @@ jest.mock('@/features/admin/services/adminSettingsApi', () => ({
   }
 }));
 
+// fc-38 review round 3 item #3(b): auto-confirm so the Clear button's own
+// confirm step doesn't need a real modal in these tests — established
+// pattern (see ApiKeysManager.test.tsx).
+const mockConfirmFn = jest.fn();
+jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
+  useConfirmation: () => ({
+    confirm: (opts: { onConfirm: () => void | Promise<void> }) => {
+      mockConfirmFn(opts);
+      opts.onConfirm();
+    },
+    ConfirmationDialog: null
+  })
+}));
+
 // A STABLE reference (see AdminSettingsVaultTabPage.test.tsx for why): this
 // page has no useCallback([showNotification]) today, but keep the mock
 // pattern consistent so a future refactor doesn't silently reintroduce the
@@ -92,5 +106,36 @@ describe('AdminSettingsInfrastructureTabPage', () => {
       const payload = mockUpdateInfrastructureConfig.mock.calls[0][0];
       expect(payload.password).toBe('new-redis-password');
     });
+  });
+
+  // fc-38 review round 3 item #3(b): a blank password already means
+  // "unchanged" (see the previous test), so there was previously no way to
+  // actually clear a saved password from the UI.
+  it('shows a "Clear saved password" control only when a password is configured', async () => {
+    render(<AdminSettingsInfrastructureTabPage />);
+    await waitFor(() => expect(screen.getByLabelText('Password')).toBeInTheDocument());
+
+    expect(screen.getByText('Clear saved password')).toBeInTheDocument();
+  });
+
+  it('does not show a clear control when no password is configured', async () => {
+    mockGetInfrastructureConfig.mockResolvedValue({ success: true, data: redisData(false) });
+
+    render(<AdminSettingsInfrastructureTabPage />);
+    await waitFor(() => expect(screen.getByLabelText('Password')).toBeInTheDocument());
+
+    expect(screen.queryByText('Clear saved password')).not.toBeInTheDocument();
+  });
+
+  it('clearing the password confirms, then sends clear_password: true (not the field value)', async () => {
+    mockUpdateInfrastructureConfig.mockResolvedValue({ success: true, data: { redis: redisData(false).redis, message: 'cleared' } });
+
+    render(<AdminSettingsInfrastructureTabPage />);
+    await waitFor(() => expect(screen.getByText('Clear saved password')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Clear saved password'));
+
+    expect(mockConfirmFn).toHaveBeenCalled();
+    await waitFor(() => expect(mockUpdateInfrastructureConfig).toHaveBeenCalledWith({ clear_password: true }));
   });
 });

@@ -300,16 +300,40 @@ module Admin
         config.merge("password" => decrypted || config["password"])
       end
 
-      # `new_config`'s "password" key (if PRESENT — even blank, meaning
-      # "clear it") is encrypted into its own row and never reaches the
-      # non-secret blob AdminSetting.update_redis_config writes. A masked
-      # resubmission ("••••••••") must be stripped by the caller BEFORE this
+      # `new_config`'s "password" key (if PRESENT — even blank) is encrypted
+      # into its own row and never reaches the non-secret blob
+      # AdminSetting.update_redis_config writes. A masked resubmission
+      # ("••••••••") must be stripped by the caller BEFORE this
       # (InfrastructureConfigActions#update_infrastructure_config already
       # does, unchanged) — this method has no way to tell a real password
       # from a mask.
-      def update_redis_config!(new_config)
+      #
+      # `clear_password:` (fc-38 review round 3 item #3(b)) is the explicit
+      # signal a blank "password" can't be: a blank value here still means
+      # "unchanged" (the caller didn't touch this field — see
+      # InfrastructureConfigActions#unchanged_secret_value?, which strips a
+      # blank/masked "password" key before it ever reaches this method), so
+      # there was previously no way to actually REMOVE a saved credential.
+      # clear_password: true destroys the encrypted row outright, which
+      # .redis_config's decrypt-failure/no-row fallback (review round 3 item
+      # #2) then reads through to the ENV/blob default — never a plaintext
+      # "" written anywhere.
+      #
+      # The destroy happens LAST, after AdminSetting.update_redis_config and
+      # the strip below, not first — a genuine ordering bug found while
+      # writing this: AdminSetting.update_redis_config's own `current_config
+      # = redis_config` deep-merges the ENV password default into whatever
+      # gets (transiently) written to the blob (see the strip's own comment
+      # below), and item #1's backfill-before-strip fix means THAT transient
+      # ENV-sourced value would otherwise get read as "a leftover plaintext
+      # with no encrypted row" the moment the row was destroyed first, and
+      # re-encrypted right back in — silently undoing the clear inside the
+      # very call that requested it.
+      def update_redis_config!(new_config, clear_password: false)
         config_hash = new_config.to_h.stringify_keys
-        if config_hash.key?("password")
+        if clear_password
+          config_hash.delete("password")
+        elsif config_hash.key?("password")
           password = config_hash.delete("password")
           AdminSetting.set("redis_config_password_encrypted", encrypt_secret(password))
         end
@@ -323,6 +347,8 @@ module Admin
         # ENV redis password into the blob as plaintext on every write, for
         # any deployment that sets REDIS_PASSWORD.
         strip_secret_keys_from_blob!("redis_config", "password" => "redis_config_password_encrypted")
+
+        AdminSetting.find_by(key: "redis_config_password_encrypted")&.destroy if clear_password
       end
 
       # vault_addr (non-secret) plus the real decrypted vault_role_id/
@@ -347,13 +373,29 @@ module Admin
       # vault_secret_id; only keys actually PRESENT are written (the caller —
       # InfrastructureConfigActions#update_vault_config — already filters out
       # blank/masked resubmissions before calling this).
-      def update_vault_config!(updates)
+      #
+      # `clear_vault_role_id:`/`clear_vault_secret_id:` (fc-38 review round 3
+      # item #3(b)) are the explicit "remove this credential" signal a blank
+      # value can't be, for the same reason as redis's clear_password: — a
+      # blank vault_role_id/vault_secret_id already means "unchanged" (see
+      # InfrastructureConfigActions#unchanged_secret_value?), so there was no
+      # way to actually clear one without deleting the encrypted row
+      # out-of-band. Destroys the row outright; .vault_config's no-row
+      # fallback then reads through to the blob's own (empty) value.
+      #
+      # As with redis's clear_password:, both clear destroys happen LAST —
+      # after the vault_addr merge and the strip below, not before — for the
+      # same ordering reason: destroying first and then letting the strip's
+      # item #1 backfill see a leftover blob value with no encrypted row
+      # would re-encrypt it right back in.
+      def update_vault_config!(updates, clear_vault_role_id: false, clear_vault_secret_id: false)
         if updates.key?("vault_addr")
           blob = raw_vault_blob
           AdminSetting.set("vault_config", blob.merge("vault_addr" => updates["vault_addr"]).to_json)
         end
-        AdminSetting.set("vault_role_id_encrypted", encrypt_secret(updates["vault_role_id"])) if updates.key?("vault_role_id")
-        AdminSetting.set("vault_secret_id_encrypted", encrypt_secret(updates["vault_secret_id"])) if updates.key?("vault_secret_id")
+
+        AdminSetting.set("vault_role_id_encrypted", encrypt_secret(updates["vault_role_id"])) if !clear_vault_role_id && updates.key?("vault_role_id")
+        AdminSetting.set("vault_secret_id_encrypted", encrypt_secret(updates["vault_secret_id"])) if !clear_vault_secret_id && updates.key?("vault_secret_id")
 
         # fc-38 review item #3(b): the vault_addr-only branch above merges
         # `raw_vault_blob` (whatever the blob currently holds) with the new
@@ -363,6 +405,9 @@ module Admin
         # straight back into the blob on every subsequent vault_addr-only
         # save, keeping the plaintext alive indefinitely.
         strip_secret_keys_from_blob!("vault_config", "vault_role_id" => "vault_role_id_encrypted", "vault_secret_id" => "vault_secret_id_encrypted")
+
+        AdminSetting.find_by(key: "vault_role_id_encrypted")&.destroy if clear_vault_role_id
+        AdminSetting.find_by(key: "vault_secret_id_encrypted")&.destroy if clear_vault_secret_id
       end
 
       private

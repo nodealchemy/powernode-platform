@@ -120,6 +120,26 @@ RSpec.describe 'Api::V1::AdminSettings secrets hardening', type: :request do
       expect(json_response['error']).to match(/masked|display value/i)
       expect(Admin::SystemSettings.redis_config['password']).to eq(redis_password)
     end
+
+    # round 3 review item #3(b): a blank password already means "unchanged"
+    # (see the "saving host alone" spec above), so there was no way for the
+    # UI to actually clear a saved password. clear_password: true is the
+    # explicit signal.
+    it 'clear_password: true removes the saved password entirely' do
+      put '/api/v1/admin_settings/infrastructure',
+          params: { redis: { host: '127.0.0.1', port: 6379, password: redis_password } },
+          headers: security_headers, as: :json
+      expect_success_response
+      expect(Admin::SystemSettings.redis_config['password']).to eq(redis_password)
+
+      put '/api/v1/admin_settings/infrastructure',
+          params: { redis: { host: '127.0.0.1', port: 6379, clear_password: true } },
+          headers: security_headers, as: :json
+      expect_success_response
+
+      expect(AdminSetting.find_by(key: 'redis_config_password_encrypted')).to be_nil
+      expect(Admin::SystemSettings.redis_config['password']).not_to eq(redis_password)
+    end
   end
 
   describe 'PUT /api/v1/admin_settings/vault (vault_role_id / vault_secret_id)' do
@@ -231,6 +251,41 @@ RSpec.describe 'Api::V1::AdminSettings secrets hardening', type: :request do
       config = Admin::SystemSettings.vault_config
       expect(config['vault_role_id']).to eq(role_id)
       expect(config['vault_secret_id']).to eq(secret_id)
+    end
+
+    # round 3 review item #3(b): same "blank means unchanged" gap as redis's
+    # password — clear_vault_role_id/clear_vault_secret_id are the explicit
+    # signal to actually remove a credential.
+    it 'clear_vault_role_id: true removes the saved role_id, leaving secret_id untouched' do
+      put '/api/v1/admin_settings/vault',
+          params: { vault: { vault_role_id: role_id, vault_secret_id: secret_id } },
+          headers: security_headers, as: :json
+      expect_success_response
+
+      put '/api/v1/admin_settings/vault',
+          params: { vault: { clear_vault_role_id: true } },
+          headers: security_headers, as: :json
+      expect_success_response
+
+      config = Admin::SystemSettings.vault_config
+      expect(config['vault_role_id']).to eq('')
+      expect(config['vault_secret_id']).to eq(secret_id)
+    end
+
+    it 'clear_vault_secret_id: true removes the saved secret_id, leaving role_id untouched' do
+      put '/api/v1/admin_settings/vault',
+          params: { vault: { vault_role_id: role_id, vault_secret_id: secret_id } },
+          headers: security_headers, as: :json
+      expect_success_response
+
+      put '/api/v1/admin_settings/vault',
+          params: { vault: { clear_vault_secret_id: true } },
+          headers: security_headers, as: :json
+      expect_success_response
+
+      config = Admin::SystemSettings.vault_config
+      expect(config['vault_role_id']).to eq(role_id)
+      expect(config['vault_secret_id']).to eq('')
     end
   end
 

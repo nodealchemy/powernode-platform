@@ -134,10 +134,10 @@ RSpec.describe Admin::SystemSettings do
 
     it "update_redis_config! with no password key present leaves the encrypted row untouched (masked-resubmission skip)" do
       password = "redis-unit-#{SecureRandom.hex(4)}"
-      described_class.update_redis_config!("password" => password, "host" => "127.0.0.1")
+      described_class.update_redis_config!({"password" => password, "host" => "127.0.0.1"})
       before_value = AdminSetting.find_by(key: "redis_config_password_encrypted").value
 
-      described_class.update_redis_config!("host" => "192.168.1.1")
+      described_class.update_redis_config!({"host" => "192.168.1.1"})
 
       expect(AdminSetting.find_by(key: "redis_config_password_encrypted").value).to eq(before_value)
       expect(described_class.redis_config["password"]).to eq(password)
@@ -145,7 +145,7 @@ RSpec.describe Admin::SystemSettings do
     end
 
     it "update_redis_config! never writes 'password' into the non-secret AdminSetting.redis_config blob" do
-      described_class.update_redis_config!("password" => "redis-unit-blob-check", "host" => "127.0.0.1")
+      described_class.update_redis_config!({"password" => "redis-unit-blob-check", "host" => "127.0.0.1"})
 
       expect(AdminSetting.find_by(key: "redis_config").value).not_to include("redis-unit-blob-check")
     end
@@ -161,10 +161,28 @@ RSpec.describe Admin::SystemSettings do
       allow(ENV).to receive(:fetch).and_call_original
       allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("env-redis-password-should-never-be-in-blob")
 
-      described_class.update_redis_config!("host" => "127.0.0.1")
+      described_class.update_redis_config!({"host" => "127.0.0.1"})
 
       blob = AdminSetting.find_by(key: "redis_config").value
       expect(JSON.parse(blob)).not_to have_key("password")
+    end
+
+    # round 3 review item #3(b): a blank "password" means "unchanged" (see
+    # the masked-resubmission-skip test above), so there was no way to
+    # actually CLEAR a saved password short of manually deleting the
+    # encrypted row out-of-band. clear_password: true is the explicit signal
+    # a blank value can't be: it destroys the encrypted row so .redis_config
+    # falls back to the blob's own default (ENV or none) instead.
+    it "clear_password: true removes the encrypted row so redis_config falls back to the ENV/blob default" do
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with("REDIS_PASSWORD", nil).and_return("env-fallback-after-clear")
+      described_class.update_redis_config!({"password" => "to-be-cleared", "host" => "127.0.0.1"})
+      expect(described_class.redis_config["password"]).to eq("to-be-cleared")
+
+      described_class.update_redis_config!({}, clear_password: true)
+
+      expect(AdminSetting.find_by(key: "redis_config_password_encrypted")).to be_nil
+      expect(described_class.redis_config["password"]).to eq("env-fallback-after-clear")
     end
   end
 
@@ -199,14 +217,14 @@ RSpec.describe Admin::SystemSettings do
         key: "vault_config",
         value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "stale-plaintext-role" }.to_json
       )
-      described_class.update_vault_config!("vault_role_id" => "fresh-encrypted-role")
+      described_class.update_vault_config!({"vault_role_id" => "fresh-encrypted-role"})
 
       expect(described_class.vault_config["vault_role_id"]).to eq("fresh-encrypted-role")
     end
 
     it "update_vault_config! writes only the keys present, leaving the others untouched" do
-      described_class.update_vault_config!("vault_addr" => "http://vault.example.internal:8200", "vault_role_id" => "role-a")
-      described_class.update_vault_config!("vault_secret_id" => "secret-b")
+      described_class.update_vault_config!({"vault_addr" => "http://vault.example.internal:8200", "vault_role_id" => "role-a"})
+      described_class.update_vault_config!({"vault_secret_id" => "secret-b"})
 
       config = described_class.vault_config
       expect(config["vault_addr"]).to eq("http://vault.example.internal:8200")
@@ -215,7 +233,7 @@ RSpec.describe Admin::SystemSettings do
     end
 
     it "never writes vault_role_id/vault_secret_id into the vault_config blob" do
-      described_class.update_vault_config!("vault_role_id" => "role-blob-check", "vault_secret_id" => "secret-blob-check")
+      described_class.update_vault_config!({"vault_role_id" => "role-blob-check", "vault_secret_id" => "secret-blob-check"})
 
       expect(AdminSetting.find_by(key: "vault_config")&.value.to_s).not_to include("role-blob-check")
       expect(AdminSetting.find_by(key: "vault_config")&.value.to_s).not_to include("secret-blob-check")
@@ -233,7 +251,7 @@ RSpec.describe Admin::SystemSettings do
         value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "stale-plaintext-role", "vault_secret_id" => "stale-plaintext-secret" }.to_json
       )
 
-      described_class.update_vault_config!("vault_addr" => "http://vault.updated.internal:8200")
+      described_class.update_vault_config!({"vault_addr" => "http://vault.updated.internal:8200"})
 
       blob = JSON.parse(AdminSetting.find_by(key: "vault_config").value)
       expect(blob).to eq("vault_addr" => "http://vault.updated.internal:8200")
@@ -251,7 +269,7 @@ RSpec.describe Admin::SystemSettings do
         value: { "host" => "127.0.0.1", "port" => 6379, "password" => "pre-migration-redis-password" }.to_json
       )
 
-      described_class.update_redis_config!("host" => "192.168.1.1")
+      described_class.update_redis_config!({"host" => "192.168.1.1"})
 
       encrypted = AdminSetting.find_by(key: "redis_config_password_encrypted")
       expect(encrypted).not_to be_nil
@@ -266,13 +284,38 @@ RSpec.describe Admin::SystemSettings do
         value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "pre-migration-role", "vault_secret_id" => "pre-migration-secret" }.to_json
       )
 
-      described_class.update_vault_config!("vault_addr" => "http://vault.updated.internal:8200")
+      described_class.update_vault_config!({"vault_addr" => "http://vault.updated.internal:8200"})
 
       expect(AdminSetting.find_by(key: "vault_role_id_encrypted")).not_to be_nil
       expect(AdminSetting.find_by(key: "vault_secret_id_encrypted")).not_to be_nil
       config = described_class.vault_config
       expect(config["vault_role_id"]).to eq("pre-migration-role")
       expect(config["vault_secret_id"]).to eq("pre-migration-secret")
+    end
+
+    # round 3 review item #3(b): same "blank means unchanged, so there's no
+    # way to clear it" gap as redis's password — clear_vault_role_id/
+    # clear_vault_secret_id are the explicit signal.
+    it "clear_vault_role_id: true removes the encrypted role_id row, leaving secret_id untouched" do
+      described_class.update_vault_config!({"vault_role_id" => "role-to-clear", "vault_secret_id" => "secret-to-keep"})
+
+      described_class.update_vault_config!({}, clear_vault_role_id: true)
+
+      expect(AdminSetting.find_by(key: "vault_role_id_encrypted")).to be_nil
+      config = described_class.vault_config
+      expect(config["vault_role_id"]).to eq("")
+      expect(config["vault_secret_id"]).to eq("secret-to-keep")
+    end
+
+    it "clear_vault_secret_id: true removes the encrypted secret_id row, leaving role_id untouched" do
+      described_class.update_vault_config!({"vault_role_id" => "role-to-keep", "vault_secret_id" => "secret-to-clear"})
+
+      described_class.update_vault_config!({}, clear_vault_secret_id: true)
+
+      expect(AdminSetting.find_by(key: "vault_secret_id_encrypted")).to be_nil
+      config = described_class.vault_config
+      expect(config["vault_role_id"]).to eq("role-to-keep")
+      expect(config["vault_secret_id"]).to eq("")
     end
   end
 

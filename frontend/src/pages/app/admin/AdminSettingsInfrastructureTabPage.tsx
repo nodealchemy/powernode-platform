@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { adminSettingsApi, RedisConfig, RedisConnectionStatus } from '@/features/admin/services/adminSettingsApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { ToggleSwitch, SettingsCard } from '@/features/admin/components/settings/SettingsComponents';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { Database, Activity, Settings, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 
 export const AdminSettingsInfrastructureTabPage: React.FC = () => {
   const { showNotification } = useNotifications();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [config, setConfig] = useState<RedisConfig | null>(null);
   const [connection, setConnection] = useState<RedisConnectionStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -58,6 +60,36 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
       showNotification(result.error || 'Failed to update config', 'error');
     }
     setSaving(false);
+  };
+
+  // fc-38 review round 3 item #3(b): a blank password already means
+  // "unchanged" (see handleSave above), so there was no way to actually
+  // remove a saved password from the UI. clear_password: true is the
+  // explicit signal — gated by the same confirm step as any destructive
+  // admin action, and disabled under the same `saving` condition Save uses
+  // (this PUT goes through the identical endpoint/permission as Save, so
+  // there is no separate permission check to add here).
+  const handleClearPassword = () => {
+    confirm({
+      title: 'Clear Redis Password',
+      message: 'This removes the saved Redis password. The connection will fall back to any environment-configured default (or none) until a new password is saved.',
+      confirmLabel: 'Clear Password',
+      variant: 'danger',
+      onConfirm: async () => {
+        setSaving(true);
+        const result = await adminSettingsApi.updateInfrastructureConfig({ clear_password: true });
+        if (result.success) {
+          if (result.data?.redis) {
+            setConfig({ ...result.data.redis, password: '' });
+          }
+          setPasswordEdited(false);
+          showNotification('Redis password cleared', 'success');
+        } else {
+          showNotification(result.error || 'Failed to clear password', 'error');
+        }
+        setSaving(false);
+      }
+    });
   };
 
   const handleTestConnection = async () => {
@@ -232,6 +264,16 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {config.password_configured && (
+                <button
+                  type="button"
+                  onClick={handleClearPassword}
+                  disabled={saving}
+                  className="mt-1 text-xs text-theme-danger-fg hover:underline"
+                >
+                  Clear saved password
+                </button>
+              )}
             </div>
           </div>
 
@@ -375,6 +417,8 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
           )}
         </div>
       </SettingsCard>
+
+      {ConfirmationDialog}
     </div>
   );
 };

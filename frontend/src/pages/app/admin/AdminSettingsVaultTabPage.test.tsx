@@ -23,6 +23,20 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   useNotifications: () => ({ showNotification: mockShowNotification })
 }));
 
+// fc-38 review round 3 item #3(b): auto-confirm so the Clear buttons' own
+// confirm step doesn't need a real modal in these tests — established
+// pattern (see ApiKeysManager.test.tsx).
+const mockConfirmFn = jest.fn();
+jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
+  useConfirmation: () => ({
+    confirm: (opts: { onConfirm: () => void | Promise<void> }) => {
+      mockConfirmFn(opts);
+      opts.onConfirm();
+    },
+    ConfirmationDialog: null
+  })
+}));
+
 // fc-38 review item #1 (HIGH): the server now returns "" plus a
 // *_configured flag for both AppRole credentials — never any part of the
 // real value — so these tests use that shape, not the old last-4-chars mask.
@@ -93,5 +107,38 @@ describe('AdminSettingsVaultTabPage', () => {
       expect(payload.vault_role_id).toBe('new-role-id');
       expect(payload).not.toHaveProperty('vault_secret_id');
     });
+  });
+
+  // fc-38 review round 3 item #3(b): a blank role_id/secret_id already
+  // means "unchanged" (see the previous test), so there was previously no
+  // way to actually clear a saved credential from the UI.
+  it('shows Clear controls only for credentials that are configured', async () => {
+    mockGetVaultConfig.mockResolvedValue({ success: true, data: vaultData({ vault_role_id_configured: true, vault_secret_id_configured: false }) });
+
+    render(<AdminSettingsVaultTabPage />);
+    await waitFor(() => expect(screen.getByLabelText('AppRole Role ID')).toBeInTheDocument());
+
+    expect(screen.getByText('Clear saved Role ID')).toBeInTheDocument();
+    expect(screen.queryByText('Clear saved Secret ID')).not.toBeInTheDocument();
+  });
+
+  it('clearing the role ID confirms, then sends clear_vault_role_id: true (not the field value)', async () => {
+    render(<AdminSettingsVaultTabPage />);
+    await waitFor(() => expect(screen.getByText('Clear saved Role ID')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Clear saved Role ID'));
+
+    expect(mockConfirmFn).toHaveBeenCalled();
+    await waitFor(() => expect(mockUpdateVaultConfig).toHaveBeenCalledWith({ clear_vault_role_id: true }));
+  });
+
+  it('clearing the secret ID confirms, then sends clear_vault_secret_id: true (not the field value)', async () => {
+    render(<AdminSettingsVaultTabPage />);
+    await waitFor(() => expect(screen.getByText('Clear saved Secret ID')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Clear saved Secret ID'));
+
+    expect(mockConfirmFn).toHaveBeenCalled();
+    await waitFor(() => expect(mockUpdateVaultConfig).toHaveBeenCalledWith({ clear_vault_secret_id: true }));
   });
 });

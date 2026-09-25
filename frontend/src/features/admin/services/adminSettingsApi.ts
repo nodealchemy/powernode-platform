@@ -435,7 +435,10 @@ class AdminSettingsApi {
     }
   }
 
-  async updateInfrastructureConfig(config: Partial<RedisConfig>): Promise<{ success: boolean; data?: { redis: RedisConfig; message: string }; error?: string }> {
+  // `clear_password` (fc-38 review round 3 item #3(b)) is the explicit
+  // "remove this credential" signal a blank password can't be — see
+  // RedisConfig's own doc comment on why blank/omitted means "unchanged".
+  async updateInfrastructureConfig(config: Partial<RedisConfig> & { clear_password?: boolean }): Promise<{ success: boolean; data?: { redis: RedisConfig; message: string }; error?: string }> {
     try {
       const response = await api.put('/admin_settings/infrastructure', { redis: config });
       const responseData = response.data;
@@ -485,7 +488,17 @@ class AdminSettingsApi {
     }
   }
 
-  async updateVaultConfig(config: { vault_addr?: string; vault_role_id?: string; vault_secret_id?: string }): Promise<{ success: boolean; data?: { message: string }; error?: string }> {
+  // clear_vault_role_id/clear_vault_secret_id (fc-38 review round 3 item
+  // #3(b)) are the explicit "remove this credential" signal a blank
+  // role_id/secret_id can't be — same reasoning as updateInfrastructureConfig's
+  // clear_password.
+  async updateVaultConfig(config: {
+    vault_addr?: string;
+    vault_role_id?: string;
+    vault_secret_id?: string;
+    clear_vault_role_id?: boolean;
+    clear_vault_secret_id?: boolean;
+  }): Promise<{ success: boolean; data?: { message: string }; error?: string }> {
     try {
       const response = await api.put('/admin_settings/vault', { vault: config });
       return response.data;
