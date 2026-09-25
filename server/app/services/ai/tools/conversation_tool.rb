@@ -13,19 +13,44 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "active_sessions", mutating: false
-      declare_action "confirm_concierge_action", mutating: true
-      declare_action "create_workspace", mutating: true
-      declare_action "get_conversation_messages", mutating: false
-      declare_action "invite_agent", mutating: true
-      declare_action "list_conversations", mutating: false
-      declare_action "list_messages", mutating: false
-      declare_action "list_workspaces", mutating: false
-      declare_action "pin_conversation", mutating: true
-      declare_action "send_concierge_message", mutating: true
-      declare_action "send_message", mutating: true
-      declare_action "tag_conversation", mutating: true
-      declare_action "unpin_conversation", mutating: true
+      declare_action "active_sessions", mutating: false,
+                                        returns: "id, display_name, linked agent, OAuth application, user and timestamps per session, most recently active first, and count"
+      declare_action "confirm_concierge_action", mutating: true,
+                                                 returns: "conversation_id, action_type and the content of the conversation's latest message as result",
+                                                 refuses: [ "conversation_id or action_type is missing", "the conversation is not found",
+                                                            "the conversation's agent is not a concierge" ]
+      declare_action "create_workspace", mutating: true,
+                                         returns: "the workspace's team_id, team_name, conversation_id, conversation_db_id and members",
+                                         refuses: "name is missing"
+      declare_action "get_conversation_messages", mutating: false, limit: 100,
+                                                  returns: "conversation_id, agent name, count and the latest messages oldest first (id, role, content up to 2000 chars, sender, sender_type, status, metadata, created_at)",
+                                                  refuses: [ "conversation_id is missing", "the conversation is not found" ]
+      declare_action "invite_agent", mutating: true,
+                                     returns: "conversation_id and the invited agent's id, name and agent_type",
+                                     refuses: [ "conversation_id or agent_id is missing", "the conversation or agent is not found",
+                                                "the conversation is not a workspace", "the agent is already a member" ]
+      declare_action "list_conversations", mutating: false, limit: 50,
+                                           returns: "id, conversation_id, title, status, type, agent, team_name, pinned, tags, message_count and timestamps per conversation, most recently active first"
+      declare_action "list_messages", mutating: false, limit: 100,
+                                      returns: "conversation_id, agent name, count and the latest messages oldest first (id, role, content up to 2000 chars, sender, sender_type, status, metadata, created_at)",
+                                      refuses: [ "conversation_id is missing", "the conversation is not found" ]
+      declare_action "list_workspaces", mutating: false, limit: 50,
+                                        returns: "the same rows as list_conversations"
+      declare_action "pin_conversation", mutating: true,
+                                         returns: "conversation_id and pinned_at",
+                                         refuses: "the conversation is not found"
+      declare_action "send_concierge_message", mutating: true,
+                                               returns: "conversation_id, the concierge's response and message_id, plus pending_action when the reply proposes one",
+                                               refuses: [ "message is missing", "the account has no concierge agent" ]
+      declare_action "send_message", mutating: true,
+                                     returns: "conversation_id, message_id, sender, dispatched_to, and response when a reply was generated synchronously",
+                                     refuses: [ "conversation_id or message is missing", "the conversation is not found" ]
+      declare_action "tag_conversation", mutating: true,
+                                         returns: "conversation_id and the resulting tags",
+                                         refuses: [ "the conversation is not found", "none of tags, add_tag or remove_tag is given" ]
+      declare_action "unpin_conversation", mutating: true,
+                                           returns: "conversation_id and pinned: false",
+                                           refuses: "the conversation is not found"
 
       def self.definition
         {
@@ -53,8 +78,10 @@ module Ai
           # --- Messaging (works for any conversation type) ---
           "send_message" => {
             description: "Send a message to any conversation (workspace or agent). " \
-                         "The conversation's agent will auto-respond (async for regular agents, sync for concierge). " \
-                         "Include @mentions to notify specific agents in workspaces.",
+                         "It is stored as a user message under the calling user, even when an agent makes the call. " \
+                         "A concierge conversation, or an agent conversation whose provider is active, replies synchronously; " \
+                         "in a workspace, @mentioned agents are queued or, for MCP client agents, notified over their sessions. " \
+                         "conversation_id may also be a team or agent name, matched by substring.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Conversation ID (workspace or agent)" },
               message: { type: "string", required: true, description: "Message content (include @AgentName to mention)" },
@@ -62,14 +89,16 @@ module Ai
             }
           },
           "list_messages" => {
-            description: "Retrieve messages from any conversation (workspace or agent)",
+            description: "Retrieve the latest messages from any conversation (workspace or agent). " \
+                         "Same behaviour as get_conversation_messages; limit defaults to 20.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Conversation ID" },
               limit: { type: "integer", required: false, description: "Max messages (default 20, max 100)" }
             }
           },
           "get_conversation_messages" => {
-            description: "Retrieve message history for a conversation including role, content, metadata, and timestamps",
+            description: "Retrieve message history for a conversation including role, content, metadata, and timestamps. " \
+                         "Same behaviour as list_messages; limit defaults to 20.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Conversation ID to retrieve messages from" },
               limit: { type: "integer", required: false, description: "Max messages to return (default 20, max 100)" }
@@ -77,7 +106,8 @@ module Ai
           },
           # --- Listing ---
           "list_conversations" => {
-            description: "List all conversations — workspaces, agent conversations, and concierge chats",
+            description: "List the account's conversations: workspaces, agent conversations, and concierge chats. " \
+                         "limit defaults to 10.",
             parameters: {
               status: { type: "string", required: false, description: "Filter by status: active, paused, completed, archived (default: all)" },
               limit: { type: "integer", required: false, description: "Max results (default 10, max 50)" }
@@ -85,13 +115,15 @@ module Ai
           },
           # --- Concierge ---
           "send_concierge_message" => {
-            description: "Send a message to the Powernode concierge and get an AI response. Creates or reuses an active concierge conversation.",
+            description: "Send a message to the Powernode concierge and get an AI response. " \
+                         "It reuses the caller's most recent active concierge conversation or creates one.",
             parameters: {
               message: { type: "string", required: true, description: "Message to send to the concierge" }
             }
           },
           "confirm_concierge_action" => {
-            description: "Confirm a pending concierge action (create_mission, delegate_to_team, code_review, deploy).",
+            description: "Confirm a pending concierge action such as create_mission, delegate_to_team, code_review or deploy. " \
+                         "Without action_params, the params of the latest pending action of that type are used.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Conversation ID containing the pending action" },
               action_type: { type: "string", required: true, description: "Action type: create_mission, delegate_to_team, code_review, deploy" },
@@ -100,7 +132,8 @@ module Ai
           },
           # --- Workspaces ---
           "create_workspace" => {
-            description: "Create a workspace conversation with selected agents for multi-agent collaboration.",
+            description: "Create a workspace conversation with selected agents for multi-agent collaboration. " \
+                         "include_concierge adds the account's concierge.",
             parameters: {
               name: { type: "string", required: true, description: "Workspace name" },
               agent_ids: { type: "array", required: false, description: "Agent IDs to include" },
@@ -108,37 +141,41 @@ module Ai
             }
           },
           "invite_agent" => {
-            description: "Invite an agent to a workspace conversation",
+            description: "Invite an agent to a workspace conversation. " \
+                         "agent_id 'concierge' invites the account's concierge.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Workspace conversation ID" },
               agent_id: { type: "string", required: true, description: "Agent ID (or 'concierge')" }
             }
           },
           "active_sessions" => {
-            description: "List active MCP client sessions that can be invited to workspaces",
+            description: "List the account's active MCP client sessions that have a linked agent and so can be invited to workspaces.",
             parameters: {}
           },
           "list_workspaces" => {
-            description: "List workspace conversations (alias for list_conversations filtered to workspaces)",
+            description: "List the account's conversations; despite the name, this is an unfiltered alias of list_conversations. " \
+                         "Every conversation type is returned, so check each row's type for workspace.",
             parameters: {
               status: { type: "string", required: false, description: "Filter by status: active, paused, completed, archived (default: all)" },
               limit: { type: "integer", required: false, description: "Max results (default 10, max 50)" }
             }
           },
           "pin_conversation" => {
-            description: "Pin a conversation to the top of the sidebar list. Sets pinned_at to now.",
+            description: "Pin a conversation to the top of the sidebar list by setting pinned_at to now.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Conversation UUID or conversation_id" }
             }
           },
           "unpin_conversation" => {
-            description: "Unpin a conversation (clears pinned_at).",
+            description: "Unpin a conversation by clearing pinned_at.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Conversation UUID or conversation_id" }
             }
           },
           "tag_conversation" => {
-            description: "Set, add, or remove tags on a conversation. Pass `tags:` to replace, `add_tag:` to append, or `remove_tag:` to remove.",
+            description: "Set, add, or remove tags on a conversation. " \
+                         "Pass `tags:` to replace, `add_tag:` to append, or `remove_tag:` to remove. " \
+                         "Tags are stored lowercased and stripped.",
             parameters: {
               conversation_id: { type: "string", required: true, description: "Conversation UUID or conversation_id" },
               tags: { type: "array", required: false, description: "Replace the conversation's tag list with this array" },

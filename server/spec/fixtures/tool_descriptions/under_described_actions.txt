@@ -8,7 +8,6 @@
 #     delete its line.
 # Registry keys, sorted, one per line. Regenerate ONLY deliberately:
 #   bin/rails runner -e test 'require Rails.root.join("spec/support/tool_description_coverage"); ToolDescriptionCoverage.write_snapshot!'
-active_sessions
 add_document
 add_team_member
 agent_container_status
@@ -34,7 +33,6 @@ code_semantic_navigate
 code_static_analysis
 code_upsert_node
 compose_skills
-confirm_concierge_action
 consolidate_memory
 content_production_status
 create_agent
@@ -44,7 +42,6 @@ create_knowledge_base
 create_memory_pool
 create_page
 create_team
-create_workspace
 delete_document
 delete_memory_pool
 delete_ralph_loop
@@ -71,7 +68,6 @@ get_activity_feed
 get_agent
 get_api_reference
 get_component_status
-get_conversation_messages
 get_governance_report
 get_graph_neighbors
 get_graph_node
@@ -92,21 +88,17 @@ governance_dashboard
 governance_scan
 graph_statistics
 integration_health
-invite_agent
 kill_switch_status
 kubernetes_get_cluster
 kubernetes_list_clusters
 kubernetes_list_nodes
-list_conversations
 list_generated_images
 list_git_runners
 list_governance_reports
 list_graph_nodes
 list_knowledge_bases
-list_messages
 list_ralph_loops
 list_roles
-list_workspaces
 mark_all_notifications_read
 measure_pressure
 memory_stats
@@ -114,7 +106,6 @@ optimize_team
 pause_ralph_loop
 perceive_pressure
 perceive_signals
-pin_conversation
 platform_provisioning_approve_plan
 platform_provisioning_compose_plan
 platform_provisioning_status
@@ -135,7 +126,6 @@ route_task
 scoreboard
 search_knowledge_graph
 search_memory
-send_concierge_message
 spawn_task
 start_content_production
 system_abort_task
@@ -292,9 +282,7 @@ system_update_architecture
 system_update_instance
 system_update_package_repository
 system_update_volume
-tag_conversation
 trigger_pipeline
-unpin_conversation
 update_agent
 update_gitea_repository
 update_kb_article
