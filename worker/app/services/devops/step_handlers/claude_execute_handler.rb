@@ -50,28 +50,16 @@ module Devops
       private
 
       def build_prompt(config, context, previous_outputs)
-        # Get base prompt from config
+        # Get base prompt from config. Rendering a template by
+        # config["prompt_template_id"] through the worker (fc-23) used
+        # /api/v1/internal/devops/prompt_templates/:id/render, a route that
+        # never existed — that branch is removed; callers must resolve the
+        # template to a literal prompt string before invoking this handler.
         prompt = config["prompt"]
-
-        # If prompt template ID is provided, fetch and render it
-        if config["prompt_template_id"].present?
-          prompt = fetch_and_render_template(
-            config["prompt_template_id"],
-            context,
-            previous_outputs
-          )
-        end
 
         # Interpolate variables
         variables = build_variables(context, previous_outputs)
         interpolate(prompt, variables)
-      end
-
-      def fetch_and_render_template(template_id, context, previous_outputs)
-        response = api_client.post("/api/v1/internal/devops/prompt_templates/#{template_id}/render", {
-          variables: build_variables(context, previous_outputs)
-        })
-        response.dig("data", "rendered_content")
       end
 
       def build_variables(context, previous_outputs)

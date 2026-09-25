@@ -199,9 +199,12 @@ module Devops
     end
 
     def fetch_provider_config(context)
-      # Get provider config from context or fetch from API
-      context[:provider_config] || context.dig(:pipeline_run, :pipeline, :provider) ||
-        api_client.get("/api/v1/internal/devops/providers/#{context[:provider_id]}")&.dig("data")
+      # Get provider config from context. The API fallback this used to fall
+      # through to (fc-23) called /api/v1/internal/devops/providers/:id, a
+      # route that never existed; removed rather than kept as dead code.
+      # Callers must supply provider_config or a pipeline_run.pipeline.provider
+      # in context.
+      context[:provider_config] || context.dig(:pipeline_run, :pipeline, :provider)
     end
 
     def update_deployment_status(config, context, result)

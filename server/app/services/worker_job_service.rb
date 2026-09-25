@@ -545,15 +545,6 @@ class WorkerJobService
       })
     end
 
-    # Enqueue DevOps provider sync job
-    def enqueue_devops_provider_sync(provider_id)
-      new.make_worker_request("POST", "/api/v1/jobs", {
-        "job_class" => "Devops::ProviderSyncJob",
-        "args" => [ provider_id ],
-        "queue" => "devops_default"
-      })
-    end
-
     # Enqueue DevOps integration execution job
     def enqueue_devops_integration_execution(execution_id, input = {}, context = {})
       new.make_worker_request("POST", "/api/v1/jobs", {

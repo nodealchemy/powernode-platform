@@ -95,11 +95,5 @@ module Devops
       review_paths = settings.dig("review_required_paths") || []
       review_paths.any? { |pattern| File.fnmatch(pattern, file_path, File::FNM_PATHNAME) }
     end
-
-    def enqueue_sync
-      # The API server runs no Sidekiq; dispatch to the standalone worker over the
-      # HTTP seam instead of referencing an in-process job constant.
-      WorkerJobService.enqueue_devops_provider_sync(id)
-    end
   end
 end
