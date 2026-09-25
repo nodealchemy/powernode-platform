@@ -22,7 +22,6 @@ create_page
 create_team
 delete_document
 delete_ralph_loop
-deploy_container_agent
 detect_collusion
 disable_autonomy
 discover_improvements

@@ -9,7 +9,12 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "deploy_container_agent", mutating: true
+      declare_action "deploy_container_agent", mutating: true,
+                                               returns: "execution_id, status, and whether OAuth was provisioned plus the MCP bridge port",
+                                               refuses: [ "the agent is not found in this account",
+                                                          "template_id or template_slug names no template this account can use",
+                                                          "the deployment service fails" ],
+                                               see_also: { "agent_container_status" => "checking a deployed container by its execution_id" }
 
       def self.definition
         {
