@@ -6,7 +6,7 @@ import {
   HardDrive, Workflow, Server, GitBranch,
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
-  Play, Rocket, DollarSign, Code2, Gauge, Building2, Megaphone,
+  Play, Rocket, DollarSign, Code2, Building2, Megaphone,
   Shield, Route, ClipboardCheck, MessageSquare, Share2, Lock, Lightbulb, Wallet
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
@@ -150,22 +150,17 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 9.5
         },
         {
+          // fc-42: merged with the former Operations hub (AiOps/alerts/traces) —
+          // one page, one Systems backend, one Circuit Breakers view. See
+          // MONITORING_TABS (features/ai/monitoring/utils/monitoringFormatters.ts)
+          // for the per-tab permissions this nav entry's own list summarizes.
           id: 'ai-observability',
           name: 'Observability',
           href: '/app/ai/observability',
           icon: Activity,
-          description: 'Health, systems, conversations, and evaluation',
-          permissions: ['ai.analytics.read'],
+          description: 'Health, systems, circuit breakers, alerts, conversations, traces, and evaluation',
+          permissions: ['ai.monitoring.read', 'ai.aiops.read', 'ai.conversations.read', 'ai_monitoring.read', 'ai.analytics.read'],
           order: 10
-        },
-        {
-          id: 'ai-operations',
-          name: 'Operations',
-          href: '/app/ai/operations',
-          icon: Gauge,
-          description: 'Real-time AiOps, alerts, and execution traces',
-          permissions: ['ai.aiops.read', 'ai_monitoring.read'],
-          order: 11
         },
         {
           id: 'ai-cost',
@@ -217,7 +212,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 13.6
         },
       ],
-      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai_monitoring.read', 'ai.governance.read', 'ai.routing.read', 'ai.approval_chains.manage', 'chat.channels.read'],
+      permissions: ['ai.agents.read', 'ai.conversations.read', 'ai.context.read', 'ai.providers.read', 'ai.analytics.read', 'ai.teams.read', 'ai.missions.read', 'ai.finops.view', 'ai.roi.read', 'ai.aiops.read', 'ai.monitoring.read', 'ai_monitoring.read', 'ai.governance.read', 'ai.routing.read', 'ai.approval_chains.manage', 'chat.channels.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 10

@@ -69,7 +69,6 @@ const PATHS = {
   modelRouter: '/app/ai/infrastructure/model-router',
   cost: '/app/ai/cost',
   observability: '/app/ai/observability',
-  operations: '/app/ai/operations',
   sourceControl: '/app/devops/source-control',
   devops: '/app/devops',
   aiOverview: '/app/ai',
@@ -466,11 +465,13 @@ export const DashboardOverview: React.FC = () => {
       visible: canReadMissions,
     },
     {
-      id: 'operations',
-      label: 'Operations',
+      // fc-42: Operations merged into Observability. Points at the Alerts tab
+      // specifically, since that's what this card's description promises.
+      id: 'observability-alerts',
+      label: 'Alerts',
       description: 'Alerts, incidents, execution traces',
       icon: Zap,
-      path: PATHS.operations,
+      path: `${PATHS.observability}/alerts`,
       visible: true,
     },
   ].filter((link) => link.visible);

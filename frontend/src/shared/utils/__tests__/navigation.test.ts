@@ -12,16 +12,17 @@ describe('defaultNavigationConfig — AI category consolidation', () => {
     expect(section('developer')).toBeUndefined();
   });
 
-  it('exposes Observability, Operations, and Cost as AI section items', () => {
+  it('exposes Observability and Cost as AI section items (fc-42: Operations merged into Observability)', () => {
     expect(itemIds('ai')).toEqual(
-      expect.arrayContaining(['ai-observability', 'ai-operations', 'ai-cost', 'ai-governance']),
+      expect.arrayContaining(['ai-observability', 'ai-cost', 'ai-governance']),
     );
+    expect(itemIds('ai')).not.toContain('ai-operations');
   });
 
-  it('points the Cost and Operations items at their domain routes', () => {
+  it('points the Cost and Observability items at their domain routes', () => {
     const ai = section('ai')?.items ?? [];
     expect(ai.find((i) => i.id === 'ai-cost')?.href).toBe('/app/ai/cost');
-    expect(ai.find((i) => i.id === 'ai-operations')?.href).toBe('/app/ai/operations');
+    expect(ai.find((i) => i.id === 'ai-observability')?.href).toBe('/app/ai/observability');
   });
 
   it('re-homes the Developer Portal into the DevOps section', () => {
