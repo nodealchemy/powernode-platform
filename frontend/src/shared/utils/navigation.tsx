@@ -410,7 +410,7 @@ export const defaultNavigationConfig: NavigationConfig = {
         {
           id: 'devops-sandboxes',
           name: 'Sandboxes',
-          href: '/app/devops/sandboxes',
+          href: '/app/ai/execution/containers',
           icon: Container,
           description: 'Sandboxed container execution and resource quotas',
           permissions: ['devops.containers.read'],

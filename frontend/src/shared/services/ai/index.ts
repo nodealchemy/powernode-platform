@@ -433,6 +433,9 @@ export type {
   BuildTriggerType,
   CreateImageRepoRequest,
   CreateImageRepoResponse,
+  SandboxInstance,
+  SandboxStats,
+  CreateSandboxRequest,
 } from '@/shared/services/ai/types/container-types';
 
 // Re-export Ralph Loops service (Autonomous AI Agent Loops)

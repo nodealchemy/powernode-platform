@@ -5,7 +5,7 @@
  */
 
 // Status types
-export type ContainerStatus = 'pending' | 'provisioning' | 'running' | 'completed' | 'failed' | 'cancelled' | 'timeout';
+export type ContainerStatus = 'pending' | 'provisioning' | 'running' | 'paused' | 'completed' | 'failed' | 'cancelled' | 'timeout';
 
 export type TemplateVisibility = 'private' | 'account' | 'public';
 
@@ -47,6 +47,8 @@ export interface ContainerInstance {
   triggered_by?: string;
   created_at: string;
   updated_at: string;
+  /** True for an agent sandbox (Ai::Runtime::SandboxManagerService-created); false for a plain template execution. */
+  sandbox: boolean;
 }
 
 export interface ContainerInstanceSummary {
@@ -59,6 +61,8 @@ export interface ContainerInstanceSummary {
   started_at?: string;
   completed_at?: string;
   runner_name?: string;
+  /** True for an agent sandbox (Ai::Runtime::SandboxManagerService-created); false for a plain template execution. */
+  sandbox: boolean;
 }
 
 export interface SecurityViolation {
@@ -81,6 +85,8 @@ export interface ContainerFilters {
   template_id?: string;
   active?: boolean;
   finished?: boolean;
+  /** Filter to agent sandboxes only (true), plain template executions only (false), or both (omitted). */
+  sandbox?: boolean;
   since?: string;
   page?: number;
   per_page?: number;
@@ -313,6 +319,44 @@ export interface OverageInfo {
   overage_rate?: number;
   current_overage_cost: number;
   containers_over_limit: number;
+}
+
+// Agent Sandbox types (Api::V1::Ai::ContainerSandboxesController — a subset of
+// devops_container_instances flagged sandbox_mode in input_parameters)
+export interface SandboxInstance {
+  id: string;
+  execution_id: string;
+  agent_id?: string;
+  agent_name?: string;
+  status: ContainerStatus;
+  trust_level?: string;
+  template_name?: string;
+  image_name: string;
+  image_tag: string;
+  sandbox_mode: true;
+  memory_used_mb?: number;
+  cpu_used_millicores?: number;
+  started_at?: string;
+  completed_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SandboxStats {
+  total: number;
+  running: number;
+  paused: number;
+  completed: number;
+  failed: number;
+}
+
+export interface CreateSandboxRequest {
+  agent_id: string;
+  image_name?: string;
+  image_tag?: string;
+  environment?: Record<string, string>;
+  volumes?: string[];
+  labels?: Record<string, unknown>;
 }
 
 // Container Stats

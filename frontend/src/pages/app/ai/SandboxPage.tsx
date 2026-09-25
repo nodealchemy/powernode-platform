@@ -521,12 +521,12 @@ const SandboxPage: React.FC = () => {
 
   return (
     <PageContainer
-      title="AI Sandbox & Testing"
+      title="Agent Testing"
       description="Isolated testing environments for AI agents with recording, playback, and performance profiling"
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'AI', href: '/app/ai' },
-        { label: 'Sandbox' }
+        { label: 'Agent Testing' }
       ]}
       actions={[refreshAction]}
     >

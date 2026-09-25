@@ -26,6 +26,7 @@ const statusOptions: { value: string; label: string }[] = [
   { value: 'pending', label: 'Pending' },
   { value: 'provisioning', label: 'Provisioning' },
   { value: 'running', label: 'Running' },
+  { value: 'paused', label: 'Paused' },
   { value: 'completed', label: 'Completed' },
   { value: 'failed', label: 'Failed' },
   { value: 'cancelled', label: 'Cancelled' },
@@ -36,6 +37,12 @@ const filterOptions: { value: string; label: string }[] = [
   { value: '', label: 'All Containers' },
   { value: 'active', label: 'Active Only' },
   { value: 'finished', label: 'Finished Only' },
+];
+
+const sandboxOptions: { value: string; label: string }[] = [
+  { value: '', label: 'All Sources' },
+  { value: 'true', label: 'Agent Sandboxes' },
+  { value: 'false', label: 'Template Executions' },
 ];
 
 export const ContainerList: React.FC<ContainerListProps> = ({
@@ -50,6 +57,7 @@ export const ContainerList: React.FC<ContainerListProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('');
+  const [sandboxFilter, setSandboxFilter] = useState<string>('');
   const [totalCount, setTotalCount] = useState(0);
 
   const loadContainers = useCallback(async () => {
@@ -61,6 +69,8 @@ export const ContainerList: React.FC<ContainerListProps> = ({
       if (statusFilter) filters.status = statusFilter as ContainerStatus;
       if (activeFilter === 'active') filters.active = true;
       if (activeFilter === 'finished') filters.finished = true;
+      if (sandboxFilter === 'true') filters.sandbox = true;
+      if (sandboxFilter === 'false') filters.sandbox = false;
 
       const response = await containerExecutionApi.getContainers(filters);
       setContainers(response.items || []);
@@ -70,7 +80,7 @@ export const ContainerList: React.FC<ContainerListProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, activeFilter]);
+  }, [statusFilter, activeFilter, sandboxFilter]);
 
   useEffect(() => {
     loadContainers();
@@ -91,6 +101,42 @@ export const ContainerList: React.FC<ContainerListProps> = ({
       addNotification({
         type: 'error',
         message: err instanceof Error ? err.message : 'Failed to cancel container',
+      });
+    }
+  };
+
+  const handlePause = async (container: ContainerInstanceSummary) => {
+    try {
+      await containerExecutionApi.pauseSandbox(container.id);
+      loadContainers();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to pause sandbox',
+      });
+    }
+  };
+
+  const handleResume = async (container: ContainerInstanceSummary) => {
+    try {
+      await containerExecutionApi.resumeSandbox(container.id);
+      loadContainers();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to resume sandbox',
+      });
+    }
+  };
+
+  const handleDestroy = async (container: ContainerInstanceSummary) => {
+    try {
+      await containerExecutionApi.destroySandbox(container.id);
+      loadContainers();
+    } catch (err) {
+      addNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Failed to destroy sandbox',
       });
     }
   };
@@ -139,6 +185,18 @@ export const ContainerList: React.FC<ContainerListProps> = ({
             </option>
           ))}
         </Select>
+        <Select
+          value={sandboxFilter}
+          onChange={(value) => setSandboxFilter(value)}
+          className="w-48"
+          aria-label="Filter by source"
+        >
+          {sandboxOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
         <Button aria-label="Refresh containers" variant="ghost" onClick={loadContainers} disabled={loading}>
           <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
         </Button>
@@ -157,7 +215,7 @@ export const ContainerList: React.FC<ContainerListProps> = ({
           icon={Box}
           title="No containers found"
           description={
-            statusFilter || activeFilter
+            statusFilter || activeFilter || sandboxFilter
               ? 'Try adjusting your filters'
               : 'No container executions have been started yet'
           }
@@ -171,6 +229,9 @@ export const ContainerList: React.FC<ContainerListProps> = ({
               onSelect={onSelectContainer}
               onCancel={handleCancel}
               onViewLogs={onViewLogs}
+              onPause={handlePause}
+              onResume={handleResume}
+              onDestroy={handleDestroy}
             />
           ))}
         </div>

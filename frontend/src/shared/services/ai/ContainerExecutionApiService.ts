@@ -18,6 +18,9 @@ import type {
   UsageHistory,
   OverageInfo,
   ContainerStats,
+  SandboxInstance,
+  SandboxStats,
+  CreateSandboxRequest,
 } from '@/shared/services/ai/types/container-types';
 
 /**
@@ -56,12 +59,24 @@ import type {
  * - GET    /api/v1/devops/container_quotas/usage_history
  * - GET    /api/v1/devops/container_quotas/overage
  * - PATCH  /api/v1/devops/container_quotas/overage
+ *
+ * Sandboxes (a filtered subset of the same devops_container_instances table,
+ * created/paused/resumed by an agent rather than a template execution):
+ * - GET    /api/v1/ai/container_sandboxes
+ * - GET    /api/v1/ai/container_sandboxes/stats
+ * - GET    /api/v1/ai/container_sandboxes/:id
+ * - POST   /api/v1/ai/container_sandboxes
+ * - DELETE /api/v1/ai/container_sandboxes/:id
+ * - POST   /api/v1/ai/container_sandboxes/:id/pause
+ * - POST   /api/v1/ai/container_sandboxes/:id/resume
+ * - GET    /api/v1/ai/container_sandboxes/:id/metrics
  */
 
 class ContainerExecutionApiService extends BaseApiService {
   private containersPath = '/devops/containers';
   private templatesPath = '/devops/container_templates';
   private quotasPath = '/devops/container_quotas';
+  private sandboxesPath = '/ai/container_sandboxes';
 
   // ===================================================================
   // Container Operations
@@ -309,6 +324,59 @@ class ContainerExecutionApiService extends BaseApiService {
       allow_overage: allowOverage,
       overage_rate: overageRate,
     });
+  }
+
+  // ===================================================================
+  // Sandbox Operations
+  // ===================================================================
+
+  /**
+   * Get list of agent sandboxes
+   * GET /api/v1/ai/container_sandboxes
+   */
+  async getSandboxes(status?: string): Promise<SandboxInstance[]> {
+    const queryString = status ? `?status=${status}` : '';
+    return this.get<SandboxInstance[]>(this.sandboxesPath + queryString);
+  }
+
+  /**
+   * Get sandbox statistics
+   * GET /api/v1/ai/container_sandboxes/stats
+   */
+  async getSandboxStats(): Promise<SandboxStats> {
+    return this.get<SandboxStats>(`${this.sandboxesPath}/stats`);
+  }
+
+  /**
+   * Create an agent sandbox
+   * POST /api/v1/ai/container_sandboxes
+   */
+  async createSandbox(request: CreateSandboxRequest): Promise<SandboxInstance> {
+    return this.post<SandboxInstance>(this.sandboxesPath, request);
+  }
+
+  /**
+   * Destroy an agent sandbox
+   * DELETE /api/v1/ai/container_sandboxes/:id
+   */
+  async destroySandbox(sandboxId: string, reason?: string): Promise<{ message: string }> {
+    return this.delete<{ message: string }>(`${this.sandboxesPath}/${sandboxId}`, { data: { reason } });
+  }
+
+  /**
+   * Pause a running sandbox
+   * POST /api/v1/ai/container_sandboxes/:id/pause
+   */
+  async pauseSandbox(sandboxId: string): Promise<SandboxInstance> {
+    return this.post<SandboxInstance>(`${this.sandboxesPath}/${sandboxId}/pause`);
+  }
+
+  /**
+   * Resume a paused sandbox
+   * POST /api/v1/ai/container_sandboxes/:id/resume
+   */
+  async resumeSandbox(sandboxId: string): Promise<SandboxInstance> {
+    return this.post<SandboxInstance>(`${this.sandboxesPath}/${sandboxId}/resume`);
   }
 }
 

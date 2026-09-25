@@ -10,6 +10,9 @@ import {
   Activity,
   Play,
   Square,
+  Pause,
+  Trash2,
+  Bot,
 } from 'lucide-react';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
@@ -23,6 +26,10 @@ interface ContainerCardProps {
   onSelect?: (container: ContainerInstanceSummary) => void;
   onCancel?: (container: ContainerInstanceSummary) => void;
   onViewLogs?: (container: ContainerInstanceSummary) => void;
+  /** Sandbox-only actions (Ai::Runtime::SandboxManagerService) — only rendered when container.sandbox is true. */
+  onPause?: (container: ContainerInstanceSummary) => void;
+  onResume?: (container: ContainerInstanceSummary) => void;
+  onDestroy?: (container: ContainerInstanceSummary) => void;
   className?: string;
 }
 
@@ -34,6 +41,7 @@ const statusConfig: Record<ContainerStatus, {
   pending: { variant: 'outline', label: 'Pending', icon: Clock },
   provisioning: { variant: 'info', label: 'Provisioning', icon: Activity },
   running: { variant: 'info', label: 'Running', icon: Play },
+  paused: { variant: 'warning', label: 'Paused', icon: Pause },
   completed: { variant: 'success', label: 'Completed', icon: CheckCircle },
   failed: { variant: 'danger', label: 'Failed', icon: XCircle },
   cancelled: { variant: 'warning', label: 'Cancelled', icon: Square },
@@ -45,6 +53,9 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
   onSelect,
   onCancel,
   onViewLogs,
+  onPause,
+  onResume,
+  onDestroy,
   className,
 }) => {
   const status = statusConfig[container.status] || statusConfig.pending;
@@ -94,10 +105,18 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
               </p>
             </div>
           </div>
-          <Badge variant={status.variant} size="sm" className="flex items-center gap-1">
-            <StatusIcon className="w-3 h-3" />
-            {status.label}
-          </Badge>
+          <div className="flex items-center gap-2">
+            {container.sandbox && (
+              <Badge variant="info" size="sm" className="flex items-center gap-1">
+                <Bot className="w-3 h-3" />
+                Sandbox
+              </Badge>
+            )}
+            <Badge variant={status.variant} size="sm" className="flex items-center gap-1">
+              <StatusIcon className="w-3 h-3" />
+              {status.label}
+            </Badge>
+          </div>
         </div>
 
         {/* Timing Info */}
@@ -156,19 +175,60 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
               </Button>
             )}
           </div>
-          {isActive && onCancel && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onCancel(container);
-              }}
-            >
-              <Square className="w-3 h-3 mr-1" />
-              Cancel
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {container.sandbox && container.status === 'running' && onPause && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPause(container);
+                }}
+              >
+                <Pause className="w-3 h-3 mr-1" />
+                Pause
+              </Button>
+            )}
+            {container.sandbox && container.status === 'paused' && onResume && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onResume(container);
+                }}
+              >
+                <Play className="w-3 h-3 mr-1" />
+                Resume
+              </Button>
+            )}
+            {isActive && onCancel && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCancel(container);
+                }}
+              >
+                <Square className="w-3 h-3 mr-1" />
+                Cancel
+              </Button>
+            )}
+            {container.sandbox && onDestroy && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDestroy(container);
+                }}
+              >
+                <Trash2 className="w-3 h-3 mr-1" />
+                Destroy
+              </Button>
+            )}
+          </div>
         </div>
       </CardContent>
     </Card>

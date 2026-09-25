@@ -18,8 +18,8 @@ const tabs = [
   { id: 'parallel', label: 'Parallel', icon: <GitFork size={16} />, path: '/parallel' },
   { id: 'resources', label: 'Resources', icon: <FolderOutput size={16} />, path: '/resources' },
   { id: 'agui', label: 'AG-UI', icon: <Radio size={16} />, path: '/agui' },
-  { id: 'testing', label: 'Testing', icon: <TestTube size={16} />, path: '/testing' },
-  { id: 'containers', label: 'Containers', icon: <Box size={16} />, path: '/containers' },
+  { id: 'testing', label: 'Agent Testing', icon: <TestTube size={16} />, path: '/testing' },
+  { id: 'containers', label: 'Sandboxes', icon: <Box size={16} />, path: '/containers' },
 ];
 
 export const ExecutionPage: React.FC = () => {

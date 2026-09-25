@@ -84,9 +84,6 @@ const MissionsPageWrapper = React.lazy(() => import('./ai/MissionsPage').then(m 
 // AI Improvement Campaigns
 const CampaignsPageWrapper = React.lazy(() => import('./ai/CampaignsPage').then(m => ({ default: m.CampaignsPageWrapper })));
 
-// Containers
-const ContainersPage = React.lazy(() => import('@/features/devops/containers/pages/ContainersPage').then(m => ({ default: m.ContainersPage })));
-
 // Docker Swarm pages
 const ClusterDashboardPage = React.lazy(() => import('@/features/devops/swarm/pages/ClusterDashboardPage').then(m => ({ default: m.ClusterDashboardPage })));
 const SwarmNodesPage = React.lazy(() => import('@/features/devops/swarm/pages/SwarmNodesPage').then(m => ({ default: m.SwarmNodesPage })));
@@ -259,8 +256,8 @@ const DashboardPage: React.FC = () => {
         <Route path="/devops/connections/integrations/:id/*" element={<IntegrationDetailPage />} />
         <Route path="/devops/connections/*" element={<ConnectionsPage />} />
 
-        {/* Sandboxes */}
-        <Route path="/devops/sandboxes/*" element={<ContainersPage />} />
+        {/* Sandboxes: merged into AI Execution's Containers tab —
+            /app/ai/execution/containers. Deliberately no redirect route. */}
 
         {/* Swarm - gated on devops.swarm.read (defense-in-depth; backend API also enforces).
             Static tab routes before :clusterId to prevent "services" etc. matching as an ID. */}

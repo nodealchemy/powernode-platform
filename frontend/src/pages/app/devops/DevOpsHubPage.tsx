@@ -203,7 +203,7 @@ export function DevOpsHubPage() {
       id: 'sandboxes',
       name: 'Sandboxes',
       description: 'Container execution and resource quotas',
-      href: '/app/devops/sandboxes',
+      href: '/app/ai/execution/containers',
       icon: Container,
       stats: [
         { label: 'Active', value: infra.containers.active },
@@ -242,7 +242,7 @@ export function DevOpsHubPage() {
     source_control: '/app/devops/source-control',
     ci_cd: '/app/devops/ci-cd',
     connections: '/app/devops/connections',
-    infrastructure: '/app/devops/sandboxes',
+    infrastructure: '/app/ai/execution/containers',
   };
 
   return (
@@ -331,7 +331,7 @@ export function DevOpsHubPage() {
             subtitle={`${infra.containers.total} total`}
             icon={Container}
             status={infra.containers.active > 0 ? 'success' : 'neutral'}
-            onClick={() => navigate('/app/devops/sandboxes')}
+            onClick={() => navigate('/app/ai/execution/containers')}
           />
           <StatCard
             title="Connections"
@@ -431,7 +431,7 @@ export function DevOpsHubPage() {
                 <Container className="w-5 h-5" />
                 Container Execution
               </h3>
-              <button onClick={() => navigate('/app/devops/sandboxes')} className="text-sm text-theme-primary hover:underline">
+              <button onClick={() => navigate('/app/ai/execution/containers')} className="text-sm text-theme-primary hover:underline">
                 View all
               </button>
             </div>
