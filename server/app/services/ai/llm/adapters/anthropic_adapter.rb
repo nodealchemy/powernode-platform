@@ -108,6 +108,8 @@ module Ai
           finish_reason = nil
           thinking_content = ""
           refusal_details = nil
+          blocks = [] # the raw content blocks, rebuilt for replay (AnthropicMessages.replay_blocks)
+          block = nil
 
           yield Ai::Llm::Chunk.new(type: :stream_start, stream_id: stream_id,
                                     timestamp: Time.current.iso8601)
@@ -116,6 +118,7 @@ module Ai
             parse_anthropic_sse_stream(response) do |event_type, parsed|
               case event_type
               when "content_block_start"
+                block = Ai::Llm::AnthropicMessages.start_stream_block(blocks, parsed)
                 block_type = parsed.dig("content_block", "type")
                 if block_type == "tool_use"
                   current_tool_call = {
@@ -133,6 +136,7 @@ module Ai
 
               when "content_block_delta"
                 delta = parsed["delta"] || {}
+                Ai::Llm::AnthropicMessages.apply_stream_delta(block, delta)
                 case delta["type"]
                 when "text_delta"
                   text = delta["text"]
@@ -166,6 +170,7 @@ module Ai
                     name: current_tool_call[:name],
                     arguments: safe_parse_json(current_tool_call[:arguments])
                   }
+                  block["input"] = tool_calls.last[:arguments] if block
                   yield Ai::Llm::Chunk.new(
                     type: :tool_call_end, tool_call_id: current_tool_call[:id],
                     stream_id: stream_id, timestamp: Time.current.iso8601
@@ -211,7 +216,8 @@ module Ai
             usage: usage_data,
             thinking_content: (refusal ? nil : thinking_content.presence),
             refusal: refusal,
-            stream_id: stream_id
+            stream_id: stream_id,
+            content_blocks: (refusal ? nil : Ai::Llm::AnthropicMessages.replay_blocks(blocks))
           )
         rescue Adapters::RequestError => e
           yield Ai::Llm::Chunk.new(type: :error, content: e.message,
@@ -251,6 +257,10 @@ module Ai
             temperature: opts[:temperature], top_p: opts[:top_p],
             surface_reasoning: opts[:surface_reasoning], effort: opts[:effort]
           )
+          # A replayed thinking block whose prefix no longer matches is dropped
+          # rather than 400ing; the binding controls exist on the first-party
+          # API only (Ai::Llm::AnthropicMessages.first_party?).
+          Ai::Llm::AnthropicMessages.bind_thinking!(body, model) if Ai::Llm::AnthropicMessages.first_party?(base_url)
 
           body
         end
@@ -272,39 +282,10 @@ module Ai
           end
         end
 
+        # Shared with the worker client (Ai::Llm::AnthropicMessages.normalize):
+        # a tool-loop turn that thought replays its content_blocks verbatim.
         def normalize_message(msg)
-          role = msg[:role] || msg["role"]
-          content = msg[:content] || msg["content"]
-
-          # Convert tool results from OpenAI format to Anthropic format
-          if role == "tool"
-            return {
-              role: "user",
-              content: [{
-                type: "tool_result",
-                tool_use_id: msg[:tool_call_id] || msg["tool_call_id"],
-                content: content.is_a?(String) ? content : content.to_json
-              }]
-            }
-          end
-
-          # Handle assistant messages with tool_calls (convert to tool_use content blocks)
-          if role == "assistant" && (msg[:tool_calls] || msg["tool_calls"])
-            tool_calls = msg[:tool_calls] || msg["tool_calls"]
-            content_blocks = []
-            content_blocks << { type: "text", text: content } if content.present?
-            tool_calls.each do |tc|
-              content_blocks << {
-                type: "tool_use",
-                id: tc[:id] || tc["id"],
-                name: tc[:name] || tc.dig("function", "name"),
-                input: tc[:arguments] || tc.dig("function", "arguments") || {}
-              }
-            end
-            return { role: "assistant", content: content_blocks }
-          end
-
-          { role: role, content: content }
+          Ai::Llm::AnthropicMessages.normalize(msg)
         end
 
         def build_anthropic_response(parsed, model)
@@ -342,7 +323,8 @@ module Ai
             usage: Ai::Llm::AnthropicMessages.usage(usage),
             thinking_content: (refusal ? nil : thinking.presence),
             refusal: refusal,
-            raw_response: parsed
+            raw_response: parsed,
+            content_blocks: (refusal ? nil : Ai::Llm::AnthropicMessages.replay_blocks(content_blocks))
           )
         end
 

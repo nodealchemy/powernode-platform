@@ -71,6 +71,64 @@ module Ai
         body
       end
 
+      # One OpenAI-style message (roles user/assistant/tool) in Anthropic shape:
+      #   - an assistant turn carrying content_blocks (a tool-loop turn that
+      #     thought) replays them verbatim; this is also the only valid shape for
+      #     a thinking-only turn, whose text content is nil;
+      #   - a tool result becomes a user tool_result block;
+      #   - an assistant turn's tool_calls become tool_use blocks, with string
+      #     arguments parsed, after any text.
+      def normalize(msg)
+        role = (msg[:role] || msg["role"]).to_s
+        content = msg[:content] || msg["content"]
+        replay = role == "assistant" ? (msg[:content_blocks] || msg["content_blocks"]) : nil
+        return { role: "assistant", content: replay } if replay.present?
+        if role == "tool"
+          return { role: "user", content: [ { type: "tool_result", tool_use_id: msg[:tool_call_id] || msg["tool_call_id"],
+                                              content: content.is_a?(String) ? content : content.to_json } ] }
+        end
+        raw = role == "assistant" ? (msg[:tool_calls] || msg["tool_calls"]) : nil
+        return { role: role, content: content } unless raw
+
+        blocks = content.present? ? [ { type: "text", text: content } ] : []
+        raw.each do |tc|
+          name = tc[:name] || tc["name"] || tc.dig(:function, :name) || tc.dig("function", "name")
+          input = tc[:arguments] || tc["arguments"] || tc.dig(:function, :arguments) || tc.dig("function", "arguments") || {}
+          input = JSON.parse(input) if input.is_a?(String)
+          blocks << { type: "tool_use", id: tc[:id] || tc["id"], name: name, input: input }
+        end
+        { role: "assistant", content: blocks }
+      end
+
+      # The thinking binding controls are offered on the first-party API; on
+      # Bedrock and Vertex they arrive per model and Foundry has none, so a
+      # gateway or cloud base_url replays without them.
+      def first_party?(base_url)
+        URI.parse(base_url.to_s).host == "api.anthropic.com"
+      rescue URI::InvalidURIError
+        false
+      end
+
+      # Streamed replay: each content_block_start opens a block (appended to
+      # `blocks`, returned as the current one) and each delta grows it, so the
+      # stream yields the same blocks a plain response carries. The caller sets
+      # a tool_use block's parsed input when the block stops.
+      def start_stream_block(blocks, parsed)
+        block = (parsed["content_block"] || {}).dup
+        blocks << block
+        block
+      end
+
+      def apply_stream_delta(block, delta)
+        return unless block
+
+        case delta["type"]
+        when "text_delta" then block["text"] = block["text"].to_s + delta["text"].to_s
+        when "thinking_delta" then block["thinking"] = block["thinking"].to_s + delta["thinking"].to_s
+        when "signature_delta" then block["signature"] = block["signature"].to_s + delta["signature"].to_s
+        end
+      end
+
       def replays_thinking?(messages)
         Array(messages).any? do |m|
           content = m.is_a?(Hash) ? (m[:content] || m["content"]) : nil

@@ -401,33 +401,11 @@ module Ai
       # and Vertex they arrive per model and Foundry has none, so a gateway or cloud
       # base_url gets the replay without them.
       def anthropic_first_party?
-        URI.parse(@base_url).host == "api.anthropic.com"
-      rescue URI::InvalidURIError
-        false
+        AnthropicMessages.first_party?(@base_url)
       end
 
       def anthropic_normalize_message(msg)
-        role = msg[:role] || msg["role"]
-        content = msg[:content] || msg["content"]
-        # A tool-loop turn that carried thinking replays its own blocks, verbatim.
-        replay = role == "assistant" ? (msg[:content_blocks] || msg["content_blocks"]) : nil
-        return { role: "assistant", content: replay } if replay.present?
-        if role == "tool"
-          return { role: "user", content: [{ type: "tool_result", tool_use_id: msg[:tool_call_id] || msg["tool_call_id"],
-                                             content: content.is_a?(String) ? content : content.to_json }] }
-        end
-        if role == "assistant" && (raw = msg[:tool_calls] || msg["tool_calls"])
-          blocks = []
-          blocks << { type: "text", text: content } if content.present?
-          raw.each do |tc|
-            name = tc[:name] || tc["name"] || tc.dig(:function, :name) || tc.dig("function", "name")
-            input = tc[:arguments] || tc["arguments"] || tc.dig(:function, :arguments) || tc.dig("function", "arguments") || {}
-            input = JSON.parse(input) if input.is_a?(String)
-            blocks << { type: "tool_use", id: tc[:id] || tc["id"], name: name, input: input }
-          end
-          return { role: "assistant", content: blocks }
-        end
-        { role: role, content: content }
+        AnthropicMessages.normalize(msg)
       end
 
       def parse_anthropic_response(parsed, model)
@@ -501,18 +479,17 @@ module Ai
           parse_anthropic_sse(resp) do |evt, p|
             case evt
             when "content_block_start"
-              block = (p["content_block"] || {}).dup
-              blocks << block
+              block = AnthropicMessages.start_stream_block(blocks, p)
               if p.dig("content_block", "type") == "tool_use"
                 cur = { id: p.dig("content_block", "id"), name: p.dig("content_block", "name"), arguments: "" }
                 yield Chunk.new(type: :tool_call_start, tool_call_id: cur[:id], tool_call_name: cur[:name], stream_id: sid, timestamp: ts)
               end
             when "content_block_delta"
               d = p["delta"] || {}
+              AnthropicMessages.apply_stream_delta(block, d)
               case d["type"]
               when "text_delta"
                 acc += d["text"]
-                block["text"] = block["text"].to_s + d["text"].to_s if block
                 yield Chunk.new(type: :content_delta, content: d["text"], stream_id: sid, timestamp: ts)
               when "input_json_delta"
                 if cur
@@ -521,10 +498,7 @@ module Ai
                 end
               when "thinking_delta"
                 think += d["thinking"].to_s
-                block["thinking"] = block["thinking"].to_s + d["thinking"].to_s if block
                 yield Chunk.new(type: :thinking_delta, content: d["thinking"], stream_id: sid, timestamp: ts)
-              when "signature_delta"
-                block["signature"] = block["signature"].to_s + d["signature"].to_s if block
               end
             when "content_block_stop"
               if cur
