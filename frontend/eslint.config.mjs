@@ -173,6 +173,32 @@ export default tseslint.config(
     },
   },
 
+  // Components call the API through a service client, never the raw HTTP
+  // client: a .tsx outside services/ may not import apiClient/api. Each
+  // endpoint family keeps one client (fc-39), which is where envelope
+  // unwrapping lives. The two ignored files are deleted by fc-47
+  // (SelfHealingDashboard) and fc-21 (DailySummariesPanel); drop each entry
+  // with its file.
+  {
+    files: ['**/*.tsx'],
+    ignores: [
+      '**/services/**',
+      '**/*.test.tsx',
+      '**/__tests__/**',
+      '**/tests/**',
+      'src/features/ai/self-healing/SelfHealingDashboard.tsx',
+      'src/features/content/pages/components/DailySummariesPanel.tsx',
+    ],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['@/shared/services/api', '@/shared/services/apiClient', '**/shared/services/api', '**/shared/services/apiClient'],
+          message: 'Call the API through the feature\'s service client (a file under services/ or api/), not apiClient/api directly from a component.',
+        }],
+      }],
+    },
+  },
+
   // Test files - relax rules for testing flexibility
   {
     files: [

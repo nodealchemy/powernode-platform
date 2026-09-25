@@ -1,0 +1,69 @@
+{
+  "families": {
+    "/accounts": [
+      "frontend/src/features/account/services/accountsApi.ts",
+      "frontend/src/features/account/users/services/usersApi.ts",
+      "frontend/src/features/delegations/services/delegationApi.ts"
+    ],
+    "/admin/pages": [
+      "frontend/src/features/content/pages/components/DailySummariesPanel.tsx",
+      "frontend/src/features/content/pages/services/pagesApi.ts"
+    ],
+    "/admin_settings/accounts": [
+      "frontend/src/features/account/users/services/usersApi.ts",
+      "frontend/src/features/admin/services/adminSettingsApi.ts"
+    ],
+    "/ai/agents": [
+      "frontend/src/features/ai/memory/api/contextApi.ts",
+      "frontend/src/features/ai/memory/api/tieredMemoryApi.ts",
+      "frontend/src/shared/services/ai/IntelligenceApiService.ts"
+    ],
+    "/ai/approval_chains": [
+      "frontend/src/shared/hooks/useApprovalChains.ts",
+      "frontend/src/shared/services/ai/GovernanceApiService.ts"
+    ],
+    "/ai/autonomy": [
+      "frontend/src/features/ai/approvals/api/approvalsApi.ts",
+      "frontend/src/features/ai/autonomy/api/autonomyApi.ts",
+      "frontend/src/features/ai/budgets/api/budgetsApi.ts"
+    ],
+    "/ai/governance": [
+      "frontend/src/features/ai/audit/api/auditApi.ts",
+      "frontend/src/shared/services/ai/GovernanceApiService.ts"
+    ],
+    "/ai/missions": [
+      "frontend/src/features/ai/provisioning/services/provisioningApi.ts",
+      "frontend/src/features/missions/api/missionsApi.ts"
+    ],
+    "/ai/teams": [
+      "frontend/src/features/ai/agent-teams/services/agentTeamsApi.ts",
+      "frontend/src/shared/services/ai/TeamsApiService.ts"
+    ],
+    "/auth/verify-2fa": [
+      "frontend/src/features/account/auth/services/authAPI.ts",
+      "frontend/src/shared/services/account/twoFactorApi.ts"
+    ],
+    "/git/providers": [
+      "frontend/src/features/devops/git/services/git/credentialsApi.ts",
+      "frontend/src/features/devops/git/services/git/providersApi.ts",
+      "frontend/src/features/onboarding/services/onboardingApi.ts"
+    ],
+    "/git/repositories": [
+      "frontend/src/features/devops/git/services/git/pipelinesApi.ts",
+      "frontend/src/features/devops/git/services/git/repositoriesApi.ts",
+      "frontend/src/features/devops/git/services/git/schedulesApi.ts"
+    ],
+    "/health": [
+      "frontend/src/features/admin/services/servicesApi.ts",
+      "frontend/src/features/platform/status/api/publicHealthApi.ts"
+    ],
+    "/impersonations": [
+      "frontend/src/features/account/users/services/usersApi.ts",
+      "frontend/src/shared/services/account/impersonationApi.ts"
+    ],
+    "/roles": [
+      "frontend/src/features/account/users/services/usersApi.ts",
+      "frontend/src/features/admin/roles/services/rolesApi.ts"
+    ]
+  }
+}
