@@ -38,10 +38,13 @@ describe('ConversationsApiService concierge/provisioning methods', () => {
     expect(result).toEqual({ id: 'conv-1' });
   });
 
-  it('createConciergeConversation returns null when no concierge agent is configured', async () => {
-    mockPost.mockResolvedValueOnce({ data: { conversation: null } });
-    const result = await conversationsApi.createConciergeConversation();
-    expect(result).toBeNull();
+  // The server 404s (conversations_controller.rb#create_concierge) rather
+  // than resolving 200 with a null conversation when no concierge agent is
+  // configured — this rejects rather than resolving to null.
+  it('createConciergeConversation rejects when no concierge agent is configured', async () => {
+    const notFound = { response: { status: 404, data: { error: 'No concierge agent configured' } } };
+    mockPost.mockRejectedValueOnce(notFound);
+    await expect(conversationsApi.createConciergeConversation()).rejects.toEqual(notFound);
   });
 
   it('createProvisioningConversation posts to /ai/conversations/provisioning with no body when no id is given', async () => {
@@ -59,6 +62,15 @@ describe('ConversationsApiService concierge/provisioning methods', () => {
       { conversation_id: 'conv-3' },
       undefined
     );
+  });
+
+  // The server 404s (conversations_controller.rb#create_provisioning) rather
+  // than resolving 200 with a null conversation when no concierge agent is
+  // configured — this rejects rather than resolving to null.
+  it('createProvisioningConversation rejects when no concierge agent is configured', async () => {
+    const notFound = { response: { status: 404, data: { error: 'No concierge agent configured' } } };
+    mockPost.mockRejectedValueOnce(notFound);
+    await expect(conversationsApi.createProvisioningConversation()).rejects.toEqual(notFound);
   });
 
   it('confirmConciergeAction posts action_type and action_params to /ai/conversations/:id/confirm_action', async () => {

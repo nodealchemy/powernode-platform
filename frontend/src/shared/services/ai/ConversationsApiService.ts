@@ -332,11 +332,12 @@ class ConversationsApiService extends BaseApiService {
    * Resume (or create) the account's concierge conversation.
    * POST /api/v1/ai/conversations/concierge
    *
-   * Returns null when no concierge agent is configured for the account
-   * (a 200 response with a nullish conversation, not an error).
+   * Rejects (404 "No concierge agent configured") when no concierge agent is
+   * configured for the account (conversations_controller.rb#create_concierge)
+   * — it never resolves with a null conversation on 200.
    */
-  async createConciergeConversation(): Promise<ConversationDetail | null> {
-    const response = await this.post<{ conversation: ConversationDetail | null }>(`${this.basePath}/concierge`);
+  async createConciergeConversation(): Promise<ConversationDetail> {
+    const response = await this.post<{ conversation: ConversationDetail }>(`${this.basePath}/concierge`);
     return response.conversation;
   }
 
@@ -345,15 +346,17 @@ class ConversationsApiService extends BaseApiService {
    * POST /api/v1/ai/conversations/provisioning
    *
    * Distinct from createConciergeConversation, which resumes the user's
-   * existing concierge conversation. Returns null when no concierge agent
-   * is configured (a 200 response with a nullish conversation).
+   * existing concierge conversation. Rejects (404 "No concierge agent
+   * configured") when no concierge agent is configured
+   * (conversations_controller.rb#create_provisioning) — it never resolves
+   * with a null conversation on 200.
    *
    * @param conversationId Materializes a previously-pending tab at this id
    *   (a client-generated UUIDv7) instead of letting the server assign one.
    */
-  async createProvisioningConversation(conversationId?: string): Promise<ConversationDetail | null> {
+  async createProvisioningConversation(conversationId?: string): Promise<ConversationDetail> {
     const body = conversationId ? { conversation_id: conversationId } : undefined;
-    const response = await this.post<{ conversation: ConversationDetail | null }>(`${this.basePath}/provisioning`, body);
+    const response = await this.post<{ conversation: ConversationDetail }>(`${this.basePath}/provisioning`, body);
     return response.conversation;
   }
 
