@@ -59,18 +59,7 @@ class Api::V1::EmailSettingsController < ApplicationController
         )
       end
 
-      # Update each setting (handle both provider and email_provider)
-      permitted_params.each do |key, value|
-        # Normalize provider key
-        setting_key = key == "provider" ? "email_provider" : key
-
-        if setting_key.ends_with?("_password") || setting_key.ends_with?("_api_key") || setting_key.ends_with?("_secret_key")
-          # Encrypt sensitive values
-          AdminSetting.set("#{setting_key}_encrypted", encrypt_password(value))
-        else
-          AdminSetting.set(setting_key, value)
-        end
-      end
+      ::Admin::SystemSettings.update_email_settings!(permitted_params)
 
       # Trigger email settings refresh in worker (async operation)
       begin
@@ -132,42 +121,18 @@ class Api::V1::EmailSettingsController < ApplicationController
   private
 
   def fetch_email_settings(reveal_secrets:)
-    smtp_password   = decrypt_password(AdminSetting.get("smtp_password_encrypted", ""))
-    sendgrid_api_key = decrypt_password(AdminSetting.get("sendgrid_api_key_encrypted", ""))
-    ses_secret_key  = decrypt_password(AdminSetting.get("ses_secret_key_encrypted", ""))
-    mailgun_api_key = decrypt_password(AdminSetting.get("mailgun_api_key_encrypted", ""))
+    settings = ::Admin::SystemSettings.email_settings
 
-    {
-      provider: AdminSetting.get("email_provider", "smtp"),
-      smtp_enabled: AdminSetting.get("smtp_enabled", false),
-      smtp_host: AdminSetting.get("smtp_host", ""),
-      smtp_port: AdminSetting.get("smtp_port", 587),
-      smtp_username: AdminSetting.get("smtp_username", ""),
-      smtp_password: secret_field(smtp_password, reveal_secrets),
-      smtp_password_set: smtp_password.present?,
-      smtp_encryption: AdminSetting.get("smtp_encryption", "tls"),
-      smtp_authentication: AdminSetting.get("smtp_authentication", true),
-      smtp_from_address: AdminSetting.get("smtp_from_address", "noreply@powernode.dev"),
-      smtp_from_name: AdminSetting.get("smtp_from_name", "Powernode"),
-      smtp_domain: AdminSetting.get("smtp_domain", "powernode.dev"),
-
-      # Additional provider settings
-      sendgrid_api_key: secret_field(sendgrid_api_key, reveal_secrets),
-      sendgrid_api_key_set: sendgrid_api_key.present?,
-      ses_access_key: AdminSetting.get("ses_access_key", ""),
-      ses_secret_key: secret_field(ses_secret_key, reveal_secrets),
-      ses_secret_key_set: ses_secret_key.present?,
-      ses_region: AdminSetting.get("ses_region", "us-east-1"),
-      mailgun_api_key: secret_field(mailgun_api_key, reveal_secrets),
-      mailgun_api_key_set: mailgun_api_key.present?,
-      mailgun_domain: AdminSetting.get("mailgun_domain", ""),
-
-      # Email behavior settings
-      email_verification_expiry_hours: AdminSetting.email_verification_expiry_hours,
-      password_reset_expiry_hours: AdminSetting.get("password_reset_expiry_hours", 2),
-      max_email_retries: AdminSetting.get("max_email_retries", 3),
-      email_retry_delay_seconds: AdminSetting.get("email_retry_delay_seconds", 60)
-    }
+    settings.merge(
+      smtp_password: secret_field(settings[:smtp_password], reveal_secrets),
+      smtp_password_set: settings[:smtp_password].present?,
+      sendgrid_api_key: secret_field(settings[:sendgrid_api_key], reveal_secrets),
+      sendgrid_api_key_set: settings[:sendgrid_api_key].present?,
+      ses_secret_key: secret_field(settings[:ses_secret_key], reveal_secrets),
+      ses_secret_key_set: settings[:ses_secret_key].present?,
+      mailgun_api_key: secret_field(settings[:mailgun_api_key], reveal_secrets),
+      mailgun_api_key_set: settings[:mailgun_api_key].present?
+    )
   end
 
   # Whether THIS caller may receive the decrypted SMTP password and provider
@@ -221,23 +186,6 @@ class Api::V1::EmailSettingsController < ApplicationController
   # and unverifiable worker identities, never echo the value — return "".
   def secret_field(value, reveal)
     reveal ? value : ""
-  end
-
-  def decrypt_password(encrypted_value)
-    return "" if encrypted_value.blank?
-
-    ::Security::CredentialEncryptionService.decrypt_value(encrypted_value).to_s
-  rescue ::Security::CredentialEncryptionService::DecryptionError
-    # Backward compatibility: values written before encryption was added were
-    # stored as plaintext and cannot be decrypted. Treat them as their literal
-    # value so existing configs keep sending mail until next save re-encrypts.
-    encrypted_value
-  end
-
-  def encrypt_password(value)
-    return "" if value.blank?
-
-    ::Security::CredentialEncryptionService.encrypt_value(value)
   end
 
   def require_admin_permission

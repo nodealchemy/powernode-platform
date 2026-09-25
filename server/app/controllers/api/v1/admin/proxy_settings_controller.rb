@@ -8,7 +8,7 @@ module Api
 
         # GET /api/v1/admin/proxy_settings/url_config
         def url_config
-          config = AdminSetting.reverse_proxy_url_config
+          config = ::Admin::SystemSettings.proxy_url_config
           render_success(config)
         rescue StandardError => e
           Rails.logger.error "Failed to fetch proxy URL config: #{e.message}"
@@ -17,7 +17,7 @@ module Api
 
         # PUT /api/v1/admin/proxy_settings/url_config
         def update_url_config
-          updated_config = AdminSetting.update_reverse_proxy_url_config(proxy_url_params)
+          updated_config = ::Admin::SystemSettings.update_proxy_url_config!(proxy_url_params)
 
           # Create audit log entry
           create_audit_log("proxy_settings.update", {
@@ -37,7 +37,7 @@ module Api
 
           return render_validation_error(host: [ "Host is required" ]) if host.blank?
 
-          validation_result = AdminSetting.validate_proxy_host(host)
+          validation_result = ::Admin::SystemSettings.validate_proxy_host(host)
 
           render_success({
             host: host,
@@ -53,7 +53,7 @@ module Api
         def test_headers
           headers = params[:headers] || {}
 
-          test_result = AdminSetting.test_proxy_headers(headers)
+          test_result = ::Admin::SystemSettings.test_proxy_headers(headers)
 
           render_success(test_result)
         rescue StandardError => e
@@ -77,7 +77,7 @@ module Api
           }.compact
 
           # Generate URLs based on current detection
-          generated_urls = AdminSetting.generate_api_url(proxy_context) if proxy_context.any?
+          generated_urls = ::Admin::SystemSettings.generate_api_url(proxy_context) if proxy_context.any?
 
           render_success({
             proxy_detected: proxy_context.any?,
@@ -113,19 +113,19 @@ module Api
             end
           else
             # Validate standard hostname
-            validation = AdminSetting.validate_proxy_host(pattern)
+            validation = ::Admin::SystemSettings.validate_proxy_host(pattern)
             unless validation[:valid]
               return render_validation_error(pattern: validation[:errors])
             end
           end
 
-          AdminSetting.add_trusted_host(pattern)
+          ::Admin::SystemSettings.add_trusted_host(pattern)
 
           create_audit_log("proxy_settings.add_trusted_host", { pattern: pattern })
 
           render_success({
             pattern: pattern,
-            trusted_hosts: AdminSetting.reverse_proxy_url_config[:trusted_hosts]
+            trusted_hosts: ::Admin::SystemSettings.proxy_url_config[:trusted_hosts]
           }, meta: { message: "Trusted host added successfully" })
         rescue StandardError => e
           Rails.logger.error "Failed to add trusted host: #{e.message}"
@@ -138,13 +138,13 @@ module Api
 
           return render_validation_error(pattern: [ "Pattern is required" ]) if pattern.blank?
 
-          AdminSetting.remove_trusted_host(pattern)
+          ::Admin::SystemSettings.remove_trusted_host(pattern)
 
           create_audit_log("proxy_settings.remove_trusted_host", { pattern: pattern })
 
           render_success({
             pattern: pattern,
-            trusted_hosts: AdminSetting.reverse_proxy_url_config[:trusted_hosts]
+            trusted_hosts: ::Admin::SystemSettings.proxy_url_config[:trusted_hosts]
           }, meta: { message: "Trusted host removed successfully" })
         rescue StandardError => e
           Rails.logger.error "Failed to remove trusted host: #{e.message}"
@@ -159,7 +159,7 @@ module Api
           return render_validation_error(trusted_hosts: [ "Must be an array" ]) unless trusted_hosts.is_a?(Array)
 
           # Get current configuration and validate that all provided hosts exist
-          current_config = AdminSetting.reverse_proxy_url_config
+          current_config = ::Admin::SystemSettings.proxy_url_config
           current_hosts = current_config[:trusted_hosts] || []
 
           # Validate that the provided hosts match the current ones (same set, potentially different order)
@@ -173,7 +173,7 @@ module Api
           end
 
           # Update the configuration with the new order
-          AdminSetting.update_reverse_proxy_url_config(trusted_hosts: trusted_hosts)
+          ::Admin::SystemSettings.update_proxy_url_config!(trusted_hosts: trusted_hosts)
 
           create_audit_log("proxy_settings.reorder_trusted_hosts", {
             old_order: current_hosts,
@@ -199,7 +199,7 @@ module Api
             return render_validation_error(pattern: [ "Invalid wildcard pattern format" ])
           end
 
-          config = AdminSetting.reverse_proxy_url_config
+          config = ::Admin::SystemSettings.proxy_url_config
           current_patterns = config[:multi_tenancy][:wildcard_patterns] || []
 
           if current_patterns.include?(pattern)
@@ -207,7 +207,7 @@ module Api
           end
 
           updated_patterns = current_patterns + [ pattern ]
-          AdminSetting.update_reverse_proxy_url_config(
+          ::Admin::SystemSettings.update_proxy_url_config!(
             multi_tenancy: config[:multi_tenancy].merge(wildcard_patterns: updated_patterns)
           )
 
@@ -228,7 +228,7 @@ module Api
 
           return render_validation_error(pattern: [ "Pattern is required" ]) if pattern.blank?
 
-          config = AdminSetting.reverse_proxy_url_config
+          config = ::Admin::SystemSettings.proxy_url_config
           current_patterns = config[:multi_tenancy][:wildcard_patterns] || []
 
           unless current_patterns.include?(pattern)
@@ -236,7 +236,7 @@ module Api
           end
 
           updated_patterns = current_patterns - [ pattern ]
-          AdminSetting.update_reverse_proxy_url_config(
+          ::Admin::SystemSettings.update_proxy_url_config!(
             multi_tenancy: config[:multi_tenancy].merge(wildcard_patterns: updated_patterns)
           )
 
@@ -258,7 +258,7 @@ module Api
           return render_validation_error(wildcard_patterns: [ "Patterns array is required" ]) if wildcard_patterns.blank?
           return render_validation_error(wildcard_patterns: [ "Must be an array" ]) unless wildcard_patterns.is_a?(Array)
 
-          config = AdminSetting.reverse_proxy_url_config
+          config = ::Admin::SystemSettings.proxy_url_config
           current_patterns = config[:multi_tenancy][:wildcard_patterns] || []
 
           # Validate that the provided patterns match the current ones
@@ -271,7 +271,7 @@ module Api
             )
           end
 
-          AdminSetting.update_reverse_proxy_url_config(
+          ::Admin::SystemSettings.update_proxy_url_config!(
             multi_tenancy: config[:multi_tenancy].merge(wildcard_patterns: wildcard_patterns)
           )
 
@@ -290,7 +290,7 @@ module Api
 
         # GET /api/v1/admin/proxy_settings/export
         def export
-          config = AdminSetting.reverse_proxy_url_config
+          config = ::Admin::SystemSettings.proxy_url_config
 
           render_success(
             data: {
@@ -317,7 +317,7 @@ module Api
           end
 
           # Import configuration
-          updated_config = AdminSetting.update_reverse_proxy_url_config(config_data)
+          updated_config = ::Admin::SystemSettings.update_proxy_url_config!(config_data)
 
           create_audit_log("proxy_settings.import", {
             imported_config: config_data,

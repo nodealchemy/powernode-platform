@@ -140,56 +140,15 @@ module Api
         false
       end
 
+      # Folded into Admin::SystemSettings (fc-38 decision #6): this used to
+      # carry its own copy of the string->bool parsing that
+      # AdminSettingsController#update's writer also had to agree with.
       def registration_enabled?
-        # Check if registration is enabled
-        return true unless defined?(AdminSetting)
-
-        setting = AdminSetting.find_by(key: "registration_enabled")
-        return true unless setting
-
-        # Parse the value - handle string and boolean values
-        value = setting.value
-
-        # Convert to string for comparison if needed
-        value_str = value.to_s.downcase.strip
-
-        case value_str
-        when "false", "0", "no", "off", "disabled"
-          false
-        when "true", "1", "yes", "on", "enabled"
-          true
-        else
-          # Default to true if value is unclear
-          true
-        end
-      rescue StandardError
-        true
+        ::Admin::SystemSettings.registration_enabled?
       end
 
       def email_verification_required?
-        # Check if email verification is required
-        return true unless defined?(AdminSetting)
-
-        setting = AdminSetting.find_by(key: "email_verification_required")
-        return true unless setting
-
-        # Parse the value - handle string and boolean values
-        value = setting.value
-
-        # Convert to string for comparison if needed
-        value_str = value.to_s.downcase.strip
-
-        case value_str
-        when "false", "0", "no", "off", "disabled"
-          false
-        when "true", "1", "yes", "on", "enabled"
-          true
-        else
-          # Default to true if value is unclear
-          true
-        end
-      rescue StandardError
-        true
+        ::Admin::SystemSettings.email_verification_required?
       end
     end
   end
