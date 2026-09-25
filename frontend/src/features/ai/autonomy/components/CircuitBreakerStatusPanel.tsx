@@ -3,6 +3,8 @@ import { Zap, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { EntityLink } from '@/shared/components/entity';
+import { usePermissions } from '@/shared/hooks/usePermissions';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useCircuitBreakers, useResetCircuitBreaker } from '../api/autonomyApi';
 import type { CircuitBreaker } from '../types/autonomy';
 
@@ -12,8 +14,11 @@ const STATE_CONFIG: Record<string, { variant: 'success' | 'warning' | 'default';
   half_open: { variant: 'warning', label: 'Half Open' },
 };
 
-const BreakerRow: React.FC<{ breaker: CircuitBreaker }> = ({ breaker }) => {
-  const resetMutation = useResetCircuitBreaker();
+const BreakerRow: React.FC<{
+  breaker: CircuitBreaker;
+  canReset: boolean;
+  onRequestReset: (breaker: CircuitBreaker) => void;
+}> = ({ breaker, canReset, onRequestReset }) => {
   const stateConfig = STATE_CONFIG[breaker.state] || STATE_CONFIG.closed;
 
   return (
@@ -30,10 +35,9 @@ const BreakerRow: React.FC<{ breaker: CircuitBreaker }> = ({ breaker }) => {
       </div>
       <div className="flex items-center gap-2">
         <Badge variant={stateConfig.variant} size="sm">{stateConfig.label}</Badge>
-        {breaker.state !== 'closed' && (
+        {canReset && breaker.state !== 'closed' && (
           <button
-            onClick={() => resetMutation.mutate(breaker.id)}
-            disabled={resetMutation.isPending}
+            onClick={() => onRequestReset(breaker)}
             className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary hover:text-theme-primary"
             title="Reset circuit breaker"
           >
@@ -45,8 +49,42 @@ const BreakerRow: React.FC<{ breaker: CircuitBreaker }> = ({ breaker }) => {
   );
 };
 
+/**
+ * fc-42 review fix: the reset button used to render whenever the endpoint's
+ * OWN read permission (implicitly, whatever gates this panel's mount) let a
+ * viewer see the panel, but Ai::AutonomyController's reset_circuit_breaker
+ * action requires ai.autonomy.manage — a strictly narrower permission. A
+ * viewer who could see tripped breakers but not reset them saw a button that
+ * 403'd. Gated on ai.autonomy.manage now, matching the endpoint exactly.
+ *
+ * A reset re-admits traffic to a target the breaker tripped BECAUSE it was
+ * failing — the same class of action as the provider breaker's reset
+ * (ProviderCircuitBreakersPanel), which already confirms. This one now does
+ * too, via the shared useConfirmation hook.
+ */
 export const CircuitBreakerStatusPanel: React.FC = () => {
+  const { hasPermission } = usePermissions();
+  const canReset = hasPermission('ai.autonomy.manage');
   const { data: breakers, isLoading } = useCircuitBreakers();
+  const resetMutation = useResetCircuitBreaker();
+  const { confirm, ConfirmationDialog } = useConfirmation();
+
+  const requestReset = (breaker: CircuitBreaker) => {
+    confirm({
+      title: 'Reset Circuit Breaker',
+      message: `This re-admits traffic to ${breaker.agent_name} (${breaker.action_type}), which tripped because it was failing. Reset anyway?`,
+      confirmLabel: 'Reset',
+      variant: 'warning',
+      // .mutate + onSettled, not .mutateAsync: the dialog closes once the
+      // request settles either way, and a failure never becomes an unhandled
+      // rejection from this onClick handler (useConfirmation.handleConfirm
+      // has no catch of its own).
+      onConfirm: () =>
+        new Promise<void>((resolve) => {
+          resetMutation.mutate(breaker.id, { onSettled: () => resolve() });
+        }),
+    });
+  };
 
   if (isLoading) return null;
 
@@ -59,8 +97,12 @@ export const CircuitBreakerStatusPanel: React.FC = () => {
       <CardContent>
         {breakers && breakers.length > 0 ? (
           <div className="space-y-2">
-            {tripped.map(b => <BreakerRow key={b.id} breaker={b} />)}
-            {closed.map(b => <BreakerRow key={b.id} breaker={b} />)}
+            {tripped.map(b => (
+              <BreakerRow key={b.id} breaker={b} canReset={canReset} onRequestReset={requestReset} />
+            ))}
+            {closed.map(b => (
+              <BreakerRow key={b.id} breaker={b} canReset={canReset} onRequestReset={requestReset} />
+            ))}
           </div>
         ) : (
           <div className="py-6 text-center text-theme-tertiary">
@@ -69,6 +111,7 @@ export const CircuitBreakerStatusPanel: React.FC = () => {
           </div>
         )}
       </CardContent>
+      {ConfirmationDialog}
     </Card>
   );
 };

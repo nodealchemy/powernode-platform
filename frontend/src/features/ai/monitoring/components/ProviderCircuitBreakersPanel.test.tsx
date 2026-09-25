@@ -1,12 +1,16 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 let mockAllowed: string[] = [];
 const mockGetProviderCircuitBreakers = jest.fn();
 const mockResetProviderCircuitBreaker = jest.fn();
+const mockAddNotification = jest.fn();
 
 jest.mock('@/shared/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: (p: string) => mockAllowed.includes(p) }),
+}));
+jest.mock('@/shared/hooks/useNotifications', () => ({
+  useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 jest.mock('@/shared/services/ai/MonitoringApiService', () => ({
   monitoringApi: {
@@ -45,6 +49,7 @@ describe('ProviderCircuitBreakersPanel', () => {
     mockAllowed = ['ai.monitoring.read', 'ai.monitoring.manage'];
     mockGetProviderCircuitBreakers.mockReset();
     mockResetProviderCircuitBreaker.mockReset();
+    mockAddNotification.mockClear();
   });
 
   it('shows an empty state when no provider breakers are registered', async () => {
@@ -69,7 +74,7 @@ describe('ProviderCircuitBreakersPanel', () => {
   // Mutant proof: a version that reset the WRONG breaker (e.g. always the
   // first in the list) would pass a superficial "reset button works" test.
   // Asserting the exact service_name argument catches that.
-  it('resets the breaker whose row was clicked, not just any tripped breaker', async () => {
+  it('confirms, then resets the breaker whose row was clicked — not just any tripped breaker', async () => {
     mockGetProviderCircuitBreakers.mockResolvedValue([
       breaker({ service_name: 'anthropic', state: 'open' }),
       breaker({ service_name: 'openai', state: 'open' }),
@@ -83,8 +88,43 @@ describe('ProviderCircuitBreakersPanel', () => {
     expect(openaiButton).toBeTruthy();
 
     fireEvent.click(openaiButton!);
+    const dialog = await screen.findByRole('dialog');
+    expect(mockResetProviderCircuitBreaker).not.toHaveBeenCalled();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: /reset/i }));
+
     await waitFor(() => expect(mockResetProviderCircuitBreaker).toHaveBeenCalledWith('openai'));
     expect(mockResetProviderCircuitBreaker).not.toHaveBeenCalledWith('anthropic');
+  });
+
+  it('cancelling the confirmation never calls reset', async () => {
+    mockGetProviderCircuitBreakers.mockResolvedValue([breaker({ service_name: 'openai', state: 'open' })]);
+    renderPanel();
+
+    await screen.findByText('openai');
+    fireEvent.click(screen.getByTitle(/Reset .* circuit breaker/));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /cancel/i }));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(mockResetProviderCircuitBreaker).not.toHaveBeenCalled();
+  });
+
+  it('shows a toast when the reset fails', async () => {
+    mockGetProviderCircuitBreakers.mockResolvedValue([breaker({ service_name: 'openai', state: 'open' })]);
+    mockResetProviderCircuitBreaker.mockRejectedValue(new Error('Reset failed: service unavailable'));
+    renderPanel();
+
+    await screen.findByText('openai');
+    fireEvent.click(screen.getByTitle(/Reset .* circuit breaker/));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /reset/i }));
+
+    await waitFor(() =>
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', message: 'Reset failed: service unavailable' }),
+      ),
+    );
   });
 
   it('offers no reset button on a closed breaker', async () => {
@@ -103,5 +143,30 @@ describe('ProviderCircuitBreakersPanel', () => {
     renderPanel();
     await screen.findByText('openai');
     expect(screen.queryByTitle(/Reset .* circuit breaker/)).not.toBeInTheDocument();
+  });
+
+  // fc-42 review fix: a fetch failure (403, 500, network) used to fall through
+  // to the same "No provider circuit breakers registered" empty state as a
+  // genuinely empty, successful response — indistinguishable to the viewer.
+  describe('when the fetch fails', () => {
+    it('shows an error message, not the empty-state copy', async () => {
+      mockGetProviderCircuitBreakers.mockRejectedValue(new Error('Forbidden'));
+      renderPanel();
+
+      expect(await screen.findByText('Forbidden')).toBeInTheDocument();
+      expect(screen.queryByText('No provider circuit breakers registered')).not.toBeInTheDocument();
+    });
+
+    it('retries the fetch when Try Again is clicked', async () => {
+      mockGetProviderCircuitBreakers.mockRejectedValueOnce(new Error('Forbidden'));
+      mockGetProviderCircuitBreakers.mockResolvedValue([breaker({ service_name: 'openai', state: 'closed' })]);
+      renderPanel();
+
+      await screen.findByText('Forbidden');
+      fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+      await waitFor(() => expect(screen.getByText('openai')).toBeInTheDocument());
+      expect(screen.queryByText('Forbidden')).not.toBeInTheDocument();
+    });
   });
 });
