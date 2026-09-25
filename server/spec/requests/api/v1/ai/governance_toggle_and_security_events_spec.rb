@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# The Control → Policies → Compliance tab toggles a compliance policy on and
+# The Control → Policies → Compliance rules tab toggles a compliance policy on and
 # off and lists the account's security events (the audit client has called
 # both since it was written; neither existed). A toggle is a policy change, so
 # it is gated on ai.governance.manage and leaves an audit entry; the list is a

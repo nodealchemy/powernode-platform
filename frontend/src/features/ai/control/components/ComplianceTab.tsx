@@ -25,7 +25,7 @@ const Section: React.FC<{ title: string; action?: React.ReactNode; children: Rea
 );
 
 /**
- * Control → Policies → Compliance: compliance policies (toggle, create), the
+ * Control → Policies → Compliance rules: compliance policies (toggle, create), the
  * violations they raise (resolve) and the account's security events. Reads
  * need ai.governance.read (the route's gate); every write is offered only to
  * ai.governance.manage holders, the permission GovernanceController checks.

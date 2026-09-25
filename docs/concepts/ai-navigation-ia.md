@@ -49,7 +49,7 @@ Governance page, the Approval Chains page and the standalone Budgets page. One
 every leaf and tab is gated on the permission its endpoints check:
 
 - **Approvals** — queue (`?request=<id>` opens one) · proposals · escalations · approval chains.
-- **Policies** — intervention · compliance (compliance policies with toggle and create, their
+- **Policies** — intervention · compliance rules (compliance policies with toggle and create, their
   violations with resolve, and the account's security events).
 - **Budgets** — `BudgetsPanel` (single view).
 - **Safety** — kill switch · identities & quarantine · shadow mode · autonomy telemetry.

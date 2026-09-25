@@ -70,7 +70,7 @@ const LEAVES: ControlLeafSpec[] = [
     key: 'policies', label: 'Policies', permission: '', icon: <ScrollText size={16} />,
     tabs: [
       { key: 'intervention', label: 'Intervention', permission: 'ai.intervention_policies.manage', element: <InterventionPoliciesPanel /> },
-      { key: 'compliance', label: 'Compliance', permission: 'ai.governance.read', element: <ComplianceTab /> },
+      { key: 'compliance-rules', label: 'Compliance rules', permission: 'ai.governance.read', element: <ComplianceTab /> },
     ],
   },
   { key: 'budgets', label: 'Budgets', permission: 'ai.agents.read', icon: <Wallet size={16} />, element: <BudgetsPanel /> },

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@/test-utils';
 import { ComplianceTab } from './ComplianceTab';
 
-// Control → Policies → Compliance: compliance policies (toggle), their
+// Control → Policies → Compliance rules: compliance policies (toggle), their
 // violations (resolve) and the account's security events, over the real audit
 // client against the payloads GovernanceController actually renders — each
 // list wrapped as { <name>: [...], pagination } inside the success envelope.

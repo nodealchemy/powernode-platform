@@ -109,7 +109,7 @@ describe('ControlPage — seven leaves on one rail', () => {
     ['/app/ai/control/approvals/escalations', 'escalations'],
     ['/app/ai/control/approvals/chains', 'approval-chains'],
     ['/app/ai/control/policies/intervention', 'intervention-policies'],
-    ['/app/ai/control/policies/compliance', 'compliance'],
+    ['/app/ai/control/policies/compliance-rules', 'compliance'],
     ['/app/ai/control/budgets', 'budgets'],
     ['/app/ai/control/safety/kill-switch', 'kill-switch'],
     ['/app/ai/control/safety/identities', 'identities'],
@@ -128,6 +128,13 @@ describe('ControlPage — seven leaves on one rail', () => {
     renderAt(path);
     expect(screen.getByTestId(testId)).toBeInTheDocument();
     expect(currentPath).toBe(path);
+  });
+
+  it('labels the Policies tabs so compliance rules are not mistaken for the Compliance Audit leaf', () => {
+    renderAt('/app/ai/control/policies/intervention');
+    const tabs = screen.getAllByRole('link').map((l) => l.textContent?.trim());
+    expect(tabs).toEqual(expect.arrayContaining(['Intervention', 'Compliance rules']));
+    expect(tabs).not.toContain('Compliance');
   });
 
   it('opens a leaf with sub-tabs on its first tab', () => {
@@ -171,7 +178,7 @@ describe('ControlPage — gated on what each leaf\'s endpoints check', () => {
     renderAt('/app/ai/control');
 
     expect(railLabels()).toEqual(['Policies', 'Compliance Audit']);
-    expect(currentPath).toBe('/app/ai/control/policies/compliance');
+    expect(currentPath).toBe('/app/ai/control/policies/compliance-rules');
     expect(screen.queryByText('Intervention')).not.toBeInTheDocument();
   });
 
