@@ -60,9 +60,36 @@ class Account::Termination < ApplicationRecord
           export_type: "full"
         )
         termination.update!(data_export_request: export_request)
+        queue_export_job(export_request.id)
       end
 
       termination
+    end
+
+    # IMP-0310a1351dab: DataExportRequestsController#create is the ONLY other
+    # writer of a DataManagement::ExportRequest, and it queues
+    # Compliance::DataExportJob right after saving (queue_worker_export_job).
+    # This class method bypasses that controller entirely (it saves the
+    # export request directly via ActiveRecord), so an export requested
+    # alongside a termination never got its job queued — it sat "pending"
+    # forever. That is not merely inert: the termination job now REFUSES to
+    # delete an account's data while its own requested export has not yet
+    # reached a terminal state (see
+    # Compliance::AccountTerminationJob#export_ready_for_deletion?), so a
+    # never-queued export would have meant the termination could never
+    # complete either, silently, for the lifetime of the account.
+    #
+    # Failure here must not block account termination itself (the same
+    # judgment call DataExportRequestsController#queue_worker_export_job
+    # already makes) — logged, not raised. A permanently-unqueued export
+    # would still stall the termination (per the guard above), which is
+    # visible in the termination's own log/status rather than silently
+    # losing the termination request.
+    def self.queue_export_job(export_request_id)
+      WorkerApiClient.new.queue_job("Compliance::DataExportJob", [ export_request_id ], queue: "compliance")
+    rescue WorkerApiClient::ApiError => e
+      Rails.logger.error "[Account::Termination] Failed to queue Compliance::DataExportJob " \
+                          "for #{export_request_id}: #{e.message}"
     end
 
     # Instance methods

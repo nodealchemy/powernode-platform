@@ -134,6 +134,55 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
                          account_id: @termination.account_id, from_status: previous_status, to_status: requested_status)
     end
 
+    # IMP-0310a1351dab review round 3+4, item 3: 'export_delivery_parked' is
+    # the one termination_log event that must ALSO leave a durable,
+    # queryable AuditLog row AND page an operator — every other
+    # termination_log_append event is routine progress, but this one means
+    # AccountTerminationJob has given up automating this account's deletion
+    # and needs a human to look at it. Checked against the RAW request
+    # params (not `termination_update_attrs`, which has already spliced the
+    # new entries into the whole stored array by this point) so this only
+    # fires for entries THIS request just wrote, never re-fires for one
+    # already persisted from an earlier request.
+    #
+    # Round 4 fix: the worker used to POST this alert itself, through
+    # Api::V1::Internal::NotificationsController#send_notification — a
+    # no-op. That action resolves recipients from `params[:user_ids]`, the
+    # worker's payload carried only `account_id`, the id list compacted to
+    # `[]`, and `Notification.create` (not `create!`) silently dropped
+    # nothing because nothing was ever attempted. The sibling
+    # `security_alert` action (same controller) is not a fix either — it
+    # can create a `Notification` with `user_id: nil`, but `Notification`
+    # declares `belongs_to :user` (required by default), so that write
+    # would itself fail validation; no operator could ever see a row that
+    # can't exist. `SecurityAlertService` is the seam that actually works
+    # end-to-end today (Audit::LoggingService#send_alert already uses it for
+    # exactly this kind of platform-ops signal) — it resolves real
+    # recipients by permission and delivers through the EmailDelivery
+    # ledger + WorkerJobService, not through the Notification model at all.
+    # Firing it HERE (server-side, in the same request the worker already
+    # makes to persist the park) needs no new worker->server call: the
+    # existing PATCH is the trigger.
+    #
+    # `account: nil` (system-wide, system.admin recipients) rather than
+    # this termination's own account: a data export that has failed
+    # generation repeatedly and can't be auto-recovered is a platform
+    # infrastructure problem (a bad dependency the export gatherer calls,
+    # bad data, etc.) — not something the terminating account's own
+    # users.manage admin has any way to act on.
+    if (params[:termination_log_append] || []).any? { |entry| entry[:event].to_s == "export_delivery_parked" }
+      log_internal_audit("account_termination.export_delivery_parked", "Account::Termination", @termination.id,
+                         account_id: @termination.account_id)
+
+      SecurityAlertService.send_alert(
+        title: "Data export delivery parked for account termination",
+        message: "Account termination #{@termination.id} (account #{@termination.account_id}) has a " \
+                 "data export that failed repeatedly and could not be auto-recovered. The account's " \
+                 "deletion cannot proceed until this is resolved.",
+        severity: "critical"
+      )
+    end
+
     render_success(data: termination_data(@termination))
   rescue ActiveRecord::RecordInvalid
     render_validation_error(@termination)
@@ -224,11 +273,29 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
   # produce (`"reminder_#{reminder_type}_sent"` for reminder_type in
   # 7_days/3_days/1_day) — listed literally rather than pattern-matched, so a
   # similar-but-forged name (e.g. `reminder_2_days_sent`) is still rejected.
+  # IMP-0310a1351dab: 'export_pending_deferred' is the job's pre-deletion
+  # gate (AccountTerminationJob#export_ready_for_deletion?) — written every
+  # time deletion is deferred because the termination's own requested export
+  # has not yet reached a terminal state (review round 2, item 4: previously
+  # written only when reverting a resumed-stranded 'processing' row, which
+  # under-counted deferrals of a row that never left 'grace_period').
+  # 'export_stalled_warning' is written at most once per termination, after
+  # AccountTerminationJob::EXPORT_STALL_WARNING_DEFERRAL_COUNT deferrals — a
+  # signal for an operator, not a routine event. 'export_deletion_deferred'
+  # is written by delete_account_records when the accounts#data_export_requests
+  # DELETE call itself reports it deferred a row (belt-and-suspenders: by the
+  # time that call runs, export_ready_for_deletion? has already gated on the
+  # same export, so this should be rare in practice). 'export_delivery_parked'
+  # (operator ruling 2026-09-24) is written at most once per termination once
+  # a failed export has exhausted AccountTerminationJob::EXPORT_DELIVERY_RETRY_LIMIT
+  # reset-and-retry attempts — the job stops automating recovery at that
+  # point and this is the record that it did.
   JOB_TERMINATION_LOG_EVENTS = %w[
     deleted_consents deleted_terms_acceptances anonymized_audit_logs anonymized_user
     deleted_files deleted_api_keys deleted_webhooks deleted_export_requests
     deleted_deletion_requests subscription_anonymize_skipped error
-    files_erasure_skipped
+    files_erasure_skipped export_pending_deferred export_stalled_warning
+    export_deletion_deferred export_delivery_parked
     reminder_7_days_sent reminder_3_days_sent reminder_1_day_sent
   ].freeze
 
@@ -278,7 +345,14 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
       requested_at: termination.requested_at,
       created_at: termination.created_at,
       updated_at: termination.updated_at,
-      termination_log: termination.termination_log
+      termination_log: termination.termination_log,
+      # IMP-0310a1351dab: was missing entirely, the same shape as BLOCKER 2
+      # above — the job needs this to decide whether it must wait for a
+      # requested export to be delivered before deleting this account's
+      # data (AccountTerminationJob#export_ready_for_deletion?); with it
+      # silently absent every termination looked export-free regardless of
+      # whether Account::Termination.initiate had actually set it.
+      data_export_request_id: termination.data_export_request_id
     }
   end
 end

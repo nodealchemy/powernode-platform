@@ -27,6 +27,20 @@ RSpec.describe Compliance::DataExportJob, type: :job do
     }
   end
 
+  # IMP-0310a1351dab BLOCKER: Api::V1::Internal::DataExportRequestsController
+  # nests the record under `data.data_export_request` (see
+  # DataExportRequestsController#show -> serialize_request, and the matching
+  # producer-side contract spec in
+  # server/spec/requests/api/v1/internal/data_export_requests_spec.rb). Every
+  # `'data' => export_request_data` stub in this file used to be FLAT — the
+  # same shape the real job had drifted to reading — so this suite exercised
+  # a shape the actual endpoint never returns, and could not have caught the
+  # job's own bug. Wrapped via this helper so every stub in the file stays in
+  # sync with the one real shape.
+  def export_response(data)
+    { 'success' => true, 'data' => { 'data_export_request' => data } }
+  end
+
   before do
     mock_powernode_worker_config
     Sidekiq::Testing.fake!
@@ -52,14 +66,13 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       allow(job).to receive(:log_info)
       allow(job).to receive(:log_error)
       allow(job).to receive(:log_warn)
-      allow(SecureRandom).to receive(:urlsafe_base64).and_return('test_download_token')
     end
 
     context 'when export request is pending' do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return('success' => true, 'data' => export_request_data)
+          .and_return(export_response(export_request_data))
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/users/#{user_id}/export/profile", {})
           .and_return('success' => true, 'data' => { 'name' => 'Test User', 'email' => 'test@example.com' })
@@ -71,8 +84,15 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/accounts/#{account_id}/export/payments", {})
           .and_return('success' => true, 'data' => [{ 'amount' => 99.99, 'date' => '2024-01-01' }])
-        allow(api_client).to receive(:patch).and_return(success: true)
-        allow(api_client).to receive(:post).and_return(success: true)
+        # IMP-0310a1351dab: was `success: true` (symbol key) — BackendApiClient
+        # returns a STRING-keyed body verbatim, so this job's own
+        # `unless start_response['success']` (added by this fix) would have
+        # read nil against a symbol-keyed stub and raised on every example in
+        # this file, for a reason having nothing to do with what each example
+        # actually tests. See account_termination_job_spec.rb's own header
+        # note on the identical class of defect.
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:post).and_return('success' => true)
       end
 
       it 'fetches the export request from API' do
@@ -82,11 +102,15 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         job.execute(export_request_id)
       end
 
-      it 'updates status to processing' do
+      # IMP-0310a1351dab: was `hash_including(status: 'processing')` — the
+      # controller dispatches on `action_type`, not a bare `status:` payload
+      # (DataExportRequestsController#update); a bare status write falls
+      # through to the generic branch, which only permits `metadata:`.
+      it 'starts the export via action_type: start' do
         expect(api_client).to receive(:patch)
           .with(
             "/api/v1/internal/data_export_requests/#{export_request_id}",
-            hash_including(status: 'processing')
+            hash_including(action_type: 'start')
           )
 
         job.execute(export_request_id)
@@ -103,14 +127,16 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         job.execute(export_request_id)
       end
 
-      it 'marks request as completed with file info' do
+      # IMP-0310a1351dab: was `hash_including(status: 'completed',
+      # download_token: 'test_download_token')` — action_type: 'complete' is
+      # the real dispatch, and complete_export generates its OWN
+      # download_token server-side (ignoring any the caller sends), so this
+      # job no longer sends one at all.
+      it 'marks request as completed with file info via action_type: complete' do
         expect(api_client).to receive(:patch)
           .with(
             "/api/v1/internal/data_export_requests/#{export_request_id}",
-            hash_including(
-              status: 'completed',
-              download_token: 'test_download_token'
-            )
+            hash_including(action_type: 'complete', file_path: anything, file_size_bytes: anything)
           )
 
         job.execute(export_request_id)
@@ -174,7 +200,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return('success' => true, 'data' => mixed_request)
+          .and_return(export_response(mixed_request))
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/accounts/#{account_id}/export/files", { user_id: user_id })
           .and_return('success' => true, 'data' => [{ 'id' => 'f1' }], 'meta' => { 'count' => 1 })
@@ -182,8 +208,8 @@ RSpec.describe Compliance::DataExportJob, type: :job do
           .with("/api/v1/internal/accounts/#{account_id}/export/invoices", {})
           .and_return('success' => true, 'data' => [],
                       'meta' => { 'available' => false, 'reason' => 'no_export_provider_installed' })
-        allow(api_client).to receive(:patch).and_return(success: true)
-        allow(api_client).to receive(:post).and_return(success: true)
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:post).and_return('success' => true)
       end
 
       it 'marks an unavailable provider and a withdrawn type in the manifest, not as empty exports' do
@@ -218,7 +244,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return('success' => true, 'data' => completed_request)
+          .and_return(export_response(completed_request))
       end
 
       it 'skips processing' do
@@ -242,6 +268,25 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       end
     end
 
+    # IMP-0310a1351dab: the fetch succeeding but the record missing at the
+    # expected nested path (a malformed/regressed response shape) is a
+    # DIFFERENT failure than a non-2xx fetch — must not silently proceed with
+    # a nil export_request (NoMethodError on `export_request['status']` deep
+    # inside gather_export_data, several stack frames away from the real
+    # cause) nor silently skip as if merely "not pending".
+    context 'when the response is missing the nested data_export_request' do
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_export_requests/#{export_request_id}")
+          .and_return('success' => true, 'data' => {})
+      end
+
+      it 'raises a clear error rather than proceeding with a nil export request' do
+        expect { job.execute(export_request_id) }
+          .to raise_error(/Malformed response fetching export request/)
+      end
+    end
+
     context 'when data gathering fails' do
       # Use a simpler approach: test with a single data type that will fail
       let(:single_type_request) do
@@ -251,9 +296,9 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return('success' => true, 'data' => single_type_request)
-        allow(api_client).to receive(:patch).and_return(success: true)
-        allow(api_client).to receive(:post).and_return(success: true)
+          .and_return(export_response(single_type_request))
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:post).and_return('success' => true)
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/users/#{user_id}/export/profile", {})
           .and_raise(StandardError, 'API error')
@@ -270,18 +315,18 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return('success' => true, 'data' => export_request_data)
-        allow(api_client).to receive(:patch).and_return(success: true)
+          .and_return(export_response(export_request_data))
+        allow(api_client).to receive(:patch).and_return('success' => true)
         allow(job).to receive(:gather_export_data).and_return({ test: 'data' })
         allow(job).to receive(:write_export_file).and_raise(StandardError, 'Write failed')
       end
 
-      it 'marks request as failed' do
-        # First patch is status: processing, second should be status: failed
+      # IMP-0310a1351dab: was `hash_including(status: 'failed', ...)`.
+      it 'marks request as failed via action_type: fail' do
         expect(api_client).to receive(:patch)
           .with(
             "/api/v1/internal/data_export_requests/#{export_request_id}",
-            hash_including(status: 'failed', error_message: 'Write failed')
+            hash_including(action_type: 'fail', error_message: 'Write failed')
           )
 
         expect { job.execute(export_request_id) }.to raise_error(StandardError, 'Write failed')
@@ -295,27 +340,27 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         # Stub API responses - order matters, specific before general
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return('success' => true, 'data' => csv_request)
+          .and_return(export_response(csv_request))
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/users/#{user_id}/export/profile", {})
           .and_return('success' => true, 'data' => { 'name' => 'Test', 'email' => 'test@example.com' })
-        allow(api_client).to receive(:patch).and_return(success: true)
-        allow(api_client).to receive(:post).and_return(success: true)
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:post).and_return('success' => true)
         # Stub file writing to avoid dependency on zip gem
         allow(job).to receive(:write_export_file).and_return(['/tmp/test_export.csv', 1024])
       end
 
       it 'generates export in CSV format' do
-        # Status: processing first, then completed
+        # start, then complete
         expect(api_client).to receive(:patch)
           .with(
             "/api/v1/internal/data_export_requests/#{export_request_id}",
-            hash_including(status: 'processing')
+            hash_including(action_type: 'start')
           ).ordered
         expect(api_client).to receive(:patch)
           .with(
             "/api/v1/internal/data_export_requests/#{export_request_id}",
-            hash_including(status: 'completed')
+            hash_including(action_type: 'complete')
           ).ordered
 
         job.execute(export_request_id)
@@ -341,9 +386,9 @@ RSpec.describe Compliance::DataExportJob, type: :job do
           .and_return('success' => true, 'data' => {})
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
-          .and_return('success' => true, 'data' => request_with_exclusions)
-        allow(api_client).to receive(:patch).and_return(success: true)
-        allow(api_client).to receive(:post).and_return(success: true)
+          .and_return(export_response(request_with_exclusions))
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:post).and_return('success' => true)
       end
 
       it 'excludes specified data types' do

@@ -152,6 +152,68 @@ RSpec.describe 'Api::V1::Privacy', type: :request do
         expect_error_response('Export is not available for download')
       end
     end
+
+    # IMP-0310a1351dab review round 3, item 2: `downloadable?` checks the RAW
+    # file_path (a file can genuinely exist there), so a file OUTSIDE the
+    # allowed exports directory can still pass it and reach the separate
+    # path-containment check, which 403s. record_download! must not have
+    # already fired by the time that happens — a rejected download must
+    # never count as "delivered" for the GDPR deletion gate
+    # (DataManagement::ExportRequest#delivered_for_deletion? reads
+    # downloaded_at).
+    context 'when the file exists but outside the allowed exports directory' do
+      let(:outside_file_path) { Rails.root.join('tmp', 'not_data_exports', 'test_export.json').to_s }
+      let(:export_request) do
+        create(:data_management_export_request,
+               user: user,
+               account: account,
+               status: 'completed',
+               file_path: outside_file_path,
+               download_token: 'test-token',
+               download_token_expires_at: 7.days.from_now)
+      end
+
+      before do
+        FileUtils.mkdir_p(Rails.root.join('tmp', 'not_data_exports'))
+        File.write(outside_file_path, '{"test": "data"}')
+      end
+
+      after do
+        File.delete(outside_file_path) if File.exist?(outside_file_path)
+      end
+
+      it 'returns forbidden and does not record a download' do
+        get "/api/v1/privacy/exports/#{export_request.id}/download?token=test-token",
+            headers: headers
+
+        expect(response).to have_http_status(:forbidden)
+        expect(export_request.reload.downloaded_at).to be_nil
+      end
+    end
+
+    # Belt-and-suspenders on the RE-CHECK this fix added (post path
+    # validation) — `downloadable?` already covers the common "file
+    # genuinely missing" case via its own file_exists?, so this mostly pins
+    # that the added check doesn't itself misbehave when the containment
+    # check passes but the file is gone.
+    context 'when the record says completed but the file is missing on disk' do
+      let(:export_request) do
+        create(:data_management_export_request,
+               user: user,
+               account: account,
+               status: 'completed',
+               file_path: Rails.root.join('tmp', 'data_exports', 'never_written.json').to_s,
+               download_token: 'test-token',
+               download_token_expires_at: 7.days.from_now)
+      end
+
+      it 'does not record a download' do
+        get "/api/v1/privacy/exports/#{export_request.id}/download?token=test-token",
+            headers: headers
+
+        expect(export_request.reload.downloaded_at).to be_nil
+      end
+    end
   end
 
   describe 'POST /api/v1/privacy/deletion' do

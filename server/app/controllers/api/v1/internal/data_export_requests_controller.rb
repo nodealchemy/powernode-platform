@@ -37,6 +37,8 @@ module Api
             fail_export
           when "expire"
             expire_export
+          when "retry"
+            retry_export
           else
             if @export_request.update(export_request_update_params)
               render_success({ data_export_request: serialize_request(@export_request) })
@@ -133,25 +135,75 @@ module Api
             return render_error("Export is not processing", status: :unprocessable_content)
           end
 
+          # IMP-0310a1351dab review round 4, item 4 (LOW, but introduced by
+          # this fix's own bounded retry): this action is now reachable up
+          # to EXPORT_DELIVERY_RETRY_LIMIT + 1 times for the SAME export
+          # (Compliance::AccountTerminationJob's handle_failed_export!/
+          # handle_stale_processing_export! reset-and-retry loop routes every
+          # subsequent failure back through this same action) — captured
+          # BEFORE the update below, since `retry_export` is what increments
+          # `delivery_retry_count`, and this action always runs strictly
+          # AFTER whichever retry preceded it.
+          first_failure = (@export_request.metadata || {})["delivery_retry_count"].to_i.zero?
+
           @export_request.update!(
             status: "failed",
             error_message: params[:error_message],
             completed_at: Time.current
           )
 
-          # Send failure notification
-          NotificationService.send_email(
-            template: "data_export_failed",
-            user_id: @export_request.user_id,
-            data: {
-              request_id: @export_request.id,
-              error: "We encountered an issue generating your data export. Please try again or contact support."
-            }
-          )
+          # Only the FIRST failure notifies the user — from their side this
+          # is still one outstanding request; up to EXPORT_DELIVERY_RETRY_LIMIT
+          # additional "your export failed" emails while this job retries
+          # internally would be noise, not a status update they can act on.
+          if first_failure
+            NotificationService.send_email(
+              template: "data_export_failed",
+              user_id: @export_request.user_id,
+              data: {
+                request_id: @export_request.id,
+                error: "We encountered an issue generating your data export. Please try again or contact support."
+              }
+            )
+          end
 
           render_success(
             { data_export_request: serialize_request(@export_request) },
             message: "Export marked as failed"
+          )
+        end
+
+        # IMP-0310a1351dab review round 2, item 6 (operator ruling 2026-09-24):
+        # a 'failed' export is never treated as delivered-for-deletion — it
+        # has delivered nothing. Compliance::AccountTerminationJob resets it
+        # back to 'pending' and re-queues Compliance::DataExportJob through
+        # this action, up to its own bounded attempt count (tracked in
+        # metadata, read back off this same response so the worker's retry
+        # limit survives worker restarts and reruns across sweeps rather
+        # than being counted in-process). error_message/processing_started_at
+        # are cleared so a stale error/timestamp from the prior attempt does
+        # not leak into the retried run.
+        def retry_export
+          unless @export_request.failed?
+            return render_error("Export is not failed", status: :unprocessable_content)
+          end
+
+          retry_count = (@export_request.metadata || {})["delivery_retry_count"].to_i + 1
+
+          @export_request.update!(
+            status: "pending",
+            error_message: nil,
+            processing_started_at: nil,
+            metadata: (@export_request.metadata || {}).merge("delivery_retry_count" => retry_count)
+          )
+
+          # include_details: true (unlike the other action_type branches
+          # above) so the caller can read `metadata.delivery_retry_count`
+          # back off this same response, rather than needing a second GET
+          # just to learn the attempt count it just wrote.
+          render_success(
+            { data_export_request: serialize_request(@export_request, include_details: true) },
+            message: "Export reset for retry (attempt #{retry_count})"
           )
         end
 
@@ -202,6 +254,14 @@ module Api
             data[:file_size_bytes] = request.file_size_bytes
             data[:error_message] = request.error_message
             data[:metadata] = request.metadata
+            # IMP-0310a1351dab: the ONE field the worker's pre-deletion gate
+            # (Compliance::AccountTerminationJob#export_ready_for_deletion?)
+            # reads to decide whether it may proceed — computed from
+            # DataManagement::ExportRequest#delivered_for_deletion?, the
+            # single place that policy lives (operator ruling 2026-09-24:
+            # delivered = downloaded, or download window elapsed unused).
+            # The worker does not (and must not) re-derive that rule itself.
+            data[:delivered_for_deletion] = request.delivered_for_deletion?
           end
 
           data

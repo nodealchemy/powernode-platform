@@ -304,12 +304,195 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         delete "/api/v1/internal/accounts/#{account.id}/data_export_requests", headers: internal_headers, as: :json
 
         expect_success_response
-        data = json_response_data
-
-        expect(data['message']).to include('Deleted')
+        # `message` is a sibling of `data` in the envelope (ApiResponse#render_success
+        # sets response[:message] independently of response[:data]), and
+        # json_response_data already unwraps to the `data` payload — so `message`
+        # is read off the full envelope, not off the unwrapped data hash.
+        expect(json_response['message']).to include('Deleted')
         expect(
           AuditLog.exists?(account_id: account.id, action: 'account.delete_data_export_requests')
         ).to be true
+      end
+    end
+
+    # IMP-0310a1351dab: account_terminations.data_export_request_id (set by
+    # Account::Termination.initiate whenever request_data_export: true is
+    # honoured) has no on_delete — a bare `.delete_all` on the referenced
+    # export request raised ActiveRecord::InvalidForeignKey for EVERY such
+    # termination, and did so on every retry, forever (the export request
+    # was never actually deleted, so the next sweep hit the identical crash).
+    context 'when an export request is referenced by an account termination (own_export_request_id passed)' do
+      # Operator ruling 2026-09-24: delivered = downloaded, or download
+      # window elapsed unused. The base fixture here uses the `:downloaded`
+      # trait (actually retrieved) so the top-level "deletes it" examples
+      # below exercise the DELIVERED case; a merely `:completed` export with
+      # an open window and no download is its own dedicated context further
+      # down, since that is now explicitly NOT resolved.
+      let(:export_request) { create(:data_management_export_request, :downloaded, account: account, user: owner) }
+      let!(:termination) do
+        Account::Termination.create!(
+          account: account, status: 'grace_period', requested_at: 31.days.ago,
+          grace_period_ends_at: 1.day.ago, data_export_request: export_request
+        )
+      end
+
+      def delete_own_export_requests(own_id)
+        delete "/api/v1/internal/accounts/#{account.id}/data_export_requests",
+               params: { own_export_request_id: own_id }, headers: internal_headers, as: :json
+      end
+
+      it 'deletes the delivered (downloaded) export without raising, and clears the referencing FK' do
+        expect { delete_own_export_requests(export_request.id) }.not_to raise_error
+
+        expect_success_response
+        expect(DataManagement::ExportRequest.exists?(export_request.id)).to be false
+        expect(termination.reload.data_export_request_id).to be_nil
+      end
+
+      it 'preserves the export\'s own audit trail (its request/completion AuditLog rows are untouched)' do
+        # log_export_requested + log_export_completed, written by the
+        # ExportRequest factory's :completed trait via #complete! — neither
+        # is keyed on the FK or the termination, so deleting either must
+        # never remove them.
+        export_audit_count = AuditLog.where(resource_type: 'DataManagement::ExportRequest', resource_id: export_request.id).count
+        expect(export_audit_count).to be_positive
+
+        delete_own_export_requests(export_request.id)
+
+        expect(
+          AuditLog.where(resource_type: 'DataManagement::ExportRequest', resource_id: export_request.id).count
+        ).to eq(export_audit_count)
+      end
+
+      it 'removes the PII export file from disk' do
+        real_file = Tempfile.new('export-cleanup-test')
+        real_file.write('exported data')
+        real_file.close
+        export_request.update_column(:file_path, real_file.path)
+
+        delete_own_export_requests(export_request.id)
+
+        expect(File.exist?(real_file.path)).to be false
+      ensure
+        real_file&.unlink
+      end
+
+      context 'and the export has not yet been delivered (still pending)' do
+        let(:export_request) { create(:data_management_export_request, :pending, account: account, user: owner) }
+
+        it 'defers deletion instead of removing an undelivered export, and reports it' do
+          delete_own_export_requests(export_request.id)
+
+          expect_success_response
+          # json_response_data already unwraps the envelope's `data` key
+          # (render_success(data: { deferred: })), so the value is directly
+          # at 'deferred', not nested under a second 'data' key.
+          expect(json_response_data['deferred']).to eq(1)
+          expect(json_response_data['count']).to eq(0)
+          expect(DataManagement::ExportRequest.exists?(export_request.id)).to be true
+          expect(termination.reload.data_export_request_id).to eq(export_request.id)
+        end
+      end
+
+      # Operator ruling 2026-09-24: a 'failed' export is NOT resolved for
+      # deletion — this replaces the BLOCKER the review flagged ('failed'
+      # used to count as ready unconditionally). It has delivered nothing;
+      # Compliance::AccountTerminationJob is responsible for resetting it to
+      # 'pending' and re-queuing generation (bounded, then parking the
+      # termination), not this endpoint quietly letting it through.
+      context 'and the export has failed (nothing delivered yet — the worker must retry, not this endpoint)' do
+        let(:export_request) { create(:data_management_export_request, :failed, account: account, user: owner) }
+
+        it 'defers deletion rather than treating a failed generation as nothing-left-to-deliver' do
+          delete_own_export_requests(export_request.id)
+
+          expect_success_response
+          expect(json_response_data['deferred']).to eq(1)
+          expect(DataManagement::ExportRequest.exists?(export_request.id)).to be true
+          expect(termination.reload.data_export_request_id).to eq(export_request.id)
+        end
+      end
+
+      context 'and the export has expired (the download window has passed — given up)' do
+        let(:export_request) { create(:data_management_export_request, :expired, account: account, user: owner) }
+
+        it 'deletes it and clears the referencing FK, the same as a delivered export' do
+          delete_own_export_requests(export_request.id)
+
+          expect_success_response
+          expect(DataManagement::ExportRequest.exists?(export_request.id)).to be false
+          expect(termination.reload.data_export_request_id).to be_nil
+        end
+      end
+
+      # Operator ruling 2026-09-24: 'completed' alone is NOT resolved — the
+      # user gets the full 7-day download window before the row (and the
+      # account behind it) can be removed.
+      context 'and the export is completed but has not yet been downloaded (window still open)' do
+        let(:export_request) { create(:data_management_export_request, :completed, account: account, user: owner) }
+
+        it 'defers deletion instead of removing an export the user has not yet retrieved' do
+          delete_own_export_requests(export_request.id)
+
+          expect_success_response
+          expect(json_response_data['deferred']).to eq(1)
+          expect(DataManagement::ExportRequest.exists?(export_request.id)).to be true
+          expect(termination.reload.data_export_request_id).to eq(export_request.id)
+        end
+      end
+
+      # Operator ruling 2026-09-24, part (b): the download window elapsing
+      # UNUSED (no downloaded_at, but download_token_expires_at has passed)
+      # is delivery-resolved on its own — status stays 'completed', it never
+      # transitions to 'expired' on its own (that only happens via the
+      # explicit expire_export action), but nothing further can be
+      # delivered either way.
+      context "and the export's download window elapsed with nothing downloaded" do
+        let(:export_request) { create(:data_management_export_request, :download_expired, account: account, user: owner) }
+
+        it 'deletes it and clears the referencing FK — the elapsed window is itself resolution' do
+          delete_own_export_requests(export_request.id)
+
+          expect_success_response
+          expect(DataManagement::ExportRequest.exists?(export_request.id)).to be false
+          expect(termination.reload.data_export_request_id).to be_nil
+        end
+      end
+
+      # IMP-0310a1351dab review round 2, HIGH: round 1's own first attempt
+      # deferred on ANY pending/processing export anywhere in the account —
+      # an UNRELATED self-service export (never linked to this termination
+      # via data_export_request_id) silently blocked deletion of every OTHER
+      # export too, for every account that happened to have one pending.
+      context 'and the account also has an unrelated pending export (not this termination\'s own)' do
+        let!(:unrelated_pending) { create(:data_management_export_request, :pending, account: account, user: owner) }
+
+        it 'still deletes the unrelated export (only the termination\'s OWN export can be deferred)' do
+          delete_own_export_requests(export_request.id)
+
+          expect_success_response
+          expect(json_response_data['deferred']).to eq(0)
+          # Producer-side contract: Compliance::AccountTerminationJob#delete_account_records
+          # reads this structured `count` to decide whether to log
+          # 'deleted_export_requests' at all — it must reflect what was
+          # actually deleted (2 here: the termination's own export plus the
+          # unrelated one), not be silently absent.
+          expect(json_response_data['count']).to eq(2)
+          expect(DataManagement::ExportRequest.exists?(unrelated_pending.id)).to be false
+          expect(DataManagement::ExportRequest.exists?(export_request.id)).to be false
+        end
+      end
+    end
+
+    context 'when no own_export_request_id is passed (no active termination, or a caller with no export context)' do
+      let!(:some_pending) { create(:data_management_export_request, :pending, account: account, user: owner) }
+
+      it 'deletes every export request for the account regardless of status (nothing exempted)' do
+        delete "/api/v1/internal/accounts/#{account.id}/data_export_requests", headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['deferred']).to eq(0)
+        expect(DataManagement::ExportRequest.exists?(some_pending.id)).to be false
       end
     end
   end

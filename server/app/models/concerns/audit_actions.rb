@@ -153,8 +153,14 @@ module AuditActions
   # transition the status-transition guard admits (grace_period->processing,
   # processing->completed/grace_period), carrying from_status/to_status.
   # =============================================================================
+  # 'export_delivery_parked' (IMP-0310a1351dab review round 3, item 3):
+  # written when Compliance::AccountTerminationJob gives up automating a
+  # termination's data-export retries — the one termination_log event that
+  # also gets a durable, queryable AuditLog row (every other
+  # termination_log_append event is routine progress).
   ACCOUNT_TERMINATION_ACTIONS = %w[
     account_termination.status_transition
+    account_termination.export_delivery_parked
   ].freeze
 
   # =============================================================================

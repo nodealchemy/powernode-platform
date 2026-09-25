@@ -90,8 +90,6 @@ module Api
           return render_error("Export is not available for download", status: :gone)
         end
 
-        export_request.record_download!
-
         # Security: Validate file path is within allowed exports directory
         exports_base = Rails.root.join("tmp", "data_exports").to_s
         expanded_path = File.expand_path(export_request.file_path)
@@ -99,6 +97,23 @@ module Api
           Rails.logger.error "Attempted access to file outside exports directory: #{export_request.file_path}"
           return render_error("Invalid export file path", status: :forbidden)
         end
+
+        # IMP-0310a1351dab review round 3, item 2: record_download! (which
+        # DataManagement::ExportRequest#delivered_for_deletion? reads via
+        # downloaded_at) used to fire BEFORE the path-containment check
+        # above — a request that ultimately 403'd here still marked the
+        # export "delivered". `downloadable?`'s own file_exists? check
+        # covers the common case (file genuinely absent), but it checks the
+        # RAW file_path, not the containment-validated one; this repeats the
+        # existence check on the validated path so a served download and a
+        # recorded download can never diverge. Only a request that actually
+        # reaches send_file below may ever record one.
+        unless File.exist?(expanded_path)
+          Rails.logger.error "Export file missing on disk: #{export_request.file_path}"
+          return render_error("Export file is not available", status: :not_found)
+        end
+
+        export_request.record_download!
 
         send_file(
           export_request.file_path,

@@ -238,6 +238,32 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
         response_data = json_response
         expect(response_data['data']['grace_period_ends_at']).to be_present
       end
+
+      # IMP-0310a1351dab: was missing entirely (same shape as BLOCKER 2's
+      # processing_started_at gap) — the worker's export-readiness gate
+      # (AccountTerminationJob#export_ready_for_deletion?) needs this field
+      # to know whether a termination has a data export it must wait on;
+      # with it silently absent, every termination looked export-free
+      # regardless of what Account::Termination.initiate had actually set.
+      it 'includes data_export_request_id when one is set' do
+        export_request = create(:data_management_export_request, account: account, user: account.owner || create(:user, account: account))
+        termination.update!(data_export_request: export_request)
+
+        get "/api/v1/internal/account_terminations/#{termination.id}",
+            headers: internal_headers,
+            as: :json
+
+        expect(json_response['data']['data_export_request_id']).to eq(export_request.id)
+      end
+
+      it 'includes a nil data_export_request_id when none is set' do
+        get "/api/v1/internal/account_terminations/#{termination.id}",
+            headers: internal_headers,
+            as: :json
+
+        expect(json_response['data']).to have_key('data_export_request_id')
+        expect(json_response['data']['data_export_request_id']).to be_nil
+      end
     end
 
     context 'when termination does not exist' do
@@ -433,6 +459,83 @@ RSpec.describe 'Api::V1::Internal::AccountTerminations', type: :request do
           a_hash_including('event' => 'reminder_scheduled', 'days_before' => 7)
         )
         expect(termination.termination_log.last).to include('event' => 'reminder_7_days_sent')
+      end
+    end
+
+    # IMP-0310a1351dab review round 3, item 3: 'export_delivery_parked' is
+    # the one termination_log event that must ALSO leave a durable,
+    # queryable AuditLog row — every other termination_log_append event
+    # (deleted_consents, reminder_*_sent, ...) is routine progress with no
+    # matching audit row, so this asserts the ADDED behavior rather than the
+    # pre-existing pattern.
+    context 'appending an export_delivery_parked entry' do
+      it 'writes an account_termination.export_delivery_parked audit row' do
+        patch "/api/v1/internal/account_terminations/#{termination.id}",
+              params: {
+                termination_log_append: [ { event: 'export_delivery_parked', at: Time.current.iso8601 } ]
+              },
+              headers: internal_headers,
+              as: :json
+
+        expect_success_response
+        audit_row = AuditLog.find_by(action: 'account_termination.export_delivery_parked', resource_id: termination.id)
+        expect(audit_row).not_to be_nil
+        expect(audit_row.account_id).to eq(account.id)
+      end
+
+      it 'does not write that audit row for an unrelated termination_log event' do
+        patch "/api/v1/internal/account_terminations/#{termination.id}",
+              params: {
+                termination_log_append: [ { event: 'export_pending_deferred', at: Time.current.iso8601 } ]
+              },
+              headers: internal_headers,
+              as: :json
+
+        expect_success_response
+        expect(
+          AuditLog.exists?(action: 'account_termination.export_delivery_parked', resource_id: termination.id)
+        ).to be false
+      end
+
+      # IMP-0310a1351dab review round 4, item 3: the worker's own alert POST
+      # (to notifications#send_notification) was a no-op — that action
+      # resolves recipients from `user_ids`, never present in the worker's
+      # account_id-only payload, and the sibling security_alert action can't
+      # work either (Notification declares `belongs_to :user`, required, so
+      # a user-less row fails validation on save and Notification.create
+      # swallows it). SecurityAlertService is the seam that actually
+      # delivers — real recipients by permission, through EmailDelivery +
+      # WorkerJobService, the same path Audit::LoggingService already uses
+      # for this class of platform-ops signal.
+      it 'alerts platform system.admins via SecurityAlertService, not the terminating account\'s own admin' do
+        sysadmin = create(:user, account: create(:account), permissions: [ 'system.admin' ], email: 'sysadmin@example.com')
+        tenant_admin = create(:user, account: account, permissions: [ 'users.manage' ], email: 'tenantadmin@example.com')
+
+        patch "/api/v1/internal/account_terminations/#{termination.id}",
+              params: {
+                termination_log_append: [ { event: 'export_delivery_parked', at: Time.current.iso8601 } ]
+              },
+              headers: internal_headers,
+              as: :json
+
+        expect_success_response
+        delivery = EmailDelivery.find_by(recipient_email: sysadmin.email)
+        expect(delivery).not_to be_nil
+        expect(delivery.metadata['category']).to eq('security_alert')
+        expect(EmailDelivery.exists?(recipient_email: tenant_admin.email)).to be false
+      end
+
+      it 'does not alert for an unrelated termination_log event' do
+        create(:user, account: create(:account), permissions: [ 'system.admin' ], email: 'sysadmin2@example.com')
+
+        expect {
+          patch "/api/v1/internal/account_terminations/#{termination.id}",
+                params: {
+                  termination_log_append: [ { event: 'export_pending_deferred', at: Time.current.iso8601 } ]
+                },
+                headers: internal_headers,
+                as: :json
+        }.not_to change { EmailDelivery.count }
       end
     end
 

@@ -116,6 +116,64 @@ module Compliance
     # the network call underneath it.
     STRANDED_PROCESSING_THRESHOLD = 6.hours
 
+    # IMP-0310a1351dab review round 2, item 4. A termination's own requested
+    # export can fail to progress for two different reasons that both look
+    # identical from here (the export just sits 'pending'): the initial
+    # enqueue from Account::Termination.initiate never reached the worker
+    # (queue_export_job rescues WorkerApiClient::ApiError and only logs), or
+    # a Compliance::DataExportJob run that WAS enqueued crashed/died without
+    # ever writing 'processing'/'failed'. Neither leaves a trace this job can
+    # distinguish, so both are recovered the same way: re-enqueue.
+    # Re-enqueuing an export that is merely still legitimately in flight
+    # (young 'pending', not yet picked up) would be wasted work, not
+    # incorrect work — DataExportJob's own guard
+    # (`unless export_request['status'] == 'pending'`) makes a second
+    # concurrent run for an already-'processing' export a no-op skip, and two
+    # runs racing while both see 'pending' is bounded by ordinary Sidekiq
+    # concurrency, not by anything this threshold controls.
+    #
+    # 1 hour (my call): matches DataManagement::ExportRequest#time_remaining's
+    # own estimate of typical processing time (`created_at + 1.hour`) — an
+    # export still 'pending' past its own expected-completion estimate is a
+    # reasonable, already-established definition of "taking too long",
+    # rather than a second, independently-tuned number.
+    EXPORT_STALE_PENDING_THRESHOLD = 1.hour
+
+    # After this many sweeps have each deferred the SAME termination on its
+    # own export, write a once-only warning log entry (plus a log_warn) so an
+    # operator scanning logs sees a signal distinct from the routine,
+    # expected wait for an async export. 3 (my call): at the 6-hour sweep
+    # cadence this is an 18-hour floor before the warning fires — long enough
+    # that an export merely taking its normal course does not trip it, short
+    # enough that a genuinely stuck export (repeatedly re-enqueued above and
+    # still not resolving) surfaces well within the 30-day grace period
+    # rather than silently consuming most of it.
+    EXPORT_STALL_WARNING_DEFERRAL_COUNT = 3
+
+    # A 'failed' export is reset to 'pending' and re-queued this many times
+    # (via DataExportRequestsController's action_type: 'retry', which tracks
+    # the attempt count in the export's own `metadata` — server-side, so it
+    # survives worker restarts and is never lost between sweeps) before this
+    # job gives up automating it and PARKS the termination instead. 3 (my
+    # call): the same order of magnitude as EXPORT_STALL_WARNING_DEFERRAL_COUNT
+    # above, on the reasoning that three independent generation attempts
+    # failing is a strong enough signal that this is a systemic problem (bad
+    # data, an unavailable dependency the export gatherer calls) rather than
+    # a transient blip retrying would routinely fix.
+    EXPORT_DELIVERY_RETRY_LIMIT = 3
+
+    # A 'processing' export stuck past this age is treated as failed (review
+    # round 3, item 4) — Compliance::DataExportJob normally moves a row out
+    # of 'processing' within EXPORT_STALE_PENDING_THRESHOLD's ~1-hour typical
+    # runtime; 2 hours (my call, the team lead's own suggested order of
+    # magnitude) gives real work a comfortable margin above that before
+    # concluding the run that set 'processing' crashed without ever writing
+    # 'completed'/'failed'. Deliberately larger than
+    # EXPORT_STALE_PENDING_THRESHOLD: a 'processing' row is DOING something
+    # (or was, until it crashed), so it gets more benefit of the doubt than a
+    # 'pending' one that never started at all.
+    EXPORT_STALE_PROCESSING_THRESHOLD = 2.hours
+
     def execute(_args = nil)
       log_info 'Starting account termination processing'
 
@@ -229,7 +287,14 @@ module Compliance
 
       terminations.each do |termination|
         begin
-          process_termination(termination)
+          outcome = process_termination(termination)
+          # IMP-0310a1351dab review round 2, item 4: a deferral (the
+          # termination's own export isn't resolved yet) is an expected wait,
+          # not completed work — counting it into `processed` made a sweep
+          # that did nothing but re-check a pending export indistinguishable
+          # from one that actually terminated an account.
+          next if outcome == :deferred
+
           results[:processed] += 1
           results[:resumed] += 1 if resumed_row?(termination)
         rescue => e
@@ -352,12 +417,279 @@ module Compliance
       response['data'] || []
     end
 
+    # IMP-0310a1351dab. No export requested at all (the common case) is
+    # trivially ready. A HTTP failure fetching the export's own status is
+    # treated as NOT ready (fail-safe: never proceed with irreversible
+    # deletion on an unconfirmed premise) — this deliberately does not rescue
+    # api_client.get's own errors; letting one propagate reaches this
+    # method's caller (process_ready_terminations' per-item rescue) with
+    # exactly the same "log it, skip this account this sweep, retry next
+    # time" behavior every other pre-flight call in this job already relies
+    # on.
+    #
+    # Returns { ready:, benign_wait: } rather than a bare boolean (review
+    # round 3, item 4) — `benign_wait` is true exactly for a 'completed'
+    # export with an open, undownloaded download window: an EXPECTED wait
+    # (the whole point of the operator's ruling is the user gets the full
+    # 7 days), not a signal process_termination's caller should ever count
+    # toward the stall warning. Every other "not ready" case leaves it false.
+    def export_deletion_gate(termination)
+      export_request_id = termination['data_export_request_id']
+      return { ready: true, benign_wait: false } if export_request_id.blank?
+
+      export_request = fetch_export_request(export_request_id)
+      return { ready: false, benign_wait: false } unless export_request
+
+      # IMP-0310a1351dab review round 2, items 3+6: read the server's OWN
+      # verdict (DataManagement::ExportRequest#delivered_for_deletion?, exposed
+      # via DataExportRequestsController#serialize_request) instead of
+      # re-deriving "which statuses count as ready" here — this job used to
+      # independently list `%w[completed failed]`, which both duplicated the
+      # policy AND treated a merely-'completed' export (open download window,
+      # nothing downloaded yet) and a 'failed' one as equally ready. One
+      # place decides (operator ruling 2026-09-24: delivered = downloaded, or
+      # download window elapsed unused); this reads it.
+      return { ready: true, benign_wait: false } if export_request['delivered_for_deletion'] == true
+
+      case export_request['status']
+      when 'failed'
+        # Has delivered nothing — never treated as delivered-for-deletion
+        # (see the model's own comment). Its own bounded reset-and-retry
+        # path, rather than the generic stale-pending requeue below (which
+        # only ever applies to a still-'pending' row).
+        handle_failed_export!(termination, export_request)
+        { ready: false, benign_wait: false }
+      when 'processing'
+        # Review round 3, item 4: a 'processing' export stuck past
+        # EXPORT_STALE_PROCESSING_THRESHOLD is treated as failed and routed
+        # through the SAME bounded retry as an explicit failure — it is
+        # exactly as undelivered as one, and without this it would sit
+        # 'processing' forever (requeue_if_stale_export! below only ever
+        # acts on 'pending').
+        handle_stale_processing_export!(termination, export_request) if stale_processing_export?(export_request)
+        { ready: false, benign_wait: false }
+      when 'completed'
+        { ready: false, benign_wait: true }
+      else
+        requeue_if_stale_export!(export_request)
+        { ready: false, benign_wait: false }
+      end
+    end
+
+    def fetch_export_request(export_request_id)
+      response = api_client.get("/api/v1/internal/data_export_requests/#{export_request_id}")
+      return nil unless response['success']
+
+      response.dig('data', 'data_export_request')
+    end
+
+    # Recovers a 'pending' export that has sat too long without progressing —
+    # covers BOTH a lost initial enqueue (Account::Termination.initiate's
+    # queue_export_job rescues WorkerApiClient::ApiError and only logs; the
+    # export row exists but nothing ever picks it up) and a crashed
+    # Compliance::DataExportJob run that never wrote 'processing'/'failed'.
+    # Deliberately scoped to 'pending' only: a 'processing' export may be a
+    # genuinely long-running job still working; re-enqueuing it is a
+    # different, unproven failure mode (a stuck 'processing' row) this fix
+    # does not attempt to distinguish or recover.
+    def requeue_if_stale_export!(export_request)
+      return unless export_request['status'] == 'pending'
+
+      created_at = parse_export_created_at(export_request)
+      return unless created_at && created_at < EXPORT_STALE_PENDING_THRESHOLD.ago
+
+      export_request_id = export_request['id']
+      log_warn "Data export #{export_request_id} has been pending longer than " \
+                "#{EXPORT_STALE_PENDING_THRESHOLD.inspect} — re-queuing Compliance::DataExportJob"
+      Compliance::DataExportJob.perform_async(export_request_id)
+    end
+
+    def parse_export_created_at(export_request)
+      raw = export_request['created_at']
+      return nil if raw.blank?
+
+      Time.zone.parse(raw.to_s)
+    rescue ArgumentError, TypeError
+      nil
+    end
+
+    def stale_processing_export?(export_request)
+      started_at = parse_export_processing_started_at(export_request)
+      started_at && started_at < EXPORT_STALE_PROCESSING_THRESHOLD.ago
+    end
+
+    def parse_export_processing_started_at(export_request)
+      raw = export_request['processing_started_at']
+      return nil if raw.blank?
+
+      Time.zone.parse(raw.to_s)
+    rescue ArgumentError, TypeError
+      nil
+    end
+
+    # Marks the stuck 'processing' export failed (server-side, via the
+    # existing action_type: 'fail' — the ONLY currently-valid transition out
+    # of 'processing' besides 'completed'), then routes it through the SAME
+    # bounded retry as an explicit failure. Reuses the already-fetched
+    # `export_request` hash's own `metadata` (overriding just `status`
+    # locally) rather than re-fetching, so handle_failed_export! sees the
+    # real accumulated delivery_retry_count — fail_export's own response
+    # does not include metadata (not requested with include_details), so
+    # trusting THAT response instead would silently reset the retry count
+    # every time this path fires.
+    def handle_stale_processing_export!(termination, export_request)
+      export_request_id = export_request['id']
+      fail_response = api_client.patch(
+        "/api/v1/internal/data_export_requests/#{export_request_id}",
+        {
+          action_type: 'fail',
+          error_message: "Stuck in 'processing' longer than #{EXPORT_STALE_PROCESSING_THRESHOLD.inspect}"
+        }
+      )
+      return unless fail_response['success']
+
+      handle_failed_export!(termination, export_request.merge('status' => 'failed'))
+    end
+
+    # Operator ruling 2026-09-24: a failed export must be RETRIED, not
+    # treated as delivered and not silently left failed forever. Bounded by
+    # EXPORT_DELIVERY_RETRY_LIMIT, tracked server-side in the export's own
+    # metadata (via DataExportRequestsController's action_type: 'retry') so
+    # the count survives across sweeps/worker restarts rather than being
+    # recomputed from anything this job holds in memory.
+    def handle_failed_export!(termination, export_request)
+      retry_count = export_request.dig('metadata', 'delivery_retry_count').to_i
+
+      if retry_count >= EXPORT_DELIVERY_RETRY_LIMIT
+        park_failed_export!(termination, export_request, retry_count)
+        return
+      end
+
+      # Review round 3, LOW: no `unless retry_response['success']` guard here
+      # — dead code where it stood before. BackendApiClient raises ApiError
+      # on any non-2xx (retry_export's own 422 included) rather than
+      # returning a success:false body, so that branch could never actually
+      # run. A raised ApiError here is treated exactly like every other
+      # pre-flight call this method already makes (see this method's own
+      # top comment): it propagates to process_ready_terminations' per-item
+      # rescue, which logs it and moves on to the next termination.
+      export_request_id = export_request['id']
+      api_client.patch(
+        "/api/v1/internal/data_export_requests/#{export_request_id}",
+        { action_type: 'retry' }
+      )
+
+      log_warn "Data export #{export_request_id} failed; reset to pending and re-queued " \
+                "(attempt #{retry_count + 1}/#{EXPORT_DELIVERY_RETRY_LIMIT})"
+      Compliance::DataExportJob.perform_async(export_request_id)
+    end
+
+    # Never deletes while undelivered (the operator's explicit constraint):
+    # once EXPORT_DELIVERY_RETRY_LIMIT is exhausted, this job stops
+    # automating recovery and leaves the termination deferred indefinitely —
+    # it does NOT fall through to treating the export as resolved. The
+    # once-only log entry (mirroring export_stalled_warning's own guard) is
+    # the operator's signal that manual investigation is needed; nothing
+    # here escalates further on its own.
+    #
+    # Round 4 fix: this used to ALSO POST an alert itself
+    # (send_export_delivery_parked_alert, removed) through
+    # notifications#send_notification — a no-op (that action resolves
+    # recipients from `user_ids`, this job's payload carried only
+    # `account_id`, so the recipient list always compacted to empty and
+    # nothing was ever created). The real, working alert path
+    # (SecurityAlertService, via Audit::LoggingService's existing use of it
+    # for the same class of platform-ops signal) lives server-side and is
+    # not reachable over this job's HTTP seam at all. Rather than build a
+    # new worker->server call to reach it, Api::V1::Internal
+    # ::AccountTerminationsController#update now fires it directly, in the
+    # SAME request this patch_termination! call below already makes — no
+    # new call needed, since the trigger (this termination_log_append)
+    # already crosses that boundary.
+    def park_failed_export!(termination, export_request, retry_count)
+      already_parked = (termination['termination_log'] || []).any? { |e| e['event'] == 'export_delivery_parked' }
+      return if already_parked
+
+      termination_id = termination['id']
+      export_request_id = export_request['id']
+      log_error "Termination #{termination_id}'s data export #{export_request_id} has failed " \
+                "#{retry_count} times — parking; this account's deletion cannot proceed without " \
+                'manual investigation'
+      patch_termination!(
+        termination_id,
+        { termination_log_append: [ { event: 'export_delivery_parked', at: Time.current.iso8601 } ] }
+      )
+    end
+
     def process_termination(termination)
       termination_id = termination['id']
       account_id = termination['account_id']
       resuming_stranded_row = resumed_row?(termination)
 
       log_info "Processing account termination: #{termination_id} (account: #{account_id})"
+
+      # IMP-0310a1351dab: this termination requested a data export
+      # (Account::Termination.initiate sets data_export_request_id — see
+      # AccountTerminationsController#termination_data), and that export's
+      # OWN row is referenced by an FK the server-side delete step cannot
+      # violate. Checked BEFORE any destructive step runs (not caught via the
+      # begin/rescue below, deliberately — this is an expected, routine wait
+      # for an async job, not an error to log-and-revert-after-the-fact) —
+      # deferring here for a fresh 'grace_period' row costs nothing (its
+      # status is already 'grace_period'; process_ready_terminations simply
+      # re-fetches and re-checks it next sweep). A RESUMED stranded
+      # 'processing' row is the one case that needs an explicit write: no
+      # query ever re-selects a 'processing' row except the stranded-check
+      # path, so leaving it as-is would depend on THAT heuristic to notice it
+      # again rather than being immediately re-selectable via the normal
+      # grace_period query.
+      export_gate = export_deletion_gate(termination)
+      unless export_gate[:ready]
+        log_info "Termination #{termination_id} requested a data export that has not yet " \
+                 'been delivered (downloaded, or its download window elapsed unused) — ' \
+                 'deferring account deletion to a later sweep'
+
+        existing_log = termination['termination_log'] || []
+        already_warned = existing_log.any? { |e| e['event'] == 'export_stalled_warning' }
+        already_parked = existing_log.any? { |e| e['event'] == 'export_delivery_parked' }
+
+        # Review round 3, item 4: bound termination_log growth. Once the
+        # operator has already been signalled (a stall warning or a park),
+        # every further sweep re-appending 'export_pending_deferred' adds no
+        # new information — an account stuck at this gate would otherwise
+        # grow the log by one entry per sweep indefinitely. The signal has
+        # already fired; nothing further is written here until the export
+        # actually resolves (at which point export_gate[:ready] flips true
+        # and this whole branch stops running).
+        if already_warned || already_parked
+          return :deferred
+        end
+
+        append_entries = [ { event: 'export_pending_deferred', at: Time.current.iso8601 } ]
+
+        # Review round 3, item 4: suppress the stall warning for a
+        # `benign_wait` (a 'completed' export with an open, undownloaded
+        # download window) — that is the ruling working exactly as intended
+        # (the user gets the full 7 days), not a signal an operator should
+        # ever be alerted about. The deferral itself is still recorded each
+        # sweep (bounded naturally: the window elapses, and
+        # delivered_for_deletion? flips true, within 7 days by construction).
+        unless export_gate[:benign_wait]
+          deferral_count = existing_log.count { |e| e['event'] == 'export_pending_deferred' } + 1
+
+          if deferral_count >= EXPORT_STALL_WARNING_DEFERRAL_COUNT
+            log_warn "Termination #{termination_id}'s data export has been deferred " \
+                      "#{deferral_count} times without resolving — may need manual investigation"
+            append_entries << { event: 'export_stalled_warning', at: Time.current.iso8601 }
+          end
+        end
+
+        payload = { termination_log_append: append_entries }
+        payload[:status] = 'grace_period' if termination['status'] == 'processing'
+        patch_termination!(termination_id, payload)
+
+        return :deferred
+      end
 
       # BLOCKER 1 (IMP-f0560910fa62 review): a row this method is RESUMING is
       # already 'processing' server-side -- status_transition_allowed?
@@ -397,7 +729,7 @@ module Compliance
 
       begin
         # Delete account data
-        delete_account_data(account_id, termination_log)
+        delete_account_data(account_id, termination_log, termination['data_export_request_id'])
 
         # Update account status. Fork 1 (IMP-b33a3ecca331): operator decision
         # is to mark the account 'cancelled' (the existing accounts.status enum
@@ -492,7 +824,7 @@ module Compliance
       response
     end
 
-    def delete_account_data(account_id, termination_log)
+    def delete_account_data(account_id, termination_log, own_export_request_id)
       # Fetch account users
       users_response = api_client.get("/api/v1/internal/accounts/#{account_id}/users")
       users = users_response['data'] || []
@@ -503,7 +835,7 @@ module Compliance
       end
 
       # Delete account-level data
-      delete_account_records(account_id, termination_log)
+      delete_account_records(account_id, termination_log, own_export_request_id)
     end
 
     def delete_user_data(user_id, termination_log)
@@ -538,7 +870,7 @@ module Compliance
       termination_log << { event: 'anonymized_user', user_id: user_id, at: Time.current.iso8601 }
     end
 
-    def delete_account_records(account_id, termination_log)
+    def delete_account_records(account_id, termination_log, own_export_request_id = nil)
       # Files. Api::V1::Internal::AccountsController#delete_files returns
       # `data: { count:, erased:, reason: }`.
       #
@@ -578,9 +910,26 @@ module Compliance
       api_client.delete("/api/v1/internal/accounts/#{account_id}/webhooks")
       termination_log << { event: 'deleted_webhooks', at: Time.current.iso8601 }
 
-      # Delete data export requests
-      api_client.delete("/api/v1/internal/accounts/#{account_id}/data_export_requests")
-      termination_log << { event: 'deleted_export_requests', at: Time.current.iso8601 }
+      # Delete data export requests. IMP-0310a1351dab review round 2, item 2:
+      # `own_export_request_id` (this termination's own requested export, if
+      # any) is the ONLY row the server may defer — by the time this runs,
+      # export_deletion_gate has already confirmed it is delivered (or
+      # that there is none), so `deferred` below is expected to be 0 in
+      # practice; it is read rather than assumed so an unexpected server-side
+      # deferral is recorded honestly instead of silently claimed as deleted.
+      # The old unconditional `deleted_export_requests` entry was written even
+      # when the server had deferred every row (the round-1 regression: ANY
+      # pending/processing export anywhere in the account blocked deletion of
+      # every export, while this log still claimed success) — read the real
+      # count back instead of assuming one.
+      export_params = own_export_request_id.present? ? { own_export_request_id: own_export_request_id } : {}
+      export_response = api_client.delete("/api/v1/internal/accounts/#{account_id}/data_export_requests", export_params)
+      export_data = export_response['data'] || {}
+      deleted_export_count = export_data['count'] || 0
+      deferred_export_count = export_data['deferred'] || 0
+
+      termination_log << { event: 'deleted_export_requests', count: deleted_export_count, at: Time.current.iso8601 } if deleted_export_count.positive?
+      termination_log << { event: 'export_deletion_deferred', at: Time.current.iso8601 } if deferred_export_count.positive?
 
       # Delete data deletion requests
       api_client.delete("/api/v1/internal/accounts/#{account_id}/data_deletion_requests")

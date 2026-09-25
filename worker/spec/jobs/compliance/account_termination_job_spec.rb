@@ -316,6 +316,649 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
       end
     end
 
+    # IMP-0310a1351dab: account_terminations.data_export_request_id (set by
+    # Account::Termination.initiate whenever request_data_export: true is
+    # honoured) references DataManagement::ExportRequest with no on_delete —
+    # deleting a still-pending/processing export's row from underneath that
+    # FK would raise ActiveRecord::InvalidForeignKey server-side, and did so
+    # on EVERY sweep, forever (the row was never actually removed, so the
+    # next sweep hit the identical crash). An export-requesting termination
+    # must still be able to complete: it defers here instead, rather than
+    # crashing, and is re-checked next sweep — completing once the export
+    # (Compliance::DataExportJob, queued by Account::Termination.initiate)
+    # reaches a terminal state.
+    context 'when the termination requested a data export that has not yet been delivered' do
+      let(:pending_export_termination) { termination_data.merge('data_export_request_id' => 'export-1') }
+
+      before do
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+          .and_return('success' => true, 'data' => [ pending_export_termination ])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'processing' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/data_export_requests/export-1')
+          .and_return('success' => true, 'data' => { 'data_export_request' => { 'id' => 'export-1', 'status' => 'pending', 'delivered_for_deletion' => false } })
+        # A fresh 'grace_period' row's deferral now always writes a
+        # log-only append (IMP-0310a1351dab review round 2, item 4) — this
+        # context has its own dedicated examples on that below, this stub is
+        # just so the OTHER examples in this context (which assert what does
+        # NOT happen) don't blow up on an unstubbed instance_double call.
+        allow(api_client).to receive(:patch).and_return('success' => true, 'data' => pending_export_termination)
+      end
+
+      it 'does not begin deleting any account data' do
+        expect(api_client).not_to receive(:delete)
+
+        job.execute
+      end
+
+      it 'does not mark the termination processing (leaves it re-checkable next sweep)' do
+        expect(api_client).not_to receive(:patch)
+          .with(
+            "/api/v1/internal/account_terminations/#{termination_id}",
+            hash_including(status: 'processing')
+          )
+
+        job.execute
+      end
+
+      it 'does not terminate (cancel) the account' do
+        expect(api_client).not_to receive(:patch)
+          .with("/api/v1/internal/accounts/#{account_id}/terminate", {})
+
+        job.execute
+      end
+
+      # A deferred termination is neither a processed success nor a raised
+      # error (see the "when a termination requested a data export that has
+      # completed" example below for the positive case that DOES count).
+      it 'does not count as a processing error' do
+        result = job.execute
+
+        expect(result[:errors]).to be_empty
+      end
+
+      # IMP-0310a1351dab review round 2, item 4: process_termination now
+      # returns :deferred and process_ready_terminations must not count that
+      # as processed work.
+      it 'does not count as processed (a deferral is not processed work)' do
+        result = job.execute
+
+        expect(result[:processed]).to eq(0)
+      end
+
+      # The OLD version only appended 'export_pending_deferred' when
+      # reverting a resumed-stranded 'processing' row — a fresh 'grace_period'
+      # row (the common case, and this context's own fixture) got no record
+      # of ever being deferred, so EXPORT_STALL_WARNING_DEFERRAL_COUNT could
+      # never be reached for it.
+      it 'records the deferral in the termination log even though it never left grace_period' do
+        appended = []
+        allow(api_client).to receive(:patch) do |_path, payload|
+          appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+          { 'success' => true, 'data' => pending_export_termination }
+        end
+
+        job.execute
+
+        expect(appended).to include(hash_including(event: 'export_pending_deferred'))
+      end
+
+      context 'and the export has been pending longer than the stale threshold' do
+        let(:stale_pending_export_termination) { termination_data.merge('data_export_request_id' => 'export-1a') }
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ stale_pending_export_termination ])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/data_export_requests/export-1a')
+            .and_return(
+              'success' => true,
+              'data' => {
+                'data_export_request' => {
+                  'id' => 'export-1a', 'status' => 'pending', 'delivered_for_deletion' => false,
+                  'created_at' => (Compliance::AccountTerminationJob::EXPORT_STALE_PENDING_THRESHOLD + 1.minute).ago.iso8601
+                }
+              }
+            )
+        end
+
+        it 're-queues Compliance::DataExportJob for the stale export' do
+          expect(Compliance::DataExportJob).to receive(:perform_async).with('export-1a')
+
+          job.execute
+        end
+      end
+
+      context 'and the export is still young (within the stale threshold)' do
+        let(:young_pending_export_termination) { termination_data.merge('data_export_request_id' => 'export-1b') }
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ young_pending_export_termination ])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/data_export_requests/export-1b')
+            .and_return(
+              'success' => true,
+              'data' => {
+                'data_export_request' => {
+                  'id' => 'export-1b', 'status' => 'pending', 'delivered_for_deletion' => false,
+                  'created_at' => 5.minutes.ago.iso8601
+                }
+              }
+            )
+        end
+
+        it 'does not re-queue a young, still-plausibly-in-flight export' do
+          expect(Compliance::DataExportJob).not_to receive(:perform_async)
+
+          job.execute
+        end
+      end
+
+      # Review round 3, item 4: a 'processing' export stuck past
+      # EXPORT_STALE_PROCESSING_THRESHOLD is treated as failed and routed
+      # through the SAME bounded retry as an explicit failure — without
+      # this it would sit 'processing' forever (only a still-'pending' row
+      # is covered by the stale-pending requeue above).
+      context "and the export has been 'processing' longer than the stale-processing threshold" do
+        let(:stale_processing_termination) { termination_data.merge('data_export_request_id' => 'export-1c') }
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ stale_processing_termination ])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/data_export_requests/export-1c')
+            .and_return(
+              'success' => true,
+              'data' => {
+                'data_export_request' => {
+                  'id' => 'export-1c', 'status' => 'processing', 'delivered_for_deletion' => false,
+                  'metadata' => {},
+                  'processing_started_at' => (Compliance::AccountTerminationJob::EXPORT_STALE_PROCESSING_THRESHOLD + 1.minute).ago.iso8601
+                }
+              }
+            )
+          allow(api_client).to receive(:patch).and_return('success' => true, 'data' => stale_processing_termination)
+        end
+
+        it "marks the export failed via action_type: fail before retrying it" do
+          expect(api_client).to receive(:patch)
+            .with('/api/v1/internal/data_export_requests/export-1c', hash_including(action_type: 'fail'))
+            .and_return('success' => true, 'data' => { 'data_export_request' => { 'id' => 'export-1c' } })
+
+          job.execute
+        end
+
+        it 'resets it to pending and re-queues Compliance::DataExportJob, same as an explicit failure' do
+          expect(Compliance::DataExportJob).to receive(:perform_async).with('export-1c')
+
+          job.execute
+        end
+
+        it 'does not proceed with deleting account data' do
+          expect(api_client).not_to receive(:delete)
+
+          job.execute
+        end
+      end
+
+      context "and the export's 'processing' age is still within the stale-processing threshold" do
+        let(:fresh_processing_termination) { termination_data.merge('data_export_request_id' => 'export-1d') }
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ fresh_processing_termination ])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/data_export_requests/export-1d')
+            .and_return(
+              'success' => true,
+              'data' => {
+                'data_export_request' => {
+                  'id' => 'export-1d', 'status' => 'processing', 'delivered_for_deletion' => false,
+                  'processing_started_at' => 10.minutes.ago.iso8601
+                }
+              }
+            )
+          allow(api_client).to receive(:patch).and_return('success' => true, 'data' => fresh_processing_termination)
+        end
+
+        it 'does not mark a still-plausibly-running export as failed' do
+          expect(api_client).not_to receive(:patch)
+            .with('/api/v1/internal/data_export_requests/export-1d', hash_including(action_type: 'fail'))
+
+          job.execute
+        end
+      end
+
+      context 'and it has already been deferred EXPORT_STALL_WARNING_DEFERRAL_COUNT - 1 times before' do
+        let(:already_deferred_twice) do
+          pending_export_termination.merge(
+            'termination_log' => [
+              seeded_reminder_entry,
+              { 'event' => 'export_pending_deferred', 'at' => 2.days.ago.iso8601 },
+              { 'event' => 'export_pending_deferred', 'at' => 1.day.ago.iso8601 }
+            ]
+          )
+        end
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ already_deferred_twice ])
+        end
+
+        it 'writes a once-only export_stalled_warning log entry and logs a warning' do
+          expect(job).to receive(:log_warn).with(/deferred 3 times/)
+
+          appended = []
+          allow(api_client).to receive(:patch) do |_path, payload|
+            appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+            { 'success' => true, 'data' => already_deferred_twice }
+          end
+
+          job.execute
+
+          expect(appended).to include(hash_including(event: 'export_stalled_warning'))
+        end
+
+        it 'does not write a second export_stalled_warning once one already exists' do
+          already_warned = already_deferred_twice.merge(
+            'termination_log' => already_deferred_twice['termination_log'] + [
+              { 'event' => 'export_stalled_warning', 'at' => 12.hours.ago.iso8601 }
+            ]
+          )
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ already_warned ])
+
+          appended = []
+          allow(api_client).to receive(:patch) do |_path, payload|
+            appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+            { 'success' => true, 'data' => already_warned }
+          end
+
+          job.execute
+
+          expect(appended).not_to include(hash_including(event: 'export_stalled_warning'))
+        end
+
+        # Review round 3, item 4: bound termination_log growth. Once the
+        # stall warning has already fired, no FURTHER 'export_pending_deferred'
+        # entry should be written either — the account_terminations PATCH
+        # call for this bookkeeping must not happen at all, or the log grows
+        # by one entry every single sweep for as long as the export stays
+        # stuck (which, absent a resolution, is unbounded).
+        it 'stops appending export_pending_deferred entirely once already warned' do
+          already_warned = already_deferred_twice.merge(
+            'termination_log' => already_deferred_twice['termination_log'] + [
+              { 'event' => 'export_stalled_warning', 'at' => 12.hours.ago.iso8601 }
+            ]
+          )
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ already_warned ])
+
+          expect(api_client).not_to receive(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", anything)
+
+          job.execute
+        end
+      end
+    end
+
+    # Operator ruling 2026-09-24: delivered = downloaded, or download window
+    # elapsed unused. The server computes this into `delivered_for_deletion`
+    # (see DataManagement::ExportRequest#delivered_for_deletion?) — this job
+    # only ever reads that one field, so a stub setting it `true` stands in
+    # for "downloaded" here regardless of the underlying status string.
+    context 'when the termination requested a data export that has been downloaded (delivered)' do
+      let(:delivered_export_termination) { termination_data.merge('data_export_request_id' => 'export-2') }
+
+      before do
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+          .and_return('success' => true, 'data' => [ delivered_export_termination ])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'processing' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/data_export_requests/export-2')
+          .and_return('success' => true, 'data' => { 'data_export_request' => { 'id' => 'export-2', 'status' => 'completed', 'delivered_for_deletion' => true } })
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/accounts/#{account_id}/users")
+          .and_return('success' => true, 'data' => users_data)
+        allow(api_client).to receive(:patch).and_return('success' => true, 'data' => delivered_export_termination)
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 5 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      it 'proceeds with deleting account data as normal' do
+        expect(api_client).to receive(:delete)
+          .with("/api/v1/internal/users/#{user_id}/consents")
+
+        job.execute
+      end
+
+      it 'completes the termination' do
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/account_terminations/#{termination_id}",
+            hash_including(status: 'completed')
+          )
+          .and_return('success' => true, 'data' => delivered_export_termination)
+
+        job.execute
+      end
+
+      # IMP-0310a1351dab review round 2, item 2: only the termination's OWN
+      # export may ever be exempted server-side — the worker must tell the
+      # server which one that is.
+      it "passes the termination's own data_export_request_id to the delete call" do
+        expect(api_client).to receive(:delete)
+          .with("/api/v1/internal/accounts/#{account_id}/data_export_requests", { own_export_request_id: 'export-2' })
+          .and_return('success' => true, 'data' => { 'count' => 5, 'deferred' => 0 })
+
+        job.execute
+      end
+
+      it 'records the real deleted count rather than an unconditional entry' do
+        appended = []
+        allow(api_client).to receive(:patch) do |_path, payload|
+          appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+          { 'success' => true, 'data' => delivered_export_termination }
+        end
+
+        job.execute
+
+        expect(appended).to include(hash_including(event: 'deleted_export_requests', count: 5))
+      end
+
+      # A deferral reported back by the server at this point would be
+      # unexpected (export_ready_for_deletion? already confirmed this export
+      # is resolved before deletion ever starts) — but if it happens anyway,
+      # it must be recorded honestly rather than silently ignored.
+      it 'records a server-reported deferral rather than assuming success' do
+        allow(api_client).to receive(:delete)
+          .with("/api/v1/internal/accounts/#{account_id}/data_export_requests", anything)
+          .and_return('success' => true, 'data' => { 'count' => 0, 'deferred' => 1 })
+
+        appended = []
+        allow(api_client).to receive(:patch) do |_path, payload|
+          appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+          { 'success' => true, 'data' => delivered_export_termination }
+        end
+
+        job.execute
+
+        expect(appended).to include(hash_including(event: 'export_deletion_deferred'))
+        expect(appended).not_to include(hash_including(event: 'deleted_export_requests'))
+      end
+    end
+
+    # Operator ruling 2026-09-24: 'completed' alone is NOT delivered — the
+    # user gets the full 7-day download window before its row (and the
+    # account behind it) can be removed.
+    context 'when the termination requested a data export that is completed but not yet downloaded (window still open)' do
+      let(:undelivered_completed_termination) { termination_data.merge('data_export_request_id' => 'export-2a') }
+
+      before do
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+          .and_return('success' => true, 'data' => [ undelivered_completed_termination ])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'processing' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/data_export_requests/export-2a')
+          .and_return('success' => true, 'data' => { 'data_export_request' => { 'id' => 'export-2a', 'status' => 'completed', 'delivered_for_deletion' => false, 'created_at' => 30.minutes.ago.iso8601 } })
+        allow(api_client).to receive(:patch).and_return('success' => true, 'data' => undelivered_completed_termination)
+      end
+
+      it 'defers deletion instead of removing an export the user has not yet retrieved' do
+        expect(api_client).not_to receive(:delete)
+
+        job.execute
+      end
+
+      it 'does not count as processed' do
+        result = job.execute
+
+        expect(result[:processed]).to eq(0)
+      end
+
+      it 'does not attempt to re-queue or retry a merely-undelivered (not failed) export' do
+        expect(Compliance::DataExportJob).not_to receive(:perform_async)
+
+        job.execute
+      end
+
+      # Review round 3, item 4: this is the ruling working exactly as
+      # designed (the user gets the full 7-day window) — not something an
+      # operator should ever be paged about, even after many sweeps' worth
+      # of deferrals.
+      context 'and it has already been deferred well past EXPORT_STALL_WARNING_DEFERRAL_COUNT times' do
+        let(:long_waiting_termination) do
+          deferral_entries = Array.new(10) { |i| { 'event' => 'export_pending_deferred', 'at' => (10 - i).days.ago.iso8601 } }
+          undelivered_completed_termination.merge('termination_log' => [ seeded_reminder_entry ] + deferral_entries)
+        end
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ long_waiting_termination ])
+        end
+
+        it 'never writes export_stalled_warning for a benign, still-open download window' do
+          appended = []
+          allow(api_client).to receive(:patch) do |_path, payload|
+            appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+            { 'success' => true, 'data' => long_waiting_termination }
+          end
+
+          job.execute
+
+          expect(appended).not_to include(hash_including(event: 'export_stalled_warning'))
+        end
+
+        it 'does not log a stall warning message either' do
+          expect(job).not_to receive(:log_warn).with(/deferred .* times without resolving/)
+
+          job.execute
+        end
+      end
+    end
+
+    # Operator ruling 2026-09-24: a failed export is RESET and RE-QUEUED
+    # (bounded), not treated as "nothing left to deliver" — replaces the
+    # BLOCKER the review flagged (failed used to count as ready
+    # unconditionally, deleting an export that had delivered nothing).
+    context 'when the termination requested a data export that has failed' do
+      context 'and it is below the retry limit' do
+        let(:failed_export_termination) { termination_data.merge('data_export_request_id' => 'export-3') }
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ failed_export_termination ])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+            .and_return('success' => true, 'data' => [])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'processing' })
+            .and_return('success' => true, 'data' => [])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/data_export_requests/export-3')
+            .and_return('success' => true, 'data' => { 'data_export_request' => { 'id' => 'export-3', 'status' => 'failed', 'delivered_for_deletion' => false, 'metadata' => {} } })
+          allow(api_client).to receive(:patch).and_return('success' => true, 'data' => failed_export_termination)
+        end
+
+        it 'does not proceed with deleting account data' do
+          expect(api_client).not_to receive(:delete)
+
+          job.execute
+        end
+
+        it 'resets the export via action_type: retry and re-queues Compliance::DataExportJob' do
+          expect(api_client).to receive(:patch)
+            .with('/api/v1/internal/data_export_requests/export-3', { action_type: 'retry' })
+            .and_return('success' => true, 'data' => { 'data_export_request' => { 'id' => 'export-3', 'metadata' => { 'delivery_retry_count' => 1 } } })
+          expect(Compliance::DataExportJob).to receive(:perform_async).with('export-3')
+
+          job.execute
+        end
+
+        it 'does not count as processed (a retry is a deferral, not completed work)' do
+          result = job.execute
+
+          expect(result[:processed]).to eq(0)
+        end
+      end
+
+      context 'and it has already failed EXPORT_DELIVERY_RETRY_LIMIT times' do
+        let(:permanently_failed_termination) { termination_data.merge('data_export_request_id' => 'export-3b') }
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ permanently_failed_termination ])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+            .and_return('success' => true, 'data' => [])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'processing' })
+            .and_return('success' => true, 'data' => [])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/data_export_requests/export-3b')
+            .and_return(
+              'success' => true,
+              'data' => {
+                'data_export_request' => {
+                  'id' => 'export-3b', 'status' => 'failed', 'delivered_for_deletion' => false,
+                  'metadata' => { 'delivery_retry_count' => Compliance::AccountTerminationJob::EXPORT_DELIVERY_RETRY_LIMIT }
+                }
+              }
+            )
+          allow(api_client).to receive(:patch).and_return('success' => true, 'data' => permanently_failed_termination)
+          allow(api_client).to receive(:post).and_return('success' => true)
+        end
+
+        it 'does not retry again once the limit is reached' do
+          expect(api_client).not_to receive(:patch)
+            .with('/api/v1/internal/data_export_requests/export-3b', { action_type: 'retry' })
+          expect(Compliance::DataExportJob).not_to receive(:perform_async)
+
+          job.execute
+        end
+
+        it 'parks the termination with a once-only log entry' do
+          appended = []
+          allow(api_client).to receive(:patch) do |_path, payload|
+            appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+            { 'success' => true, 'data' => permanently_failed_termination }
+          end
+
+          job.execute
+
+          expect(appended).to include(hash_including(event: 'export_delivery_parked'))
+        end
+
+        it 'never deletes account data while the export remains undelivered' do
+          expect(api_client).not_to receive(:delete)
+
+          job.execute
+        end
+
+        it 'does not write a second export_delivery_parked entry once one already exists' do
+          already_parked = permanently_failed_termination.merge(
+            'termination_log' => permanently_failed_termination['termination_log'] + [
+              { 'event' => 'export_delivery_parked', 'at' => 1.day.ago.iso8601 }
+            ]
+          )
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+            .and_return('success' => true, 'data' => [ already_parked ])
+
+          appended = []
+          allow(api_client).to receive(:patch) do |_path, payload|
+            appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+            { 'success' => true, 'data' => already_parked }
+          end
+
+          job.execute
+
+          expect(appended).not_to include(hash_including(event: 'export_delivery_parked'))
+        end
+
+        # Review round 4: this job used to ALSO POST an alert itself here
+        # (removed — it was a no-op against notifications#send_notification,
+        # which resolves recipients from `user_ids`, never present in this
+        # job's account_id-only payload). The real alert
+        # (SecurityAlertService, via the account_terminations PATCH this job
+        # already makes above) is server-side now — see
+        # Api::V1::Internal::AccountTerminationsController#update and its
+        # own spec. This job has no seam left to assert on for the alert
+        # itself; what it CAN assert is that it no longer makes the broken
+        # call at all.
+        it 'does not POST to the broken notifications#send_notification seam' do
+          expect(api_client).not_to receive(:post)
+            .with('/api/v1/internal/notifications/send', hash_including(type: 'export_delivery_parked'))
+
+          job.execute
+        end
+      end
+    end
+
+    # IMP-0310a1351dab review round 2, item 3: 'expired' (the download window
+    # has passed — given up) counts as resolved for deletion, the same as
+    # 'completed'/'failed'.
+    context 'when the termination requested a data export that has expired (download window passed)' do
+      let(:expired_export_termination) { termination_data.merge('data_export_request_id' => 'export-5') }
+
+      before do
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period', grace_period_expired: true })
+          .and_return('success' => true, 'data' => [ expired_export_termination ])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'grace_period' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/account_terminations', { status: 'processing' })
+          .and_return('success' => true, 'data' => [])
+        allow(api_client).to receive(:get)
+          .with('/api/v1/internal/data_export_requests/export-5')
+          .and_return('success' => true, 'data' => { 'data_export_request' => { 'id' => 'export-5', 'status' => 'expired', 'delivered_for_deletion' => true } })
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/accounts/#{account_id}/users")
+          .and_return('success' => true, 'data' => users_data)
+        allow(api_client).to receive(:patch).and_return('success' => true, 'data' => expired_export_termination)
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 5 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      it 'proceeds with deleting account data (an expired export has given up its delivery window)' do
+        expect(api_client).to receive(:delete)
+          .with("/api/v1/internal/users/#{user_id}/consents")
+
+        job.execute
+      end
+    end
+
     # IMP-f0560910fa62: process_termination PATCHes status: 'processing'
     # BEFORE entering its begin/rescue (line ~78). If the worker dies in that
     # window -- or anywhere before the completed/grace_period write lands --
@@ -416,6 +1059,60 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
 
         it 'does not raise or strand the row on the redundant write the server would 422 on' do
           expect { job.execute }.not_to raise_error
+        end
+      end
+
+      # IMP-0310a1351dab: a RESUMED stranded row is the one case that needs
+      # an explicit revert write when its export isn't ready — unlike a
+      # fresh grace_period row (already re-selectable as-is by the normal
+      # query), no query ever re-selects a 'processing' row except this
+      # stranded-check path, so leaving it untouched would depend on that
+      # same heuristic re-detecting it as stranded again next sweep instead
+      # of being immediately re-checkable.
+      context 'and it has been idle past the staleness threshold, with its own data export still undelivered' do
+        let(:stranded_export_termination) do
+          termination_data.merge(
+            'status' => 'processing', 'processing_started_at' => 7.hours.ago.iso8601,
+            'data_export_request_id' => 'export-4'
+          )
+        end
+
+        before do
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/account_terminations', { status: 'processing' })
+            .and_return('success' => true, 'data' => [ stranded_export_termination ])
+          allow(api_client).to receive(:get)
+            .with('/api/v1/internal/data_export_requests/export-4')
+            .and_return('success' => true, 'data' => { 'data_export_request' => { 'id' => 'export-4', 'status' => 'processing', 'delivered_for_deletion' => false } })
+        end
+
+        it 'reverts it back to grace_period rather than leaving it stranded in processing' do
+          expect(api_client).to receive(:patch)
+            .with(
+              "/api/v1/internal/account_terminations/#{termination_id}",
+              hash_including(status: 'grace_period')
+            )
+            .and_return('success' => true, 'data' => stranded_export_termination)
+
+          job.execute
+        end
+
+        it 'records the deferral in the termination log' do
+          appended = []
+          allow(api_client).to receive(:patch) do |_path, payload|
+            appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+            { 'success' => true, 'data' => stranded_export_termination }
+          end
+
+          job.execute
+
+          expect(appended).to include(hash_including(event: 'export_pending_deferred'))
+        end
+
+        it 'does not begin deleting any account data' do
+          expect(api_client).not_to receive(:delete)
+
+          job.execute
         end
       end
 

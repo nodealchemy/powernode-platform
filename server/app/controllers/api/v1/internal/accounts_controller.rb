@@ -147,10 +147,111 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/data_export_requests
+  #
+  # IMP-0310a1351dab: a bare `.delete_all` here raised InvalidForeignKey
+  # (account_terminations.data_export_request_id references this table, no
+  # on_delete) for EVERY termination that had requested a data export —
+  # Account::Termination.initiate sets that FK the moment `request_data_export:
+  # true` is honoured (termination.rb:56-63). Every such termination's
+  # deletion sweep crashed here, permanently.
+  #
+  # REVIEW ROUND 2 fixed a live regression in round 1's own first attempt:
+  # deferring on ANY pending/processing export anywhere in the account (not
+  # just the terminating account's OWN requested one) meant an unrelated
+  # self-service export elsewhere in the account silently blocked EVERY
+  # termination's data deletion — while the worker's log still claimed
+  # 'deleted_export_requests' regardless. `own_export_request_id` (optional,
+  # sent by the worker as the termination's own data_export_request_id) is
+  # now the ONLY row this action will ever defer; every other export row for
+  # the account is deleted regardless of its own status — an unrelated
+  # export's pending/processing state is not a reason for this endpoint to defer, and
+  # the FK it must protect never referenced it in the first place.
+  #
+  # Fixed two ways, deliberately NOT via a migration (`on_delete: :nullify`
+  # would ALSO be sound, but the operator flagged the schema.rb regeneration
+  # risk explicitly — a broader, harder-to-review change for no more coverage
+  # than this narrower, request-scoped fix already gets):
+  #   1. GDPR promise (operator ruling 2026-09-24 — see
+  #      DataManagement::ExportRequest#delivered_for_deletion? for the one
+  #      place this is decided): the OWN export must be DELIVERED — actually
+  #      downloaded, or its 7-day download window elapsed unused — before
+  #      its row may be removed. A 'failed' export is never treated as
+  #      resolved here; Compliance::AccountTerminationJob is responsible for
+  #      resetting and re-queuing it (bounded, then parking the termination)
+  #      rather than this endpoint quietly letting it through. Left in place
+  #      — deferred, not deleted — and reported back as such, rather than
+  #      silently vanishing before the user or the worker has had a chance
+  #      to retrieve/resolve it.
+  #   2. The dangling FK: for every row that IS being deleted, the
+  #      referencing account_terminations.data_export_request_id is cleared
+  #      FIRST. This does not touch the export's own audit trail —
+  #      DataManagement::ExportRequest#log_export_requested/_completed/_failed
+  #      write AuditLog rows keyed to the export's OWN id, independent of
+  #      both this FK and the termination row, and are untouched by either
+  #      the nullify or the delete below.
+  #
+  # Transactional and row-locked (review round 2, MED): without a lock, a
+  # concurrent writer (DataExportJob completing THIS SAME row between the
+  # SELECT that decided "still pending, defer it" and the DELETE that skips
+  # it) could race harmlessly here (worst case: a now-resolved export
+  # survives one extra sweep) — but the SAME race on the DELETABLE set would
+  # let a row DataExportJob just moved to 'processing' be deleted out from
+  # under it, which cleanup_file! below would then be racing against a write
+  # to file_path on a row about to disappear. `.lock` inside the transaction
+  # makes the read-decide-write atomic against that.
   def delete_data_export_requests
-    count = DataManagement::ExportRequest.where(account_id: @account.id).delete_all if defined?(DataManagement::ExportRequest)
-    log_internal_audit("account.delete_data_export_requests", "Account", @account.id, account_id: @account.id, records_deleted: count || 0)
-    render_success(message: "Deleted #{count || 0} data export request records")
+    unless defined?(DataManagement::ExportRequest)
+      log_internal_audit("account.delete_data_export_requests", "Account", @account.id, account_id: @account.id, records_deleted: 0)
+      return render_success(message: "Deleted 0 data export request records")
+    end
+
+    own_export_request_id = params[:own_export_request_id].presence
+    deferred = false
+    count = 0
+
+    DataManagement::ExportRequest.transaction do
+      locked_scope = DataManagement::ExportRequest.where(account_id: @account.id).lock
+
+      exempt_id = nil
+      if own_export_request_id
+        own = locked_scope.find_by(id: own_export_request_id)
+        if own && !own.delivered_for_deletion?
+          deferred = true
+          exempt_id = own.id
+        end
+      end
+
+      deletable = locked_scope
+      deletable = deletable.where.not(id: exempt_id) if exempt_id
+      deletable_ids = deletable.pluck(:id)
+
+      if deletable_ids.any?
+        Account::Termination.where(data_export_request_id: deletable_ids).update_all(data_export_request_id: nil)
+        # Removes the PII file from disk before the row (its only record of
+        # the path) is gone. Each row is re-selected individually (not
+        # re-using `locked_scope`/`deletable`, both already-materialized
+        # relations from the locked read above) purely so #cleanup_file!'s
+        # own `update!(file_path: nil)` has a normal, unlocked row to write
+        # to — the FOR UPDATE lock taken above already serializes against
+        # any concurrent writer for the remainder of this transaction.
+        DataManagement::ExportRequest.where(id: deletable_ids).find_each(&:cleanup_file!)
+        count = DataManagement::ExportRequest.where(id: deletable_ids).delete_all
+      end
+    end
+
+    # `count` exposed structurally (not just embedded in `message`) so the
+    # worker (Compliance::AccountTerminationJob#delete_account_records) can
+    # log the real outcome instead of unconditionally recording
+    # 'deleted_export_requests' regardless of whether anything was actually
+    # deleted — review round 2, item 2.
+    data = { count: count, deferred: deferred ? 1 : 0 }
+    log_internal_audit(
+      "account.delete_data_export_requests", "Account", @account.id,
+      account_id: @account.id, records_deleted: count, records_deferred: data[:deferred]
+    )
+    message = "Deleted #{count} data export request records"
+    message += " (1 not yet delivered, deferring its deletion)" if deferred
+    render_success(data: data, message: message)
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/data_deletion_requests

@@ -5,68 +5,84 @@ module Compliance
   class DataExportJob < BaseJob
     sidekiq_options queue: :compliance
 
+    # IMP-0310a1351dab BLOCKER: this job could never finish before this fix.
+    # Two independent breaks, both against
+    # Api::V1::Internal::DataExportRequestsController:
+    #   1. `show` nests the record under `data.data_export_request` (see
+    #      DataExportRequestsController#show -> serialize_request), not
+    #      `data` directly — `response['data']['status']` always read nil,
+    #      so the `unless export_request['status'] == 'pending'` guard
+    #      always took the "skip" branch and returned without doing
+    #      anything, on every single invocation, for every export ever
+    #      created (self-service or termination-linked).
+    #   2. `update` dispatches on `params[:action_type]`
+    #      ('start'/'complete'/'fail'/'expire') — see
+    #      DataExportRequestsController#update — and every PATCH this job
+    #      sent carried a bare status/field payload with no action_type,
+    #      which falls through to the generic branch (`@export_request
+    #      .update(export_request_update_params)`, permitting only
+    #      `metadata:`) and would have raised ActiveRecord::RecordInvalid or
+    #      silently updated nothing, had the job ever reached a PATCH call
+    #      at all (it never did, because of #1).
     def execute(export_request_id)
       log_info "Processing data export request: #{export_request_id}"
 
-      # Fetch export request from API
       response = api_client.get("/api/v1/internal/data_export_requests/#{export_request_id}")
 
       unless response['success']
         raise "Failed to fetch export request: #{response['error']}"
       end
 
-      export_request = response['data']
+      export_request = response.dig('data', 'data_export_request')
+      unless export_request
+        raise "Malformed response fetching export request #{export_request_id}: " \
+              "expected data.data_export_request, got #{response['data'].inspect}"
+      end
 
-      # Skip if not pending
       unless export_request['status'] == 'pending'
         log_info "Export request #{export_request_id} is not pending, skipping"
         return
       end
 
-      # Update status to processing
-      api_client.patch(
+      start_response = api_client.patch(
         "/api/v1/internal/data_export_requests/#{export_request_id}",
-        { status: 'processing', processing_started_at: Time.current.iso8601 }
+        { action_type: 'start' }
       )
+      unless start_response['success']
+        raise "Failed to start export request #{export_request_id}: #{start_response['error']}"
+      end
 
       begin
-        # Gather data
         export_data = gather_export_data(export_request)
-
-        # Write export file
         file_path, file_size = write_export_file(export_request, export_data)
 
-        # Generate download token
-        download_token = SecureRandom.urlsafe_base64(32)
-
-        # Complete the request
-        api_client.patch(
+        # The server generates and stores its OWN download_token on
+        # complete_export (DataExportRequestsController#complete_export) —
+        # it does not read one from this payload. `serialize_request`'s
+        # non-`include_details` shape (returned here) does not expose the
+        # generated token either, so this job cannot learn the real one from
+        # this response. notify_user_export_ready therefore does not
+        # currently carry a working download link — a separate,
+        # pre-existing gap this fix does not close (out of scope for
+        # IMP-0310a1351dab's FK/gate/pipeline fixes; flagged, not silently
+        # papered over with a token that would not match what is stored).
+        complete_response = api_client.patch(
           "/api/v1/internal/data_export_requests/#{export_request_id}",
-          {
-            status: 'completed',
-            file_path: file_path,
-            file_size_bytes: file_size,
-            download_token: download_token,
-            download_token_expires_at: 7.days.from_now.iso8601,
-            completed_at: Time.current.iso8601,
-            expires_at: 30.days.from_now.iso8601
-          }
+          { action_type: 'complete', file_path: file_path, file_size_bytes: file_size }
         )
+        unless complete_response['success']
+          raise "Failed to complete export request #{export_request_id}: #{complete_response['error']}"
+        end
 
         log_export_outcome(export_request_id, export_data.dig(:export_info, :manifest) || {})
 
-        # Send notification to user
-        notify_user_export_ready(export_request, download_token)
+        notify_user_export_ready(export_request, nil)
       rescue => e
         log_error "Data export failed: #{e.message}"
 
         api_client.patch(
           "/api/v1/internal/data_export_requests/#{export_request_id}",
-          {
-            status: 'failed',
-            error_message: e.message,
-            completed_at: Time.current.iso8601
-          }
+          { action_type: 'fail', error_message: e.message }
         )
 
         raise
