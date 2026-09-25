@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { useCreateBudget, useUpdateBudget } from '../api/autonomyApi';
-import type { AgentBudget } from '../types/autonomy';
+import { useCreateBudget, useUpdateBudget } from '../api/budgetsApi';
+import type { AgentBudget } from '../types';
 
 interface BudgetCreateEditModalProps {
   budget?: AgentBudget | null;

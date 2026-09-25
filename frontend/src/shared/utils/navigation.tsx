@@ -7,7 +7,7 @@ import {
   Plug, BookOpen, Activity, ShieldCheck,
   Container, Boxes,
   Play, Rocket, DollarSign, Code2, Gauge, Building2, Megaphone,
-  Shield, Route, ClipboardCheck, MessageSquare, Share2, Lock, Lightbulb
+  Shield, Route, ClipboardCheck, MessageSquare, Share2, Lock, Lightbulb, Wallet
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
 
@@ -184,6 +184,15 @@ export const defaultNavigationConfig: NavigationConfig = {
           description: 'AI governance policies and compliance',
           permissions: ['ai.governance.read'],
           order: 13
+        },
+        {
+          id: 'ai-budgets',
+          name: 'Budgets',
+          href: '/app/ai/control/budgets',
+          icon: Wallet,
+          description: 'Agent spending limits, utilization, and allocations',
+          permissions: ['ai.agents.read'],
+          order: 13.4
         },
         {
           id: 'ai-approval-chains',

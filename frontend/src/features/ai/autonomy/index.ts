@@ -2,7 +2,6 @@
 export type {
   AgentLineageNode,
   TrustScore,
-  AgentBudget,
   AutonomyStats,
   CircuitBreaker,
   CircuitBreakerState,
@@ -14,7 +13,6 @@ export type {
   ShadowExecution,
   TelemetryEvent,
   DelegationPolicy,
-  BudgetRegime,
 } from './types/autonomy';
 
 // API hooks - queries
@@ -22,7 +20,6 @@ export {
   useTrustScores,
   useTrustScore,
   useAgentLineage,
-  useAgentBudgets,
   useAutonomyStats,
   useCapabilityMatrix,
   useAgentCapabilities,
@@ -42,10 +39,6 @@ export {
   useEvaluateTrustScore,
   useOverrideTrustScore,
   useEmergencyDemote,
-  useCreateBudget,
-  useUpdateBudget,
-  useDeleteBudget,
-  useAllocateChildBudget,
   useResetCircuitBreaker,
   useCreateDelegationPolicy,
   useUpdateDelegationPolicy,
@@ -55,8 +48,6 @@ export {
 // Components
 export { TrustScoreCard } from './components/TrustScoreCard';
 export { AgentLineageTree } from './components/AgentLineageTree';
-export { BudgetAllocationPanel } from './components/BudgetAllocationPanel';
-export { BudgetRegimeIndicator } from './components/BudgetRegimeIndicator';
 export { CircuitBreakerStatusPanel } from './components/CircuitBreakerStatusPanel';
 export { CapabilityMatrixViewer } from './components/CapabilityMatrixViewer';
 export { BehavioralFingerprintChart } from './components/BehavioralFingerprintChart';

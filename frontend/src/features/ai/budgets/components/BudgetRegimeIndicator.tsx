@@ -1,7 +1,7 @@
 import React from 'react';
 import { DollarSign } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
-import type { BudgetRegime } from '../types/autonomy';
+import type { BudgetRegime } from '../types';
 
 interface BudgetRegimeIndicatorProps {
   regime: BudgetRegime;

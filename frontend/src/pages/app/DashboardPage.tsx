@@ -57,6 +57,7 @@ const AgentDetailPage = React.lazy(() => import('./ai/AgentDetailPage').then(m =
 const AIAnalyticsPage = React.lazy(() => import('./ai/AIAnalyticsPage').then(m => ({ default: m.AIAnalyticsPage })));
 const AgentMemoryPage = React.lazy(() => import('./ai/AgentMemoryPage').then(m => ({ default: m.AgentMemoryPage })));
 const ApprovalChainsPage = React.lazy(() => import('./ai/ApprovalChainsPage').then(m => ({ default: m.ApprovalChainsPage })));
+const BudgetsPage = React.lazy(() => import('./ai/BudgetsPage').then(m => ({ default: m.BudgetsPage })));
 const ContextDetailPage = React.lazy(() => import('./ai/ContextDetailPage').then(m => ({ default: m.ContextDetailPage })));
 // The only operator screen for either capability — previously unrouted.
 // AIConversationsPage: CRUD/filter/export/detail over ai conversations, only
@@ -173,6 +174,9 @@ const DashboardPage: React.FC = () => {
         {/* Approval chains — gated on ai.approval_chains.manage (defense-in-depth;
             Api::V1::Ai::ApprovalChainsController enforces the same permission). */}
         <Route path="/ai/approval-chains" element={<ProtectedRoute requiredPermissions={['ai.approval_chains.manage']}><ApprovalChainsPage /></ProtectedRoute>} />
+        {/* Budgets — gated on ai.agents.read, which GET /api/v1/ai/autonomy/budgets
+            checks; the panel gates its writes on ai.autonomy.manage. */}
+        <Route path="/ai/control/budgets" element={<ProtectedRoute requiredPermissions={['ai.agents.read']}><BudgetsPage /></ProtectedRoute>} />
 
         {/* AI Pages - Tabbed wrappers */}
         <Route path="/ai/execution/*" element={<ExecutionPage />} />

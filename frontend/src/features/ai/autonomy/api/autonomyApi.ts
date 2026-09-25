@@ -5,7 +5,6 @@ import type {
   TrustScore,
   AgentLineage,
   AgentLineageNode,
-  AgentBudget,
   AutonomyStats,
   CircuitBreaker,
   CapabilityMatrix,
@@ -14,7 +13,6 @@ import type {
   ShadowExecution,
   TelemetryEvent,
   DelegationPolicy,
-  PaginatedTransactions,
   KillSwitchStatus,
   KillSwitchEvent,
   AgentGoal,
@@ -32,7 +30,6 @@ const AUTONOMY_KEYS = {
   trustScore: (agentId: string) => [...AUTONOMY_KEYS.all, 'trust-score', agentId] as const,
   lineage: (agentId: string) => [...AUTONOMY_KEYS.all, 'lineage', agentId] as const,
   lineageForest: () => [...AUTONOMY_KEYS.all, 'lineage-forest'] as const,
-  budgets: () => [...AUTONOMY_KEYS.all, 'budgets'] as const,
   stats: () => [...AUTONOMY_KEYS.all, 'stats'] as const,
   capabilityMatrix: () => [...AUTONOMY_KEYS.all, 'capability-matrix'] as const,
   agentCapabilities: (agentId: string) => [...AUTONOMY_KEYS.all, 'capabilities', agentId] as const,
@@ -45,9 +42,6 @@ const AUTONOMY_KEYS = {
   delegationPolicies: () => [...AUTONOMY_KEYS.all, 'delegation-policies'] as const,
   agentDelegationPolicy: (agentId: string) => [...AUTONOMY_KEYS.all, 'delegation-policy', agentId] as const,
   behavioralFingerprints: (agentId: string) => [...AUTONOMY_KEYS.all, 'fingerprints', agentId] as const,
-  budgetTransactions: (budgetId: string) => [...AUTONOMY_KEYS.all, 'budget-transactions', budgetId] as const,
-  budgetCheck: (budgetId: string) => [...AUTONOMY_KEYS.all, 'budget-check', budgetId] as const,
-  budgetAlerts: () => [...AUTONOMY_KEYS.all, 'budget-alerts'] as const,
   pricing: () => [...AUTONOMY_KEYS.all, 'pricing'] as const,
   // Kill switch
   killSwitchStatus: () => [...AUTONOMY_KEYS.all, 'kill-switch-status'] as const,
@@ -111,15 +105,8 @@ export function useAgentLineageForest() {
   });
 }
 
-export function useAgentBudgets() {
-  return useQuery({
-    queryKey: AUTONOMY_KEYS.budgets(),
-    queryFn: async () => {
-      const response = await apiClient.get('/ai/autonomy/budgets');
-      return (response.data?.data ?? []) as AgentBudget[];
-    },
-  });
-}
+/** The autonomy stats query key, for writers elsewhere whose changes move the stats (budgets). */
+export const autonomyStatsQueryKey = () => AUTONOMY_KEYS.stats();
 
 export function useAutonomyStats() {
   return useQuery({
@@ -247,19 +234,6 @@ export function useBehavioralFingerprints(agentId: string) {
   });
 }
 
-export function useBudgetTransactions(budgetId: string, page = 1, perPage = 25) {
-  return useQuery({
-    queryKey: [...AUTONOMY_KEYS.budgetTransactions(budgetId), page, perPage],
-    queryFn: async () => {
-      const response = await apiClient.get(`/ai/autonomy/budgets/${budgetId}/transactions`, {
-        params: { page, per_page: perPage },
-      });
-      return (response.data?.data ?? { transactions: [], pagination: { page: 1, per_page: perPage, total: 0, total_pages: 0 } }) as PaginatedTransactions;
-    },
-    enabled: !!budgetId,
-  });
-}
-
 
 // ===== Write Mutations =====
 
@@ -300,65 +274,6 @@ export function useEmergencyDemote() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.trustScores() });
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.stats() });
-    },
-  });
-}
-
-export function useCreateBudget() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (params: { agent_id: string; total_budget_cents: number; period_type?: string; currency?: string; period_start?: string; period_end?: string }) => {
-      const response = await apiClient.post('/ai/autonomy/budgets', params);
-      return response.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.budgets() });
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.stats() });
-    },
-  });
-}
-
-export function useUpdateBudget() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, ...params }: { id: string; total_budget_cents?: number; period_type?: string; currency?: string; period_end?: string }) => {
-      const response = await apiClient.put(`/ai/autonomy/budgets/${id}`, params);
-      return response.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.budgets() });
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.stats() });
-    },
-  });
-}
-
-export function useDeleteBudget() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const response = await apiClient.delete(`/ai/autonomy/budgets/${id}`);
-      return response.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.budgets() });
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.stats() });
-    },
-  });
-}
-
-export function useAllocateChildBudget() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ budgetId, agentId, amountCents }: { budgetId: string; agentId: string; amountCents: number }) => {
-      const response = await apiClient.post(`/ai/autonomy/budgets/${budgetId}/allocate_child`, {
-        agent_id: agentId,
-        amount_cents: amountCents,
-      });
-      return response.data?.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.budgets() });
       queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.stats() });
     },
   });

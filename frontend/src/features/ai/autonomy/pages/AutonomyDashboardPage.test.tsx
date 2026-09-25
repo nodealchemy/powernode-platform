@@ -20,15 +20,13 @@ jest.mock('../api/autonomyApi', () => ({
     isLoading: false,
   }),
   useTrustScores: () => ({ data: [], isLoading: false }),
-  useAgentBudgets: () => ({ data: [], isLoading: false }),
   useAgentLineage: () => ({ data: null, isLoading: false }),
   useAgentLineageForest: () => ({ data: { trees: [], orphans: [] }, isLoading: false }),
 }));
 
 jest.mock('../components/TrustScoreCard', () => ({ TrustScoreCard: () => null }));
 jest.mock('../components/AgentLineageTree', () => ({ AgentLineageTree: () => null }));
-jest.mock('../components/BudgetAllocationPanel', () => ({ BudgetAllocationPanel: () => null }));
-jest.mock('../components/BudgetRegimeIndicator', () => ({ BudgetRegimeIndicator: () => null }));
+jest.mock('@/features/ai/budgets/components/BudgetRegimeIndicator', () => ({ BudgetRegimeIndicator: () => null }));
 jest.mock('../components/CapabilityMatrixViewer', () => ({ CapabilityMatrixViewer: () => null }));
 jest.mock('../components/CircuitBreakerStatusPanel', () => ({ CircuitBreakerStatusPanel: () => null }));
 jest.mock('../components/BehavioralFingerprintChart', () => ({ BehavioralFingerprintChart: () => null }));

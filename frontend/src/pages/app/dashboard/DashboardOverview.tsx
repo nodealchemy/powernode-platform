@@ -45,10 +45,12 @@ import type { Verdict } from '@/shared/types/platformStatus';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { useDashboardStats } from '@/shared/hooks/useDashboardStats';
 import { DashboardAIOverview } from '@/features/ai/monitoring/components/DashboardAIOverview';
-import { BudgetRegimeIndicator } from '@/features/ai/autonomy/components/BudgetRegimeIndicator';
+import { BudgetRegimeIndicator } from '@/features/ai/budgets/components/BudgetRegimeIndicator';
+import { computeBudgetRegime } from '@/features/ai/budgets/budgetRegime';
 import { useAutonomyStats } from '@/features/ai/autonomy/api/autonomyApi';
 import { useApprovalQueue } from '@/features/ai/approvals/api/approvalsApi';
-import type { AutonomyStats, BudgetRegime } from '@/features/ai/autonomy/types/autonomy';
+import type { AutonomyStats } from '@/features/ai/autonomy/types/autonomy';
+import type { BudgetRegime } from '@/features/ai/budgets/types';
 import { useMissions } from '@/features/missions';
 import type { Mission } from '@/features/missions';
 
@@ -134,37 +136,6 @@ const EMPTY_AUTONOMY_STATS: AutonomyStats = {
   pending_promotions: 0,
   pending_demotions: 0,
 };
-
-/**
- * Budget regime from aggregate spend. Thresholds mirror
- * `AutonomyDashboardPage.computeBudgetRegime` — the autonomy dashboard is the
- * source of truth; keep the two in step if the bands move.
- */
-function computeBudgetRegime(stats: AutonomyStats): BudgetRegime | null {
-  const budgets = stats.budgets;
-  if (!budgets || budgets.total_budget_cents === 0) return null;
-
-  const pct = (budgets.total_spent_cents / budgets.total_budget_cents) * 100;
-  const remaining = budgets.total_budget_cents - budgets.total_spent_cents;
-
-  let level: BudgetRegime['level'];
-  let message: string;
-  if (pct >= 100) {
-    level = 'EXHAUSTED';
-    message = 'Budget exhausted — new executions blocked';
-  } else if (pct >= 80) {
-    level = 'CRITICAL';
-    message = 'Budget is critically low — only essential operations permitted';
-  } else if (pct >= 50) {
-    level = 'CAUTIOUS';
-    message = 'Budget utilization is moderate';
-  } else {
-    level = 'NORMAL';
-    message = 'Budget availability is healthy';
-  }
-
-  return { level, utilization_pct: pct, remaining_cents: remaining, message };
-}
 
 const REGIME_TONE: Record<BudgetRegime['level'], { chip: ChipTone; chart: ChartTone }> = {
   NORMAL: { chip: 'success', chart: 'success' },

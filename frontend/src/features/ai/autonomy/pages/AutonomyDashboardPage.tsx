@@ -2,18 +2,18 @@ import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Shield, Users, TrendingUp, TrendingDown, Eye, Bot,
-  Zap, GitBranch, Radio, ShieldCheck, ClipboardCheck,
+  GitBranch, Radio, ShieldCheck, ClipboardCheck,
   Power, Target, FileText, AlertOctagon, Star, Settings,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useAutonomyStats, useTrustScores, useAgentBudgets, useAgentLineage, useAgentLineageForest } from '../api/autonomyApi';
+import { useAutonomyStats, useTrustScores, useAgentLineage, useAgentLineageForest } from '../api/autonomyApi';
 import { TrustScoreCard } from '../components/TrustScoreCard';
 import { AgentLineageTree } from '../components/AgentLineageTree';
-import { BudgetAllocationPanel } from '../components/BudgetAllocationPanel';
-import { BudgetRegimeIndicator } from '../components/BudgetRegimeIndicator';
+import { BudgetRegimeIndicator } from '@/features/ai/budgets/components/BudgetRegimeIndicator';
+import { computeBudgetRegime } from '@/features/ai/budgets/budgetRegime';
 import { CapabilityMatrixViewer } from '../components/CapabilityMatrixViewer';
 import { CircuitBreakerStatusPanel } from '../components/CircuitBreakerStatusPanel';
 import { BehavioralFingerprintChart } from '../components/BehavioralFingerprintChart';
@@ -27,7 +27,7 @@ import { EscalationsPanel } from '../components/EscalationsPanel';
 import { FeedbackPanel } from '../components/FeedbackPanel';
 import { InterventionPoliciesPanel } from '../components/InterventionPoliciesPanel';
 import { ShadowModeResultsPanel } from '../components/ShadowModeResultsPanel';
-import type { TrustScore, AgentBudget, AutonomyStats, BudgetRegime, AgentLineageNode } from '../types/autonomy';
+import type { TrustScore, AutonomyStats, AgentLineageNode } from '../types/autonomy';
 
 const breadcrumbs = [
   { label: 'Dashboard', href: '/app' },
@@ -55,19 +55,6 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, icon: Icon, iconColor
     </div>
   </Card>
 );
-
-function computeBudgetRegime(stats: AutonomyStats): BudgetRegime | null {
-  if (!stats.budgets || stats.budgets.total_budget_cents === 0) return null;
-  const pct = (stats.budgets.total_spent_cents / stats.budgets.total_budget_cents) * 100;
-  const remaining = stats.budgets.total_budget_cents - stats.budgets.total_spent_cents;
-  let level: BudgetRegime['level'];
-  let message: string;
-  if (pct >= 100) { level = 'EXHAUSTED'; message = 'Budget exhausted — new executions blocked'; }
-  else if (pct >= 80) { level = 'CRITICAL'; message = 'Budget is critically low — only essential operations permitted'; }
-  else if (pct >= 50) { level = 'CAUTIOUS'; message = 'Budget utilization is moderate'; }
-  else { level = 'NORMAL'; message = 'Budget availability is healthy'; }
-  return { level, utilization_pct: pct, remaining_cents: remaining, message };
-}
 
 const OverviewTab: React.FC<{ stats: AutonomyStats }> = ({ stats }) => {
   const regime = computeBudgetRegime(stats);
@@ -198,16 +185,6 @@ const LineageTab: React.FC<{
   );
 };
 
-const BudgetsTab: React.FC<{ budgets: AgentBudget[]; stats: AutonomyStats }> = ({ budgets, stats }) => {
-  const regime = computeBudgetRegime(stats);
-  return (
-    <div className="space-y-6">
-      <BudgetAllocationPanel budgets={budgets} />
-      {regime && <BudgetRegimeIndicator regime={regime} />}
-    </div>
-  );
-};
-
 const SecurityTab: React.FC<{ selectedAgentId: string }> = ({ selectedAgentId }) => (
   <div className="space-y-6">
     <CircuitBreakerStatusPanel />
@@ -222,7 +199,6 @@ const SIDEBAR_ITEMS = [
   { id: 'escalations', label: 'Escalations', icon: AlertOctagon },
   { id: 'trust', label: 'Trust', icon: Shield },
   { id: 'lineage', label: 'Lineage', icon: GitBranch },
-  { id: 'budgets', label: 'Budgets', icon: Zap },
   { id: 'policies', label: 'Policies', icon: Settings },
   { id: 'feedback', label: 'Feedback', icon: Star },
   { id: 'approvals', label: 'Approvals', icon: ClipboardCheck },
@@ -275,9 +251,8 @@ export const AutonomyContent: React.FC = () => {
 
   const { data: stats, isLoading: statsLoading } = useAutonomyStats();
   const { data: trustScores, isLoading: scoresLoading } = useTrustScores();
-  const { data: budgets, isLoading: budgetsLoading } = useAgentBudgets();
 
-  const isLoading = statsLoading || scoresLoading || budgetsLoading;
+  const isLoading = statsLoading || scoresLoading;
 
   if (isLoading) {
     return <LoadingSpinner size="lg" className="py-12" message="Loading autonomy data..." />;
@@ -285,7 +260,6 @@ export const AutonomyContent: React.FC = () => {
 
   const safeStats: AutonomyStats = stats ?? { total_agents: 0, supervised: 0, monitored: 0, trusted: 0, autonomous: 0, pending_promotions: 0, pending_demotions: 0 };
   const safeTrustScores = trustScores ?? [];
-  const safeBudgets = budgets ?? [];
 
   const renderContent = () => {
     switch (activeSection) {
@@ -306,8 +280,6 @@ export const AutonomyContent: React.FC = () => {
             onAgentSelect={setSelectedAgentId}
           />
         );
-      case 'budgets':
-        return <BudgetsTab budgets={safeBudgets} stats={safeStats} />;
       case 'policies':
         return <InterventionPoliciesPanel />;
       case 'feedback':
@@ -380,7 +352,7 @@ export const AutonomyContent: React.FC = () => {
 export const AutonomyDashboardPage: React.FC = () => (
   <PageContainer
     title="Agent Autonomy"
-    description="Monitor agent trust, lineage, and budgets"
+    description="Monitor agent trust and lineage"
     breadcrumbs={breadcrumbs}
   >
     <AutonomyContent />

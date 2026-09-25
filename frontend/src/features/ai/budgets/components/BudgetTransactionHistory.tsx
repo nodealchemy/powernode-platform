@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { ArrowDownCircle, ArrowUpCircle, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
-import { useBudgetTransactions } from '../api/autonomyApi';
-import type { BudgetTransaction } from '../types/autonomy';
+import { useBudgetTransactions } from '../api/budgetsApi';
+import type { BudgetTransaction } from '../types';
 
 const TRANSACTION_CONFIG: Record<string, { icon: React.ComponentType<{ className?: string }>; variant: 'success' | 'warning' | 'info' | 'default'; label: string }> = {
   debit: { icon: ArrowDownCircle, variant: 'warning', label: 'Debit' },
