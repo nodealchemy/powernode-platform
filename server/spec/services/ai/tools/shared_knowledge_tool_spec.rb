@@ -17,6 +17,16 @@ RSpec.describe Ai::Tools::SharedKnowledgeTool do
       expect(params).to have_key(:tags)
       expect(params[:tags][:type]).to eq("array")
     end
+
+    # search_knowledge stays declared read-only: the writes below are usage
+    # telemetry (Ai::SharedKnowledge#touch_usage!), so the contract has to name them.
+    it "declares search_knowledge read-only and names every field a search writes" do
+      description = described_class.action_definitions["search_knowledge"][:description]
+
+      expect(described_class.declared_action("search_knowledge")[:mutating]).to be(false)
+      expect(description).to include("usage_count", "last_used_at", "updated_at",
+                                     "quality_score", "last_quality_recalc_at", "last_event_processed_at")
+    end
   end
 
   describe "#execute action: search_knowledge" do

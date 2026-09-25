@@ -102,7 +102,10 @@ module Ai
           "agent_recall" => {
             description: "Search the calling agent's private memory pool, the entries it stored with agent_remember. " \
                          "Ranks by embedding similarity, falling back to keyword overlap when an embedding is missing, and drops results below 0.5 relevance. " \
-                         "include_team also searches team_shared pools the agent is listed on or that are public; each hit's access count is incremented.",
+                         "include_team also searches team_shared pools the agent is listed on or that are public. " \
+                         "Usage telemetry: each returned entry's access_count is incremented and its last_accessed_at set to now, " \
+                         "and each pool with a hit is saved, which increments its version, recomputes data_size_bytes, " \
+                         "sets updated_at and broadcasts a memory_pool_update event.",
             parameters: {
               query: { type: "string", required: true, description: "Natural language search query" },
               include_team: { type: "boolean", required: false, description: "Also search team_shared pools (default false)" },

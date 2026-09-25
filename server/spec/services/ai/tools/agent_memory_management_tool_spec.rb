@@ -22,6 +22,18 @@ RSpec.describe Ai::Tools::AgentMemoryManagementTool do
     tool.execute(params: { action: "agent_recall" }.merge(params).with_indifferent_access)
   end
 
+  # agent_recall stays declared read-only: the writes below are usage telemetry
+  # (AgentManagedMemoryService#search_pool_entries), so the contract names them.
+  describe ".action_definitions agent_recall" do
+    it "is declared read-only and names every field a recall writes" do
+      description = described_class.action_definitions["agent_recall"][:description]
+
+      expect(described_class.declared_action("agent_recall")[:mutating]).to be(false)
+      expect(description).to include("access_count", "last_accessed_at", "version",
+                                     "data_size_bytes", "updated_at", "memory_pool_update")
+    end
+  end
+
   describe "#execute action: agent_recall with include_team: true" do
     # The team-pool query compared access_control->>'agents' (TEXT) with `@>`.
     # Postgres has no text @> operator, so the query raised, the tool rescued

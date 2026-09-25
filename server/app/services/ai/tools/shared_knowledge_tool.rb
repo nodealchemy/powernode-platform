@@ -103,8 +103,10 @@ module Ai
                          "holds curated account entries (procedures, references, facts, guides), written with " \
                          "create_knowledge, promoted by memory consolidation, and imported nightly from " \
                          "high-importance compound learnings. Semantic search runs when the query and the stored " \
-                         "entries have embeddings; otherwise keyword search runs. Archived entries are excluded, " \
-                         "and each hit bumps the entry's usage count. limit defaults to 10.",
+                         "entries have embeddings; otherwise keyword search runs. Archived entries are excluded. " \
+                         "limit defaults to 10. Usage telemetry: each returned entry's usage_count is incremented " \
+                         "and its last_used_at and updated_at are set to now; on every fifth use its quality_score " \
+                         "is recalculated, which also sets last_quality_recalc_at and last_event_processed_at.",
             parameters: {
               query: { type: "string", required: true, description: "Search query" },
               content_type: { type: "string", required: false, description: "Filter by content type" },
