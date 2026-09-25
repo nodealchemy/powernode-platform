@@ -7,7 +7,7 @@ import { MemoryStats } from './AgentMemoryStats';
 import { MemoryTimeline } from './MemoryTimeline';
 import { SharedLearningsPanel } from './SharedLearningsPanel';
 import { AgentSelectorCard } from './AgentSelectorCard';
-import { deleteMemory } from '../api/memoryApi';
+import { deleteMemory } from '../api/tieredMemoryApi';
 import { contextApi } from '../api/contextApi';
 import { useAgentMemorySelection } from '../hooks/useAgentMemorySelection';
 import type { PageAction } from '@/shared/components/layout/PageContainer';

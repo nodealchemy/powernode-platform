@@ -6,7 +6,7 @@ import { MemoryViewer } from '@/features/ai/memory/components/MemoryViewer';
 import { EntryEditor } from '@/features/ai/memory/components/EntryEditor';
 import { contextApi } from '@/features/ai/memory/api/contextApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { memoryApiService } from '@/shared/services/ai/MemoryApiService';
+import { agentMemoryApiService } from '@/shared/services/ai/AgentMemoryApiService';
 import { agentsApi } from '@/shared/services/ai';
 import type { AiContextEntry, AiAgentSummary, AiPersistentContextSummary } from '@/features/ai/memory/types/context';
 
@@ -27,7 +27,7 @@ function MemoryPoolsTab() {
     const load = async () => {
       try {
         setError(null);
-        const result = await memoryApiService.getMemoryPools();
+        const result = await agentMemoryApiService.getMemoryPools();
         setPools((result.items || []) as unknown as MemoryPool[]);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load memory pools');

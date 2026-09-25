@@ -6,11 +6,13 @@ import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer'
 import { MemoryExplorerContent } from './MemoryExplorerPage';
 import { AgentMemoryContent } from '../components/AgentMemoryContent';
 
+// Tiered Memory (the /tiered_memory family, tieredMemoryApi). "Per Agent" is
+// the per-agent tier view, not Agent Memory (AgentMemoryApiService).
 // No "Contexts & Search" tab here — it duplicated the top-level
 // `/app/ai/knowledge/contexts` tab (same ContextsContent); that tab is canonical.
 const tabs = [
   { id: 'tiers', label: 'Tier Explorer', icon: <Database size={16} />, path: '/' },
-  { id: 'agent-memory', label: 'Agent Memory', icon: <Brain size={16} />, path: '/agent-memory' },
+  { id: 'agent-memory', label: 'Per Agent', icon: <Brain size={16} />, path: '/agent-memory' },
 ];
 
 /**

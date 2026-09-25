@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { agentsApi } from '@/shared/services/ai';
-import { fetchMemoryStats } from '../api/memoryApi';
+import { fetchMemoryStats } from '../api/tieredMemoryApi';
 import { useMemoryFilters } from './useMemoryFilters';
 import type { AiAgent } from '@/shared/types/ai';
 import type { MemoryStats } from '../types/memory';

@@ -3,14 +3,14 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { useAgentMemorySelection } from './useAgentMemorySelection';
 import { agentsApi } from '@/shared/services/ai';
-import { fetchMemoryStats } from '../api/memoryApi';
+import { fetchMemoryStats } from '../api/tieredMemoryApi';
 
 jest.mock('@/shared/services/ai', () => ({
   agentsApi: {
     getAgents: jest.fn(),
   },
 }));
-jest.mock('../api/memoryApi', () => ({
+jest.mock('../api/tieredMemoryApi', () => ({
   fetchMemoryStats: jest.fn(),
 }));
 const mockAddNotification = jest.fn();

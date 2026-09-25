@@ -12,7 +12,7 @@ import type {
 } from '@/shared/services/ai/types/memory-types';
 
 /**
- * MemoryApiService - Agent Memory API Client
+ * AgentMemoryApiService - Agent Memory API Client
  *
  * Provides access to the persistent memory system for AI agents.
  * Supports factual, experiential, and working memory types.
@@ -30,7 +30,7 @@ import type {
  * - DELETE /api/v1/ai/agents/:agent_id/memory/:key
  */
 
-class MemoryApiService extends BaseApiService {
+class AgentMemoryApiService extends BaseApiService {
   private buildMemoryPath(agentId: string, suffix?: string): string {
     let path = `${this.baseNamespace}/agents/${agentId}/memory`;
     if (suffix) {
@@ -273,5 +273,4 @@ class MemoryApiService extends BaseApiService {
 }
 
 // Export singleton instance
-export const memoryApiService = new MemoryApiService();
-export default memoryApiService;
+export const agentMemoryApiService = new AgentMemoryApiService();

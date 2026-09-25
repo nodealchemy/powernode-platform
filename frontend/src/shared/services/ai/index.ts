@@ -47,7 +47,7 @@ import { devopsApi } from '@/shared/services/ai/DevopsApiService';
 import { sandboxApi } from '@/shared/services/ai/SandboxApiService';
 import { agentCardsApiService } from '@/shared/services/ai/AgentCardsApiService';
 import { a2aTasksApiService } from '@/shared/services/ai/A2aTasksApiService';
-import { memoryApiService } from '@/shared/services/ai/MemoryApiService';
+import { agentMemoryApiService } from '@/shared/services/ai/AgentMemoryApiService';
 import { chatChannelsApi } from '@/shared/services/ai/ChatChannelsApiService';
 import { communityAgentsApi } from '@/shared/services/ai/CommunityAgentsApiService';
 import { containerExecutionApi } from '@/shared/services/ai/ContainerExecutionApiService';
@@ -308,7 +308,7 @@ export type {
 export { a2aTasksApiService };
 
 // Re-export Memory service
-export { memoryApiService };
+export { agentMemoryApiService };
 export type {
   MemoryEntry,
   MemoryType,
@@ -499,7 +499,7 @@ export const aiApi = {
   // A2A & Memory services
   agentCards: agentCardsApiService,
   a2aTasks: a2aTasksApiService,
-  memory: memoryApiService,
+  memory: agentMemoryApiService,
   // AI Agent Community Platform services
   chatChannels: chatChannelsApi,
   communityAgents: communityAgentsApi,

@@ -17,7 +17,7 @@ const tabs = [
   { id: 'skills', label: 'Skills', icon: <Puzzle size={16} />, path: '/skills' },
   { id: 'rag', label: 'RAG', icon: <Database size={16} />, path: '/rag' },
   { id: 'graph', label: 'Knowledge Graph', icon: <Share2 size={16} />, path: '/graph' },
-  { id: 'memory', label: 'Memory Tiers', icon: <Layers size={16} />, path: '/memory' },
+  { id: 'memory', label: 'Tiered Memory', icon: <Layers size={16} />, path: '/memory' },
   { id: 'learning', label: 'Compound Learning', icon: <Lightbulb size={16} />, path: '/learning' },
 ];
 

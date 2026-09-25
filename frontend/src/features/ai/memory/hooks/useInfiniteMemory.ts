@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { fetchMemoryEntriesPaginated } from '../api/memoryApi';
+import { fetchMemoryEntriesPaginated } from '../api/tieredMemoryApi';
 import type { MemoryEntry, MemoryTier, MemoryPagination, MemoryFilters } from '../types/memory';
 
 const PER_PAGE = 25;

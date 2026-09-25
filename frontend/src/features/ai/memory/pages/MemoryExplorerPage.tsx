@@ -19,7 +19,7 @@ import { useAgentMemorySelection } from '../hooks/useAgentMemorySelection';
 import {
   fetchSharedKnowledge,
   deleteMemory,
-} from '../api/memoryApi';
+} from '../api/tieredMemoryApi';
 import type { MemoryEntry, SharedKnowledgeEntry } from '../types/memory';
 
 interface MemoryExplorerContentProps {

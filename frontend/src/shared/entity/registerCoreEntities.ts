@@ -38,7 +38,7 @@ import {
   devopsApi,
   containerExecutionApi,
   agentCardsApiService,
-  memoryApiService,
+  agentMemoryApiService,
   communityAgentsApi,
   governanceApi,
 } from '@/shared/services/ai';
@@ -345,7 +345,7 @@ export function registerCoreEntities(): void {
       labelField: 'entry_key',
       fetchById: (id: string) => {
         const [agentId, key] = requireCompositeId(id, 2, 'agentId:key');
-        return memoryApiService.getMemory(agentId, key).then((r) => r.memory);
+        return agentMemoryApiService.getMemory(agentId, key).then((r) => r.memory);
       },
     },
     {

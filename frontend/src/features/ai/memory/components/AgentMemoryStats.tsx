@@ -11,7 +11,7 @@ import { Card, CardHeader, CardContent } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { Loading } from '@/shared/components/ui/Loading';
 import { cn } from '@/shared/utils/cn';
-import { fetchMemoryStats } from '../api/memoryApi';
+import { fetchMemoryStats } from '../api/tieredMemoryApi';
 import type { MemoryStats as MemoryStatsType, MemoryTier } from '../types/memory';
 
 interface MemoryStatsProps {
