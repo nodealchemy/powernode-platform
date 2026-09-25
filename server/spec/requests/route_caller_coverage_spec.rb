@@ -25,7 +25,7 @@ RSpec.describe "Route caller coverage", type: :routing do
   # One-way ratchet: pinned to the baseline's EXACT size. A shrink (a route
   # gets a caller, or is deleted) must lower this in the same diff, so the
   # freed slot can never be silently re-spent; growing it is never an option.
-  MAX_BASELINE_SIZE = 454
+  MAX_BASELINE_SIZE = 452
   # controller#action => human reason it is legitimately caller-less from
   # OUR OWN code's point of view. Every entry here is a receiver: the request
   # originates from a third party (a git/registry provider, a spawned agent
@@ -62,6 +62,21 @@ RSpec.describe "Route caller coverage", type: :routing do
       "is redirected here by the provider, not fetched by our own frontend code."
   }.freeze
 
+  # controller#action => { offer:, reason: } for a caller-less route kept
+  # ONLY while an operator decides whether it goes. Not the baseline (which
+  # is closed): each entry names the open offer that decides it, and is
+  # removed when that offer is decided — by a caller, or by deleting the route.
+  PENDING_DECISION = {
+    "api/v1/admin_settings#clear_blacklisted_tokens" => {
+      offer: "01a0d68f",
+      reason: "fc-21 deleted its only frontend caller; whether the endpoint goes too is the operator's call."
+    },
+    "api/v1/admin_settings#regenerate_jwt_secret" => {
+      offer: "01a0d68f",
+      reason: "fc-21 deleted its only frontend caller; whether the endpoint goes too is the operator's call."
+    }
+  }.freeze
+
   let(:baseline_allowlist) do
     Rails.root.join("spec/fixtures/route_caller_coverage/baseline_allowlist.txt")
       .readlines
@@ -82,6 +97,7 @@ RSpec.describe "Route caller coverage", type: :routing do
 
     new_hits = routes.reject do |route|
       WEBHOOK_ALLOWLIST.key?(route.key) ||
+        PENDING_DECISION.key?(route.key) ||
         baseline_allowlist.include?(route.key) ||
         RouteCallerCoverageChecker.covered?(route)
     end
@@ -307,6 +323,32 @@ RSpec.describe "Route caller coverage", type: :routing do
 
         #{unknown.sort.join("\n")}
       MSG
+    end
+
+    it "requires every PENDING_DECISION entry to name an offer and a reason" do
+      expect(PENDING_DECISION).not_to be_empty
+      incomplete = PENDING_DECISION.reject do |_key, entry|
+        entry[:offer].to_s.match?(/\A\h{8}\z/) && entry[:reason].to_s.strip.present?
+      end
+      expect(incomplete).to be_empty, "PENDING_DECISION entries missing an offer id or reason: #{incomplete.keys.join(', ')}"
+    end
+
+    it "flags a PENDING_DECISION entry whose route is gone or now has a caller" do
+      stale = PENDING_DECISION.keys.select do |key|
+        route = current_routes_by_key[key]
+        route.nil? || RouteCallerCoverageChecker.covered?(route)
+      end
+
+      expect(stale).to be_empty, <<~MSG
+        PENDING_DECISION entries whose route no longer exists or now has a caller —
+        the decision has been made; remove the entry:
+
+        #{stale.sort.join("\n")}
+      MSG
+    end
+
+    it "never lists a route on both PENDING_DECISION and the baseline" do
+      expect(PENDING_DECISION.keys & baseline_allowlist.to_a).to be_empty
     end
 
     it "keeps the baseline exactly at its committed size" do
