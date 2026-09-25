@@ -114,8 +114,10 @@ module Ai
 
         # Optionally search team_shared pools
         if include_team
+          # `->` keeps access_control.agents as jsonb so `@>` is jsonb
+          # containment; `->>` yielded text, and Postgres has no text @> operator.
           team_pools = Ai::MemoryPool.team_shared.where(account: @account)
-            .where("access_control->>'agents' @> ? OR access_control->>'public' = 'true'", [@agent.id].to_json)
+            .where("access_control->'agents' @> ?::jsonb OR access_control->>'public' = 'true'", [ @agent.id ].to_json)
           team_pools.each do |tp|
             results += search_pool_entries(tp, embedding, query, threshold)
           end
