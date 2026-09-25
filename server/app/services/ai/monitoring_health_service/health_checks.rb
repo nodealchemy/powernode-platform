@@ -46,15 +46,6 @@ module Ai
         end
       end
 
-      # Invalidate provider health cache (call when provider status changes)
-      def self.invalidate_provider_health_cache(account_id)
-        cache_key = "ai:monitoring:provider_health:#{account_id}"
-        Rails.cache.delete(cache_key)
-
-        # Also invalidate comprehensive health cache
-        Rails.cache.delete_matched("ai:monitoring:comprehensive:#{account_id}:*")
-      end
-
       def check_worker_health
         recent_completions = ::Ai::AgentExecution.where(status: "completed")
                                                  .where("created_at >= ?", 10.minutes.ago).count

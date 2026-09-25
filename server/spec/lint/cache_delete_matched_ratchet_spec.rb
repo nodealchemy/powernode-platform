@@ -31,14 +31,6 @@ RSpec.describe "Rails.cache.delete_matched call-site ratchet (core)" do
   # count (or delete the entry at zero) in the same change that removes a
   # site; never raise one.
   baseline = {
-    # Real call. Structurally unfixable within this task's file list: the
-    # READ side of its cache key ("ai:monitoring:comprehensive:<account>:<time_range>")
-    # lives in ai/monitoring_health_service.rb, which this task does not own,
-    # and time_range is an unbounded user-controlled param (0..604800 seconds,
-    # api/v1/ai/monitoring_controller.rb#set_time_range) — not enumerable as
-    # an explicit key list either. A CacheVersioning fix needs that file too;
-    # tracked as a known gap in this task's report rather than left silent.
-    "services/ai/monitoring_health_service/health_checks.rb" => 1,
     # Prose, not a call: documents (in the exact syntax) the delete_matched
     # invocation IMP-95e4904258c8 already removed from #clear_permission_cache
     # by making the permission-name cache key structural instead.

@@ -211,25 +211,4 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
       expect(health).to have_key(:workers)
     end
   end
-
-  # ===========================================================================
-  # Class methods
-  # ===========================================================================
-
-  describe "HealthChecks.invalidate_provider_health_cache" do
-    # Asserted on the cache's contents, not on a message expectation over the
-    # process-wide Rails.cache: a global after-hook deletes its own key there
-    # too, and a strict `expect(Rails.cache).to receive(:delete)` rejects it.
-    it "clears provider health cache for an account, and no other account's" do
-      key = "ai:monitoring:provider_health:#{account.id}"
-      other_key = "ai:monitoring:provider_health:#{create(:account).id}"
-      Rails.cache.write(key, { healthy: true })
-      Rails.cache.write(other_key, { healthy: true })
-
-      described_class::HealthChecks.invalidate_provider_health_cache(account.id)
-
-      expect(Rails.cache.exist?(key)).to be(false)
-      expect(Rails.cache.exist?(other_key)).to be(true)
-    end
-  end
 end
