@@ -13,7 +13,6 @@ add_team_member
 agent_container_status
 approve_improvement
 bootstrap_disk_image_ci
-check_task_status
 code_blast_radius
 code_context_tree
 code_create_relation
@@ -30,7 +29,6 @@ code_static_analysis
 code_upsert_node
 compose_skills
 content_production_status
-create_agent
 create_gitea_repository
 create_kb_article
 create_knowledge_base
@@ -46,14 +44,12 @@ dismiss_improvement
 dispatch_to_runner
 enable_autonomy
 environment_list
-execute_agent
 extract_to_knowledge_graph
 federation_invoke_tool
 federation_list_partners
 generate_audio
 generate_image
 generate_video
-get_agent
 get_api_reference
 get_component_status
 get_governance_report
@@ -95,7 +91,6 @@ project_get
 project_list
 project_status
 reason_knowledge_graph
-record_agent_execution
 reopen_ralph_loop
 resolve_governance_report
 resume_ralph_loop
@@ -103,7 +98,6 @@ revert_improvement
 route_task
 scoreboard
 search_knowledge_graph
-spawn_task
 start_content_production
 system_abort_task
 system_acme_get_certificate
@@ -260,10 +254,8 @@ system_update_instance
 system_update_package_repository
 system_update_volume
 trigger_pipeline
-update_agent
 update_gitea_repository
 update_kb_article
 update_page
 update_ralph_loop
 update_team
-wait_for_task

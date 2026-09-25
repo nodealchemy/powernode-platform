@@ -34,17 +34,53 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "check_task_status", mutating: false
-      declare_action "create_agent", mutating: true
+      declare_action "check_task_status", mutating: false,
+                     returns: "task_id, status, output, error_message, duration_ms, created_at and completed_at of the A2A task",
+                     refuses: "no A2A task in this account has that task_id",
+                     see_also: { "wait_for_task" => "blocking until the task finishes" }
+      declare_action "create_agent", mutating: true,
+                     returns: "agent_id, name and parent_agent_id of the new agent (a clone also carries cloned_from_id)",
+                     refuses: [
+                       "canonical_slug matches no global canonical agent by slug or source_key",
+                       "canonical_slug is omitted and the caller lacks ai.agents.manage",
+                       "a free-form agent gets no model from the call or from the account's active provider",
+                       "the agent fails validation"
+                     ]
       declare_action "delete_agent", mutating: true, destructive: true
-      declare_action "execute_agent", mutating: true
-      declare_action "get_agent", mutating: false
+      declare_action "execute_agent", mutating: true,
+                     returns: "agent_id, execution_id and status execution_dispatched; the run itself happens on the worker",
+                     refuses: [
+                       "no agent in this account matches agent_id",
+                       "the agent is an mcp_client agent",
+                       "the worker cannot be reached"
+                     ]
+      declare_action "get_agent", mutating: false,
+                     returns: "id, slug, global flag, name, description, status, agent_type, model, system_prompt, " \
+                              "conversation_profile, mcp_metadata and execution_stats (this account's runs, split into " \
+                              "platform and claude_code)",
+                     refuses: "no agent matches agent_id or slug"
       declare_action "list_agents", mutating: false, limit: 50, returns: "id, name, model and status per agent, in no particular order and with no total count"
       declare_action "set_agent_autonomy_level", mutating: true
-      declare_action "spawn_task", mutating: true
-      declare_action "update_agent", mutating: true
+      declare_action "spawn_task", mutating: true,
+                     returns: "task_id and status of the submitted A2A task, with the target's agent_id and agent_name",
+                     refuses: [
+                       "the target agent is not found",
+                       "the capability matrix denies spawn_agent for the target",
+                       "the calling agent's delegation authority does not cover the target"
+                     ],
+                     see_also: { "check_task_status" => "reading the task's progress", "wait_for_task" => "blocking until it finishes" }
+      declare_action "update_agent", mutating: true,
+                     returns: "agent_id and name; only the fields given non-blank are changed, and mcp_metadata is merged",
+                     refuses: [ "no agent in this account matches agent_id", "the update fails validation" ]
       declare_action "update_agent_trust_score", mutating: true
-      declare_action "wait_for_task", mutating: true
+      declare_action "wait_for_task", mutating: true,
+                     returns: "task_id, status, output, error_message and duration_ms once the task is completed, failed or " \
+                              "cancelled; it re-reads the task every 2 seconds",
+                     refuses: [
+                       "no A2A task in this account has that task_id",
+                       "timeout_seconds (at most 300, default 300) passes first, with the last status in the error"
+                     ],
+                     see_also: { "check_task_status" => "a single non-blocking read" }
       # HIER-P1C — mutating (it mints an execution row) but NOT autonomy-gated:
       # it records history of a run that already happened in a Claude Code
       # session; nothing on the platform acts on the report.
@@ -169,9 +205,9 @@ module Ai
             }
           },
           "record_agent_execution" => {
-            description: "Report a Claude Code run of a platform agent (Agent(subagent_type: \"<slug>\") on a " \
-                         ".claude/agents/powernode/ skeleton) so the platform's execution, trust and model statistics " \
-                         "see it: mints ONE Ai::AgentExecution on the target agent, executed by the calling session's " \
+            description: "Report a Claude Code run of a platform agent so the platform's execution, trust and " \
+                         "model statistics see it. The run is an Agent(subagent_type: \"<slug>\") call on a " \
+                         ".claude/agents/powernode/ skeleton. The report mints ONE Ai::AgentExecution on the target agent, executed by the calling session's " \
                          "mcp_client identity, through the same terminal hooks a platform execution fires. Idempotent on " \
                          "run_key (a retry updates, never duplicates). Counts toward model statistics and the trust score " \
                          "only — never toward autonomy budgets, consent ceilings or approval accounting. Mutating but " \
