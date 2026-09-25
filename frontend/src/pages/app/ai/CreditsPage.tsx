@@ -64,7 +64,7 @@ export const CREDIT_TABS: PathTabSpec[] = [
   { key: 'purchase', label: 'Purchase', permission: 'ai.analytics.read', icon: <ShoppingCart size={16} /> },
   { key: 'transactions', label: 'Transactions', permission: 'ai.analytics.read', icon: <DollarSign size={16} /> },
   { key: 'transfers', label: 'Transfers', permission: 'ai.analytics.read', icon: <ArrowRightLeft size={16} /> },
-  { key: 'reseller', label: 'Reseller', permission: 'ai.analytics.read', icon: <Store size={16} /> },
+  { key: 'reseller', label: 'Reseller Credits', permission: 'ai.analytics.read', icon: <Store size={16} /> },
 ];
 
 interface CreditsContentProps {

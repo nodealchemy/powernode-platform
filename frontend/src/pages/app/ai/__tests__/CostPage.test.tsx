@@ -82,6 +82,12 @@ describe('CostPage hub', () => {
     expect(CREDIT_TABS.map((t: { key: string }) => t.key)).not.toContain('overview');
   });
 
+  // fc-47: "Reseller" alone also names a Business sidebar destination.
+  it('labels the Credits reseller sub-tab Reseller Credits', () => {
+    const { CREDIT_TABS } = jest.requireActual('@/pages/app/ai/CreditsPage');
+    expect(CREDIT_TABS.find((t: { key: string }) => t.key === 'reseller')).toMatchObject({ label: 'Reseller Credits' });
+  });
+
   it('routes to the active leaf and marks its rail item current', () => {
     renderAt('/app/ai/cost/credits');
     expect(screen.getByTestId('credits-leaf')).toBeInTheDocument();
