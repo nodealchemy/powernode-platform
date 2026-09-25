@@ -28,17 +28,11 @@ import { type StatusRollup, type Verdict, UNHEALTHY_VERDICTS, isVerdict } from '
  * - POST /api/v1/ai/monitoring/start
  * - POST /api/v1/ai/monitoring/stop
  *
- * fc-42: the generic per-service circuit-breaker CRUD (getCircuitBreakers,
- * getCircuitBreaker, resetCircuitBreaker(name), openCircuitBreaker,
- * closeCircuitBreaker, resetAllCircuitBreakers, getCircuitBreakersByCategory,
- * resetCircuitBreakersByCategory, monitorCircuitBreakers) was deleted rather
- * than wired up: it had zero callers AND its response typing didn't match the
- * controller (each returned the envelope's inner hash — `{circuit_breakers:
- * [...], ...}` — typed as if it were the array itself), so it could never
- * have worked as written. The Observability "Circuit Breakers" tab
- * (ProviderCircuitBreakersPanel) needs exactly one real, correctly-shaped
- * slice of this — the `ai_providers` category, read + reset — which is what
- * getProviderCircuitBreakers/resetProviderCircuitBreaker below provide.
+ * Circuit breakers: the Observability "Circuit Breakers" tab
+ * (ProviderCircuitBreakersPanel) reads the `ai_providers` category and resets
+ * one breaker — getProviderCircuitBreakers/resetProviderCircuitBreaker below.
+ * The server's open, close, reset-all, category-reset and monitor actions had
+ * no caller and were deleted (fc-27).
  */
 
 export interface MonitoringDashboard {

@@ -106,11 +106,6 @@ class Ai::CircuitBreakerRegistry
       end
     end
 
-    def reset_all!
-      breakers.each_value(&:reset_circuit!)
-      Rails.logger.info "[CircuitBreakerRegistry] Reset all circuit breakers"
-    end
-
     def reset_service!(service_name)
       breaker = breakers[service_name]
       return false unless breaker
@@ -120,27 +115,8 @@ class Ai::CircuitBreakerRegistry
       true
     end
 
-    def reset_category!(category)
-      services = SERVICE_CATEGORIES[category.to_sym] || []
-      services.each do |service_name|
-        breaker = get_or_create(service_name)
-        breaker.reset_circuit!
-      end
-
-      Rails.logger.info "[CircuitBreakerRegistry] Reset circuit breakers for category: #{category}"
-    end
-
     def clear!
       @breakers = {}
-    end
-
-    def monitor_and_alert
-      summary = health_summary
-
-      alert_unhealthy_services(summary) if summary[:unhealthy] > 0
-      alert_degraded_services(summary) if summary[:degraded] > 0
-
-      summary
     end
 
     private
@@ -183,42 +159,6 @@ class Ai::CircuitBreakerRegistry
       )
     rescue StandardError => e
       Rails.logger.error "[CircuitBreakerRegistry] Failed to broadcast: #{e.message}"
-    end
-
-    def alert_unhealthy_services(summary)
-      unhealthy = summary[:services_by_state]["open"] || []
-      Rails.logger.error "[CircuitBreakerRegistry] ALERT: #{unhealthy.length} services unhealthy"
-
-      ActionCable.server.broadcast(
-        "ai_monitoring_channel",
-        {
-          type: "circuit_breaker_alert",
-          severity: "high",
-          message: "#{unhealthy.length} services have open circuit breakers",
-          services: unhealthy.map { |s| s[:service_name] },
-          timestamp: Time.current.iso8601
-        }
-      )
-    rescue StandardError => e
-      Rails.logger.error "[CircuitBreakerRegistry] Failed to alert: #{e.message}"
-    end
-
-    def alert_degraded_services(summary)
-      degraded = summary[:services_by_state]["half_open"] || []
-      Rails.logger.warn "[CircuitBreakerRegistry] WARNING: #{degraded.length} services degraded"
-
-      ActionCable.server.broadcast(
-        "ai_monitoring_channel",
-        {
-          type: "circuit_breaker_warning",
-          severity: "medium",
-          message: "#{degraded.length} services in degraded state",
-          services: degraded.map { |s| s[:service_name] },
-          timestamp: Time.current.iso8601
-        }
-      )
-    rescue StandardError => e
-      Rails.logger.error "[CircuitBreakerRegistry] Failed to alert: #{e.message}"
     end
   end
 end

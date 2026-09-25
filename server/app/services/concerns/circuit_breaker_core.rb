@@ -142,25 +142,6 @@ module CircuitBreakerCore
     log_info "Circuit breaker reset"
   end
 
-  # Force open the circuit (for maintenance)
-  #
-  # @return [void]
-  def force_open!
-    transition_state("open")
-    log_warn "Circuit breaker manually opened"
-  end
-
-  # Force close the circuit (after manual verification)
-  #
-  # @return [void]
-  def force_close!
-    transition_state("closed")
-    @failure_count = 0
-    @consecutive_failures = 0
-    save_circuit_state
-    log_info "Circuit breaker manually closed"
-  end
-
   private
 
   # Build the cache key for circuit state

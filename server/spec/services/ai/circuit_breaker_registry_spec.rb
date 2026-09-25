@@ -230,38 +230,6 @@ RSpec.describe Ai::CircuitBreakerRegistry do
     end
   end
 
-  describe '.reset_all!' do
-    before do
-      %w[service_a service_b service_c].each do |service|
-        breaker = described_class.get_or_create_breaker(service)
-        5.times do
-          begin
-            breaker.execute_with_circuit_breaker { raise StandardError }
-          rescue StandardError
-            # Expected
-          end
-        end
-      end
-    end
-
-    it 'resets all circuit breakers' do
-      described_class.reset_all!
-
-      %w[service_a service_b service_c].each do |service|
-        breaker = described_class.get_breaker(service)
-        expect(breaker.circuit_state).to eq('closed')
-      end
-    end
-
-    it 'clears failure counts for all services' do
-      described_class.reset_all!
-
-      described_class.all_stats.each do |state|
-        expect(state[:failure_count]).to eq(0)
-      end
-    end
-  end
-
   describe '.reset_service!' do
     before do
       breaker = described_class.get_or_create_breaker('test_service')
@@ -366,45 +334,6 @@ RSpec.describe Ai::CircuitBreakerRegistry do
     it 'returns empty array for unknown category' do
       stats = described_class.category_stats(:unknown_category)
       expect(stats).to eq([])
-    end
-  end
-
-  describe '.reset_category!' do
-    it 'resets circuit breakers in category' do
-      breaker = described_class.get_or_create_breaker('openai')
-      5.times do
-        begin
-          breaker.execute_with_circuit_breaker { raise StandardError }
-        rescue StandardError
-          # Expected
-        end
-      end
-
-      described_class.reset_category!(:ai_providers)
-      expect(breaker.circuit_state).to eq('closed')
-    end
-  end
-
-  describe '.monitor_and_alert' do
-    it 'returns health summary' do
-      described_class.get_or_create_breaker('monitored_service')
-
-      summary = described_class.monitor_and_alert
-      expect(summary).to include(:total_services, :healthy, :unhealthy, :degraded)
-    end
-
-    it 'broadcasts alert for unhealthy services' do
-      breaker = described_class.get_or_create_breaker('unhealthy_for_alert')
-      5.times do
-        begin
-          breaker.execute_with_circuit_breaker { raise StandardError }
-        rescue StandardError
-          # Expected
-        end
-      end
-
-      expect(ActionCable.server).to receive(:broadcast).at_least(:once)
-      described_class.monitor_and_alert
     end
   end
 
@@ -530,15 +459,6 @@ RSpec.describe Ai::CircuitBreakerRegistry do
         end
         expect(breaker.circuit_state).to eq('closed')
       end
-    end
-
-    it 'supports force open and close' do
-      breaker = described_class.get_or_create_breaker(service_name)
-      breaker.force_open!
-      expect(breaker.circuit_state).to eq('open')
-
-      breaker.force_close!
-      expect(breaker.circuit_state).to eq('closed')
     end
 
     it 'resets consecutive failures after success' do

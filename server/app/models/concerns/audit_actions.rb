@@ -302,10 +302,8 @@ module AuditActions
   # AI MONITORING ACTIONS
   # =============================================================================
   AI_MONITORING_ACTIONS = %w[
-    ai.monitoring.alerts_check ai.monitoring.alerts_view ai.monitoring.circuit_breaker.close
-    ai.monitoring.circuit_breaker.open ai.monitoring.circuit_breaker.reset ai.monitoring.circuit_breakers.category_reset
-    ai.monitoring.circuit_breakers.reset_all ai.monitoring.dashboard ai.monitoring.health_check
-    ai.monitoring.start ai.monitoring.stop
+    ai.monitoring.alerts_check ai.monitoring.alerts_view ai.monitoring.circuit_breaker.reset
+    ai.monitoring.dashboard ai.monitoring.health_check ai.monitoring.start ai.monitoring.stop
   ].freeze
 
   # =============================================================================

@@ -33,7 +33,7 @@ RSpec.describe Ai::ProviderCircuitBreakerService, type: :service do
     end
 
     it 'raises CircuitBreakerOpenError when circuit is open' do
-      breaker.force_open!
+      breaker.send(:transition_state, "open")
 
       expect { breaker.call { "test" } }.to raise_error(
         Ai::ProviderCircuitBreakerService::CircuitBreakerOpenError
@@ -54,7 +54,7 @@ RSpec.describe Ai::ProviderCircuitBreakerService, type: :service do
 
     it 'records successes in half-open state to close circuit' do
       # Open the circuit
-      breaker.force_open!
+      breaker.send(:transition_state, "open")
 
       # Simulate timeout elapsed by manipulating state
       breaker.instance_variable_set(:@last_failure_time, 2.minutes.ago)
@@ -76,7 +76,7 @@ RSpec.describe Ai::ProviderCircuitBreakerService, type: :service do
     end
 
     it 'returns false when circuit is open' do
-      breaker.force_open!
+      breaker.send(:transition_state, "open")
       expect(breaker.provider_available?).to be false
     end
   end
@@ -95,7 +95,7 @@ RSpec.describe Ai::ProviderCircuitBreakerService, type: :service do
 
   describe '#reset_circuit!' do
     it 'resets to closed state' do
-      breaker.force_open!
+      breaker.send(:transition_state, "open")
       breaker.reset_circuit!
 
       expect(breaker.circuit_state).to eq(:closed)
