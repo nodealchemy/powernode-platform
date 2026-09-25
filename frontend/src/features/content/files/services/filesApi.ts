@@ -79,6 +79,8 @@ export const filesApi = {
     tags?: string;
     search?: string;
     include_deleted?: boolean;
+    attachable_type?: string;
+    attachable_id?: string;
     page?: number;
     per_page?: number;
   }): Promise<{ files: FileObject[]; pagination: PaginationInfo }> {
