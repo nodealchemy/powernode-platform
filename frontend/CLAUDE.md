@@ -14,11 +14,11 @@ React TypeScript frontend for Powernode.
 
 ## MCP-First Frontend Workflow
 
-**Always query MCP before writing frontend code.** This is mandatory, not optional.
+Query MCP before non-trivial frontend changes (full protocol: [conventions/mcp-first-workflow.md](../docs/contributing/conventions/mcp-first-workflow.md)).
 
-### Session Start (MANDATORY — every session touching frontend code)
+### Starting a change
 
-Before writing any code:
+Before writing code for a non-trivial change:
 1. `platform.query_learnings` — check for existing patterns/gotchas in the area being modified
 2. `platform.search_knowledge` — find relevant procedures/references for the component/feature
 3. `platform.search_knowledge_graph` — understand component relationships and page hierarchy
@@ -71,45 +71,9 @@ Query MCP first. Use these files when MCP returns no relevant results:
 | `features/admin/*` | `platform.search_knowledge` query: "admin panel" | [guides/frontend.md](../docs/guides/frontend.md) |
 | `features/ai/autonomy/*` | `platform.search_knowledge` query: "AI autonomy frontend" | [concepts/agents-and-autonomy.md](../docs/concepts/agents-and-autonomy.md) |
 
-## Frontend-Relevant MCP Tools
+## MCP Tool Reference
 
-Scoped to tools useful for frontend development. Full catalog: [reference/auto/mcp-tools.md](../docs/reference/auto/mcp-tools.md).
-
-### Context & Discovery
-| Tool | Use Case |
-|------|----------|
-| `search_knowledge` | Find procedures, patterns, and code snippets |
-| `query_learnings` | Check for known UI anti-patterns and gotchas |
-| `search_knowledge_graph` | Understand entity relationships for page/component design |
-| `reason_knowledge_graph` | Multi-hop reasoning for complex feature dependencies |
-| `discover_skills` | Find reusable capabilities matching the UI task |
-| `get_skill_context` | Get full execution context for a discovered skill |
-| `search_memory` | Search agent memory for relevant working context |
-| `get_api_reference` | Look up API endpoint contracts for hook implementation |
-
-### Understanding AI Feature Data (read-only)
-| Tool | Use Case |
-|------|----------|
-| `list_agents` / `get_agent` | Understand agent data shape for agent management UI |
-| `list_teams` / `get_team` | Understand team data shape for team management UI |
-| `list_skills` / `get_skill` | Understand skill data shape for skill browser UI |
-| `list_kb_articles` / `get_kb_article` | Understand article data shape for KB UI |
-| `list_pages` / `get_page` | Understand page data shape for CMS UI |
-| `list_graph_nodes` / `get_graph_neighbors` | Understand graph data shape for visualization |
-| `memory_stats` | Understand memory tier data for dashboard widgets |
-
-### Knowledge Contribution
-| Tool | Use Case |
-|------|----------|
-| `create_learning` | Document UI patterns and component decisions |
-| `create_knowledge` | Create reference docs for new component patterns |
-| `create_skill` | Register reusable hooks or utilities as skills |
-| `extract_to_knowledge_graph` | Record page hierarchy and component relationships |
-| `verify_learning` | Verify a learning used during UI implementation |
-| `rate_knowledge` | Rate shared knowledge quality after using it |
-| `knowledge_health` | Run diagnostics on knowledge system health |
-
-**Excluded**: Backend write operations (agent/team CRUD), DevOps tools, RAG processing, memory write/consolidation, skill admin, knowledge curation. See root [CLAUDE.md](../CLAUDE.md) for the full catalog.
+Full tool catalog with parameters: [reference/auto/mcp-tools.md](../docs/reference/auto/mcp-tools.md). To load a tool's schema in a session, use ToolSearch (e.g. `select:mcp__powernode__platform_search_knowledge`).
 
 ## Key Specialists
 
