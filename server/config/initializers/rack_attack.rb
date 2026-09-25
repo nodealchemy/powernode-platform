@@ -13,6 +13,17 @@ class Rack::Attack
   # =========================================================================
 
   # Helper method to get rate limits from admin settings
+  #
+  # fc-38 correction: this still reads AdminSetting by the bare setting_key
+  # passed at each call site below, never the "rate_limiting.<field>" dotted
+  # key Admin::SystemSettings#rate_limiting_config now owns, and nothing here
+  # reads rate_limiting.enabled either. fc-38 fixed admin-saved limits so they
+  # persist correctly and read back in the admin dashboard; it did not wire
+  # this enforcement path onto that storage. A commit message on this branch
+  # ("fix admin-configured rate limits never persisting") called a value
+  # "actually read back by the code that reports/enforces it" — reporting is
+  # accurate, enforcement is not: this method still falls through to
+  # fallback_limit for every admin-configured value, same as before fc-38.
   def self.get_rate_limit(setting_key, fallback_limit)
     AdminSetting.find_by(key: setting_key)&.value&.to_i || fallback_limit
   rescue StandardError
