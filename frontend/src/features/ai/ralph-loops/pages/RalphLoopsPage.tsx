@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { Modal } from '@/shared/components/ui/Modal';
@@ -26,11 +27,31 @@ interface RalphLoopsContentProps {
   refreshKey?: number;
 }
 
+// A loop's detail tabs are only meaningful once a loop is selected, so they are
+// addressed by /app/ai/execution/loop/:loopId/:tab rather than sitting under the
+// ExecutionPage's own basePath — any URL not matching that shape (including the
+// bare ExecutionPage basePath) falls back to the "no loop selected" empty state.
+const RALPH_LOOP_BASE_PATH = '/app/ai/execution/loop';
+const RALPH_LOOP_TABS = ['tasks', 'iterations', 'progress', 'schedule'] as const;
+type RalphLoopTab = (typeof RALPH_LOOP_TABS)[number];
+
+const parseRalphLoopPath = (pathname: string): { loopId: string | null; tab: RalphLoopTab } => {
+  const match = pathname.match(/\/execution\/loop\/([^/]+)(?:\/([^/]+))?/);
+  if (!match) return { loopId: null, tab: 'tasks' };
+  const [, loopId, tab] = match;
+  return {
+    loopId,
+    tab: (RALPH_LOOP_TABS as readonly string[]).includes(tab || '') ? (tab as RalphLoopTab) : 'tasks',
+  };
+};
+
 export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey: externalRefreshKey }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedLoop, setSelectedLoop] = useState<RalphLoop | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('tasks');
+  const [activeTab, setActiveTab] = useState<RalphLoopTab>(() => parseRalphLoopPath(location.pathname).tab);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showScheduleConfigModal, setShowScheduleConfigModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -41,6 +62,16 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
       setRefreshKey(k => k + 1);
     }
   }, [externalRefreshKey]);
+
+  // Deep-link support: a URL naming a loop id (and optionally a tab) loads that
+  // loop and syncs the active tab, independent of the list panel ever loading.
+  useEffect(() => {
+    const { loopId, tab } = parseRalphLoopPath(location.pathname);
+    if (tab !== activeTab) setActiveTab(tab);
+    if (loopId && loopId !== selectedLoop?.id) {
+      loadLoop(loopId);
+    }
+  }, [location.pathname]);
 
   const [editedTasks, setEditedTasks] = useState<PrdTask[]>([]);
   const [scheduleLoading, setScheduleLoading] = useState(false);
@@ -124,6 +155,14 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
   const handleSelectLoop = (loop: RalphLoopSummary) => {
     setLiveIterations([]);
     loadLoop(loop.id);
+    navigate(`${RALPH_LOOP_BASE_PATH}/${loop.id}/${activeTab}`);
+  };
+
+  const handleActiveTabChange = (tab: string) => {
+    setActiveTab(tab as RalphLoopTab);
+    if (selectedLoop) {
+      navigate(`${RALPH_LOOP_BASE_PATH}/${selectedLoop.id}/${tab}`);
+    }
   };
 
   const handleCreateLoop = () => {
@@ -133,6 +172,8 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
   const handleLoopCreated = (loopId: string) => {
     setRefreshKey(prev => prev + 1);
     loadLoop(loopId);
+    setActiveTab('tasks');
+    navigate(`${RALPH_LOOP_BASE_PATH}/${loopId}/tasks`);
   };
 
   const handleSavePrd = async (tasksToSave?: PrdTask[]) => {
@@ -281,7 +322,7 @@ export const RalphLoopsContent: React.FC<RalphLoopsContentProps> = ({ refreshKey
           editedTasks={editedTasks}
           activeTab={activeTab}
           iterationRefreshKey={iterationRefreshKey}
-          onActiveTabChange={setActiveTab}
+          onActiveTabChange={handleActiveTabChange}
           onTasksChange={handleTasksChange}
           onSavePrd={handleSavePrd}
           onShowScheduleConfig={() => setShowScheduleConfigModal(true)}
