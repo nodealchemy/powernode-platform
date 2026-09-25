@@ -11,8 +11,6 @@ server/app/controllers/api/v1/admin/circuit_breakers_controller.rb:c5e6018a8323c
 server/app/controllers/api/v1/admin/circuit_breakers_controller.rb:fa37045a62884b4aa578f9d4e34fe3f998765c90
 server/app/controllers/api/v1/admin/rate_limiting/rate_limiting_controller.rb:032bd92cc2c92f97df513f92febd3c8d9497dfd1
 server/app/controllers/api/v1/admin/users_controller.rb:bb7ffc481d46bbd639d1812bde71edf0395fa511
-server/app/controllers/api/v1/admin/validation_rules_controller.rb:191dc973e65bffcc6557847771d2e9a8618e548c
-server/app/controllers/api/v1/admin/validation_rules_controller.rb:4f4e46dcb37f7b19830d8b3f810fc3db3ec46b3b
 server/app/controllers/api/v1/ai/agent_memory_controller.rb:6b31d88fcc716500c43fc9a1108a6f8332018bbf
 server/app/controllers/api/v1/ai/analytics_controller.rb:2f17603aae01c00b0536337e6bfc357564c1c1f8
 server/app/controllers/api/v1/ai/community_agents_controller.rb:b872d14a2ae5046eade2dc92d3d2a806a72096b8

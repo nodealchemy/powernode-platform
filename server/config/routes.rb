@@ -1038,14 +1038,6 @@ Rails.application.routes.draw do
           end
         end
 
-        # Validation Rules management
-        resources :validation_rules do
-          member do
-            patch :enable
-            patch :disable
-          end
-        end
-
         # Maintenance endpoints
         namespace :maintenance do
           get :status, to: "maintenance#status"
