@@ -40,15 +40,15 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "docker_create_service", mutating: true
-      declare_action "docker_delete_service", mutating: true, destructive: true
-      declare_action "docker_get_service", mutating: false
-      declare_action "docker_list_services", mutating: false
-      declare_action "docker_rollback_service", mutating: true
-      declare_action "docker_scale_service", mutating: true
-      declare_action "docker_service_logs", mutating: false
-      declare_action "docker_service_tasks", mutating: false
-      declare_action "docker_update_service", mutating: true
+      declare_action "docker_create_service", mutating: true, returns: "the created service summary"
+      declare_action "docker_delete_service", mutating: true, destructive: true, returns: "the service manager result and the service name"
+      declare_action "docker_get_service", mutating: false, returns: "service details from the synced record"
+      declare_action "docker_list_services", mutating: false, returns: "cluster and a summary per service with count, read from the platform's synced records, not a live daemon query"
+      declare_action "docker_rollback_service", mutating: true, returns: "the service manager result"
+      declare_action "docker_scale_service", mutating: true, returns: "the service manager result"
+      declare_action "docker_service_logs", mutating: false, limit: 500, returns: "log_entries aggregated across tasks (the last 100 lines unless tail is set) and count"
+      declare_action "docker_service_tasks", mutating: false, returns: "tasks live from the daemon (state, desired state, node, error, container id) and count"
+      declare_action "docker_update_service", mutating: true, returns: "the service manager result", see_also: { "docker_scale_service" => "changing only the replica count" }
 
       def self.definition
         {

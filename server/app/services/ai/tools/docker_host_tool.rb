@@ -41,10 +41,10 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "docker_get_host", mutating: false
-      declare_action "docker_list_hosts", mutating: false
-      declare_action "docker_sync_host", mutating: true
-      declare_action "docker_test_host", mutating: false
+      declare_action "docker_get_host", mutating: false, returns: "host details"
+      declare_action "docker_list_hosts", mutating: false, returns: "a summary per host with count, read from the platform's synced records, not a live daemon query", see_also: { "system_list_managed_docker_hosts" => "only the hosts provisioned for NodeInstances" }
+      declare_action "docker_sync_host", mutating: true, returns: "the sync result"
+      declare_action "docker_test_host", mutating: false, returns: "the connection test result with the daemon system information"
 
       def self.definition
         {

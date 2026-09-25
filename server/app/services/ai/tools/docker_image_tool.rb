@@ -38,10 +38,10 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "docker_delete_image", mutating: true, destructive: true
-      declare_action "docker_list_images", mutating: false
-      declare_action "docker_pull_image", mutating: true
-      declare_action "docker_tag_image", mutating: true
+      declare_action "docker_delete_image", mutating: true, destructive: true, returns: "the removed image tags"
+      declare_action "docker_list_images", mutating: false, returns: "images ordered by repo tag, read from the platform's synced records, not a live daemon query", see_also: { "docker_sync_host" => "refreshing them from the daemon first" }
+      declare_action "docker_pull_image", mutating: true, returns: "the pulled image:tag"
+      declare_action "docker_tag_image", mutating: true, returns: "the image and the new repo:tag"
 
       def self.definition
         {

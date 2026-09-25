@@ -49,20 +49,20 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "docker_cluster_health", mutating: false
-      declare_action "docker_create_config", mutating: true
-      declare_action "docker_create_secret", mutating: true
-      declare_action "docker_delete_config", mutating: true, destructive: true
-      declare_action "docker_delete_secret", mutating: true, destructive: true
-      declare_action "docker_get_cluster", mutating: false
-      declare_action "docker_list_clusters", mutating: false
-      declare_action "docker_list_configs", mutating: false
-      declare_action "docker_list_nodes", mutating: false
-      declare_action "docker_list_secrets", mutating: false
-      declare_action "docker_node_activate", mutating: true
-      declare_action "docker_node_demote", mutating: true
-      declare_action "docker_node_drain", mutating: true
-      declare_action "docker_node_promote", mutating: true
+      declare_action "docker_cluster_health", mutating: false, returns: "the health monitor report: node status, service health and alerts"
+      declare_action "docker_create_config", mutating: true, see_also: { "docker_create_secret" => "sensitive values" }
+      declare_action "docker_create_secret", mutating: true, see_also: { "docker_create_config" => "non-secret configuration" }
+      declare_action "docker_delete_config", mutating: true, destructive: true, see_also: { "docker_list_configs" => "finding the id" }
+      declare_action "docker_delete_secret", mutating: true, destructive: true, see_also: { "docker_list_secrets" => "finding the id" }
+      declare_action "docker_get_cluster", mutating: false, returns: "cluster details and a node summary (total, managers, workers, ready)"
+      declare_action "docker_list_clusters", mutating: false, returns: "a summary per cluster with count, read from the platform's synced records, not a live daemon query"
+      declare_action "docker_list_configs", mutating: false, returns: "configs live from the swarm with count"
+      declare_action "docker_list_nodes", mutating: false, returns: "nodes ordered by role then hostname, read from the platform's synced records, not a live daemon query"
+      declare_action "docker_list_secrets", mutating: false, returns: "secret metadata live from the swarm, never secret data, with count"
+      declare_action "docker_node_activate", mutating: true, see_also: { "docker_node_drain" => "stopping scheduling" }
+      declare_action "docker_node_demote", mutating: true, see_also: { "docker_node_promote" => "the reverse" }
+      declare_action "docker_node_drain", mutating: true, see_also: { "docker_node_activate" => "resuming scheduling" }
+      declare_action "docker_node_promote", mutating: true, see_also: { "docker_node_demote" => "the reverse" }
 
       def self.definition
         {

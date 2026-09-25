@@ -44,12 +44,12 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "docker_create_network", mutating: true
-      declare_action "docker_create_volume", mutating: true
-      declare_action "docker_delete_network", mutating: true, destructive: true
-      declare_action "docker_delete_volume", mutating: true, destructive: true
-      declare_action "docker_list_networks", mutating: false
-      declare_action "docker_list_volumes", mutating: false
+      declare_action "docker_create_network", mutating: true, see_also: { "docker_list_networks" => "checking for an existing network first" }
+      declare_action "docker_create_volume", mutating: true, see_also: { "docker_list_volumes" => "checking for an existing volume first" }
+      declare_action "docker_delete_network", mutating: true, destructive: true, see_also: { "docker_list_networks" => "finding the id" }
+      declare_action "docker_delete_volume", mutating: true, destructive: true, see_also: { "docker_list_volumes" => "finding the name" }
+      declare_action "docker_list_networks", mutating: false, returns: "networks live from the swarm with count"
+      declare_action "docker_list_volumes", mutating: false, returns: "volumes live from the swarm with count"
 
       def self.definition
         {

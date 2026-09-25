@@ -41,11 +41,11 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "docker_adopt_stack", mutating: true
-      declare_action "docker_delete_stack", mutating: true, destructive: true
-      declare_action "docker_deploy_stack", mutating: true
-      declare_action "docker_get_stack", mutating: false
-      declare_action "docker_list_stacks", mutating: false
+      declare_action "docker_adopt_stack", mutating: true, returns: "the swarm manager result"
+      declare_action "docker_delete_stack", mutating: true, destructive: true, returns: "the stack manager result with stack_name"
+      declare_action "docker_deploy_stack", mutating: true, returns: "the stack manager result with stack_id and stack_name", refuses: "a new stack is missing stack_name or compose_file"
+      declare_action "docker_get_stack", mutating: false, returns: "the stack with its compose file, variables and services"
+      declare_action "docker_list_stacks", mutating: false, returns: "stacks ordered by name, read from the platform's synced records, not a live daemon query"
 
       def self.definition
         {

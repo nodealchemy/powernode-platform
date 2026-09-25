@@ -104,10 +104,10 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "system_decommission_docker_runtime", mutating: true, destructive: true
-      declare_action "system_list_managed_docker_hosts", mutating: false
-      declare_action "system_mark_docker_ready", mutating: true
-      declare_action "system_provision_docker_runtime", mutating: true
+      declare_action "system_decommission_docker_runtime", mutating: true, destructive: true, gated_in_call: true
+      declare_action "system_list_managed_docker_hosts", mutating: false, returns: "a summary per managed host with count"
+      declare_action "system_mark_docker_ready", mutating: true, returns: "the managed host summary, re-read"
+      declare_action "system_provision_docker_runtime", mutating: true, gated_in_call: true, returns: "the managed host summary"
 
       def self.definition
         {

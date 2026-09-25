@@ -43,16 +43,16 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "docker_container_exec", mutating: true
-      declare_action "docker_container_logs", mutating: false
-      declare_action "docker_container_stats", mutating: false
-      declare_action "docker_create_container", mutating: true
-      declare_action "docker_delete_container", mutating: true, destructive: true
-      declare_action "docker_get_container", mutating: false
-      declare_action "docker_list_containers", mutating: false
-      declare_action "docker_restart_container", mutating: true
-      declare_action "docker_start_container", mutating: true
-      declare_action "docker_stop_container", mutating: true
+      declare_action "docker_container_exec", mutating: true, returns: "output and exit_code"
+      declare_action "docker_container_logs", mutating: false, limit: 500, returns: "log_entries from the daemon (the last 100 lines unless tail is set) and count"
+      declare_action "docker_container_stats", mutating: false, returns: "one live stats sample from the daemon"
+      declare_action "docker_create_container", mutating: true, returns: "the new container id"
+      declare_action "docker_delete_container", mutating: true, destructive: true, returns: "the container name", refuses: "the container is running and force is not set"
+      declare_action "docker_get_container", mutating: false, returns: "container: the full synced record (command, mounts, networks, restart_count, timestamps)"
+      declare_action "docker_list_containers", mutating: false, returns: "host and containers (short id, name, image, state, ports, labels, last_seen_at) with count, read from the platform's synced records, not a live daemon query", see_also: { "docker_sync_host" => "refreshing them from the daemon first" }
+      declare_action "docker_restart_container", mutating: true, returns: "the container name and its state"
+      declare_action "docker_start_container", mutating: true, returns: "the container name and its state"
+      declare_action "docker_stop_container", mutating: true, returns: "the container name and its state", see_also: { "docker_delete_container" => "removing it" }
 
       def self.definition
         {
