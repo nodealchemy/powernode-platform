@@ -9,7 +9,6 @@
 # Registry keys, sorted, one per line. Regenerate ONLY deliberately:
 #   bin/rails runner -e test 'require Rails.root.join("spec/support/tool_description_coverage"); ToolDescriptionCoverage.write_snapshot!'
 add_team_member
-compose_skills
 create_team
 generate_video
 get_team

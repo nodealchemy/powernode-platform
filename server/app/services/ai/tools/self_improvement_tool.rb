@@ -78,7 +78,11 @@ module Ai
                      executor_class: "Ai::Executors::DeferredToolCall",
                      gate_context: :auto_evolve_skill_gate_context,
                      on_proceed: :deferred_tool_call_result
-      declare_action "compose_skills", mutating: true
+      declare_action "compose_skills", mutating: true,
+                                       returns: "skill_id, name and is_composite of the new draft composite skill",
+                                       refuses: [ "the caller lacks ai.skills.create",
+                                                  "fewer than two of component_skill_ids are skills in this account",
+                                                  "the composite skill fails validation" ]
       declare_action "mutate_skill",
                      mutating: true,
                      action_category: REFINE_PROMPT_CATEGORY,
@@ -100,7 +104,7 @@ module Ai
             }
           },
           "compose_skills" => {
-            description: "Create a composite skill from multiple component skills",
+            description: "Create a composite skill from multiple component skills.",
             parameters: {
               component_skill_ids: { type: "array", required: true, description: "Array of skill IDs to compose" },
               name: { type: "string", required: true, description: "Name for the composite skill" },
