@@ -12,7 +12,6 @@ export * from '@/shared/services/settings/settingsApi';
 
 // Admin services
 export * from '@/shared/services/admin/maintenanceApi';
-export * from '@/shared/services/admin/performanceApi';
 export * from '@/shared/services/admin/versionApi';
 
 // Content services
