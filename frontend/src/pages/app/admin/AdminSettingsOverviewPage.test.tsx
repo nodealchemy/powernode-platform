@@ -96,4 +96,20 @@ describe('AdminSettingsOverviewPage', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith('/app/admin/maintenance/mode');
   });
+
+  // fc-06: this quick link's label read "Services" while its destination was
+  // /app/admin/workers (WorkersPage, titled "Worker Management") -- label and
+  // destination disagreed.
+  it('labels the /app/admin/workers quick link Workers, agreeing with its destination', async () => {
+    (adminSettingsApi.getOverview as jest.Mock).mockResolvedValue({
+      success: true,
+      data: baseOverview
+    });
+
+    renderPage();
+
+    const link = await screen.findByRole('link', { name: /Workers/i });
+    expect(link).toHaveAttribute('href', '/app/admin/workers');
+    expect(screen.queryByText('Services')).not.toBeInTheDocument();
+  });
 });

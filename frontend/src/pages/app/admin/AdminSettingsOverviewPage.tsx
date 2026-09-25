@@ -291,8 +291,8 @@ export const AdminSettingsOverviewPage: React.FC = () => {
           />
           <ActionCard
             icon="⚡"
-            title="Services"
-            description="Manage background job services and authentication"
+            title="Workers"
+            description="Manage background job workers and worker authentication"
             href="/app/admin/workers"
           />
         </div>
