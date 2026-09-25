@@ -9,12 +9,26 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "dispute_learning", mutating: true
-      declare_action "knowledge_health", mutating: false
-      declare_action "rate_knowledge", mutating: true
-      declare_action "resolve_contradiction", mutating: true
+      declare_action "dispute_learning", mutating: true,
+                                         returns: "learning_id, new_status (disproven), new_importance and the reason",
+                                         refuses: "the learning is not found or already disproven, reason is blank, " \
+                                                  "or there is no user context",
+                                         see_also: { "resolve_contradiction" => "retiring a learning in favour of a better one" }
+      declare_action "knowledge_health", mutating: false,
+                                         returns: "counts and averages for learnings, shared knowledge entries and " \
+                                                  "knowledge-graph nodes, plus generated_at"
+      declare_action "rate_knowledge", mutating: true,
+                                       returns: "entry_id, new_quality_score, rating_count and average_rating",
+                                       refuses: "the entry is not found, or rating is missing or outside 1-5"
+      declare_action "resolve_contradiction", mutating: true,
+                                              returns: "winner_id, loser_id, winner_importance, loser_status and the reason",
+                                              refuses: "either learning is not found, or reason is blank",
+                                              see_also: { "unsupersede_learning" => "reversing a resolution" }
       declare_action "unsupersede_learning", mutating: true
-      declare_action "verify_learning", mutating: true
+      declare_action "verify_learning", mutating: true,
+                                        returns: "learning_id, new_status (verified), new_importance and new_confidence",
+                                        refuses: "the learning is not found or not active, or there is no user context",
+                                        see_also: { "verify_learning_batch" => "verifying several learnings in one call" }
       declare_action "verify_learning_batch", mutating: true
 
       def self.definition
@@ -36,20 +50,23 @@ module Ai
       def self.action_definitions
         {
           "verify_learning" => {
-            description: "Verify a compound learning as accurate, boosting its confidence score",
+            description: "Verify an active compound learning as accurate. Sets its status to verified and raises " \
+                         "importance by 0.15 and confidence by 0.1.",
             parameters: {
               learning_id: { type: "string", required: true, description: "CompoundLearning ID to verify" }
             }
           },
           "dispute_learning" => {
-            description: "Dispute a compound learning as inaccurate with a reason",
+            description: "Dispute a compound learning as inaccurate, with a reason. Sets its status to disproven, " \
+                         "importance to 0.05 and confidence to 0.1.",
             parameters: {
               learning_id: { type: "string", required: true, description: "CompoundLearning ID to dispute" },
               reason: { type: "string", required: true, description: "Reason for the dispute" }
             }
           },
           "resolve_contradiction" => {
-            description: "Resolve a contradiction between two learnings by picking a winner",
+            description: "Resolve a contradiction between two learnings by picking a winner. The loser is marked " \
+                         "superseded by the winner, and the winner's importance rises by 0.10.",
             parameters: {
               winner_id: { type: "string", required: true, description: "Winning learning ID" },
               loser_id: { type: "string", required: true, description: "Losing learning ID (will be superseded)" },
@@ -57,7 +74,8 @@ module Ai
             }
           },
           "rate_knowledge" => {
-            description: "Rate a shared knowledge entry on a 1-5 quality scale",
+            description: "Rate a shared knowledge entry on a 1-5 quality scale. The rating is added to the entry's " \
+                         "running sum and its quality score is recalculated.",
             parameters: {
               entry_id: { type: "string", required: true, description: "SharedKnowledge entry ID" },
               rating: { type: "integer", required: true, description: "Quality rating (1-5)" }

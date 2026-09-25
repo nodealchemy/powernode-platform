@@ -78,7 +78,6 @@ dismiss_improvement
 dismiss_notification
 dispatch_gitea_workflow
 dispatch_to_runner
-dispute_learning
 emit_signal
 enable_autonomy
 environment_list
@@ -118,7 +117,6 @@ graph_statistics
 integration_health
 invite_agent
 kill_switch_status
-knowledge_health
 kubernetes_get_cluster
 kubernetes_list_clusters
 kubernetes_list_nodes
@@ -152,7 +150,6 @@ process_document
 project_get
 project_list
 project_status
-rate_knowledge
 read_shared_memory
 reason_knowledge_graph
 record_agent_execution
@@ -162,7 +159,6 @@ reopen_ralph_loop
 rerun_gitea_job
 rerun_gitea_workflow
 rerun_gitea_workflow_failed_jobs
-resolve_contradiction
 resolve_governance_report
 resume_ralph_loop
 revert_improvement
@@ -338,6 +334,5 @@ update_kb_article
 update_page
 update_ralph_loop
 update_team
-verify_learning
 wait_for_task
 write_shared_memory
