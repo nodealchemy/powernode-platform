@@ -14,7 +14,7 @@ import {
   Download,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
-import { providersApi, credentialsApi } from '../services/git';
+import { gitProvidersApi, credentialsApi } from '../services/git';
 import type {
   GitProvider,
   GitCredential,
@@ -91,7 +91,7 @@ export const ImportRepositoriesModal: React.FC<ImportRepositoriesModalProps> = (
 
   const loadProviders = async () => {
     try {
-      const data = await providersApi.getProviders();
+      const data = await gitProvidersApi.getProviders();
       setProviders(data);
       if (data.length === 1) {
         setSelectedProviderId(data[0].id);

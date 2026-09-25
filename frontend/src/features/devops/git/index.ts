@@ -9,7 +9,7 @@ export { CommitDetailModal } from './components/CommitDetailModal';
 
 // Services
 export { repositoriesApi } from './services/git/repositoriesApi';
-export { webhooksApi } from './services/git/webhooksApi';
+export { gitWebhooksApi } from './services/git/webhooksApi';
 
 // Hooks
 export { useGitProviders, useGitCredentials } from './hooks/useGitProviders';

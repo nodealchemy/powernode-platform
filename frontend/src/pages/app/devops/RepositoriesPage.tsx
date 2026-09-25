@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { type PageAction } from '@/shared/components/layout/PageContainer';
 import { Button } from '@/shared/components/ui/Button';
-import { providersApi, repositoriesApi } from '@/features/devops/git/services/git';
+import { gitProvidersApi, repositoriesApi } from '@/features/devops/git/services/git';
 import { CommitDetailModal } from '@/features/devops/git/components/CommitDetailModal';
 import { ImportRepositoriesModal } from '@/features/devops/git/components/ImportRepositoriesModal';
 import type { GitRepository, GitProvider, PaginationInfo } from '@/features/devops/git/types';
@@ -814,7 +814,7 @@ export function RepositoriesPage({ onActionsReady }: RepositoriesPageProps) {
 
   const fetchProviders = async () => {
     try {
-      const data = await providersApi.getProviders();
+      const data = await gitProvidersApi.getProviders();
       setProviders(data);
     } catch (_error) {
       // Silently fail

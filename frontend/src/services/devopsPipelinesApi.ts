@@ -134,13 +134,3 @@ export const devopsPipelineRunsApi = {
     return response.data.data;
   },
 };
-
-// Combined API export for convenience
-// Note: AI configuration is now managed through the global AiProvider system
-// Use providersApi from '@/shared/services/ai/ProvidersApiService' for AI provider management
-export const devopsApi = {
-  pipelines: devopsPipelinesApi,
-  pipelineRuns: devopsPipelineRunsApi,
-};
-
-export default devopsApi;

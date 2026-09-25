@@ -14,7 +14,7 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 }));
 
 jest.mock('@/features/devops/git/services/git', () => ({
-  providersApi: {
+  gitProvidersApi: {
     getProviders: jest.fn(() => Promise.resolve([])),
     getProvider: jest.fn(),
   },

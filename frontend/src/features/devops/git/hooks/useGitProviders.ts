@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { providersApi, credentialsApi } from '../services/git';
+import { gitProvidersApi, credentialsApi } from '../services/git';
 import { logger } from '@/shared/utils/logger';
 import {
   GitProvider,
@@ -19,7 +19,7 @@ export function useGitProviders() {
     try {
       setLoading(true);
       setError(null);
-      const data = await providersApi.getProviders();
+      const data = await gitProvidersApi.getProviders();
       setProviders(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch providers');
@@ -30,7 +30,7 @@ export function useGitProviders() {
 
   const fetchAvailableProviders = useCallback(async () => {
     try {
-      const data = await providersApi.getAvailableProviders();
+      const data = await gitProvidersApi.getAvailableProviders();
       setAvailableProviders(data);
     } catch (err) {
       logger.error('Failed to fetch available providers', err);

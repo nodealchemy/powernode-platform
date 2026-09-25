@@ -1,4 +1,4 @@
-import { providersApi, credentialsApi, repositoriesApi, pipelinesApi, webhooksApi } from '../services/git';
+import { gitProvidersApi, credentialsApi, repositoriesApi, pipelinesApi, gitWebhooksApi } from '../services/git';
 import { apiClient } from '@/shared/services/apiClient';
 import { AxiosHeaders } from 'axios';
 
@@ -17,7 +17,7 @@ const mockAxiosResponse = <T>(data: T) => ({
 });
 
 // fc-24: was gitProvidersApi.test.ts, testing the unified spread-barrel of
-// the same name. The barrel was a shim (a pure `{...providersApi,
+// the same name. The barrel was a shim (a pure `{...gitProvidersApi,
 // ...credentialsApi, ...}` merge with no behaviour of its own) and is
 // deleted; these assertions carry the same HTTP-contract coverage forward
 // against each domain API directly — nothing here is new or lost.
@@ -45,7 +45,7 @@ describe('git domain APIs (providers/credentials/repositories/pipelines/webhooks
         })
       );
 
-      const result = await providersApi.getProviders();
+      const result = await gitProvidersApi.getProviders();
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/providers');
       expect(result).toHaveLength(2);
@@ -57,7 +57,7 @@ describe('git domain APIs (providers/credentials/repositories/pipelines/webhooks
         mockAxiosResponse({ success: true, data: { providers: null, count: 0 } })
       );
 
-      const result = await providersApi.getProviders();
+      const result = await gitProvidersApi.getProviders();
 
       expect(result).toEqual([]);
     });
@@ -79,7 +79,7 @@ describe('git domain APIs (providers/credentials/repositories/pipelines/webhooks
         })
       );
 
-      const result = await providersApi.getProvider('provider-1');
+      const result = await gitProvidersApi.getProvider('provider-1');
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/providers/provider-1');
       expect(result.name).toBe('GitHub');
@@ -102,7 +102,7 @@ describe('git domain APIs (providers/credentials/repositories/pipelines/webhooks
         })
       );
 
-      const result = await providersApi.getAvailableProviders();
+      const result = await gitProvidersApi.getAvailableProviders();
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/providers/available');
       expect(result).toHaveLength(3);
@@ -459,7 +459,7 @@ describe('git domain APIs (providers/credentials/repositories/pipelines/webhooks
         })
       );
 
-      const result = await webhooksApi.getWebhookEvents();
+      const result = await gitWebhooksApi.getWebhookEvents();
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/webhook_events', { params: undefined });
       expect(result.events).toHaveLength(2);
@@ -477,7 +477,7 @@ describe('git domain APIs (providers/credentials/repositories/pipelines/webhooks
         })
       );
 
-      await webhooksApi.getWebhookEvents({ event_type: 'push', status: 'processed' });
+      await gitWebhooksApi.getWebhookEvents({ event_type: 'push', status: 'processed' });
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/webhook_events', {
         params: { event_type: 'push', status: 'processed' },
@@ -501,7 +501,7 @@ describe('git domain APIs (providers/credentials/repositories/pipelines/webhooks
         })
       );
 
-      const result = await webhooksApi.getWebhookEvent('event-1');
+      const result = await gitWebhooksApi.getWebhookEvent('event-1');
 
       expect(mockApiClient.get).toHaveBeenCalledWith('/git/webhook_events/event-1');
       expect(result.event_type).toBe('push');
@@ -520,7 +520,7 @@ describe('git domain APIs (providers/credentials/repositories/pipelines/webhooks
         })
       );
 
-      const result = await webhooksApi.retryWebhookEvent('event-1');
+      const result = await gitWebhooksApi.retryWebhookEvent('event-1');
 
       expect(mockApiClient.post).toHaveBeenCalledWith('/git/webhook_events/event-1/retry');
       expect(result.event.status).toBe('pending');

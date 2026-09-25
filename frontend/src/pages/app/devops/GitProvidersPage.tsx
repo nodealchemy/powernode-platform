@@ -8,7 +8,7 @@ import {
   Key, Shield, Webhook, Cpu
 } from 'lucide-react';
 import { type PageAction } from '@/shared/components/layout/PageContainer';
-import { providersApi, credentialsApi } from '@/features/devops/git/services/git';
+import { gitProvidersApi, credentialsApi } from '@/features/devops/git/services/git';
 import { GitProviderModal } from '@/features/devops/git/components/GitProviderModal';
 import { CredentialModal } from '@/features/devops/git/components/CredentialModal';
 import { GitProviderDetail, GitCredential, AvailableProvider } from '@/features/devops/git/types';
@@ -113,7 +113,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
   const fetchProviders = async () => {
     try {
       setLoading(true);
-      const gitProviders = await providersApi.getProviders();
+      const gitProviders = await gitProvidersApi.getProviders();
 
       const mappedProviders: GitProvider[] = gitProviders.map((p: {
         id: string;
@@ -184,7 +184,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
 
       if (id) {
         try {
-          const provider = await providersApi.getProvider(id);
+          const provider = await gitProvidersApi.getProvider(id);
           setEditingProvider(provider);
           setIsModalOpen(true);
         } catch (_error) {
@@ -243,7 +243,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
 
   const handleEditProvider = async (providerId: string) => {
     try {
-      const provider = await providersApi.getProvider(providerId);
+      const provider = await gitProvidersApi.getProvider(providerId);
       setEditingProvider(provider);
       setIsModalOpen(true);
     } catch (_error) {
@@ -282,7 +282,7 @@ export function GitProvidersPage({ onActionsReady }: GitProvidersPageProps) {
       variant: 'danger',
       onConfirm: async () => {
         try {
-          await providersApi.deleteProvider(providerId);
+          await gitProvidersApi.deleteProvider(providerId);
           showNotification('Provider deleted successfully', 'success');
           setProviders(providers.filter(p => p.id !== providerId));
           if (expandedProviderId === providerId) {

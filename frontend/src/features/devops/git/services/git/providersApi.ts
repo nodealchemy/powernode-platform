@@ -17,7 +17,7 @@ interface ApiResponse<T> {
  * Git Providers API
  * Manages Git provider configurations (GitHub, GitLab, Gitea, etc.)
  */
-export const providersApi = {
+export const gitProvidersApi = {
   /**
    * Get all available Git providers
    */

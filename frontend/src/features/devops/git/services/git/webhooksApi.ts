@@ -16,7 +16,7 @@ interface ApiResponse<T> {
  * Git Webhooks API
  * Manages webhook events and processing
  */
-export const webhooksApi = {
+export const gitWebhooksApi = {
   /**
    * Get webhook events
    */
