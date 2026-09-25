@@ -18,8 +18,14 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "content_production_status", mutating: false
-      declare_action "start_content_production", mutating: true
+      declare_action "content_production_status", mutating: false,
+                                                  returns: "the mission summary: id, name, status, current_phase, phase_progress, phases and timestamps",
+                                                  refuses: "mission_id is missing, or no content_production mission with that id exists in this account"
+      declare_action "start_content_production", mutating: true,
+                                                 returns: "the started mission's summary and its asset bundle's summary",
+                                                 refuses: [ "there is no user context", "name is missing",
+                                                            "bundle_type is not a known bundle type",
+                                                            "the mission or bundle fails validation, or the orchestrator cannot start the mission" ]
 
       def self.definition
         {
@@ -39,7 +45,7 @@ module Ai
       def self.action_definitions
         {
           "start_content_production" => {
-            description: "Create and start a content_production mission plus its asset bundle. Returns the mission + bundle.",
+            description: "Create and start a content_production mission plus its asset bundle.",
             parameters: {
               name: { type: "string", required: true, description: "Production name" },
               bundle_type: { type: "string", required: false, description: "video_project, document, image_album, audio_album, mixed (default: video_project)" },

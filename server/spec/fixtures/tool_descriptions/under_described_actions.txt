@@ -13,7 +13,6 @@ add_team_member
 approve_improvement
 bootstrap_disk_image_ci
 compose_skills
-content_production_status
 create_gitea_repository
 create_kb_article
 create_knowledge_base
@@ -79,7 +78,6 @@ resume_ralph_loop
 revert_improvement
 scoreboard
 search_knowledge_graph
-start_content_production
 system_abort_task
 system_acme_get_certificate
 system_acme_provision_certificate
