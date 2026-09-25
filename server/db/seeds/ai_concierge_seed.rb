@@ -13,6 +13,7 @@ admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
 require_relative "concerns/canonical_agent_owner"
 require_relative "concerns/canonical_tool_access"
+require_relative "concerns/canonical_content"
 
 # The capability areas the prompt below lists, as tool families
 # (concerns/canonical_tool_access.rb). Only the Claude Code export and the
@@ -38,6 +39,30 @@ preferred_provider = Ai::Provider.find_by(provider_type: 'openai', name: 'OpenAI
                      Ai::Provider.find_by(provider_type: 'ollama')
 provider = CoreSeeds::CanonicalAgentOwner.provider_for(pinned_model: nil, preferred: preferred_provider)
 
+concierge_prompt = <<~PROMPT.strip
+  You are the Powernode Concierge — a platform mediator with full access to platform tools.
+  You help users manage their entire Powernode environment through natural conversation.
+
+  YOUR CAPABILITIES (via platform tools):
+  - **Agent Management**: List, create, update, and execute AI agents
+  - **Team Orchestration**: Create teams, add members, execute team tasks
+  - **Knowledge & Learning**: Search knowledge, query learnings, manage skills, explore the knowledge graph
+  - **Memory**: Read/write shared memory, search across memory pools
+  - **RAG & Documents**: Query knowledge bases, search documents
+  - **Pipelines & DevOps**: Trigger CI/CD pipelines, dispatch to runners, create repositories
+  - **Activity Monitoring**: Check activity feeds, mission status, notifications, system health
+  - **Content**: Manage KB articles and pages
+  - **Workspaces**: Send messages to workspace agents, manage sessions, coordinate multi-agent collaboration
+
+  RISK ASSESSMENT RULES:
+  - **Read operations** (list_*, get_*, search_*, query_*): Execute immediately, summarize results naturally
+  - **Write operations** (create_*, update_*, add_*): Execute with a brief explanation of what you're doing
+  - **High-risk operations** (execute_agent, execute_team, trigger_pipeline, dispatch_to_runner, create_gitea_repository): Use the `request_confirmation` tool so the user can approve first
+  - When in doubt about risk level, prefer using `request_confirmation`
+
+  In workspace conversations, follow the delegation instructions from your workspace skill.
+PROMPT
+
 ActiveRecord::Base.transaction do
   # GLOBAL platform concierge (account_id nil); an account customizes it by
   # cloning. Resolution prefers the account's own concierge (resolve_concierge_for).
@@ -48,7 +73,9 @@ ActiveRecord::Base.transaction do
     agent_type: "assistant",
     is_concierge: true,
     status: "active",
-    description: "Intelligent concierge agent that helps you navigate all Powernode platform capabilities through natural language.",
+    # Text is assigned on create only; refresh! below carries later seed text
+    # to an existing row unless an operator edited it (concerns/canonical_content.rb).
+    description: (agent.new_record? ? CoreSeeds::CanonicalAgentContent.description("powernode-assistant") : agent.description),
     # Never blank a creator/provider an earlier seed set: nil only on a fresh
     # DB with none to give.
     creator: (admin_user || agent.creator),
@@ -63,39 +90,20 @@ ActiveRecord::Base.transaction do
       "greeting" => "Hi! I'm your Powernode Assistant. I can help you create missions, check status, analyze repos, and more. What would you like to do?"
     },
     mcp_metadata: CoreSeeds::CanonicalToolAccess.with_families({
-      "system_prompt" => <<~PROMPT.strip,
-        You are the Powernode Concierge — a platform mediator with full access to platform tools.
-        You help users manage their entire Powernode environment through natural conversation.
-
-        YOUR CAPABILITIES (via platform tools):
-        - **Agent Management**: List, create, update, and execute AI agents
-        - **Team Orchestration**: Create teams, add members, execute team tasks
-        - **Knowledge & Learning**: Search knowledge, query learnings, manage skills, explore the knowledge graph
-        - **Memory**: Read/write shared memory, search across memory pools
-        - **RAG & Documents**: Query knowledge bases, search documents
-        - **Pipelines & DevOps**: Trigger CI/CD pipelines, dispatch to runners, create repositories
-        - **Activity Monitoring**: Check activity feeds, mission status, notifications, system health
-        - **Content**: Manage KB articles and pages
-        - **Workspaces**: Send messages to workspace agents, manage sessions, coordinate multi-agent collaboration
-
-        RISK ASSESSMENT RULES:
-        - **Read operations** (list_*, get_*, search_*, query_*): Execute immediately, summarize results naturally
-        - **Write operations** (create_*, update_*, add_*): Execute with a brief explanation of what you're doing
-        - **High-risk operations** (execute_agent, execute_team, trigger_pipeline, dispatch_to_runner, create_gitea_repository): Use the `request_confirmation` tool so the user can approve first
-        - When in doubt about risk level, prefer using `request_confirmation`
-
-        In workspace conversations, follow the delegation instructions from your workspace skill.
-      PROMPT
+      "system_prompt" => (agent.new_record? ? concierge_prompt : agent.mcp_metadata&.dig("system_prompt")),
       "model_config" => {
         "provider" => "openai",
         "max_tokens" => 4096,
         "cost_per_1k" => { "input" => 0.0004, "output" => 0.0016 },
         "temperature" => 0.3
       },
-      "cost_tier" => "low"
-    }, concierge_tool_families)
+      "cost_tier" => "low",
+      # The operator-edit guard's stamps; everything else here is rebuilt.
+      Ai::Agents::CanonicalContentRefresh::STAMP_KEY => agent.mcp_metadata&.dig(Ai::Agents::CanonicalContentRefresh::STAMP_KEY)
+    }.compact, concierge_tool_families)
   )
   agent.save!
+  CoreSeeds::CanonicalContent.refresh_from_catalog!(agent, inline: { system_prompt: concierge_prompt })
   puts "  ✅ Concierge agent created: #{agent.name} (#{agent.id})"
 
   # Link concierge to its workspace routing skill (find_or_initialize + assign

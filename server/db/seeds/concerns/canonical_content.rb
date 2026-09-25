@@ -1,0 +1,55 @@
+# frozen_string_literal: true
+
+require_relative "../content/canonical_agent_content"
+
+# A GLOBAL canonical's seeded text (description, system prompt), written on every
+# seed run like CoreSeeds::CanonicalToolAccess, but through
+# Ai::Agents::CanonicalContentRefresh: a field an operator edited is kept and
+# reported instead of overwritten. A seed that builds a row assigns its text only
+# while the row is new and calls refresh! after saving it.
+module CoreSeeds
+  module CanonicalContent
+    module_function
+
+    def refresh!(agent, fields, previous: {})
+      outcome = Ai::Agents::CanonicalContentRefresh.apply!(agent, fields, previous: previous)
+      warn_skipped(outcome)
+      outcome
+    end
+
+    # refresh! with the fields and previous values CanonicalAgentContent holds
+    # for the agent's slug, merged over `inline` (fields the seed still owns).
+    def refresh_from_catalog!(agent, inline: {})
+      slug = agent.slug
+      refresh!(agent, inline.merge(CanonicalAgentContent.fields(slug)), previous: CanonicalAgentContent.previous(slug))
+    end
+
+    # Applies every CanonicalAgentContent entry to its global row in `model`
+    # (Ai::Agent, or a migration's own table class); a slug with no global row
+    # is skipped. Data migrations call this, since seeds never re-run.
+    # @return [Array<Ai::Agents::CanonicalContentRefresh::Outcome>]
+    def refresh_catalog!(model)
+      CanonicalAgentContent::AGENTS.keys.filter_map do |slug|
+        agent = model.find_by(account_id: nil, slug: slug)
+        next unless agent
+
+        refresh!(agent, CanonicalAgentContent.fields(slug), previous: CanonicalAgentContent.previous(slug))
+      end
+    end
+
+    def revert_catalog!(model)
+      CanonicalAgentContent::AGENTS.each_key do |slug|
+        agent = model.find_by(account_id: nil, slug: slug)
+        Ai::Agents::CanonicalContentRefresh.revert!(agent, CanonicalAgentContent.fields(slug)) if agent
+      end
+    end
+
+    def warn_skipped(outcome)
+      return unless outcome.skipped?
+
+      message = "[CanonicalContent] #{outcome.slug}: kept operator-edited #{outcome.skipped.join(', ')}"
+      Rails.logger.warn(message)
+      puts "  ⚠️  #{message}"
+    end
+  end
+end

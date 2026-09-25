@@ -13,6 +13,7 @@ puts "📊 Creating Monitoring Agents..."
 # through Ai::Agents::AccountPrincipalResolver).
 require_relative "concerns/canonical_agent_owner"
 require_relative "concerns/canonical_tool_access"
+require_relative "concerns/canonical_content"
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
@@ -158,7 +159,7 @@ end
 qa_monitor = Ai::Agent.find_or_create_global(slug: 'system-quality-assurance') do |agent|
   agent.agent_type = 'monitor'
   agent.name = "System Quality Assurance"
-  agent.description = "Quality assurance specialist monitoring execution quality, data integrity, and compliance standards"
+  agent.description = CoreSeeds::CanonicalAgentContent.description("system-quality-assurance")
   agent.provider = provider
   agent.creator = admin_user
   agent.status = 'active'
@@ -250,6 +251,9 @@ CoreSeeds::CanonicalToolAccess.declare_families!(qa_monitor, %w[
   knowledge_health skill_health learning_metrics verify_learning_batch detect_collusion data_source_quality
   code_static_analysis code_dead_code code_find_duplicates
 ])
+# Create-only block above; later seed text goes through the operator-edit guard
+# (concerns/canonical_content.rb).
+CoreSeeds::CanonicalContent.refresh_from_catalog!(qa_monitor)
 
 puts "✅ Platform Health Monitor (ID: #{platform_health_monitor.id})"
 puts "✅ System Quality Assurance (ID: #{qa_monitor.id})"

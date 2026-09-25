@@ -14,6 +14,7 @@ Rails.logger.info "[AutonomySeed] Starting autonomy data seeding..."
 
 require_relative "concerns/canonical_agent_owner"
 require_relative "concerns/canonical_tool_access"
+require_relative "concerns/canonical_content"
 
 # The three GLOBAL canonicals below (GLOBAL_AUTONOMY_AGENT_SLUGS) need NO
 # account, user or provider to exist (IMP-6cda93db7f31) and are written first;
@@ -98,7 +99,7 @@ extra_agents = [
       list_generated_images content_production_status list_pages get_page list_kb_articles get_kb_article
       search_documents
     ],
-    description: "Creates design briefs, UI mockup specs, brand asset specs, and visual concept directions via structured prompts."
+    description: CoreSeeds::CanonicalAgentContent.description("visual-design-assistant")
   },
   {
     name: "Process Automation Optimizer",
@@ -110,7 +111,7 @@ extra_agents = [
       list_pipelines get_pipeline_status list_schedules get_schedule list_ralph_loops get_ralph_loop
       get_ralph_loop_statistics discover_improvements list_improvements create_improvement get_activity_feed scoreboard
     ],
-    description: "Identifies process bottlenecks, redundancies, and automation opportunities. Designs optimized workflows with time/cost savings."
+    description: CoreSeeds::CanonicalAgentContent.description("process-automation-optimizer")
   },
   {
     name: "Legal & Compliance Analyst",
@@ -198,6 +199,9 @@ extra_agents.each do |ad|
     CoreSeeds::CanonicalAgentOwner.backfill_owner!(canonical, creator: admin_user, provider: ad[:provider])
     declare_canonical_tier.call(canonical, ad[:tier]) if ad[:tier]
     CoreSeeds::CanonicalToolAccess.declare_families!(canonical, ad.fetch(:tool_families))
+    # Create-only block above; later seed text goes through the operator-edit
+    # guard (concerns/canonical_content.rb).
+    CoreSeeds::CanonicalContent.refresh_from_catalog!(canonical) if CoreSeeds::CanonicalAgentContent::AGENTS.key?(ad[:slug])
   else
     # Account-scoped SAMPLE agent (IMP-f1f96c292991) — OFF by default.
     next unless Powernode::SampleContentGate.enabled?

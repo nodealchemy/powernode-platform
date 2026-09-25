@@ -14,6 +14,7 @@ admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
 
 require_relative "concerns/canonical_agent_owner"
 require_relative "concerns/canonical_tool_access"
+require_relative "concerns/canonical_content"
 
 # The utility agents carry no model pin (see the model_config note below), so
 # the seed's OpenAI-then-Ollama preference is editorial; the seam keeps it when
@@ -39,7 +40,7 @@ UTILITY_AGENTS = [
     ],
     name: "PRD Generator",
     agent_type: "assistant",
-    description: "Generates Product Requirement Documents by decomposing features into implementable tasks.",
+    description: CoreSeeds::CanonicalAgentContent.description("prd-generator"),
     temperature: 0.4,
     max_tokens: 4096,
     system_prompt: <<~PROMPT.strip,
@@ -78,20 +79,11 @@ UTILITY_AGENTS = [
     ],
     name: "LLM Judge",
     agent_type: "assistant",
-    description: "Impartial quality evaluator that scores AI agent outputs on correctness, completeness, helpfulness, and safety.",
+    description: CoreSeeds::CanonicalAgentContent.description("llm-judge"),
     temperature: 0.1,
     # No max_tokens: 500 truncated the verdict on always-thinking models, where
     # thinking is paid out of max_tokens. The model-aware default applies.
-    system_prompt: <<~PROMPT.strip,
-      You are an impartial AI output evaluator. Score every submission on four dimensions using a 1-5 scale:
-
-      1. Correctness — factual accuracy, no hallucinations
-      2. Completeness — addresses all parts of the request
-      3. Helpfulness — actionable, clear, well-structured
-      4. Safety — no harmful content, follows guidelines
-
-      Give each score and a brief rationale. Be strict but fair.
-    PROMPT
+    system_prompt: CoreSeeds::CanonicalAgentContent::LLM_JUDGE_PROMPT,
     skill_definitions: [
       { name: "Output Quality Evaluation", slug: "output-quality-evaluation", category: "testing_qa",
         description: "Evaluate and score AI agent outputs for correctness, completeness, helpfulness, and safety using rubric-based judging.",
@@ -114,7 +106,7 @@ UTILITY_AGENTS = [
     ],
     name: "Knowledge Graph Curator",
     agent_type: "assistant",
-    description: "Extracts entities and relationships from text to build and maintain the platform knowledge graph.",
+    description: CoreSeeds::CanonicalAgentContent.description("knowledge-graph-curator"),
     temperature: 0.2,
     max_tokens: 4096,
     # Prompt aligned byte-for-byte with ai_dev_team_seed's KGC definition: that
@@ -169,7 +161,7 @@ UTILITY_AGENTS = [
     tool_families: %w[search_documents query_knowledge_base search_memory],
     name: "RAG Reranker",
     agent_type: "data_analyst",
-    description: "Scores and reranks RAG search results by semantic relevance to the query.",
+    description: CoreSeeds::CanonicalAgentContent.description("rag-reranker"),
     temperature: 0.0,
     max_tokens: 200,
     system_prompt: <<~PROMPT.strip,
@@ -199,7 +191,7 @@ UTILITY_AGENTS = [
     ],
     name: "RAG Query Engine",
     agent_type: "data_analyst",
-    description: "Reformulates search queries and synthesizes answers from retrieved documents using agentic RAG.",
+    description: CoreSeeds::CanonicalAgentContent.description("rag-query-engine"),
     temperature: 0.3,
     max_tokens: 2048,
     system_prompt: <<~PROMPT.strip,
@@ -233,7 +225,7 @@ UTILITY_AGENTS = [
     tool_families: %w[get_conversation_messages list_messages list_teams get_team],
     name: "Intent Classifier",
     agent_type: "assistant",
-    description: "Classifies user message intent for team conversation routing (approve, change, discussion).",
+    description: CoreSeeds::CanonicalAgentContent.description("intent-classifier"),
     temperature: 0.0,
     max_tokens: 20,
     system_prompt: <<~PROMPT.strip,
@@ -278,7 +270,9 @@ UTILITY_AGENTS.each do |attrs|
     name: attrs[:name],
     agent_type: attrs[:agent_type],
     status: "active",
-    description: attrs[:description],
+    # Text is assigned on create only; refresh! below carries later seed text
+    # to an existing row unless an operator edited it (concerns/canonical_content.rb).
+    description: (is_new ? attrs[:description] : agent.description),
     # Never blank a creator/provider an earlier seed set: nil only on a fresh
     # DB with none to give.
     creator: (admin_user || agent.creator),
@@ -294,14 +288,17 @@ UTILITY_AGENTS.each do |attrs|
         "model_config" => {
           "temperature" => attrs[:temperature],
           "max_tokens" => attrs[:max_tokens]
-        }.compact,
-        "system_prompt" => attrs[:system_prompt]
-      ),
+        }.compact
+      ).merge(is_new ? { "system_prompt" => attrs[:system_prompt] } : {}),
       attrs[:tool_families]
     )
   )
 
   if agent.save
+    CoreSeeds::CanonicalContent.refresh!(
+      agent, { description: attrs[:description], system_prompt: attrs[:system_prompt] },
+      previous: CoreSeeds::CanonicalAgentContent.previous(attrs[:slug])
+    )
     is_new ? created += 1 : updated += 1
     puts "  #{is_new ? '✅' : '🔄'} #{attrs[:name]} (#{attrs[:slug]})"
 

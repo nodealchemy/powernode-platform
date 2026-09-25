@@ -15,6 +15,7 @@ puts "🧠 Creating reasoning/analysis workflow agents..."
 # provider configuration below, an account-scoped row, waits for setup.
 require_relative "concerns/canonical_agent_owner"
 require_relative "concerns/canonical_tool_access"
+require_relative "concerns/canonical_content"
 
 admin_account = Account.find_by(name: "Powernode Admin")
 admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
@@ -59,7 +60,7 @@ ActiveRecord::Base.transaction do
   strategic_planner = Ai::Agent.find_or_create_global(slug: 'strategic-planner') do |agent|
     agent.agent_type = 'assistant'
     agent.name = "Strategic Planner"
-    agent.description = "Advanced strategic planning and analysis agent with strong long-horizon reasoning"
+    agent.description = CoreSeeds::CanonicalAgentContent.description("strategic-planner")
     # Unpinned (reasoning tier, no model id): the seam keeps the seed's
     # Anthropic preference when it can, and never attaches a provider that
     # could not run a pin the row carries.
@@ -146,6 +147,9 @@ ActiveRecord::Base.transaction do
     list_agent_goals create_agent_goal update_agent_goal decompose_goal
     project_list project_status get_mission_status list_improvements governance_dashboard get_governance_report
   ])
+  # The block is create-only; later seed text reaches the row through the
+  # operator-edit guard (concerns/canonical_content.rb).
+  CoreSeeds::CanonicalContent.refresh_from_catalog!(strategic_planner)
 
   # Domain skills for the Strategic Planner are assigned by
   # platform_skill_assignments_seed.rb (loaded last, after all target agents
@@ -162,7 +166,7 @@ ActiveRecord::Base.transaction do
   research_analyst = Ai::Agent.find_or_create_global(slug: 'research-analyst') do |agent|
     agent.agent_type = 'data_analyst'
     agent.name = "Research Analyst"
-    agent.description = "Comprehensive research and analysis agent with strong analytical reasoning"
+    agent.description = CoreSeeds::CanonicalAgentContent.description("research-analyst")
     agent.provider = CoreSeeds::CanonicalAgentOwner.provider_for(
       pinned_model: nil, preferred: (ollama_provider || claude_provider)
     )
@@ -253,6 +257,7 @@ ActiveRecord::Base.transaction do
     search_documents query_knowledge_base list_knowledge_bases search_knowledge_graph reason_knowledge_graph
     list_kb_articles get_kb_article get_api_reference create_learning create_knowledge
   ])
+  CoreSeeds::CanonicalContent.refresh_from_catalog!(research_analyst)
 
   # Research Analyst's domain skills (technical-researcher / data /
   # knowledge-system-curator / business-search / user-research) are assigned by
