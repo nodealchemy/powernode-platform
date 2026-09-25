@@ -19,7 +19,9 @@ module Ai
     # (the wave-2 seeds write one because this export is what Claude Code
     # routes on). That sentence is PINNED (HIER-P2G): it is the most specific
     # trigger the agent has, so it is never dropped for the budget and never
-    # truncated — derived triggers give way first, then derived text.
+    # truncated — derived triggers give way first, then derived text. When an
+    # agent HAS a pinned sentence, only its policy domains stay as derived
+    # triggers (skill names and tags beside the sentence only blur routing).
     #
     # The exclusion names the ADJACENT sibling. A description that itself
     # points at a sibling ("Do not use for placement (use Capacity Manager)")
@@ -92,18 +94,28 @@ module Ai
         ::Ai::Routing::RoutableAgents.key(agent)
       end
 
+      # A hand-authored "Use when …" sentence is the agent's routing contract.
+      # Beside it, skill names, tags and the compacted description only add
+      # near-synonyms and broad single tokens ("platform", "create") that blur
+      # sibling boundaries, so with a pinned sentence only the policy domains
+      # stay as derived triggers; with no domains either, the sentence stands
+      # alone.
       def trigger_clause(agent, skills, domains, budget)
-        parts = derived_triggers(agent, skills, domains)
         pinned = routing_sentence(agent.description)
+        parts = pinned ? domain_triggers(domains) : derived_triggers(agent, skills, domains)
         parts = [ fallback_trigger(agent) ] if parts.empty? && pinned.nil?
 
         fit_triggers(parts, budget, pinned: pinned)
       end
 
+      def domain_triggers(domains)
+        domains.map { |domain| domain.to_s.tr("_", " ").strip }.reject(&:blank?).uniq
+      end
+
       # Least specific LAST, because #fit_triggers drops from the end.
       def derived_triggers(agent, skills, domains)
         parts = []
-        parts.concat(domains.map { |domain| domain.to_s.tr("_", " ") })
+        parts.concat(domain_triggers(domains))
         parts.concat(skills.first(MAX_SKILL_TRIGGERS).map { |skill| skill.name.to_s.strip })
         parts.concat(skills.flat_map { |skill| Array(skill.tags) }.map(&:to_s).uniq.first(MAX_TAG_TRIGGERS))
         parts = parts.map(&:strip).reject(&:blank?).uniq

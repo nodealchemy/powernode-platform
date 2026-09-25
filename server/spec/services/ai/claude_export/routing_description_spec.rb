@@ -90,13 +90,43 @@ RSpec.describe Ai::ClaudeExport::RoutingDescription do
     end
     let(:routing_sentence) { "Use when the task is about protecting, moving or restoring data on a volume." }
 
-    it "keeps the hand-authored 'Use when …' sentence whole after the derived triggers" do
+    it "keeps the hand-authored 'Use when …' sentence whole after the domain triggers" do
       text = described_class.build(agent(name: "Storage Manager", description: storage_description),
                                    skills: [], domains: %w[storage], siblings: [])
 
-      expect(text).to include("involves storage; storage data plane — assignments")
-      expect(text).to include(routing_sentence)
+      expect(text).to start_with("Use this agent when the task involves storage. #{routing_sentence}")
       expect(text).not_to include("Do not use for placement")
+    end
+
+    # B3: beside a pinned sentence, skill names, tags and the compacted
+    # description only add near-synonyms and broad tokens that blur siblings.
+    it "drops skill names, tags and the description summary when a sentence is pinned" do
+      skills = [ skill(name: "Attach Storage", description: "d", tags: %w[platform create]) ]
+
+      text = described_class.build(agent(name: "Storage Manager", description: storage_description),
+                                   skills: skills, domains: %w[storage], siblings: [])
+
+      expect(text).not_to include("Attach Storage")
+      expect(text).not_to match(/platform|create/)
+      expect(text).not_to include("storage data plane")
+    end
+
+    it "renders the pinned sentence alone when there are no domains either" do
+      text = described_class.build(agent(name: "Storage Manager", description: storage_description),
+                                   skills: [ skill(name: "Attach Storage", description: "d", tags: %w[platform]) ],
+                                   domains: [], siblings: [])
+
+      expect(text).to start_with(routing_sentence)
+      expect(text).not_to include("Use this agent when the task involves")
+    end
+
+    it "keeps deriving triggers from skills and tags for an agent with no pinned sentence" do
+      text = described_class.build(agent(name: "Planner", description: "Plans things."),
+                                   skills: [ skill(name: "Roadmap Planning", description: "d", tags: %w[roadmap]) ],
+                                   domains: [], siblings: [])
+
+      expect(text).to include("Roadmap Planning")
+      expect(text).to include("roadmap")
     end
 
     it "never drops or truncates it for the budget — derived triggers go first, then derived text" do
@@ -134,7 +164,8 @@ RSpec.describe Ai::ClaudeExport::RoutingDescription do
                                    skills: [], domains: [], siblings: [])
 
       expect(text.scan("Use when a node must be quarantined").size).to eq(1)
-      expect(text).to include("involves quarantines nodes.")
+      # No domains: the pinned sentence stands alone (B3).
+      expect(text).not_to include("involves")
     end
   end
 
