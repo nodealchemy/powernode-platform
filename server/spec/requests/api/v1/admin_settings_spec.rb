@@ -172,53 +172,6 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin_settings/users' do
-    let(:headers) { auth_headers_for(user_with_settings_view) }
-
-    before do
-      create_list(:user, 3, account: account)
-    end
-
-    it 'returns users data' do
-      get '/api/v1/admin_settings/users', headers: headers, as: :json
-
-      expect_success_response
-      response_data = json_response
-
-      expect(response_data['data']).to have_key('users')
-      expect(response_data['data']).to have_key('total_count')
-      expect(response_data['data']).to have_key('active_count')
-    end
-
-    it 'includes user status counts' do
-      get '/api/v1/admin_settings/users', headers: headers, as: :json
-
-      response_data = json_response
-      expect(response_data['data']).to include('active_count', 'inactive_count', 'suspended_count')
-    end
-  end
-
-  describe 'GET /api/v1/admin_settings/accounts' do
-    let(:headers) { auth_headers_for(user_with_settings_view) }
-
-    it 'returns accounts data' do
-      get '/api/v1/admin_settings/accounts', headers: headers, as: :json
-
-      expect_success_response
-      response_data = json_response
-
-      expect(response_data['data']).to have_key('accounts')
-      expect(response_data['data']).to have_key('total_count')
-    end
-
-    it 'includes account status counts' do
-      get '/api/v1/admin_settings/accounts', headers: headers, as: :json
-
-      response_data = json_response
-      expect(response_data['data']).to include('active_count', 'suspended_count', 'cancelled_count')
-    end
-  end
-
   describe 'GET /api/v1/admin_settings/system_logs' do
     let(:headers) { auth_headers_for(user_with_settings_view) }
 

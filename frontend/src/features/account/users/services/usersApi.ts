@@ -95,8 +95,10 @@ export interface AdminAccountsResponse {
  * @module UsersApi
  * @description User management service.
  *
- * RESPONSIBILITY: All user CRUD operations, status changes, role management
- * NOT RESPONSIBLE FOR: Admin settings dashboard (use adminSettingsApi for user listing)
+ * RESPONSIBILITY: All user CRUD operations, status changes, role management,
+ * INCLUDING the admin-wide user listing (getAllUsers, `/admin/users`) — the
+ * old adminSettingsApi.getUsers() (`/admin_settings/users`) this replaced is
+ * gone (fc-38); adminSettingsApi now owns settings only, no user listing.
  *
  * Handles /users/* and /admin/users/* endpoints.
  */

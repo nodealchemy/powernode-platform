@@ -106,33 +106,6 @@ module Admin
       }
     end
 
-    # Get platform statistics
-    # @return [Hash] Platform-wide statistics
-    def platform_statistics
-      {
-        total_accounts: Account.count,
-        active_accounts: Account.where(status: "active").count,
-        total_users: User.count,
-        active_users: User.where(status: "active").count,
-        total_subscriptions: subscription_class&.count || 0,
-        active_subscriptions: subscription_class&.where(status: %w[active trialing])&.count || 0,
-        total_revenue: calculate_total_revenue,
-        monthly_growth: calculate_monthly_growth
-      }
-    end
-
-    # Get user management data
-    # @return [Hash] User management statistics
-    def user_management_data
-      {
-        total_users: User.count,
-        users_by_roles: user_role_distribution,
-        users_by_status: User.group(:status).count,
-        recent_registrations: User.where(created_at: 7.days.ago..Time.current).count,
-        email_verification_pending: User.where(email_verified_at: nil).count
-      }
-    end
-
     # Get security settings data
     # @return [Hash] Security-related statistics
     def security_settings_data
@@ -405,20 +378,8 @@ module Admin
         AuditLog.where(source: "paypal_webhook").order(:created_at).last&.created_at
     end
 
-    def user_role_distribution
-      role_counts = {}
-
-      User.includes(user_roles: :role).find_each do |u|
-        user_roles = u.user_roles.map { |ur| ur.role.name }
-        user_roles = [ "no_role" ] if user_roles.empty?
-
-        user_roles.each do |role_name|
-          role_counts[role_name] = (role_counts[role_name] || 0) + 1
-        end
-      end
-
-      role_counts
-    end
+    # user_role_distribution's sole caller, user_management_data, was removed
+    # here (fc-38), so this went with it rather than being left as dead code.
 
     def detect_suspicious_activities
       [

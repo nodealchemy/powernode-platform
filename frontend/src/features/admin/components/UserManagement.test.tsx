@@ -4,15 +4,17 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { UserManagement } from './UserManagement';
 
-// Mock admin settings API
-const mockGetUsers = jest.fn();
-jest.mock('../services/adminSettingsApi', () => ({
-  adminSettingsApi: {
-    getUsers: (...args: unknown[]) => mockGetUsers(...args)
+// fc-38: migrated off adminSettingsApi.getUsers() onto usersApi.getAllUsers()
+// — mock the new client, in its actual response shape
+// ({ success, data: User[] }, no pagination/status-filter params, since
+// /admin/users returns every user in one response).
+const mockGetAllUsers = jest.fn();
+jest.mock('@/features/account/users/services/usersApi', () => ({
+  usersApi: {
+    getAllUsers: (...args: unknown[]) => mockGetAllUsers(...args)
   }
 }));
 
-// Create mock store
 const createMockStore = (permissions: string[] = []) => configureStore({
   reducer: {
     auth: () => ({
@@ -34,88 +36,72 @@ const renderWithProviders = (component: React.ReactElement, permissions: string[
   );
 };
 
+// User shape per features/account/users/services/usersApi.ts's `User`
+// interface — status is the USER's own status; account.status is separate
+// (the badge in the list reads account.status, unchanged from before the
+// migration; the filter reads status, per the pre-migration filter's own
+// intent — see AdminSettingsController#users's now-deleted active_count/
+// inactive_count/suspended_count, which counted User.status, not account
+// status).
+const makeUser = (overrides: Partial<{
+  id: string; email: string; name: string; status: string; roles: string[]; accountStatus: string;
+}>) => ({
+  id: overrides.id ?? 'user-1',
+  email: overrides.email ?? 'john@example.com',
+  name: overrides.name ?? 'John',
+  email_verified: true,
+  roles: overrides.roles ?? [],
+  permissions: [],
+  status: overrides.status ?? 'active',
+  locked: false,
+  failed_login_attempts: 0,
+  last_login_at: null,
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+  preferences: {},
+  account: { id: 'account-1', name: 'Acme', status: overrides.accountStatus ?? 'active' }
+});
+
 describe('UserManagement', () => {
-  const mockUsersData = {
-    users: [
-      {
-        id: 'user-1',
-        email: 'john@example.com',
-        full_name: 'John Doe',
-        name: 'John',
-        roles: ['account.manager', 'billing.manager'],
-        account: { status: 'active' }
-      },
-      {
-        id: 'user-2',
-        email: 'jane@example.com',
-        full_name: 'Jane Smith',
-        name: 'Jane',
-        roles: ['account.member'],
-        account: { status: 'active' }
-      },
-      {
-        id: 'user-3',
-        email: 'bob@example.com',
-        full_name: null,
-        name: 'Bob Wilson',
-        roles: [],
-        account: { status: 'suspended' }
-      }
-    ],
-    pagination: {
-      current_page: 1,
-      per_page: 20,
-      total_count: 50,
-      total_pages: 3
-    }
-  };
+  const threeUsers = [
+    makeUser({ id: 'user-1', email: 'john@example.com', name: 'John Doe', roles: ['account.manager', 'billing.manager'] }),
+    makeUser({ id: 'user-2', email: 'jane@example.com', name: 'Jane Smith', roles: ['account.member'] }),
+    makeUser({ id: 'user-3', email: 'bob@example.com', name: 'Bob Wilson', roles: [], status: 'inactive', accountStatus: 'suspended' })
+  ];
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetUsers.mockResolvedValue(mockUsersData);
+    mockGetAllUsers.mockResolvedValue({ success: true, data: threeUsers });
   });
 
   describe('rendering', () => {
-    it('renders title', async () => {
+    it('renders title', () => {
       renderWithProviders(<UserManagement />);
 
       expect(screen.getByText('User Management')).toBeInTheDocument();
     });
 
-    it('renders status filter', async () => {
+    it('renders status filter with All/Active/Inactive options', () => {
       renderWithProviders(<UserManagement />);
 
       expect(screen.getByLabelText('Filter by Status')).toBeInTheDocument();
-    });
-
-    it('renders filter options', () => {
-      renderWithProviders(<UserManagement />);
-
       expect(screen.getByText('All')).toBeInTheDocument();
       expect(screen.getByText('Active')).toBeInTheDocument();
       expect(screen.getByText('Inactive')).toBeInTheDocument();
     });
   });
 
-  describe('user list', () => {
-    it('loads users on mount', async () => {
+  describe('user list (field parity with the pre-migration adminSettingsApi shape)', () => {
+    it('loads from usersApi.getAllUsers on mount', async () => {
       renderWithProviders(<UserManagement />);
 
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenCalledWith({
-          page: 1,
-          per_page: 20,
-          status: undefined
-        });
-      });
+      await waitFor(() => expect(mockGetAllUsers).toHaveBeenCalledTimes(1));
     });
 
     it('displays user emails', async () => {
       renderWithProviders(<UserManagement />);
 
-      await waitFor(() => {
-        expect(screen.getByText('john@example.com')).toBeInTheDocument();
-      });
+      await waitFor(() => expect(screen.getByText('john@example.com')).toBeInTheDocument());
       expect(screen.getByText('jane@example.com')).toBeInTheDocument();
       expect(screen.getByText('bob@example.com')).toBeInTheDocument();
     });
@@ -123,9 +109,7 @@ describe('UserManagement', () => {
     it('displays user names', async () => {
       renderWithProviders(<UserManagement />);
 
-      await waitFor(() => {
-        expect(screen.getByText('John Doe')).toBeInTheDocument();
-      });
+      await waitFor(() => expect(screen.getByText('John Doe')).toBeInTheDocument());
       expect(screen.getByText('Jane Smith')).toBeInTheDocument();
       expect(screen.getByText('Bob Wilson')).toBeInTheDocument();
     });
@@ -133,188 +117,98 @@ describe('UserManagement', () => {
     it('displays user roles', async () => {
       renderWithProviders(<UserManagement />);
 
-      await waitFor(() => {
-        expect(screen.getByText('account.manager')).toBeInTheDocument();
-      });
+      await waitFor(() => expect(screen.getByText('account.manager')).toBeInTheDocument());
       expect(screen.getByText('billing.manager')).toBeInTheDocument();
       expect(screen.getByText('account.member')).toBeInTheDocument();
     });
 
-    it('displays account status', async () => {
+    it('displays account status (from user.account.status)', async () => {
       renderWithProviders(<UserManagement />);
 
-      // Wait for user data to load by checking for a specific user email
-      await waitFor(() => {
-        expect(screen.getByText('bob@example.com')).toBeInTheDocument();
-      });
+      await waitFor(() => expect(screen.getByText('bob@example.com')).toBeInTheDocument());
 
-      // Now check for status - "Active" appears multiple times (2 users + select option)
       const activeStatuses = screen.getAllByText('Active');
-      expect(activeStatuses.length).toBeGreaterThan(1); // At least select option + active users
+      expect(activeStatuses.length).toBeGreaterThan(1); // select option + 2 active-account users
       expect(screen.getByText('Suspended')).toBeInTheDocument();
     });
   });
 
-  describe('status filtering', () => {
-    it('filters by active status', async () => {
+  describe('status filtering (client-side — the pre-migration control sent a `status` param the old endpoint silently ignored, so this never actually filtered before)', () => {
+    it('shows only active-status users when Active is selected', async () => {
       renderWithProviders(<UserManagement />);
+      await waitFor(() => expect(screen.getByText('john@example.com')).toBeInTheDocument());
 
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenCalled();
-      });
+      fireEvent.change(screen.getByLabelText('Filter by Status'), { target: { value: 'active' } });
 
-      const filterSelect = screen.getByLabelText('Filter by Status');
-      fireEvent.change(filterSelect, { target: { value: 'active' } });
-
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenCalledWith({
-          page: 1,
-          per_page: 20,
-          status: 'active'
-        });
-      });
+      expect(screen.getByText('john@example.com')).toBeInTheDocument();
+      expect(screen.getByText('jane@example.com')).toBeInTheDocument();
+      expect(screen.queryByText('bob@example.com')).not.toBeInTheDocument();
     });
 
-    it('filters by inactive status', async () => {
+    it('shows only inactive-status users when Inactive is selected', async () => {
       renderWithProviders(<UserManagement />);
+      await waitFor(() => expect(screen.getByText('bob@example.com')).toBeInTheDocument());
 
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenCalled();
-      });
+      fireEvent.change(screen.getByLabelText('Filter by Status'), { target: { value: 'inactive' } });
 
-      const filterSelect = screen.getByLabelText('Filter by Status');
-      fireEvent.change(filterSelect, { target: { value: 'inactive' } });
-
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenCalledWith({
-          page: 1,
-          per_page: 20,
-          status: 'inactive'
-        });
-      });
+      expect(screen.getByText('bob@example.com')).toBeInTheDocument();
+      expect(screen.queryByText('john@example.com')).not.toBeInTheDocument();
     });
 
-    it('resets to page 1 when filter changes', async () => {
-      mockGetUsers.mockResolvedValueOnce({
-        ...mockUsersData,
-        pagination: { ...mockUsersData.pagination, current_page: 2 }
-      });
-
+    it('does not call the API again when the filter changes (all data is already loaded)', async () => {
       renderWithProviders(<UserManagement />);
+      await waitFor(() => expect(mockGetAllUsers).toHaveBeenCalledTimes(1));
 
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenCalled();
-      });
+      fireEvent.change(screen.getByLabelText('Filter by Status'), { target: { value: 'active' } });
 
-      const filterSelect = screen.getByLabelText('Filter by Status');
-      fireEvent.change(filterSelect, { target: { value: 'active' } });
-
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenLastCalledWith(expect.objectContaining({
-          page: 1
-        }));
-      });
+      expect(mockGetAllUsers).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe('pagination', () => {
-    it('shows page information', async () => {
-      renderWithProviders(<UserManagement />);
+  describe('pagination (client-side, 20 per page)', () => {
+    const manyUsers = Array.from({ length: 25 }, (_, i) =>
+      makeUser({ id: `user-${i}`, email: `user${i}@example.com`, name: `User ${i}` })
+    );
 
-      await waitFor(() => {
-        expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
-      });
+    beforeEach(() => {
+      mockGetAllUsers.mockResolvedValue({ success: true, data: manyUsers });
     });
 
-    it('shows Previous button', async () => {
+    it('shows page 1 of 2 for 25 users at 20/page', async () => {
       renderWithProviders(<UserManagement />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Previous')).toBeInTheDocument();
-      });
+      await waitFor(() => expect(screen.getByText('Page 1 of 2')).toBeInTheDocument());
     });
 
-    it('shows Next button', async () => {
+    it('disables Previous on page 1 and enables Next', async () => {
       renderWithProviders(<UserManagement />);
 
-      await waitFor(() => {
-        expect(screen.getByText('Next')).toBeInTheDocument();
-      });
+      await waitFor(() => expect(screen.getByText('user0@example.com')).toBeInTheDocument());
+      expect(screen.getByText('Previous')).toBeDisabled();
+      expect(screen.getByText('Next')).not.toBeDisabled();
     });
 
-    it('disables Previous button on first page', async () => {
+    it('shows the next 5 users and disables Next on the last page', async () => {
       renderWithProviders(<UserManagement />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Previous')).toBeDisabled();
-      });
-    });
-
-    it('enables Next button when more pages available', async () => {
-      renderWithProviders(<UserManagement />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Next')).not.toBeDisabled();
-      });
-    });
-
-    it('goes to next page when Next clicked', async () => {
-      renderWithProviders(<UserManagement />);
-
-      // Wait for initial data load
-      await waitFor(() => {
-        expect(screen.getByText('john@example.com')).toBeInTheDocument();
-      });
-
-      // Clear mock call history
-      mockGetUsers.mockClear();
+      await waitFor(() => expect(screen.getByText('user0@example.com')).toBeInTheDocument());
 
       fireEvent.click(screen.getByText('Next'));
 
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenCalledWith({
-          page: 2,
-          per_page: 20,
-          status: undefined
-        });
-      });
+      expect(screen.getByText('Page 2 of 2')).toBeInTheDocument();
+      expect(screen.getByText('user20@example.com')).toBeInTheDocument();
+      expect(screen.queryByText('user0@example.com')).not.toBeInTheDocument();
+      expect(screen.getByText('Next')).toBeDisabled();
     });
 
-    it('goes to previous page when Previous clicked', async () => {
+    it('goes back to page 1 with Previous', async () => {
       renderWithProviders(<UserManagement />);
+      await waitFor(() => expect(screen.getByText('user0@example.com')).toBeInTheDocument());
 
-      // Wait for initial load
-      await waitFor(() => {
-        expect(screen.getByText('john@example.com')).toBeInTheDocument();
-      });
-
-      // Go to page 2 first
       fireEvent.click(screen.getByText('Next'));
-
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenCalledWith(expect.objectContaining({ page: 2 }));
-      });
-
-      // Clear mock and go back
-      mockGetUsers.mockClear();
       fireEvent.click(screen.getByText('Previous'));
 
-      await waitFor(() => {
-        expect(mockGetUsers).toHaveBeenCalledWith(expect.objectContaining({ page: 1 }));
-      });
-    });
-
-    it('disables Next button on last page', async () => {
-      mockGetUsers.mockResolvedValue({
-        ...mockUsersData,
-        pagination: { ...mockUsersData.pagination, current_page: 3, total_pages: 3 }
-      });
-
-      renderWithProviders(<UserManagement />);
-
-      await waitFor(() => {
-        expect(screen.getByText('Next')).toBeDisabled();
-      });
+      expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+      expect(screen.getByText('user0@example.com')).toBeInTheDocument();
     });
   });
 
@@ -331,7 +225,7 @@ describe('UserManagement', () => {
       expect(screen.queryByText('Create User')).not.toBeInTheDocument();
     });
 
-    it('opens create modal when clicked', async () => {
+    it('opens create modal when clicked', () => {
       renderWithProviders(<UserManagement />, ['users.create']);
 
       fireEvent.click(screen.getByText('Create User'));
@@ -341,38 +235,15 @@ describe('UserManagement', () => {
   });
 
   describe('create modal', () => {
-    it('shows email field in create modal', async () => {
+    it('shows email, first name and last name fields, and a Create button', () => {
       renderWithProviders(<UserManagement />, ['users.create']);
 
       fireEvent.click(screen.getByText('Create User'));
 
       expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    });
-
-    it('shows first name field in create modal', async () => {
-      renderWithProviders(<UserManagement />, ['users.create']);
-
-      fireEvent.click(screen.getByText('Create User'));
-
       expect(screen.getByLabelText('First Name')).toBeInTheDocument();
-    });
-
-    it('shows last name field in create modal', async () => {
-      renderWithProviders(<UserManagement />, ['users.create']);
-
-      fireEvent.click(screen.getByText('Create User'));
-
       expect(screen.getByLabelText('Last Name')).toBeInTheDocument();
-    });
-
-    it('shows Create button in modal', async () => {
-      renderWithProviders(<UserManagement />, ['users.create']);
-
-      fireEvent.click(screen.getByText('Create User'));
-
-      // There's a Create User button and a Create button
-      const createButtons = screen.getAllByText(/Create/);
-      expect(createButtons.length).toBeGreaterThan(1);
+      expect(screen.getAllByText(/Create/).length).toBeGreaterThan(1);
     });
   });
 });
