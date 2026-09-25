@@ -109,35 +109,116 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "data_source_config_versions", mutating: false
-      declare_action "data_source_contract", mutating: false
-      declare_action "data_source_create", mutating: true
-      declare_action "data_source_delete", mutating: true, destructive: true
-      declare_action "data_source_describe", mutating: false
-      declare_action "data_source_discover", mutating: false
+      NOT_FOUND = "the data source is not found in this account"
+      ENDPOINT_NOT_FOUND = "the data source or endpoint is not found in this account"
+      PROPOSAL_RETURN = "or requires_approval and proposal_id when a proposal was filed instead"
+      TARGETS_REFUSED = "targets is empty or has more than #{MAX_TARGETS} entries, or a source or endpoint is not found".freeze
+
+      declare_action "data_source_config_versions", mutating: false,
+                                                    returns: "the data source, versions (id, version, created_by_type, note, " \
+                                                             "created_at) and count",
+                                                    refuses: NOT_FOUND,
+                                                    see_also: { "data_source_rollback_config" => "restoring one of these versions" }
+      declare_action "data_source_contract", mutating: false,
+                                             returns: "the data source, the endpoint with its SLA and owner, contract (met and " \
+                                                      "violations), fetch_status and fetch_success, #{PROPOSAL_RETURN}",
+                                             refuses: ENDPOINT_NOT_FOUND,
+                                             see_also: { "data_source_quality" => "the last recorded quality outcome, without a new fetch" }
+      declare_action "data_source_create", mutating: true,
+                                           returns: "the created source's details, #{PROPOSAL_RETURN}",
+                                           refuses: "the source fails validation",
+                                           see_also: {
+                                             "data_source_install_template" => "starting from a library template",
+                                             "data_source_import" => "recreating a source from an exported manifest"
+                                           }
+      declare_action "data_source_delete", mutating: true, destructive: true,
+                                           returns: "a confirmation message, #{PROPOSAL_RETURN}",
+                                           refuses: "#{NOT_FOUND}, or it cannot be destroyed"
+      declare_action "data_source_describe", mutating: false,
+                                             returns: "the source's id, slug, protocol, auth scheme and trust signals, plus " \
+                                                      "endpoints (method, path template, response format, schema and " \
+                                                      "mapping) and count",
+                                             refuses: ENDPOINT_NOT_FOUND
+      declare_action "data_source_discover", mutating: false, limit: 50,
+                                             returns: "query, count and results (source summary, score and ranking signals), best first",
+                                             refuses: "query is blank",
+                                             see_also: { "data_source_list" => "every source in the account" }
       declare_action "data_source_export", mutating: false
-      declare_action "data_source_failover_query", mutating: true
-      declare_action "data_source_get", mutating: false
-      declare_action "data_source_health", mutating: false
-      declare_action "data_source_impact", mutating: false
-      declare_action "data_source_import", mutating: true
-      declare_action "data_source_ingest_to_kb", mutating: true
-      declare_action "data_source_install_template", mutating: true
+      declare_action "data_source_failover_query", mutating: true,
+                                                   refuses: TARGETS_REFUSED,
+                                                   see_also: { "data_source_reconcile" => "merging the records of every target" }
+      declare_action "data_source_get", mutating: false,
+                                        returns: "the source's summary, api_base_url, configuration, rate limits, default " \
+                                                 "parameters, capabilities, endpoint count, quota and timestamps",
+                                        refuses: NOT_FOUND,
+                                        see_also: { "data_source_describe" => "the source's endpoints and schemas" }
+      declare_action "data_source_health", mutating: false,
+                                           returns: "the source's health_status, effectiveness_score, trust_signals, " \
+                                                    "quota_summary, cache_metrics and circuit_breaker",
+                                           refuses: NOT_FOUND,
+                                           see_also: { "data_source_validate_config" => "checking the source's configuration" }
+      declare_action "data_source_impact", mutating: false,
+                                           refuses: NOT_FOUND,
+                                           see_also: { "data_source_health" => "quota, cache and circuit-breaker state" }
+      declare_action "data_source_import", mutating: true,
+                                           returns: "the source (a preview on dry_run), created, updated_endpoints, dry_run " \
+                                                    "and errors, #{PROPOSAL_RETURN}",
+                                           refuses: "manifest is blank, or the import fails",
+                                           see_also: { "data_source_export" => "producing a manifest" }
+      declare_action "data_source_ingest_to_kb", mutating: true,
+                                                 refuses: "#{ENDPOINT_NOT_FOUND}, or knowledge_base_id is blank",
+                                                 see_also: { "query_knowledge_base" => "searching the ingested documents" }
+      declare_action "data_source_install_template", mutating: true,
+                                                     returns: "the installed source's details, created, updated_endpoints, " \
+                                                              "errors and template_slug, #{PROPOSAL_RETURN}",
+                                                     refuses: "template_slug is blank or names no template",
+                                                     see_also: { "data_source_list_templates" => "the available template slugs" }
       declare_action "data_source_introspect", mutating: false
       declare_action "data_source_invalidate_cache", mutating: true
-      declare_action "data_source_list", mutating: false
-      declare_action "data_source_list_templates", mutating: false
-      declare_action "data_source_provenance", mutating: false
-      declare_action "data_source_quality", mutating: false
-      declare_action "data_source_query", mutating: false
-      declare_action "data_source_reconcile", mutating: true
-      declare_action "data_source_replay", mutating: true
+      declare_action "data_source_list", mutating: false,
+                                         returns: "items (id, name, slug, type, protocol, auth scheme, active flag, priority, " \
+                                                  "health and credential_count) and count, in priority order",
+                                         see_also: { "data_source_discover" => "finding sources that fit a need" }
+      declare_action "data_source_list_templates", mutating: false,
+                                                   returns: "templates (slug, name, description and category) and count",
+                                                   see_also: { "data_source_install_template" => "installing one" }
+      declare_action "data_source_provenance", mutating: false,
+                                               refuses: "no selector is given, or no matching recorded query is found",
+                                               see_also: { "data_source_replay" => "reconstructing the fetched payload" }
+      declare_action "data_source_quality", mutating: false,
+                                            returns: "the data source, the endpoint's quality settings, latest_quality (or " \
+                                                     "null), expectations and expectation_count",
+                                            refuses: ENDPOINT_NOT_FOUND,
+                                            see_also: { "data_source_contract" => "a fresh fetch judged against the contract" }
+      declare_action "data_source_query", mutating: false,
+                                          refuses: ENDPOINT_NOT_FOUND,
+                                          see_also: {
+                                            "data_source_failover_query" => "trying equivalent endpoints in order",
+                                            "data_source_reconcile" => "merging records from several endpoints"
+                                          }
+      declare_action "data_source_reconcile", mutating: true,
+                                              refuses: "key is blank, #{TARGETS_REFUSED}",
+                                              see_also: { "data_source_failover_query" => "the first endpoint that succeeds" }
+      declare_action "data_source_replay", mutating: true,
+                                           returns: "success, data (the re-masked cached payload, or [] when not cached), " \
+                                                    "provenance, status and replayed_from_query_id",
+                                           refuses: "neither query_id nor correlation_id is given, or no recorded query matches",
+                                           see_also: { "data_source_provenance" => "the audit record alone" }
       declare_action "data_source_rollback_config", mutating: true
-      declare_action "data_source_schema_history", mutating: false
+      declare_action "data_source_schema_history", mutating: false,
+                                                   returns: "the data source, the endpoint with track_schema, versions (version, " \
+                                                            "classification, checksum, created_at) oldest first, count and " \
+                                                            "latest_diff",
+                                                   refuses: ENDPOINT_NOT_FOUND
       declare_action "data_source_subscribe", mutating: true
       declare_action "data_source_unsubscribe", mutating: true, destructive: true
-      declare_action "data_source_update", mutating: true
-      declare_action "data_source_validate_config", mutating: false
+      declare_action "data_source_update", mutating: true,
+                                           returns: "the updated source's details, #{PROPOSAL_RETURN}",
+                                           refuses: "#{NOT_FOUND}, or the update fails validation"
+      declare_action "data_source_validate_config", mutating: false,
+                                                    returns: "the data source, valid, errors and warnings",
+                                                    refuses: NOT_FOUND,
+                                                    see_also: { "data_source_health" => "runtime health" }
 
       def self.definition
         {
@@ -196,7 +277,7 @@ module Ai
             }
           },
           "data_source_get" => {
-            description: "Get a single data source with configuration, rate limits, credentials, and quota summary",
+            description: "Get a single data source with configuration, rate limits, credential count, and quota summary",
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" }
             }
@@ -209,8 +290,8 @@ module Ai
             }
           },
           "data_source_query" => {
-            description: "Run a governed external fetch through Ai::DataSources::QueryService (kill flag, quota, cache, " \
-                         "circuit breaker, SSRF guard, decode, normalize, schema-validate, redact, audit). Returns a FetchEnvelope. " \
+            description: "Run a governed external fetch against one data source endpoint. It runs through " \
+                         "Ai::DataSources::QueryService (kill flag, quota, cache, circuit breaker, SSRF guard, decode, normalize, schema-validate, redact, audit). Returns a FetchEnvelope. " \
                          "A write/side-effecting endpoint (e.g. POST /2/tweets) additionally requires ai.data_sources.manage; " \
                          "without it, files a proposal instead of dispatching the live call.",
             parameters: {
@@ -220,7 +301,8 @@ module Ai
             }
           },
           "data_source_health" => {
-            description: "Report a data source's quota summary, response-cache metrics, and circuit-breaker state",
+            description: "Report a data source's quota summary, circuit-breaker state and trust signals. The " \
+                         "response-cache hit and miss counters it includes are platform-wide, not per source.",
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" }
             }
@@ -232,8 +314,9 @@ module Ai
             }
           },
           "data_source_discover" => {
-            description: "Semantically discover data sources for a natural-language need via Ai::DataSources::SemanticDiscoveryService " \
-                         "(embedding + pgvector nearest-neighbor, blended with effectiveness/health/recency trust signals). " \
+            description: "Find the data sources that fit a natural-language need, ranked by meaning and trust. " \
+                         "Ai::DataSources::SemanticDiscoveryService uses embedding + pgvector nearest-neighbor, blended " \
+                         "with effectiveness/health/recency trust signals. limit defaults to 10. " \
                          "Falls back to keyword name matching when no embedding backend is available.",
             parameters: {
               query: { type: "string", required: true, description: "Natural-language description of the data need" },
@@ -242,8 +325,8 @@ module Ai
             }
           },
           "data_source_provenance" => {
-            description: "Return the provenance of a recorded fetch from the ai_data_source_queries audit log: source, endpoint, " \
-                         "fetched_at, response_sha256, redacted_url, schema_valid, cached/served_stage, cost, and audit-chain anchor. " \
+            description: "Return the provenance of one recorded fetch from the ai_data_source_queries audit log. It " \
+                         "covers source, endpoint, fetched_at, response_sha256, redacted_url, schema_valid, cached/served_stage, cost, and audit-chain anchor. " \
                          "Looks up by query_id, then correlation_id, else the latest query for a data_source (optionally scoped to an endpoint).",
             parameters: {
               query_id: { type: "string", required: false, description: "ai_data_source_queries row UUID" },
@@ -253,15 +336,16 @@ module Ai
             }
           },
           "data_source_impact" => {
-            description: "Usage + trust summary for a data source: distinct requesting agents, total/successful/failed/cached query " \
-                         "counts, last_used_at, effectiveness_score, usage success rate, and health status.",
+            description: "Summarize how a data source is used and how far it is trusted. It returns distinct " \
+                         "requesting agents, total/successful/failed/cached query counts, last_used_at, " \
+                         "effectiveness_score, trust signals, and health status.",
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" }
             }
           },
           "data_source_schema_history" => {
-            description: "Return an endpoint's recorded schema-version history (version list with classification " \
-                         "initial|none|additive|breaking) plus the latest version's structural diff. Populated when the " \
+            description: "Return an endpoint's recorded schema-version history plus the latest version's structural " \
+                         "diff. Each version carries a classification of initial|none|additive|breaking. Populated when the " \
                          "endpoint opts into track_schema and a fetch runs through QueryService.",
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" },
@@ -269,8 +353,9 @@ module Ai
             }
           },
           "data_source_quality" => {
-            description: "Return an endpoint's latest data-quality outcome (quality_score / quality_passed / quarantined from " \
-                         "the most recent query) and its configured Ai::DataSourceExpectation rules.",
+            description: "Return an endpoint's latest data-quality outcome and its configured expectation rules. " \
+                         "The outcome (quality_score / quality_passed / quarantined) comes from the most recent query; " \
+                         "the rules are Ai::DataSourceExpectation rows.",
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" },
               endpoint_id: { type: "string", required: true, description: "Endpoint UUID or slug" }
@@ -287,8 +372,9 @@ module Ai
             }
           },
           "data_source_contract" => {
-            description: "Run Ai::DataSources::ContractService for a source+endpoint: performs a governed fetch then aggregates " \
-                         "schema_valid + quality_passed + within_sla into a single contract verdict (met + violations). " \
+            description: "Check an endpoint's data contract with a fresh governed fetch. " \
+                         "Ai::DataSources::ContractService aggregates the fetch's schema_valid + quality_passed + " \
+                         "within_sla into a single contract verdict (met + violations). " \
                          "A write/side-effecting endpoint additionally requires ai.data_sources.manage; without it, files a " \
                          "proposal instead of dispatching the live call.",
             parameters: {
@@ -377,8 +463,8 @@ module Ai
           },
           "data_source_import" => {
             description: "Import a CREDENTIAL-FREE config manifest into the account via " \
-                         "Ai::DataSources::ConfigPortabilityService#import (create-or-update the source by slug, upsert " \
-                         "endpoints by slug, all in one transaction). NEVER sets credentials — attach those separately " \
+                         "Ai::DataSources::ConfigPortabilityService#import. It creates or updates the source by slug and " \
+                         "upserts endpoints by slug, all in one transaction. NEVER sets credentials — attach those separately " \
                          "after import. Requires ai.data_sources.create or .manage; agents lacking it file a proposal. " \
                          "Supports dry_run to preview the create/update plan without persisting.",
             parameters: {
@@ -394,8 +480,8 @@ module Ai
             parameters: {}
           },
           "data_source_install_template" => {
-            description: "Install a library template by slug into the account via Ai::DataSources::TemplateLibrary.install " \
-                         "(materializes the template's credential-free manifest through ConfigPortabilityService#import). " \
+            description: "Install a library template by slug into the account. Ai::DataSources::TemplateLibrary.install " \
+                         "materializes the template's credential-free manifest through ConfigPortabilityService#import. " \
                          "NEVER sets credentials — attach those afterward if the source requires auth. Requires " \
                          "ai.data_sources.create or .manage; agents lacking it file a proposal.",
             parameters: {
@@ -403,8 +489,9 @@ module Ai
             }
           },
           "data_source_config_versions" => {
-            description: "List a data source's append-only config-version history (Ai::DataSourceConfigVersion), latest " \
-                         "first: version number, created_by_type (auto|manual|rollback), note, and created_at. Each row " \
+            description: "List a data source's append-only config-version history, latest first. Each " \
+                         "Ai::DataSourceConfigVersion row gives version number, created_by_type (auto|manual|rollback), " \
+                         "note, and created_at. Each row " \
                          "is a credential-free manifest snapshot captured by snapshot!/rollback.",
             parameters: {
               data_source_id: { type: "string", required: true, description: "Data source UUID or slug" }
@@ -422,9 +509,10 @@ module Ai
           },
           # ── Phase 4b-3 multi-source coordination + RAG ingestion bridge ──────
           "data_source_reconcile" => {
-            description: "DETERMINISTIC multi-source merge: governed-fetch every target (Ai::DataSources::QueryService) " \
-                         "INDEPENDENTLY, collect each successful FetchEnvelope's records, then collapse them into one list " \
-                         "by EXACT canonical-key match via Ai::DataSources::ReconciliationService (strategy first_wins|" \
+            description: "Merge the records of several data source endpoints on an exact canonical key. This is a " \
+                         "DETERMINISTIC merge: it governed-fetches every target (Ai::DataSources::QueryService) " \
+                         "INDEPENDENTLY, collects each successful FetchEnvelope's records, then collapses them into one " \
+                         "list by EXACT canonical-key match via Ai::DataSources::ReconciliationService (strategy first_wins|" \
                          "last_wins|merge). No cross-source SQL/join, no fuzzy entity resolution — exact key merge only. " \
                          "Requires ai.data_sources.query (it fetches). A write/side-effecting target endpoint additionally " \
                          "requires ai.data_sources.manage; without it, that target files a proposal instead of dispatching " \
@@ -439,9 +527,10 @@ module Ai
             }
           },
           "data_source_failover_query" => {
-            description: "Ordered FAILOVER across equivalent targets via Ai::DataSources::FailoverService#query: try each " \
-                         "{ data_source_id, endpoint_id } IN ORDER (primary first) through the full governed QueryService " \
-                         "pipeline and return the FIRST success; if all fail, return the last failure envelope. Requires " \
+            description: "Query equivalent data source endpoints in order and return the first success. " \
+                         "Ai::DataSources::FailoverService#query tries each { data_source_id, endpoint_id } IN ORDER " \
+                         "(primary first) through the full governed QueryService pipeline; if all fail, it returns the " \
+                         "last failure envelope. Requires " \
                          "ai.data_sources.query. If ANY target is a write/side-effecting endpoint the agent lacks " \
                          "ai.data_sources.manage for, the whole call files a proposal instead of dispatching. Returns the " \
                          "winning FetchEnvelope with failover provenance (failover_used/failover_attempts/failover_source).",
@@ -452,8 +541,8 @@ module Ai
             }
           },
           "data_source_replay" => {
-            description: "Forensic, side-effect-free REPLAY of a recorded fetch via Ai::DataSources::ReplayService#replay: " \
-                         "reconstruct a FetchEnvelope-shaped view from the redacted ai_data_source_queries audit row WITHOUT " \
+            description: "Replay a recorded fetch from its audit row, with no network call. " \
+                         "Ai::DataSources::ReplayService#replay reconstructs a FetchEnvelope-shaped view from the redacted ai_data_source_queries audit row WITHOUT " \
                          "any network call, signing, or credential resolution. The cached body (when still present and the " \
                          "original params are supplied) is RE-MASKED for the current requester. Requires ai.data_sources.read.",
             parameters: {
@@ -464,8 +553,9 @@ module Ai
             }
           },
           "data_source_ingest_to_kb" => {
-            description: "RAG ingestion bridge: governed-fetch a source+endpoint (Ai::DataSources::QueryService) then pipe the " \
-                         "canonical records into a knowledge base as embedded Ai::Document rows via " \
+            description: "Fetch a data source endpoint and ingest its records into a RAG knowledge base. It " \
+                         "governed-fetches the source+endpoint (Ai::DataSources::QueryService), then pipes the " \
+                         "canonical records into the knowledge base as embedded Ai::Document rows via " \
                          "Ai::DataSources::RagIngestionService#ingest (source_type \"api\", incremental re-embed dedup by " \
                          "record key). Requires ai.data_sources.manage (it writes documents/embeddings); agents lacking it " \
                          "file a proposal. Returns the ingest counts (ingested/updated/skipped/capped/errors).",
