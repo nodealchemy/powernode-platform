@@ -488,7 +488,9 @@ export const defaultNavigationConfig: NavigationConfig = {
     {
       id: 'invite-team',
       name: 'Invite Team Member',
-      href: '/app/profile/users',
+      // ?invite=1 opens InviteTeamMemberModal directly on the Users tab (fc-06) --
+      // URL-addressable, so a bookmark or refresh reproduces the same state.
+      href: '/app/profile/users?invite=1',
       icon: UserCheck,
       description: 'Add someone to your team'
     },

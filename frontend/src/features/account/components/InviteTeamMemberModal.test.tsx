@@ -1,7 +1,11 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { InviteTeamMemberModal } from './InviteTeamMemberModal';
 
-// Mock useForm hook
+// Mock useForm hook. `capturedOnSubmit` exposes the component's own
+// handleInvite (the mapping from form values -> the real InviteUserRequest
+// shape) so the "exact POST body" tests below can call it directly, without
+// needing checkbox-toggle plumbing to work through a mocked, non-reactive
+// useForm.
 const mockReset = jest.fn();
 const mockSetValue = jest.fn();
 const mockHandleBlur = jest.fn();
@@ -10,32 +14,39 @@ const mockHandleSubmit = jest.fn((e?: { preventDefault?: () => void }) => {
   return Promise.resolve();
 });
 
+let capturedOnSubmit: ((values: unknown) => Promise<void> | void) | null = null;
+let mockFormValues = {
+  email: '',
+  first_name: '',
+  last_name: '',
+  role_names: [] as string[]
+};
+
 jest.mock('@/shared/hooks/useForm', () => ({
-  useForm: () => ({
-    values: {
-      email: '',
-      role: 'account.member',
-      message: ''
-    },
-    errors: {},
-    touched: {},
-    isSubmitting: false,
-    isValid: true,
-    handleChange: jest.fn(),
-    handleBlur: mockHandleBlur,
-    handleSubmit: mockHandleSubmit,
-    setValue: mockSetValue,
-    setValues: jest.fn(),
-    reset: mockReset,
-    validateField: jest.fn(),
-    validateForm: jest.fn(),
-    getFieldProps: (name: string) => ({
-      name,
-      value: '',
-      onChange: jest.fn(),
-      onBlur: mockHandleBlur
-    })
-  }),
+  useForm: (options: { onSubmit: (values: unknown) => Promise<void> | void }) => {
+    capturedOnSubmit = options.onSubmit;
+    return {
+      values: mockFormValues,
+      errors: {},
+      touched: {},
+      isSubmitting: false,
+      isValid: true,
+      handleChange: jest.fn(),
+      handleBlur: mockHandleBlur,
+      handleSubmit: mockHandleSubmit,
+      setValue: mockSetValue,
+      setValues: jest.fn(),
+      reset: mockReset,
+      validateField: jest.fn(),
+      validateForm: jest.fn(),
+      getFieldProps: (name: string) => ({
+        name,
+        value: '',
+        onChange: jest.fn(),
+        onBlur: mockHandleBlur
+      })
+    };
+  },
   FormValidationRules: {}
 }));
 
@@ -44,6 +55,17 @@ const mockInviteUser = jest.fn();
 jest.mock('@/shared/services/account/invitationsApi', () => ({
   invitationsApi: {
     inviteUser: (...args: unknown[]) => mockInviteUser(...args)
+  }
+}));
+
+// Mock usersApi -- the real assignable-roles source (/roles/assignable), the
+// same one UserRolesModal and UsersContent already use. fc-06: the modal used
+// to hardcode three fake role names (account.member etc.) that the server's
+// Role.for_account lookup always rejected as "Unknown roles".
+const mockGetAvailableRoles = jest.fn();
+jest.mock('@/features/account/users/services/usersApi', () => ({
+  usersApi: {
+    getAvailableRoles: (...args: unknown[]) => mockGetAvailableRoles(...args)
   }
 }));
 
@@ -110,8 +132,18 @@ describe('InviteTeamMemberModal', () => {
     onInviteSent: jest.fn()
   };
 
+  const mockRoles = [
+    { value: 'account.admin', label: 'Account Admin', description: 'Full account management access', canAssign: true },
+    { value: 'account.member', label: 'Account Member', description: 'Standard access to resources', canAssign: true },
+    { value: 'billing.admin', label: 'Billing Admin', description: 'Restricted role', canAssign: false }
+  ];
+
   beforeEach(() => {
     jest.clearAllMocks();
+    capturedOnSubmit = null;
+    mockFormValues = { email: '', first_name: '', last_name: '', role_names: [] };
+    mockGetAvailableRoles.mockResolvedValue(mockRoles);
+    mockInviteUser.mockResolvedValue({ success: true, data: {} });
   });
 
   describe('rendering', () => {
@@ -139,59 +171,69 @@ describe('InviteTeamMemberModal', () => {
       expect(screen.getByText('Send an invitation to join your team')).toBeInTheDocument();
     });
 
+    it('renders first and last name fields', () => {
+      render(<InviteTeamMemberModal {...defaultProps} />);
+
+      expect(screen.getByText('First Name')).toBeInTheDocument();
+      expect(screen.getByText('Last Name')).toBeInTheDocument();
+    });
+
     it('renders email field', () => {
       render(<InviteTeamMemberModal {...defaultProps} />);
 
       expect(screen.getByText('Email Address')).toBeInTheDocument();
     });
 
-    it('renders role selection', () => {
+    it('renders a Roles label, not the old singular Role', () => {
       render(<InviteTeamMemberModal {...defaultProps} />);
 
-      expect(screen.getByText('Role *')).toBeInTheDocument();
+      expect(screen.getByText('Roles *')).toBeInTheDocument();
     });
 
-    it('renders message field', () => {
+    it('does not render a message field -- the server has no message column or param', () => {
       render(<InviteTeamMemberModal {...defaultProps} />);
 
-      expect(screen.getByText('Personal Message (Optional)')).toBeInTheDocument();
+      expect(screen.queryByText('Personal Message (Optional)')).not.toBeInTheDocument();
     });
   });
 
-  describe('role options', () => {
-    it('displays Account Manager option', () => {
+  describe('role options (fc-06: loaded from usersApi.getAvailableRoles, not hardcoded)', () => {
+    it('fetches assignable roles on open', async () => {
       render(<InviteTeamMemberModal {...defaultProps} />);
 
-      expect(screen.getByText('Account Manager')).toBeInTheDocument();
-      expect(screen.getByText('Full account management access')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(mockGetAvailableRoles).toHaveBeenCalled();
+      });
     });
 
-    it('displays Billing Manager option', () => {
+    it('displays the real roles the server returned', async () => {
       render(<InviteTeamMemberModal {...defaultProps} />);
 
-      expect(screen.getByText('Billing Manager')).toBeInTheDocument();
-      expect(screen.getByText('Can manage billing and payments')).toBeInTheDocument();
-    });
-
-    it('displays Account Member option', () => {
-      render(<InviteTeamMemberModal {...defaultProps} />);
-
+      expect(await screen.findByText('Account Admin')).toBeInTheDocument();
       expect(screen.getByText('Account Member')).toBeInTheDocument();
-      expect(screen.getByText('Standard access to resources')).toBeInTheDocument();
     });
 
-    it('has radio buttons for role selection', () => {
+    it('excludes roles the server marked as not assignable by this operator', async () => {
       render(<InviteTeamMemberModal {...defaultProps} />);
 
-      const radioButtons = screen.getAllByRole('radio');
-      expect(radioButtons.length).toBe(3);
+      await screen.findByText('Account Admin');
+      expect(screen.queryByText('Billing Admin')).not.toBeInTheDocument();
     });
 
-    it('defaults to account.member role', () => {
+    it('renders checkboxes, not radio buttons, since multiple roles can be granted', async () => {
       render(<InviteTeamMemberModal {...defaultProps} />);
 
-      const memberRadio = screen.getByDisplayValue('account.member');
-      expect(memberRadio).toBeChecked();
+      await screen.findByText('Account Admin');
+      expect(screen.getAllByRole('checkbox').length).toBe(2);
+      expect(screen.queryAllByRole('radio').length).toBe(0);
+    });
+
+    it('shows a load error and no crash when the roles fetch fails', async () => {
+      mockGetAvailableRoles.mockRejectedValue(new Error('network error'));
+
+      render(<InviteTeamMemberModal {...defaultProps} />);
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(/failed to load assignable roles/i);
     });
   });
 
@@ -206,7 +248,6 @@ describe('InviteTeamMemberModal', () => {
       render(<InviteTeamMemberModal {...defaultProps} />);
 
       expect(screen.getByText(/The invitee will receive an email/)).toBeInTheDocument();
-      expect(screen.getByText(/They'll need to create an account/)).toBeInTheDocument();
       expect(screen.getByText(/Invitations expire after 7 days/)).toBeInTheDocument();
     });
   });
@@ -233,14 +274,6 @@ describe('InviteTeamMemberModal', () => {
       expect(mockReset).toHaveBeenCalled();
       expect(onClose).toHaveBeenCalled();
     });
-
-    it('calls form reset when Cancel clicked', () => {
-      render(<InviteTeamMemberModal {...defaultProps} />);
-
-      fireEvent.click(screen.getByText('Cancel'));
-
-      expect(mockReset).toHaveBeenCalled();
-    });
   });
 
   describe('form submission', () => {
@@ -261,14 +294,89 @@ describe('InviteTeamMemberModal', () => {
     });
   });
 
-  describe('role selection', () => {
-    it('calls setValue when role changed', () => {
+  // fc-06: the real request shape, asserted directly against the component's
+  // own onSubmit handler (captured via the mocked useForm), so this pins the
+  // mapping regardless of the checkbox-toggle DOM plumbing above.
+  describe('the exact request body (fc-06 review requirement)', () => {
+    it('POSTs {invitation:{email,first_name,last_name,role_names}} via invitationsApi.inviteUser', async () => {
       render(<InviteTeamMemberModal {...defaultProps} />);
+      await screen.findByText('Account Admin');
 
-      const managerRadio = screen.getByDisplayValue('account.manager');
-      fireEvent.click(managerRadio);
+      expect(capturedOnSubmit).not.toBeNull();
+      await capturedOnSubmit!({
+        email: 'new@example.com',
+        first_name: 'Jane',
+        last_name: 'Doe',
+        role_names: [ 'account.admin', 'account.member' ]
+      });
 
-      expect(mockSetValue).toHaveBeenCalledWith('role', 'account.manager');
+      expect(mockInviteUser).toHaveBeenCalledWith({
+        email: 'new@example.com',
+        first_name: 'Jane',
+        last_name: 'Doe',
+        role_names: [ 'account.admin', 'account.member' ]
+      });
+    });
+
+    it('never sends the empty first_name/last_name the old mapping hardcoded', async () => {
+      render(<InviteTeamMemberModal {...defaultProps} />);
+      await screen.findByText('Account Admin');
+
+      await capturedOnSubmit!({
+        email: 'new@example.com',
+        first_name: 'Jane',
+        last_name: 'Doe',
+        role_names: [ 'account.member' ]
+      });
+
+      const sentRequest = mockInviteUser.mock.calls[0][0];
+      expect(sentRequest.first_name).not.toBe('');
+      expect(sentRequest.last_name).not.toBe('');
+    });
+
+    it('never sends a message field -- the server has no support for one', async () => {
+      render(<InviteTeamMemberModal {...defaultProps} />);
+      await screen.findByText('Account Admin');
+
+      await capturedOnSubmit!({
+        email: 'new@example.com',
+        first_name: 'Jane',
+        last_name: 'Doe',
+        role_names: [ 'account.member' ]
+      });
+
+      const sentRequest = mockInviteUser.mock.calls[0][0];
+      expect(sentRequest).not.toHaveProperty('message');
+    });
+
+    it('calls onInviteSent and onClose when the invite succeeds', async () => {
+      const onInviteSent = jest.fn();
+      const onClose = jest.fn();
+      render(<InviteTeamMemberModal {...defaultProps} onInviteSent={onInviteSent} onClose={onClose} />);
+      await screen.findByText('Account Admin');
+
+      await capturedOnSubmit!({
+        email: 'new@example.com',
+        first_name: 'Jane',
+        last_name: 'Doe',
+        role_names: [ 'account.member' ]
+      });
+
+      expect(onInviteSent).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+
+    it('throws (surfacing the server reason through useForm) when the invite is rejected', async () => {
+      mockInviteUser.mockResolvedValue({ success: false, message: 'Unknown roles: account.ceo' });
+      render(<InviteTeamMemberModal {...defaultProps} />);
+      await screen.findByText('Account Admin');
+
+      await expect(capturedOnSubmit!({
+        email: 'new@example.com',
+        first_name: 'Jane',
+        last_name: 'Doe',
+        role_names: [ 'account.ceo' ]
+      })).rejects.toThrow('Unknown roles: account.ceo');
     });
   });
 });

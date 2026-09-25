@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import { useSearchParams } from 'react-router-dom';
 import { RootState, AppDispatch } from '@/shared/services';
 import { startImpersonation } from '@/shared/services/slices/authSlice';
 import { usersApi, User, UserFormData, UserStats } from '@/features/account/users/services/usersApi';
@@ -7,10 +8,12 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { PageContainer, PageAction } from '@/shared/components/layout/PageContainer';
 import { usePageWebSocket } from '@/shared/hooks/usePageWebSocket';
 import { UserRolesModal } from '@/features/account/users/components/UserRolesModal';
+import { InviteTeamMemberModal } from '@/features/account/components/InviteTeamMemberModal';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-import { UserPlus, RefreshCw, Filter, Download, Copy, Check, KeyRound } from 'lucide-react';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
+import { UserPlus, Mail, RefreshCw, Filter, Download, Copy, Check, KeyRound } from 'lucide-react';
 
 import {
   TeamStatsCards,
@@ -34,6 +37,7 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
   const { user: currentUser } = useSelector((state: RootState) => state.auth);
   const { showNotification } = useNotifications();
   const { confirm, ConfirmationDialog } = useConfirmation();
+  const [searchParams, setSearchParams] = useSearchParams();
   usePageWebSocket({ pageType: 'account' });
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
@@ -45,6 +49,7 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showRolesModal, setShowRolesModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [selectedUserForRoles, setSelectedUserForRoles] = useState<User | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [tempPassword, setTempPassword] = useState<{ password: string; userName: string } | null>(null);
@@ -476,6 +481,34 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
     await loadData();
   };
 
+  // Mirrors Api::V1::InvitationsController#authorize_invitations_access!
+  // exactly (team.invite OR users.create), through the same hasPermissions
+  // helper used elsewhere -- permissions only, never roles.
+  const canInvite = hasPermissions(currentUser ?? null, [ 'team.invite', 'users.create' ]);
+
+  // URL-addressable: the "Invite Team Member" quick action (navigation.tsx)
+  // links straight to /app/profile/users?invite=1 so the invite flow opens
+  // without a second click, and the state survives a page reload/bookmark.
+  useEffect(() => {
+    if (canInvite && searchParams.get('invite') === '1') {
+      setShowInviteModal(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, canInvite]);
+
+  const closeInviteModal = () => {
+    setShowInviteModal(false);
+    if (searchParams.has('invite')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('invite');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
+  const handleInviteSent = () => {
+    showNotification('Invitation sent successfully', 'success');
+  };
+
   // Clear filters helper
   const clearFilters = () => {
     setFilters({
@@ -531,6 +564,13 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
       variant: 'secondary',
       disabled: loading
     },
+    ...(canInvite ? [ {
+      id: 'invite-team-member',
+      label: 'Invite Team Member',
+      onClick: () => setShowInviteModal(true),
+      variant: 'secondary' as const,
+      icon: Mail
+    } ] : []),
     {
       id: 'add-user',
       label: 'Add New User',
@@ -538,7 +578,7 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
       variant: 'primary',
       icon: UserPlus
     }
-  ], [loading, filteredUsers.length, showFilters, isFiltersDefault, filters.sortOrder, loadData]);
+  ], [loading, filteredUsers.length, showFilters, isFiltersDefault, filters.sortOrder, loadData, canInvite]);
 
   useEffect(() => {
     onActionsReady?.(loading ? [] : pageActions);
@@ -597,6 +637,17 @@ export const UsersContent: React.FC<UsersContentProps> = ({ onActionsReady }) =>
             onUserAction={handleUserAction}
             onDeleteUser={openDeleteModal}
           />
+
+          {/* Invite Team Member Modal -- an EMAIL invitation (invitationsApi), distinct
+              from the "Add New User" flow below, which creates the user directly with
+              a password. */}
+          {canInvite && (
+            <InviteTeamMemberModal
+              isOpen={showInviteModal}
+              onClose={closeInviteModal}
+              onInviteSent={handleInviteSent}
+            />
+          )}
 
           {/* Create User Modal */}
           <CreateTeamMemberModal
