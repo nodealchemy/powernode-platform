@@ -9,11 +9,20 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "get_pipeline_status", mutating: false
+      declare_action "get_pipeline_status", mutating: false,
+                                            returns: "the run's status and conclusion only",
+                                            refuses: "pipeline_id is not a CI run in one of this account's git repositories",
+                                            see_also: { "list_pipelines" => "finding CI run ids" }
       declare_action "list_pipelines", mutating: false, paginated: true,
                                        returns: "id, name, status, conclusion, repository_id, ref, sha, run number and timings per pipeline run, newest first",
                                        refuses: "repository_id names a repository outside this account"
-      declare_action "trigger_pipeline", mutating: true
+      declare_action "trigger_pipeline", mutating: true,
+                                         returns: "pipeline_id, the new run_id, the run status, and queued (false when the worker service was unreachable)",
+                                         refuses: [
+                                           "pipeline_id is missing",
+                                           "no Devops::Pipeline with that id exists in this account",
+                                           "the pipeline is inactive"
+                                         ]
 
       def self.definition
         {
@@ -31,7 +40,9 @@ module Ai
       def self.action_definitions
         {
           "trigger_pipeline" => {
-            description: "Trigger a DevOps pipeline run",
+            description: "Start a manual run of a DevOps pipeline definition (a Devops::Pipeline, not a CI run from list_pipelines). " \
+                         "It creates a pending run and queues Devops::PipelineExecutionJob on the worker. " \
+                         "The job is queued with simulate: true, so steps are simulated rather than executed by real handlers.",
             parameters: {
               pipeline_id: { type: "string", required: true, description: "Devops::Pipeline ID to run" }
             }
@@ -43,9 +54,10 @@ module Ai
             }.merge(PAGINATION_PARAMETERS)
           },
           "get_pipeline_status" => {
-            description: "Get the current status of a specific pipeline",
+            description: "Get the status and conclusion of one CI pipeline run synced from a git repository (a Devops::GitPipeline). " \
+                         "The id is a CI run id as listed by list_pipelines, not a Devops::Pipeline definition id.",
             parameters: {
-              pipeline_id: { type: "string", required: true, description: "Pipeline ID" }
+              pipeline_id: { type: "string", required: true, description: "Devops::GitPipeline (CI run) ID" }
             }
           }
         }

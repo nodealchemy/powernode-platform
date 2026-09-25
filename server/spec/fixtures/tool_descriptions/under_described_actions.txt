@@ -22,7 +22,6 @@ get_component_status
 get_investigation
 get_investigations
 get_llm_provider
-get_pipeline_status
 get_ralph_loop_statistics
 get_remediation_route
 get_schedule
@@ -193,7 +192,6 @@ system_update_architecture
 system_update_instance
 system_update_package_repository
 system_update_volume
-trigger_pipeline
 update_gitea_repository
 update_ralph_loop
 update_team
