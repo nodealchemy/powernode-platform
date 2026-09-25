@@ -4,6 +4,7 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
 import { AdminSettingsPage } from './AdminSettingsPage';
 import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
+import { CORE_ADMIN_SETTINGS_TABS } from '@/features/admin/components/settings/adminSettingsTabList';
 
 // Mock hooks - hasPermissions checks user permissions
 const mockHasPermissions = jest.fn();
@@ -24,8 +25,24 @@ jest.mock('@/features/admin/components/settings/AdminSettingsTabs', () => ({
 }));
 
 // Mock all admin settings tab pages
-jest.mock('./AdminSettingsOverviewTabPage', () => ({
-  AdminSettingsOverviewTabPage: () => <div data-testid="overview-tab-page">Overview Content</div>
+jest.mock('./AdminSettingsOverviewPage', () => ({
+  AdminSettingsOverviewPage: () => <div data-testid="overview-tab-page">Overview Content</div>
+}));
+
+jest.mock('./AdminSettingsExtensionsTabPage', () => ({
+  AdminSettingsExtensionsTabPage: () => <div data-testid="extensions-tab-page">Extensions Content</div>
+}));
+
+jest.mock('./AdminSettingsVaultTabPage', () => ({
+  AdminSettingsVaultTabPage: () => <div data-testid="vault-tab-page">Vault Content</div>
+}));
+
+jest.mock('./AdminSettingsDevelopmentTabPage', () => ({
+  AdminSettingsDevelopmentTabPage: () => <div data-testid="development-tab-page">Development Content</div>
+}));
+
+jest.mock('./AdminSettingsAutonomyTabPage', () => ({
+  AdminSettingsAutonomyTabPage: () => <div data-testid="autonomy-tab-page">Autonomy Content</div>
 }));
 
 jest.mock('./AdminSettingsEmailTabPage', () => ({
@@ -148,5 +165,33 @@ describe('AdminSettingsPage', () => {
       expect(screen.getByText('Admin Settings')).toBeInTheDocument();
       expect(screen.getByTestId('admin-settings-tabs')).toBeInTheDocument();
     });
+  });
+
+  // fc-45: one tab list (CORE_ADMIN_SETTINGS_TABS) drives the tab bar, the
+  // breadcrumb and the routes, so they cannot drift apart again.
+  describe('Single tab list', () => {
+    it.each(CORE_ADMIN_SETTINGS_TABS.map((tab) => [tab.id, tab] as const))(
+      'routes the %s tab and names it in the breadcrumb',
+      (_id, tab) => {
+        renderComponent(mockUserWithPermissions, tab.href);
+        expect(screen.getByTestId(`${tab.id}-tab-page`)).toBeInTheDocument();
+        const trail = screen.getByRole('navigation', { name: 'Breadcrumb' });
+        if (tab.id !== 'overview') expect(trail).toHaveTextContent(tab.label);
+      }
+    );
+
+    it('includes the Autonomy tab', () => {
+      renderComponent(mockUserWithPermissions, '/app/admin/settings/autonomy');
+      expect(screen.getByRole('navigation', { name: 'Breadcrumb' })).toHaveTextContent('Autonomy');
+    });
+
+    it.each(['/app/admin/settings/no-such-tab'])(
+      'does not redirect an unknown settings path (%s) to the overview',
+      (path) => {
+        renderComponent(mockUserWithPermissions, path);
+        expect(screen.queryByTestId('overview-tab-page')).not.toBeInTheDocument();
+        expect(screen.getByText('This settings tab does not exist.')).toBeInTheDocument();
+      }
+    );
   });
 });

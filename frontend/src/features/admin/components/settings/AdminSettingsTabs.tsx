@@ -1,115 +1,10 @@
 // Admin Settings Tabbed Interface
 
-import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import {
-  Mail, Server,
-  LayoutDashboard, ShieldAlert,
-  Network, Lock, Wrench, Puzzle, KeyRound, Bot,
-  icons as lucideIcons
-} from 'lucide-react';
 import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
-import { featureRegistry } from '@/shared/services/featureRegistry';
-
-interface AdminSettingsTab {
-  id: string;
-  label: string;
-  href: string;
-  icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  description: string;
-  requiredPermissions?: string[];
-}
-
-const adminSettingsTabs: AdminSettingsTab[] = [
-  {
-    id: 'overview',
-    label: 'Overview',
-    href: '/app/admin/settings',
-    icon: LayoutDashboard,
-    description: 'System overview and quick admin actions'
-    // No specific permissions required - covered by parent admin.settings.read
-  },
-  {
-    id: 'extensions',
-    label: 'Extensions',
-    href: '/app/admin/settings/extensions',
-    icon: Puzzle,
-    description: 'Manage platform extensions and modules',
-    requiredPermissions: ['admin.settings.read']
-  },
-  // 'Payment Gateways' is registered by the business extension via
-  // featureRegistry.registerSettingsTabs('business', [...]) and merged below.
-  {
-    id: 'email',
-    label: 'Email Settings',
-    href: '/app/admin/settings/email',
-    icon: Mail,
-    description: 'Configure email providers and delivery settings',
-    requiredPermissions: ['admin.settings.email']
-  },
-  {
-    id: 'proxy',
-    label: 'Reverse Proxy',
-    href: '/app/admin/settings/proxy',
-    icon: Network,
-    description: 'Configure reverse proxy URL handling and trusted hosts',
-    requiredPermissions: ['admin.settings.read'] // Using basic admin settings permission
-  },
-  {
-    id: 'security',
-    label: 'Security',
-    href: '/app/admin/settings/security',
-    icon: Lock,
-    description: 'Security policies and access controls',
-    requiredPermissions: ['admin.settings.security']
-  },
-  {
-    id: 'rate-limiting',
-    label: 'Rate Limiting',
-    href: '/app/admin/settings/rate-limiting',
-    icon: ShieldAlert,
-    description: 'Configure API rate limits and monitor usage patterns',
-    requiredPermissions: ['admin.settings.security']
-  },
-  {
-    id: 'infrastructure',
-    label: 'Infrastructure',
-    href: '/app/admin/settings/infrastructure',
-    icon: Server,
-    description: 'Redis connection and infrastructure configuration',
-    requiredPermissions: ['admin.settings.read']
-  },
-  {
-    id: 'vault',
-    label: 'Vault & Secrets',
-    href: '/app/admin/settings/vault',
-    icon: KeyRound,
-    description: 'HashiCorp Vault connection and key management',
-    requiredPermissions: ['admin.settings.security']
-  },
-  {
-    id: 'development',
-    label: 'Development',
-    href: '/app/admin/settings/development',
-    icon: Wrench,
-    description: 'Manage extensions and development tools',
-    requiredPermissions: ['admin.settings.read']
-  },
-  {
-    // D3. Listed under the same read permission as its siblings so the tab is
-    // visible to anyone who can view settings; the CONTROL inside it gates
-    // separately on settings.manage, which is the permission its write
-    // endpoint names.
-    id: 'autonomy',
-    label: 'Autonomy',
-    href: '/app/admin/settings/autonomy',
-    icon: Bot,
-    description: 'Platform-wide switches for autonomous agent cadences',
-    requiredPermissions: ['admin.settings.read']
-  }
-];
+import { AdminSettingsTab, findActiveSettingsTab, useAdminSettingsTabs } from './adminSettingsTabList';
 
 interface AdminSettingsTabsProps {
   className?: string;
@@ -120,42 +15,19 @@ export const AdminSettingsTabs: React.FC<AdminSettingsTabsProps> = ({ className 
   const navigate = useNavigate();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  // Re-render when an extension registers a settings tab.
-  const [, setRegistryVersion] = useState(() => featureRegistry.getVersion());
-  useEffect(() => {
-    return featureRegistry.subscribe(() => setRegistryVersion(featureRegistry.getVersion()));
-  }, []);
-
-  // Merge core tabs with extension-registered tabs. Registered tabs are only
-  // present when their owning extension is loaded (registration is gated by the
-  // extension's own register.ts), so no per-extension name is needed in core.
-  // String icon names resolve against the Lucide set, falling back to Puzzle.
-  const registeredTabs: AdminSettingsTab[] = featureRegistry.getSettingsTabs().map(tab => ({
-    id: tab.id,
-    label: tab.label,
-    href: tab.path,
-    icon: (tab.icon && lucideIcons[tab.icon as keyof typeof lucideIcons]) || Puzzle,
-    description: tab.description || '',
-    requiredPermissions: tab.permission ? [tab.permission] : undefined,
-  }));
-
-  const mergedTabs = [...adminSettingsTabs, ...registeredTabs];
+  const mergedTabs = useAdminSettingsTabs();
 
   // Filter tabs based on user permissions
   const availableTabs = mergedTabs.filter(tab => {
     if (!tab.requiredPermissions || tab.requiredPermissions.length === 0) {
       return true; // No specific permissions required
     }
-    return hasPermissions(user, tab.requiredPermissions);
+    return hasPermissions(user, [...tab.requiredPermissions]);
   });
 
   // Determine active tab based on current path
   const getActiveTab = (): string => {
-    const currentPath = location.pathname;
-    const activeTab = availableTabs.find(tab => 
-      tab.href === currentPath || (currentPath.startsWith(tab.href) && tab.href !== '/app/admin/settings')
-    );
-    return activeTab?.id || 'overview';
+    return findActiveSettingsTab(availableTabs, location.pathname)?.id || 'overview';
   };
 
   const activeTabId = getActiveTab();

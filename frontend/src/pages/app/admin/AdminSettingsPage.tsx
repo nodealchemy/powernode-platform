@@ -6,10 +6,17 @@ import { RootState } from '@/shared/services';
 import { hasPermissions } from '@/shared/utils/permissionUtils';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { AdminSettingsTabs } from '@/features/admin/components/settings/AdminSettingsTabs';
-import { featureRegistry } from '@/shared/services/featureRegistry';
+import {
+  ADMIN_SETTINGS_BASE,
+  CORE_ADMIN_SETTINGS_TABS,
+  CoreAdminSettingsTabId,
+  findActiveSettingsTab,
+  toAdminSettingsTab,
+  useRegisteredSettingsTabs,
+} from '@/features/admin/components/settings/adminSettingsTabList';
 
 // Import all admin settings tab pages
-import { AdminSettingsOverviewTabPage } from './AdminSettingsOverviewTabPage';
+import { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
 import { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 import { AdminSettingsSecurityTabPage } from './AdminSettingsSecurityTabPage';
 import AdminSettingsRateLimitingTabPage from './AdminSettingsRateLimitingTabPage';
@@ -20,36 +27,32 @@ import { AdminSettingsDevelopmentTabPage } from './AdminSettingsDevelopmentTabPa
 import { AdminSettingsAutonomyTabPage } from './AdminSettingsAutonomyTabPage';
 import { AdminSettingsExtensionsTabPage } from './AdminSettingsExtensionsTabPage';
 
-const SETTINGS_BASE = '/app/admin/settings';
+// The page each core tab renders. Keyed by the tab list's ids, so a tab
+// without a page (or a page without a tab) does not compile.
+const CORE_TAB_PAGES: Record<CoreAdminSettingsTabId, React.ComponentType> = {
+  overview: AdminSettingsOverviewPage,
+  extensions: AdminSettingsExtensionsTabPage,
+  email: AdminSettingsEmailTabPage,
+  proxy: AdminSettingsProxyTabPage,
+  security: AdminSettingsSecurityTabPage,
+  'rate-limiting': AdminSettingsRateLimitingTabPage,
+  infrastructure: AdminSettingsInfrastructureTabPage,
+  vault: AdminSettingsVaultTabPage,
+  development: AdminSettingsDevelopmentTabPage,
+  autonomy: AdminSettingsAutonomyTabPage,
+};
 
-// Core tab definitions for breadcrumbs. Extension-owned tabs (e.g. Payment
-// Gateways) are merged in at render time from featureRegistry.getSettingsTabs().
-const settingsTabs = [
-  { id: 'overview', label: 'Overview', path: '/app/admin/settings', icon: '📊' },
-  { id: 'extensions', label: 'Extensions', path: '/app/admin/settings/extensions', icon: '🧩' },
-  { id: 'email', label: 'Email Settings', path: '/app/admin/settings/email', icon: '📧' },
-  { id: 'proxy', label: 'Reverse Proxy', path: '/app/admin/settings/proxy', icon: '🌐' },
-  { id: 'security', label: 'Security', path: '/app/admin/settings/security', icon: '🔒' },
-  { id: 'rate-limiting', label: 'Rate Limiting', path: '/app/admin/settings/rate-limiting', icon: '🛡️' },
-  { id: 'infrastructure', label: 'Infrastructure', path: '/app/admin/settings/infrastructure', icon: '🖥️' },
-  { id: 'vault', label: 'Vault & Secrets', path: '/app/admin/settings/vault', icon: '🔑' },
-  { id: 'development', label: 'Development', path: '/app/admin/settings/development', icon: '🔧' }
-];
+// A tab href relative to the settings base, as a nested route path.
+const relativeRoute = (href: string) =>
+  href.startsWith(ADMIN_SETTINGS_BASE) ? href.slice(ADMIN_SETTINGS_BASE.length) || '/' : href;
 
 export const AdminSettingsPage: React.FC = () => {
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  // Re-render when an extension registers a settings tab (registration happens
-  // at module import time, but subscribing keeps this robust to later changes).
-  const [, setRegistryVersion] = React.useState(() => featureRegistry.getVersion());
-  React.useEffect(() => {
-    return featureRegistry.subscribe(() => setRegistryVersion(featureRegistry.getVersion()));
-  }, []);
-
   // Extension-contributed tabs (e.g. business Payment Gateways) rendered inside
   // this tabbed shell. Keyed by namespace in the registry — core names none.
-  const extensionTabs = featureRegistry.getSettingsTabs();
+  const extensionTabs = useRegisteredSettingsTabs();
 
   // Check if user has admin settings permission
   const canAccessAdminSettings = hasPermissions(user, ['admin.settings.read']);
@@ -59,26 +62,14 @@ export const AdminSettingsPage: React.FC = () => {
     return <Navigate to="/app" replace />;
   }
 
-  // Core tabs plus extension-registered tabs, for active-tab/breadcrumb lookup.
-  const allTabs = [
-    ...settingsTabs,
-    ...extensionTabs.map(tab => ({ id: tab.id, label: tab.label, path: tab.path, icon: tab.icon })),
-  ];
-
-  // Get active tab from current path
-  const getActiveTab = () => {
-    const currentPath = location.pathname;
-    return allTabs.find(tab =>
-      tab.path === currentPath || (currentPath.startsWith(tab.path) && tab.path !== '/app/admin/settings')
-    ) || allTabs[0];
-  };
+  const allTabs = [...CORE_ADMIN_SETTINGS_TABS, ...extensionTabs.map(toAdminSettingsTab)];
 
   const getBreadcrumbs = () => {
-    const activeTab = getActiveTab();
+    const activeTab = findActiveSettingsTab(allTabs, location.pathname);
     const breadcrumbs: { label: string; href?: string }[] = [
       { label: 'Dashboard', href: '/app' },
-      { label: 'Admin', href: '/app/admin/settings' },
-      { label: 'Settings', href: '/app/admin/settings' }
+      { label: 'Admin', href: ADMIN_SETTINGS_BASE },
+      { label: 'Settings', href: ADMIN_SETTINGS_BASE }
     ];
 
     // Add active tab if not on overview
@@ -101,41 +92,21 @@ export const AdminSettingsPage: React.FC = () => {
       {/* Tab Content */}
       <div className="mt-6">
         <Routes>
-          {/* Default - Admin Settings Overview */}
-          <Route path="/" element={<AdminSettingsOverviewTabPage />} />
-
-          {/* Admin Settings Tabs */}
-          <Route path="/extensions" element={<AdminSettingsExtensionsTabPage />} />
-          <Route path="/email" element={<AdminSettingsEmailTabPage />} />
-          <Route path="/proxy" element={<AdminSettingsProxyTabPage />} />
-          <Route path="/security" element={<AdminSettingsSecurityTabPage />} />
-          <Route path="/rate-limiting" element={<AdminSettingsRateLimitingTabPage />} />
-          <Route path="/infrastructure" element={<AdminSettingsInfrastructureTabPage />} />
-          <Route path="/vault" element={<AdminSettingsVaultTabPage />} />
-          <Route path="/development" element={<AdminSettingsDevelopmentTabPage />} />
-          {/* D3: the autonomy closure-driver switch. Routed deliberately —
-              a settings control that no route reaches is not a control. */}
-          <Route path="/autonomy" element={<AdminSettingsAutonomyTabPage />} />
-
-          {/* Extension-registered tabs (e.g. business Payment Gateways),
-              rendered inside this tabbed shell. Path is full; strip the base
-              to get the route relative to /app/admin/settings. */}
-          {extensionTabs.map((tab) => {
-            const TabComponent = tab.component;
-            const relativePath = tab.path.startsWith(SETTINGS_BASE)
-              ? tab.path.slice(SETTINGS_BASE.length) || '/'
-              : tab.path;
-            return (
-              <Route
-                key={tab.id}
-                path={relativePath}
-                element={<TabComponent />}
-              />
-            );
+          {CORE_ADMIN_SETTINGS_TABS.map((tab) => {
+            const TabPage = CORE_TAB_PAGES[tab.id];
+            return <Route key={tab.id} path={relativeRoute(tab.href)} element={<TabPage />} />;
           })}
 
-          {/* Catch all - redirect to overview */}
-          <Route path="*" element={<Navigate to="/app/admin/settings" replace />} />
+          {/* Extension-registered tabs, rendered inside this tabbed shell. */}
+          {extensionTabs.map((tab) => {
+            const TabComponent = tab.component;
+            return <Route key={tab.id} path={relativeRoute(tab.path)} element={<TabComponent />} />;
+          })}
+
+          <Route
+            path="*"
+            element={<p className="text-theme-secondary">This settings tab does not exist.</p>}
+          />
         </Routes>
       </div>
     </PageContainer>

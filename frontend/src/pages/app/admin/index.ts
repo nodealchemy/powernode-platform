@@ -1,7 +1,6 @@
 // Admin Settings Tab Pages
 export { AdminSettingsPage } from './AdminSettingsPage';
 export { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
-export { AdminSettingsOverviewTabPage } from './AdminSettingsOverviewTabPage';
 export { AdminSettingsAutonomyTabPage } from './AdminSettingsAutonomyTabPage';
 export { AdminSettingsEmailTabPage } from './AdminSettingsEmailTabPage';
 // export { AdminSettingsMaintenanceTabPage } from './AdminSettingsMaintenanceTabPage'; // File doesn't exist
