@@ -316,7 +316,7 @@ module Ai
         conversation: @conversation, user: @user
       )
 
-      messages = build_tool_messages(content)
+      messages = build_tool_messages
       # Fallback chain: explicit agent model → credential's provider default →
       # re-fetched credential (in case caller passed nil). The `credential ||=`
       # guard handles the latter — previously this was `_credential` (unused
@@ -385,7 +385,9 @@ module Ai
       TOOL_CAPABLE_PROVIDERS.include?(credential.provider.provider_type)
     end
 
-    def build_tool_messages(user_content)
+    # The persisted history already ends with the user's message: every caller
+    # saves it (Ai::Conversation#add_user_message) before #process_message.
+    def build_tool_messages
       messages = []
 
       @conversation.messages.not_deleted.ordered.last(15).each do |msg|
@@ -393,7 +395,8 @@ module Ai
       end
 
       # Router-invoked skill result, injected as a synthetic system message
-      # IMMEDIATELY BEFORE the user's latest message. This positioning is
+      # IMMEDIATELY AFTER the user's latest message (a mid-conversation system
+      # message, placed in position by the builders). This positioning is
       # deliberate (R5 fix 2026-05-12): when the addendum lived inside the
       # global system prompt, ~10 turns of accumulated "couldn't find"
       # context in conversation history would outweigh the directive. Placing
@@ -401,8 +404,6 @@ module Ai
       # right next to the question — recency bias works *for* us instead
       # of against us.
       messages << router_override_message if router_override_message
-
-      messages << { role: "user", content: user_content }
       messages
     end
 
@@ -473,7 +474,7 @@ module Ai
       end
 
       client = WorkerLlmClient.new(agent_id: @agent.id)
-      messages = build_legacy_messages(content)
+      messages = build_legacy_messages
       model = concierge_model || credential.provider.default_model
 
       max_tokens = ::Ai::Llm::ModelCapabilities.default_max_tokens(model) || 2048
@@ -487,7 +488,8 @@ module Ai
       end
     end
 
-    def build_legacy_messages(user_content)
+    # See #build_tool_messages: the user's message is already the last history row.
+    def build_legacy_messages
       messages = []
       messages << { role: "system", content: legacy_system_prompt }
 
@@ -498,8 +500,6 @@ module Ai
       # Router-invoked skill result — same adjacent-injection pattern as
       # build_tool_messages. See R5 fix note there.
       messages << router_override_message if router_override_message
-
-      messages << { role: "user", content: user_content }
       messages
     end
 

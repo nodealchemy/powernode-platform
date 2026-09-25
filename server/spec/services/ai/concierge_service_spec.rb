@@ -186,6 +186,25 @@ RSpec.describe Ai::ConciergeService do
     end
   end
 
+  # Every caller persists the user's message (Ai::Conversation#add_user_message)
+  # BEFORE #process_message runs, so the persisted history already ends with it.
+  # Appending the content again sent the question to the model twice.
+  describe "request history (the user's question is sent once)" do
+    before { conversation.add_user_message("What is the deploy status?", user: user) }
+
+    it "the tool path carries the persisted question exactly once" do
+      messages = service.send(:build_tool_messages)
+
+      expect(messages.count { |m| m[:role] == "user" && m[:content] == "What is the deploy status?" }).to eq(1)
+    end
+
+    it "the action-grammar path carries the persisted question exactly once" do
+      messages = service.send(:build_legacy_messages)
+
+      expect(messages.count { |m| m[:role] == "user" && m[:content] == "What is the deploy status?" }).to eq(1)
+    end
+  end
+
   describe "#handle_confirmed_action" do
     context "create_mission" do
       let(:repo) { create(:git_repository, account: account, full_name: "org/my-repo") }
