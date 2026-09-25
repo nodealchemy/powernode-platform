@@ -209,7 +209,9 @@ module Ai
     def allocate_child(agent:, amount_cents:, period_type: self.period_type)
       return nil unless amount_cents.positive?
 
-      transaction do
+      # requires_new: a Rollback raised in a transaction JOINED to a caller's
+      # (FactoryService#spawn holds one) is swallowed and the child commits.
+      transaction(requires_new: true) do
         lock!
         raise ActiveRecord::Rollback if remaining_cents < amount_cents
 

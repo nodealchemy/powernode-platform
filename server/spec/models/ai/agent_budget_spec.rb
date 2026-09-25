@@ -212,6 +212,20 @@ RSpec.describe Ai::AgentBudget, type: :model do
       expect(budget.reload.reserved_cents).to eq(0)
     end
 
+    # Callers such as FactoryService#spawn already hold a transaction. A
+    # refusal must still undo the child: an ActiveRecord::Rollback raised in a
+    # JOINED transaction is swallowed there and the outer one commits.
+    it 'leaves no child when reserve! refuses inside a caller\'s transaction' do
+      allow(budget).to receive(:reserve!).and_return(false)
+
+      result = Ai::AgentBudget.transaction do
+        budget.allocate_child(agent: child_agent, amount_cents: 3_000)
+      end
+
+      expect(result).to be_nil
+      expect(Ai::AgentBudget.where(parent_budget_id: budget.id)).to be_empty
+    end
+
     # Two callers holding the same budget: the second one's in-memory
     # remaining_cents is stale. The lock-time check must decide, so the parent
     # is never over-allocated and the loser gets nil rather than an exception.
