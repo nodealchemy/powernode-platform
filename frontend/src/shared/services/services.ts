@@ -1,5 +1,6 @@
 // Shared Services Exports
-export { api } from '@/shared/services/api';
+// Service clients only: the raw HTTP client (api/apiClient) is not
+// re-exported, so a component cannot reach it through this barrel (fc-39).
 
 // Account services
 export * from '@/shared/services/account/impersonationApi';
