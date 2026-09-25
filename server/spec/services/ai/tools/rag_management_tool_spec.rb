@@ -8,6 +8,13 @@ RSpec.describe Ai::Tools::RagManagementTool do
 
   subject(:tool) { described_class.new(account: account, user: user) }
 
+  describe ".definition" do
+    # Search moved to query_knowledge_base; no remaining action reads these.
+    it "does not advertise the parameters of the removed search action" do
+      expect(described_class.definition[:parameters].keys).not_to include(:query, :mode, :top_k)
+    end
+  end
+
   describe "create_knowledge_base" do
     # The knowledge base's embedding model comes from the account's provider
     # catalog (Ai::RagService#resolve_embedding_config), never a literal in the

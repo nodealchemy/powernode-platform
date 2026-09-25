@@ -37,7 +37,7 @@ module Ai
       def self.definition
         {
           name: "rag_management",
-          description: "Manage RAG knowledge bases, documents, and search. Actions: list_knowledge_bases, create_knowledge_base, add_document, process_document, delete_document. To search a knowledge base, use query_knowledge_base.",
+          description: "Manage RAG knowledge bases and documents. Actions: list_knowledge_bases, create_knowledge_base, add_document, process_document, delete_document. To search a knowledge base, use query_knowledge_base.",
           parameters: {
             action: { type: "string", required: true, description: "Action: list_knowledge_bases, create_knowledge_base, add_document, process_document, delete_document" },
             knowledge_base_id: { type: "string", required: false, description: "Knowledge base ID" },
@@ -46,10 +46,7 @@ module Ai
             content: { type: "string", required: false, description: "Document content" },
             content_type: { type: "string", required: false, description: "Document content type (default: text/plain)" },
             source_url: { type: "string", required: false, description: "Source URL for document" },
-            document_id: { type: "string", required: false, description: "Document ID" },
-            query: { type: "string", required: false, description: "Search query" },
-            mode: { type: "string", required: false, description: "Search mode: hybrid, vector, keyword, graph (default: hybrid)" },
-            top_k: { type: "integer", required: false, description: "Max results (default 5)" }
+            document_id: { type: "string", required: false, description: "Document ID" }
           }
         }
       end
