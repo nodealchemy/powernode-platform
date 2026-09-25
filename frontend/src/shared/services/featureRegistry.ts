@@ -239,10 +239,9 @@ export const featureRegistry = {
     notifyListeners();
   },
 
-  /** Register sources of extra @-mention members for a namespace. */
+  /** Register sources of extra @-mention members for a namespace (replaces its earlier ones). */
   registerMentionSources(namespace: string, sources: MentionSource[]): void {
-    const existing = state.mentionSources.get(namespace) || [];
-    state.mentionSources.set(namespace, [...existing, ...sources]);
+    state.mentionSources.set(namespace, sources);
     notifyListeners();
   },
 

@@ -49,4 +49,41 @@ describe('gatherMentionMembers', () => {
     expect(warn).not.toHaveBeenCalled();
     [debug, error, warn].forEach((s) => s.mockRestore());
   });
+
+  it('replaces, not appends, a namespace\'s sources when it registers again', async () => {
+    featureRegistry.registerMentionSources('ext', [async () => [member('old')]]);
+    featureRegistry.registerMentionSources('ext', [async () => [member('new')]]);
+
+    const members = await gatherMentionMembers(async () => [member('w1')]);
+
+    expect(members.map((m) => m.id)).toEqual(['w1', 'new']);
+  });
+
+  it('drops a source that throws synchronously instead of rejecting', async () => {
+    const debug = jest.spyOn(logger, 'debug').mockImplementation(() => undefined);
+    featureRegistry.registerMentionSources('ext', [
+      (() => {
+        throw new Error('sync');
+      }) as unknown as () => Promise<never>,
+      async () => [member('p1')],
+    ]);
+
+    const members = await gatherMentionMembers(async () => [member('w1')]);
+
+    expect(members.map((m) => m.id)).toEqual(['w1', 'p1']);
+    expect(debug).toHaveBeenCalledTimes(1);
+    debug.mockRestore();
+  });
+
+  it('treats a source that resolves to a non-array as contributing nothing', async () => {
+    featureRegistry.registerMentionSources('ext', [
+      async () => ({ members: [member('x')] }) as unknown as never[],
+      async () => null as unknown as never[],
+      async () => [member('p1')],
+    ]);
+
+    const members = await gatherMentionMembers(async () => [member('w1')]);
+
+    expect(members.map((m) => m.id)).toEqual(['w1', 'p1']);
+  });
 });

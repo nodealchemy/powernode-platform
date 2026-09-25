@@ -1,5 +1,6 @@
-// Fixture for core-extension-route-literals.rb --self-test. Exactly 8 of the
-// literals below are extension routes; the rest must not be flagged.
+// Fixture for core-extension-route-literals.rb --self-test. Exactly 11 of the
+// literals below are extension routes; the rest must not be flagged. Not
+// compiled: the JSX lines exist only to exercise the comment stripper.
 // '/system/in/a/comment' — comments are stripped
 /* '/billing/in/a/block/comment' */
 
@@ -12,6 +13,15 @@ export const e = '/billing?tab=invoices';
 export const f = '/marketplace#top';
 export const g = '/mcp/hosting/servers';
 export const h = '/system';
+
+// MUST flag (3): a '//' that is not a comment must not hide a later literal
+// - an apostrophe in JSX text closes at end of line, not at the next quote
+export const j1 = <p>Don't panic</p>;
+export const j2 = '//cdn.example.com/docs'; export const j3 = '/billing/x';
+// - an unmatched apostrophe earlier on the same line: '//' after ':' is a URL
+export const k1 = <p>Won't</p>; export const k2 = 'https://x.io'; export const k3 = '/plans';
+// - a '//' inside a regex literal
+export const r1 = /^https?:\/\//.test(k2) ? '/business/y' : '';
 
 // must NOT flag
 export const n1 = '/systemic';

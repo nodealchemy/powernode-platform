@@ -72,7 +72,9 @@ describe('UpgradeRequiredCard', () => {
     render(<UpgradeRequiredCard reason="no_subscription" upgradeUrl={null} />);
 
     expect(screen.queryByTestId('upgrade-required-cta')).toBeNull();
-    expect(screen.getByTestId('upgrade-required-card').textContent).not.toBe('');
+    const card = screen.getByTestId('upgrade-required-card');
+    expect(card.textContent).toContain('Add a plan to keep going');
+    expect(card.textContent).toContain('Provisioning live infrastructure needs an active subscription.');
   });
 
   // The cost-cap copy formats spent/cap as currency. The denial contract sends
