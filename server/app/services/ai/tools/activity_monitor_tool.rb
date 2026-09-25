@@ -9,13 +9,30 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "dismiss_all_notifications", mutating: true
-      declare_action "dismiss_notification", mutating: true
-      declare_action "get_activity_feed", mutating: false
+      declare_action "dismiss_all_notifications", mutating: true,
+                                                  returns: "dismissed_count",
+                                                  refuses: "there is no user context",
+                                                  see_also: { "mark_all_notifications_read" => "keeping them visible but marked read" }
+      declare_action "dismiss_notification", mutating: true,
+                                             returns: "notification_id and read_at",
+                                             refuses: [ "notification_id is blank", "there is no user context",
+                                                        "the notification does not belong to the current user" ],
+                                             see_also: { "dismiss_all_notifications" => "hiding every active notification" }
+      declare_action "get_activity_feed", mutating: false,
+                                          returns: "window_hours, missions, conversations, events, agent_execution_errors " \
+                                                   "(error message up to 500 chars) and a summary of their counts",
+                                          see_also: { "get_system_health" => "24-hour AI-side counts and error rate" }
       declare_action "get_mission_status", mutating: false
       declare_action "get_notifications", mutating: false
-      declare_action "get_system_health", mutating: false
-      declare_action "mark_all_notifications_read", mutating: true
+      declare_action "get_system_health", mutating: false,
+                                          returns: "timestamp, mission counts, active agents and conversations, 24-hour agent " \
+                                                   "execution error counts and rate, providers with has_active_credential, and " \
+                                                   "pending_notifications (null without a user)",
+                                          see_also: { "get_activity_feed" => "the individual recent events and failures" }
+      declare_action "mark_all_notifications_read", mutating: true,
+                                                    returns: "marked_read_count",
+                                                    refuses: "there is no user context",
+                                                    see_also: { "dismiss_all_notifications" => "hiding them as well" }
 
       def self.definition
         {
@@ -61,17 +78,20 @@ module Ai
             }
           },
           "dismiss_notification" => {
-            description: "Mark a notification as read",
+            description: "Mark one of the current user's notifications as read. " \
+                         "Despite the name it sets read_at only, so the notification stays in the active list.",
             parameters: {
               notification_id: { type: "string", required: true, description: "ID of the notification to dismiss" }
             }
           },
           "dismiss_all_notifications" => {
-            description: "Dismiss all active notifications permanently (sets dismissed_at). Returns count of dismissed.",
+            description: "Dismiss all of the current user's active notifications permanently. " \
+                         "It sets dismissed_at, which removes them from the active list.",
             parameters: {}
           },
           "mark_all_notifications_read" => {
-            description: "Mark all unread notifications as read (lighter than dismiss — still visible but marked as read). Returns count.",
+            description: "Mark all of the current user's unread notifications as read. " \
+                         "This is lighter than dismissing: they stay visible, marked as read.",
             parameters: {}
           },
           "get_system_health" => {
@@ -80,7 +100,7 @@ module Ai
             # read this action's error block and reported "there are no node
             # instances in error status" while 12 were. This action has never
             # looked at node instances. Its counts are AI-side only.
-            description: "AI-side activity snapshot for THIS account: mission counts, active agents and " \
+            description: "Get an AI-side activity snapshot for THIS account. It covers mission counts, active agents and " \
                          "conversations, AI AGENT EXECUTION error rates, and which providers hold an active " \
                          "credential. This is NOT platform or fleet health: it does not observe node instances, " \
                          "Rails, Postgres, Redis, Sidekiq, the worker, the reverse proxy or certificates, and it " \
