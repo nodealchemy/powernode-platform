@@ -50,14 +50,35 @@ const EXTENSIONS_ROOT = join(REPO_ROOT, 'extensions');
 const PRIVATE_ROOT = join(EXTENSIONS_ROOT, 'private') + sep;
 
 // label (lower case) -> the sorted destinations that share it. Each entry is
-// a clash that predates this guard and has an owner.
-// Both were outside fc-47's approved renames and are left to their owners.
+// a clash that predates this guard and was outside fc-47's approved renames;
+// it is left to the owning hub. Fixing one means deleting its entry here.
 const KNOWN_CLASHES: Record<string, string[]> = {
+  analytics: ['/app/admin/audit-logs/analytics', '/app/ai/knowledge/rag/analytics', '/app/ai/model-router/analytics'],
+  // The same panel is a tab of two hubs (Compute › Platform and Service Delivery).
+  children: ['/app/system/compute/platform/children', '/app/system/service-delivery/children'],
+  // DevOps › Containers sub-strips: Kubernetes and Swarm each name their clusters.
+  clusters: ['/app/devops/containers/kubernetes', '/app/devops/containers/swarm'],
+  containers: ['/app/devops/containers', '/app/devops/containers/docker/containers'],
+  federation: ['/app/ai/agents/community/federation', '/app/system/sdwan/federation'],
+  networks: [
+    '/app/devops/containers/docker/networks',
+    '/app/devops/containers/swarm/networks',
+    '/app/system/sdwan/networks',
+  ],
+  operations: ['/app/devops/containers/swarm/operations', '/app/system/operations'],
+  optimization: ['/app/ai/model-router/optimization', '/app/ai/skills/optimization'],
+  providers: ['/app/ai/providers', '/app/devops/source-control/providers', '/app/system/compute/providers'],
   // Admin Settings › Security (platform auth policy) and Profile › Security
   // (the user's own password and 2FA).
   security: ['/app/admin/settings/security', '/app/profile/security'],
-  // Sandbox templates (AI Execution) and CI/CD pipeline templates (DevOps).
-  templates: ['/app/ai/execution/sandboxes/templates', '/app/devops/ci-cd/templates'],
+  services: ['/app/devops/containers/swarm/services', '/app/system/compute/platform/services'],
+  templates: [
+    '/app/ai/execution/sandboxes/templates',
+    '/app/devops/ci-cd/templates',
+    '/app/system/catalog/templates',
+  ],
+  topology: ['/app/system/sdwan/topology', '/app/system/topology'],
+  volumes: ['/app/devops/containers/docker/volumes', '/app/system/compute/volumes'],
 };
 
 interface Entry {
@@ -288,7 +309,7 @@ function hubTabs(file: string, isPrivate: boolean): Entry[] {
   const base = basePathOf(src);
   const origin = relative(REPO_ROOT, file);
   const entries: Entry[] = [];
-  const declRe = /^\s*(?:export\s+)?const\s+([A-Za-z_][A-Za-z0-9_]*tabs)\b[^=\n]*=\s*/gim;
+  const declRe = /^\s*(?:export\s+)?const\s+([A-Za-z0-9_]*tabs)\b[^=\n]*=\s*/gim;
   let m: RegExpExecArray | null;
   while ((m = declRe.exec(src))) {
     if (/filter/i.test(m[1])) continue;
