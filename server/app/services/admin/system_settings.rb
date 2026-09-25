@@ -282,6 +282,27 @@ module Admin
       # get a config with no password/credentials once the blob no longer
       # carries them.
 
+      # fc-38 review round 3 item #4: a redis:// / rediss:// URL can embed a
+      # credential as userinfo (redis://[user]:password@host:port/db) —
+      # matches EITHER `user:pass@` or the password-only `:pass@` form Redis
+      # itself uses. Public (not `private`) because both the controller
+      # (write-side rejection, GET-side masking) and this class's own
+      # update_redis_config! (blob sanitization) need it.
+      CREDENTIALED_URL_PATTERN = %r{\A(rediss?://)[^/@]*@}i.freeze
+
+      def url_contains_credentials?(url)
+        url.present? && url.to_s.match?(CREDENTIALED_URL_PATTERN)
+      end
+
+      # Removes the userinfo (and its "@") from a credentialed URL, leaving
+      # host/port/path untouched — a URL's host portion isn't secret, only
+      # whatever was embedded before the "@".
+      def strip_url_credentials(url)
+        return url if url.blank?
+
+        url.to_s.sub(CREDENTIALED_URL_PATTERN, '\1')
+      end
+
       # The non-secret redis fields (host/port/etc, from the
       # ServiceConfiguration concern) plus the real decrypted password.
       #
@@ -347,6 +368,15 @@ module Admin
         # ENV redis password into the blob as plaintext on every write, for
         # any deployment that sets REDIS_PASSWORD.
         strip_secret_keys_from_blob!("redis_config", "password" => "redis_config_password_encrypted")
+
+        # fc-38 review round 3 item #4: the SAME ENV-merge mechanism the
+        # comment above describes for "password" applies to "url" too —
+        # default_redis_config defaults "url" to ENV["REDIS_URL"], so a save
+        # that never mentions "url" would otherwise bake a credentialed ENV
+        # REDIS_URL (redis://:pw@host) into the blob as plaintext. Unlike
+        # password, a URL isn't wholly secret — only its userinfo portion —
+        # so this SANITIZES it in place rather than stripping the whole key.
+        sanitize_url_in_blob!("redis_config")
 
         AdminSetting.find_by(key: "redis_config_password_encrypted")&.destroy if clear_password
       end
@@ -484,6 +514,27 @@ module Admin
         end
       rescue JSON::ParserError
         {}
+      end
+
+      # Rewrites the `blob_key` row's "url" in place, stripped of any
+      # embedded credential — called after every redis_config write (fc-38
+      # review round 3 item #4) for the same reason strip_secret_keys_from_
+      # blob! exists for "password": AdminSetting.update_redis_config's own
+      # ENV-default merge can persist a credentialed ENV REDIS_URL into the
+      # blob even on a save that never mentions "url" at all. A no-op when
+      # the row doesn't exist, isn't valid JSON, or its "url" already has no
+      # credentials.
+      def sanitize_url_in_blob!(blob_key)
+        setting = AdminSetting.find_by(key: blob_key)
+        return unless setting
+
+        blob = JSON.parse(setting.value)
+        return unless blob.is_a?(Hash) && url_contains_credentials?(blob["url"])
+
+        blob["url"] = strip_url_credentials(blob["url"])
+        setting.update!(value: blob.to_json)
+      rescue JSON::ParserError
+        nil
       end
     end
   end

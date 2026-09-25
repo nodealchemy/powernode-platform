@@ -186,6 +186,32 @@ RSpec.describe Admin::SystemSettings do
     end
   end
 
+  describe "redis url credential handling (round 3 review item #4)" do
+    # AdminSetting.update_redis_config's own `current_config = redis_config`
+    # deep-merges default_redis_config — which defaults "url" to
+    # ENV["REDIS_URL"] — into whatever gets saved, the same mechanism that
+    # made review item #3(b) necessary for "password". A save that never
+    # mentions "url" at all (e.g. changing only "host") would otherwise bake
+    # a credentialed ENV REDIS_URL into the blob as plaintext on every write.
+    it "strips credentials from a URL that the default ENV merge would otherwise persist into the blob" do
+      allow(ENV).to receive(:fetch).and_call_original
+      allow(ENV).to receive(:fetch).with("REDIS_URL", nil).and_return("redis://:env-secret-password@redis.internal:6379/0")
+
+      described_class.update_redis_config!({"host" => "127.0.0.1"})
+
+      blob = JSON.parse(AdminSetting.find_by(key: "redis_config").value)
+      expect(blob["url"]).to eq("redis://redis.internal:6379/0")
+      expect(blob["url"]).not_to include("env-secret-password")
+    end
+
+    it "leaves a URL with no credentials untouched" do
+      described_class.update_redis_config!({"url" => "redis://redis.internal:6379/0"})
+
+      blob = JSON.parse(AdminSetting.find_by(key: "redis_config").value)
+      expect(blob["url"]).to eq("redis://redis.internal:6379/0")
+    end
+  end
+
   describe ".vault_config / .update_vault_config! (fc-38 decision #3 — role_id/secret_id are encrypted, never in the blob)" do
     it "returns empty-string role_id/secret_id and nil vault_addr when nothing is configured" do
       config = described_class.vault_config

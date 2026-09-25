@@ -20,6 +20,14 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
   // password (see RedisConfig), so there is nothing safe to "resend
   // unchanged" — only send a password the user actually typed this session.
   const [passwordEdited, setPasswordEdited] = useState(false);
+  // fc-38 review round 3 item #4: the GET response's "url" is
+  // credential-stripped (see infrastructure_config_actions.rb) but is still
+  // the persisted value's public portion, not a blank placeholder like
+  // password — resending it unconditionally on every save (it used to be
+  // part of the full config spread) would silently overwrite a real
+  // credentialed URL with the stripped display value. Same edited-only
+  // treatment as password.
+  const [urlEdited, setUrlEdited] = useState(false);
 
   useEffect(() => {
     loadConfig();
@@ -34,6 +42,7 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
       setConfig({ ...result.data.redis, password: '' });
       setConnection(result.data.connection);
       setPasswordEdited(false);
+      setUrlEdited(false);
     } else {
       showNotification(result.error || 'Failed to load infrastructure config', 'error');
     }
@@ -43,18 +52,22 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
   const handleSave = async () => {
     if (!config) return;
     setSaving(true);
-    // Only send the password if the user actually edited it this session
-    // (fc-38 review item #1) — the round-trip risk this avoids: resending
-    // whatever loadConfig put in state would silently overwrite the real
-    // saved password the moment that value stopped being the real thing.
-    const { password: _password, ...rest } = config;
-    const payload: Partial<RedisConfig> = passwordEdited ? config : rest;
+    // Only send the password/url if the user actually edited them this
+    // session (fc-38 review item #1, round 3 item #4) — the round-trip risk
+    // this avoids: resending whatever loadConfig put in state would
+    // silently overwrite the real saved password, or strip credentials out
+    // of the real saved URL, the moment either stopped being the real thing.
+    const { password: _password, url: _url, ...rest } = config;
+    const payload: Partial<RedisConfig> = { ...rest };
+    if (passwordEdited) payload.password = config.password;
+    if (urlEdited) payload.url = config.url;
     const result = await adminSettingsApi.updateInfrastructureConfig(payload);
     if (result.success) {
       if (result.data?.redis) {
         setConfig({ ...result.data.redis, password: '' });
       }
       setPasswordEdited(false);
+      setUrlEdited(false);
       showNotification(result.data?.message || 'Infrastructure config updated', 'success');
     } else {
       showNotification(result.error || 'Failed to update config', 'error');
@@ -291,16 +304,19 @@ export const AdminSettingsInfrastructureTabPage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-theme-primary mb-2">URL Override</label>
+            <label htmlFor="redis-url" className="block text-sm font-medium text-theme-primary mb-2">URL Override</label>
             <input
+              id="redis-url"
               type="text"
               value={config.url || ''}
-              onChange={(e) => updateConfig({ url: e.target.value || null })}
+              onChange={(e) => { updateConfig({ url: e.target.value || null }); setUrlEdited(true); }}
               disabled={saving}
-              placeholder="redis://user:pass@host:port/db"
+              placeholder="redis://host:port/db"
               className="w-full px-3 py-2 border border-theme rounded-md bg-theme-background text-theme-primary focus:outline-none focus:ring-2 focus:ring-theme-interactive-primary"
             />
-            <p className="text-xs text-theme-secondary mt-1">If set, overrides host/port/database settings above</p>
+            <p className="text-xs text-theme-secondary mt-1">
+              If set, overrides host/port/database settings above. Cannot contain credentials — use the password field instead.
+            </p>
           </div>
 
           <div className="p-3 bg-theme-background rounded-lg border border-theme">

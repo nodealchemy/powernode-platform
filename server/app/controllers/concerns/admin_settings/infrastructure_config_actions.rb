@@ -11,8 +11,13 @@ module AdminSettings
       # Get connection status (uses the REAL config, not the masked one below)
       connection_status = AdminSetting.test_redis_connection(config)
 
+      # fc-38 review round 3 item #4: a redis://:pw@host URL leaks the
+      # password just as plainly as returning the password field itself
+      # would — strip its userinfo the same way mask_secret_field blanks
+      # "password" (host/port/path aren't secret, so this masks in place
+      # rather than blanking the whole field).
       render_success(
-        redis: mask_secret_field(config, "password"),
+        redis: mask_secret_field(config, "password").merge("url" => ::Admin::SystemSettings.strip_url_credentials(config["url"])),
         connection: connection_status
       )
     end
@@ -47,6 +52,18 @@ module AdminSettings
 
       redis_params.delete("password") if clear_password || unchanged_secret_value?(redis_params["password"])
 
+      # fc-38 review round 3 item #4: a submitted URL that embeds
+      # credentials (redis://:pw@host) is rejected outright rather than
+      # silently accepted — it would otherwise leak the password back out
+      # through every GET (until masked) and through the persisted blob.
+      # The password field is the one supported way to set a credential.
+      if ::Admin::SystemSettings.url_contains_credentials?(redis_params["url"])
+        return render_error(
+          "The URL field cannot contain credentials — use the password field instead.",
+          :unprocessable_content
+        )
+      end
+
       ::Admin::SystemSettings.update_redis_config!(redis_params, clear_password: clear_password)
       Powernode::Redis.reconfigure!
 
@@ -56,7 +73,7 @@ module AdminSettings
       config = ::Admin::SystemSettings.redis_config
 
       render_success(
-        redis: mask_secret_field(config, "password"),
+        redis: mask_secret_field(config, "password").merge("url" => ::Admin::SystemSettings.strip_url_credentials(config["url"])),
         message: "Infrastructure configuration updated successfully"
       )
     rescue StandardError => e

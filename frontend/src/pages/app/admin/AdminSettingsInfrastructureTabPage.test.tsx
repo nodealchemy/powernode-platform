@@ -108,6 +108,38 @@ describe('AdminSettingsInfrastructureTabPage', () => {
     });
   });
 
+  // round 3 review item #4: the GET response's "url" is credential-stripped
+  // but still the persisted value's public portion — resending it
+  // unconditionally on every save (as part of the full config object) would
+  // silently overwrite a real credentialed URL with the stripped display
+  // value. Same edited-fields-only treatment as password.
+  it('saving host alone does not include a url field in the request at all', async () => {
+    render(<AdminSettingsInfrastructureTabPage />);
+    await waitFor(() => expect(screen.getByLabelText('Host')).toHaveValue('127.0.0.1'));
+
+    fireEvent.change(screen.getByLabelText('Host'), { target: { value: '10.0.0.5' } });
+    fireEvent.click(screen.getByText('Save Connection'));
+
+    await waitFor(() => expect(mockUpdateInfrastructureConfig).toHaveBeenCalled());
+
+    const payload = mockUpdateInfrastructureConfig.mock.calls[0][0];
+    expect(payload.host).toBe('10.0.0.5');
+    expect(payload).not.toHaveProperty('url');
+  });
+
+  it('sends the URL only after the user actually edits it', async () => {
+    render(<AdminSettingsInfrastructureTabPage />);
+    await waitFor(() => expect(screen.getByLabelText('URL Override')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByLabelText('URL Override'), { target: { value: 'redis://new-host:6379/0' } });
+    fireEvent.click(screen.getByText('Save Connection'));
+
+    await waitFor(() => {
+      const payload = mockUpdateInfrastructureConfig.mock.calls[0][0];
+      expect(payload.url).toBe('redis://new-host:6379/0');
+    });
+  });
+
   // fc-38 review round 3 item #3(b): a blank password already means
   // "unchanged" (see the previous test), so there was previously no way to
   // actually clear a saved password from the UI.

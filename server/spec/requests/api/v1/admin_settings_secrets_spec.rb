@@ -142,6 +142,30 @@ RSpec.describe 'Api::V1::AdminSettings secrets hardening', type: :request do
     end
   end
 
+  describe 'PUT/GET /api/v1/admin_settings/infrastructure (redis url, round 3 review item #4)' do
+    let(:url_password) { "url-embedded-secret-#{SecureRandom.hex(4)}" }
+
+    it 'rejects a URL containing credentials with 422, pointing the caller at the password field' do
+      put '/api/v1/admin_settings/infrastructure',
+          params: { redis: { host: '127.0.0.1', port: 6379, url: "redis://:#{url_password}@127.0.0.1:6379/0" } },
+          headers: security_headers, as: :json
+
+      expect_error_response(nil, :unprocessable_content)
+      expect(json_response['error']).to match(/credentials|password field/i)
+      expect(AdminSetting.find_by(key: 'redis_config')&.value.to_s).not_to include(url_password)
+    end
+
+    it 'strips credentials from the URL in the GET response, even if one somehow got stored' do
+      AdminSetting.create!(key: 'redis_config', value: { host: '127.0.0.1', port: 6379, url: "redis://:#{url_password}@127.0.0.1:6379/0" }.to_json)
+
+      get '/api/v1/admin_settings/infrastructure', headers: read_headers, as: :json
+
+      body = response.parsed_body
+      expect(body.dig('data', 'redis', 'url')).to eq('redis://127.0.0.1:6379/0')
+      expect(body.to_s).not_to include(url_password)
+    end
+  end
+
   describe 'PUT /api/v1/admin_settings/vault (vault_role_id / vault_secret_id)' do
     let(:role_id) { "role-test-#{SecureRandom.hex(4)}" }
     let(:secret_id) { "secret-test-#{SecureRandom.hex(4)}" }
