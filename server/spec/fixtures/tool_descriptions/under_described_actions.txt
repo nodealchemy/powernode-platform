@@ -25,7 +25,6 @@ discover_improvements
 dismiss_improvement
 dispatch_to_runner
 enable_autonomy
-environment_list
 extract_to_knowledge_graph
 federation_invoke_tool
 federation_list_partners

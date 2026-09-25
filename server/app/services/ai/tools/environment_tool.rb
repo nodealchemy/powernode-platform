@@ -26,7 +26,10 @@ module Ai
         default_decision_authority is_protected position
       ].freeze
 
-      declare_action "environment_list", mutating: false
+      declare_action "environment_list", mutating: false,
+                                         returns: "environments (id, slug, name, description, position, updated_at and the knobs above), " \
+                                                  "count, scope and observed_at",
+                                         see_also: { "environment_update" => "changing an environment's knobs" }
       # A write here rewrites the governance of everything placed in the plane
       # (publish-following vs pinned, blast radius, approval-required categories,
       # protection) — a PERSON's decision. Human-only (MCP identity plan R2): from
@@ -54,7 +57,7 @@ module Ai
         {
           "environment_list" => {
             description: "List this account's environments in ladder order (tier, then position) with every " \
-                         "governance knob: tier, default_decision_authority, is_protected, is_default, " \
+                         "governance knob. Each carries tier, default_decision_authority, is_protected, is_default, " \
                          "max_blast_radius (nil = unbounded), auto_promote_on_publish (true = the plane serves a " \
                          "module's current version as soon as it is published; false = it serves only what was " \
                          "promoted into it), approval_required_categories (globs), and ladder_predecessor_slug " \
