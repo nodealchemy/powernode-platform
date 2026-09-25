@@ -85,7 +85,8 @@ RSpec.describe Ai::Llm::ModelCapabilities do
       end
     end
 
-    %w[claude-sonnet-5 claude-opus-4-7 claude-haiku-5 claude-opus-4-6 gpt-4o].each do |model|
+    # claude-opus-9: an unknown release takes the fallback, never a 400.
+    %w[claude-sonnet-5 claude-opus-4-7 claude-haiku-5 claude-opus-4-6 claude-opus-9 gpt-4o].each do |model|
       it "is false for #{model}" do
         expect(described_class.mid_conversation_system?(model)).to be(false)
       end

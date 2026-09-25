@@ -89,16 +89,17 @@ module Ai
         claude-mythos
       ].freeze
 
-      # Adaptive-only families that reject a role:"system" message inside `messages`
-      # (400 "role 'system' is not supported on this model"). Opus 4.7 predates the
-      # feature, which arrived with Opus 4.8. The Sonnet and Haiku lines are not
-      # documented as supporting it, and Sonnet 5 is documented as unsupported.
-      # Every other adaptive-only model accepts it. Legacy and non-Claude models
-      # never get it (see .mid_conversation_system?).
-      NO_MID_CONVERSATION_SYSTEM_PREFIXES = %w[
-        claude-opus-4-7
-        claude-sonnet
-        claude-haiku
+      # Families documented as accepting a role:"system" message inside `messages`
+      # (Opus 4.8, the Opus 5 line, Fable, Mythos). An ALLOW-list on purpose: a model
+      # without the feature returns 400 "role 'system' is not supported on this
+      # model", while the fallback (a <system-reminder> block on the user turn) works
+      # everywhere with the same append-only shape. So an unknown release takes the
+      # fallback until its family is added here. Sonnet 5 is documented as unsupported.
+      MID_CONVERSATION_SYSTEM_PREFIXES = %w[
+        claude-opus-4-8
+        claude-opus-5
+        claude-fable
+        claude-mythos
       ].freeze
 
       # Default max_tokens for a caller that sets none (see .default_max_tokens).
@@ -152,8 +153,7 @@ module Ai
       # instead of being lifted into the top-level `system` field.
       def mid_conversation_system?(model_id)
         mid = model_id.to_s
-        thinking_mode(mid) == :adaptive_only &&
-          NO_MID_CONVERSATION_SYSTEM_PREFIXES.none? { |prefix| mid.start_with?(prefix) }
+        MID_CONVERSATION_SYSTEM_PREFIXES.any? { |prefix| mid.start_with?(prefix) }
       end
 
       # Whether a request with this max_tokens must be sent streamed.
