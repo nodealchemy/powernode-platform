@@ -112,7 +112,9 @@ export interface PageGates {
 
 /** Page-level actions, from permissions only. */
 export const pageGates = (scope: UserScope, currentUser: AuthUser | null): PageGates => ({
-  create: hasPermissions(currentUser, ['admin.user.create']),
+  // users#create builds in the current account, so the all-accounts list does
+  // not offer it: creating there would imply a cross-account create.
+  create: scope === 'account' && hasPermissions(currentUser, ['admin.user.create']),
   // Mirrors Api::V1::InvitationsController#authorize_invitations_access!.
   invite: scope === 'account' && hasPermissions(currentUser, ['team.invite', 'users.create']),
   // Bulk suspend/activate call the account-scoped /users/:id endpoints.

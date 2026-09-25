@@ -92,9 +92,11 @@ export const UsersTable: React.FC<UsersTableProps> = ({ scope, onActionsReady })
     try {
       setLoading(true);
 
+      // /users/stats counts the current account only, so the all-accounts
+      // scope has no stats to show.
       const [usersResponse, statsResponse] = await Promise.all([
         endpoints.list(),
-        usersApi.getUserStats()
+        scope === 'account' ? usersApi.getUserStats() : Promise.resolve(null)
       ]);
 
       if (usersResponse.success) {
@@ -103,13 +105,13 @@ export const UsersTable: React.FC<UsersTableProps> = ({ scope, onActionsReady })
         throw new Error(usersResponse.message || 'Failed to load users');
       }
 
-      setUserStats(statsResponse.success ? statsResponse.data : null);
+      setUserStats(statsResponse?.success ? statsResponse.data : null);
     } catch (_error) {
       showNotification('Failed to load users. Please check your connection and try again.', 'error');
     } finally {
       setLoading(false);
     }
-  }, [endpoints]);
+  }, [endpoints, scope]);
 
   const loadAvailableRoles = useCallback(async () => {
     try {
@@ -226,7 +228,11 @@ export const UsersTable: React.FC<UsersTableProps> = ({ scope, onActionsReady })
         confirmLabel: 'Delete',
         variant: 'danger',
         onConfirm: async () => {
-          await Promise.all(userIds.map(id => endpoints.remove(id)));
+          const results = await Promise.allSettled(userIds.map(id => endpoints.remove(id)));
+          const failed = results.filter(r => r.status === 'rejected' || !r.value.success).length;
+          if (failed > 0) {
+            showNotification(`Failed to delete ${failed} of ${userIds.length} selected user${userIds.length > 1 ? 's' : ''}.`, 'error');
+          }
           await loadData();
           setSelectedUsers(new Set());
         }

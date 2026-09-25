@@ -10,6 +10,8 @@ const mockGetUsers = jest.fn();
 const mockGetAllUsers = jest.fn();
 const mockDeleteUser = jest.fn();
 const mockDeleteAdminUser = jest.fn();
+const mockGetUserStats = jest.fn();
+const mockShowNotification = jest.fn();
 jest.mock('@/features/account/users/services/usersApi', () => ({
   usersApi: {
     getUsers: (...args: unknown[]) => mockGetUsers(...args),
@@ -18,7 +20,7 @@ jest.mock('@/features/account/users/services/usersApi', () => ({
     deleteAdminUser: (...args: unknown[]) => mockDeleteAdminUser(...args),
     updateUser: jest.fn(),
     updateAdminUser: jest.fn(),
-    getUserStats: () => Promise.resolve({ success: false }),
+    getUserStats: (...args: unknown[]) => mockGetUserStats(...args),
     getAvailableRoles: () => Promise.resolve([]),
     getRoleColor: () => '',
     getStatusColor: () => '',
@@ -27,7 +29,7 @@ jest.mock('@/features/account/users/services/usersApi', () => ({
 }));
 
 jest.mock('@/shared/hooks/usePageWebSocket', () => ({ usePageWebSocket: () => {} }));
-jest.mock('@/shared/hooks/useNotifications', () => ({ useNotifications: () => ({ showNotification: jest.fn() }) }));
+jest.mock('@/shared/hooks/useNotifications', () => ({ useNotifications: () => ({ showNotification: mockShowNotification }) }));
 jest.mock('@/features/account/users/components/UserRolesModal', () => ({ UserRolesModal: () => null }));
 jest.mock('@/features/account/components/InviteTeamMemberModal', () => ({ InviteTeamMemberModal: () => null }));
 jest.mock('@/shared/components/entity', () => ({ EntityLink: ({ label }: { label: string }) => <span>{label}</span> }));
@@ -68,6 +70,10 @@ beforeEach(() => {
   mockGetAllUsers.mockResolvedValue({ success: true, data: [other] });
   mockDeleteUser.mockResolvedValue({ success: true });
   mockDeleteAdminUser.mockResolvedValue({ success: true });
+  mockGetUserStats.mockResolvedValue({
+    success: true,
+    data: { total_users: 7, active_users: 7, suspended_users: 0, unverified_users: 0, recent_logins: 0 },
+  });
 });
 
 describe('UsersTable — row actions per scope, permissions only', () => {
@@ -164,11 +170,48 @@ describe('UsersTable — page actions', () => {
     return last.map((a) => a.id);
   };
 
-  it.each<UserScope>(['account', 'all'])('%s: Add New User needs admin.user.create', async (scope) => {
-    expect(await actionsFor(scope, ['admin.user.create'])).toContain('add-user');
+  it('account: Add New User needs admin.user.create', async () => {
+    expect(await actionsFor('account', ['admin.user.create'])).toContain('add-user');
+  });
+
+  it('all: no Add New User (users#create builds in the current account only)', async () => {
+    expect(await actionsFor('all', ['system.admin'])).not.toContain('add-user');
   });
 
   it.each<UserScope>(['account', 'all'])('%s: no Add New User without it', async (scope) => {
     expect(await actionsFor(scope, ['team.read'])).not.toContain('add-user');
+  });
+});
+
+describe('UsersTable — all-accounts scope specifics', () => {
+  it('account scope shows the stats cards', async () => {
+    renderTable('account', ['team.read']);
+    await row();
+    expect(await screen.findByText('Total Users')).toBeInTheDocument();
+  });
+
+  // /users/stats counts the current account only; next to every account's
+  // users those numbers would read as platform totals.
+  it('all scope neither fetches nor shows the account-only stats', async () => {
+    renderTable('all', ['team.read']);
+    await row();
+    expect(mockGetUserStats).not.toHaveBeenCalled();
+    expect(screen.queryByText('Total Users')).not.toBeInTheDocument();
+  });
+
+  it.each<[string, () => void]>([
+    ['rejects', () => mockDeleteAdminUser.mockRejectedValue(new Error('boom'))],
+    ['answers success:false', () => mockDeleteAdminUser.mockResolvedValue({ success: false, message: 'nope' })],
+  ])('a bulk delete that %s shows an error notification', async (_label, arrange) => {
+    arrange();
+    renderTable('all', ['admin.user.delete']);
+    fireEvent.click((await row()).getByLabelText('Select Other User'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete Selected' }));
+    // The confirmation dialog's button (the row's own Delete carries a title).
+    const confirmDelete = (await screen.findAllByRole('button', { name: 'Delete' })).find((b) => !b.getAttribute('title'));
+    fireEvent.click(confirmDelete as HTMLElement);
+    await waitFor(() => expect(mockShowNotification).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to delete 1 of 1'), 'error'
+    ));
   });
 });

@@ -115,9 +115,15 @@ describe('rowGates — per scope, permissions only', () => {
 });
 
 describe('pageGates — per scope, permissions only', () => {
-  it.each<UserScope>(['account', 'all'])('%s: Add user needs admin.user.create', (scope) => {
-    expect(pageGates(scope, actor(['admin.user.create'])).create).toBe(true);
-    expect(pageGates(scope, actor(['team.read'])).create).toBe(false);
+  it('account: Add user needs admin.user.create', () => {
+    expect(pageGates('account', actor(['admin.user.create'])).create).toBe(true);
+    expect(pageGates('account', actor(['team.read'])).create).toBe(false);
+  });
+
+  // users#create builds in the CURRENT account, so offering it on the
+  // all-accounts list would imply a cross-account create it cannot do.
+  it('all: no Add user, whatever the permissions', () => {
+    expect(pageGates('all', actor(['system.admin'])).create).toBe(false);
   });
 
   it('account: Invite needs team.invite or users.create (Api::V1::InvitationsController)', () => {
