@@ -43,3 +43,28 @@ describe('AgentsApiService.getActiveConversation', () => {
     expect(result).toBeNull();
   });
 });
+
+// fc-37 review round 3 (blocker): conversation_create's real response envelope
+// wraps the conversation under a `conversation` key
+// ({success, data: {conversation: {...}}} — conversations_controller.rb#create),
+// not the bare AiConversation createConversation's declared return type
+// promised. createNested<AiConversation> only unwraps the outer
+// {success, data} envelope, so the inner `.conversation` key was leaking
+// through — every caller reading `.id` off the "conversation" got undefined.
+describe('AgentsApiService.createConversation', () => {
+  it('unwraps the real {conversation: {...}} envelope, not a pre-unwrapped mock', async () => {
+    mockPost.mockResolvedValueOnce({
+      data: { success: true, data: { conversation: { id: 'conv-1', title: 'New Chat' } } },
+    });
+
+    const result = await agentsApi.createConversation('agent-1', { title: 'New Chat' });
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/ai/agents/agent-1/conversations',
+      { conversation: { title: 'New Chat' } },
+      undefined
+    );
+    expect(result).toEqual({ id: 'conv-1', title: 'New Chat' });
+    expect(result.id).toBe('conv-1');
+  });
+});

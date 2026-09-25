@@ -375,9 +375,13 @@ class AgentsApiService extends BaseApiService {
     agentId: string,
     data: { title?: string; metadata?: Record<string, unknown> }
   ): Promise<AiConversation> {
-    return this.createNested<AiConversation>(this.resource, agentId, 'conversations', {
-      conversation: data,
-    });
+    const response = await this.createNested<{ conversation: AiConversation }>(
+      this.resource,
+      agentId,
+      'conversations',
+      { conversation: data }
+    );
+    return response.conversation;
   }
 
   /**
