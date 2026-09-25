@@ -33,8 +33,7 @@ Defined in `shared/utils/navigation.tsx` (`defaultNavigationConfig`); routed in
 |---|---|---|---|
 | Overview | `/app/ai` | single page | — |
 | Agents / Teams / Missions / Execution / Knowledge / Infrastructure | `/app/ai/*` | per-feature | per-feature |
-| **Observability** | `/app/ai/observability` | `PathTabs`: Health · Systems · Conversations · Evaluation | `ai.analytics.read` |
-| **Operations** | `/app/ai/operations` | `PathTabs`: AIOps · Alerts · Execution Traces | `ai.aiops.read` / `ai_monitoring.read` |
+| **Observability** | `/app/ai/observability` | `PathTabs`: System Health · Systems · Circuit Breakers · Alerts · Conversations · Execution Traces · Evaluation | one permission per tab — see `MONITORING_TABS` |
 | **Cost** | `/app/ai/cost` | `SubNavRail`: Overview · Credits · FinOps · ROI · Outcome Billing | `ai.finops.view` / `ai.roi.read` / `ai.analytics.read` |
 | Governance | `/app/ai/governance` | per-feature | `ai.governance.read` |
 

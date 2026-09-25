@@ -51,9 +51,8 @@ export type MonitoringTabId =
  * `PathTabs` scaffold (one URL segment per tab).
  *
  * fc-42: Observability and the former Operations hub (AIOps/Alerts/Execution
- * Traces) are ONE page now — Tier 2 finding #13 in the consolidation plan
- * (docs/operations/local/frontend-consolidation-plan-2026-09-24.md) found the
- * two backends (Monitoring::UnifiedService and Ai::Analytics::DashboardService)
+ * Traces) are ONE page now — a frontend-consolidation audit found the two
+ * backends (Monitoring::UnifiedService and Ai::Analytics::DashboardService)
  * both exposing health + alerts under different tabs of different pages.
  * `systems` is now the AIOps dashboard body (Ai::Analytics::DashboardService —
  * the one with MCP tool usage, via Ai::Introspection::McpToolRegistrar's

@@ -25,20 +25,26 @@ aggregates `Ai::AgentExecution`, `Ai::ProviderMetric`, cost attribution, and cir
 state — all account-scoped. It is **read-only**: it surfaces live operational data, it does not
 mutate fleet state.
 
-AIOps lives on the dedicated **Operations** hub (`OperationsPage`, `/app/ai/operations/*`),
-inside an `AiErrorBoundary`. It is path-based (canonical `PathTabs`, one URL segment per tab):
+AIOps lives inside the **Observability** hub (`ObservabilityPage`, `/app/ai/observability/*`),
+inside an `AiErrorBoundary`. Observability used to be split across two pages (this one plus a
+dedicated Operations hub); they were merged into one page, one URL, one Systems backend — see
+[AI Navigation IA](ai-navigation-ia.md). It is path-based (canonical `PathTabs`, one URL segment
+per tab):
 
-- **AIOps** tab — the operational core: KPIs + system health + an active-provider-alerts
+- **Systems** tab — the AIOps operational core: KPIs + system health + an active-provider-alerts
   callout, trend charts, providers table, agents table. Body component: `AiOpsContent`
   (`frontend/src/features/ai/aiops/components/AiOpsDashboard.tsx`).
-- **Alerts** tab — the alert-management center plus provider reliability (circuit breakers +
-  recent errors) via `ReliabilitySection`.
+- **Circuit Breakers** tab — agent circuit breakers (`Ai::CircuitBreaker`, resettable) and
+  provider circuit breakers (`Ai::CircuitBreakerRegistry`, resettable, the live registry that
+  actually gates provider calls) under distinct labels, plus the AIOps recent-errors feed.
+  Replaces the old `ReliabilitySection`, whose circuit-breaker table read a stale
+  `Ai::ProviderMetric` snapshot rather than the live registry state.
+- **Alerts** tab — the alert-management center (`Monitoring::UnifiedService`'s stateful,
+  acknowledgeable alerts — a different backend from the AIOps tabs above; see
+  [AI Navigation IA](ai-navigation-ia.md) for why both stayed).
 - **Execution Traces** tab — the distributed-trace viewer (`ExecutionTracesContent`).
 
-AIOps cost analysis is part of the **Cost** domain (`/app/ai/cost`), not Operations. The
-monitoring-only **Observability** hub (`/app/ai/observability`: Health · Systems ·
-Conversations · Evaluation) is a separate sidebar item. See
-[AI Navigation IA](ai-navigation-ia.md).
+AIOps cost analysis is part of the **Cost** domain (`/app/ai/cost`), not Observability.
 
 Backend: `Api::V1::Ai::AiOpsController` under `scope :aiops` — all reads gated by the
 `ai.aiops.read` permission (`record_metrics` is the only writer, gated by `ai.aiops.write`
@@ -51,14 +57,14 @@ fetch regardless of which tab renders them.
 
 ## Where the data surfaces
 
-The sections render across the **Operations** hub tabs:
+The sections render across the **Observability** hub tabs:
 
-| Operations tab | AIOps content | Source |
+| Observability tab | AIOps content | Source |
 |---|---|---|
-| **AIOps** | execution / latency / cost KPIs, system-health components, active-provider-alerts callout, hourly trend charts, providers table, agents table | `dashboard.overview`, `dashboard.health`, `dashboard.alerts[]`, `/trends`, `dashboard.providers[]`, `dashboard.agents[]` |
-| **Alerts** | alert-management center + provider reliability: circuit-breaker status + recent execution errors | `dashboard.circuit_breakers[]`, `/recent_errors` |
+| **Systems** | execution / latency / cost KPIs, system-health components, active-provider-alerts callout, hourly trend charts, providers table, agents table | `dashboard.overview`, `dashboard.health`, `dashboard.alerts[]`, `/trends`, `dashboard.providers[]`, `dashboard.agents[]` |
+| **Circuit Breakers** | provider circuit-breaker status (`Ai::CircuitBreakerRegistry`, live) + recent execution errors; agent circuit breakers (`Ai::CircuitBreaker`) render alongside, from a different backend | `dashboard.circuit_breakers[]` no longer backs this — see the tab's own component; `/recent_errors` |
 
-AIOps `cost_analysis` data surfaces in the **Cost** domain (`/app/ai/cost`), not Operations.
+AIOps `cost_analysis` data surfaces in the **Cost** domain (`/app/ai/cost`), not Observability.
 
 ## API contract
 

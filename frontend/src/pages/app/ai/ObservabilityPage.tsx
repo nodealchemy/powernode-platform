@@ -30,11 +30,10 @@ const OBSERVABILITY_BASE = '/app/ai/observability';
  *
  * fc-42: merges the former Observability (System Health, Systems,
  * Conversations, Evaluation) and Operations (AIOps, Alerts, Execution Traces)
- * hubs into one page, one Circuit Breakers view, and one Systems backend.
- * Tier 2 finding #13 in the consolidation plan
- * (docs/operations/local/frontend-consolidation-plan-2026-09-24.md) is why:
- * Monitoring::UnifiedService and Ai::Analytics::DashboardService both exposed
- * health + alerts under different tabs of different pages. The "Systems" tab
+ * hubs into one page, one Circuit Breakers view, and one Systems backend. A
+ * frontend-consolidation audit is why: Monitoring::UnifiedService and
+ * Ai::Analytics::DashboardService both exposed health + alerts under
+ * different tabs of different pages. The "Systems" tab
  * now runs entirely on Ai::Analytics::DashboardService (AiOpsContent,
  * self-fetching) — the service with genuinely live per-execution data
  * (Ai::ProviderMetric.record_metrics) and real MCP tool usage
