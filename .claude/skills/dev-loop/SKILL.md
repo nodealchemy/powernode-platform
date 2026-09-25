@@ -84,7 +84,7 @@ For significant discoveries also contribute `platform.create_learning` per the C
 - 3 failed attempts at the same fix → `outcome: failed` with what was tried (CLAUDE.md hard rule)
 - Genuine architecture fork or scope expansion → `outcome: blocked` with the decision laid out
 - Halted / empty queue on pull
-- Kill switch (`emergency_halt`) at any point → stop immediately, report nothing further
+- Kill switch (`emergency_halt`) at any point → stop immediately and make no further changes; report the halt and where the task was left
 
 ## Token Discipline
 
