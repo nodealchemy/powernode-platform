@@ -265,7 +265,9 @@ class AdminSettingsApi {
 
   // getUsers()/getAccounts() (`/admin_settings/users`, `/admin_settings/accounts`)
   // were removed here (fc-38): usersApi.getAllUsers() (`/admin/users`) and
-  // accountsApi are the canonical clients now — see UserManagement.tsx.
+  // accountsApi are the canonical clients now — see AdminUsersPage.tsx
+  // (fc-21: the admin-dashboard UserManagement.tsx that used to be the
+  // other caller had zero route/importer of its own and was deleted).
   // getAccounts() had zero callers, so no migration was needed for it.
 
   // Get system logs
