@@ -65,6 +65,8 @@ describe('AI Control Page Tests', () => {
     });
 
     it('sends the chosen risk level to the server', () => {
+      // The first request is the unfiltered page load; the filter drives the second.
+      cy.wait('@getSecurityEvents');
       cy.get('[role="group"][aria-label="Risk filter"]').contains('button', 'high').click();
       cy.wait('@getSecurityEvents').its('request.url').should('include', 'risk_level=high');
     });
@@ -73,6 +75,7 @@ describe('AI Control Page Tests', () => {
   describe('Compliance Audit → Audit log', () => {
     it('lists audit entries and filters by date', () => {
       cy.assertPageReady(AUDIT_LOG);
+      cy.wait('@getGovernanceAuditLog');
       cy.contains('policy_violation_detected');
       cy.get('input[aria-label="Start date"]').type('2024-06-01');
       cy.contains('button', 'Apply').click();
