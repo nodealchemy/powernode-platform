@@ -420,12 +420,19 @@ interface Violation {
   count: number;
 }
 
-function findViolations(files: string[], repoRelative: (p: string) => string): Violation[] {
+// Pure over (relPath, text) pairs — the real scan reads files into this
+// shape, and the fixtures below feed it the same way, so a fixture exercises
+// exactly the code path the ratchet does rather than its helpers one by one.
+interface SourceFile {
+  relPath: string;
+  text: string;
+}
+
+function findViolations(sources: SourceFile[]): Violation[] {
   const found = new Map<string, Violation>();
 
-  for (const file of files) {
-    const sanitizedText = sanitize(readFileSync(file, 'utf8'));
-    const relPath = repoRelative(file);
+  for (const { relPath, text } of sources) {
+    const sanitizedText = sanitize(text);
     const manualSync = usesManualLocationSync(sanitizedText);
     const usesPathTabs = /<PathTabs\b/.test(sanitizedText);
 
@@ -469,8 +476,9 @@ describe('convention: tabs/sections arrays with more than 4 entries must be path
     const repoRelative = (p: string) => relative(REPO_ROOT, p).split(sep).join('/');
     const dirs = [FRONTEND_SRC, ...discoverExtensionDirs().map((e) => e.srcDir)];
     const files = dirs.flatMap((dir) => walkPageFiles(dir));
+    const sources = files.map((file) => ({ relPath: repoRelative(file), text: readFileSync(file, 'utf8') }));
 
-    const violations = findViolations(files, repoRelative);
+    const violations = findViolations(sources);
     const computedKeys = toRatchetKeys(violations);
     const expectedKeys = [...new Set(allAllowedEntries().map((a) => a.path))].sort();
 
@@ -659,6 +667,58 @@ describe('path-addressable-tabs guard: proves it actually fires (not just passes
     const body = findArrayByName(sanitized, usages[0].arrayName);
     expect(body).not.toBeNull();
     expect(countTopLevelEntries(body!)).toBe(5);
+  });
+
+  // --- End to end through findViolations (fc-46 review) ------------------
+  // The fixtures above prove each helper in isolation; these run the same
+  // shapes through the real scan, so disabling a route or loosening the
+  // every-entry check inside findViolations turns them red.
+
+  const scan = (text: string) => findViolations([{ relPath: 'fixture/FixturePage.tsx', text }]);
+
+  const SIDEBAR_ITEMS_PAGE = `
+    import React, { useState } from 'react';
+    import { TabContainer } from '@/shared/components/layout/TabContainer';
+
+    const SIDEBAR_ITEMS = [
+      { id: 'a', label: 'A' },
+      { id: 'b', label: 'B' },
+      { id: 'c', label: 'C' },
+      { id: 'd', label: 'D' },
+      { id: 'e', label: 'E' },
+    ];
+
+    export const FixturePage: React.FC = () => {
+      const [activeTab, setActiveTab] = useState('a');
+      return <TabContainer tabs={SIDEBAR_ITEMS} activeTab={activeTab} onTabChange={setActiveTab} />;
+    };
+  `;
+
+  it('scan: flags a non-tabs-named array wired into TabContainer (route 2)', () => {
+    expect(scan(SIDEBAR_ITEMS_PAGE)).toEqual([
+      { relPath: 'fixture/FixturePage.tsx', name: 'SIDEBAR_ITEMS', count: 5 },
+    ]);
+  });
+
+  it('scan: does not flag the same TabContainer usage once it carries basePath', () => {
+    const withBasePath = SIDEBAR_ITEMS_PAGE.replace('onTabChange={setActiveTab} />', 'onTabChange={setActiveTab} basePath="/app/x" />');
+    expect(scan(withBasePath)).toEqual([]);
+  });
+
+  it('scan: flags a tabs array where only ONE entry carries path: (route 1)', () => {
+    const onePathField = PRE_FC46_RAGPAGE_SNIPPET.replace(
+      "{ id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 }",
+      "{ id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3, path: '/analytics' }"
+    );
+    expect(scan(onePathField)).toEqual([{ relPath: 'fixture/FixturePage.tsx', name: 'ragTabs', count: 5 }]);
+  });
+
+  it('scan: does not flag the tabs array once every entry carries path:', () => {
+    const withPaths = PRE_FC46_RAGPAGE_SNIPPET.replace(
+      /\{ id: '([\w-]+)' as TabType, label: '([\w ]+)', icon: (\w+) \}/g,
+      "{ id: '$1' as TabType, label: '$2', icon: $3, path: '/$1' }"
+    );
+    expect(scan(withPaths)).toEqual([]);
   });
 
   it('does not flag a TabContainer usage that carries basePath', () => {
