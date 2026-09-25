@@ -19,8 +19,12 @@ require "rails_helper"
 # spec/fixtures/route_caller_coverage/baseline_allowlist.txt for the
 # pre-existing surface the heuristic cannot currently prove covered (real
 # dead code and heuristic gaps both land there — this guard's job is to catch
-# a NEW zero-caller route, not to re-litigate the existing 680).
+# a NEW zero-caller route, not to re-litigate the existing 750).
 RSpec.describe "Route caller coverage", type: :routing do
+  # One-way ratchet: the baseline may shrink (a route gets a caller, or is
+  # deleted) but must never silently grow. Bumping this is a deliberate,
+  # reviewed diff — never a side effect of adding a route with no caller.
+  MAX_BASELINE_SIZE = 750
   # controller#action => human reason it is legitimately caller-less from
   # OUR OWN code's point of view. Every entry here is a receiver: the request
   # originates from a third party (a git/registry provider, a spawned agent
@@ -110,5 +114,74 @@ RSpec.describe "Route caller coverage", type: :routing do
     expect(RouteCallerCoverageChecker.covered?(fake_route)).to be(false)
     expect(WEBHOOK_ALLOWLIST).not_to have_key(fake_route.key)
     expect(baseline_allowlist).not_to include(fake_route.key)
+  end
+
+  # Review round 1 (MED): the Tier-1 regex was unanchored, so a fake route
+  # sharing a word with a TS path alias (`@/shared/components/Foo`,
+  # `@/shared/hooks/useFoo`, `@/features/ai/...`) read as "covered" purely
+  # because the alias segment happened to match. Each of these paths is
+  # deliberately built from words that appear constantly in real import
+  # lines, so a regression here reads as a false "covered", not a crash.
+  it "never counts a TS import-path alias segment as a route caller" do
+    %w[
+      /api/v1/components/:id
+      /api/v1/hooks/:id
+      /api/v1/features/:id
+      /api/v1/utils
+      /api/v1/types
+    ].each do |path|
+      fake_route = RouteCallerCoverageChecker::Route.new("GET", path, "api/v1/fake_fc27", "ghost_action")
+      expect(RouteCallerCoverageChecker.covered?(fake_route)).to be(false), "#{path} should not read as covered"
+    end
+  end
+
+  # Review round 1 (MED): the baseline is a ONE-WAY RATCHET — it may shrink
+  # (a route gets a real caller, or is deleted) but must never silently grow,
+  # and it must never keep citing a route that has already moved on. Every
+  # example here refuses to offer "add it to the baseline" as the fix,
+  # because the entry is ALREADY there — the fix is a caller or a deletion.
+  describe "baseline hygiene (one-way ratchet)" do
+    let(:current_route_keys) do
+      RouteCallerCoverageChecker.non_internal_api_v1_routes.map(&:key).to_set
+    end
+
+    let(:current_routes_by_key) do
+      RouteCallerCoverageChecker.non_internal_api_v1_routes.index_by(&:key)
+    end
+
+    it "flags a baseline entry for a route that no longer exists or is now covered" do
+      stale = baseline_allowlist.select do |key|
+        route = current_routes_by_key[key]
+        route.nil? || RouteCallerCoverageChecker.covered?(route)
+      end
+
+      expect(stale).to be_empty, <<~MSG
+        #{stale.size} baseline entr#{stale.size == 1 ? 'y is' : 'ies are'} stale — the route
+        no longer exists, or now has a real caller. Add a caller or delete the route;
+        do not leave a stale line in the baseline:
+
+        #{stale.sort.join("\n")}
+      MSG
+    end
+
+    it "flags a WEBHOOK_ALLOWLIST key that does not name a currently-mounted route" do
+      unknown = WEBHOOK_ALLOWLIST.keys.reject { |key| current_route_keys.include?(key) }
+
+      expect(unknown).to be_empty, <<~MSG
+        WEBHOOK_ALLOWLIST names route(s) that no longer exist. Add a caller or delete
+        the route; a webhook entry for a route that isn't mounted proves nothing:
+
+        #{unknown.sort.join("\n")}
+      MSG
+    end
+
+    it "keeps the baseline at or below its committed ceiling" do
+      expect(baseline_allowlist.size).to be <= MAX_BASELINE_SIZE, <<~MSG
+        baseline_allowlist.txt has #{baseline_allowlist.size} entries, over the
+        committed ceiling of #{MAX_BASELINE_SIZE}. Add a caller or delete the route —
+        growing the baseline is not an option this guard offers; raising the ceiling
+        constant is a separate, deliberately reviewed decision.
+      MSG
+    end
   end
 end

@@ -90,6 +90,14 @@ module RouteCallerCoverageChecker
   API_CALL_HINT = /buildPath\(|apiClient\.|api\.(get|post|put|patch|delete)\(|this\.(get|post|put|patch|delete)\(/.freeze
   QUOTED_TOKEN = /(['"`])([A-Za-z0-9_\-]{1,60})\1/.freeze
 
+  # Module import/re-export lines (`import ... from '@/features/...'`,
+  # `export * from '...'`, a wrapped `} from '...'` continuation line, or a
+  # bare side-effect `import '...'`) are never a route call — a TS path alias
+  # like `@/shared/components/Foo` reads as a segment sequence
+  # ("components", "Foo") that must never count as a caller of a route whose
+  # path happens to share those words. Stripped before either tier scans.
+  IMPORT_LINE = /^\s*import\b|\bfrom\s+['"`]/.freeze
+
   class << self
     # All non-internal api/v1 routes currently mounted, deduped by
     # controller#action (a controller action reachable via >1 HTTP verb/path
@@ -168,7 +176,7 @@ module RouteCallerCoverageChecker
           next unless exts.include?(File.extname(file))
           next if file.include?("/node_modules/")
 
-          text = File.read(file)
+          text = strip_import_lines(File.read(file))
           tokens = text.scan(QUOTED_TOKEN).map { |_quote, body| body }.to_set
           index[file] = { text: text, tokens: tokens, api_hint: API_CALL_HINT.match?(text) }
         rescue StandardError
@@ -176,6 +184,10 @@ module RouteCallerCoverageChecker
         end
       end
       index
+    end
+
+    def strip_import_lines(text)
+      text.lines.reject { |line| IMPORT_LINE.match?(line) }.join
     end
 
     # Splits "/api/v1/ai/agents/:id/conversations/active" into segment
@@ -188,11 +200,27 @@ module RouteCallerCoverageChecker
       end
     end
 
+    # Anchored so a route path can't match as a mere substring of something
+    # unrelated — a fake route `/components/:id` must NOT be "covered" by
+    # `@/shared/components/Foo` just because "components/Foo" appears in it.
+    # Requires, immediately before the path: a quote, a backtick, or the
+    # literal `/api/v1`. And immediately after: a quote, `?`, `/`, or
+    # end-of-line. A base-path VARIABLE spliced into a template literal
+    # (`` `${BASE_PATH}/pipelines` ``) does NOT satisfy this (the char before
+    # "/pipelines" is `}`, not a quote) — that shape lands in the baseline
+    # rather than loosening the anchor, since a looser leading boundary
+    # reopens exactly the false-positive class this anchor exists to close
+    # (e.g. a real `.../components/${id}/vulnerabilities` route would then
+    # cover an unrelated fake `/components/:id`).
     def contiguous_regex(segments)
       parts = segments.map do |seg|
         seg[:dynamic] ? "[^/'\"`\\s]+" : Regexp.escape(seg[:text])
       end
-      Regexp.new(parts.join("/"))
+      path_pattern = parts.join("/")
+      # $ (not \z): the corpus is many files concatenated by "\n" into one
+      # blob, and Ruby's $ matches at each line boundary regardless of the
+      # /m flag, so "end of string" here really means "end of this line".
+      Regexp.new("(?:['\"`]|/api/v1)/#{path_pattern}(?:['\"`?/]|$)")
     end
   end
 end

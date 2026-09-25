@@ -15,8 +15,16 @@
 # wiring a real caller, or deleting genuinely dead routes) is welcome but
 # is a separate, deliberate cleanup, not a side effect of this guard.
 #
+# ONE-WAY RATCHET: this file may shrink but must never silently grow —
+# route_caller_coverage_spec.rb asserts its size against a committed ceiling
+# (MAX_BASELINE_SIZE) and fails on any entry naming a route that no longer
+# exists or is now covered. Raising the ceiling is a deliberate, reviewed
+# decision, never a side effect of adding a route with no caller.
+#
 # Inbound webhook/callback receivers are NOT here — they have their own
 # reasoned allowlist in route_caller_coverage_spec.rb (WEBHOOK_ALLOWLIST).
+api/v1/a2a#handle
+api/v1/a2a#info
 api/v1/a2a#stream
 api/v1/admin/circuit_breakers#create
 api/v1/admin/circuit_breakers#destroy
@@ -37,6 +45,7 @@ api/v1/admin/maintenance/maintenance#execute_task
 api/v1/admin/maintenance/maintenance#list_tasks
 api/v1/admin/maintenance/maintenance#run_cleanup
 api/v1/admin/maintenance/maintenance#service_health
+api/v1/admin/maintenance/maintenance#status
 api/v1/admin/maintenance/maintenance#update_task
 api/v1/admin/proxy_settings#add_wildcard_pattern
 api/v1/admin/proxy_settings#remove_wildcard_pattern
@@ -68,6 +77,7 @@ api/v1/ai/agent_containers#destroy
 api/v1/ai/agent_containers#launch
 api/v1/ai/agent_containers#show
 api/v1/ai/agent_containers#status
+api/v1/ai/agent_intelligence#experience_replays
 api/v1/ai/agent_teams#statistics
 api/v1/ai/agents#connections
 api/v1/ai/agents#update_from_source
@@ -107,6 +117,8 @@ api/v1/ai/campaign_proposals#show
 api/v1/ai/campaign_proposals#spawn
 api/v1/ai/campaigns#answer_question
 api/v1/ai/campaigns#delegate
+api/v1/ai/campaigns#resume
+api/v1/ai/campaigns#show
 api/v1/ai/campaigns#stop
 api/v1/ai/code_factory#activate
 api/v1/ai/code_factory#add_test_case
@@ -127,24 +139,32 @@ api/v1/ai/code_factory#submit_evidence
 api/v1/ai/code_factory#update
 api/v1/ai/context_entries#archive
 api/v1/ai/context_entries#boost
+api/v1/ai/context_entries#bulk_create
 api/v1/ai/context_entries#history
 api/v1/ai/context_entries#unarchive
 api/v1/ai/contexts#import
 api/v1/ai/conversations#worker_complete
 api/v1/ai/conversations#worker_error
 api/v1/ai/conversations#worker_stream_chunk
+api/v1/ai/coordination_dashboard#pressure_fields
+api/v1/ai/coordination_dashboard#signals
+api/v1/ai/coordination_dashboard#team_events
 api/v1/ai/deliveries#create
 api/v1/ai/deliveries#index
 api/v1/ai/deliveries#show
+api/v1/ai/devops#create_template
 api/v1/ai/devops#install
 api/v1/ai/devops#installations
 api/v1/ai/devops#perform_clone
 api/v1/ai/devops#show_template
+api/v1/ai/devops#templates
 api/v1/ai/devops#uninstall
 api/v1/ai/devops#update_from_source
 api/v1/ai/devops#update_from_source_preview
 api/v1/ai/devops#update_template
 api/v1/ai/devops_executions#analytics
+api/v1/ai/devops_executions#create_execution
+api/v1/ai/devops_executions#executions
 api/v1/ai/devops_executions#show_execution
 api/v1/ai/devops_risk_review#approve_risk
 api/v1/ai/devops_risk_review#assess_risk
@@ -160,12 +180,14 @@ api/v1/ai/discovery#show
 api/v1/ai/execution_resources#counts
 api/v1/ai/execution_resources#index
 api/v1/ai/execution_resources#show
+api/v1/ai/execution_traces#show
 api/v1/ai/execution_traces#spans
 api/v1/ai/execution_traces#summary
 api/v1/ai/execution_traces#timeline
 api/v1/ai/finops#forecast
 api/v1/ai/finops#waste_analysis
 api/v1/ai/governance#acknowledge_violation
+api/v1/ai/governance#activate_policy
 api/v1/ai/governance#classifications
 api/v1/ai/governance#create_classification
 api/v1/ai/governance#evaluate_policies
@@ -173,6 +195,8 @@ api/v1/ai/governance#generate_report
 api/v1/ai/governance#mask_data
 api/v1/ai/governance#reports
 api/v1/ai/governance#scan_data
+api/v1/ai/governance#summary
+api/v1/ai/governance_reports#collusion_indicators
 api/v1/ai/growth_analytics#audience_insights
 api/v1/ai/growth_analytics#cross_post
 api/v1/ai/growth_analytics#posting_time_recommendations
@@ -224,8 +248,11 @@ api/v1/ai/provider_sync#sync_all
 api/v1/ai/rag#analytics
 api/v1/ai/rag#create_connector
 api/v1/ai/rag#create_document
+api/v1/ai/rag#create_knowledge_base
 api/v1/ai/rag#delete_document
+api/v1/ai/rag#delete_knowledge_base
 api/v1/ai/rag#embed_chunks
+api/v1/ai/rag#index
 api/v1/ai/rag#list_connectors
 api/v1/ai/rag#list_documents
 api/v1/ai/rag#perform_clone
@@ -233,9 +260,11 @@ api/v1/ai/rag#process_document
 api/v1/ai/rag#query
 api/v1/ai/rag#query_history
 api/v1/ai/rag#show_document
+api/v1/ai/rag#show_knowledge_base
 api/v1/ai/rag#sync_connector
 api/v1/ai/rag#update_from_source
 api/v1/ai/rag#update_from_source_preview
+api/v1/ai/rag#update_knowledge_base
 api/v1/ai/ralph_loops#reset
 api/v1/ai/ralph_loops_scheduling#pause_schedule
 api/v1/ai/ralph_loops_scheduling#regenerate_webhook_token
@@ -258,6 +287,9 @@ api/v1/ai/sandbox_testing#start_ab_test
 api/v1/ai/sandboxes#activate
 api/v1/ai/sandboxes#analytics
 api/v1/ai/sandboxes#deactivate
+api/v1/ai/sandboxes#destroy
+api/v1/ai/sandboxes#show
+api/v1/ai/sandboxes#update
 api/v1/ai/skill_graph#compose_team
 api/v1/ai/skill_graph#conflict_check
 api/v1/ai/skill_graph#maintenance_daily
@@ -339,6 +371,9 @@ api/v1/ai/worktree_sessions#release_locks
 api/v1/ai/worktree_sessions#retry_merge
 api/v1/ai/worktree_sessions#show
 api/v1/ai/worktree_sessions#status
+api/v1/audit_logs#compliance_summary
+api/v1/audit_logs#risk_analysis
+api/v1/audit_logs#security_summary
 api/v1/auth/permissions#check
 api/v1/auth/permissions#index
 api/v1/chat/channels#cleanup_sessions
@@ -348,14 +383,20 @@ api/v1/devops/approval_tokens#reject
 api/v1/devops/docker/images#registries
 api/v1/devops/integration_credentials#verify
 api/v1/devops/kubernetes/nodes#show
+api/v1/devops/overview#show
 api/v1/devops/pipeline_runs#cancel
 api/v1/devops/pipeline_runs#index
 api/v1/devops/pipeline_runs#logs
 api/v1/devops/pipeline_runs#retry
 api/v1/devops/pipeline_runs#show
+api/v1/devops/pipelines#create
+api/v1/devops/pipelines#destroy
 api/v1/devops/pipelines#duplicate
 api/v1/devops/pipelines#export_yaml
+api/v1/devops/pipelines#index
+api/v1/devops/pipelines#show
 api/v1/devops/pipelines#trigger
+api/v1/devops/pipelines#update
 api/v1/devops/swarm/nodes#activate
 api/v1/devops/swarm/nodes#demote
 api/v1/devops/swarm/nodes#promote
@@ -384,6 +425,7 @@ api/v1/git/providers#sync_all
 api/v1/git/repositories#file_content
 api/v1/git/repositories#sync
 api/v1/git/repositories#tree
+api/v1/health#detailed
 api/v1/health#live
 api/v1/health#ready
 api/v1/integrations/instances#activate
@@ -398,6 +440,7 @@ api/v1/integrations/instances#stats
 api/v1/integrations/instances#test
 api/v1/integrations/instances#update
 api/v1/invitations#cancel
+api/v1/jobs#create
 api/v1/marketing/campaign_contents#approve
 api/v1/marketing/campaign_contents#generate
 api/v1/marketing/campaign_contents#reject
@@ -411,6 +454,14 @@ api/v1/oauth/applications#revoke_tokens
 api/v1/oauth/applications#suspend
 api/v1/oauth/applications#tokens
 api/v1/oauth/registrations#create
+# platform/alert_channels: RESTORED (review round 1) — it is the only
+# writer of Monitoring::AlertChannels, which AlertingService reads for
+# Slack/webhook/email alert config; it had zero callers because its UI
+# was never built, not because it is dead. Missing UI filed as offer
+# 01a0d694.
+api/v1/platform/alert_channels#clear_secret
+api/v1/platform/alert_channels#show
+api/v1/platform/alert_channels#update
 api/v1/platform/component_status_actions#events
 api/v1/platform/component_status_actions#remediation_route
 api/v1/platform/component_status_actions#runbook
@@ -431,12 +482,20 @@ api/v1/supply_chain/attributions#generate_notice_file
 api/v1/supply_chain/attributions#index
 api/v1/supply_chain/attributions#show
 api/v1/supply_chain/attributions#update
+api/v1/supply_chain/build_provenance#index
+api/v1/supply_chain/build_provenance#show
 api/v1/supply_chain/build_provenance#verify_reproducibility
 api/v1/supply_chain/container_images#statistics
 api/v1/supply_chain/cve_monitors#alerts
+api/v1/supply_chain/cve_monitors#create
+api/v1/supply_chain/cve_monitors#destroy
+api/v1/supply_chain/cve_monitors#index
 api/v1/supply_chain/cve_monitors#pause
 api/v1/supply_chain/cve_monitors#resume
+api/v1/supply_chain/cve_monitors#run
 api/v1/supply_chain/cve_monitors#run_all
+api/v1/supply_chain/cve_monitors#show
+api/v1/supply_chain/cve_monitors#update
 api/v1/supply_chain/dashboard#analytics
 api/v1/supply_chain/dashboard#compliance_summary
 api/v1/supply_chain/image_policies#activate
@@ -485,18 +544,25 @@ api/v1/supply_chain/remediation_plans#index
 api/v1/supply_chain/remediation_plans#reject
 api/v1/supply_chain/remediation_plans#show
 api/v1/supply_chain/remediation_plans#update
+api/v1/supply_chain/reports#create
+api/v1/supply_chain/reports#destroy
 api/v1/supply_chain/reports#download
 api/v1/supply_chain/reports#generate_attribution
 api/v1/supply_chain/reports#generate_compliance
 api/v1/supply_chain/reports#generate_sbom
 api/v1/supply_chain/reports#generate_vendor_risk
 api/v1/supply_chain/reports#generate_vulnerability
+api/v1/supply_chain/reports#index
 api/v1/supply_chain/reports#regenerate
+api/v1/supply_chain/reports#show
+api/v1/supply_chain/reports#update
 api/v1/supply_chain/risk_assessments#complete
 api/v1/supply_chain/risk_assessments#show
 api/v1/supply_chain/risk_assessments#submit_for_review
 api/v1/supply_chain/scan_executions#cancel
+api/v1/supply_chain/scan_executions#index
 api/v1/supply_chain/scan_executions#logs
+api/v1/supply_chain/scan_executions#show
 api/v1/supply_chain/scan_instances#create
 api/v1/supply_chain/scan_instances#destroy
 api/v1/supply_chain/scan_instances#execute
@@ -527,20 +593,39 @@ api/v1/supply_chain/vendor_monitoring_events#acknowledge
 api/v1/supply_chain/vendor_monitoring_events#index
 api/v1/supply_chain/vendor_monitoring_events#resolve
 api/v1/supply_chain/vendor_monitoring_events#show
+api/v1/supply_chain/vendors#assess
 api/v1/supply_chain/vendors#monitoring_events
 api/v1/supply_chain/vendors#reassess
 api/v1/supply_chain/vendors#risk_profile
 api/v1/supply_chain/vendors#statistics
+api/v1/supply_chain/vulnerability_feeds#index
+api/v1/supply_chain/vulnerability_feeds#show
+api/v1/supply_chain/vulnerability_feeds#sync
 api/v1/supply_chain/vulnerability_feeds#sync_all
 api/v1/supply_chain/vulnerability_scans#details
 api/v1/supply_chain/vulnerability_scans#index
 api/v1/supply_chain/vulnerability_scans#show
+api/v1/system/acme_certificates#destroy
+api/v1/system/acme_certificates#renew
+api/v1/system/acme_certificates#request_issue
+api/v1/system/acme_certificates#revoke
+api/v1/system/acme_certificates#show
+api/v1/system/acme_certificates#update
 api/v1/system/disk_image_registry_config#show
+api/v1/system/federation/service_offerings#activate
+api/v1/system/federation/service_offerings#deprecate
+api/v1/system/federation/service_offerings#destroy
 api/v1/system/federation/service_offerings#retire
+api/v1/system/federation/service_offerings#show
+api/v1/system/federation/service_offerings#update
+api/v1/system/federation/service_subscriptions#cancel
+api/v1/system/federation/service_subscriptions#show
+api/v1/system/federation_api/accept#create
 api/v1/system/federation_api/audit_excerpts#index
 api/v1/system/federation_api/heartbeat#create
 api/v1/system/federation_api/migrations#create
 api/v1/system/federation_api/resources#show
+api/v1/system/module_publications#create
 api/v1/system/netboot#script
 api/v1/system/node_api/a2a#capability_keys
 api/v1/system/node_api/config#ai_cli_credential
@@ -563,6 +648,7 @@ api/v1/system/node_api/lint_discovery#context
 api/v1/system/node_api/lint_discovery#result
 api/v1/system/node_api/luks#show
 api/v1/system/node_api/module_versions#create
+api/v1/system/node_api/modules#download
 api/v1/system/node_api/modules#rsync_spec
 api/v1/system/node_api/modules#signing_keys
 api/v1/system/node_api/peer#announce
@@ -572,8 +658,10 @@ api/v1/system/node_api/puppet#modules
 api/v1/system/node_api/puppet#resources
 api/v1/system/node_api/puppet#show_module
 api/v1/system/node_api/runtime#handshake
+api/v1/system/node_api/runtime#runtime_config
 api/v1/system/node_api/sdwan#report
 api/v1/system/node_api/sdwan#report_bgp
+api/v1/system/node_api/sdwan#show_config
 api/v1/system/node_api/status#acknowledge_task
 api/v1/system/node_api/status#complete_task
 api/v1/system/node_api/status#fail_task
@@ -589,6 +677,8 @@ api/v1/system/node_api/storage_migrations#index
 api/v1/system/node_api/storage_migrations#progress
 api/v1/system/node_api/storage_migrations#revert_complete
 api/v1/system/node_api/storage_volume#show
+api/v1/system/platform/storage_migrations#cleanup
+api/v1/system/platform/storage_migrations#revert
 api/v1/system/setup#defaults
 api/v1/system/worker_api/acme_renewal_sweep#create
 api/v1/system/worker_api/agent_fleet#aggregate
@@ -665,6 +755,8 @@ api/v1/test#seed
 api/v1/webhook_events#failed
 api/v1/webhook_events#processed
 api/v1/webhook_events#processing
+api/v1/webhook_events#show
+api/v1/webhook_events#update
 api/v1/webhooks#health_check
 api/v1/webhooks#health_stats
 api/v1/webhooks#health_test
@@ -683,5 +775,6 @@ api/v1/workers#current_token
 api/v1/workers#test_results
 doorkeeper/authorizations#show
 doorkeeper/token_info#show
+doorkeeper/tokens#create
 doorkeeper/tokens#introspect
 doorkeeper/tokens#revoke
