@@ -156,13 +156,13 @@ row expansion). High-severity items to look at (23):
 | `ai/autonomy/.../EscalationsPanel.tsx` · EscalationCard | agent_escalation | index-table-expandable | **Keep (conforms)**; link `agent`, escalated-to `user` | Low | Expandable + resolve form |
 | `ai/autonomy/.../FeedbackPanel.tsx` · FeedbackCard | agent_feedback | index-table-expandable | **Keep (conforms)**; link `agent`, submitter `user` | Low | Expandable + summary header |
 | `ai/autonomy/.../InterventionPoliciesPanel.tsx` · PolicyCard | intervention_policy | index-table-expandable | **Keep (conforms)**; link `agent` in test-resolution | Low | Expandable + toggle-active |
-| `ai/autonomy/.../BudgetAllocationPanel.tsx` · BudgetAllocationPanel | agent_budget | index-table-expandable | **Keep (conforms)**; link `agent`; keep create/edit modal | Low | Expandable w/ tx history; modal is the editor |
+| `ai/budgets/.../BudgetsPanel.tsx` · BudgetsPanel | agent_budget | index-table-expandable | **Keep (conforms)**; link `agent`; keep create/edit modal | Low | The Budgets page (`/app/ai/control/budgets`); expandable w/ tx history, children nested under parents; modal is the editor |
 | `ai/autonomy/.../ApprovalQueuePanel.tsx` · ApprovalCard | approval_request | inline-list | **Expand** rows (action context/description inline); link `agent`; keep Approve/Reject | Med | No expand today; quick-triage context belongs inline |
 | `ai/autonomy/.../DelegationPolicyPanel.tsx` · PolicyRow | delegation_policy | inline-list | **Expand** rows (delegatable actions/types/budget inline); link `agent` | Med | Flat cards w/ no own-detail view |
 | `ai/autonomy/.../TrustScoreCard.tsx` · TrustScoreCard | trust_score | detail-modal (card) | **Keep (exception — gauge card)**; link `agent`; keep Evaluate/Override/Demote | Low | 5-bar score card in grid; actions justify |
 | `ai/autonomy/.../CircuitBreakerStatusPanel.tsx` · BreakerRow | circuit_breaker | inline-list | **Keep (exception — live state)**; link `agent`; keep reset | Low | Tripped/closed real-time state list |
-| `ai/autonomy/.../BudgetTransactionHistory.tsx` · BudgetTransactionHistory | budget_transaction | inline-list | **Keep (exception — ledger)** | — | Paginated immutable tx ledger inside budget row |
-| `ai/autonomy/.../BudgetRegimeIndicator.tsx` · BudgetRegimeIndicator | budget_regime | custom-panel | **Keep (exception — alert tile)** | — | Single regime-level alert card |
+| `ai/budgets/.../BudgetTransactionHistory.tsx` · BudgetTransactionHistory | budget_transaction | inline-list | **Keep (exception — ledger)** | — | Paginated immutable tx ledger inside budget row |
+| `ai/budgets/.../BudgetRegimeIndicator.tsx` · BudgetRegimeIndicator | budget_regime | custom-panel | **Keep (exception — alert tile)** | — | Single regime-level alert card |
 | `ai/autonomy/.../CapabilityMatrixViewer.tsx` · CapabilityMatrixViewer | capability_matrix | custom-panel | **Keep (exception — matrix)** | — | Read-only action×tier policy grid |
 | `ai/autonomy/.../AgentLineageTree.tsx` · AgentLineageTree | agent_lineage_node | custom-panel (tree) | **Keep (exception — tree)**; link node `agent` names | Low | Hierarchical lineage tree, not flat rows |
 | `ai/autonomy/.../BehavioralFingerprintChart.tsx` · FingerprintRow | behavioral_fingerprint | inline-list | **Keep (exception — read-only metrics)** | — | Agent-scoped baseline-stats list |

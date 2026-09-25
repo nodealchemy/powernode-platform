@@ -21,7 +21,7 @@ import { featureRegistry } from '@/shared/services/featureRegistry';
  *
  * Per the IA rule "avoid nested horizontal tabs; use a sidebar where nesting is
  * needed", the hub uses ONE vertical `SubNavRail` for its leaves; the only
- * leaves that carry further sub-views (Credits, FinOps, Outcome Billing) render
+ * leaves that carry further sub-views (Credits, Outcome Billing) render
  * a single `PathTabs` row, so total depth never exceeds rail → one tab row.
  *
  * Every leaf/sub-tab is path-based, so navigation updates the URL and the
@@ -119,7 +119,7 @@ export const CostPage: React.FC = () => {
           <Route index element={<Navigate to={fallback} replace />} />
           <Route path="overview" element={<CostOverview />} />
           <Route path="credits/*" element={<CreditsContent basePath={`${COST_BASE}/credits`} />} />
-          <Route path="finops/*" element={<FinOpsContent />} />
+          <Route path="finops" element={<FinOpsContent />} />
           <Route path="roi" element={<RoiDashboardContent />} />
           {BillingLeaf && (
             <Route
