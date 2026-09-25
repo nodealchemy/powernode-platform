@@ -66,6 +66,35 @@ module Ai
       )
     end
 
+    # The account's embedding model, resolved from its provider catalog: the
+    # highest-priority active provider advertising text_embedding (the
+    # Ai::Memory::EmbeddingService pick), and the first text_embedding entry in
+    # that provider's synced supported_models (the Devops::AiConfig rule).
+    # Raises when nothing resolves: a knowledge base created against a model id
+    # the account cannot embed with fails later, and less clearly.
+    def resolve_embedding_config
+      providers = Ai::Provider.where(account_id: account.id)
+                              .where("capabilities @> ?", [ "text_embedding" ].to_json)
+                              .active
+                              .ordered_by_priority
+
+      providers.each do |provider|
+        entry = Array(provider.supported_models).find do |m|
+          m.is_a?(Hash) && Array(m["capabilities"]).include?("text_embedding")
+        end
+        next unless entry
+
+        return {
+          embedding_model: Ai::ModelTiers.id_for(entry),
+          embedding_provider: provider.provider_type,
+          embedding_dimensions: entry["dimensions"]
+        }.compact
+      end
+
+      raise Ai::RagServiceError,
+            "No embedding model is available: no active provider in this account lists a text_embedding model in its catalog"
+    end
+
     def update_knowledge_base(id, params)
       kb = get_knowledge_base(id)
       kb.update!(params.slice(

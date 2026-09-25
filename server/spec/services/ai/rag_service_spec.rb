@@ -56,6 +56,30 @@ RSpec.describe Ai::RagService, type: :service do
       end
     end
 
+    describe '#resolve_embedding_config' do
+      it "resolves the first text_embedding model in the highest-priority active embedding provider's catalog" do
+        create(:ai_provider, account: account, priority_order: 1) # chat-only: not an embedding provider
+        create(:ai_provider, account: account, priority_order: 2, capabilities: %w[chat text_embedding],
+               supported_models: [
+                 { 'id' => 'catalog-chat-model', 'capabilities' => %w[chat] },
+                 { 'id' => 'catalog-embed-model', 'capabilities' => %w[text_embedding], 'dimensions' => 768 }
+               ])
+
+        expect(service.resolve_embedding_config).to eq(
+          embedding_model: 'catalog-embed-model',
+          embedding_provider: 'custom',
+          embedding_dimensions: 768
+        )
+      end
+
+      it 'raises when no active provider lists a text_embedding model' do
+        create(:ai_provider, account: account, capabilities: %w[chat text_embedding])
+
+        expect { service.resolve_embedding_config }
+          .to raise_error(Ai::RagServiceError, /No embedding model is available/)
+      end
+    end
+
     describe '#get_knowledge_base' do
       let!(:kb) do
         service.create_knowledge_base({

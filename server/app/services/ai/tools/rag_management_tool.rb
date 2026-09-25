@@ -18,7 +18,8 @@ module Ai
       declare_action "create_knowledge_base", mutating: true,
                                               returns: "the knowledge base's id, name, description, status, counts, embedding_model, " \
                                                        "chunking_strategy and created_at",
-                                              refuses: "name is blank, or the record fails validation"
+                                              refuses: [ "name is blank, or the record fails validation",
+                                                         "no active provider in the account lists a text_embedding model in its catalog" ]
       declare_action "delete_document", mutating: true, destructive: true,
                                         returns: "a confirmation message",
                                         refuses: [ "knowledge_base_id or document_id is blank",
@@ -61,7 +62,9 @@ module Ai
           },
           "create_knowledge_base" => {
             description: "Create a new RAG knowledge base for document storage and retrieval. " \
-                         "It is created with recursive chunking, chunk_size 1000 and chunk_overlap 200.",
+                         "It is created with recursive chunking, chunk_size 1000 and chunk_overlap 200. " \
+                         "Its embedding model is the first text_embedding model in the catalog of the " \
+                         "account's highest-priority active embedding provider.",
             parameters: {
               name: { type: "string", required: true, description: "Knowledge base name" },
               description: { type: "string", required: false, description: "Knowledge base description" }
@@ -135,9 +138,7 @@ module Ai
           {
             name: params[:name],
             description: params[:description],
-            embedding_model: "text-embedding-3-small",
-            embedding_provider: "openai",
-            embedding_dimensions: 1536,
+            **rag_service.resolve_embedding_config,
             chunking_strategy: "recursive",
             chunk_size: 1000,
             chunk_overlap: 200
@@ -146,7 +147,7 @@ module Ai
         )
 
         { success: true, knowledge_base: serialize_kb(kb) }
-      rescue ActiveRecord::RecordInvalid => e
+      rescue ActiveRecord::RecordInvalid, Ai::RagServiceError => e
         { success: false, error: e.message }
       rescue StandardError => e
         rescued_error_result(e)
