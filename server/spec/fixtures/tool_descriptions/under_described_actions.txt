@@ -11,10 +11,6 @@
 add_document
 add_team_member
 agent_container_status
-agent_forget
-agent_recall
-agent_reflect
-agent_remember
 approve_improvement
 bootstrap_disk_image_ci
 check_task_status

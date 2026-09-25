@@ -47,10 +47,21 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "agent_forget", mutating: true
-      declare_action "agent_recall", mutating: false
-      declare_action "agent_reflect", mutating: true
-      declare_action "agent_remember", mutating: true
+      declare_action "agent_forget", mutating: true,
+                                     returns: "the key, forgotten true or false, and mode (hard_delete or soft_decay) or a reason (no_pool, key_not_found)"
+      declare_action "agent_recall", mutating: false,
+                                     returns: "results (key, value, importance, relevance, tags, pool_id, pool_type), highest relevance first, and count",
+                                     see_also: {
+                                       "search_memory" => "keyword search of an agent's short-term memory and the account's compound learnings",
+                                       "query_learnings" => "compound learnings recorded across the account",
+                                       "search_knowledge" => "account shared knowledge entries",
+                                       "query_knowledge_base" => "documents ingested into a RAG knowledge base",
+                                       "search_knowledge_graph" => "knowledge graph nodes and relations"
+                                     }
+      declare_action "agent_reflect", mutating: true,
+                                      returns: "reflected true with entries_reviewed and up to 10 summary lines, or reflected false with a reason (no_pool, cooldown with retry_after, no_entries_to_consolidate)"
+      declare_action "agent_remember", mutating: true,
+                                       returns: "the key, stored: true and the private pool's pool_id"
 
       def self.definition
         {
@@ -63,7 +74,9 @@ module Ai
       def self.action_definitions
         {
           "agent_remember" => {
-            description: "Store a key-value pair in the agent's private memory pool with optional TTL, importance, and tags",
+            description: "Store a key-value pair in the calling agent's private memory pool, with optional TTL, importance and tags. " \
+                         "The pool is created on first use and holds at most 500 keys; past that, the least recently updated keys are evicted. " \
+                         "An embedding of the key and value, when one can be generated, is stored for agent_recall.",
             parameters: {
               key: { type: "string", required: true, description: "Memory key (dot-notation supported)" },
               value: { type: "string", required: true, description: "Value to store (string, number, object, or array)" },
@@ -73,18 +86,23 @@ module Ai
             }
           },
           "agent_forget" => {
-            description: "Remove or soft-decay a memory key from the agent's private pool",
+            description: "Remove or soft-decay a memory key in the calling agent's private pool. " \
+                         "soft: true multiplies the key's importance by 0.1 (floor 0.01) instead of deleting it.",
             parameters: {
               key: { type: "string", required: true, description: "Memory key to forget" },
               soft: { type: "boolean", required: false, description: "If true, decay importance instead of deleting (default false)" }
             }
           },
           "agent_reflect" => {
-            description: "Trigger on-demand STM consolidation and summary generation (rate-limited: 1 per 15 minutes)",
+            description: "Review the calling agent's private pool and summarise its frequently recalled entries. " \
+                         "It lists entries recalled at least twice as text lines and records the reflection time; it does not call a model or move data between tiers. " \
+                         "Rate-limited to once per 15 minutes per pool.",
             parameters: {}
           },
           "agent_recall" => {
-            description: "Semantic search across agent's private memory pool and optionally team_shared pools",
+            description: "Search the calling agent's private memory pool, the entries it stored with agent_remember. " \
+                         "Ranks by embedding similarity, falling back to keyword overlap when an embedding is missing, and drops results below 0.5 relevance. " \
+                         "include_team also searches team_shared pools the agent is listed on or that are public; each hit's access count is incremented.",
             parameters: {
               query: { type: "string", required: true, description: "Natural language search query" },
               include_team: { type: "boolean", required: false, description: "Also search team_shared pools (default false)" },
