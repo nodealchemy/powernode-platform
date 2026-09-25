@@ -95,7 +95,6 @@ reopen_ralph_loop
 resolve_governance_report
 resume_ralph_loop
 revert_improvement
-route_task
 scoreboard
 search_knowledge_graph
 start_content_production

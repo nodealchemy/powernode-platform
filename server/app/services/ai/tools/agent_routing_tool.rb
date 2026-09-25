@@ -19,7 +19,7 @@ module Ai
       def self.definition
         {
           name: "route_task",
-          description: "Route a task description to the best platform agent: ranked candidates with per-dimension " \
+          description: "Route a task description to the best platform agent. It returns ranked candidates with per-dimension " \
                        "reasons (capability, trust, skill match, policy domain, tier/cost, performance) and the " \
                        "winner's Claude Code subagent_type slug. Honours the delegator's delegation policy. Read-only.",
           parameters: {
