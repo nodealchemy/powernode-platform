@@ -1,20 +1,17 @@
 # frozen_string_literal: true
 
 module Admin
-  # Service for managing security configuration
+  # Service for admin security operations
   #
-  # Provides security management including:
-  # - CSRF configuration
-  # - JWT configuration
-  # - Authentication settings
-  # - API security settings
-  # - Security testing
+  # Provides:
   # - JWT secret rotation
   # - Token blacklist management
+  # - Blacklist statistics
+  # - Security audit summary
   #
   # Usage:
   #   service = Admin::SecurityConfigService.new(user: current_user)
-  #   config = service.get_config
+  #   summary = service.security_audit_summary(days: 30)
   #
   class SecurityConfigService
     attr_reader :user, :account

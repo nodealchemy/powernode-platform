@@ -172,7 +172,7 @@ For the full live tool catalogue exposed via MCP, see [../auto/mcp-tools.md](../
 
 | Controller | Path | Purpose |
 |-----------|------|---------|
-| `Api::V1::Admin::DailySummariesController` | `/api/v1/admin/daily_summaries` | Auto-generated daily operational summaries |
+| `Api::V1::Admin::DailySummariesController` | `POST /api/v1/admin/daily_summaries/generate` | Auto-generated daily operational summaries |
 | `Api::V1::Admin::PagesController` | `/api/v1/admin/pages` | Page CRUD (feeds content-linking / backlinks) |
 
 ## Core Endpoint Details
@@ -259,8 +259,6 @@ POST   /api/v1/ai/data_sources/:id/credentials/:cid/make_default # Make default
 ### Daily Summary Endpoints (Admin)
 
 ```http
-GET    /api/v1/admin/daily_summaries             # List (paginated)
-GET    /api/v1/admin/daily_summaries/latest      # Latest summary
 POST   /api/v1/admin/daily_summaries/generate    # Generate (params: date)
 ```
 

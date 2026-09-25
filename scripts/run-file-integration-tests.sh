@@ -159,13 +159,6 @@ if [ "$BACKEND_ONLY" = false ]; then
   }
   print_success "FileUpload integration tests passed"
 
-  print_info "Running FileBrowser component integration tests..."
-  npm test -- FileBrowser.integration.test.tsx --passWithNoTests || {
-    print_error "FileBrowser integration tests failed"
-    exit 1
-  }
-  print_success "FileBrowser integration tests passed"
-
   print_success "All frontend integration tests passed!"
 fi
 

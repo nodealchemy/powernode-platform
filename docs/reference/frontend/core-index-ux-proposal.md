@@ -345,7 +345,6 @@ row expansion). High-severity items to look at (23):
 
 | Surface (file · component) | Object type | Current layout | Proposed target | Effort | Rationale |
 |---|---|---|---|---|---|
-| `features/content/files/.../FileBrowser.tsx` · FileBrowser | file | custom-panel (+ detail modal) | **Keep (exception — browser)**; link `user` owner; detail modal exists | Low | Paginated browser w/ bulk/sort → FileDetails |
 | `features/content/files/.../FileDetails.tsx` · FileDetails | file | detail-modal | **Keep (mgmt)** — Details/Share/Tags w/ download/delete/link-gen; link `user`, `file_tag` | Low | Mutating multi-tab console |
 | `features/content/files/.../FileUpload.tsx` · FileUpload | file | custom-panel | **Keep (exception — upload zone)** | — | Drag-drop w/ progress |
 | `features/content/knowledge-base/.../KbArticleList.tsx` · KbArticleList | kb_article | card-grid | **Keep (exception — gallery → detail route)**; link `kb_category`, `user` | Low | Grid/list → article detail page |
@@ -357,7 +356,6 @@ row expansion). High-severity items to look at (23):
 | `…/KnowledgeBaseArticleEditor.tsx` · KnowledgeBaseArticleEditor | kb_article | detail-modal (editor) | **Keep (editor)** | Low | Tabbed editor/settings/seo/preview |
 | `features/content/pages/.../PageEditor.tsx` · PageEditor | page | detail-modal (editor) | **Keep (editor)** | Low | Markdown editor w/ image gallery |
 | `features/content/pages/.../BacklinksPanel.tsx` · BacklinksPanel | page | custom-panel | **Keep (exception — link graph)** — pages already linked | Low | Backlinks/mentions/related linked lists |
-| `features/content/pages/.../DailySummariesPanel.tsx` · DailySummariesPanel | page | custom-panel | **Keep (exception — timeline)** | — | Timeline sidebar + viewer |
 | `features/content/pages/.../ImageGalleryModal.tsx` · ImageGalleryModal | file | detail-modal (picker) | **Keep (exception — image picker)** | — | Browse/Upload image grid |
 
 ### DevOps
@@ -432,9 +430,9 @@ row expansion). High-severity items to look at (23):
 | **Composers / wizards / NL-brief / approval-review surfaces** | FirstRunWizard, NewMissionWizard, ProvisioningPlanReview, ResearchModal, ContractEditor, ImportExportModal, ApprovalGateModal, DelegationRequestModal, CreateDelegationModal |
 | **Chat threads / conversation panes** | SessionMessages, ConversationStatsPanel, ConversationListItem, ChannelListItem, ChatWindowSidebar, AgentSelector, AguiSessionDetailPanel, AguiPage/ChatChannelsPage/RalphLoopsPage split consoles |
 | **Detail drawers (= own-detail equivalent of row expansion)** | NodeDetailPanel, SkillNodeDetailPanel, SkillDetailPanel, ProposalDetailPanel, ResourceDetailPanel, McpAppRenderer |
-| **Galleries / discovery browse → detail page** | AgentDiscovery, FederationPartnerList, AiProvidersPage/AiProviderCard, SkillsPage/SkillCard, McpAppGallery, DataSource gallery, ContextBrowser (both), MarketplacePage, ItemDetailPage, KbArticleList/Featured/Related, StorageProvidersPage/Card, Docker/K8s/Swarm host+cluster grids, PipelineList(devops), IntegrationCard, FileBrowser/ImageGalleryModal |
+| **Galleries / discovery browse → detail page** | AgentDiscovery, FederationPartnerList, AiProvidersPage/AiProviderCard, SkillsPage/SkillCard, McpAppGallery, DataSource gallery, ContextBrowser (both), MarketplacePage, ItemDetailPage, KbArticleList/Featured/Related, StorageProvidersPage/Card, Docker/K8s/Swarm host+cluster grids, PipelineList(devops), IntegrationCard, ImageGalleryModal |
 | **One-time secret-reveal lists** | ApiKeyManager, CI-worker/webhook/spawn-token reveals |
-| **Full-page detail views** | AgentCardDetail, AgentDetailPage, ContextDetailPage, ContainerDetailPage, SwarmServiceDetailPage, KbArticleContent, TaskDetail, NotificationDetailModal, BacklinksPanel, DailySummariesPanel, KbCategoryList tree, KbArticleComments thread |
+| **Full-page detail views** | AgentCardDetail, AgentDetailPage, ContextDetailPage, ContainerDetailPage, SwarmServiceDetailPage, KbArticleContent, TaskDetail, NotificationDetailModal, BacklinksPanel, KbCategoryList tree, KbArticleComments thread |
 | **Hub / page organizers (tabs only)** | CommunityAgentsPage, AutonomyDashboardPage, KnowledgeGraphPage, EvaluationDashboardPage, McpAppsPage, DeveloperPortal |
 | **Forms / editors / management consoles** (link their cross-ref selectors) | All `*FormModal`/`*Editor`/`*SettingsModal`/create-edit modals; mgmt consoles: AgentDetailModal, TeamDetailModal, ProviderDetailModal, ChannelDetailPanel, WorkerDetailsPanel, RoleUsersModal, UserRolesModal, ProfilePage, FileDetails, WebhookDetails, MissionDetailModal, DelegationDetailsModal, AdminMarketplacePage, DataSourceDetailModal, ConversationDetailModal, AgentSkillsTab, WorkspaceMembersPanel |
 
@@ -455,11 +453,11 @@ row expansion). High-severity items to look at (23):
 | Admin | 5 | 5 | 0 | 10 | User/worker tables → Expand + link roles |
 | Account | 6 | 6 | 0 | 12 | Team-member tables → Expand; settings/forms kept |
 | Missions | 6 | 2 | 0 | 8 | Index conforms; MissionDetail mgmt |
-| Content | 13 | 1 | 0 | 14 | KB/pages galleries/threads/editors; FileBrowser owner link |
+| Content | 11 | 1 | 0 | 12 | KB/pages galleries/threads/editors |
 | DevOps | 14 | 2 | 0 | 16 | Cards→detail-page pattern dominates; Repo/Webhook = Med |
 | Governance | 9 | 8 | 0 | 17 | **Highest Med density** — 8 non-interactive GovernancePage panels → Expand |
 | Developer / Shared | 8 | 3 | 0 | 11 | Marketplace/portal exceptions; ApprovalChainList + subs = Med |
 
-**Totals:** ~**196 Low** / ~**47 Med** / **0 High** across **~243 surface entries** (inventory rows incl. cross-domain duplicates; distinct files ≈ 180).
+**Totals:** ~**194 Low** / ~**47 Med** / **0 High** across **~241 surface entries** (inventory rows incl. cross-domain duplicates; distinct files ≈ 180).
 
 **Why zero High:** every transformation is (a) adding a chevron + inline own-detail region to a list already on `DataTable` (Low–Med), (b) leaving a dashboard/canvas/feed/chat/secret surface untouched (Low/—), or (c) swapping a plaintext cross-ref cell for `<EntityLink>` (Low). The single gating dependency is the **one-time `registerEntities('core', […])` manifest** — without it `EntityLink` renders plaintext (safe, but no navigation). The largest concentrated work is **Governance** (8 stacked-card panels on one page → expandable tables, two of which also fix decision-blind UX and one noop button) and the **user/team tables** across Admin + Account (near-duplicate tables → expandable rows + linked role cells; `TeamMembersManagement`, the retire candidate flagged here, was deleted in favor of `UsersPage` — fc-23).

@@ -309,7 +309,6 @@ These endpoints are available when the `business` extension is loaded; in core m
 | `/admin_settings/suspend_account` | POST | Suspend account |
 | `/admin_settings/activate_account` | POST | Activate account |
 | `/admin_settings/health` | GET | System health |
-| `/admin_settings/security` | GET/PUT | Security configuration |
 | `/admin_settings/security/regenerate_jwt_secret` | POST | Rotate JWT secret |
 
 ### Rate Limiting (Admin)
