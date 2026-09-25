@@ -32,7 +32,7 @@ import { type StatusRollup, type Verdict, UNHEALTHY_VERDICTS, isVerdict } from '
  * (ProviderCircuitBreakersPanel) reads the `ai_providers` category and resets
  * one breaker — getProviderCircuitBreakers/resetProviderCircuitBreaker below.
  * The server's open, close, reset-all, category-reset and monitor actions had
- * no caller and were deleted (fc-27).
+ * no caller and were deleted.
  */
 
 export interface MonitoringDashboard {
