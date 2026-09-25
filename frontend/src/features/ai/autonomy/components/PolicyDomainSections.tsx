@@ -30,7 +30,11 @@ interface PolicyDomainSectionsProps {
    * with must not vanish, which is how the old literal list lost 28 categories.
    */
   namespace?: string;
-  /** Changing this refetches the rows (a sibling view wrote to them). Drops unsaved edits. */
+  /**
+   * Changing this refetches the rows (a sibling view wrote to them). With unsaved
+   * edits staged, the refetch waits: it runs after the next save, or when the
+   * operator chooses to discard the edits. Staged edits are never dropped silently.
+   */
   refreshKey?: number;
   /** Called after a save lands, so a sibling view of the same rows can refetch. */
   onSaved?: () => void;
@@ -150,20 +154,33 @@ export const PolicyDomainSections: React.FC<PolicyDomainSectionsProps> = ({ name
   const autonomy = useAutonomyConfig(interventionPolicyConfigSource);
   const [activeKey, setActiveKey] = useState<string>('');
 
-  // The mount already fetched; refetch only when the key moves after that.
-  const { reload } = autonomy;
+  // The mount already fetched; refetch only when the key moves after that, and
+  // not over staged edits: a refetch resets them, so it waits for a save or an
+  // explicit discard.
+  const { reload, isDirty } = autonomy;
+  const [refreshWaiting, setRefreshWaiting] = useState(false);
   const seenRefreshKey = useRef(refreshKey);
   useEffect(() => {
     if (seenRefreshKey.current === refreshKey) return;
     seenRefreshKey.current = refreshKey;
+    if (isDirty) setRefreshWaiting(true);
+    else reload();
+  }, [refreshKey, reload, isDirty]);
+
+  const discardAndRefresh = useCallback(() => {
+    setRefreshWaiting(false);
     reload();
-  }, [refreshKey, reload]);
+  }, [reload]);
 
   const { save } = autonomy;
   const saveAndNotify = useCallback(async () => {
     await save();
     onSaved?.();
-  }, [save, onSaved]);
+    if (refreshWaiting) {
+      setRefreshWaiting(false);
+      reload();
+    }
+  }, [save, onSaved, refreshWaiting, reload]);
   // An extension registering its domains after mount re-sorts the sections.
   const registryVersion = useSyncExternalStore(
     (listener) => featureRegistry.subscribe(listener),
@@ -251,10 +268,29 @@ export const PolicyDomainSections: React.FC<PolicyDomainSectionsProps> = ({ name
           </div>
         )}
 
-        {autonomy.isDirty && (
-          <p data-testid="policy-unsaved-changes" className="text-xs text-theme-warning-fg">
-            You have unsaved changes. Save them from any group below.
-          </p>
+        {refreshWaiting ? (
+          <div
+            data-testid="policy-refresh-deferred"
+            className="flex items-center justify-between gap-3 rounded border border-theme-warning-border bg-theme-warning-bg px-3 py-2"
+          >
+            <p className="text-xs text-theme-warning-fg">
+              Policies changed below while you have unsaved edits here. Your edits are kept; saving
+              them refreshes this view.
+            </p>
+            <button
+              type="button"
+              onClick={discardAndRefresh}
+              className="btn-theme btn-theme-secondary btn-theme-sm shrink-0"
+            >
+              Discard my edits and refresh
+            </button>
+          </div>
+        ) : (
+          autonomy.isDirty && (
+            <p data-testid="policy-unsaved-changes" className="text-xs text-theme-warning-fg">
+              You have unsaved changes. Save them from any group below.
+            </p>
+          )
         )}
 
         <div>

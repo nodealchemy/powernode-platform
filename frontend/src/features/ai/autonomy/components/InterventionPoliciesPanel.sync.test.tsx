@@ -138,3 +138,54 @@ describe('InterventionPoliciesPanel — "All policies" is the whole set', () => 
   });
 });
 
+describe('InterventionPoliciesPanel — a list write never drops unsaved grouped edits', () => {
+  function groupedSelect(): HTMLSelectElement {
+    return screen.getByText('dev.task_requeue', { selector: 'span.truncate' })
+      .closest('div')?.querySelector('select') as HTMLSelectElement;
+  }
+
+  async function stageGroupedEditThenWriteInList() {
+    renderPanel();
+    await waitFor(() => expect(listCount('require approval')).toBe('1'));
+    await waitFor(() => expect(gets('/ai/intervention_policies/grouped')).toBe(1));
+
+    fireEvent.change(groupedSelect(), { target: { value: 'block' } });
+    fireEvent.click(within(listPane()).getByTitle('Disable'));
+    await waitFor(() => expect(mockPut).toHaveBeenCalled());
+  }
+
+  it('keeps the staged edit and says a refresh is waiting, instead of refetching', async () => {
+    await stageGroupedEditThenWriteInList();
+
+    await waitFor(() => expect(screen.getByTestId('policy-refresh-deferred')).toBeInTheDocument());
+    expect(gets('/ai/intervention_policies/grouped')).toBe(1);
+    expect(groupedSelect().value).toBe('block');
+  });
+
+  it('saves the staged edit, then applies the waiting refresh', async () => {
+    await stageGroupedEditThenWriteInList();
+    await waitFor(() => expect(screen.getByTestId('policy-refresh-deferred')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByText('Save Permissions'));
+
+    await waitFor(() => expect(mockPatch).toHaveBeenCalledTimes(1));
+    expect(mockPatch.mock.calls[0][1]).toEqual({
+      updates: [{ action_category: 'dev.task_requeue', policy: 'block', scope: 'global', agent_id: null }],
+    });
+    await waitFor(() => expect(gets('/ai/intervention_policies/grouped')).toBe(2));
+    expect(screen.queryByTestId('policy-refresh-deferred')).not.toBeInTheDocument();
+  });
+
+  it('discards the staged edit only when the operator chooses to', async () => {
+    await stageGroupedEditThenWriteInList();
+    await waitFor(() => expect(screen.getByTestId('policy-refresh-deferred')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /discard my edits and refresh/i }));
+
+    await waitFor(() => expect(gets('/ai/intervention_policies/grouped')).toBe(2));
+    await waitFor(() => expect(groupedSelect().value).toBe('require_approval'));
+    expect(mockPatch).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('policy-refresh-deferred')).not.toBeInTheDocument();
+  });
+});
+
