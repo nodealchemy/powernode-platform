@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Plus, Play, Pause, Archive, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { statusVariant } from '@/shared/utils/statusVariant';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { learningApi } from '@/features/ai/learning/api/learningApi';
@@ -79,15 +80,6 @@ export const BenchmarkBuilder: React.FC = () => {
   };
 
   if (loading) return <LoadingSpinner />;
-
-  const statusVariant = (status: string) => {
-    switch (status) {
-      case 'active': return 'success' as const;
-      case 'paused': return 'warning' as const;
-      case 'archived': return 'default' as const;
-      default: return 'default' as const;
-    }
-  };
 
   return (
     <div className="space-y-6">

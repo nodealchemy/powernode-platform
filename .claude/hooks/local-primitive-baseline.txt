@@ -168,7 +168,6 @@ frontend/src/features/ai/debugging/components/TraceList.tsx|format-currency|form
 frontend/src/features/ai/debugging/components/TraceList.tsx|local-variant|statusVariant
 frontend/src/features/ai/debugging/components/TraceSpanRow.tsx|format-currency|formatCost
 frontend/src/features/ai/devops/components/VariablesTab.tsx|empty-state
-frontend/src/features/ai/evaluation/components/BenchmarkBuilder.tsx|local-variant|statusVariant
 frontend/src/features/ai/evaluation/components/EvalResultsViewer.tsx|empty-state
 frontend/src/features/ai/execution-resources/components/DetailSection.tsx|stat-card|StatCard
 frontend/src/features/ai/finops/components/CostOverviewPanel.tsx|format-currency|formatCost
