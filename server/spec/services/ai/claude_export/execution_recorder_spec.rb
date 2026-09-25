@@ -66,4 +66,42 @@ RSpec.describe Ai::ClaudeExport::ExecutionRecorder do
       expect(result[:provider_id]).not_to eq(scope.id)
     end
   end
+
+  describe "cost" do
+    before { Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(account) }
+
+    it "prices the reported cache reads and writes at their own rates; input stays the total" do
+      allow(Ai::CostCalculationService).to receive(:calculate).and_return(0.42)
+
+      result = report(tokens: { input: 1000, output: 100, cache_read: 600, cache_creation: 200 })
+
+      expect(Ai::CostCalculationService).to have_received(:calculate).with(
+        model_id: "claude-opus-5", prompt_tokens: 1000, completion_tokens: 100,
+        cached_tokens: 600, cache_creation_tokens: 200
+      )
+      execution = Ai::AgentExecution.find(result[:id])
+      expect(execution.cost_usd.to_f).to eq(0.42)
+      expect(execution.performance_metrics).to include("prompt_tokens" => 1000, "cached_tokens" => 600,
+                                                       "cache_creation_tokens" => 200)
+    end
+
+    it "treats a report without cache counts as all uncached input" do
+      allow(Ai::CostCalculationService).to receive(:calculate).and_return(0.0)
+
+      report
+
+      expect(Ai::CostCalculationService).to have_received(:calculate).with(
+        model_id: "claude-opus-5", prompt_tokens: 5, completion_tokens: 2, cached_tokens: 0, cache_creation_tokens: 0
+      )
+    end
+
+    it "never lets the cache counts exceed the input total" do
+      allow(Ai::CostCalculationService).to receive(:calculate).and_return(0.0)
+
+      report(tokens: { input: 100, output: 1, cache_read: 90, cache_creation: 50 })
+
+      expect(Ai::CostCalculationService).to have_received(:calculate)
+        .with(hash_including(prompt_tokens: 100, cached_tokens: 90, cache_creation_tokens: 10))
+    end
+  end
 end

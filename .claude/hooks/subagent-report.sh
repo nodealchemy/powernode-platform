@@ -93,7 +93,11 @@ args="$(jq -s --arg slug "$agent_type" --arg default_run_key "$session_id:$agent
     # Pinned by server/spec/hooks/subagent_report_spec.rb.
     tokens: {
       input:  ($usages | map((.input_tokens // 0) + (.cache_read_input_tokens // 0) + (.cache_creation_input_tokens // 0)) | add // 0),
-      output: ($usages | map(.output_tokens // 0) | add // 0)
+      output: ($usages | map(.output_tokens // 0) | add // 0),
+      # The cached parts of `input`, sent beside it so the platform prices reads
+      # and writes at their own rates (Ai::ClaudeExport::ExecutionRecorder).
+      cache_read: ($usages | map(.cache_read_input_tokens // 0) | add // 0),
+      cache_creation: ($usages | map(.cache_creation_input_tokens // 0) | add // 0)
     },
     task_digest: (($rows | map(select(.type == "user")) | first | .message.content
                    | if type == "string" then .

@@ -107,13 +107,22 @@ module Ai
         model = params[:model].to_s.strip
         raise Refusal, "model is required (the Claude Code model id that served the run)" if model.empty?
 
+        # `input` is the whole input footprint; cache_read and cache_creation
+        # are the parts of it served from and written to the prompt cache
+        # (.claude/hooks/subagent-report.sh). Clamped so they never exceed it.
+        input_tokens = [ tokens["input"].to_i, 0 ].max
+        cache_read = tokens["cache_read"].to_i.clamp(0, input_tokens)
+        cache_creation = tokens["cache_creation"].to_i.clamp(0, input_tokens - cache_read)
+
         {
           agent_slug: params[:agent_slug].to_s.strip,
           model: model,
           outcome: outcome,
           duration_ms: [ params[:duration_ms].to_i, 0 ].max,
-          input_tokens: [ tokens["input"].to_i, 0 ].max,
+          input_tokens: input_tokens,
           output_tokens: [ tokens["output"].to_i, 0 ].max,
+          cached_tokens: cache_read,
+          cache_creation_tokens: cache_creation,
           cost_usd: params[:cost_usd].presence && [ params[:cost_usd].to_f, 0.0 ].max,
           task_digest: params[:task_digest].to_s,
           run_key: run_key
@@ -235,6 +244,8 @@ module Ai
             "model" => report[:model],
             "prompt_tokens" => report[:input_tokens],
             "completion_tokens" => report[:output_tokens],
+            "cached_tokens" => report[:cached_tokens],
+            "cache_creation_tokens" => report[:cache_creation_tokens],
             "executor_kind" => SOURCE
           },
           output_data: { "model_used" => report[:model] }
@@ -265,7 +276,9 @@ module Ai
         ::Ai::CostCalculationService.calculate(
           model_id: report[:model],
           prompt_tokens: report[:input_tokens],
-          completion_tokens: report[:output_tokens]
+          completion_tokens: report[:output_tokens],
+          cached_tokens: report[:cached_tokens],
+          cache_creation_tokens: report[:cache_creation_tokens]
         )
       end
 

@@ -181,7 +181,7 @@ module Ai
               model: { type: "string", required: true, description: "The Claude Code model id that served the run (e.g. claude-opus-5, claude-sonnet-5, claude-haiku-4-5)" },
               outcome: { type: "string", required: true, enum: %w[completed failed cancelled], description: "Terminal outcome of the run" },
               duration_ms: { type: "integer", required: false, description: "Wall-clock duration of the run in milliseconds" },
-              tokens: { type: "object", required: false, description: "{ input: <prompt tokens>, output: <completion tokens> }" },
+              tokens: { type: "object", required: false, description: "{ input: <total input tokens, cache reads and writes included>, output: <completion tokens>, cache_read: <input tokens read from the prompt cache>, cache_creation: <input tokens written to it> }" },
               cost_usd: { type: "number", required: false, description: "Cost in USD when known; else priced from the platform's own model pricing (0 when none is synced)" },
               task_digest: { type: "string", required: false, description: "≤ 500 chars describing the task; redacted through the platform's PII path before it is stored" },
               run_key: { type: "string", required: true, description: "Idempotency key: the Claude Code session id + the subagent run id (the SubagentStop hook and the skeleton's self-report use the same key so the platform sees one row)" }

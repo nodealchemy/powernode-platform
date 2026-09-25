@@ -54,11 +54,11 @@ RSpec.describe ".claude/hooks/subagent-report.sh" do
     File.write(File.join(dir, "agent-#{agent_id}.jsonl"), entries.map(&:to_json).join("\n") + "\n")
   end
 
-  def assistant(model:, id:, output_tokens:, timestamp:, stop_reason: "end_turn", input_tokens: 2, cache_read: 100, content: [ { "type" => "text", "text" => "ok" } ])
+  def assistant(model:, id:, output_tokens:, timestamp:, stop_reason: "end_turn", input_tokens: 2, cache_read: 100, cache_creation: 1, content: [ { "type" => "text", "text" => "ok" } ])
     { "type" => "assistant", "agentId" => agent_id, "sessionId" => session_id, "timestamp" => timestamp,
       "message" => { "id" => id, "model" => model, "role" => "assistant", "stop_reason" => stop_reason, "content" => content,
                      "usage" => { "input_tokens" => input_tokens, "cache_read_input_tokens" => cache_read,
-                                  "cache_creation_input_tokens" => 0, "output_tokens" => output_tokens } } }
+                                  "cache_creation_input_tokens" => cache_creation, "output_tokens" => output_tokens } } }
   end
 
   def user_prompt(text, timestamp:)
@@ -150,7 +150,9 @@ RSpec.describe ".claude/hooks/subagent-report.sh" do
       expect(args["outcome"]).to eq("completed")
       expect(args["run_key"]).to eq("#{session_id}:#{agent_id}")
       # streamed duplicate (msg_1 partial + final) counted ONCE: 300 + 120
-      expect(args["tokens"]).to eq("input" => 204, "output" => 420)
+      # input is the total footprint (2 + 100 read + 1 written, per message);
+      # the cache parts ride beside it so the platform prices them at their own rates
+      expect(args["tokens"]).to eq("input" => 206, "output" => 420, "cache_read" => 200, "cache_creation" => 2)
       expect(args["duration_ms"]).to eq(42_000)
       expect(args["task_digest"]).to start_with("triage the new critical CVE")
       expect(args["task_digest"].length).to be <= 500
