@@ -79,16 +79,6 @@ class Api::V1::AdminSettingsController < ApplicationController
   # route/importer of its own and was deleted); nothing called
   # adminSettingsApi.getAccounts() at all.
 
-  # GET /api/v1/admin_settings/system_logs
-  def system_logs
-    logs = settings_service.recent_system_logs(limit: 100)
-
-    render_success({
-      logs: logs,
-      total_count: AuditLog.count
-    })
-  end
-
   # POST /api/v1/admin_settings/suspend_account
   def suspend_account
     result = settings_service.suspend_account(

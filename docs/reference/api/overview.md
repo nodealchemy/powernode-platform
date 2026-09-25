@@ -302,9 +302,6 @@ These endpoints are available when the `business` extension is loaded; in core m
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/admin_settings` | GET/PUT | Admin overview metrics / update settings |
-| `/admin_settings/users` | GET | All users (admin) |
-| `/admin_settings/accounts` | GET | All accounts (admin) |
-| `/admin_settings/system_logs` | GET | System logs |
 | `/admin_settings/suspend_account` | POST | Suspend account |
 | `/admin_settings/activate_account` | POST | Activate account |
 | `/admin_settings/security/regenerate_jwt_secret` | POST | Rotate JWT secret |

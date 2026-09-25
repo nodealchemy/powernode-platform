@@ -25,15 +25,6 @@ export interface SystemMetrics {
   uptime: number;
 }
 
-export interface SystemLog {
-  id: string;
-  level: 'info' | 'warning' | 'error' | 'debug';
-  message: string;
-  timestamp: string;
-  source: string;
-  metadata?: Record<string, unknown>;
-}
-
 export interface RateLimitingSettings {
   enabled?: boolean;
   api_requests_per_minute?: number;
@@ -189,34 +180,6 @@ class AdminSettingsApi {
   // (fc-21: the admin-dashboard UserManagement.tsx that used to be the
   // other caller had zero route/importer of its own and was deleted).
   // getAccounts() had zero callers, so no migration was needed for it.
-
-  // Get system logs
-  async getSystemLogs(options: {
-    page?: number;
-    per_page?: number;
-    level?: string;
-    source?: string;
-    since?: string;
-  } = {}): Promise<{
-    logs: SystemLog[];
-    pagination: {
-      current_page: number;
-      per_page: number;
-      total_count: number;
-      total_pages: number;
-    };
-  }> {
-    const params = new URLSearchParams();
-    
-    if (options.page) params.set('page', options.page.toString());
-    if (options.per_page) params.set('per_page', options.per_page.toString());
-    if (options.level && options.level !== 'all') params.set('level', options.level);
-    if (options.source && options.source !== 'all') params.set('source', options.source);
-    if (options.since) params.set('since', options.since);
-    
-    const response = await api.get(`/admin_settings/system_logs?${params.toString()}`);
-    return response.data;
-  }
 
   // Suspend account
   async suspendAccount(accountId: string, reason?: string): Promise<{ success: boolean; message: string }> {

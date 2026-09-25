@@ -191,24 +191,6 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
     end
   end
 
-  describe 'GET /api/v1/admin_settings/system_logs' do
-    let(:headers) { auth_headers_for(user_with_settings_view) }
-
-    before do
-      create_list(:audit_log, 5, account: account, user: admin_user, action: 'admin_settings_update')
-    end
-
-    it 'returns system logs' do
-      get '/api/v1/admin_settings/system_logs', headers: headers, as: :json
-
-      expect_success_response
-      response_data = json_response
-
-      expect(response_data['data']).to have_key('logs')
-      expect(response_data['data']).to have_key('total_count')
-    end
-  end
-
   describe 'POST /api/v1/admin_settings/suspend_account' do
     let(:headers) { auth_headers_for(user_with_account_suspend) }
     let(:target_account) { create(:account) }

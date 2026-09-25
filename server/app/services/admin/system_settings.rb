@@ -103,7 +103,6 @@ module Admin
 
       # Single-field read used by the readers that report/enforce a
       # configured limit (RateLimitingController#extract_limit_from_key,
-      # Admin::SettingsService#check_unusual_api_activity,
       # RateLimiting::BaseService#extract_limit_from_key/
       # #get_current_configuration). nil when unset, matching the pre-move
       # `AdminSetting.find_by(key: ...)&.value&.to_i` contract exactly.

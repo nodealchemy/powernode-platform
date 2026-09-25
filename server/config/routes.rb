@@ -962,7 +962,6 @@ Rails.application.routes.draw do
 
       # Admin Settings endpoints (restricted to admin/owner roles)
       resource :admin_settings, only: [ :show, :update ] do
-        get :system_logs, on: :member
         post :suspend_account, on: :member
         post :activate_account, on: :member
 

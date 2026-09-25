@@ -20,6 +20,13 @@ RSpec.describe "Deleted admin settings routes", type: :routing do
     expect(get: "/api/v1/admin_settings/health").not_to be_routable
   end
 
+  # fc-45 review — GET /admin_settings/system_logs had no caller: its only
+  # client method, adminSettingsApi.getSystemLogs, was never called.
+  # Administration › Audit Logs is where audit rows are read.
+  it "does not route GET /api/v1/admin_settings/system_logs" do
+    expect(get: "/api/v1/admin_settings/system_logs").not_to be_routable
+  end
+
   it "still routes the Extensions tab's endpoints" do
     expect(get: "/api/v1/admin_settings/extensions").to route_to("api/v1/admin_settings#extensions")
     expect(put: "/api/v1/admin_settings/extensions/foo/toggle")
