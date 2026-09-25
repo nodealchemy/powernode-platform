@@ -151,9 +151,6 @@ The largest category — covers the entire AI platform. Selected examples:
 | `Devops::ApprovalNotificationJob` | `devops_high` | Deployment approval notification |
 | `Devops::ClaudeInvokeJob` | `devops_default` | Claude Code invocation |
 | `Devops::DeploymentJob` | `devops_high` | Deployment execution |
-| `Devops::ProviderSyncJob` | `devops_default` | Provider synchronisation |
-| `Devops::ScheduleTriggerJob` | `devops_default` | Scheduled pipeline triggers |
-| `Devops::SecurityScanJob` | `devops_default` | Security scanning |
 | `Devops::StepExecutionJob` | `devops_default` | Pipeline step execution |
 | `Devops::WebhookHandlerJob` | `devops_webhooks` | DevOps webhook processing |
 

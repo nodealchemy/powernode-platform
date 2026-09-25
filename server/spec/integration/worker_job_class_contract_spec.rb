@@ -142,8 +142,8 @@ module WorkerJobClassContract
   # Mirrors JobsController#valid_job_class?, which requires `klass.is_a?(Class)`
   # and `klass < BaseJob`: only `class` declarations count, and only those whose
   # superclass is itself job-shaped. Recording bare `module`s or plain helper
-  # classes (Devops::GitProviderClient, FileProcessing::ClamavScanner) would let
-  # a producer naming a namespace or a concern read as a false OK.
+  # classes (Devops::GitOperationsService, FileProcessing::ClamavScanner) would
+  # let a producer naming a namespace or a concern read as a false OK.
   #
   # Modules still push onto the nesting stack — they qualify the names — they
   # just are not themselves recorded. The stack is indentation-keyed and handles

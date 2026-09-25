@@ -54,6 +54,12 @@ module Devops
     # Deploy by triggering a git provider workflow
     def deploy_via_workflow(config, context, environment, version)
       provider_config = fetch_provider_config(context)
+      unless provider_config
+        raise ArgumentError,
+              "provider_config required for workflow strategy: neither context[:provider_config] " \
+              "nor context.dig(:pipeline_run, :pipeline, :provider) was present"
+      end
+
       git_ops = GitOperationsService.new(provider_config: provider_config, logger: logger)
 
       workflow_file = config["workflow"] || "deploy.yml"
