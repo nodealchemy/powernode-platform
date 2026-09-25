@@ -35,3 +35,18 @@ describe('DashboardPage route guards (C15 G5)', () => {
     expect(element).toMatch(/<ProtectedRoute\s+requiredPermissions=\{\['chat\.channels\.read'\]\}>/);
   });
 });
+
+// fc-31: the one Budgets page. Its route guard is the permission the list
+// endpoint (GET /api/v1/ai/autonomy/budgets) checks, and it must be the same
+// permission the sidebar item carries — a nav item the route then refuses, or
+// a route the nav hides, is the mismatch this pins.
+describe('DashboardPage route guards — Budgets (fc-31)', () => {
+  it('/ai/control/budgets renders BudgetsPage behind ai.agents.read', () => {
+    const element = protectedRouteElement('/ai/control/budgets');
+    expect(element).toMatch(/^<ProtectedRoute\s+requiredPermissions=\{\['ai\.agents\.read'\]\}><BudgetsPage \/><\/ProtectedRoute>$/);
+  });
+
+  it('is the only route to the Budgets page', () => {
+    expect(DASHBOARD_SRC.match(/<BudgetsPage \/>/g)).toHaveLength(1);
+  });
+});

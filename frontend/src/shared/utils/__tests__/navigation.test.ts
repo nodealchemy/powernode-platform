@@ -1,4 +1,6 @@
 import { defaultNavigationConfig } from '@/shared/utils/navigation';
+import { hasAccess } from '@/shared/utils/permissionUtils';
+import type { User } from '@/shared/services/slices/authSlice';
 
 const sections = defaultNavigationConfig.sections ?? [];
 const section = (id: string) => sections.find((s) => s.id === id);
@@ -103,5 +105,25 @@ describe('defaultNavigationConfig — DevOps nav permission alignment', () => {
     const childPerms = new Set((devops?.items ?? []).flatMap((i) => i.permissions ?? []));
     expect(new Set(devops?.permissions ?? [])).toEqual(childPerms);
     expect(devops?.permissions).not.toContain('admin.storage.read');
+  });
+});
+
+// fc-31: one Budgets page, linked from the AI section under the same label as
+// its title and breadcrumb, gated on the permission its route guard and the
+// list endpoint check — permissions only, never roles.
+describe('defaultNavigationConfig — Budgets (fc-31)', () => {
+  const budgets = () => section('ai')?.items.find((i) => i.id === 'ai-budgets');
+  const userWith = (permissions: string[]) => ({ permissions } as unknown as User);
+
+  it('links the Budgets page from the AI section', () => {
+    expect(budgets()).toMatchObject({ name: 'Budgets', href: '/app/ai/control/budgets' });
+    const allBudgetHrefs = sections.flatMap((s) => s.items).filter((i) => /budget/i.test(i.href ?? ''));
+    expect(allBudgetHrefs.map((i) => i.id)).toEqual(['ai-budgets']);
+  });
+
+  it('is gated on ai.agents.read alone, which shows it to readers and hides it otherwise', () => {
+    expect(budgets()?.permissions).toEqual(['ai.agents.read']);
+    expect(hasAccess(userWith(['ai.agents.read']), budgets()?.permissions)).toBe(true);
+    expect(hasAccess(userWith(['ai.autonomy.manage']), budgets()?.permissions)).toBe(false);
   });
 });
