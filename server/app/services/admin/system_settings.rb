@@ -329,7 +329,14 @@ module Admin
       # "@"), which would leave that one shape unredacted. A string with no
       # "@" at all was never credentialed and is left byte-for-byte
       # unchanged — nothing to redact.
-      UNPARSEABLE_URL_CREDENTIAL_PATTERN = %r{\A([a-z][a-z0-9+.-]*://).*@}i.freeze
+      #
+      # fc-38 final review: /m so ".*" crosses a newline inside the userinfo,
+      # and "\A\s*" so leading whitespace before the scheme can't stop the
+      # match — both shapes used to come back unchanged. Anything the pattern
+      # still can't handle (an "@" left over, e.g. no scheme at all) returns
+      # UNPARSEABLE_URL_REDACTED_PLACEHOLDER — never the input.
+      UNPARSEABLE_URL_CREDENTIAL_PATTERN = %r{\A\s*([a-z][a-z0-9+.-]*://).*@}im.freeze
+      UNPARSEABLE_URL_REDACTED_PLACEHOLDER = "[redacted: unparseable URL with credentials]"
 
       # Removes a URL's userinfo (user + password), leaving host/port/path
       # untouched — a URL's host portion isn't secret, only whatever
@@ -349,7 +356,8 @@ module Admin
         uri.password = nil
         uri.to_s
       rescue URI::InvalidURIError
-        url.to_s.sub(UNPARSEABLE_URL_CREDENTIAL_PATTERN, '\1')
+        redacted = url.to_s.sub(UNPARSEABLE_URL_CREDENTIAL_PATTERN, '\1')
+        redacted.include?("@") ? UNPARSEABLE_URL_REDACTED_PLACEHOLDER : redacted
       end
 
       # The non-secret redis fields (host/port/etc, from the

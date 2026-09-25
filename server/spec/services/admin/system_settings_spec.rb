@@ -342,6 +342,28 @@ RSpec.describe Admin::SystemSettings do
       end
     end
 
+    # fc-38 final review: the regex fallback itself still failed OPEN on two
+    # shapes — a newline inside the userinfo ("." doesn't cross "\n" without
+    # /m) and anything before the scheme (the old "\A" anchor) — both came
+    # back byte-for-byte unchanged, credential included.
+    it "redacts a credential whose userinfo contains a newline" do
+      result = described_class.strip_url_credentials("redis://:p\nw@host:6379/0")
+      expect(result).not_to include("p\nw")
+      expect(result).to eq("redis://host:6379/0")
+    end
+
+    it "redacts a credential when characters precede the scheme" do
+      result = described_class.strip_url_credentials(" redis://:p w@host:6379/0")
+      expect(result).not_to include("p w")
+      expect(result).to eq("redis://host:6379/0")
+    end
+
+    it "returns a fixed placeholder, never the input, when an '@' survives the fallback" do
+      result = described_class.strip_url_credentials("user:dummy secret@host:6379/0")
+      expect(result).not_to include("dummy secret")
+      expect(result).to eq("[redacted: unparseable URL with credentials]")
+    end
+
     it "never raises on strip_url_credentials for an unparseable string — returns it unchanged when there's no credential to redact" do
       expect(described_class.strip_url_credentials("not a url at all")).to eq("not a url at all")
     end
