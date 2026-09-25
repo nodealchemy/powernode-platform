@@ -99,6 +99,24 @@ RSpec.describe Admin::SystemSettings do
   end
 
   describe ".redis_config / .update_redis_config! (fc-38 decision #3 — password is encrypted, never in the blob)" do
+    # fc-38 review item #4: unlike email's decrypt_secret (which falls back
+    # to treating undecryptable ciphertext as the LITERAL credential, for
+    # pre-encryption legacy rows only email ever had), redis/vault have no
+    # such legacy plaintext-in-an-_encrypted-key case — a decrypt failure
+    # here can only mean real corruption or a key-rotation gap, and the
+    # ciphertext itself must never be handed anywhere as if it were the
+    # actual password.
+    it "returns nil (never the ciphertext) when the stored value fails to decrypt, and logs only the field name and error class" do
+      AdminSetting.create!(key: "redis_config_password_encrypted", value: "not-valid-ciphertext")
+      expect(Rails.logger).to receive(:error) do |message|
+        expect(message).to include("redis_config_password")
+        expect(message).to include("DecryptionError")
+        expect(message).not_to include("not-valid-ciphertext")
+      end
+
+      expect(described_class.redis_config["password"]).to be_nil
+    end
+
     it "falls back to the non-secret blob's own password (e.g. the ENV default) when no encrypted row exists yet" do
       config = described_class.redis_config
 

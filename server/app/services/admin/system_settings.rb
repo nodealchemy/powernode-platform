@@ -189,10 +189,14 @@ module Admin
         end
       end
 
-      # Backward compatibility, preserved from the pre-move controller: a
-      # value written before encryption was added was stored as plaintext and
-      # cannot be decrypted. Treat it as its literal value so an existing
-      # config keeps sending mail until the next save re-encrypts it.
+      # EMAIL ONLY (fc-38 review item #4). Backward compatibility, preserved
+      # from the pre-move controller: a value written before encryption was
+      # added was stored as plaintext and cannot be decrypted. Treat it as
+      # its literal value so an existing config keeps sending mail until the
+      # next save re-encrypts it. redis_config/vault_config never had this
+      # legacy case (they moved straight from unencrypted-in-blob to an
+      # encrypted key, never plaintext-in-an-_encrypted-key), so they use
+      # .decrypt_infrastructure_secret instead, which has no such fallback.
       def decrypt_secret(encrypted_value)
         return "" if encrypted_value.blank?
 
@@ -205,6 +209,24 @@ module Admin
         return "" if value.blank?
 
         ::Security::CredentialEncryptionService.encrypt_value(value)
+      end
+
+      # For redis_config/vault_config ONLY (fc-38 review item #4) — unlike
+      # email, neither ever had a pre-encryption legacy row storing plaintext
+      # under an "_encrypted" key, so there is no backward-compatible
+      # "treat undecryptable ciphertext as the literal value" case to
+      # preserve. A decrypt failure here can only mean real corruption or a
+      # key-rotation gap, and the ciphertext must never be handed anywhere as
+      # if it were the actual credential — returns nil, and logs the FIELD
+      # NAME and error CLASS only, never a value (matching every migration's
+      # own logging rule in this area).
+      def decrypt_infrastructure_secret(encrypted_value, field:)
+        return nil if encrypted_value.blank?
+
+        ::Security::CredentialEncryptionService.decrypt_value(encrypted_value).to_s
+      rescue ::Security::CredentialEncryptionService::DecryptionError => e
+        Rails.logger.error("[Admin::SystemSettings] Failed to decrypt #{field}: #{e.class}")
+        nil
       end
 
       # -- Proxy ------------------------------------------------------------
@@ -265,7 +287,7 @@ module Admin
       def redis_config
         config = AdminSetting.redis_config
         encrypted = AdminSetting.find_by(key: "redis_config_password_encrypted")
-        config.merge("password" => encrypted ? decrypt_secret(encrypted.value) : config["password"])
+        config.merge("password" => encrypted ? decrypt_infrastructure_secret(encrypted.value, field: "redis_config_password") : config["password"])
       end
 
       # `new_config`'s "password" key (if PRESENT — even blank, meaning
@@ -306,8 +328,8 @@ module Admin
 
         {
           "vault_addr" => blob["vault_addr"],
-          "vault_role_id" => role_encrypted ? decrypt_secret(role_encrypted.value) : blob["vault_role_id"].to_s,
-          "vault_secret_id" => secret_encrypted ? decrypt_secret(secret_encrypted.value) : blob["vault_secret_id"].to_s
+          "vault_role_id" => role_encrypted ? decrypt_infrastructure_secret(role_encrypted.value, field: "vault_role_id") : blob["vault_role_id"].to_s,
+          "vault_secret_id" => secret_encrypted ? decrypt_infrastructure_secret(secret_encrypted.value, field: "vault_secret_id") : blob["vault_secret_id"].to_s
         }
       end
 
