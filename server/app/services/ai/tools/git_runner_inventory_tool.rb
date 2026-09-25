@@ -29,7 +29,10 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "list_git_runners", mutating: false
+      declare_action "list_git_runners", mutating: false, limit: 200,
+                                         returns: "id, name, status, busy, scope, labels, last_seen_at and total_jobs_run per runner, newest first, " \
+                                                  "plus account-wide total, online, offline and busy counts",
+                                         see_also: { "prune_stale_git_runners" => "deleting stale fleet-builder runner rows" }
       declare_action "prune_stale_git_runners", mutating: true, destructive: true
 
       def self.definition
@@ -59,7 +62,8 @@ module Ai
         {
           "list_git_runners" => {
             description: "List the account's Devops::GitRunner rows (inventory: name, status, " \
-                         "scope, last_seen_at, job counts) with status totals. Read-only.",
+                         "scope, last_seen_at, job counts) with status totals. Read-only. " \
+                         "The limit defaults to 50.",
             parameters: base[:parameters].slice(:status, :search, :limit)
           },
           "prune_stale_git_runners" => {

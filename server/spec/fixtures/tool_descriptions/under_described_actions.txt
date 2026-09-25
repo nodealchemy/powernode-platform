@@ -53,7 +53,6 @@ kubernetes_get_cluster
 kubernetes_list_clusters
 kubernetes_list_nodes
 list_generated_images
-list_git_runners
 list_governance_reports
 list_graph_nodes
 list_knowledge_bases
