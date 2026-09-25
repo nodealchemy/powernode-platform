@@ -69,6 +69,9 @@ module Api
         end
 
         # POST /api/v1/ai/container_sandboxes/:id/pause
+        # Pausing does not extend the sandbox's timeout budget — it is still
+        # reaped once started_at + timeout_seconds elapses (see
+        # SandboxManagerService#pause_sandbox and MaintenanceController).
         def pause
           service = ::Ai::Runtime::SandboxManagerService.new(account: current_account)
           result = service.pause_sandbox(instance: @sandbox)

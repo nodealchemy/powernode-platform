@@ -84,6 +84,12 @@ module Ai
 
       # Pause a running sandbox
       #
+      # Pausing does NOT grant extra time: the maintenance reaper
+      # (MaintenanceController#reconcile_instances) reaps a paused sandbox
+      # once the same `started_at + timeout_seconds` budget a running
+      # sandbox is held to has elapsed, ending it as "timeout". Time spent
+      # paused still counts against that budget.
+      #
       # @param instance [Devops::ContainerInstance] the sandbox to pause
       # @return [Hash] result with success status
       def pause_sandbox(instance:)

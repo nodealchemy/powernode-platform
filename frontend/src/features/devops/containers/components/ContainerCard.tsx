@@ -198,6 +198,7 @@ export const ContainerCard: React.FC<ContainerCardProps> = ({
               <Button
                 variant="outline"
                 size="sm"
+                title="Pausing does not extend this sandbox's timeout — it will still be reaped once its original timeout elapses"
                 onClick={(e) => {
                   e.stopPropagation();
                   onPause(container);
