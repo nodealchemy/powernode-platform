@@ -250,4 +250,23 @@ describe('DashboardOverview — links into AI → Control', () => {
     fireEvent.click(screen.getByText('Trusted / autonomous', { selector: 'button span' }).closest('button') as HTMLElement);
     expect(mockNavigate).toHaveBeenCalledWith('/app/ai/control/trust-lineage/trust');
   });
+
+  // Both show agent-budget utilization (regime, spent of total, exceeded), so
+  // they open the one Budgets home, not the Cost hub's spend analytics.
+  it('sends the Budget chip and the Budget used tile to Control → Budgets', () => {
+    renderAs(['ai.agents.read']);
+
+    fireEvent.click(screen.getByText('Budget', { selector: 'button span' }).closest('button') as HTMLElement);
+    expect(mockNavigate).toHaveBeenLastCalledWith('/app/ai/control/budgets');
+
+    fireEvent.click(tile('Budget used'));
+    expect(mockNavigate).toHaveBeenLastCalledWith('/app/ai/control/budgets');
+  });
+
+  it('shows no Budget chip or tile without ai.agents.read', () => {
+    renderAs(['ai.governance.read']);
+
+    expect(screen.queryByText('Budget', { selector: 'button span' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Budget used')).not.toBeInTheDocument();
+  });
 });

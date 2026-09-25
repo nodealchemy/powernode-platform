@@ -58,15 +58,15 @@ import { CONTROL_APPROVALS_PATH, CONTROL_BASE_PATH, CONTROL_PERMISSIONS } from '
 // --- Route contract -------------------------------------------------------
 // Every path below is copied from the routes block in `DashboardPage.tsx`.
 // AI → Control's leaves and tabs are URL-addressable, so a tile links straight
-// into the one it names (the approval queue, trust scores).
+// into the one it names (the approval queue, budgets, trust scores).
 const PATHS = {
   agents: '/app/ai/agents',
   control: CONTROL_BASE_PATH,
   controlApprovals: CONTROL_APPROVALS_PATH,
   controlTrust: `${CONTROL_BASE_PATH}/trust-lineage/trust`,
+  controlBudgets: `${CONTROL_BASE_PATH}/budgets`,
   missions: '/app/ai/missions',
   modelRouter: '/app/ai/infrastructure/model-router',
-  cost: '/app/ai/cost',
   observability: '/app/ai/observability',
   sourceControl: '/app/devops/source-control',
   devops: '/app/devops',
@@ -208,7 +208,7 @@ const GovernanceChips: React.FC<{ onNavigate: (path: string) => void }> = ({ onN
         label="Budget"
         value={regime ? `${regime.level.toLowerCase()} · ${regime.utilization_pct.toFixed(0)}%` : PLACEHOLDER}
         tone={regime ? REGIME_TONE[regime.level].chip : 'default'}
-        onClick={() => onNavigate(PATHS.cost)}
+        onClick={() => onNavigate(PATHS.controlBudgets)}
       />
       <StatusChip
         icon={ShieldCheck}
@@ -260,7 +260,7 @@ const GovernanceTiles: React.FC<{ onNavigate: (path: string) => void }> = ({ onN
               ? 'Budget data unavailable'
               : 'No agent budgets configured'
         }
-        onClick={() => onNavigate(PATHS.cost)}
+        onClick={() => onNavigate(PATHS.controlBudgets)}
       >
         {budgets && regime && (
           <MeterBar
