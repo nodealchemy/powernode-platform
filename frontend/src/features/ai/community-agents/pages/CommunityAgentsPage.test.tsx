@@ -1,67 +1,18 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
-import { BreadcrumbProvider } from '@/shared/hooks/BreadcrumbContext';
-import { CommunityAgentsPage } from './CommunityAgentsPage';
-
-// Mock the API service
-jest.mock('@/shared/services/ai', () => ({
-  communityAgentsApi: {
-    discoverAgents: jest.fn(),
-    getFederationPartners: jest.fn(),
-  },
-}));
-
-// Mock the permissions hook
-jest.mock('@/shared/hooks/usePermissions', () => ({
-  usePermissions: () => ({
-    hasPermission: () => true,
-  }),
-}));
-
-// Mock the notifications hook
-jest.mock('@/shared/hooks/useNotifications', () => ({
-  useNotifications: () => ({
-    addNotification: jest.fn(),
-  }),
-}));
-
-// Mock UI components
-jest.mock('@/shared/components/ui/Tabs', () => ({
-  Tabs: ({ children, value, onValueChange: _onValueChange }: { children?: React.ReactNode; value?: string; onValueChange?: (value: string) => void }) => (
-    <div data-testid="tabs" data-value={value}>
-      {children}
-    </div>
-  ),
-  TabsList: ({ children }: { children?: React.ReactNode }) => <div data-testid="tabs-list">{children}</div>,
-  TabsTrigger: ({ children, value, onClick }: { children?: React.ReactNode; value: string; onClick?: (value: string) => void }) => (
-    <button data-testid={`tab-trigger-${value}`} onClick={() => onClick?.(value)}>
-      {children}
-    </button>
-  ),
-  TabsContent: ({ children, value, className }: { children?: React.ReactNode; value: string; className?: string }) => (
-    <div data-testid={`tab-content-${value}`} className={className}>
-      {children}
-    </div>
-  ),
-}));
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { CommunityAgentsContent } from './CommunityAgentsPage';
 
 // Mock child components
 jest.mock('../components/AgentDiscovery', () => ({
   AgentDiscovery: ({ onInvokeAgent, onSelectAgent }: { onInvokeAgent?: (agent: { id: string; name: string }) => void; onSelectAgent?: (agent: { id: string; name: string }) => void }) => (
     <div data-testid="agent-discovery">
       Agent Discovery Component
-      <button
-        data-testid="invoke-agent-btn"
-        onClick={() => onInvokeAgent?.({ id: 'agent-1', name: 'Test Agent' })}
-      >
+      <button data-testid="invoke-agent-btn" onClick={() => onInvokeAgent?.({ id: 'agent-1', name: 'Test Agent' })}>
         Invoke Agent
       </button>
-      <button
-        data-testid="select-agent-btn"
-        onClick={() => onSelectAgent?.({ id: 'agent-1', name: 'Test Agent' })}
-      >
+      <button data-testid="select-agent-btn" onClick={() => onSelectAgent?.({ id: 'agent-1', name: 'Test Agent' })}>
         View Details
       </button>
     </div>
@@ -72,10 +23,7 @@ jest.mock('../components/FederationPartnerList', () => ({
   FederationPartnerList: ({ onSelectPartner, onCreatePartner }: { onSelectPartner?: (partner: { id: string; name: string }) => void; onCreatePartner?: () => void }) => (
     <div data-testid="federation-partner-list">
       Federation Partner List
-      <button
-        data-testid="select-partner-btn"
-        onClick={() => onSelectPartner?.({ id: 'partner-1', name: 'Test Partner' })}
-      >
+      <button data-testid="select-partner-btn" onClick={() => onSelectPartner?.({ id: 'partner-1', name: 'Test Partner' })}>
         Select Partner
       </button>
       <button data-testid="create-partner-btn" onClick={onCreatePartner}>
@@ -85,132 +33,86 @@ jest.mock('../components/FederationPartnerList', () => ({
   ),
 }));
 
+const LocationProbe = () => {
+  const location = useLocation();
+  return <div data-testid="location-probe">{location.pathname}</div>;
+};
+
 const createTestStore = () =>
   configureStore({
     reducer: {
       auth: (state = { user: null, isAuthenticated: false }) => state,
+      ui: (state = { notifications: [] }) => state,
     },
   });
 
-describe('CommunityAgentsPage', () => {
-  let store: ReturnType<typeof createTestStore>;
+const renderAt = (path: string, props = {}) =>
+  render(
+    <Provider store={createTestStore()}>
+      <MemoryRouter initialEntries={[path]}>
+        <CommunityAgentsContent {...props} />
+        <LocationProbe />
+      </MemoryRouter>
+    </Provider>
+  );
 
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    store = createTestStore();
+describe('CommunityAgentsContent path tabs', () => {
+  it('lands on Discover by default', () => {
+    renderAt('/app/ai/agents/community');
+    expect(screen.getByTestId('agent-discovery')).toBeInTheDocument();
+    expect(screen.queryByTestId('federation-partner-list')).not.toBeInTheDocument();
   });
 
-  const renderComponent = (props = {}) => {
-    return render(
-      <Provider store={store}>
-        <BrowserRouter>
-          <BreadcrumbProvider>
-            <CommunityAgentsPage {...props} />
-          </BreadcrumbProvider>
-        </BrowserRouter>
-      </Provider>
+  it('deep-links directly to Federation', () => {
+    renderAt('/app/ai/agents/community/federation');
+    expect(screen.getByTestId('federation-partner-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('agent-discovery')).not.toBeInTheDocument();
+  });
+
+  it('updates the URL when a tab is clicked', async () => {
+    renderAt('/app/ai/agents/community');
+    fireEvent.click(screen.getByText('Federation'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/agents/community/federation')
     );
-  };
-
-  describe('Initial Rendering', () => {
-    it('renders the tabs component', () => {
-      renderComponent();
-
-      expect(screen.getByTestId('tabs')).toBeInTheDocument();
-      expect(screen.getByTestId('tabs-list')).toBeInTheDocument();
-    });
-
-    it('renders discover tab trigger', () => {
-      renderComponent();
-
-      expect(screen.getByTestId('tab-trigger-discover')).toBeInTheDocument();
-    });
-
-    it('renders federation tab trigger', () => {
-      renderComponent();
-
-      expect(screen.getByTestId('tab-trigger-federation')).toBeInTheDocument();
-    });
-
-    it('renders agent discovery component', () => {
-      renderComponent();
-
-      expect(screen.getByTestId('agent-discovery')).toBeInTheDocument();
-    });
-
-    it('renders federation partner list component', () => {
-      renderComponent();
-
-      expect(screen.getByTestId('federation-partner-list')).toBeInTheDocument();
-    });
+    expect(screen.getByTestId('federation-partner-list')).toBeInTheDocument();
   });
 
-  describe('Callbacks', () => {
+  describe('callbacks', () => {
     it('calls onInvokeAgent when agent is invoked', () => {
       const onInvokeAgent = jest.fn();
-      renderComponent({ onInvokeAgent });
+      renderAt('/app/ai/agents/community', { onInvokeAgent });
 
-      fireEvent.click(screen.getAllByTestId('invoke-agent-btn')[0]);
+      fireEvent.click(screen.getByTestId('invoke-agent-btn'));
 
-      expect(onInvokeAgent).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'agent-1',
-          name: 'Test Agent',
-        })
-      );
-    });
-
-    it('calls onViewPartnerDetails when partner is selected', () => {
-      const onViewPartnerDetails = jest.fn();
-      renderComponent({ onViewPartnerDetails });
-
-      fireEvent.click(screen.getAllByTestId('select-partner-btn')[0]);
-
-      expect(onViewPartnerDetails).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'partner-1',
-          name: 'Test Partner',
-        })
-      );
-    });
-
-    it('opens create partner modal when create partner is clicked', () => {
-      renderComponent({});
-
-      fireEvent.click(screen.getAllByTestId('create-partner-btn')[0]);
-
-      expect(screen.getByText('Add Federation Partner')).toBeInTheDocument();
+      expect(onInvokeAgent).toHaveBeenCalledWith(expect.objectContaining({ id: 'agent-1', name: 'Test Agent' }));
     });
 
     it('calls onViewAgentDetails when agent details is requested', () => {
       const onViewAgentDetails = jest.fn();
-      renderComponent({ onViewAgentDetails });
+      renderAt('/app/ai/agents/community', { onViewAgentDetails });
 
-      fireEvent.click(screen.getAllByTestId('select-agent-btn')[0]);
+      fireEvent.click(screen.getByTestId('select-agent-btn'));
 
-      expect(onViewAgentDetails).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'agent-1',
-          name: 'Test Agent',
-        })
-      );
-    });
-  });
-
-  describe('Tab Content', () => {
-    it('shows discover content in discover tab', () => {
-      renderComponent();
-
-      expect(screen.getAllByTestId('tab-content-discover')[0]).toBeInTheDocument();
-      expect(screen.getAllByTestId('agent-discovery')[0]).toBeInTheDocument();
+      expect(onViewAgentDetails).toHaveBeenCalledWith(expect.objectContaining({ id: 'agent-1', name: 'Test Agent' }));
     });
 
-    it('shows federation content in federation tab', () => {
-      renderComponent();
+    it('calls onViewPartnerDetails when partner is selected', () => {
+      const onViewPartnerDetails = jest.fn();
+      renderAt('/app/ai/agents/community/federation', { onViewPartnerDetails });
 
-      expect(screen.getAllByTestId('tab-content-federation')[0]).toBeInTheDocument();
-      expect(screen.getAllByTestId('federation-partner-list')[0]).toBeInTheDocument();
+      fireEvent.click(screen.getByTestId('select-partner-btn'));
+
+      expect(onViewPartnerDetails).toHaveBeenCalledWith(expect.objectContaining({ id: 'partner-1', name: 'Test Partner' }));
+    });
+
+    it('opens the create partner modal when create partner is clicked', () => {
+      renderAt('/app/ai/agents/community/federation');
+
+      fireEvent.click(screen.getByTestId('create-partner-btn'));
+
+      expect(screen.getByText('Add Federation Partner')).toBeInTheDocument();
     });
   });
 });

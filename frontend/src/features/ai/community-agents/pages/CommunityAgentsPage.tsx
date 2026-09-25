@@ -1,11 +1,10 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Globe,
-  RefreshCw,
   Users,
 } from 'lucide-react';
-import { PageContainer } from '@/shared/components/layout/PageContainer';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/components/ui/Tabs';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { AgentDiscovery } from '../components/AgentDiscovery';
 import { FederationPartnerList } from '../components/FederationPartnerList';
 import { CreateFederationPartnerModal } from '../components/CreateFederationPartnerModal';
@@ -17,121 +16,58 @@ interface CommunityAgentsPageProps {
   onViewPartnerDetails?: (partner: FederationPartnerSummary) => void;
 }
 
-export const CommunityAgentsPage: React.FC<CommunityAgentsPageProps> = ({
-  onInvokeAgent,
-  onViewAgentDetails,
-  onViewPartnerDetails,
-}) => {
-  const [activeTab, setActiveTab] = useState('discover');
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [showCreatePartnerModal, setShowCreatePartnerModal] = useState(false);
+const COMMUNITY_AGENTS_BASE_PATH = '/app/ai/agents/community';
 
-  const handleRefresh = useCallback(() => {
-    setRefreshKey((k) => k + 1);
-  }, []);
+const communityAgentsTabs = [
+  { id: 'discover', label: 'Discover', icon: <Globe className="w-4 h-4" />, path: '/' },
+  { id: 'federation', label: 'Federation', icon: <Users className="w-4 h-4" />, path: '/federation' },
+];
 
-  const breadcrumbs = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
-    { label: 'Community Agents' },
-  ];
+const getActiveCommunityAgentsTab = (pathname: string): string =>
+  pathname.includes('/community/federation') ? 'federation' : 'discover';
 
-  const actions = [
-    {
-      id: 'refresh',
-      label: 'Refresh',
-      onClick: handleRefresh,
-      variant: 'secondary' as const,
-      icon: RefreshCw,
-    },
-  ];
-
-  return (
-    <PageContainer
-      title="Community Agents"
-      description="Discover and invoke agents from the community"
-      breadcrumbs={breadcrumbs}
-      actions={actions}
-    >
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="discover" className="flex items-center gap-2">
-            <Globe className="w-4 h-4" />
-            Discover
-          </TabsTrigger>
-          <TabsTrigger value="federation" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Federation
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="discover" className="mt-4">
-          <AgentDiscovery
-            key={`discover-${refreshKey}`}
-            onSelectAgent={onViewAgentDetails}
-            onInvokeAgent={onInvokeAgent}
-          />
-        </TabsContent>
-
-        <TabsContent value="federation" className="mt-4">
-          <FederationPartnerList
-            key={`federation-${refreshKey}`}
-            onSelectPartner={onViewPartnerDetails}
-            onCreatePartner={() => setShowCreatePartnerModal(true)}
-          />
-        </TabsContent>
-      </Tabs>
-
-      <CreateFederationPartnerModal
-        isOpen={showCreatePartnerModal}
-        onClose={() => setShowCreatePartnerModal(false)}
-        onPartnerCreated={() => setRefreshKey((k) => k + 1)}
-      />
-    </PageContainer>
-  );
-};
-
-// Extracted content component (everything inside PageContainer) for embedding in tabbed pages
+// Embedded as the "Community" tab of AIAgentsPage — not a standalone routed
+// page (there is no top-level route for it; AIAgentsPage owns the breadcrumb).
 export const CommunityAgentsContent: React.FC<CommunityAgentsPageProps> = ({
   onInvokeAgent,
   onViewAgentDetails,
   onViewPartnerDetails,
 }) => {
-  const [activeTab, setActiveTab] = useState('discover');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState(getActiveCommunityAgentsTab(location.pathname));
   const [refreshKey, setRefreshKey] = useState(0);
   const [showCreatePartnerModal, setShowCreatePartnerModal] = useState(false);
 
+  useEffect(() => {
+    const newTab = getActiveCommunityAgentsTab(location.pathname);
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
+
   return (
     <>
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="discover" className="flex items-center gap-2">
-            <Globe className="w-4 h-4" />
-            Discover
-          </TabsTrigger>
-          <TabsTrigger value="federation" className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            Federation
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="discover" className="mt-4">
+      <TabContainer
+        tabs={communityAgentsTabs}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        basePath={COMMUNITY_AGENTS_BASE_PATH}
+        variant="underline"
+      >
+        <TabPanel tabId="discover" activeTab={activeTab} className="mt-4">
           <AgentDiscovery
             key={`discover-${refreshKey}`}
             onSelectAgent={onViewAgentDetails}
             onInvokeAgent={onInvokeAgent}
           />
-        </TabsContent>
+        </TabPanel>
 
-        <TabsContent value="federation" className="mt-4">
+        <TabPanel tabId="federation" activeTab={activeTab} className="mt-4">
           <FederationPartnerList
             key={`federation-${refreshKey}`}
             onSelectPartner={onViewPartnerDetails}
             onCreatePartner={() => setShowCreatePartnerModal(true)}
           />
-        </TabsContent>
-      </Tabs>
+        </TabPanel>
+      </TabContainer>
 
       <CreateFederationPartnerModal
         isOpen={showCreatePartnerModal}
@@ -141,5 +77,3 @@ export const CommunityAgentsContent: React.FC<CommunityAgentsPageProps> = ({
     </>
   );
 };
-
-export default CommunityAgentsPage;
