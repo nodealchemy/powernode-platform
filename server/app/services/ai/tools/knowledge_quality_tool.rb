@@ -22,7 +22,8 @@ module Ai
                                        refuses: "the entry is not found, or rating is missing or outside 1-5"
       declare_action "resolve_contradiction", mutating: true,
                                               returns: "winner_id, loser_id, winner_importance, loser_status and the reason",
-                                              refuses: "either learning is not found, or reason is blank",
+                                              refuses: "either learning is not found, reason is blank, or winner_id " \
+                                                       "and loser_id are the same learning",
                                               see_also: { "unsupersede_learning" => "reversing a resolution" }
       declare_action "unsupersede_learning", mutating: true,
                                              returns: "learning_id and status (active)",
@@ -219,6 +220,7 @@ module Ai
         return loser unless loser.is_a?(Ai::CompoundLearning)
 
         return { success: false, error: "Reason is required to resolve a contradiction" } if params[:reason].blank?
+        return { success: false, error: "winner_id and loser_id are the same learning" } if winner.id == loser.id
 
         loser.supersede!(winner)
         loser.resolve_contradiction!(note: params[:reason])

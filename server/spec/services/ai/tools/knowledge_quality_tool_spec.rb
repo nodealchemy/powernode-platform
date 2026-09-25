@@ -74,6 +74,25 @@ RSpec.describe Ai::Tools::KnowledgeQualityTool do
     end
   end
 
+  # resolve_contradiction with winner_id == loser_id marked the learning
+  # superseded by ITSELF and boosted its importance: a self-referencing
+  # superseded_by_id and a learning dropped from every surfacing path.
+  describe "resolve_contradiction refuses a learning superseding itself" do
+    it "refuses when winner_id and loser_id are the same learning and changes nothing" do
+      own = create(:ai_compound_learning, account: account_a, status: "active", importance_score: 0.5)
+
+      result = tool.execute(params: { action: "resolve_contradiction", winner_id: own.id,
+                                      loser_id: own.id, reason: "duplicate" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/same learning/i)
+      own.reload
+      expect(own.status).to eq("active")
+      expect(own.superseded_by_id).to be_nil
+      expect(own.importance_score.to_f).to eq(0.5)
+    end
+  end
+
   # IMP-095a5fe91b4a. verify_learning_batch's per-id rescue is a `rescue
   # StandardError => e` attached to the BLOCK passed to Array#map, not to any
   # method definition — invisible to a scanner that only walks rescue nodes
