@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { isAxiosError } from 'axios';
 import { Shield, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '@/shared/hooks/useAuth';
-import { apiClient } from '@/shared/services/apiClient';
+import { oauthApi, type OAuthAuthorizeParams } from '@/shared/services/account/oauthApi';
 
 interface ClientInfo {
   name: string;
@@ -48,8 +48,7 @@ export const OAuthConsentPage: React.FC = () => {
     }
 
     try {
-      const response = await apiClient.get(`/oauth/applications/lookup?uid=${clientId}`);
-      const appData = response.data?.data;
+      const appData = await oauthApi.lookupApplication(clientId);
       setClientInfo({
         name: appData?.name || 'Unknown Application',
         scopes: scope.split(' ').filter(Boolean),
@@ -70,7 +69,7 @@ export const OAuthConsentPage: React.FC = () => {
     setError(null);
 
     try {
-      const params: Record<string, string> = {};
+      const params: OAuthAuthorizeParams = {};
       if (clientId) params.client_id = clientId;
       if (redirectUri) params.redirect_uri = redirectUri;
       if (responseType) params.response_type = responseType;
@@ -79,10 +78,8 @@ export const OAuthConsentPage: React.FC = () => {
       if (codeChallenge) params.code_challenge = codeChallenge;
       if (codeChallengeMethod) params.code_challenge_method = codeChallengeMethod;
 
-      const response = await apiClient.post('/oauth/authorize', params);
-
       // Doorkeeper returns redirect_uri with auth code
-      const redirectTo = response.data?.redirect_uri || response.headers?.location;
+      const redirectTo = await oauthApi.authorize(params);
       if (redirectTo) {
         window.location.href = redirectTo;
       }

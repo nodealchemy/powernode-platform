@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Bot, ChevronDown, Search, Users, Terminal, Sparkles } from 'lucide-react';
-import { apiClient } from '@/shared/services/apiClient';
+import { agentTeamsApi } from '@/features/ai/agent-teams/services/agentTeamsApi';
 import { agentsApi } from '@/shared/services/ai';
 
 interface Agent {
@@ -58,8 +58,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ selectedAgentId, o
       setLoadingTeams(true);
       const fetchTeams = async () => {
         try {
-          const response = await apiClient.get('/ai/agent_teams', { params: { status: 'active' } });
-          const items = response.data?.data?.items || response.data?.data || [];
+          const items = await agentTeamsApi.getTeams({ status: 'active' });
           setTeams(Array.isArray(items) ? items : []);
         } catch {
           // Silently handle error

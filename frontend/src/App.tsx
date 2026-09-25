@@ -51,14 +51,8 @@ const ProvisioningPage = React.lazy(() => import('@/pages/ProvisioningPage'));
 const SetupWizard = React.lazy(() =>
   import('@/features/setup/SetupWizard').then((m) => ({ default: m.SetupWizard }))
 );
-import { apiClient } from '@/shared/services/apiClient';
+import { onboardingApi } from '@/features/onboarding/services/onboardingApi';
 import { logger } from '@/shared/utils/logger';
-
-interface OnboardingStatusResponse {
-  data?: { completed?: boolean; has_credentials?: boolean };
-  completed?: boolean;
-  has_credentials?: boolean;
-}
 
 /**
  * OnboardingGate — wraps protected routes that depend on a configured provider.
@@ -77,10 +71,7 @@ const OnboardingGate: React.FC<{ children: React.ReactElement }> = ({ children }
     let cancelled = false;
     const check = async () => {
       try {
-        const response = await apiClient.get<OnboardingStatusResponse>('/onboarding/status');
-        const envelope = response.data ?? {};
-        const inner = envelope.data ?? envelope;
-        const complete = Boolean(inner.completed) || Boolean(inner.has_credentials);
+        const complete = await onboardingApi.isComplete();
         if (!cancelled) setStatus(complete ? 'ok' : 'redirect');
       } catch (err) {
         // Endpoint absent (M2 not yet shipped) or transient failure — fail open

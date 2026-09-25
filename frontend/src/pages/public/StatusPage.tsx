@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PublicPageContainer } from '@/shared/components/layout/PublicPageContainer';
-import { api } from '@/shared/services/api';
+import { publicHealthApi } from '@/features/platform/status/api/publicHealthApi';
 
 export const StatusPage: React.FC = () => {
   const [status, setStatus] = useState<'loading' | 'operational' | 'degraded' | 'error'>('loading');
@@ -8,7 +8,7 @@ export const StatusPage: React.FC = () => {
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        await api.get('/health');
+        await publicHealthApi.check();
         setStatus('operational');
       } catch {
         setStatus('error');

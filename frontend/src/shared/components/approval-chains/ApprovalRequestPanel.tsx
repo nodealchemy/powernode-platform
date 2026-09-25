@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { apiClient } from '@/shared/services/apiClient';
+import { fetchApprovalRequest, decideApprovalRequest } from '@/features/ai/approvals/api/approvalsApi';
 import { Button } from '@/shared/components/ui/Button';
 import { CheckIcon, XMarkIcon, ClockIcon } from '@heroicons/react/24/outline';
 import type { ApprovalRequest } from '@/shared/types/approval';
@@ -9,8 +9,6 @@ interface ApprovalRequestPanelProps {
   approvalRequestId: string;
   onResolved?: () => void;
 }
-
-const ENDPOINT = (id: string) => `/ai/autonomy/approvals/${id}`;
 
 /**
  * Step-aware approve/reject UI for a single ApprovalRequest. Renders inside
@@ -31,9 +29,8 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
 
   const fetchState = useCallback(() => {
     setLoading(true);
-    apiClient
-      .get(ENDPOINT(approvalRequestId))
-      .then((res) => setRequest(res.data?.data || null))
+    fetchApprovalRequest(approvalRequestId)
+      .then(setRequest)
       .catch((err) => {
         logger.error('Failed to load approval request', err);
         setErrorMessage('Failed to load approval request');
@@ -49,12 +46,10 @@ export function ApprovalRequestPanel({ approvalRequestId, onResolved }: Approval
     setActing(true);
     setErrorMessage(null);
     try {
-      const res = await apiClient.post(`${ENDPOINT(approvalRequestId)}/${decision}`, {
-        comments: comments.trim() || undefined,
-      });
-      setRequest(res.data?.data || null);
+      const updated = await decideApprovalRequest(approvalRequestId, decision, comments.trim() || undefined);
+      setRequest(updated);
       setComments('');
-      const newStatus = res.data?.data?.status;
+      const newStatus = updated?.status;
       if (newStatus === 'approved' || newStatus === 'rejected') {
         onResolved?.();
       }

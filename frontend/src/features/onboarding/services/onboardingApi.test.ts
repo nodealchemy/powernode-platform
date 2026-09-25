@@ -91,3 +91,26 @@ describe('onboardingApi.createGitCredential', () => {
     });
   });
 });
+
+// fc-39: App.tsx's OnboardingGate read /onboarding/status inline; it now asks
+// onboardingApi.isComplete. Fixtures are the real { success, data } envelope.
+describe('onboardingApi.isComplete', () => {
+  it('is true when the account completed onboarding', async () => {
+    mockGet.mockResolvedValueOnce({ data: { success: true, data: { completed: true, has_credentials: false } } });
+
+    await expect(onboardingApi.isComplete()).resolves.toBe(true);
+    expect(mockGet).toHaveBeenCalledWith('/onboarding/status');
+  });
+
+  it('is true when credentials exist even without the completion stamp', async () => {
+    mockGet.mockResolvedValueOnce({ data: { success: true, data: { completed: false, has_credentials: true } } });
+
+    await expect(onboardingApi.isComplete()).resolves.toBe(true);
+  });
+
+  it('is false when neither is set', async () => {
+    mockGet.mockResolvedValueOnce({ data: { success: true, data: { completed: false, has_credentials: false } } });
+
+    await expect(onboardingApi.isComplete()).resolves.toBe(false);
+  });
+});

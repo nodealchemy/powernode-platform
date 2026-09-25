@@ -3,6 +3,7 @@ import { apiClient } from '@/shared/services/apiClient';
 import { takeRevealableResult } from '@/shared/utils/oneShotReveal';
 import type { ApprovalRequestDetail } from '../types/approvalChainTypes';
 import type { ApprovalRequest, ApprovalDecision } from '../types/approval';
+import type { ApprovalRequest as StepApprovalRequest } from '@/shared/types/approval';
 
 // Query key stays rooted at ['autonomy'] rather than a feature-local root: it
 // predates this feature split (autonomyApi's AUTONOMY_KEYS.approvals), and
@@ -22,6 +23,25 @@ const APPROVAL_KEYS = {
 export const fetchApprovalRequestDetail = async (id: string): Promise<ApprovalRequestDetail> => {
   const response = await apiClient.get(`/ai/autonomy/approvals/${id}`);
   return response.data?.data;
+};
+
+/**
+ * Plain reads and decisions for one request, for surfaces outside the queue
+ * (the notification detail panel). The shared ApprovalRequest shape carries
+ * the deferred operation's preview the panel renders.
+ */
+export const fetchApprovalRequest = async (id: string): Promise<StepApprovalRequest | null> => {
+  const response = await apiClient.get(`/ai/autonomy/approvals/${id}`);
+  return response.data?.data || null;
+};
+
+export const decideApprovalRequest = async (
+  id: string,
+  decision: 'approve' | 'reject',
+  comments?: string
+): Promise<StepApprovalRequest | null> => {
+  const response = await apiClient.post(`/ai/autonomy/approvals/${id}/${decision}`, { comments });
+  return response.data?.data || null;
 };
 
 export function useApprovalQueue() {

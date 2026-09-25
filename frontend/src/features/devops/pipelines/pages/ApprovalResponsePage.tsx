@@ -3,24 +3,8 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Clock, AlertTriangle, Loader2, ExternalLink, MessageSquare } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { apiClient } from '@/shared/services/apiClient';
+import { approvalTokensApi, type ApprovalTokenDetails } from '../services/approvalTokensApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
-
-interface ApprovalDetails {
-  step_name: string;
-  pipeline_name: string;
-  run_number: string;
-  trigger_type: string;
-  trigger_context: Record<string, unknown>;
-  status: string;
-  expires_at: string;
-  time_remaining_seconds: number;
-  requires_comment: boolean;
-  step_configuration: {
-    step_type: string;
-    description?: string;
-  };
-}
 
 type ApprovalAction = 'approve' | 'reject' | null;
 
@@ -32,7 +16,7 @@ export const ApprovalResponsePage: React.FC = () => {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [details, setDetails] = useState<ApprovalDetails | null>(null);
+  const [details, setDetails] = useState<ApprovalTokenDetails | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [comment, setComment] = useState('');
   const [completed, setCompleted] = useState<ApprovalAction>(null);
@@ -52,20 +36,12 @@ export const ApprovalResponsePage: React.FC = () => {
     }
 
     try {
-      const response = await apiClient.get<{ success: boolean; data?: ApprovalDetails; error?: string }>(
-        `/devops/approval_tokens/${token}`
-      );
-      const result = response.data;
+      const approval = await approvalTokensApi.get(token);
+      setDetails(approval);
 
-      if (result.success && result.data) {
-        setDetails(result.data);
-
-        // If direct action link and no comment required, auto-submit
-        if (action && !result.data.requires_comment) {
-          handleSubmit(action);
-        }
-      } else {
-        setError(result.error || 'Failed to load approval details');
+      // If direct action link and no comment required, auto-submit
+      if (action && !approval.requires_comment) {
+        handleSubmit(action);
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load approval details';
@@ -91,22 +67,13 @@ export const ApprovalResponsePage: React.FC = () => {
     setSubmitting(true);
 
     try {
-      const response = await apiClient.post<{ success: boolean; data?: { message?: string }; error?: string }>(
-        `/devops/approval_tokens/${token}/${approvalAction}`,
-        { comment: comment.trim() || undefined }
-      );
-      const result = response.data;
-
-      if (result.success) {
-        setCompleted(approvalAction);
-        addNotification({
-          type: 'success',
-          title: approvalAction === 'approve' ? 'Step Approved' : 'Step Rejected',
-          message: result.data?.message || `The step has been ${approvalAction}d.`,
-        });
-      } else {
-        setError(result.error || `Failed to ${approvalAction} step`);
-      }
+      const result = await approvalTokensApi.respond(token, approvalAction, comment.trim() || undefined);
+      setCompleted(approvalAction);
+      addNotification({
+        type: 'success',
+        title: approvalAction === 'approve' ? 'Step Approved' : 'Step Rejected',
+        message: result.message || `The step has been ${approvalAction}d.`,
+      });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : `Failed to ${approvalAction} step`;
       setError(errorMessage);

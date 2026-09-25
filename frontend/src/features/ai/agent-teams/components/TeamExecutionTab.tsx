@@ -8,9 +8,9 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { EntityLink } from '@/shared/components/entity';
 import { MarkdownRenderer } from '@/shared/components/ui/MarkdownRenderer';
-import api from '@/shared/services/api';
 import type { Team, TeamExecution, TeamTask, TeamMessage } from '@/shared/services/ai/TeamsApiService';
 import { teamsApi } from '@/shared/services/ai/TeamsApiService';
+import { agentTeamsApi } from '@/features/ai/agent-teams/services/agentTeamsApi';
 import { formatDurationMs } from '@/shared/utils/formatters';
 
 interface TeamExecutionTabProps {
@@ -110,8 +110,7 @@ export const TeamExecutionTab: React.FC<TeamExecutionTabProps> = ({
     if (details[execution.id]) return;
     setLoadingDetail(execution.id);
     try {
-      const response = await api.get(`/ai/agent_teams/${team.id}/executions/${execution.id}`);
-      const detail = response.data.data as ExecutionDetail;
+      const detail: ExecutionDetail = await agentTeamsApi.getExecution(team.id, execution.id);
       setDetails(prev => ({ ...prev, [execution.id]: detail }));
     } catch {
       // Silently fail - still show base data

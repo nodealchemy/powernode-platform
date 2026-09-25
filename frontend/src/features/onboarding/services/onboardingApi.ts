@@ -92,6 +92,17 @@ export const onboardingApi = {
   },
 
   /**
+   * GET `/onboarding/status`: whether the account is past onboarding, either
+   * stamped complete or already holding provider credentials. Drives the
+   * OnboardingGate redirect.
+   */
+  async isComplete(): Promise<boolean> {
+    const response = await apiClient.get<OnboardingStatusResponse>('/onboarding/status');
+    const status = response.data?.data;
+    return Boolean(status?.completed) || Boolean(status?.has_credentials);
+  },
+
+  /**
    * AI category step 1: resolve an existing provider of this type, or create
    * one. The catalog seeds a Provider per type ahead of onboarding, so a bare
    * POST here would create a duplicate missing required fields (422). Instead

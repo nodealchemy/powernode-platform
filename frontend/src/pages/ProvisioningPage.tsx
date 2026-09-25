@@ -15,20 +15,10 @@ import type {
   PlanStepStatus,
 } from '@/features/ai/provisioning/types';
 import { logger } from '@/shared/utils/logger';
-import { apiClient } from '@/shared/services/apiClient';
+import { provisioningApi } from '@/features/ai/provisioning/services/provisioningApi';
+import { conversationsApi } from '@/shared/services/ai/ConversationsApiService';
 
 type ViewMode = 'chat' | 'plan' | 'executing';
-
-interface ConversationCreateResponse {
-  conversation: {
-    id?: string;
-    conversation_id?: string;
-  };
-}
-
-interface ApiEnvelope<T> {
-  data?: T;
-}
 
 /**
  * Operator-facing entry point for the AI provisioning conversation.
@@ -72,10 +62,7 @@ export const ProvisioningPage: React.FC = () => {
     let cancelled = false;
     const init = async () => {
       try {
-        const response = await apiClient.post<ApiEnvelope<ConversationCreateResponse>>(
-          '/ai/conversations/concierge'
-        );
-        const conv = response.data?.data?.conversation;
+        const conv = await conversationsApi.createConciergeConversation();
         const convId = conv?.conversation_id ?? conv?.id ?? null;
         if (cancelled) return;
         if (convId) {
@@ -148,18 +135,13 @@ export const ProvisioningPage: React.FC = () => {
     setPlanLoading(true);
 
     try {
-      const [missionResponse, planResponse] = await Promise.all([
-        apiClient.get<ApiEnvelope<{ mission?: { current_phase?: string; status?: string } }>>(
-          `/ai/missions/${missionId}`
-        ),
-        apiClient.post<ApiEnvelope<{ plan?: ProvisioningPlan; brief?: ProjectBrief }>>(
-          `/ai/missions/${missionId}/compose_plan`
-        ),
+      const [mission, envelope] = await Promise.all([
+        provisioningApi.getMission(missionId),
+        provisioningApi.composePlan(missionId),
       ]);
 
-      const phase = missionResponse.data?.data?.mission?.current_phase ?? null;
-      const status = missionResponse.data?.data?.mission?.status ?? null;
-      const envelope = planResponse.data?.data;
+      const phase = mission?.current_phase ?? null;
+      const status = mission?.status ?? null;
       const fetchedPlan = envelope?.plan ?? null;
 
       // Finished mission on a refreshed deep link: drop the mission_id from
@@ -220,7 +202,7 @@ export const ProvisioningPage: React.FC = () => {
   const handleApprove = useCallback(async () => {
     if (!activeMissionId || !plan) return;
     try {
-      await apiClient.post(`/ai/missions/${activeMissionId}/approve`);
+      await provisioningApi.approveMission(activeMissionId);
       const total = plan.dag?.nodes?.length ?? 0;
       setExecutionStats({ total, completed: 0 });
       setViewMode('executing');
@@ -245,7 +227,7 @@ export const ProvisioningPage: React.FC = () => {
     async (reason?: string) => {
       if (!activeMissionId) return;
       try {
-        await apiClient.post(`/ai/missions/${activeMissionId}/reject`, { reason });
+        await provisioningApi.rejectMission(activeMissionId, reason);
       } catch (err) {
         logger.error('ProvisioningPage: failed to reject plan', { missionId: activeMissionId, err });
       }

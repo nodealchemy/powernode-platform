@@ -74,4 +74,12 @@ describe('ApprovalResponsePage', () => {
       expect(mockPost).toHaveBeenCalledWith('/devops/approval_tokens/tok-1/approve', { comment: undefined })
     );
   });
+
+  it('shows the server error when the token envelope reports failure', async () => {
+    mockGet.mockResolvedValueOnce({ data: { success: false, error: 'This approval link has expired' } });
+
+    renderAtToken('/ci-cd/approve/tok-1');
+
+    expect(await screen.findByText('This approval link has expired')).toBeInTheDocument();
+  });
 });
