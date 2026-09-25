@@ -49,34 +49,11 @@ const REPO_ROOT = join(FRONTEND_SRC, '..', '..');
 const EXTENSIONS_ROOT = join(REPO_ROOT, 'extensions');
 const PRIVATE_ROOT = join(EXTENSIONS_ROOT, 'private') + sep;
 
-// label (lower case) -> the sorted destinations that share it. Each entry is
-// a clash that predates this guard and was outside fc-47's approved renames;
-// it is left to the owning hub. Fixing one means deleting its entry here.
-const KNOWN_CLASHES: Record<string, string[]> = {
-  analytics: ['/app/admin/audit-logs/analytics', '/app/ai/knowledge/rag/analytics', '/app/ai/model-router/analytics'],
-  // The same panel is a tab of two hubs (Compute › Platform and Service Delivery).
-  children: ['/app/system/compute/platform/children', '/app/system/service-delivery/children'],
-  // DevOps › Containers sub-strips: Kubernetes and Swarm each name their clusters.
-  clusters: ['/app/devops/containers/kubernetes', '/app/devops/containers/swarm'],
-  containers: ['/app/devops/containers', '/app/devops/containers/docker/containers'],
-  federation: ['/app/ai/agents/community/federation', '/app/system/sdwan/federation'],
-  networks: [
-    '/app/devops/containers/docker/networks',
-    '/app/devops/containers/swarm/networks',
-    '/app/system/sdwan/networks',
-  ],
-  operations: ['/app/devops/containers/swarm/operations', '/app/system/operations'],
-  optimization: ['/app/ai/model-router/optimization', '/app/ai/skills/optimization'],
-  providers: ['/app/ai/providers', '/app/devops/source-control/providers', '/app/system/compute/providers'],
-  services: ['/app/devops/containers/swarm/services', '/app/system/compute/platform/services'],
-  templates: [
-    '/app/ai/execution/sandboxes/templates',
-    '/app/devops/ci-cd/templates',
-    '/app/system/catalog/templates',
-  ],
-  topology: ['/app/system/sdwan/topology', '/app/system/topology'],
-  volumes: ['/app/devops/containers/docker/volumes', '/app/system/compute/volumes'],
-};
+// label (lower case) -> the sorted destinations that share it. EMPTY, and
+// meant to stay that way: fc-47 gave every clash found while landing this
+// guard one label per place. Add an entry only with the owner's agreement,
+// never to turn a red run green.
+const KNOWN_CLASHES: Record<string, string[]> = {};
 
 interface Entry {
   label: string;
@@ -362,8 +339,22 @@ function clashes(entries: Entry[]): Record<string, string[]> {
   return result;
 }
 
+// KNOWN_CLASHES as it applies to this checkout. A destination that was not
+// scanned (it belongs to a public extension that is not checked out) drops
+// out, and an entry left with fewer than two destinations is no clash here,
+// so the ratchet holds in a clone without the public submodules too.
+function expectedClashes(scanned: Set<string>): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const [label, destinations] of Object.entries(KNOWN_CLASHES)) {
+    const present = destinations.filter((d) => scanned.has(d));
+    if (present.length > 1) result[label] = present;
+  }
+  return result;
+}
+
 describe('navigation label uniqueness (P13, fc-47)', () => {
   const entries = collectEntries();
+  const publicEntries = entries.filter((e) => !e.isPrivate);
 
   it('finds the sidebar and hub tab strips it is meant to read', () => {
     // A scanner that silently finds nothing would make every run green.
@@ -372,11 +363,10 @@ describe('navigation label uniqueness (P13, fc-47)', () => {
   });
 
   it('gives one label to one destination, except the known clashes', () => {
-    expect(clashes(entries.filter((e) => !e.isPrivate))).toEqual(KNOWN_CLASHES);
-  });
+    const publicClashes = clashes(publicEntries);
 
-  it('reports clashes that only private extensions introduce, without failing', () => {
-    const publicClashes = clashes(entries.filter((e) => !e.isPrivate));
+    // Clashes that only private extensions introduce are reported, never
+    // asserted: they are not portable (see the module comment).
     const allClashes = clashes(entries);
     const privateOnly = Object.keys(allClashes).filter(
       (label) => JSON.stringify(allClashes[label]) !== JSON.stringify(publicClashes[label])
@@ -388,6 +378,7 @@ describe('navigation label uniqueness (P13, fc-47)', () => {
           privateOnly.map((l) => `  ${l}: ${allClashes[l].join(', ')}`).join('\n')
       );
     }
-    expect(Array.isArray(privateOnly)).toBe(true);
+
+    expect(publicClashes).toEqual(expectedClashes(new Set(publicEntries.map((e) => e.destination))));
   });
 });
