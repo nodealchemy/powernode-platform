@@ -21,6 +21,7 @@ import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Card, CardContent } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { usePermissions } from '@/shared/hooks/usePermissions';
 import { containerExecutionApi } from '@/shared/services/ai';
 import { cn } from '@/shared/utils/cn';
 import type { ContainerTemplateSummary, ContainerTemplateFilters, TemplateVisibility, TemplateStatus } from '@/shared/services/ai';
@@ -55,6 +56,8 @@ export const TemplateList: React.FC<TemplateListProps> = ({
   className,
 }) => {
   const { addNotification } = useNotifications();
+  const { hasPermission } = usePermissions();
+  const canWriteTemplates = hasPermission('devops.container_templates.write');
   const [templates, setTemplates] = useState<ContainerTemplateSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -173,10 +176,11 @@ export const TemplateList: React.FC<TemplateListProps> = ({
               <Card
                 key={template.id}
                 className={cn(
-                  'cursor-pointer transition-all hover:shadow-md',
+                  'transition-all hover:shadow-md',
+                  canWriteTemplates && 'cursor-pointer',
                   'border-theme-interactive-primary'
                 )}
-                onClick={() => onSelectTemplate?.(template)}
+                onClick={canWriteTemplates ? () => onSelectTemplate?.(template) : undefined}
               >
                 <CardContent className="p-4">
                   {/* Header */}
@@ -265,13 +269,18 @@ export const TemplateList: React.FC<TemplateListProps> = ({
 
                   {/* Footer */}
                   <div className="flex items-center justify-end gap-2 pt-3 border-t border-theme-interactive-primary">
-                    {template.gitea_repo_full_name && (
+                    {template.gitea_repo_full_name && canWriteTemplates && (
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          containerExecutionApi.triggerBuild(template.id).catch(() => {});
+                          containerExecutionApi.triggerBuild(template.id).catch((err) => {
+                            addNotification({
+                              type: 'error',
+                              message: err instanceof Error ? err.message : 'Failed to trigger build',
+                            });
+                          });
                         }}
                       >
                         <Hammer className="w-3 h-3 mr-1" />
