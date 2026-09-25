@@ -2,7 +2,7 @@
 name: audit
 description: Run comprehensive codebase quality and pattern compliance audit
 disable-model-invocation: true
-allowed-tools: Bash(./scripts/*), Bash(cd *), Bash(npx *), Bash(bundle *), Bash(git *), Read, Grep, Glob
+allowed-tools: Bash(PROJECT_DIR=*), Bash(./scripts/*), Bash(cd *), Bash(npx *), Bash(bundle *), Bash(git *), Read, Grep, Glob
 argument-hint: [focus: all|backend|frontend|types|patterns]
 ---
 
@@ -22,51 +22,54 @@ Run quality checks and report results. Accept an optional focus argument to limi
 
 Run applicable checks sequentially. Capture output from each.
 
+The harness does not export `$PROJECT_DIR`, and shell state does not carry between Bash calls, so
+each command below defines it first as the repository root.
+
 ### 1. Pattern Validation
 ```bash
-cd $PROJECT_DIR && ./scripts/pattern-validation.sh
+PROJECT_DIR="$(git rev-parse --show-toplevel)"; cd $PROJECT_DIR && ./scripts/pattern-validation.sh
 ```
 
 ### 2. Quick Pattern Check
 ```bash
-cd $PROJECT_DIR && ./scripts/quick-pattern-check.sh
+PROJECT_DIR="$(git rev-parse --show-toplevel)"; cd $PROJECT_DIR && ./scripts/quick-pattern-check.sh
 ```
 
 ### 3. TypeScript Type Check
 ```bash
-cd $PROJECT_DIR/frontend && npx tsc --noEmit 2>&1
+PROJECT_DIR="$(git rev-parse --show-toplevel)"; cd $PROJECT_DIR/frontend && npx tsc --noEmit 2>&1
 ```
 
 ### 4. Ruby Syntax Check
 Check all `.rb` files changed since last commit:
 ```bash
-cd $PROJECT_DIR/server && git diff --name-only HEAD -- '*.rb' | xargs -I{} ruby -c {} 2>&1
+PROJECT_DIR="$(git rev-parse --show-toplevel)"; cd $PROJECT_DIR/server && git diff --name-only --relative HEAD -- '*.rb' | xargs -I{} ruby -c {} 2>&1
 ```
 Also check untracked `.rb` files:
 ```bash
-cd $PROJECT_DIR/server && git ls-files --others --exclude-standard -- '*.rb' | xargs -I{} ruby -c {} 2>&1
+PROJECT_DIR="$(git rev-parse --show-toplevel)"; cd $PROJECT_DIR/server && git ls-files --others --exclude-standard -- '*.rb' | xargs -I{} ruby -c {} 2>&1
 ```
 
 ### 5. Rails Eager Load Check (backend only)
 Verify all Ruby classes load without errors:
 ```bash
-cd $PROJECT_DIR/server && bundle exec rails runner "Rails.application.eager_load!; puts 'Eager load OK'" 2>&1
+PROJECT_DIR="$(git rev-parse --show-toplevel)"; cd $PROJECT_DIR/server && bundle exec rails runner "Rails.application.eager_load!; puts 'Eager load OK'" 2>&1
 ```
 
 ### 6. Frozen String Literal Pragma
 Scan for Ruby files missing the pragma:
 ```bash
-grep -rL "frozen_string_literal: true" $PROJECT_DIR/server/app/ --include="*.rb" | head -20
+PROJECT_DIR="$(git rev-parse --show-toplevel)"; grep -rL "frozen_string_literal: true" $PROJECT_DIR/server/app/ --include="*.rb" | head -20
 ```
 
 ### 7. Console.log Scan
 ```bash
-grep -rn "console\.log" $PROJECT_DIR/frontend/src/ --include="*.ts" --include="*.tsx" | head -20
+PROJECT_DIR="$(git rev-parse --show-toplevel)"; grep -rn "console\.log" $PROJECT_DIR/frontend/src/ --include="*.ts" --include="*.tsx" | head -20
 ```
 
 ### 8. Hardcoded Color Scan
 ```bash
-grep -rn "bg-\(red\|blue\|green\|yellow\|gray\|slate\|zinc\|neutral\|stone\)" $PROJECT_DIR/frontend/src/ --include="*.tsx" | grep -v "theme" | head -20
+PROJECT_DIR="$(git rev-parse --show-toplevel)"; grep -rn "bg-\(red\|blue\|green\|yellow\|gray\|slate\|zinc\|neutral\|stone\)" $PROJECT_DIR/frontend/src/ --include="*.tsx" | grep -v "theme" | head -20
 ```
 
 ## Output
