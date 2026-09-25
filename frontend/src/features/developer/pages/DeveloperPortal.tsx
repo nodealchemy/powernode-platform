@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/layout/TabContainer';
 import { Card } from '@/shared/components/ui';
 import { ApiDocs } from './ApiDocs';
 import { CodeSamples } from '../components/CodeSamples';
-import { ApiKeyManager } from '../components/ApiKeyManager';
 
 export const DeveloperPortal: React.FC = () => {
   const [activeTab, setActiveTab] = useState('docs');
@@ -99,7 +99,7 @@ export const DeveloperPortal: React.FC = () => {
             case 'docs':
               return <ApiDocs />;
             case 'keys':
-              return <ApiKeyManager />;
+              return <ApiKeyDocs />;
             case 'samples':
               return <CodeSamples />;
             case 'webhooks':
@@ -110,6 +110,41 @@ export const DeveloperPortal: React.FC = () => {
         }}
       />
     </PageContainer>
+  );
+};
+
+// fc-35: this tab is docs-only. pages/app/devops/ApiKeysPage.tsx (Connections ->
+// API Keys) is the one canonical surface for creating, regenerating and revoking
+// keys -- ApiKeyManager duplicated that against the same apiKeysApi client and was
+// deleted.
+const ApiKeyDocs: React.FC = () => {
+  return (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-4">Authenticating with an API Key</h3>
+        <p className="text-theme-secondary mb-4">
+          Send your key in the <code className="bg-theme-surface px-1 rounded">X-API-Key</code> header on every request.
+          Keys inherit the scopes you grant them when you create them.
+        </p>
+        <pre className="bg-theme-surface p-4 rounded-lg overflow-x-auto text-sm">
+          <code className="text-theme-primary">{`curl https://api.example.com/v1/subscriptions \\
+  -H "X-API-Key: pk_live_..."`}</code>
+        </pre>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-theme-primary mb-2">Managing your keys</h3>
+        <p className="text-theme-secondary mb-4">
+          Create, regenerate and revoke API keys from Connections.
+        </p>
+        <Link
+          to="/app/devops/connections/api-keys"
+          className="inline-flex items-center text-sm text-theme-info-fg hover:text-theme-info-fg/80"
+        >
+          Manage API Keys →
+        </Link>
+      </Card>
+    </div>
   );
 };
 
