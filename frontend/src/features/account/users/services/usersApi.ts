@@ -64,33 +64,6 @@ export interface UserStats {
   recent_logins: number;
 }
 
-export interface AdminAccount {
-  id: string;
-  name: string;
-  subdomain: string;
-  status: string;
-  users_count: number;
-  subscription?: {
-    id: string;
-    plan_name: string;
-    status: string;
-    created_at: string;
-  } | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AdminAccountsResponse {
-  success: boolean;
-  data: {
-    accounts: AdminAccount[];
-    total_count: number;
-    active_count: number;
-    suspended_count: number;
-    cancelled_count: number;
-  };
-}
-
 /**
  * @module UsersApi
  * @description User management service.
@@ -189,11 +162,10 @@ class UsersApiService {
     return response.data;
   }
 
-  // Get all accounts (admin only)
-  async getAllAccounts(): Promise<AdminAccountsResponse> {
-    const response = await api.get('/admin_settings/accounts');
-    return response.data;
-  }
+  // getAllAccounts (fc-38 review item #5) called /admin_settings/accounts,
+  // which is deleted (fc-38 decision: nothing called it either) — removed
+  // outright rather than migrated, per features/account/services/accountsApi.ts's
+  // own doc comment.
 
   // Create user in specific account (admin only)
   async createAdminUser(userData: UserFormData & { account_id: string }): Promise<UserCreateResponse> {

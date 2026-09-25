@@ -44,7 +44,7 @@ module Setup
       {
         key: "email",
         title: "Email (SMTP)",
-        description: "Outbound email server. The password is stored in the active secret backend (Vault or DB-encrypted).",
+        description: "Outbound email server. The password is encrypted at rest via Security::CredentialEncryptionService.",
         order: 20,
         required: false,
         owner: "core",

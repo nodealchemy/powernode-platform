@@ -435,22 +435,6 @@ module Admin
       end
     end
 
-    def calculate_total_revenue
-      return 0 unless payment_class
-
-      payment_class.where(status: "completed").sum(:amount_cents) / 100.0
-    end
-
-    def calculate_monthly_growth
-      return 0 unless subscription_class
-
-      current_month = subscription_class.where(created_at: Date.current.beginning_of_month..Date.current.end_of_month).count
-      last_month = subscription_class.where(created_at: 1.month.ago.beginning_of_month..1.month.ago.end_of_month).count
-
-      return 0 if last_month.zero?
-      ((current_month - last_month) / last_month.to_f * 100).round(2)
-    end
-
     def calculate_global_churn_rate
       return 0 unless subscription_class
 
