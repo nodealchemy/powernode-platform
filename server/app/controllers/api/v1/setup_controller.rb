@@ -176,10 +176,17 @@ class Api::V1::SetupController < ApplicationController
         value = (params[field] || params.dig(:payload, field)).to_s.strip
         AdminSetting.set(field, value) if value.present?
       end
-      # The secret is routed through Security::SecretStore (Vault or DB-encrypted,
-      # per the global toggle) — never AdminSetting, never logged.
+      # The secret goes through the SAME mechanism EmailSettingsController
+      # uses (Admin::SystemSettings -> Security::CredentialEncryptionService),
+      # so there is one write path for smtp_password (fc-38 decision #3).
+      # This used to write Security::SecretStore.write(account:
+      # current_account, scope: "email", key: "smtp_password", ...) — a write
+      # nothing ever read back (no caller anywhere calls
+      # SecretStore.read(scope: "email", key: "smtp_password")), and
+      # incorrectly account-scoped for what is architecturally a global
+      # (non-account) setting.
       password = (params[:smtp_password] || params.dig(:payload, :smtp_password)).to_s
-      Security::SecretStore.write(account: current_account, scope: "email", key: "smtp_password", value: password) if password.present?
+      ::Admin::SystemSettings.update_email_settings!("smtp_password" => password) if password.present?
       nil
     when "extension_selection", "seed"
       # Component steps: the action happens via their own endpoint (live toggle /

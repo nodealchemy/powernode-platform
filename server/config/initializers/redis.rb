@@ -166,8 +166,14 @@ module Powernode
         url_str.sub(%r{/\d+\z}, "/#{database}")
       end
 
+      # Goes through Admin::SystemSettings, not AdminSetting.redis_config
+      # directly (fc-38 decision #3) — the password is encrypted at rest, and
+      # only Admin::SystemSettings.redis_config decrypts it. This builds the
+      # app's ACTUAL Redis connection, so reading the raw AdminSetting blob
+      # here would silently connect with no password once the plaintext was
+      # migrated out of it.
       def resolved_config
-        @resolved_config ||= AdminSetting.redis_config
+        @resolved_config ||= Admin::SystemSettings.redis_config
       rescue StandardError
         # DB not available during boot/migrations
         default_fallback_config

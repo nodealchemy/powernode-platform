@@ -242,6 +242,72 @@ module Admin
         AdminSetting.test_proxy_headers(headers)
       end
 
+      # -- Redis / Vault secrets ---------------------------------------------
+      #
+      # redis_config's "password" and vault_config's "vault_role_id"/
+      # "vault_secret_id" used to be stored PLAINTEXT inside their AdminSetting
+      # JSON blobs (fc-38 decision #3). They are now separate
+      # CredentialEncryptionService-encrypted rows, same mechanism as email's
+      # smtp_password_encrypted etc — see
+      # db/migrate/20260925020000_encrypt_plaintext_redis_and_vault_admin_settings.rb
+      # for the one-time move of already-stored plaintext.
+      #
+      # Every caller that needs the REAL Redis/Vault credential (config/
+      # initializers/redis.rb's actual connection, Security::VaultClient's
+      # actual authentication, and the admin UI's connectivity-test actions)
+      # must go through these — none of them may read AdminSetting.redis_config
+      # or AdminSetting.get("vault_config") directly, or they would silently
+      # get a config with no password/credentials once the blob no longer
+      # carries them.
+
+      # The non-secret redis fields (host/port/etc, from the
+      # ServiceConfiguration concern) plus the real decrypted password.
+      def redis_config
+        config = AdminSetting.redis_config
+        encrypted = AdminSetting.find_by(key: "redis_config_password_encrypted")
+        config.merge("password" => encrypted ? decrypt_secret(encrypted.value) : config["password"])
+      end
+
+      # `new_config`'s "password" key (if PRESENT — even blank, meaning
+      # "clear it") is encrypted into its own row and never reaches the
+      # non-secret blob AdminSetting.update_redis_config writes. A masked
+      # resubmission ("••••••••") must be stripped by the caller BEFORE this
+      # (InfrastructureConfigActions#update_infrastructure_config already
+      # does, unchanged) — this method has no way to tell a real password
+      # from a mask.
+      def update_redis_config!(new_config)
+        config_hash = new_config.to_h.stringify_keys
+        if config_hash.key?("password")
+          password = config_hash.delete("password")
+          AdminSetting.set("redis_config_password_encrypted", encrypt_secret(password))
+        end
+        AdminSetting.update_redis_config(config_hash)
+      end
+
+      # vault_addr (non-secret) plus the real decrypted vault_role_id/
+      # vault_secret_id.
+      def vault_config
+        blob = raw_vault_blob
+        {
+          "vault_addr" => blob["vault_addr"],
+          "vault_role_id" => decrypt_secret(AdminSetting.get("vault_role_id_encrypted", "")),
+          "vault_secret_id" => decrypt_secret(AdminSetting.get("vault_secret_id_encrypted", ""))
+        }
+      end
+
+      # `updates` may carry any subset of vault_addr/vault_role_id/
+      # vault_secret_id; only keys actually PRESENT are written (the caller —
+      # InfrastructureConfigActions#update_vault_config — already filters out
+      # blank/masked resubmissions before calling this).
+      def update_vault_config!(updates)
+        if updates.key?("vault_addr")
+          blob = raw_vault_blob
+          AdminSetting.set("vault_config", blob.merge("vault_addr" => updates["vault_addr"]).to_json)
+        end
+        AdminSetting.set("vault_role_id_encrypted", encrypt_secret(updates["vault_role_id"])) if updates.key?("vault_role_id")
+        AdminSetting.set("vault_secret_id_encrypted", encrypt_secret(updates["vault_secret_id"])) if updates.key?("vault_secret_id")
+      end
+
       private
 
       def typed_boolean(key, default:)
@@ -264,6 +330,17 @@ module Admin
 
       def non_scalar?(value)
         value.is_a?(Hash) || value.is_a?(Array)
+      end
+
+      def raw_vault_blob
+        raw = AdminSetting.get("vault_config")
+        case raw
+        when Hash then raw
+        when String then raw.present? ? JSON.parse(raw) : {}
+        else {}
+        end
+      rescue JSON::ParserError
+        {}
       end
     end
   end

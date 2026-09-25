@@ -98,6 +98,58 @@ RSpec.describe Admin::SystemSettings do
     end
   end
 
+  describe ".redis_config / .update_redis_config! (fc-38 decision #3 — password is encrypted, never in the blob)" do
+    it "falls back to the non-secret blob's own password (e.g. the ENV default) when no encrypted row exists yet" do
+      config = described_class.redis_config
+
+      expect(AdminSetting.find_by(key: "redis_config_password_encrypted")).to be_nil
+      expect(config["password"]).to eq(AdminSetting.redis_config["password"])
+    end
+
+    it "update_redis_config! with no password key present leaves the encrypted row untouched (masked-resubmission skip)" do
+      password = "redis-unit-#{SecureRandom.hex(4)}"
+      described_class.update_redis_config!("password" => password, "host" => "127.0.0.1")
+      before_value = AdminSetting.find_by(key: "redis_config_password_encrypted").value
+
+      described_class.update_redis_config!("host" => "192.168.1.1")
+
+      expect(AdminSetting.find_by(key: "redis_config_password_encrypted").value).to eq(before_value)
+      expect(described_class.redis_config["password"]).to eq(password)
+      expect(AdminSetting.redis_config["host"]).to eq("192.168.1.1")
+    end
+
+    it "update_redis_config! never writes 'password' into the non-secret AdminSetting.redis_config blob" do
+      described_class.update_redis_config!("password" => "redis-unit-blob-check", "host" => "127.0.0.1")
+
+      expect(AdminSetting.find_by(key: "redis_config").value).not_to include("redis-unit-blob-check")
+    end
+  end
+
+  describe ".vault_config / .update_vault_config! (fc-38 decision #3 — role_id/secret_id are encrypted, never in the blob)" do
+    it "returns empty-string role_id/secret_id and nil vault_addr when nothing is configured" do
+      config = described_class.vault_config
+
+      expect(config).to eq("vault_addr" => nil, "vault_role_id" => "", "vault_secret_id" => "")
+    end
+
+    it "update_vault_config! writes only the keys present, leaving the others untouched" do
+      described_class.update_vault_config!("vault_addr" => "http://vault.example.internal:8200", "vault_role_id" => "role-a")
+      described_class.update_vault_config!("vault_secret_id" => "secret-b")
+
+      config = described_class.vault_config
+      expect(config["vault_addr"]).to eq("http://vault.example.internal:8200")
+      expect(config["vault_role_id"]).to eq("role-a")
+      expect(config["vault_secret_id"]).to eq("secret-b")
+    end
+
+    it "never writes vault_role_id/vault_secret_id into the vault_config blob" do
+      described_class.update_vault_config!("vault_role_id" => "role-blob-check", "vault_secret_id" => "secret-blob-check")
+
+      expect(AdminSetting.find_by(key: "vault_config")&.value.to_s).not_to include("role-blob-check")
+      expect(AdminSetting.find_by(key: "vault_config")&.value.to_s).not_to include("secret-blob-check")
+    end
+  end
+
   describe "proxy delegation (thin passthrough to the ServiceConfiguration concern already on AdminSetting)" do
     it "delegates .proxy_url_config" do
       expect(AdminSetting).to receive(:reverse_proxy_url_config).and_return(enabled: true)

@@ -6,13 +6,13 @@ module AdminSettings
 
     # GET /api/v1/admin_settings/infrastructure
     def infrastructure_config
-      config = AdminSetting.redis_config
+      config = ::Admin::SystemSettings.redis_config
       # Mask password
       masked_config = config.dup
       masked_config["password"] = "••••••••" if masked_config["password"].present?
 
       # Get connection status
-      connection_status = AdminSetting.test_redis_connection
+      connection_status = AdminSetting.test_redis_connection(config)
 
       render_success(
         redis: masked_config,
@@ -27,14 +27,14 @@ module AdminSettings
       # Skip password update if masked value sent back
       redis_params.delete("password") if redis_params["password"] == "••••••••"
 
-      AdminSetting.update_redis_config(redis_params)
+      ::Admin::SystemSettings.update_redis_config!(redis_params)
       Powernode::Redis.reconfigure!
 
       log_audit_event("infrastructure_config_update", "SystemSettings",
                       metadata: { updated_fields: redis_params.keys })
 
       # Return updated config with masked password
-      config = AdminSetting.redis_config
+      config = ::Admin::SystemSettings.redis_config
       config["password"] = "••••••••" if config["password"].present?
 
       render_success(
@@ -48,12 +48,12 @@ module AdminSettings
 
     # POST /api/v1/admin_settings/infrastructure/test_redis
     def test_redis_connection
-      # Test with provided config or saved config
-      test_config = if params[:redis].present?
-        infrastructure_params
-      else
-        nil
-      end
+      # Test with the just-submitted config, or the REAL saved config
+      # (::Admin::SystemSettings.redis_config, which includes the decrypted
+      # password) — never AdminSetting.test_redis_connection(nil), whose
+      # internal `config ||= redis_config` fallback reads the password-less
+      # blob directly and would always report a failed/passwordless connection.
+      test_config = params[:redis].present? ? infrastructure_params : ::Admin::SystemSettings.redis_config
 
       result = AdminSetting.test_redis_connection(test_config)
       render_success(result)
@@ -73,16 +73,7 @@ module AdminSettings
       end
 
       # Read from AdminSetting (UI-configured) first, fallback to ENV
-      saved_config = begin
-        raw = AdminSetting.get("vault_config")
-        case raw
-        when Hash then raw
-        when String then raw.present? ? JSON.parse(raw) : {}
-        else {}
-        end
-      rescue StandardError
-        {}
-      end
+      saved_config = ::Admin::SystemSettings.vault_config
 
       vault_addr = saved_config["vault_addr"].presence || ENV["VAULT_ADDR"] || ""
       vault_role_id = saved_config["vault_role_id"].presence || ENV["VAULT_ROLE_ID"]
@@ -139,13 +130,14 @@ module AdminSettings
     def update_vault_config
       vault_params = params.require(:vault).permit(:vault_addr, :vault_role_id, :vault_secret_id)
 
-      # Store in AdminSetting (persisted config)
+      # Store via Admin::SystemSettings — vault_role_id/vault_secret_id are
+      # encrypted, vault_addr stays in the non-secret blob (fc-38 decision #3)
       updates = {}
       updates["vault_addr"] = vault_params[:vault_addr] if vault_params[:vault_addr].present?
       updates["vault_role_id"] = vault_params[:vault_role_id] if vault_params[:vault_role_id].present? && vault_params[:vault_role_id] != "••••••••"
       updates["vault_secret_id"] = vault_params[:vault_secret_id] if vault_params[:vault_secret_id].present? && !vault_params[:vault_secret_id].start_with?("••••••••")
 
-      AdminSetting.set("vault_config", updates.to_json) if updates.any?
+      ::Admin::SystemSettings.update_vault_config!(updates) if updates.any?
 
       # Reset the VaultClient singleton so it re-reads config on next use
       Security::VaultClient.reconfigure! if updates.any?

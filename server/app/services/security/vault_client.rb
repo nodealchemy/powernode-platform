@@ -415,16 +415,17 @@ module Security
         @instance = nil
       end
 
-      # Read Vault config from AdminSetting (DB-persisted, set via UI)
+      # Read Vault config from AdminSetting (DB-persisted, set via UI).
+      # Goes through Admin::SystemSettings, not AdminSetting directly (fc-38
+      # decision #3) — vault_role_id/vault_secret_id are encrypted at rest,
+      # and only Admin::SystemSettings.vault_config decrypts them. This is
+      # the ACTUAL Vault-authentication path (see #fetch_app_token below), so
+      # reading the raw AdminSetting blob here would silently authenticate
+      # with no credentials at all once the plaintext was migrated out of it.
       def admin_setting_config
         return @_admin_config if defined?(@_admin_config) && @_admin_config_at && @_admin_config_at > 1.minute.ago
 
-        raw = defined?(AdminSetting) ? AdminSetting.get("vault_config") : nil
-        @_admin_config = case raw
-        when Hash then raw
-        when String then raw.present? ? JSON.parse(raw) : {}
-        else {}
-        end
+        @_admin_config = defined?(::Admin::SystemSettings) ? ::Admin::SystemSettings.vault_config : {}
         @_admin_config_at = Time.current
         @_admin_config
       rescue StandardError
