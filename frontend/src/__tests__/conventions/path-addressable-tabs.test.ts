@@ -222,11 +222,52 @@ function walkPageFiles(dir: string, acc: string[] = []): string[] {
 // `'`/`"` can only mean a JSX-text apostrophe/quote, and force-closing the
 // string there is always safe for well-formed source. Backtick template
 // literals legitimately span lines and are exempted.
+//
+// Two more fail-open cases, closed here (fc-46 review):
+//   - A `'`/`"` BETWEEN TWO WORD CHARACTERS ("Don't") is never a JS string
+//     opener — an identifier immediately followed by a string literal is a
+//     syntax error — so it is left as text. Without this, an apostrophe on
+//     the line that opens a multi-line template swallowed the template's
+//     opening backtick, and its closing backtick then opened a phantom one.
+//   - A backtick only opens a template literal where an expression can
+//     start (see `canStartTemplate`), so a lone backtick in JSX text after a
+//     word ("Press the ` key") stays text. One that still opens a template
+//     and never closes before end of file is re-scanned as plain text, so
+//     an unpaired backtick can't blank everything after it.
+const WORD_CHAR = /[A-Za-z0-9_]/;
+const TEMPLATE_KEYWORDS = /\b(?:return|typeof|case|await|yield|void|delete|throw|in|of|new|else|do)$/;
+
+// `out` is the sanitized text so far (comments already stripped).
+function canStartTemplate(src: string, i: number, out: string): boolean {
+  const prevRaw = src[i - 1];
+  // Tagged template or call-like position: `css\`...\``, `fn()\`...\``.
+  if (prevRaw !== undefined && /[\w$)\]]/.test(prevRaw)) return true;
+  const before = out.replace(/\s+$/, '');
+  if (before === '') return true;
+  const last = before[before.length - 1];
+  if ('([{,:?!&|+-*%;=~^'.includes(last)) return true;
+  if (last === '>' && before[before.length - 2] === '=') return true; // `=>`
+  return TEMPLATE_KEYWORDS.test(before);
+}
+
 function sanitize(src: string): string {
+  const literalBackticks = new Set<number>();
+  for (;;) {
+    const { out, unclosedTemplateAt } = sanitizeOnce(src, literalBackticks);
+    if (unclosedTemplateAt === null) return out;
+    literalBackticks.add(unclosedTemplateAt);
+  }
+}
+
+function sanitizeOnce(
+  src: string,
+  literalBackticks: Set<number>
+): { out: string; unclosedTemplateAt: number | null } {
   let out = '';
   let i = 0;
   const n = src.length;
   let inString: '"' | "'" | '`' | null = null;
+  let openedAt = -1;
   while (i < n) {
     const c = src[i];
     const c2 = src[i + 1];
@@ -254,8 +295,12 @@ function sanitize(src: string): string {
       i += 1;
       continue;
     }
-    if (c === '"' || c === "'" || c === '`') {
-      inString = c;
+    const isQuote = c === '"' || c === "'";
+    const betweenWords = isQuote && WORD_CHAR.test(src[i - 1] ?? '') && WORD_CHAR.test(c2 ?? '');
+    const opensTemplate = c === '`' && !literalBackticks.has(i) && canStartTemplate(src, i, out);
+    if ((isQuote && !betweenWords) || opensTemplate) {
+      inString = c as '"' | "'" | '`';
+      openedAt = i;
       out += c;
       i += 1;
       continue;
@@ -276,7 +321,7 @@ function sanitize(src: string): string {
     out += c;
     i += 1;
   }
-  return out;
+  return { out, unclosedTemplateAt: inString === '`' ? openedAt : null };
 }
 
 // Bracket-balances a `[...]` starting at `start` (index of the opening `[`
@@ -719,6 +764,52 @@ describe('path-addressable-tabs guard: proves it actually fires (not just passes
       "{ id: '$1' as TabType, label: '$2', icon: $3, path: '/$1' }"
     );
     expect(scan(withPaths)).toEqual([]);
+  });
+
+  // --- Sanitizer fail-open probes (fc-46 review) -------------------------
+  // Each hazard sits EARLY in the file, a real template literal sits AFTER
+  // the violating array, and the violation must still be found: if the
+  // hazard opened a phantom string/template, it would pair with that later
+  // backtick and blank the violating array in between.
+
+  const LATER_VIOLATION = `
+    const reportTabs = [
+      { id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }, { id: 'e' },
+    ];
+    const cls = \`later-\${reportTabs.length}\`;
+  `;
+
+  it('sanitizer: a JSX-text apostrophe on the line that opens a multi-line template does not hide a later violation', () => {
+    const text = `
+      export const Intro = () => <p>Don't</p>{\`a
+      b\`};
+      ${LATER_VIOLATION}
+    `;
+    expect(scan(text)).toEqual([{ relPath: 'fixture/FixturePage.tsx', name: 'reportTabs', count: 5 }]);
+  });
+
+  it('sanitizer: an unpaired backtick in JSX text does not hide a later violation', () => {
+    const text = `
+      export const Help = () => <p>Press the \` key to open the console</p>;
+      ${LATER_VIOLATION}
+    `;
+    expect(scan(text)).toEqual([{ relPath: 'fixture/FixturePage.tsx', name: 'reportTabs', count: 5 }]);
+  });
+
+  it('sanitizer: an unpaired backtick with no later backtick does not blank the rest of the file', () => {
+    // After a comma — a position the opener check accepts as a real template
+    // start — so only the unclosed-at-EOF fallback can recover here.
+    const text = `
+      export const Tail = () => <p>first, \` then the rest</p>;
+      ${LATER_VIOLATION.replace(/const cls = .*\n/, '')}
+    `;
+    expect(scan(text)).toEqual([{ relPath: 'fixture/FixturePage.tsx', name: 'reportTabs', count: 5 }]);
+  });
+
+  it('sanitizer: still blanks real template literals and apostrophes inside strings', () => {
+    const out = sanitize("const a = `path: x`; const b = 'it\\'s path: y'; const c = tag`PathTabs`;");
+    expect(/path\s*:/.test(out)).toBe(false);
+    expect(/PathTabs/.test(out)).toBe(false);
   });
 
   it('does not flag a TabContainer usage that carries basePath', () => {
