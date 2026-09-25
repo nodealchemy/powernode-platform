@@ -479,29 +479,6 @@ export const defaultNavigationConfig: NavigationConfig = {
       icon: LogOut,
       description: 'Sign out of your account'
     }
-  ],
-  
-  quickActions: [
-    // 'Create Plan', 'View Analytics', and 'Configure Payments' are registered
-    // by the business extension via featureRegistry.registerNavItems('business',
-    // [{ section: 'quickActions', ... }]).
-    {
-      id: 'invite-team',
-      name: 'Invite Team Member',
-      // ?invite=1 opens InviteTeamMemberModal directly on the Users tab (fc-06) --
-      // URL-addressable, so a bookmark or refresh reproduces the same state.
-      href: '/app/profile/users?invite=1',
-      icon: UserCheck,
-      description: 'Add someone to your team'
-    },
-    {
-      id: 'create-ai-agent',
-      name: 'Create AI Agent',
-      href: '/app/ai/agents',
-      icon: Bot,
-      description: 'Create a new AI agent for automation',
-      permissions: ['ai.agents.create']
-    }
   ]
 };
 

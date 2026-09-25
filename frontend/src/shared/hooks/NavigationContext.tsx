@@ -116,10 +116,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     // Merge extension-registered nav items
     const extensionItems = featureRegistry.getNavItems();
     if (extensionItems.length > 0) {
-      // Clone the menu/quick-action arrays so extension contributions don't
-      // mutate the shared defaultNavigationConfig object across renders.
+      // Clone the menu array so extension contributions don't mutate the
+      // shared defaultNavigationConfig object across renders.
       config.userMenuItems = [...config.userMenuItems];
-      config.quickActions = [...config.quickActions];
 
       for (const item of extensionItems) {
         const converted = {
@@ -133,15 +132,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
           activeMatch: item.activeMatch,
         };
 
-        // Reserved section names route items into the user menu / quick actions
-        // instead of a sidebar section. UserMenu groups by link type (not by
-        // index), so appended items land in the Account group automatically.
+        // A reserved section name routes items into the user menu instead of a
+        // sidebar section. UserMenu groups by link type (not by index), so
+        // appended items land in the Account group automatically.
         if (item.section === 'userMenu') {
           config.userMenuItems = [...config.userMenuItems, converted];
-          continue;
-        }
-        if (item.section === 'quickActions') {
-          config.quickActions = [...config.quickActions, converted];
           continue;
         }
 
@@ -167,11 +162,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     if (config.sections) {
       config.sections = [...config.sections].sort((a, b) => (a.order || 99) - (b.order || 99));
     }
-
-    // Sort quick actions by order (extension-contributed actions interleave
-    // with core ones deterministically). User-menu order is positional in
-    // UserMenu, so it is intentionally left in registration order.
-    config.quickActions = [...config.quickActions].sort((a, b) => (a.order || 99) - (b.order || 99));
 
     return config;
   }, [hasAdminPermissions, registryVersion]);

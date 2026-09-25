@@ -33,7 +33,6 @@ export interface NavigationConfig {
   items: NavigationItem[];
   sections?: NavigationSection[];
   userMenuItems: NavigationItem[];
-  quickActions: NavigationItem[];
   adminOverrides?: {
     items?: NavigationItem[];
     sections?: NavigationSection[];
