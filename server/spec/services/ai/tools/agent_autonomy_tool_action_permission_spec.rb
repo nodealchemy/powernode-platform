@@ -382,7 +382,7 @@ RSpec.describe "agent_autonomy MCP per-action authorization" do
         expect(map.fetch(action)).to eq("ai.intervention_policies.manage")
       end
 
-      # Api::V1::Ai::GoalsController / GoalPlansController#validate_permissions
+      # Api::V1::Ai::GoalsController#validate_permissions
       %w[create_agent_goal list_agent_goals update_agent_goal
          decompose_goal].each do |action|
         expect(map.fetch(action)).to eq("ai.goals.manage")

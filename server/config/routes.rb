@@ -2803,9 +2803,7 @@ Rails.application.routes.draw do
         # ===================================================================
         # AGENT GOALS - Hierarchical goal tracking for autonomous agents
         # ===================================================================
-        resources :goals, controller: "goals" do
-          resources :plans, only: [:index, :show], controller: "goal_plans"
-        end
+        resources :goals, controller: "goals"
 
         # ===================================================================
         # IMPROVEMENT CAMPAIGNS - durable wrapper that drives the dev-improve loop

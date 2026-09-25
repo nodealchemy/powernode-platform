@@ -51,7 +51,7 @@ module Ai
         "update_intervention_policy" => "ai.intervention_policies.manage",
         "delete_intervention_policy" => "ai.intervention_policies.manage",
 
-        # Api::V1::Ai::GoalsController / GoalPlansController#validate_permissions
+        # Api::V1::Ai::GoalsController#validate_permissions
         # — also blanket. decompose_goal writes to a goal's plan, so it follows
         # the goal surface rather than the approvals one.
         #
@@ -836,9 +836,8 @@ module Ai
         # An explicit hash, not the AR record: success_result(plan) would put
         # every GoalPlan column on the wire to the provider — including
         # plan_data.raw_response and decomposition_context — and carry no
-        # steps at all, since the association isn't loaded. Mirrors
-        # Api::V1::Ai::GoalPlansController#serialize_plan(include_steps: true)
-        # without adding a controller dependency from a service object.
+        # steps at all, since the association isn't loaded. The plan and
+        # its ordered steps, as this tool's own wire shape.
         success_result(
           plan_id: plan.id,
           goal_id: plan.goal_id,
