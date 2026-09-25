@@ -220,26 +220,6 @@
     "reason": "pending deletion (operator-confirm)"
   },
   {
-    "path": "frontend/src/features/ai/ralph-loops/components/PrdDependencyGraph.tsx",
-    "name": "PrdDependencyGraph",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/ralph-loops/components/PrdImportExport.tsx",
-    "name": "PrdImportExport",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/ralph-loops/components/PrdTaskRow.tsx",
-    "name": "PrdTaskRow",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/ralph-loops/components/usePrdEditor.ts",
-    "name": "usePrdEditor",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/ai/security/api/securityExtApi.ts",
     "name": "useQuarantineAgent",
     "reason": "pending deletion (operator-confirm)"

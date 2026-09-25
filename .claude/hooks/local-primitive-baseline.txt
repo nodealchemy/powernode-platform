@@ -211,8 +211,6 @@ frontend/src/features/ai/providers/components/ProviderDetailModal.tsx|empty-stat
 frontend/src/features/ai/providers/components/ProviderDetailModal.tsx|status-fn|getHealthStatusBadge
 frontend/src/features/ai/providers/components/ProviderModelsTab.tsx|empty-state
 frontend/src/features/ai/providers/components/edit-provider/CredentialCard.tsx|status-fn|getTestStatusBadge
-frontend/src/features/ai/ralph-loops/components/PrdDependencyGraph.tsx|empty-state
-frontend/src/features/ai/ralph-loops/components/PrdDependencyGraph.tsx|empty-state
 frontend/src/features/ai/ralph-loops/components/RalphLoopListPanel.tsx|empty-state
 frontend/src/features/ai/ralph-loops/components/RalphLoopScheduleStatus.tsx|format-relative-time|formatRelativeTime
 frontend/src/features/ai/ralph-loops/components/RalphProgressView.tsx|empty-state
