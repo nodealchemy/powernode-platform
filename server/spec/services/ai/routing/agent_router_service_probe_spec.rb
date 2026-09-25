@@ -14,7 +14,7 @@ require "rails_helper"
 # against — real names, real seeded descriptions (verbatim from
 # server/db/seeds/ai_engineering_agents_seed.rb and
 # extensions/system/server/db/seeds/system_*_agent.rb), the real declared
-# policy domains (from PolicyDeclarations / DOMAIN_PREFIXES), and the real
+# policy domains (from PolicyDeclarations / PolicyDomainTable::PREFIXES), and the real
 # bound skills (from platform_skill_assignments_seed.rb) where one exists —
 # rather than routing against the live seeded database. Reasons:
 #   1. The live seeded set is non-deterministic input for a spec (account
@@ -99,7 +99,7 @@ RSpec.describe "platform.route_task behavioural probes (IMP-dfca08b9b412)" do
   end
 
   before do
-    # Real domain categories (DOMAIN_PREFIXES / PolicyDeclarations) — not
+    # Real domain categories (PolicyDomainTable::PREFIXES / PolicyDeclarations) — not
     # invented ones — so domain_matches? is exercised against the same
     # category strings the extension actually registers.
     domain_policy(cve, "system.cve_remediate")

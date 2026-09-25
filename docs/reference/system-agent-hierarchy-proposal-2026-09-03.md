@@ -145,7 +145,7 @@ Fleet Autonomy keeps the fleet sensors' core (cert, module, instance health, tas
 policies — and becomes what its name says. Operator-only sets stay (they are the human caller's
 verbs) but each now has an agent twin where a sensor exists, so `by_agent_pivot` has no empty domain.
 SDWAN Manager is already right-sized. Reference counts, FLEET_SENSORS.md, the Autonomy modal's
-`SYSTEM_AGENT_NAMES`, `AGENT_IDENTITIES` and `AGENT_ALIASES` all move with the split; the
+agent roster (since removed with that view), `AGENT_IDENTITIES` and `AGENT_ALIASES` all move with the split; the
 governance reconciler carries existing installs across.
 
 ### Phase 3 — autonomous design / improve / implement

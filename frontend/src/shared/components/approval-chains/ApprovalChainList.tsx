@@ -7,8 +7,9 @@ import { useApprovalChains } from '@/shared/hooks/useApprovalChains';
 import type { ApprovalChain } from '@/shared/types/approval';
 
 /**
- * List + manage approval chains for the current account. Used inside the
- * System Settings → Approval Chains tab. Each chain shows step count, usage
+ * List + manage approval chains for the current account. Rendered by the
+ * Approval Chains page (/app/ai/approval-chains) and by extensions that embed
+ * it (the System autonomy settings). Each chain shows step count, usage
  * count, and inline edit/delete buttons.
  */
 export function ApprovalChainList() {

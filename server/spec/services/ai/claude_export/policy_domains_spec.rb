@@ -4,7 +4,7 @@ require "rails_helper"
 
 # Core-pure seam for "which domain owns this intervention-policy category".
 # The exact prefix table is extension-owned (the system extension's
-# DOMAIN_PREFIXES); core must not name it, so an extension REGISTERS its map
+# PolicyDomainTable::PREFIXES); core must not name it, so an extension REGISTERS its map
 # here and core falls back to a generic prefix heuristic when nothing is
 # registered for a category.
 RSpec.describe Ai::ClaudeExport::PolicyDomains do

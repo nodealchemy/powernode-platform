@@ -15,9 +15,8 @@ export interface ChainCreatePayload {
 }
 
 /**
- * CRUD hook for `Ai::ApprovalChain` records. Used by the System Settings
- * Approval Chains tab and (eventually) any other extension that needs
- * multi-step approval flows.
+ * CRUD hook for `Ai::ApprovalChain` records. Used by ApprovalChainList (the
+ * Approval Chains page) and any extension that needs multi-step approval flows.
  */
 export function useApprovalChains() {
   const [chains, setChains] = useState<ApprovalChain[]>([]);

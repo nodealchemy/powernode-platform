@@ -103,7 +103,7 @@ export type AgentPoliciesMap = Record<string, Record<string, AutonomyLevel>>;
  * `AutonomyPolicyUpdate`).
  *
  * `scope` and `agent_id` are required rather than optional because the server
- * has always shipped both (`System::AutonomyActions#serialize_policy`) and a
+ * has always shipped both (`Ai::InterventionPolicies::GroupedView`) and a
  * row missing either cannot be written back to. Note this only documents the
  * by_domain contract: the hook still tolerates their absence at RUNTIME, since
  * the other payload shapes it accepts carry no identity at all, and mock

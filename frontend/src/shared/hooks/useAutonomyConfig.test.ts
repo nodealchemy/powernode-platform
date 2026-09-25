@@ -85,10 +85,9 @@ describe('useAutonomyConfig', () => {
   // IMP-bef43160636f — what save() puts ON THE WIRE.
   //
   // These pin the request body literally, because the body is a cross-language
-  // contract with `System::AutonomyActions#update` and nothing in this suite
-  // can execute the Ruby side. The server half is pinned by
-  // extensions/system/server/spec/controllers/api/v1/system/
-  // autonomy_panel_write_coherence_spec.rb; a rename on ONE side is only caught
+  // contract with the bulk save (`Ai::InterventionPolicies::BulkUpdate`) and
+  // nothing in this suite can execute the Ruby side. The server half is pinned
+  // by server/spec/requests/api/v1/ai/intervention_policies_grouped_spec.rb; a rename on ONE side is only caught
   // by the two literals disagreeing, so both are deliberately spelled out
   // rather than derived.
   describe('save() request contract', () => {
@@ -523,7 +522,7 @@ describe('useAutonomyConfig', () => {
     // and `rowIdentities` while the old panel still renders a control for it —
     // which shows the miss default `require_approval` (a verb the server never
     // sent) and degrades the save to category + verb, which
-    // `System::AutonomyActions#update` resolves as `scope: "global"`. That is a
+    // the bulk save resolves as `scope: "global"`. That is a
     // BROADER, account-wide write than the agent row the operator was editing,
     // and it is strictly worse than the mislabel it replaces.
     //
@@ -558,7 +557,7 @@ describe('useAutonomyConfig', () => {
       });
     });
 
-    // Stands in for the extension's own `systemPolicyBucket`; this suite pins
+    // Stands in for a source's own rule (core's `policyBucket`); this suite pins
     // that the hook USES the source's rule, not what that rule says.
     const withRule = {
       fetchEndpoint: '/test/autonomy',

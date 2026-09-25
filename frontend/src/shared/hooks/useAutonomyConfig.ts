@@ -63,15 +63,13 @@ function identityOf(row: { scope?: unknown; agent_id?: unknown }): RowIdentity |
  * `agentPolicies` and `rowIdentities` while that panel still renders a control
  * for it, so the control shows the miss default `require_approval` — a verb the
  * server never sent — and its save degrades to category + verb, which
- * `System::AutonomyActions#update` resolves as `scope: "global"`. That is a
+ * the bulk save endpoint resolves as `scope: "global"`. That is a
  * BROADER, account-wide write than the agent row the operator was editing:
  * strictly worse than the mislabel it would be replacing.
  *
- * Concretely, `powernode-extension-system` ships the panel, the source AND the
- * Rails serializer in ONE module (its manifest file_spec covers both
- * `/opt/powernode/extensions/system/**` and
- * `/opt/powernode/frontend/dist/extensions/system/**`), so an old source
- * implies an old panel. Core cannot fix that pairing's mislabel from here — the
+ * Concretely, an extension that ships its panel, its source AND its Rails
+ * serializer in ONE module (one manifest file_spec covering both its server and
+ * its frontend dist) pairs an old source with an old panel. Core cannot fix that pairing's mislabel from here — the
  * old panel's grouping is baked into the old bundle — and it must not make the
  * pairing worse.
  *

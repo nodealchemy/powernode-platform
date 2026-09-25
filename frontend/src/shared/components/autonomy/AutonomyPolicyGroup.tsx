@@ -17,9 +17,9 @@ interface AutonomyPolicyGroupProps {
 
 /**
  * Per-domain autonomy policy editor — renders an action list with per-row
- * dropdowns plus a "Set all" bulk-set control. Used inside System Settings
- * Modal (one instance per domain tab) and per-extension settings panels (one
- * instance per agent role).
+ * dropdowns plus a "Set all" bulk-set control. Used inside core's
+ * intervention-policy panel (one instance per agent group in a domain) and
+ * per-extension settings panels (one instance per agent role).
  *
  * Promoted to shared 2026-05-10 — autonomy is a platform-wide feature, every
  * extension that grows agents will need this UI.
