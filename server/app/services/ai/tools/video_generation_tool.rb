@@ -13,7 +13,10 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "generate_video", mutating: true
+      declare_action "generate_video", mutating: true,
+                                       returns: "model, task_id and provider, plus the stored file's id, filename, content type, size and metadata",
+                                       refuses: [ "prompt is missing", "the Runway provider has no API key or no api_base_url",
+                                                  "the Runway task fails, does not finish within the poll budget, or its output cannot be downloaded" ]
 
       def self.definition
         {

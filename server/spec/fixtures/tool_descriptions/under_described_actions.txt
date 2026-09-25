@@ -8,7 +8,6 @@
 #     delete its line.
 # Registry keys, sorted, one per line. Regenerate ONLY deliberately:
 #   bin/rails runner -e test 'require Rails.root.join("spec/support/tool_description_coverage"); ToolDescriptionCoverage.write_snapshot!'
-generate_video
 system_abort_task
 system_acme_get_certificate
 system_acme_provision_certificate
