@@ -14,11 +14,13 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 // apiClient call to the canonical conversationsApi — mock at that boundary.
 const mockGetMessages = jest.fn();
 const mockSendMessage = jest.fn();
+const mockConfirmConciergeAction = jest.fn();
 
 jest.mock('@/shared/services/ai/ConversationsApiService', () => ({
   conversationsApi: {
     getMessages: (...args: unknown[]) => mockGetMessages(...args),
     sendMessage: (...args: unknown[]) => mockSendMessage(...args),
+    confirmConciergeAction: (...args: unknown[]) => mockConfirmConciergeAction(...args),
   },
 }));
 
@@ -48,10 +50,20 @@ jest.mock('@/features/ai/chat/components/ChatStreamingRenderer', () => ({
   ),
 }));
 
-// Avoid pulling in chatApi via the real ConciergeActionCard
+// Avoid pulling in the real ConciergeActionCard; expose its onConfirm so
+// tests can assert what conversationId reaches conversationsApi.confirmConciergeAction.
 jest.mock('@/shared/components/concierge/ConciergeActionCard', () => ({
-  ConciergeActionCard: ({ actionContext }: { actionContext: { action_type: string } }) => (
-    <div data-testid="concierge-action-card">{actionContext.action_type}</div>
+  ConciergeActionCard: ({
+    actionContext,
+    onConfirm,
+  }: {
+    actionContext: { action_type: string };
+    onConfirm: (actionType: string, actionParams: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="concierge-action-card">
+      {actionContext.action_type}
+      <button onClick={() => onConfirm('approve', { note: 'go' })}>Confirm concierge action</button>
+    </div>
   ),
 }));
 
@@ -65,6 +77,7 @@ const buildMessages = (msgs: ProvisioningChatMessage[]) => {
 beforeEach(() => {
   mockGetMessages.mockReset();
   mockSendMessage.mockReset();
+  mockConfirmConciergeAction.mockReset();
   mockSubscribe.mockClear();
 });
 
@@ -152,6 +165,30 @@ describe('ProjectProvisioningChat', () => {
     expect(await screen.findByTestId('concierge-action-card')).toHaveTextContent(
       'provision_infrastructure'
     );
+  });
+
+  it('passes the conversationId prop, not the message id, to conversationsApi.confirmConciergeAction', async () => {
+    buildMessages([
+      {
+        id: 'm-1',
+        sender_type: 'ai',
+        content: 'Ready to provision.',
+        created_at: '2026-05-07T00:00:00Z',
+        metadata: {
+          concierge_action: 'provision_infrastructure',
+          pending_action: { type: 'provision_infrastructure' },
+          action_context: { action_type: 'provision_infrastructure', status: 'pending' },
+          actions: [{ type: 'confirm', label: 'Confirm', style: 'primary' }],
+          action_params: {},
+        },
+      },
+    ]);
+
+    render(<ProjectProvisioningChat conversationId="conv-1" onOpenPlan={jest.fn()} />);
+
+    fireEvent.click(await screen.findByText('Confirm concierge action'));
+
+    expect(mockConfirmConciergeAction).toHaveBeenCalledWith('conv-1', 'approve', { note: 'go' });
   });
 
   it('renders Open Plan button on plan_ready and triggers callback', async () => {

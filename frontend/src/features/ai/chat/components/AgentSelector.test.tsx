@@ -1,5 +1,4 @@
-import React from 'react';
-import { render, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AgentSelector } from './AgentSelector';
 
 // fc-37: the agents fetch moved from a raw apiClient.get('/ai/agents', ...)
@@ -20,11 +19,11 @@ describe('AgentSelector (fc-37 migration)', () => {
   beforeEach(() => {
     mockGetAgents.mockReset();
     mockApiClientGet.mockReset();
-    mockGetAgents.mockResolvedValue({ items: [], pagination: {} });
     mockApiClientGet.mockResolvedValue({ data: { data: { items: [] } } });
   });
 
   it('fetches agents via agentsApi.getAgents with status active and include_types', async () => {
+    mockGetAgents.mockResolvedValue({ items: [], pagination: {} });
     render(<AgentSelector onSelect={jest.fn()} />);
 
     await waitFor(() => {
@@ -33,5 +32,23 @@ describe('AgentSelector (fc-37 migration)', () => {
         include_types: 'assistant,monitor,code_assistant,content_generator,image_generator,mcp_client',
       });
     });
+  });
+
+  // Guards against a mutant that reverts the read from the canonical
+  // response.items to the old raw-axios response.data?.data?.items shape:
+  // with the mock below (no nested .data), that mutant reads undefined,
+  // renders zero agents, and this assertion goes red.
+  it('renders an agent returned by agentsApi.getAgents (consumed via .items)', async () => {
+    mockGetAgents.mockResolvedValue({
+      items: [{ id: 'agent-1', name: 'Research Assistant', agent_type: 'assistant', status: 'active' }],
+      pagination: {},
+    });
+
+    render(<AgentSelector onSelect={jest.fn()} />);
+
+    const trigger = await screen.findByRole('button', { name: /select an agent/i });
+    fireEvent.click(trigger);
+
+    expect(await screen.findByText('Research Assistant')).toBeInTheDocument();
   });
 });
