@@ -110,7 +110,6 @@ emit_signal
 enable_autonomy
 environment_list
 execute_agent
-execute_team
 extract_to_knowledge_graph
 federation_invoke_tool
 federation_list_partners

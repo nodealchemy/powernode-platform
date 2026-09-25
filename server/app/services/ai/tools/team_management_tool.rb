@@ -12,7 +12,7 @@ module Ai
       declare_action "add_team_member", mutating: true
       declare_action "create_team", mutating: true
       declare_action "delete_team", mutating: true, destructive: true
-      declare_action "execute_team", mutating: true
+      declare_action "execute_team", mutating: true, returns: "execution_id to follow the run, team_id and status execution_dispatched; the result arrives on the execution, not here", refuses: "the team is not found or the worker cannot be reached (the execution is then cancelled)"
       declare_action "get_team", mutating: false
       declare_action "list_teams", mutating: false, limit: 50, returns: "id, name, type, coordination strategy, member count, canonical flag and template id per team, in no particular order"
       declare_action "remove_team_member", mutating: true, destructive: true
@@ -102,7 +102,7 @@ module Ai
             }
           },
           "execute_team" => {
-            description: "Queue execution of a team workflow",
+            description: "Start a team run: create the team execution and queue it for the worker, which runs the team's coordination strategy asynchronously.",
             parameters: {
               team_id: { type: "string", required: true, description: "Team UUID or exact team name" },
               input: { type: "object", required: false, description: "Execution input" }
@@ -180,18 +180,35 @@ module Ai
         input = input.stringify_keys if input.respond_to?(:stringify_keys)
         triggered_by = user || account.users.first
 
-        WorkerJobService.enqueue_ai_team_execution(
-          team_id: team.id,
-          user_id: triggered_by&.id,
-          input: input,
-          context: { "source" => "mcp_tool", "triggered_at" => Time.current.iso8601 }
+        # Created here rather than by the worker job, so the caller gets an id
+        # to follow (get_team / the executions API). The job runs the strategy
+        # on this row instead of creating its own.
+        execution = team_execution_service.start_execution(
+          team.id, { objective: input["task"] || input["prompt"], input_context: input }, user: triggered_by
         )
+        begin
+          WorkerJobService.enqueue_ai_team_execution(
+            team_id: team.id,
+            user_id: triggered_by&.id,
+            input: input,
+            context: { "source" => "mcp_tool", "triggered_at" => Time.current.iso8601 },
+            execution_id: execution.id
+          )
+        rescue WorkerJobService::WorkerServiceError
+          team_execution_service.cancel_execution(execution.id, reason: "dispatch_failed")
+          raise
+        end
 
-        { success: true, team_id: team.id, status: "execution_dispatched", message: "Team execution dispatched to worker" }
+        { success: true, team_id: team.id, execution_id: execution.id, status: "execution_dispatched",
+          message: "Team execution dispatched to worker" }
       rescue ActiveRecord::RecordNotFound
         { success: false, error: "Team not found" }
       rescue WorkerJobService::WorkerServiceError => e
         rescued_error_result(e, message: "Failed to dispatch team execution")
+      end
+
+      def team_execution_service
+        @team_execution_service ||= ::Ai::Teams::ExecutionService.new(account: account)
       end
 
       def get_team(params)

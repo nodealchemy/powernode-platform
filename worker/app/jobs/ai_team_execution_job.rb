@@ -26,12 +26,16 @@ class AiTeamExecutionJob < BaseJob
     # Kill switch check
     return if bail_if_ai_suspended!(params['account_id'])
 
-    # Create execution via server API
-    execution = create_execution(team_id, user_id, input, context)
-    return unless execution
+    # A caller that created the execution itself (e.g. the execute_team MCP
+    # verb, which returns its id) passes execution_id; otherwise create it here.
+    execution_id = params['execution_id'].presence
+    unless execution_id
+      execution = create_execution(team_id, user_id, input, context)
+      return unless execution
 
-    execution_id = execution['id']
-    log_info("Team execution created", execution_id: execution_id)
+      execution_id = execution['id']
+      log_info("Team execution created", execution_id: execution_id)
+    end
 
     begin
       # Delegate strategy execution to server

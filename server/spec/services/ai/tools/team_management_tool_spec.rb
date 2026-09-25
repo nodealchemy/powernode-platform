@@ -121,6 +121,31 @@ RSpec.describe Ai::Tools::TeamManagementTool do
         expect(result[:status]).to eq("execution_dispatched")
       end
 
+      # lane D M4: the dispatch used to return no execution id, so a caller
+      # could not follow the run it started.
+      it "creates the execution before dispatch and returns its id to track" do
+        team = create(:ai_agent_team, account: account)
+
+        result = tool.execute(params: { action: "execute_team", team_id: team.id, input: { "task" => "triage" } })
+
+        execution = Ai::TeamExecution.find(result[:execution_id])
+        expect(execution.agent_team).to eq(team)
+        expect(execution.objective).to eq("triage")
+        expect(WorkerJobService).to have_received(:enqueue_ai_team_execution)
+          .with(hash_including(team_id: team.id, execution_id: execution.id))
+      end
+
+      it "cancels the execution it created when the dispatch fails" do
+        team = create(:ai_agent_team, account: account)
+        allow(WorkerJobService).to receive(:enqueue_ai_team_execution)
+          .and_raise(WorkerJobService::WorkerServiceError, "worker down")
+
+        result = tool.execute(params: { action: "execute_team", team_id: team.id })
+
+        expect(result[:success]).to be false
+        expect(Ai::TeamExecution.where(agent_team: team).pluck(:status)).to all(eq("cancelled"))
+      end
+
       it "returns error for non-existent team" do
         result = tool.execute(params: { action: "execute_team", team_id: SecureRandom.uuid })
         expect(result[:success]).to be false
