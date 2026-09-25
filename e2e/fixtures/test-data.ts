@@ -195,7 +195,7 @@ export const ROUTES = {
   workflows: '/app/ai/workflows',
   agentTeams: '/app/ai/agent-teams',
   contexts: '/app/ai/contexts',
-  monitoring: '/app/ai/monitoring',
+  monitoring: '/app/ai/observability',
   analytics: '/app/ai/analytics',
   // AI → Control (replaces the Autonomy, Governance, Security and Audit pages)
   control: '/app/ai/control',
@@ -222,7 +222,7 @@ export const ROUTES = {
   devops: '/app/ai/devops-templates',
   devopsTemplates: '/app/ai/devops-templates',
   parallelExecution: '/app/ai/parallel-execution',
-  selfHealing: '/app/ai/self-healing',
+  selfHealing: '/app/ai/observability/self-healing',
   learningRecommendations: '/app/ai/knowledge/learning/recommendations',
   learningInsights: '/app/ai/knowledge/learning/insights',
   chatDetached: '/chat/detached',
