@@ -28,9 +28,6 @@ platform_provisioning_approve_plan
 platform_provisioning_compose_plan
 platform_provisioning_status
 process_document
-project_get
-project_list
-project_status
 reopen_ralph_loop
 resume_ralph_loop
 system_abort_task

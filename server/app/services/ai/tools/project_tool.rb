@@ -67,9 +67,16 @@ module Ai
 
       # Read-shaped, so `mutating: false` and no gate wiring: BaseTool#execute
       # routes straight to #call, where #authorization_error runs first.
-      declare_action "project_list", mutating: false
-      declare_action "project_get", mutating: false
-      declare_action "project_status", mutating: false
+      declare_action "project_list", mutating: false,
+                                     refuses: "status is not active, paused or archived"
+      declare_action "project_get", mutating: false,
+                                    returns: "the project summary plus team provisioning, watch_policies, slo_targets, metadata and mission_count",
+                                    refuses: "project_id is missing or matches no project in this account",
+                                    see_also: { "project_status" => "the mission rollup and resolved scaling window" }
+      declare_action "project_status", mutating: false,
+                                       returns: "the project details, mission_count, missions_by_status, in_progress_mission_ids, " \
+                                                "each mission's id, name, type, status, phase and repository, and the resolved scaling bounds",
+                                       refuses: "project_id is missing or matches no project in this account"
       declare_action "project_set_slo_targets", mutating: true
 
       def self.definition
@@ -103,9 +110,8 @@ module Ai
             }
           },
           "project_get" => {
-            description: "Get one project by UUID or slug, including its declared watch_policies " \
-                         "(scaling window) and slo_targets (availability, latency, cost ceiling, " \
-                         "utilization ceilings).",
+            description: "Get one project by UUID or slug, including its declared watch_policies and slo_targets. " \
+                         "The watch_policies section carries the declared scaling window, and slo_targets the declared service-level targets.",
             parameters: {
               project_id: { type: "string", required: true, description: "Project UUID or slug" }
             }
@@ -135,9 +141,9 @@ module Ai
             }
           },
           "project_status" => {
-            description: "Operational rollup for one project: the missions it owns grouped by status, " \
-                         "the ones still in flight, and the scaling window those missions resolve — " \
-                         "which may come from the project's own declaration or from a rung above it.",
+            description: "Get the operational rollup for one project: its missions grouped by status and the ones still in flight. " \
+                         "It also reports the scaling window those missions resolve, which may come from the project's " \
+                         "own declaration or from a rung above it; with no missions, the project's declaration is reported instead.",
             parameters: {
               project_id: { type: "string", required: true, description: "Project UUID or slug" }
             }
