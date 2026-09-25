@@ -1869,12 +1869,7 @@ Rails.application.routes.draw do
           get :circuit_breakers, action: :circuit_breakers_index
           get "circuit_breakers/:service_name", action: :circuit_breaker_show
           post "circuit_breakers/:service_name/reset", action: :circuit_breaker_reset
-          post "circuit_breakers/:service_name/open", action: :circuit_breaker_open
-          post "circuit_breakers/:service_name/close", action: :circuit_breaker_close
-          post "circuit_breakers/reset_all", action: :circuit_breakers_reset_all
           get "circuit_breakers/category/:category", action: :circuit_breakers_category
-          post "circuit_breakers/category/:category/reset", action: :circuit_breakers_category_reset
-          get "circuit_breakers/monitor", action: :circuit_breakers_monitor
 
           # Real-time monitoring
           post :broadcast, action: :broadcast_metrics

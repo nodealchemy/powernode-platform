@@ -556,59 +556,6 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
     end
   end
 
-  describe 'POST /api/v1/ai/monitoring/circuit_breakers/:service_name/open' do
-    context 'with proper permissions' do
-      it 'opens the circuit breaker' do
-        breaker = double('CircuitBreaker', force_open!: true, circuit_stats: { state: 'open' })
-        allow(Ai::CircuitBreakerRegistry).to receive(:get_or_create_breaker)
-          .with('test_service')
-          .and_return(breaker)
-
-        post '/api/v1/ai/monitoring/circuit_breakers/test_service/open', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['service_name']).to eq('test_service')
-        expect(data).to have_key('state')
-      end
-    end
-  end
-
-  describe 'POST /api/v1/ai/monitoring/circuit_breakers/:service_name/close' do
-    context 'with proper permissions' do
-      it 'closes the circuit breaker' do
-        breaker = double('CircuitBreaker', force_close!: true, circuit_stats: { state: 'closed' })
-        allow(Ai::CircuitBreakerRegistry).to receive(:get_or_create_breaker)
-          .with('test_service')
-          .and_return(breaker)
-
-        post '/api/v1/ai/monitoring/circuit_breakers/test_service/close', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['service_name']).to eq('test_service')
-        expect(data).to have_key('state')
-      end
-    end
-  end
-
-  describe 'POST /api/v1/ai/monitoring/circuit_breakers/reset_all' do
-    context 'with proper permissions' do
-      it 'resets all circuit breakers' do
-        allow(Ai::CircuitBreakerRegistry).to receive(:reset_all!).and_return(true)
-        allow(Ai::CircuitBreakerRegistry).to receive(:health_summary)
-          .and_return({ total: 5, healthy: 5, unhealthy: 0 })
-
-        post '/api/v1/ai/monitoring/circuit_breakers/reset_all', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data).to have_key('summary')
-        expect(data).to have_key('timestamp')
-      end
-    end
-  end
-
   describe 'GET /api/v1/ai/monitoring/circuit_breakers/category/:category' do
     context 'with proper permissions' do
       it 'returns circuit breakers for category' do
@@ -620,50 +567,6 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
         data = json_response_data
         expect(data['category']).to eq('providers')
         expect(data['circuit_breakers']).to be_an(Array)
-      end
-    end
-  end
-
-  describe 'POST /api/v1/ai/monitoring/circuit_breakers/category/:category/reset' do
-    context 'with proper permissions' do
-      it 'resets circuit breakers in category' do
-        allow(Ai::CircuitBreakerRegistry).to receive(:reset_category!)
-          .with('providers')
-          .and_return(true)
-        allow(Ai::CircuitBreakerRegistry).to receive(:category_states)
-          .with('providers')
-          .and_return([])
-
-        post '/api/v1/ai/monitoring/circuit_breakers/category/providers/reset',
-             headers: headers,
-             as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['category']).to eq('providers')
-        expect(data).to have_key('circuit_breakers')
-      end
-    end
-  end
-
-  # NOTE: Due to route ordering, /circuit_breakers/monitor is matched by
-  # /circuit_breakers/:service_name before the explicit monitor route.
-  # This test validates the current behavior (circuit_breaker_show with service_name='monitor').
-  # The route ordering in routes.rb should ideally be fixed to put specific routes first.
-  describe 'GET /api/v1/ai/monitoring/circuit_breakers/monitor' do
-    context 'with proper permissions' do
-      it 'returns monitoring data for monitor service' do
-        breaker = double('CircuitBreaker', circuit_stats: { state: 'closed', failure_count: 0 })
-        allow(Ai::CircuitBreakerRegistry).to receive(:get_breaker)
-          .with('monitor')
-          .and_return(breaker)
-
-        get '/api/v1/ai/monitoring/circuit_breakers/monitor', headers: headers, as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['service_name']).to eq('monitor')
-        expect(data).to have_key('stats')
       end
     end
   end

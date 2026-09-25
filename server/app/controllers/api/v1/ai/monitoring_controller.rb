@@ -172,54 +172,11 @@ module Api
           log_audit_event("ai.monitoring.circuit_breaker.reset", current_user.account, service_name: params[:service_name])
         end
 
-        # POST /api/v1/ai/monitoring/circuit_breakers/:service_name/open
-        def circuit_breaker_open
-          breaker = ::Ai::CircuitBreakerRegistry.get_or_create_breaker(params[:service_name])
-          breaker.force_open!
-
-          render_success(message: "Circuit breaker opened for #{params[:service_name]}", service_name: params[:service_name], state: breaker.circuit_stats)
-          log_audit_event("ai.monitoring.circuit_breaker.open", current_user.account, service_name: params[:service_name])
-        end
-
-        # POST /api/v1/ai/monitoring/circuit_breakers/:service_name/close
-        def circuit_breaker_close
-          breaker = ::Ai::CircuitBreakerRegistry.get_or_create_breaker(params[:service_name])
-          breaker.force_close!
-
-          render_success(message: "Circuit breaker closed for #{params[:service_name]}", service_name: params[:service_name], state: breaker.circuit_stats)
-          log_audit_event("ai.monitoring.circuit_breaker.close", current_user.account, service_name: params[:service_name])
-        end
-
-        # POST /api/v1/ai/monitoring/circuit_breakers/reset_all
-        def circuit_breakers_reset_all
-          ::Ai::CircuitBreakerRegistry.reset_all!
-          summary = ::Ai::CircuitBreakerRegistry.health_summary
-
-          render_success(message: "All circuit breakers reset", summary: summary, timestamp: Time.current.iso8601)
-          log_audit_event("ai.monitoring.circuit_breakers.reset_all", current_user.account)
-        end
-
         # GET /api/v1/ai/monitoring/circuit_breakers/category/:category
         def circuit_breakers_category
           states = ::Ai::CircuitBreakerRegistry.category_states(params[:category])
 
           render_success(category: params[:category], circuit_breakers: states, count: states.length, timestamp: Time.current.iso8601)
-        end
-
-        # POST /api/v1/ai/monitoring/circuit_breakers/category/:category/reset
-        def circuit_breakers_category_reset
-          ::Ai::CircuitBreakerRegistry.reset_category!(params[:category])
-          states = ::Ai::CircuitBreakerRegistry.category_states(params[:category])
-
-          render_success(message: "Circuit breakers reset for category: #{params[:category]}", category: params[:category], circuit_breakers: states)
-          log_audit_event("ai.monitoring.circuit_breakers.category_reset", current_user.account, category: params[:category])
-        end
-
-        # GET /api/v1/ai/monitoring/circuit_breakers/monitor
-        def circuit_breakers_monitor
-          summary = ::Ai::CircuitBreakerRegistry.monitor_and_alert
-
-          render_success(monitored_at: Time.current.iso8601, summary: summary, alerts_triggered: summary[:unhealthy] > 0 || summary[:degraded] > 0)
         end
 
         # =============================================================================
@@ -340,9 +297,8 @@ module Api
 
           permission_map = {
             %w[dashboard metrics overview health health_detailed health_connectivity alerts alerts_check
-               circuit_breakers_index circuit_breaker_show circuit_breakers_category circuit_breakers_monitor] => "ai.monitoring.read",
-            %w[circuit_breaker_reset circuit_breaker_open circuit_breaker_close circuit_breakers_reset_all
-               circuit_breakers_category_reset broadcast_metrics start_monitoring stop_monitoring] => "ai.monitoring.manage",
+               circuit_breakers_index circuit_breaker_show circuit_breakers_category] => "ai.monitoring.read",
+            %w[circuit_breaker_reset broadcast_metrics start_monitoring stop_monitoring] => "ai.monitoring.manage",
             USER_ATTRIBUTED_ACTIONS => "ai.aiops.manage"
           }
 
