@@ -5,17 +5,18 @@ module Api
     module Ai
       class GovernanceController < ApplicationController
         include Paginatable
+        include AuditLogging
         # Authorization on the dedicated ai.governance.* family: reads gate on
         # `ai.governance.read`, writes on `ai.governance.manage` (both catalog-
         # defined). Decoupled from the coarse `ai.manage` gate so AI-operator
         # tokens without governance authority cannot mutate governance state.
         READ_ACTIONS = %i[
           policies violations classifications
-          reports summary audit_log
+          reports summary audit_log security_events
         ].freeze
 
         WRITE_ACTIONS = %i[
-          create_policy activate_policy evaluate_policies
+          create_policy activate_policy toggle_policy evaluate_policies
           acknowledge_violation resolve_violation
           create_classification scan_data mask_data
           generate_report
@@ -64,6 +65,30 @@ module Api
           result = @service.activate_policy(policy)
 
           render_success(policy: policy_json(result[:policy]))
+        end
+
+        # PUT /api/v1/ai/governance/policies/:id/toggle
+        # An active policy is disabled; a draft or disabled one is activated.
+        # Archived policies stay archived, and a required policy is never
+        # switched off. Every change is a policy change, so it is audited.
+        def toggle_policy
+          policy = current_account.ai_compliance_policies.find(params[:id])
+          old_status = policy.status
+
+          if policy.status == "archived"
+            return render_error("Archived policies cannot be toggled", status: :unprocessable_content)
+          end
+          if policy.active? && policy.is_required
+            return render_error("Required policies cannot be disabled", status: :unprocessable_content)
+          end
+
+          policy.active? ? policy.deactivate! : policy.activate!
+          log_audit_event("update", policy,
+                          old_values: { status: old_status },
+                          new_values: { status: policy.status },
+                          metadata: { change: "compliance_policy_toggled" })
+
+          render_success(policy: policy_json(policy))
         end
 
         # POST /api/v1/ai/governance/policies/evaluate
@@ -215,7 +240,41 @@ module Api
           )
         end
 
+        # Security events: the account's security-relevant audit entries
+        # (failed logins, 2FA changes, denied API access, ...).
+        # GET /api/v1/ai/governance/security_events
+        def security_events
+          per_page = params[:per_page].to_i
+          per_page = SECURITY_EVENTS_PER_PAGE if per_page < 1
+          events = current_account.audit_logs
+                                  .security_events
+                                  .order(created_at: :desc)
+                                  .page(params[:page])
+                                  .per([ per_page, SECURITY_EVENTS_MAX_PER_PAGE ].min)
+
+          render_success(
+            events: events.map { |e| security_event_json(e) },
+            pagination: pagination_meta(events)
+          )
+        end
+
         private
+
+        SECURITY_EVENTS_PER_PAGE = 50
+        SECURITY_EVENTS_MAX_PER_PAGE = 100
+
+        def security_event_json(entry)
+          {
+            id: entry.id,
+            action: entry.action,
+            resource_type: entry.resource_type,
+            severity: entry.severity,
+            risk_level: entry.risk_level,
+            source: entry.source,
+            ip_address: entry.ip_address,
+            created_at: entry.created_at.iso8601
+          }
+        end
 
         def require_governance_read
           require_permission("ai.governance.read")

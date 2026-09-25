@@ -1603,6 +1603,7 @@ Rails.application.routes.draw do
           get "policies", action: :policies
           post "policies", action: :create_policy
           put "policies/:id/activate", action: :activate_policy
+          put "policies/:id/toggle", action: :toggle_policy
           post "policies/evaluate", action: :evaluate_policies
 
           # Violations
@@ -1625,6 +1626,7 @@ Rails.application.routes.draw do
           # Summary and audit
           get "summary", action: :summary
           get "audit_log", action: :audit_log
+          get "security_events", action: :security_events
         end
 
         # ===================================================================
