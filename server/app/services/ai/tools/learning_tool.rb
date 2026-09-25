@@ -44,14 +44,40 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "create_learning", mutating: true
-      declare_action "learning_metrics", mutating: false
-      declare_action "query_learnings", mutating: false
-      declare_action "reinforce_learning", mutating: true
+      BULK_RETURNS = "count and a first-3/last-1 sample; a real run also returns ids, failed and row_errors"
+      BULK_REFUSES = "the predicate matches more than 500 rows, or a filter value is blank"
+
+      declare_action "create_learning", mutating: true,
+                                        returns: "success and a message saying whether a new learning was stored or a " \
+                                                 "near-duplicate was reinforced; no id is returned",
+                                        refuses: "content is blank, or category is not a known category",
+                                        see_also: { "create_knowledge" => "a curated reference entry" }
+      declare_action "learning_metrics", mutating: false,
+                                         returns: "total and active counts, active counts by category and scope, average " \
+                                                  "importance and effectiveness, the 5 most effective and 10 newest " \
+                                                  "active learnings, and compound_score"
+      declare_action "query_learnings", mutating: false, limit: 50,
+                                        returns: "count, match_mode and learnings (id, title, content up to 500 chars, " \
+                                                 "category, scope, status, scores and outcome counts)",
+                                        refuses: "status is not a known status",
+                                        see_also: {
+                                          "search_knowledge" => "curated shared knowledge entries such as guidance",
+                                          "query_knowledge_base" => "document chunks in a RAG knowledge base",
+                                          "search_memory" => "one agent's short-term memory and learnings, by keyword",
+                                          "search_knowledge_graph" => "entities and their relations"
+                                        }
+      declare_action "reinforce_learning", mutating: true,
+                                           returns: "learning_id and new_importance",
+                                           refuses: "the learning is not found",
+                                           see_also: { "verify_learning" => "marking a learning verified as accurate" }
       # IMP-3c9a6dc8f0a9 — dry_run: true is the caller's default too; see
       # Ai::Tools::SharedKnowledgeTool's identical note on its bulk actions.
-      declare_action "retire_by_predicate", mutating: true, destructive: true
-      declare_action "hard_delete_retired", mutating: true, destructive: true
+      declare_action "retire_by_predicate", mutating: true, destructive: true,
+                                            returns: BULK_RETURNS, refuses: BULK_REFUSES,
+                                            see_also: { "hard_delete_retired" => "permanently removing learnings already retired" }
+      declare_action "hard_delete_retired", mutating: true, destructive: true,
+                                            returns: BULK_RETURNS, refuses: BULK_REFUSES,
+                                            see_also: { "retire_by_predicate" => "retiring learnings first" }
 
       def self.definition
         {
@@ -81,7 +107,10 @@ module Ai
       def self.action_definitions
         {
           "query_learnings" => {
-            description: "Query compound learnings with optional filters. With a query, semantic search runs " \
+            description: "Query compound learnings with optional filters. Compound learnings are short lessons " \
+                         "(patterns, anti-patterns, failure modes, discoveries and so on) extracted automatically " \
+                         "after agent and team executions, reviews and Ralph loops, or written with create_learning. " \
+                         "With a query, semantic search runs " \
                          "first and falls back to keyword search when it finds nothing or no embedding can be " \
                          "generated; match_mode says which ran (semantic | keyword | none, or filter when no " \
                          "query is given). That empty-result fallback is this recall verb's alone: learnings " \
@@ -95,7 +124,8 @@ module Ai
             }
           },
           "reinforce_learning" => {
-            description: "Reinforce a compound learning by recording a positive outcome and boosting importance",
+            description: "Reinforce a compound learning by recording a positive outcome and boosting importance. " \
+                         "It counts one successful injection outcome and raises importance by 0.05.",
             parameters: {
               learning_id: { type: "string", required: true, description: "Learning ID to reinforce" }
             }
@@ -105,7 +135,8 @@ module Ai
             parameters: {}
           },
           "create_learning" => {
-            description: "Create a new compound learning entry",
+            description: "Create a new compound learning entry. A near-duplicate of an existing learning reinforces " \
+                         "that learning instead of adding a row.",
             parameters: {
               content: { type: "string", required: true, description: "Learning content" },
               title: { type: "string", required: false, description: "Learning title" },
@@ -117,8 +148,8 @@ module Ai
           },
           "retire_by_predicate" => {
             description: "Predicate-scoped bulk retire (soft, reversible) of active/verified compound " \
-                         "learnings — reaches untagged rows #reinforce_learning-style domain retirement " \
-                         "cannot. dry_run defaults to true — returns the count and a first-3/last-1 sample " \
+                         "learnings. It reaches untagged rows that domain-scoped retirement cannot. " \
+                         "`dry_run` defaults to true — returns the count and a first-3/last-1 sample " \
                          "without mutating; pass dry_run: false to actually retire. Refuses (does not " \
                          "truncate) if the predicate matches more than the per-call ceiling.",
             parameters: {

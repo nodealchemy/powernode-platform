@@ -54,7 +54,6 @@ create_agent
 create_gitea_repository
 create_kb_article
 create_knowledge_base
-create_learning
 create_memory_pool
 create_page
 create_team
@@ -116,7 +115,6 @@ get_user
 governance_dashboard
 governance_scan
 graph_statistics
-hard_delete_retired
 integration_health
 invite_agent
 kill_switch_status
@@ -124,7 +122,6 @@ knowledge_health
 kubernetes_get_cluster
 kubernetes_list_clusters
 kubernetes_list_nodes
-learning_metrics
 list_conversations
 list_generated_images
 list_git_runners
@@ -160,7 +157,6 @@ read_shared_memory
 reason_knowledge_graph
 record_agent_execution
 recruit_agent
-reinforce_learning
 reinforce_signal
 reopen_ralph_loop
 rerun_gitea_job
@@ -169,7 +165,6 @@ rerun_gitea_workflow_failed_jobs
 resolve_contradiction
 resolve_governance_report
 resume_ralph_loop
-retire_by_predicate
 revert_improvement
 route_task
 scoreboard
