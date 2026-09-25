@@ -89,12 +89,23 @@ module Ai
 
       private
 
+      # Chunks this account may read: those in its own knowledge bases plus the
+      # global (account_id nil) ones, the same visibility RagService applies to
+      # knowledge bases. Every chunk query starts here, so a knowledge_base_id
+      # (or a graph node's source_document_id) that belongs to another account
+      # matches nothing.
+      def visible_chunks
+        Ai::DocumentChunk.where(
+          knowledge_base_id: Ai::KnowledgeBase.where(account_id: [ nil, @account&.id ]).select(:id)
+        )
+      end
+
       # Vector search using pgvector nearest_neighbors on document chunks
       def vector_search(query, top_k:, knowledge_base_id: nil)
         query_embedding = @embedding_service.generate(query)
         return [] unless query_embedding
 
-        scope = Ai::DocumentChunk.with_embeddings
+        scope = visible_chunks.with_embeddings
         scope = scope.for_knowledge_base(knowledge_base_id) if knowledge_base_id
 
         # Check if any chunks with embeddings exist
@@ -130,7 +141,7 @@ module Ai
 
         tsquery = sanitized_query.map { |w| "#{w}:*" }.join(" & ")
 
-        scope = Ai::DocumentChunk.all
+        scope = visible_chunks
         scope = scope.for_knowledge_base(knowledge_base_id) if knowledge_base_id
 
         results = scope
@@ -209,7 +220,7 @@ module Ai
         document_ids = document_ids.uniq.first(20)
 
         if document_ids.any?
-          chunks = Ai::DocumentChunk
+          chunks = visible_chunks
             .where(document_id: document_ids)
             .with_embeddings
             .limit(top_k * 2)
