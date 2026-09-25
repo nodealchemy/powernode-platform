@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Bot, ChevronDown, Search, Users, Terminal, Sparkles } from 'lucide-react';
 import { apiClient } from '@/shared/services/apiClient';
+import { agentsApi } from '@/shared/services/ai';
 
 interface Agent {
   id: string;
@@ -40,8 +41,8 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ selectedAgentId, o
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const response = await apiClient.get('/ai/agents', { params: { status: 'active', include_types: 'assistant,monitor,code_assistant,content_generator,image_generator,mcp_client' } });
-        const items = response.data?.data?.items || response.data?.data || [];
+        const response = await agentsApi.getAgents({ status: 'active', include_types: 'assistant,monitor,code_assistant,content_generator,image_generator,mcp_client' });
+        const items = response.items || [];
         setAgents(Array.isArray(items) ? items : []);
       } catch {
         // Silently handle error

@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Users, Plus, Trash2, X, Loader2, Search } from 'lucide-react';
-import { workspacesApi } from '@/shared/services/ai';
+import { workspacesApi, agentsApi } from '@/shared/services/ai';
 import { EntityLink } from '@/shared/components/entity';
 import type { WorkspaceMember } from '@/shared/services/ai/WorkspacesApiService';
-import { apiClient } from '@/shared/services/apiClient';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 
 interface Agent {
@@ -61,8 +60,8 @@ export const WorkspaceMembersPanel: React.FC<WorkspaceMembersPanelProps> = ({
 
   const fetchAgents = useCallback(async () => {
     try {
-      const response = await apiClient.get('/ai/agents', { params: { status: 'active' } });
-      const items = response.data?.data?.items || response.data?.data || [];
+      const response = await agentsApi.getAgents({ status: 'active' });
+      const items = response.items || [];
       setAgents(Array.isArray(items) ? items : []);
     } catch {
       // Agents list is non-critical

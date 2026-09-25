@@ -3,7 +3,7 @@ import { Search, Terminal, Sparkles, Users, X, Loader2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { workspacesApi } from '@/shared/services/ai/WorkspacesApiService';
 import type { McpSessionInfo } from '@/shared/services/ai/WorkspacesApiService';
-import { apiClient } from '@/shared/services/apiClient';
+import { agentsApi } from '@/shared/services/ai';
 import { logger } from '@/shared/utils/logger';
 
 interface AgentInfo {
@@ -48,8 +48,8 @@ export const SessionSearch: React.FC<SessionSearchProps> = ({
   const fetchAgents = useCallback(async () => {
     try {
       setLoadingAgents(true);
-      const response = await apiClient.get('/ai/agents', { params: { status: 'active', include_types: 'assistant,monitor,code_assistant,content_generator,image_generator,mcp_client' } });
-      const items = response.data?.data?.items || response.data?.data || [];
+      const response = await agentsApi.getAgents({ status: 'active', include_types: 'assistant,monitor,code_assistant,content_generator,image_generator,mcp_client' });
+      const items = response.items || [];
       setAgents(Array.isArray(items) ? items : []);
     } catch (err) {
       logger.error('Failed to fetch agents', err);

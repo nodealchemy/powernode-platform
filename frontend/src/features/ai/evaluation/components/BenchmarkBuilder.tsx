@@ -6,7 +6,7 @@ import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { fetchBenchmarks, createBenchmark, runBenchmark } from '../api/evaluationApi';
 import type { PerformanceBenchmark } from '../types/evaluation';
-import { apiClient } from '@/shared/services/apiClient';
+import { agentsApi } from '@/shared/services/ai';
 
 interface Agent {
   id: string;
@@ -29,10 +29,10 @@ export const BenchmarkBuilder: React.FC = () => {
       setLoading(true);
       const [benchData, agentRes] = await Promise.all([
         fetchBenchmarks(),
-        apiClient.get('/ai/agents', { params: { status: 'active', limit: 100 } }),
+        agentsApi.getAgents({ status: 'active', limit: 100 }),
       ]);
       setBenchmarks(benchData);
-      setAgents(agentRes.data?.data?.items || []);
+      setAgents(agentRes.items || []);
     } catch {
       addNotification({ type: 'error', message: 'Failed to load benchmarks' });
     } finally {

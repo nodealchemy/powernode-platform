@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Loader2, Sparkles, Terminal, X, Search, MessageSquare } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { useChatWindow } from '../context/ChatWindowContext';
-import { apiClient } from '@/shared/services/apiClient';
+import { agentsApi } from '@/shared/services/ai';
 
 interface AgentInfo {
   id: string;
@@ -28,8 +28,8 @@ export const ConversationCreator: React.FC<ConversationCreatorProps> = ({ onComp
   useEffect(() => {
     const fetchAgents = async () => {
       try {
-        const response = await apiClient.get('/ai/agents', { params: { status: 'active' } });
-        const items = response.data?.data?.items || response.data?.data || [];
+        const response = await agentsApi.getAgents({ status: 'active' });
+        const items = response.items || [];
         setAgents(Array.isArray(items) ? items : []);
       } catch {
         // Silent
