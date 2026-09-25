@@ -1,10 +1,13 @@
 import React from 'react';
-import { Zap, RefreshCw } from 'lucide-react';
+import { Zap, RefreshCw, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
+import { Button } from '@/shared/components/ui/Button';
 import { EntityLink } from '@/shared/components/entity';
 import { usePermissions } from '@/shared/hooks/usePermissions';
+import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
+import { getErrorMessage } from '@/shared/utils/errorHandling';
 import { useCircuitBreakers, useResetCircuitBreaker } from '../api/autonomyApi';
 import type { CircuitBreaker } from '../types/autonomy';
 
@@ -61,11 +64,17 @@ const BreakerRow: React.FC<{
  * failing — the same class of action as the provider breaker's reset
  * (ProviderCircuitBreakersPanel), which already confirms. This one now does
  * too, via the shared useConfirmation hook.
+ *
+ * fc-42 re-review: mirrors ProviderCircuitBreakersPanel's error handling — a
+ * failed load used to fall through to the same "No circuit breakers
+ * registered" copy as a genuinely empty, successful response, and a failed
+ * reset closed the confirmation dialog with no feedback at all.
  */
 export const CircuitBreakerStatusPanel: React.FC = () => {
   const { hasPermission } = usePermissions();
+  const { addNotification } = useNotifications();
   const canReset = hasPermission('ai.autonomy.manage');
-  const { data: breakers, isLoading } = useCircuitBreakers();
+  const { data: breakers, isLoading, isError, error, refetch } = useCircuitBreakers();
   const resetMutation = useResetCircuitBreaker();
   const { confirm, ConfirmationDialog } = useConfirmation();
 
@@ -78,15 +87,41 @@ export const CircuitBreakerStatusPanel: React.FC = () => {
       // .mutate + onSettled, not .mutateAsync: the dialog closes once the
       // request settles either way, and a failure never becomes an unhandled
       // rejection from this onClick handler (useConfirmation.handleConfirm
-      // has no catch of its own).
+      // has no catch of its own). The toast, fired below on error, is what
+      // tells the operator the reset didn't actually happen.
       onConfirm: () =>
         new Promise<void>((resolve) => {
-          resetMutation.mutate(breaker.id, { onSettled: () => resolve() });
+          resetMutation.mutate(breaker.id, {
+            onError: (err) => {
+              addNotification({
+                type: 'error',
+                title: 'Failed to reset circuit breaker',
+                message: getErrorMessage(err),
+              });
+            },
+            onSettled: () => resolve(),
+          });
         }),
     });
   };
 
   if (isLoading) return null;
+
+  if (isError) {
+    return (
+      <Card>
+        <CardContent>
+          <div className="py-6 text-center text-theme-tertiary">
+            <AlertTriangle className="w-10 h-10 mx-auto mb-2 text-theme-error-fg opacity-70" />
+            <p className="text-sm text-theme-error-fg">{getErrorMessage(error)}</p>
+            <Button variant="secondary" size="sm" className="mt-3" onClick={() => refetch()}>
+              Try Again
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const tripped = breakers?.filter(b => b.state !== 'closed') ?? [];
   const closed = breakers?.filter(b => b.state === 'closed') ?? [];

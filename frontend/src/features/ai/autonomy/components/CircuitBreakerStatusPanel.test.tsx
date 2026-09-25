@@ -9,9 +9,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 let mockAllowed: string[] = [];
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockAddNotification = jest.fn();
 
 jest.mock('@/shared/hooks/usePermissions', () => ({
   usePermissions: () => ({ hasPermission: (p: string) => mockAllowed.includes(p) }),
+}));
+jest.mock('@/shared/hooks/useNotifications', () => ({
+  useNotifications: () => ({ addNotification: mockAddNotification }),
 }));
 jest.mock('@/shared/services/apiClient', () => ({
   apiClient: {
@@ -54,6 +58,7 @@ describe('CircuitBreakerStatusPanel', () => {
     mockAllowed = ['ai.autonomy.manage'];
     mockGet.mockReset();
     mockPost.mockReset();
+    mockAddNotification.mockClear();
   });
 
   it('shows an empty state when no breakers are registered', async () => {
@@ -111,5 +116,47 @@ describe('CircuitBreakerStatusPanel', () => {
 
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     expect(mockPost).not.toHaveBeenCalled();
+  });
+
+  it('shows a toast when the reset fails, instead of failing silently', async () => {
+    mockGet.mockResolvedValue({ data: { data: [breaker({ state: 'open' })] } });
+    mockPost.mockRejectedValue(new Error('Reset failed: service unavailable'));
+    renderPanel();
+    await screen.findByText('Researcher');
+
+    fireEvent.click(screen.getByTitle('Reset circuit breaker'));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: /reset/i }));
+
+    await waitFor(() =>
+      expect(mockAddNotification).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'error', message: 'Reset failed: service unavailable' }),
+      ),
+    );
+  });
+
+  // fc-42 re-review: a fetch failure (403, 500, network) used to fall through
+  // to the same "No circuit breakers registered" empty state as a genuinely
+  // empty, successful response — indistinguishable to the viewer.
+  describe('when the fetch fails', () => {
+    it('shows an error message, not the empty-state copy', async () => {
+      mockGet.mockRejectedValue(new Error('Forbidden'));
+      renderPanel();
+
+      expect(await screen.findByText('Forbidden')).toBeInTheDocument();
+      expect(screen.queryByText('No circuit breakers registered')).not.toBeInTheDocument();
+    });
+
+    it('retries the fetch when Try Again is clicked', async () => {
+      mockGet.mockRejectedValueOnce(new Error('Forbidden'));
+      mockGet.mockResolvedValue({ data: { data: [breaker({ state: 'closed' })] } });
+      renderPanel();
+
+      await screen.findByText('Forbidden');
+      fireEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+      await waitFor(() => expect(screen.getByText('Researcher')).toBeInTheDocument());
+      expect(screen.queryByText('Forbidden')).not.toBeInTheDocument();
+    });
   });
 });
