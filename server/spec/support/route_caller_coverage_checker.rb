@@ -198,11 +198,13 @@ module RouteCallerCoverageChecker
     private
 
     def frontend_file_index
-      @frontend_file_index ||= build_file_index(FRONTEND_DIRS, FRONTEND_EXTS)
+      @frontend_file_index ||= build_file_index(FRONTEND_DIRS, ->(file) { FRONTEND_EXTS.include?(File.extname(file)) })
     end
 
     def service_file_index
-      @service_file_index ||= build_file_index(SERVICE_DIRS, SERVICE_EXTS, reject: SERVICE_TEST_FILE)
+      # caller_source_file? is the one filter for this corpus, so its unit
+      # examples test the path the corpus actually takes.
+      @service_file_index ||= build_file_index(SERVICE_DIRS, method(:caller_source_file?), strip_comments: true)
     end
 
     def frontend_blob
@@ -214,19 +216,18 @@ module RouteCallerCoverageChecker
     end
 
     # file => { text:, tokens: Set[quoted string contents], api_hint: bool }
-    def build_file_index(dirs, exts, reject: nil)
+    def build_file_index(dirs, keep_file, strip_comments: false)
       sources = {}
       dirs.each do |rel_dir|
         dir = File.join(REPO_ROOT, rel_dir)
         next unless Dir.exist?(dir)
 
         Dir.glob(File.join(dir, "**", "*")).each do |file|
-          next unless exts.include?(File.extname(file))
           next if file.include?("/node_modules/")
-          next if reject&.match?(file)
+          next unless keep_file.call(file)
 
           text = strip_import_lines(File.read(file))
-          text = strip_comment_lines(text) if reject
+          text = strip_comment_lines(text) if strip_comments
           sources[file] = text
         rescue StandardError
           next

@@ -222,6 +222,15 @@ RSpec.describe "Route caller coverage", type: :routing do
       expect(RouteCallerCoverageChecker.caller_source_file?("/x/agent/internal/y/client.py")).to be(false)
     end
 
+    it "builds the server-side corpus through caller_source_file?, so the tested filter is the real one" do
+      files = RouteCallerCoverageChecker.send(:service_file_index).keys
+
+      expect(files).not_to be_empty
+      expect(files).to all(satisfy { |f| RouteCallerCoverageChecker.caller_source_file?(f) })
+      expect(files.grep(/_test\.go\z|_spec\.rb\z/)).to be_empty
+      expect(files.grep(%r{/worker/app/jobs/})).not_to be_empty
+    end
+
     it "does not count a whole-line Go or Ruby comment as a caller" do
       checker = RouteCallerCoverageChecker
       go = "//   - Otherwise, POSTs to <parent_url>/api/v1/system/federation_api/accept\n"
