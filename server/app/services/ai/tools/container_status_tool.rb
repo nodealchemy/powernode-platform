@@ -9,7 +9,10 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "agent_container_status", mutating: false
+      declare_action "agent_container_status", mutating: false,
+                                               returns: "the instance details: status, input and output, artifacts, logs (truncated), " \
+                                                        "error_message, resource_usage and security_violations",
+                                               refuses: "no container instance in this account has that execution_id"
 
       def self.definition
         {
