@@ -13,7 +13,11 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "generate_audio", mutating: true
+      declare_action "generate_audio", mutating: true,
+                                       returns: "model, voice_id and provider, plus the stored file's id, filename, content type, size and metadata",
+                                       refuses: [ "text is missing",
+                                                  "the ElevenLabs provider has no API key, no api_base_url or no voice_id",
+                                                  "the synthesis request fails" ]
 
       def self.definition
         {

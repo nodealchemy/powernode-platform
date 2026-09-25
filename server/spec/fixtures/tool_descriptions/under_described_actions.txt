@@ -47,7 +47,6 @@ environment_list
 extract_to_knowledge_graph
 federation_invoke_tool
 federation_list_partners
-generate_audio
 generate_image
 generate_video
 get_component_status
