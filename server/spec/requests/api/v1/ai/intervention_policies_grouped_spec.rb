@@ -123,6 +123,30 @@ RSpec.describe "Api::V1::Ai::InterventionPolicies grouped view and bulk save", t
     end
   end
 
+  # The panel's "All policies" list reads the index. It used to default to 50
+  # rows with total_count counting the page, so an account with more rows saw a
+  # silently truncated list that claimed to be complete.
+  describe "GET index" do
+    before do
+      60.times { |i| policy!("dev.task_requeue", scope: "agent", agent: create(:ai_agent, account: account, name: "L#{i}")) }
+    end
+
+    it "returns every account row by default, with a total that counts them all" do
+      get "/api/v1/ai/intervention_policies", headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(json_response_data["policies"].size).to eq(60)
+      expect(json_response_data["total_count"]).to eq(60)
+    end
+
+    it "pages only when asked, and still reports the true total" do
+      get "/api/v1/ai/intervention_policies", params: { limit: 10 }, headers: auth_headers_for(operator)
+
+      expect(json_response_data["policies"].size).to eq(10)
+      expect(json_response_data["total_count"]).to eq(60)
+    end
+  end
+
   describe "PATCH bulk" do
     def bulk(updates, hdrs = headers)
       patch "/api/v1/ai/intervention_policies/bulk", params: { updates: updates }.to_json, headers: hdrs

@@ -40,7 +40,7 @@ const row = () => ({
   conditions: {}, preferred_channels: [], created_at: '2026-09-25T00:00:00Z', updated_at: '2026-09-25T00:00:00Z',
 });
 
-function routeGets(url: string) {
+function routeGets(url: string, ..._rest: unknown[]) {
   if (url === '/ai/intervention_policies/grouped') {
     return Promise.resolve({ data: { success: true, data: { chains: [], policies: { by_domain: { other: [row()] } } } } });
   }
@@ -118,3 +118,23 @@ describe('InterventionPoliciesPanel — the grouped editor and the list agree', 
     await waitFor(() => expect(gets('/ai/intervention_policies/grouped')).toBe(2));
   });
 });
+
+describe('InterventionPoliciesPanel — "All policies" is the whole set', () => {
+  // More rows than the index's old default page of 50. The list must show every
+  // one, and must not ask the server for a page.
+  it('lists every row the account has, past fifty', async () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({ ...row(), id: `p${i}`, agent: null }));
+    mockGet.mockImplementation((url: string, ...rest: unknown[]) =>
+      url === '/ai/intervention_policies'
+        ? Promise.resolve({ data: { success: true, data: { policies: many, total_count: 60 } } })
+        : routeGets(url, ...rest)
+    );
+    renderPanel();
+
+    await waitFor(() => expect(listCount('require approval')).toBe('60'));
+    expect(within(listPane()).getAllByText('dev.task_requeue')).toHaveLength(60);
+    const listCalls = mockGet.mock.calls.filter(([u]) => u === '/ai/intervention_policies');
+    expect(listCalls.every((call) => call.length === 1)).toBe(true);
+  });
+});
+

@@ -18,11 +18,16 @@ module Api
           policies = policies.for_category(params[:action_category]) if params[:action_category].present?
           policies = policies.for_agent(params[:agent_id]) if params[:agent_id].present?
 
-          policies = policies.by_specificity.limit(params.fetch(:limit, 50).to_i)
+          # Every row unless a page is asked for: the rows are bounded by the
+          # registered categories, and the policy panel lists them all.
+          # total_count is the account's whole matching set, not the page.
+          total_count = policies.count
+          policies = policies.by_specificity
+          policies = policies.limit(params[:limit].to_i) if params[:limit].present?
 
           render_success(
             policies: policies.map { |p| serialize_policy(p) },
-            total_count: policies.size
+            total_count: total_count
           )
         end
 
