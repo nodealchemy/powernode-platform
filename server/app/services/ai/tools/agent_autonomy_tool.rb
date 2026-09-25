@@ -122,23 +122,23 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "agent_introspect", mutating: false
+      declare_action "agent_introspect", mutating: false, returns: "the agent, its trust tier and score, its budget, 24-hour execution and failure counts, and its active goal and pending observation counts"
       declare_action "approve_deferred_operation", mutating: true, destructive: true
-      declare_action "create_agent_goal", mutating: true
-      declare_action "create_proposal", mutating: true
-      declare_action "decompose_goal", mutating: true
-      declare_action "discover_claude_sessions", mutating: false
-      declare_action "escalate", mutating: true
-      declare_action "list_agent_goals", mutating: false
-      declare_action "list_deferred_operations", mutating: false
-      declare_action "list_intervention_policies", mutating: false
-      declare_action "propose_feature", mutating: true
+      declare_action "create_agent_goal", mutating: true, returns: "id, title and status", refuses: "the target agent is not found, or the goal fails validation"
+      declare_action "create_proposal", mutating: true, returns: "id, title and status of the proposal", see_also: { "propose_feature" => "a feature suggestion" }
+      declare_action "decompose_goal", mutating: true, returns: "plan_id, goal_id, status, version, cost and duration estimates, and the ordered steps", refuses: "the goal is not found, or decomposition produces no plan"
+      declare_action "discover_claude_sessions", mutating: false, returns: "sessions and count", see_also: { "request_code_change" => "sending a session a code-change request" }
+      declare_action "escalate", mutating: true, returns: "the escalation's id, title, severity and who it went to", see_also: { "report_issue" => "a platform problem that does not block your task" }
+      declare_action "list_agent_goals", mutating: false, limit: 10, returns: "id, title, type, priority, status and progress per goal"
+      declare_action "list_deferred_operations", mutating: false, limit: 100, returns: "count and operations, newest first; 25 unless limit is set"
+      declare_action "list_intervention_policies", mutating: false, limit: 100, returns: "count and policies, highest priority first"
+      declare_action "propose_feature", mutating: true, returns: "id, title and status of the proposal", see_also: { "create_proposal" => "a proposal of another type" }
       declare_action "reject_deferred_operation", mutating: true, destructive: true
-      declare_action "report_issue", mutating: true
-      declare_action "request_code_change", mutating: true
-      declare_action "request_feedback", mutating: true
-      declare_action "send_proactive_notification", mutating: true
-      declare_action "update_agent_goal", mutating: true
+      declare_action "report_issue", mutating: true, see_also: { "escalate" => "a problem that blocks your own task" }
+      declare_action "request_code_change", mutating: true, returns: "message_id and the session's agent name", refuses: "no Claude Code session is active, or it has no workspace conversation", see_also: { "discover_claude_sessions" => "checking for a session first" }
+      declare_action "request_feedback", mutating: true, returns: "the notification result", see_also: { "send_proactive_notification" => "a notice that asks for no reply" }
+      declare_action "send_proactive_notification", mutating: true, returns: "the notification result", see_also: { "request_feedback" => "asking the user to respond" }
+      declare_action "update_agent_goal", mutating: true, returns: "id, status and progress", refuses: "the goal is not found"
 
       # secreview §21 G4 (self-unmark). An intervention-policy row decides
       # whether an action parks at all, and which requests need a person's own
@@ -161,7 +161,12 @@ module Ai
                                                    action_category: "ai.intervention_policy.write",
                                                    executor_class: "Ai::Executors::DeferredToolCall",
                                                    gate_context: :deferred_tool_call_context,
-                                                   on_proceed: :deferred_tool_call_result
+                                                   on_proceed: :deferred_tool_call_result,
+                                                   returns: "deleted: true and the policy id",
+                                                   see_also: {
+                                                     "update_intervention_policy" =>
+                                                       "switching a policy off with is_active: false instead"
+                                                   }
 
       # HIER-P0 — delegation authority. The read is plain; the write is the
       # first action on this tool wired to the gate through the generic
@@ -169,7 +174,7 @@ module Ai
       # #deferred_tool_call_result), so an approved proposal is replayed as
       # the ORIGINAL caller and the action body below runs only on that
       # replay (or on an operator's explicit auto_approve policy).
-      declare_action "describe_delegation", mutating: false
+      declare_action "describe_delegation", mutating: false, returns: "agent, policy (or null) and effective_authority", see_also: { "set_delegation_policy" => "changing the policy" }
       declare_action "set_delegation_policy",
                      mutating: true,
                      action_category: "ai.delegation_policy.update",
@@ -202,7 +207,7 @@ module Ai
             }
           },
           "list_agent_goals" => {
-            description: "List an agent's goals (introspection)",
+            description: "List an agent's active goals, highest priority first; pass status: \"terminal\" for finished ones.",
             parameters: {
               agent_id: { type: "string", description: "Target agent ID (omit for self)", required: false },
               status: { type: "string", description: "Filter: active, terminal", required: false }
@@ -284,7 +289,7 @@ module Ai
             }
           },
           "report_issue" => {
-            description: "Report a detected platform issue",
+            description: "Report a detected platform issue. It records a platform_health observation that expires after 24 hours, notifies the account owner (as an error when severity is critical), and forwards the issue to the external tracker when one is configured.",
             parameters: {
               title: { type: "string", description: "Issue title", required: true },
               description: { type: "string", description: "Issue details", required: true },
@@ -360,7 +365,7 @@ module Ai
           },
           # === Delegation authority (HIER-P0) ===
           "describe_delegation" => {
-            description: "Describe an agent's delegation authority: its delegation policy (the account's own row, else the canonical global row, else none) and its resolved effective authority (trust tier + capability matrix). Defaults to the calling agent.",
+            description: "Describe an agent's delegation authority: its delegation policy and its resolved effective authority. The policy is the account's own row, else the canonical global row, else none; the authority is the trust tier plus the capability matrix. Defaults to the calling agent.",
             parameters: {
               agent_id: { type: "string", required: false, description: "Target agent ID (omit for self)" }
             }

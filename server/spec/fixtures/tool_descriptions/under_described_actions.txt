@@ -13,7 +13,6 @@ add_document
 add_team_member
 agent_container_status
 agent_forget
-agent_introspect
 agent_recall
 agent_reflect
 agent_remember
@@ -55,7 +54,6 @@ confirm_concierge_action
 consolidate_memory
 content_production_status
 create_agent
-create_agent_goal
 create_gitea_repository
 create_kb_article
 create_knowledge
@@ -63,7 +61,6 @@ create_knowledge_base
 create_learning
 create_memory_pool
 create_page
-create_proposal
 create_skill
 create_team
 create_workspace
@@ -90,10 +87,8 @@ data_source_replay
 data_source_schema_history
 data_source_update
 data_source_validate_config
-decompose_goal
 delete_document
 delete_gitea_action_secret
-delete_intervention_policy
 delete_knowledge
 delete_memory_pool
 delete_ralph_loop
@@ -103,14 +98,12 @@ deliver
 delivery_list
 delivery_status
 deploy_container_agent
-describe_delegation
 detach_skill_from_agent
 detect_collusion
 dev_complete_task
 dev_requeue_task
 dev_update_task
 disable_autonomy
-discover_claude_sessions
 discover_improvements
 discover_skills
 dismiss_all_notifications
@@ -174,7 +167,6 @@ docker_update_service
 emit_signal
 enable_autonomy
 environment_list
-escalate
 execute_agent
 execute_team
 extract_to_knowledge_graph
@@ -222,10 +214,8 @@ kubernetes_get_cluster
 kubernetes_list_clusters
 kubernetes_list_nodes
 learning_metrics
-list_agent_goals
 list_agents
 list_conversations
-list_deferred_operations
 list_generated_images
 list_git_runners
 list_gitea_action_secrets
@@ -236,7 +226,6 @@ list_gitea_workflows
 list_governance_reports
 list_graph_nodes
 list_improvements
-list_intervention_policies
 list_kb_articles
 list_knowledge_bases
 list_messages
@@ -264,7 +253,6 @@ project_get
 project_list
 project_status
 promote_knowledge
-propose_feature
 query_knowledge_base
 rate_knowledge
 read_shared_memory
@@ -274,9 +262,6 @@ recruit_agent
 reinforce_learning
 reinforce_signal
 reopen_ralph_loop
-report_issue
-request_code_change
-request_feedback
 rerun_gitea_job
 rerun_gitea_workflow
 rerun_gitea_workflow_failed_jobs
@@ -292,7 +277,6 @@ search_knowledge
 search_knowledge_graph
 search_memory
 send_concierge_message
-send_proactive_notification
 set_gitea_action_secret
 set_gitea_action_secrets_bulk
 skill_health
@@ -461,7 +445,6 @@ toggle_skill
 trigger_pipeline
 unpin_conversation
 update_agent
-update_agent_goal
 update_gitea_repository
 update_kb_article
 update_knowledge
