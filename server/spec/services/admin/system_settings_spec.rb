@@ -238,6 +238,42 @@ RSpec.describe Admin::SystemSettings do
       blob = JSON.parse(AdminSetting.find_by(key: "vault_config").value)
       expect(blob).to eq("vault_addr" => "http://vault.updated.internal:8200")
     end
+
+    # round 3 review item #1 (MEDIUM): the strip-on-write helper used to just
+    # delete a plaintext field from the blob once it was present — it never
+    # checked whether an _encrypted row existed FIRST. A host-only (or
+    # addr-only) save on a row from before the encryption migration ran
+    # stripped the plaintext straight into the void: no encrypted row ever
+    # got created, so the credential was gone, not migrated.
+    it "encrypts a pre-migration plaintext redis password into its own row before stripping it, on a host-only save" do
+      AdminSetting.create!(
+        key: "redis_config",
+        value: { "host" => "127.0.0.1", "port" => 6379, "password" => "pre-migration-redis-password" }.to_json
+      )
+
+      described_class.update_redis_config!("host" => "192.168.1.1")
+
+      encrypted = AdminSetting.find_by(key: "redis_config_password_encrypted")
+      expect(encrypted).not_to be_nil
+      expect(encrypted.value).not_to include("pre-migration-redis-password")
+      expect(described_class.redis_config["password"]).to eq("pre-migration-redis-password")
+      expect(AdminSetting.find_by(key: "redis_config").value).not_to include("pre-migration-redis-password")
+    end
+
+    it "encrypts pre-migration plaintext vault_role_id/vault_secret_id into their own rows before stripping them, on a vault_addr-only save" do
+      AdminSetting.create!(
+        key: "vault_config",
+        value: { "vault_addr" => "http://vault.internal:8200", "vault_role_id" => "pre-migration-role", "vault_secret_id" => "pre-migration-secret" }.to_json
+      )
+
+      described_class.update_vault_config!("vault_addr" => "http://vault.updated.internal:8200")
+
+      expect(AdminSetting.find_by(key: "vault_role_id_encrypted")).not_to be_nil
+      expect(AdminSetting.find_by(key: "vault_secret_id_encrypted")).not_to be_nil
+      config = described_class.vault_config
+      expect(config["vault_role_id"]).to eq("pre-migration-role")
+      expect(config["vault_secret_id"]).to eq("pre-migration-secret")
+    end
   end
 
   describe "proxy delegation (thin passthrough to the ServiceConfiguration concern already on AdminSetting)" do

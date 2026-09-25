@@ -322,7 +322,7 @@ module Admin
         # all (e.g. changing only "host") would silently bake the current
         # ENV redis password into the blob as plaintext on every write, for
         # any deployment that sets REDIS_PASSWORD.
-        strip_secret_keys_from_blob!("redis_config", %w[password])
+        strip_secret_keys_from_blob!("redis_config", "password" => "redis_config_password_encrypted")
       end
 
       # vault_addr (non-secret) plus the real decrypted vault_role_id/
@@ -362,7 +362,7 @@ module Admin
         # row the migration hasn't reached) would otherwise round-trip
         # straight back into the blob on every subsequent vault_addr-only
         # save, keeping the plaintext alive indefinitely.
-        strip_secret_keys_from_blob!("vault_config", %w[vault_role_id vault_secret_id])
+        strip_secret_keys_from_blob!("vault_config", "vault_role_id" => "vault_role_id_encrypted", "vault_secret_id" => "vault_secret_id_encrypted")
       end
 
       private
@@ -389,22 +389,43 @@ module Admin
         value.is_a?(Hash) || value.is_a?(Array)
       end
 
-      # Removes `secret_fields` from the `blob_key` AdminSetting row's JSON
-      # value, if present — called after every write to redis_config/
-      # vault_config (fc-38 review item #3(b)) so a secret field re-merged in
-      # by another code path (ENV defaults, a stale blob) never survives a
-      # save. A no-op when the row doesn't exist, isn't valid JSON, or
-      # already carries none of `secret_fields`.
-      def strip_secret_keys_from_blob!(blob_key, secret_fields)
+      # Removes each key of `field_to_encrypted_key` from the `blob_key`
+      # AdminSetting row's JSON value, if present — called after every write
+      # to redis_config/vault_config (fc-38 review item #3(b)) so a secret
+      # field re-merged in by another code path (ENV defaults, a stale blob)
+      # never survives a save. A no-op when the row doesn't exist, isn't
+      # valid JSON, or already carries none of the fields.
+      #
+      # fc-38 review round 3 item #1 (MEDIUM): stripping used to be
+      # unconditional — a plaintext field found in the blob was simply
+      # deleted, with no check for whether its `_encrypted` row already
+      # existed. A host-only redis save (or vault_addr-only save) against a
+      # row from BEFORE the encryption migration ran (or before this
+      # hardening shipped) stripped the plaintext into the void: no
+      # encrypted row was ever created, so the credential was permanently
+      # lost, not migrated. Now: for each field present in the blob whose
+      # encrypted row is still missing, encrypt it into that row FIRST —
+      # same logic as the one-time migration — then strip the blob, all
+      # inside one transaction so a save is never left half-done (encrypted
+      # written but blob not yet stripped, or vice versa).
+      def strip_secret_keys_from_blob!(blob_key, field_to_encrypted_key)
         setting = AdminSetting.find_by(key: blob_key)
         return unless setting
 
         blob = JSON.parse(setting.value)
         return unless blob.is_a?(Hash)
-        return unless secret_fields.any? { |field| blob.key?(field) }
+        return unless field_to_encrypted_key.keys.any? { |field| blob.key?(field) }
 
-        secret_fields.each { |field| blob.delete(field) }
-        setting.update!(value: blob.to_json)
+        ActiveRecord::Base.transaction do
+          field_to_encrypted_key.each do |field, encrypted_key|
+            next unless blob.key?(field)
+
+            value = blob[field]
+            AdminSetting.create!(key: encrypted_key, value: encrypt_secret(value)) if value.present? && !AdminSetting.exists?(key: encrypted_key)
+            blob.delete(field)
+          end
+          setting.update!(value: blob.to_json)
+        end
       rescue JSON::ParserError
         nil
       end
