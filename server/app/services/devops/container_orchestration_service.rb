@@ -70,7 +70,7 @@ module Devops
     def cancel(execution_id, reason: nil)
       instance = account.devops_container_instances.find_by!(execution_id: execution_id)
 
-      return false unless instance.active?
+      return false unless instance.active? || instance.paused?
 
       # Cancel Gitea workflow if running
       if instance.gitea_workflow_run_id.present?

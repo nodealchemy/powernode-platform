@@ -133,6 +133,7 @@ module Api
             stats: {
               total: instances.count,
               active: instances.active.count,
+              paused: instances.paused.count,
               completed: instances.completed.count,
               failed: instances.failed.count,
               avg_duration_ms: instances.finished.average(:duration_ms)&.round(2),

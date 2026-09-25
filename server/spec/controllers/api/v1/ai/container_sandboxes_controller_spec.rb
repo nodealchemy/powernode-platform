@@ -172,6 +172,21 @@ RSpec.describe Api::V1::Ai::ContainerSandboxesController, type: :controller do
         expect(response).to have_http_status(:forbidden)
       end
     end
+
+    context 'when the sandbox cannot be destroyed (not active or paused)' do
+      before do
+        sign_in delete_user
+        allow_any_instance_of(Ai::Runtime::SandboxManagerService).to receive(:destroy_sandbox).and_return(false)
+      end
+
+      it 'returns 422, not a false success' do
+        delete :destroy, params: { id: sandbox_instance.id }
+
+        expect(response).to have_http_status(:unprocessable_content)
+        json = JSON.parse(response.body)
+        expect(json['success']).to be false
+      end
+    end
   end
 
   describe 'POST #pause' do

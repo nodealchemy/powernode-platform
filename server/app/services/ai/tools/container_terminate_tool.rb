@@ -32,7 +32,7 @@ module Ai
       def call(params)
         instance = account.devops_container_instances.find_by!(execution_id: params[:execution_id])
 
-        unless instance.active?
+        unless instance.active? || instance.paused?
           return { success: false, error: "Container is not active (status: #{instance.status})" }
         end
 

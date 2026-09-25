@@ -5,6 +5,7 @@ module Api
     module Internal
       module Devops
         class MaintenanceController < InternalBaseController
+          PAUSED_TIMEOUT = 2.hours
 
           # POST /api/v1/internal/devops/maintenance/reconcile_instances
           # Reconciles container instances whose Docker containers have vanished.
@@ -45,6 +46,17 @@ module Api
                   instance.mark_timeout!
                   timed_out_count += 1
                 end
+              end
+
+            # Paused instances left paused for too long. "paused" is not
+            # terminal (fc-32 review) so, unlike the states above, it is
+            # otherwise never swept — a sandbox left paused stays paused
+            # forever, holding its allocated resources indefinitely.
+            ::Devops::ContainerInstance.paused
+              .where("updated_at < ?", PAUSED_TIMEOUT.ago)
+              .find_each do |instance|
+                instance.fail!("Reconciled: paused sandbox exceeded max pause duration (#{PAUSED_TIMEOUT.inspect})")
+                reconciled_count += 1
               end
 
             Rails.logger.info "[ContainerReconciliation] Reconciled #{reconciled_count} stale, #{timed_out_count} timed out"

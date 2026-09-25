@@ -98,6 +98,13 @@ RSpec.describe Devops::ContainerInstance, type: :model do
         instance = build(:devops_container_instance)
         expect(instance.sandbox?).to be false
       end
+
+      it 'agrees with the .sandboxes scope on a string "true" (the JSONB ->> operator does not distinguish it from a boolean)' do
+        instance = create(:devops_container_instance, input_parameters: { "sandbox_mode" => "true" })
+
+        expect(instance.sandbox?).to be true
+        expect(Devops::ContainerInstance.sandboxes).to include(instance)
+      end
     end
 
     describe '#finished?' do
@@ -168,6 +175,22 @@ RSpec.describe Devops::ContainerInstance, type: :model do
     it 'flags a plain template execution as not a sandbox' do
       instance = create(:devops_container_instance)
       expect(instance.instance_summary[:sandbox]).to be false
+    end
+
+    it 'carries the agent name and resource usage — cheap on the already-loaded row, no extra query' do
+      instance = create(:devops_container_instance, :sandbox, :completed,
+                         input_parameters: { "agent_id" => SecureRandom.uuid, "agent_name" => "My Agent", "sandbox_mode" => true })
+
+      summary = instance.instance_summary
+
+      expect(summary[:agent_name]).to eq("My Agent")
+      expect(summary[:memory_used_mb]).to eq(instance.memory_used_mb)
+      expect(summary[:cpu_used_millicores]).to eq(instance.cpu_used_millicores)
+    end
+
+    it 'is nil for a plain template execution with no agent' do
+      instance = create(:devops_container_instance)
+      expect(instance.instance_summary[:agent_name]).to be_nil
     end
   end
 

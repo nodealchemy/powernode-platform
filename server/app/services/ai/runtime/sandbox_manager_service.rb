@@ -72,7 +72,7 @@ module Ai
       # @param reason [String] reason for destruction
       # @return [Boolean] whether destruction was successful
       def destroy_sandbox(instance:, reason: nil)
-        return false unless instance.active?
+        return false unless instance.active? || instance.paused?
 
         instance.cancel!(reason: reason || "Sandbox destroyed")
         Rails.logger.info("[SandboxManager] Destroyed sandbox #{instance.execution_id}")

@@ -20,6 +20,7 @@ module Devops
 
         total = containers.count
         active = containers.active.count
+        paused = containers.paused.count
         completed = containers.completed.count
         failed = containers.failed.count
         finished = containers.finished.count
@@ -27,6 +28,7 @@ module Devops
         {
           total: total,
           active: active,
+          paused: paused,
           completed: completed,
           failed: failed,
           finished: finished,

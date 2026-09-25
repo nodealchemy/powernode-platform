@@ -110,6 +110,23 @@ RSpec.describe Ai::Runtime::SandboxManagerService, type: :service do
       expect(result).to be false
     end
 
+    it 'destroys a paused sandbox (paused is not terminal — the pause action must be undoable)' do
+      paused_instance = create(:devops_container_instance, :paused, account: account)
+
+      result = service.destroy_sandbox(instance: paused_instance)
+
+      expect(result).to be true
+      expect(paused_instance.reload.status).to eq("cancelled")
+    end
+
+    it 'returns false for a genuinely terminal instance (completed)' do
+      completed_instance = create(:devops_container_instance, :completed, account: account)
+
+      result = service.destroy_sandbox(instance: completed_instance)
+
+      expect(result).to be false
+    end
+
     it 'passes reason to cancel!' do
       allow(instance).to receive(:active?).and_return(true)
       allow(instance).to receive(:cancel!)

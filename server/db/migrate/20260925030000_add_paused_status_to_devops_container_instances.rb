@@ -15,6 +15,12 @@ class AddPausedStatusToDevopsContainerInstances < ActiveRecord::Migration[8.0]
   end
 
   def down
+    # Remap any paused row before the constraint stops allowing it — WITHOUT
+    # is the real STATUSES list this migration is undoing, and it would
+    # otherwise leave existing "paused" rows violating the just-restored
+    # constraint (irrecoverable without a manual UPDATE, since the app code
+    # rolled back too and no longer understands "paused").
+    execute("UPDATE devops_container_instances SET status = 'cancelled' WHERE status = 'paused'")
     swap_status_constraint(WITHOUT)
   end
 

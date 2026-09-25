@@ -54,4 +54,15 @@ RSpec.describe 'Api::V1::Devops::Containers', type: :request do
       expect(ids).to include(template_execution.id, agent_sandbox.id)
     end
   end
+
+  describe 'GET /api/v1/devops/containers/stats' do
+    it 'counts paused instances separately (paused is not folded into active)' do
+      create(:devops_container_instance, :paused, account: account, template: template)
+
+      get '/api/v1/devops/containers/stats', headers: headers, as: :json
+
+      stats = JSON.parse(response.body)['data']['stats']
+      expect(stats['paused']).to eq(1)
+    end
+  end
 end

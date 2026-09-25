@@ -73,7 +73,14 @@ module Devops
     end
 
     def sandbox?
-      input_parameters.is_a?(Hash) && input_parameters["sandbox_mode"] == true
+      return false unless input_parameters.is_a?(Hash)
+
+      # Agrees with the .sandboxes scope's `input_parameters->>'sandbox_mode'`:
+      # that JSONB ->> operator renders a JSON boolean true and the JSON
+      # string "true" identically as SQL text, so a Ruby `== true` check
+      # alone silently disagreed with the scope on the string form.
+      value = input_parameters["sandbox_mode"]
+      value == true || value.to_s == "true"
     end
 
     def active?
@@ -120,7 +127,7 @@ module Devops
     end
 
     def cancel!(reason: nil)
-      return unless active?
+      return unless active? || paused?
 
       update!(
         status: "cancelled",
@@ -192,7 +199,13 @@ module Devops
         started_at: started_at,
         completed_at: completed_at,
         runner_name: runner_name,
-        sandbox: sandbox?
+        sandbox: sandbox?,
+        # Both cheap: agent_name already lives in the loaded input_parameters
+        # JSONB, and memory/cpu are plain columns on this same row — neither
+        # needs an extra query or join to expose on the list view.
+        agent_name: input_parameters.is_a?(Hash) ? input_parameters["agent_name"] : nil,
+        memory_used_mb: memory_used_mb,
+        cpu_used_millicores: cpu_used_millicores
       }
     end
 

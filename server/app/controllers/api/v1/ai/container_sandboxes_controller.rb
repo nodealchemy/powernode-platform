@@ -56,9 +56,13 @@ module Api
         # DELETE /api/v1/ai/container_sandboxes/:id
         def destroy
           service = ::Ai::Runtime::SandboxManagerService.new(account: current_account)
-          service.destroy_sandbox(instance: @sandbox, reason: params[:reason])
+          result = service.destroy_sandbox(instance: @sandbox, reason: params[:reason])
 
-          render_success(message: "Sandbox destroyed")
+          if result
+            render_success(message: "Sandbox destroyed")
+          else
+            render_error("Sandbox cannot be destroyed (status: #{@sandbox.status})", status: :unprocessable_content)
+          end
         rescue StandardError => e
           Rails.logger.error("[ContainerSandboxes] Destroy failed: #{e.message}")
           render_error(e.message, status: :unprocessable_content)
