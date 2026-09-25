@@ -233,3 +233,21 @@ describe('defaultNavigationConfig — AI Agents / Work / Platform (fc-43)', () =
     expect([...(s?.permissions ?? [])].filter((p) => !itemPermissions.has(p))).toEqual([]);
   });
 });
+
+// fc-45: the user menu carries ONE entry per destination — 'My Profile' and
+// 'Account Settings' used to both open /app/profile.
+describe('defaultNavigationConfig — user menu (fc-45)', () => {
+  const menu = defaultNavigationConfig.userMenuItems;
+
+  it('has unique hrefs', () => {
+    const hrefs = menu.map((i) => i.href);
+    expect(hrefs).toEqual(Array.from(new Set(hrefs)));
+  });
+
+  it('has exactly one profile entry, labelled My Profile', () => {
+    const profile = menu.filter((i) => i.href === '/app/profile');
+    expect(profile).toHaveLength(1);
+    expect(profile[0]).toMatchObject({ id: 'profile', name: 'My Profile' });
+    expect(menu.map((i) => i.id)).not.toContain('account-settings');
+  });
+});

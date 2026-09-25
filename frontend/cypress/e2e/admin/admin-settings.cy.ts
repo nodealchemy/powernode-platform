@@ -22,7 +22,6 @@ describe('Admin Settings', () => {
       // Click on profile/settings link
       cy.assertHasElement([
         '[data-testid="nav-profile"]',
-        '[data-testid="nav-account-settings"]',
         'a[href*="profile"]',
         '[class*="menu-item"]',
       ])

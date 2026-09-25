@@ -510,15 +510,6 @@ export const defaultNavigationConfig: NavigationConfig = {
       description: 'Personal information and preferences'
     },
     {
-      id: 'account-settings',
-      name: 'Account Settings',
-      href: '/app/profile',
-      icon: Settings,
-      description: 'Account configuration and security'
-    },
-    // 'Billing Center' is registered by the business extension via
-    // featureRegistry.registerNavItems('business', [{ section: 'userMenu', ... }]).
-    {
       id: 'help-support',
       name: 'Help & Support',
       href: 'https://github.com/nodealchemy/powernode-platform/discussions',
