@@ -50,3 +50,40 @@ describe('featureRegistry public route roles', () => {
     expect(featureRegistry.getPublicRoutePath('pricing')).toBe('/ext-pricing');
   });
 });
+
+// An extension presents the intervention-policy DOMAINS it owns (label, blurb,
+// icon), and core's policy panel builds its sections in that order. The server
+// owns which category is in which domain; this is presentation only.
+describe('featureRegistry policy domains', () => {
+  afterEach(() => featureRegistry.clear());
+
+  const domain = (key: string) => ({ key, label: key.toUpperCase(), description: `${key} blurb` });
+
+  it('returns nothing when no extension registered a domain', () => {
+    expect(featureRegistry.getPolicyDomains()).toEqual([]);
+    expect(featureRegistry.getPolicyDomains('ext')).toEqual([]);
+  });
+
+  it('keeps registration order within and across namespaces', () => {
+    featureRegistry.registerPolicyDomains('ext', [domain('b'), domain('a')]);
+    featureRegistry.registerPolicyDomains('other_ext', [domain('c')]);
+
+    expect(featureRegistry.getPolicyDomains().map((d) => d.key)).toEqual(['b', 'a', 'c']);
+    expect(featureRegistry.getPolicyDomains('ext').map((d) => d.key)).toEqual(['b', 'a']);
+    expect(featureRegistry.getPolicyDomains('other_ext').map((d) => d.key)).toEqual(['c']);
+  });
+
+  it('replaces, not appends, a namespace that registers again', () => {
+    featureRegistry.registerPolicyDomains('ext', [domain('old')]);
+    featureRegistry.registerPolicyDomains('ext', [domain('new')]);
+
+    expect(featureRegistry.getPolicyDomains('ext').map((d) => d.key)).toEqual(['new']);
+  });
+
+  it('is emptied by clear()', () => {
+    featureRegistry.registerPolicyDomains('ext', [domain('a')]);
+    featureRegistry.clear();
+
+    expect(featureRegistry.getPolicyDomains()).toEqual([]);
+  });
+});

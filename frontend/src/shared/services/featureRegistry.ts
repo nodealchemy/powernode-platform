@@ -1,4 +1,4 @@
-import { ComponentType, LazyExoticComponent } from 'react';
+import { ComponentType, ElementType, LazyExoticComponent } from 'react';
 
 /**
  * A part a registered PUBLIC route can play on core's own public pages. Core
@@ -141,6 +141,21 @@ export interface MentionMember {
  */
 export type MentionSource = () => Promise<MentionMember[]>;
 
+/**
+ * How core's intervention-policy panel presents one policy DOMAIN an extension
+ * owns. Presentation only: which category belongs to which domain is the
+ * server's answer (the extension registers its prefix table with core's
+ * PolicyDomains seam at boot, and GET /ai/intervention_policies/grouped files
+ * rows by it). `key` must match the server's domain key. The panel orders its
+ * sections by registration and humanises a key nothing presents.
+ */
+export interface PolicyDomainPresentation {
+  key: string;
+  label: string;
+  description: string;
+  icon?: ElementType;
+}
+
 interface FeatureRegistryState {
   routes: Map<string, FeatureRoute[]>;
   publicRoutes: Map<string, FeatureRoute[]>;
@@ -153,6 +168,7 @@ interface FeatureRegistryState {
   componentSlots: Map<string, ComponentSlot>;
   providerCategoryHandlers: Map<string, ProviderCategoryHandlers>;
   mentionSources: Map<string, MentionSource[]>;
+  policyDomains: Map<string, PolicyDomainPresentation[]>;
   version: number;
   listeners: Set<() => void>;
 }
@@ -169,6 +185,7 @@ const state: FeatureRegistryState = {
   componentSlots: new Map(),
   providerCategoryHandlers: new Map(),
   mentionSources: new Map(),
+  policyDomains: new Map(),
   version: 0,
   listeners: new Set(),
 };
@@ -248,6 +265,18 @@ export const featureRegistry = {
   /** Every registered @-mention source, across namespaces. */
   getMentionSources(): MentionSource[] {
     return Array.from(state.mentionSources.values()).flat();
+  },
+
+  /** Present the policy domains a namespace owns, in order (replaces its earlier ones). */
+  registerPolicyDomains(namespace: string, domains: PolicyDomainPresentation[]): void {
+    state.policyDomains.set(namespace, domains);
+    notifyListeners();
+  },
+
+  /** One namespace's presented policy domains, or every namespace's, in registration order. */
+  getPolicyDomains(namespace?: string): PolicyDomainPresentation[] {
+    if (namespace !== undefined) return state.policyDomains.get(namespace) ?? [];
+    return Array.from(state.policyDomains.values()).flat();
   },
 
   /** The handlers registered for a provider category, or undefined. */
@@ -457,5 +486,6 @@ export const featureRegistry = {
     state.componentSlots.clear();
     state.providerCategoryHandlers.clear();
     state.mentionSources.clear();
+    state.policyDomains.clear();
   },
 };

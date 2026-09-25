@@ -142,4 +142,16 @@ describe('host UI API contract', () => {
     );
     expect(CORE_UI_API_VERSION).toBeGreaterThanOrEqual(6);
   });
+
+  it('bumped the host UI API version for the core intervention-policy panel seam', () => {
+    // The System extension's own policy modal (and the extension routes it
+    // called) is gone: it now embeds core's panel, exposed here, and
+    // presents its domains through featureRegistry.registerPolicyDomains. A
+    // bundle built against 6 still renders the deleted modal against routes
+    // that no longer exist, so the loader skips it until it is rebuilt.
+    expect(HOST_EXPOSED_IDS as readonly string[]).toContain(
+      '@/features/ai/autonomy/components/InterventionPoliciesPanel'
+    );
+    expect(CORE_UI_API_VERSION).toBeGreaterThanOrEqual(7);
+  });
 });

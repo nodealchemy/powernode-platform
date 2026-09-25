@@ -14,6 +14,7 @@ import {
   useResolveInterventionPolicy,
   useTrustScores,
 } from '../api/autonomyApi';
+import { PolicyDomainSections } from './PolicyDomainSections';
 import type { InterventionPolicy, InterventionPolicyAction, PolicyResolutionResult } from '../types/autonomy';
 
 function getPolicyColor(policy: InterventionPolicyAction): string {
@@ -397,7 +398,8 @@ const TestResolveForm: React.FC = () => {
   );
 };
 
-export const InterventionPoliciesPanel: React.FC = () => {
+/** Every policy row, one card each: create, edit, delete, test resolution. */
+const PolicyList: React.FC = () => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showTest, setShowTest] = useState(false);
@@ -496,6 +498,34 @@ export const InterventionPoliciesPanel: React.FC = () => {
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+interface InterventionPoliciesPanelProps {
+  /**
+   * Scope the panel to one extension's policy domains (the ones it presents
+   * through featureRegistry.registerPolicyDomains). An extension embedding the
+   * panel passes its namespace; the core Autonomy page passes none.
+   */
+  namespace?: string;
+}
+
+/**
+ * The ONE intervention-policy panel. Unscoped (the core Autonomy page) it shows
+ * the grouped editor over every domain, then every row individually. Scoped to a
+ * namespace it shows only that namespace's grouped editor.
+ */
+export const InterventionPoliciesPanel: React.FC<InterventionPoliciesPanelProps> = ({ namespace }) => {
+  if (namespace !== undefined) return <PolicyDomainSections namespace={namespace} />;
+
+  return (
+    <div className="space-y-6">
+      <PolicyDomainSections />
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-theme-primary">All policies</h3>
+        <PolicyList />
+      </div>
     </div>
   );
 };

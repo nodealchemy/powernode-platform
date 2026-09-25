@@ -67,8 +67,15 @@
  * renders it through the 'ai.chat.card.<kind>' component slot), and
  * `@/shared/services/featureRegistry` gained mention sources. A bundle built
  * against 5 still imports the removed id, so the loader skips it.
+ *
+ * 7: `@/features/ai/autonomy/components/InterventionPoliciesPanel` is exposed
+ * (core owns the one intervention-policy panel; an extension embeds it scoped to
+ * its namespace) and `@/shared/services/featureRegistry` gained policy-domain
+ * presentation. The System extension's own policy modal and the extension
+ * routes it called are gone, so a bundle built against 6 renders a modal whose
+ * endpoints no longer exist; the loader skips it until it is rebuilt.
  */
-export const CORE_UI_API_VERSION = 6;
+export const CORE_UI_API_VERSION = 7;
 
 /**
  * Core `@/…` modules exposed to extension frontends. Derived empirically from
@@ -77,6 +84,7 @@ export const CORE_UI_API_VERSION = 6;
  */
 const HOST_APP_IDS = [
   // Feature surfaces reused by extensions
+  '@/features/ai/autonomy/components/InterventionPoliciesPanel',
   '@/features/onboarding/ProviderCredentialForm',
   // Shared components
   '@/shared/components/approval-chains/ApprovalChainList',
