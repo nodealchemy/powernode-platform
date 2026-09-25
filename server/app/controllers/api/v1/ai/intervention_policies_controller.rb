@@ -34,6 +34,7 @@ module Api
         # POST /api/v1/ai/intervention_policies
         def create
           policy = current_user.account.ai_intervention_policies.build(policy_params)
+          return refuse_unknown_agent if unknown_agent?(policy)
           return refuse_mark_write unless mark_write_permitted?(before: nil, after: policy.conditions)
 
           if policy.save
@@ -46,6 +47,7 @@ module Api
         # PATCH /api/v1/ai/intervention_policies/:id
         def update
           @policy.assign_attributes(policy_params)
+          return refuse_unknown_agent if unknown_agent?(@policy)
           unless mark_write_permitted?(before: @policy.attribute_in_database(:conditions), after: @policy.conditions)
             return refuse_mark_write
           end
@@ -132,6 +134,18 @@ module Api
         # the same rows are human-only for the same reason.
         def mark_write_permitted?(before:, after:)
           own_human_session? || !::Ai::Approvals::HumanSessionPolicy.mark_lifting_write?(before: before, after: after)
+        end
+
+        # The belongs_to carries no account check, so an ai_agent_id is admitted
+        # only when it resolves to this account's agent or a global canonical one
+        # (the same lookup #resolve uses); a foreign or nonexistent id is refused.
+        def unknown_agent?(policy)
+          policy.ai_agent_id.present? && policy.ai_agent_id_changed? &&
+            !::Ai::Agent.for_account(current_user.account.id).exists?(id: policy.ai_agent_id)
+        end
+
+        def refuse_unknown_agent
+          render_error("unknown agent", status: :unprocessable_content)
         end
 
         def refuse_mark_write

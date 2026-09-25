@@ -17,6 +17,11 @@ module Ai
     #   to a row being created; a PRESENT nil approval_chain_id still unassigns.
     # - A write that could lift the person-session mark needs that person's own
     #   session (IMP-03134d9452d2); refused per entry, nothing written for it.
+    # - agent_id and approval_chain_id are resolved through the account, never
+    #   assigned raw: the associations carry no account check, so a raw id lets
+    #   one account point its row at another's agent or chain (and gate its
+    #   actions on the other account's approvers). An id that does not resolve,
+    #   foreign or nonexistent, is refused per entry before anything is written.
     class BulkUpdate
       Result = Struct.new(:changed, :errors, keyword_init: true)
 
@@ -56,6 +61,9 @@ module Ai
         return "policy required" if verb.blank?
         return "invalid policy #{verb}" unless ::Ai::InterventionPolicy::POLICIES.include?(verb)
 
+        reference_error = unresolvable_reference(attrs)
+        return reference_error if reference_error
+
         scope = attrs[:scope].presence || (attrs[:agent_id].present? ? "agent" : "global")
         policy = ::Ai::InterventionPolicy.find_or_initialize_by(
           account: account, action_category: category, scope: scope, ai_agent_id: attrs[:agent_id], user_id: nil
@@ -69,6 +77,22 @@ module Ai
         end
 
         policy.save ? nil : policy.errors.full_messages.join(", ")
+      end
+
+      # The account's own agent or a global canonical one, and the account's own
+      # chain; anything else answers with an error string.
+      def unresolvable_reference(attrs)
+        agent_id = attrs[:agent_id].presence
+        if agent_id && !::Ai::Agent.for_account(account.id).exists?(id: agent_id)
+          return "unknown agent #{agent_id}"
+        end
+
+        chain_id = attrs[:approval_chain_id].presence
+        if chain_id && !::Ai::ApprovalChain.where(account: account).exists?(id: chain_id)
+          return "unknown approval chain #{chain_id}"
+        end
+
+        nil
       end
 
       # Each fallback tests new_record? rather than the attribute's current

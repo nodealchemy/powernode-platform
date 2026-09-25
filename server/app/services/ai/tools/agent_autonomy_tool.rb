@@ -969,6 +969,17 @@ module Ai
       end
 
       def create_intervention_policy(params)
+        # Resolved through the account, never assigned raw: the associations
+        # carry no account check, so a raw id would bind this account's row to
+        # another account's agent or approval chain.
+        if params[:ai_agent_id].present? && !::Ai::Agent.for_account(account.id).exists?(id: params[:ai_agent_id])
+          return { success: false, error: "unknown agent #{params[:ai_agent_id]}" }
+        end
+        if params[:approval_chain_id].present? &&
+           !::Ai::ApprovalChain.where(account: account).exists?(id: params[:approval_chain_id])
+          return { success: false, error: "unknown approval chain #{params[:approval_chain_id]}" }
+        end
+
         policy = account.ai_intervention_policies.create!(
           scope: params[:scope],
           ai_agent_id: params[:ai_agent_id],
