@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AppWindow, Plus, Eye, Settings } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { TabContainer } from '@/shared/components/layout/TabContainer';
@@ -8,12 +9,27 @@ import { McpAppRenderer } from '../components/McpAppRenderer';
 import { McpAppConfigurator } from '../components/McpAppConfigurator';
 import type { McpApp } from '../types/mcpApps';
 
+const MCP_APPS_BASE_PATH = '/app/ai/infrastructure/mcp-apps';
+
+const getActiveMcpAppsTab = (pathname: string): string => {
+  if (pathname.includes('/mcp-apps/preview')) return 'preview';
+  if (pathname.includes('/mcp-apps/configure')) return 'configure';
+  return 'gallery';
+};
+
 export const McpAppsPage: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { hasPermission } = usePermissions();
   const [selectedApp, setSelectedApp] = useState<McpApp | null>(null);
   const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [showConfigurator, setShowConfigurator] = useState(false);
-  const [activeTab, setActiveTab] = useState('gallery');
+  const [activeTab, setActiveTab] = useState(getActiveMcpAppsTab(location.pathname));
+
+  useEffect(() => {
+    const newTab = getActiveMcpAppsTab(location.pathname);
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   const canView = hasPermission('ai.agents.read');
   const canManage = hasPermission('ai.agents.manage');
@@ -30,30 +46,35 @@ export const McpAppsPage: React.FC = () => {
   const handleSelectApp = (app: McpApp) => {
     setSelectedApp(app);
     setActiveTab('preview');
+    navigate(`${MCP_APPS_BASE_PATH}/preview`);
   };
 
   const handleEditApp = (app: McpApp) => {
     setEditingAppId(app.id);
     setShowConfigurator(true);
     setActiveTab('configure');
+    navigate(`${MCP_APPS_BASE_PATH}/configure`);
   };
 
   const handleNewApp = () => {
     setEditingAppId(null);
     setShowConfigurator(true);
     setActiveTab('configure');
+    navigate(`${MCP_APPS_BASE_PATH}/configure`);
   };
 
   const handleConfiguratorClose = () => {
     setShowConfigurator(false);
     setEditingAppId(null);
     setActiveTab('gallery');
+    navigate(MCP_APPS_BASE_PATH);
   };
 
   const handleConfiguratorSaved = () => {
     setShowConfigurator(false);
     setEditingAppId(null);
     setActiveTab('gallery');
+    navigate(MCP_APPS_BASE_PATH);
   };
 
   const tabs = [
@@ -61,6 +82,7 @@ export const McpAppsPage: React.FC = () => {
       id: 'gallery',
       label: 'Gallery',
       icon: <AppWindow className="h-4 w-4" />,
+      path: '/',
       content: (
         <McpAppGallery
           onSelectApp={handleSelectApp}
@@ -73,6 +95,7 @@ export const McpAppsPage: React.FC = () => {
       id: 'preview',
       label: 'Preview',
       icon: <Eye className="h-4 w-4" />,
+      path: '/preview',
       content: selectedApp ? (
         <McpAppRenderer
           appId={selectedApp.id}
@@ -91,6 +114,7 @@ export const McpAppsPage: React.FC = () => {
             id: 'configure',
             label: 'Configure',
             icon: <Settings className="h-4 w-4" />,
+            path: '/configure',
             content: (
               <McpAppConfigurator
                 appId={editingAppId || undefined}
@@ -120,6 +144,7 @@ export const McpAppsPage: React.FC = () => {
         tabs={tabs}
         activeTab={activeTab}
         onTabChange={setActiveTab}
+        basePath={MCP_APPS_BASE_PATH}
         renderContent={(tabId) => tabs.find((tab) => tab.id === tabId)?.content}
         variant="underline"
       />
