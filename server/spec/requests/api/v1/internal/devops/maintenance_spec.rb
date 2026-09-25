@@ -54,5 +54,39 @@ RSpec.describe 'Api::V1::Internal::Devops::Maintenance', type: :request do
 
       expect(no_budget_paused.reload.status).to eq("paused")
     end
+
+    # A paused sandbox still holds its running-quota slot (cancel releases it
+    # for paused as well as active instances), so reaping one must release
+    # it exactly as handle_completion does.
+    context 'running-quota release' do
+      let!(:quota) { create(:devops_resource_quota, account: account, current_running_containers: 3) }
+
+      it 'releases the running slot when it reaps a timed-out paused sandbox' do
+        create(:devops_container_instance, :paused, account: account, template: template,
+               started_at: 2.hours.ago, timeout_seconds: 3600)
+
+        post '/api/v1/internal/devops/maintenance/reconcile_instances', headers: headers
+
+        expect(quota.reload.current_running_containers).to eq(2)
+      end
+
+      it 'releases the running slot when it reaps a timed-out running sandbox' do
+        create(:devops_container_instance, :running, account: account, template: template,
+               started_at: 2.hours.ago, timeout_seconds: 3600, updated_at: 1.minute.ago)
+
+        post '/api/v1/internal/devops/maintenance/reconcile_instances', headers: headers
+
+        expect(quota.reload.current_running_containers).to eq(2)
+      end
+
+      it 'keeps the slot for a sandbox still within its budget' do
+        create(:devops_container_instance, :paused, account: account, template: template,
+               started_at: 5.minutes.ago, timeout_seconds: 3600)
+
+        post '/api/v1/internal/devops/maintenance/reconcile_instances', headers: headers
+
+        expect(quota.reload.current_running_containers).to eq(3)
+      end
+    end
   end
 end

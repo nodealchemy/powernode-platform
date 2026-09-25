@@ -37,11 +37,12 @@ module Api
 
             # Running instances that have exceeded their timeout
             ::Devops::ContainerInstance.running
+              .includes(:account)
               .where.not(timeout_seconds: nil)
               .where.not(started_at: nil)
               .find_each do |instance|
                 if instance.started_at + instance.timeout_seconds.seconds < Time.current
-                  instance.mark_timeout!
+                  reap_timed_out!(instance)
                   timed_out_count += 1
                 end
               end
@@ -60,11 +61,12 @@ module Api
             # extra time; ends as "timeout", the same terminal status the
             # running sweep uses, not "failed".
             ::Devops::ContainerInstance.paused
+              .includes(:account)
               .where.not(timeout_seconds: nil)
               .where.not(started_at: nil)
               .find_each do |instance|
                 if instance.started_at + instance.timeout_seconds.seconds < Time.current
-                  instance.mark_timeout!
+                  reap_timed_out!(instance)
                   timed_out_count += 1
                 end
               end
@@ -106,6 +108,13 @@ module Api
           end
 
           private
+
+          # A running or paused instance holds a running-quota slot until it
+          # finishes; release it exactly as handle_completion does.
+          def reap_timed_out!(instance)
+            instance.mark_timeout!
+            ::Devops::QuotaService.new(instance.account).decrement_running!
+          end
 
           def archive_unused_templates(stale_days)
             cutoff = stale_days.days.ago
