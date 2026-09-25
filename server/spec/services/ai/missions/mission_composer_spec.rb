@@ -25,9 +25,17 @@ RSpec.describe Ai::Missions::MissionComposer do
     ]
   end
 
+  # Fixtures read in the composer's own shape; the stub sends them the way the
+  # structured reply carries them (C8): inputs and depends_on_outputs as arrays.
   def stub_llm(steps)
+    wire = steps.map do |step|
+      step.merge(
+        inputs: step[:inputs].map { |name, value| { name: name, value: value } },
+        depends_on_outputs: step[:depends_on_outputs].map { |key, spec| spec.merge("input_key" => key) }
+      )
+    end
     allow(composer).to receive(:candidate_skills).and_return(candidates)
-    allow(composer).to receive(:call_llm).and_return(content: { steps: steps }.to_json)
+    allow(composer).to receive(:call_llm_structured).and_return(content: { steps: wire }.to_json)
   end
 
   describe "#compose!" do
@@ -100,7 +108,7 @@ RSpec.describe Ai::Missions::MissionComposer do
       end
 
       it "returns nil and records the cap payload without calling the LLM" do
-        expect(composer).not_to receive(:call_llm)
+        expect(composer).not_to receive(:call_llm_structured)
         expect(composer.compose!).to be_nil
         expect(composer.cap_exceeded_payload).to eq(spent: 99, cap: 10)
       end
@@ -112,6 +120,24 @@ RSpec.describe Ai::Missions::MissionComposer do
       it "raises" do
         expect { composer.compose! }.to raise_error(described_class::CompositionError, /intent is required/)
       end
+    end
+  end
+
+  describe "structured DAG schema (C8)" do
+    it "is accepted by the strict normalizer and constrains skills to the candidates" do
+      strict = Ai::Llm::StructuredSchema.normalize(composer.send(:dag_schema, candidates), provider: :openai)
+      step = strict.dig("properties", "steps", "items")
+      expect(step.dig("properties", "skill", "enum")).to eq(%w[provision_full_stack deploy_app_code])
+      expect(step.dig("properties", "inputs", "type")).to eq("array")
+    end
+
+    it "requests the DAG through the structured path" do
+      allow(composer).to receive(:candidate_skills).and_return(candidates)
+      allow(composer).to receive(:call_llm_structured).and_return(content: { steps: [] }.to_json)
+
+      composer.send(:decompose, candidates)
+
+      expect(composer).to have_received(:call_llm_structured).with(hash_including(schema: hash_including(name: "mission_dag")))
     end
   end
 

@@ -18,19 +18,31 @@ module Ai
     # @param temperature [Float] Sampling temperature
     # @return [Hash, nil] { content: "...", cost_usd: 0.001 } or nil on failure
     def call_llm(agent:, prompt:, max_tokens: 500, temperature: 0.3)
+      request_llm(:complete, agent: agent, prompt: prompt, max_tokens: max_tokens, temperature: temperature)
+    end
+
+    # The same call with structured output: the API enforces `schema`
+    # ({name:, schema:}), so `content` is that JSON, unparsed. Same return
+    # shape and failure contract as #call_llm.
+    def call_llm_structured(agent:, prompt:, schema:, max_tokens: 500, temperature: 0.3)
+      request_llm(:complete_structured, agent: agent, prompt: prompt, max_tokens: max_tokens,
+                                        temperature: temperature, schema: schema)
+    end
+
+    def request_llm(method, agent:, prompt:, max_tokens:, temperature:, **extra)
       unless agent
-        Rails.logger.warn "[#{self.class.name}] call_llm requires an agent context"
+        Rails.logger.warn "[#{self.class.name}] #{method} requires an agent context"
         return nil
       end
 
       client = WorkerLlmClient.new(agent_id: agent.id)
-      model = resolve_model(agent)
-
-      response = client.complete(
-        messages: [{ role: "user", content: prompt }],
-        model: model,
+      response = client.public_send(
+        method,
+        messages: [ { role: "user", content: prompt } ],
+        model: resolve_model(agent),
         max_tokens: max_tokens,
-        temperature: temperature
+        temperature: temperature,
+        **extra
       )
 
       { content: response.content, cost_usd: response.cost.to_f }

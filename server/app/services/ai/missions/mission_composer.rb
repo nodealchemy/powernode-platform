@@ -133,9 +133,10 @@ module Ai
         agent = composer_agent
         raise CompositionError, "no text-capable agent available for composition" unless agent
 
-        response = call_llm(
+        response = call_llm_structured(
           agent: agent,
           prompt: build_prompt(candidates),
+          schema: { name: "mission_dag", schema: dag_schema(candidates) },
           max_tokens: 1800,
           temperature: 0.2
         )
@@ -169,30 +170,75 @@ module Ai
           - Use ONLY skills from the list above. Never invent a skill.
           - Order steps so prerequisites come first; express ordering via `dependencies`
             (a list of earlier step_numbers).
+          - Give each step its inputs as name/value pairs.
           - When a step needs a value PRODUCED by an earlier step, do NOT guess it —
-            wire it via `depends_on_outputs`: { "<input_key>": { "from_step": N,
-            "path": "<dot.path into that step's outputs>", "select": "first|last|all" } }.
+            wire it via `depends_on_outputs`: the input_key, the from_step N, the
+            path (a dot.path into that step's outputs) and select (first, last or all).
           - Keep the plan minimal: no redundant steps. Max #{MAX_STEPS} steps.
-
-          Respond with ONLY valid JSON, no prose:
-          {
-            "steps": [
-              { "step_number": 1, "skill": "<id>", "inputs": { }, "dependencies": [],
-                "depends_on_outputs": { } }
-            ]
-          }
         PROMPT
       end
 
-      # Extract the first JSON object from the LLM content and return its
-      # `steps` array (raw hashes). Tolerant of code fences / surrounding prose.
-      def parse_dag(content)
-        json = content[/\{.*\}/m]
-        return nil if json.blank?
+      # Structured-output schema. inputs and depends_on_outputs are maps keyed
+      # by arbitrary input names, which strict structured output cannot express,
+      # so they travel as arrays and #parse_dag folds them back. `skill` is
+      # constrained to the candidate identifiers; #validate_and_normalize! still
+      # drops an unknown one.
+      def dag_schema(candidates)
+        value = { anyOf: [ { type: "string" }, { type: "number" }, { type: "boolean" },
+                           { type: "array", items: { type: "string" } } ] }
+        {
+          type: "object",
+          required: %w[steps],
+          properties: {
+            steps: {
+              type: "array",
+              items: {
+                type: "object",
+                required: %w[step_number skill inputs dependencies depends_on_outputs],
+                properties: {
+                  step_number: { type: "integer" },
+                  skill: { type: "string", enum: candidates.map { |c| c[:skill] } },
+                  inputs: {
+                    type: "array",
+                    items: { type: "object", required: %w[name value],
+                             properties: { name: { type: "string" }, value: value } }
+                  },
+                  dependencies: { type: "array", items: { type: "integer" } },
+                  depends_on_outputs: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      required: %w[input_key from_step],
+                      properties: {
+                        input_key: { type: "string" },
+                        from_step: { type: "integer" },
+                        path: { type: "string" },
+                        select: { type: "string", enum: %w[first last all] }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      end
 
-        parsed = JSON.parse(json)
-        steps = parsed["steps"] || parsed[:steps]
-        steps.is_a?(Array) ? steps : nil
+      # The `steps` array from the structured reply, with inputs and
+      # depends_on_outputs folded back into the hashes the rest of the composer
+      # reads. nil when the reply does not parse (a refusal, a max_tokens cut).
+      def parse_dag(content)
+        steps = JSON.parse(content)["steps"]
+        return nil unless steps.is_a?(Array)
+
+        steps.map do |step|
+          step.merge(
+            "inputs" => Array(step["inputs"]).to_h { |pair| [ pair["name"].to_s, pair["value"] ] },
+            "depends_on_outputs" => Array(step["depends_on_outputs"]).to_h do |wire|
+              [ wire["input_key"].to_s, wire.except("input_key").compact ]
+            end
+          )
+        end
       rescue JSON::ParserError => e
         Rails.logger.warn("[MissionComposer] could not parse DAG JSON: #{e.message}")
         nil
