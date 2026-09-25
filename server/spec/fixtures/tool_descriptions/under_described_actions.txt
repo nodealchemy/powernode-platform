@@ -10,7 +10,6 @@
 #   bin/rails runner -e test 'require Rails.root.join("spec/support/tool_description_coverage"); ToolDescriptionCoverage.write_snapshot!'
 add_document
 add_team_member
-approve_improvement
 compose_skills
 create_gitea_repository
 create_kb_article
@@ -19,11 +18,7 @@ create_page
 create_team
 delete_document
 delete_ralph_loop
-disable_autonomy
-discover_improvements
-dismiss_improvement
 dispatch_to_runner
-enable_autonomy
 extract_to_knowledge_graph
 generate_video
 get_component_status
@@ -60,8 +55,6 @@ project_status
 reason_knowledge_graph
 reopen_ralph_loop
 resume_ralph_loop
-revert_improvement
-scoreboard
 search_knowledge_graph
 system_abort_task
 system_acme_get_certificate

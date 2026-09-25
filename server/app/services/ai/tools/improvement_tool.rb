@@ -20,15 +20,41 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "approve_improvement", mutating: true
+      declare_action "approve_improvement", mutating: true,
+                     returns: "recommendation_id, status, loop, task_key, task_created, task_requeued, task_status and a " \
+                              "next hint; warning and halt_reason when the loop is halted, loop_reopened when a completed " \
+                              "loop was reopened",
+                     refuses: [
+                       "no recommendation in this account has that id",
+                       "the recommendation is not pending or approved",
+                       "it is not a code-quality type",
+                       "direction is over #{Ai::DevLoop::ImprovementPromotionService::DIRECTION_MAX} chars"
+                     ]
       declare_action "create_improvement", mutating: true
-      declare_action "disable_autonomy", mutating: true
-      declare_action "discover_improvements", mutating: false
-      declare_action "dismiss_improvement", mutating: true
-      declare_action "enable_autonomy", mutating: true
+      declare_action "disable_autonomy", mutating: true,
+                     returns: "loop, scheduling_mode manual and schedule_paused true",
+                     refuses: "the account has no dev-improve loop",
+                     see_also: { "enable_autonomy" => "turning unattended execution back on" }
+      declare_action "discover_improvements", mutating: false,
+                     returns: "mode, guidance and code_types; a class sweep adds class_tag and known_instances (up to 25 " \
+                              "active or verified learnings with that tag, newest first)",
+                     see_also: { "create_improvement" => "filing each vetted finding" }
+      declare_action "dismiss_improvement", mutating: true,
+                     returns: "recommendation_id, status and dismiss_reason, plus promoted_task_key and " \
+                              "promoted_task_status when a promoted task exists",
+                     refuses: "no recommendation in this account has that id"
+      declare_action "enable_autonomy", mutating: true,
+                     returns: "loop, scheduling_mode autonomous, default_agent and max_iterations_per_day; halted: true " \
+                              "instead when the kill switch is active",
+                     refuses: [ "the account has no dev-improve loop yet", "agent_id matches no active agent" ],
+                     see_also: { "disable_autonomy" => "returning the loop to operator-driven pull" }
       declare_action "list_improvements", mutating: false, limit: 50, refuses: "status is not one of pending, approved, applied, dismissed"
-      declare_action "revert_improvement", mutating: true
-      declare_action "scoreboard", mutating: false
+      declare_action "revert_improvement", mutating: true,
+                     returns: "recommendation_id, task_key and reverted_at",
+                     refuses: [ "no recommendation in this account has that id", "no dev-improve task was promoted from it" ]
+      declare_action "scoreboard", mutating: false,
+                     returns: "discovered (currently pending), approved, applied and dismissed counts of code-quality " \
+                              "offers, and metric"
 
       def self.definition
         {
@@ -59,9 +85,9 @@ module Ai
       def self.action_definitions
         {
           "discover_improvements" => {
-            description: "Guidance for running discovery: run code_static_analysis + pattern-validation.sh " \
-                         "(and code_dead_code / code_find_duplicates), verify each finding reproduces on HEAD, " \
-                         "then call create_improvement for each vetted finding. Pass class_tag (a recurring " \
+            description: "Get the guidance for running improvement discovery. It says to run code_static_analysis " \
+                         "+ pattern-validation.sh (and code_dead_code / code_find_duplicates), verify each finding " \
+                         "reproduces on HEAD, then call create_improvement for each vetted finding. Pass class_tag (a recurring " \
                          "bug-class learning tag) to switch to a targeted class-sweep that returns the known " \
                          "instances and exhausts every pattern match of the class in ONE pass.",
             parameters: {
@@ -133,8 +159,8 @@ module Ai
             parameters: {}
           },
           "scoreboard" => {
-            description: "Improvement scoreboard: discovered/approved/applied/dismissed offer counts plus the " \
-                         "ungameable metric (revert-adjusted net_improvement_velocity + per-kind revert_rate).",
+            description: "Show the improvement scoreboard: offer counts by status plus the ungameable metric. " \
+                         "The metric is revert-adjusted net_improvement_velocity + per-kind revert_rate.",
             parameters: {}
           }
         }
