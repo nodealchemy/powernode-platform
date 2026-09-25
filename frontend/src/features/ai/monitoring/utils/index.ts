@@ -4,12 +4,7 @@ export {
 } from './monitoringTransformers';
 
 export {
-  getHealthScoreColor,
-  getConnectionStatusColor,
-  formatLastUpdate,
-  getMonitoringBreadcrumbs,
-  MONITORING_TABS,
-  VALID_TAB_IDS
+  MONITORING_TABS
 } from './monitoringFormatters';
 
 export type { MonitoringTabId } from './monitoringFormatters';

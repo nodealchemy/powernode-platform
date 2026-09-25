@@ -25,8 +25,6 @@ export const S3_COMPATIBLE_PROVIDERS: StorageProviderType[] = [
   'wasabi',
 ];
 
-export const NETWORK_FS_PROVIDERS: StorageProviderType[] = ['nfs', 'smb'];
-
 // Provider display information
 export const PROVIDER_INFO: Record<StorageProviderType, { name: string; description: string; category: string }> = {
   local: { name: 'Local Storage', description: 'Store files on the local filesystem', category: 'local' },

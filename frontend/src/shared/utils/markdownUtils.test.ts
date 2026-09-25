@@ -1,9 +1,4 @@
-import {
-  stripMarkdown,
-  truncateText,
-  extractPlainTextExcerpt,
-  hasMarkdownFormatting
-} from './markdownUtils';
+import { stripMarkdown, hasMarkdownFormatting } from './markdownUtils';
 
 describe('markdownUtils', () => {
   describe('stripMarkdown', () => {
@@ -143,141 +138,6 @@ Final paragraph.`;
       expect(stripMarkdown('Text with * single asterisk')).toBe('Text with * single asterisk');
       expect(stripMarkdown('Text with _ single underscore')).toBe('Text with _ single underscore');
       expect(stripMarkdown('Text with # not at line start')).toBe('Text with # not at line start');
-    });
-  });
-
-  describe('truncateText', () => {
-    it('returns original text when shorter than maxLength', () => {
-      expect(truncateText('Short text', 20)).toBe('Short text');
-      expect(truncateText('', 10)).toBe('');
-      expect(truncateText('Exact', 5)).toBe('Exact');
-    });
-
-    it('truncates text correctly with default ellipsis', () => {
-      expect(truncateText('This is a long text that needs truncation', 10)).toBe('This is a...');
-      expect(truncateText('Verylongwordwithoutspaces', 10)).toBe('Verylongwo...');
-    });
-
-    it('uses custom suffix when provided', () => {
-      expect(truncateText('Long text', 5, '…')).toBe('Long…');
-      // Custom suffix with short maxLength may result in just the suffix
-      expect(truncateText('Long text', 10, ' [more]')).toBe('Long text'); // 9 chars < 10, no truncation
-      expect(truncateText('Long text', 5, '')).toBe('Long ');
-    });
-
-    it('breaks at word boundaries when possible', () => {
-      expect(truncateText('The quick brown fox jumps', 15)).toBe('The quick...');
-      expect(truncateText('Word1 Word2 Word3 Word4', 12)).toBe('Word1 Word2...');
-    });
-
-    it('does not break at word boundaries for short words', () => {
-      // When the last space is too early (less than 80% of maxLength), don't break there
-      expect(truncateText('A verylongwordthatcannotbebroken easily', 20)).toBe('A verylongwordthatc...');
-    });
-
-    it('handles edge cases', () => {
-      expect(truncateText('Text', 0, '...')).toBe('...');
-      expect(truncateText('Text', 1, '...')).toBe('T...');
-      expect(truncateText('Text', -1, '...')).toBe('...');
-    });
-
-    it('trims whitespace before adding suffix', () => {
-      expect(truncateText('Text with trailing spaces   ', 10)).toBe('Text with...');
-      expect(truncateText('  Text with leading spaces', 10)).toBe('Text with...');
-    });
-
-    it('handles special characters and unicode', () => {
-      expect(truncateText('Café ñandú 🚀 émoji', 10)).toBe('Café ñandú...');
-      expect(truncateText('中文字符测试文本', 8)).toBe('中文字符测试文本');
-    });
-
-    it('handles null and undefined input gracefully', () => {
-      expect(truncateText(null as any, 10)).toBe(null);
-      expect(truncateText(undefined as any, 10)).toBe(undefined);
-    });
-  });
-
-  describe('extractPlainTextExcerpt', () => {
-    it('extracts plain text excerpt with default length', () => {
-      const markdown = `# Title
-
-This is a paragraph with **bold** and *italic* text that goes on for quite a while to test the excerpt functionality.
-
-## Another section
-
-More content here.`;
-
-      const excerpt = extractPlainTextExcerpt(markdown);
-      
-      expect(excerpt).toContain('Title');
-      expect(excerpt).toContain('This is a paragraph with bold and italic text');
-      expect(excerpt).not.toContain('**');
-      expect(excerpt).not.toContain('*');
-      expect(excerpt).not.toContain('#');
-      expect(excerpt.length).toBeLessThanOrEqual(203); // 200 + '...'
-    });
-
-    it('uses custom maxLength', () => {
-      const markdown = `# Short Title
-
-Short content.`;
-
-      const shortExcerpt = extractPlainTextExcerpt(markdown, 20);
-      const longExcerpt = extractPlainTextExcerpt(markdown, 100);
-      
-      expect(shortExcerpt.length).toBeLessThanOrEqual(23); // 20 + '...'
-      expect(longExcerpt.length).toBeLessThanOrEqual(100);
-      expect(longExcerpt.length).toBeGreaterThan(shortExcerpt.length);
-    });
-
-    it('handles empty or short markdown', () => {
-      expect(extractPlainTextExcerpt('')).toBe('');
-      expect(extractPlainTextExcerpt('# Short')).toBe('Short');
-      expect(extractPlainTextExcerpt('## Very short', 50)).toBe('Very short');
-    });
-
-    it('strips all markdown formatting', () => {
-      const complexMarkdown = `# Title
-
-**Bold** and *italic* text with [links](http://example.com) and \`code\`.
-
-> Blockquote with ~~strikethrough~~.
-
-- List item 1
-- List item 2
-
-\`\`\`
-code block
-\`\`\`
-
-![Image](image.png)`;
-
-      const excerpt = extractPlainTextExcerpt(complexMarkdown);
-      
-      expect(excerpt).toContain('Bold and italic text with links and code');
-      expect(excerpt).toContain('Blockquote with strikethrough');
-      expect(excerpt).toContain('List item 1');
-      expect(excerpt).not.toContain('**');
-      expect(excerpt).not.toContain('[');
-      expect(excerpt).not.toContain('```');
-      expect(excerpt).not.toContain('![');
-    });
-
-    it('handles code blocks correctly', () => {
-      const withCodeBlock = `Text before
-
-\`\`\`javascript
-const code = 'should be removed';
-console.log('this too');
-\`\`\`
-
-Text after`;
-
-      const excerpt = extractPlainTextExcerpt(withCodeBlock, 50);
-      expect(excerpt).toContain('Text before');
-      expect(excerpt).toContain('Text after');
-      expect(excerpt).not.toContain('const code');
-      expect(excerpt).not.toContain('console.log');
     });
   });
 
@@ -476,11 +336,6 @@ MIT License - see [LICENSE](LICENSE) file.`;
       expect(stripped).not.toContain('---');
       // Note: Individual hyphens may remain in text content
       
-      // Test excerpt generation
-      const excerpt = extractPlainTextExcerpt(complexMarkdown, 100);
-      expect(excerpt.length).toBeLessThanOrEqual(103);
-      expect(excerpt).toContain('Project README');
-      expect(excerpt).toContain('comprehensive guide');
     });
 
     it('handles malformed markdown gracefully', () => {
@@ -495,7 +350,6 @@ MIT License - see [LICENSE](LICENSE) file.`;
 
       expect(() => hasMarkdownFormatting(malformedMarkdown)).not.toThrow();
       expect(() => stripMarkdown(malformedMarkdown)).not.toThrow();
-      expect(() => extractPlainTextExcerpt(malformedMarkdown)).not.toThrow();
       
       expect(hasMarkdownFormatting(malformedMarkdown)).toBe(true);
     });

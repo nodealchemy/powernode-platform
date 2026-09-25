@@ -1,10 +1,4 @@
-import {
-  isTokenInvalidError,
-  clearStoredTokens,
-  hasStoredTokens,
-  isValidJWTFormat,
-  getTokenExpiry
-} from './tokenUtils';
+import { isTokenInvalidError, isValidJWTFormat } from './tokenUtils';
 
 // Mock localStorage
 const localStorageMock = {
@@ -22,14 +16,6 @@ describe('tokenUtils', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
-
-  // Helper function to create mock JWT tokens
-  const createJWT = (payload: unknown) => {
-    const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-    const payloadStr = btoa(JSON.stringify(payload));
-    const signature = 'mock-signature';
-    return `${header}.${payloadStr}.${signature}`;
-  };
 
   describe('isTokenInvalidError', () => {
     it('returns false for falsy errors', () => {
@@ -200,20 +186,6 @@ describe('tokenUtils', () => {
     });
   });
 
-  describe('clearStoredTokens', () => {
-    it('is a no-op since tokens are no longer stored in localStorage (WP8: HttpOnly cookies)', () => {
-      clearStoredTokens();
-      // No localStorage operations expected — tokens are in HttpOnly cookies now
-      expect(localStorageMock.removeItem).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('hasStoredTokens', () => {
-    it('always returns false since tokens are no longer stored in localStorage (WP8: HttpOnly cookies)', () => {
-      expect(hasStoredTokens()).toBe(false);
-    });
-  });
-
   describe('isValidJWTFormat', () => {
     it('returns false for empty or null tokens', () => {
       expect(isValidJWTFormat('')).toBe(false);
@@ -247,136 +219,9 @@ describe('tokenUtils', () => {
     });
   });
 
-  describe('getTokenExpiry', () => {
-    it('returns null for invalid token format', () => {
-      expect(getTokenExpiry('')).toBe(null);
-      expect(getTokenExpiry('invalid')).toBe(null);
-      expect(getTokenExpiry('header.payload')).toBe(null);
-    });
-
-    it('returns correct expiry date for valid token', () => {
-      const expTimestamp = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-      const token = createJWT({ exp: expTimestamp });
-      
-      const expiry = getTokenExpiry(token);
-      expect(expiry).toBeInstanceOf(Date);
-      expect(expiry?.getTime()).toBe(expTimestamp * 1000);
-    });
-
-    it('returns null for token without exp claim', () => {
-      const token = createJWT({ sub: '1234567890', name: 'John Doe' });
-      
-      expect(getTokenExpiry(token)).toBe(null);
-    });
-
-    it('returns null for token with null exp claim', () => {
-      const token = createJWT({ exp: null });
-      
-      expect(getTokenExpiry(token)).toBe(null);
-    });
-
-    it('returns null for token with undefined exp claim', () => {
-      const token = createJWT({ exp: undefined });
-      
-      expect(getTokenExpiry(token)).toBe(null);
-    });
-
-    it('handles tokens with malformed JSON payload', () => {
-      const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-      const invalidPayload = btoa('invalid json {');
-      const signature = 'mock-signature';
-      const token = `${header}.${invalidPayload}.${signature}`;
-      
-      expect(getTokenExpiry(token)).toBe(null);
-    });
-
-    it('handles tokens with non-base64 payload', () => {
-      const token = 'header.invalid-base64.signature';
-      
-      expect(getTokenExpiry(token)).toBe(null);
-    });
-
-    it('correctly converts Unix timestamp to Date', () => {
-      const testCases = [
-        1640995200, // 2022-01-01 00:00:00 UTC
-        1672531200, // 2023-01-01 00:00:00 UTC
-        0, // 1970-01-01 00:00:00 UTC
-        2147483647 // Maximum 32-bit signed integer
-      ];
-      
-      testCases.forEach(timestamp => {
-        const token = createJWT({ exp: timestamp });
-        const expiry = getTokenExpiry(token);
-        
-        expect(expiry).toBeInstanceOf(Date);
-        expect(expiry?.getTime()).toBe(timestamp * 1000);
-      });
-    });
-
-    it('handles negative timestamps', () => {
-      const token = createJWT({ exp: -1 });
-      const expiry = getTokenExpiry(token);
-      
-      expect(expiry).toBeInstanceOf(Date);
-      expect(expiry?.getTime()).toBe(-1000);
-    });
-
-    it('handles floating point exp values', () => {
-      const token = createJWT({ exp: 1640995200.5 });
-      const expiry = getTokenExpiry(token);
-      
-      expect(expiry).toBeInstanceOf(Date);
-      expect(expiry?.getTime()).toBe(1640995200500);
-    });
-
-    it('handles string exp values that can be converted to numbers', () => {
-      const token = createJWT({ exp: '1640995200' });
-      const expiry = getTokenExpiry(token);
-      
-      expect(expiry).toBeInstanceOf(Date);
-      expect(expiry?.getTime()).toBe(1640995200000);
-    });
-
-    it('returns null for non-numeric exp values', () => {
-      const token = createJWT({ exp: 'invalid-timestamp' });
-      
-      expect(getTokenExpiry(token)).toBe(null);
-    });
-
-    it('handles edge case with empty payload object', () => {
-      const token = createJWT({});
-
-      expect(getTokenExpiry(token)).toBe(null);
-    });
-
-    it('resolves exp even when the payload defines its own hasOwnProperty key', () => {
-      // Untrusted JWT content can shadow Object.prototype.hasOwnProperty; the
-      // expiry must still be read via the real prototype method.
-      const exp = Math.floor(Date.now() / 1000) + 3600;
-      const token = createJWT({ exp, hasOwnProperty: 1 });
-
-      const expiry = getTokenExpiry(token);
-      expect(expiry).toBeInstanceOf(Date);
-      expect(expiry?.getTime()).toBe(exp * 1000);
-    });
-  });
-
   describe('integration scenarios', () => {
-    it('correctly identifies expired tokens', () => {
-      const expiredTimestamp = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
-      const expiredJWT = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${btoa(JSON.stringify({ exp: expiredTimestamp }))}.signature`;
-
-      expect(isValidJWTFormat(expiredJWT)).toBe(true);
-
-      const expiry = getTokenExpiry(expiredJWT);
-      expect(expiry).toBeInstanceOf(Date);
-      expect(expiry!.getTime() < Date.now()).toBe(true);
-    });
 
     it('handles complete authentication error workflow', () => {
-      // Since WP8 (HttpOnly cookies), tokens are no longer in localStorage
-      expect(hasStoredTokens()).toBe(false);
-
       // API error occurs
       const authError = {
         response: {
@@ -388,25 +233,18 @@ describe('tokenUtils', () => {
       };
 
       expect(isTokenInvalidError(authError)).toBe(true);
-
-      // clearStoredTokens is a no-op now
-      clearStoredTokens();
     });
 
-    it('handles token format validation and expiry checking', () => {
+    it('handles token format validation', () => {
       const currentTime = Math.floor(Date.now() / 1000);
       const validToken = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.${btoa(JSON.stringify({ exp: currentTime + 3600 }))}.signature`;
       const invalidToken = 'invalid-token-format';
       
       // Valid token
       expect(isValidJWTFormat(validToken)).toBe(true);
-      const expiry = getTokenExpiry(validToken);
-      expect(expiry).toBeInstanceOf(Date);
-      expect(expiry!.getTime()).toBe((currentTime + 3600) * 1000);
       
       // Invalid token
       expect(isValidJWTFormat(invalidToken)).toBe(false);
-      expect(getTokenExpiry(invalidToken)).toBe(null);
     });
 
     it('handles various error formats from different sources', () => {
@@ -437,13 +275,6 @@ describe('tokenUtils', () => {
   });
 
   describe('edge cases and error handling', () => {
-    it('handles localStorage being unavailable', () => {
-      // With WP8, these functions no longer access localStorage at all
-      expect(() => hasStoredTokens()).not.toThrow();
-      expect(hasStoredTokens()).toBe(false);
-
-      expect(() => clearStoredTokens()).not.toThrow();
-    });
 
     it('handles circular reference objects in errors', () => {
       const circularError: Record<string, unknown> = { message: 'Circular error' };
@@ -457,20 +288,7 @@ describe('tokenUtils', () => {
       const largeToken = `header.${btoa(JSON.stringify(largePayload))}.signature`;
       
       expect(isValidJWTFormat(largeToken)).toBe(true);
-      expect(getTokenExpiry(largeToken)).toBeInstanceOf(Date);
     });
 
-    it('handles tokens with special characters', () => {
-      // Test with ASCII-safe special characters that btoa can handle
-      const payload = { 
-        exp: Math.floor(Date.now() / 1000) + 3600, 
-        name: 'John Doe', 
-        special: 'user@example.com',
-        symbols: '!@#$%^&*()'
-      };
-      const token = createJWT(payload);
-      
-      expect(getTokenExpiry(token)).toBeInstanceOf(Date);
-    });
   });
 });

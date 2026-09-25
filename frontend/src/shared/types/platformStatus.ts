@@ -55,20 +55,6 @@ export const VERDICT_LADDER = [
 export type Verdict = (typeof VERDICT_LADDER)[number];
 
 /**
- * Severity rank of a verdict — the integer is an ORDERING DEVICE only. Never
- * persist it, never send it over the wire, and never assume the gaps mean
- * anything. Mirrors `Platform::ComponentStatus.rank_of`.
- */
-export const VERDICT_RANK: Record<Verdict, number> = {
-  ok: 0,
-  held: 1,
-  progressing: 2,
-  not_measured: 3,
-  degraded: 4,
-  down: 5,
-};
-
-/**
  * Verdicts that mean "a person should look at this". `not_measured` is in here
  * on purpose: blindness is actionable. Mirrors
  * `Platform::ComponentStatus::UNHEALTHY_VERDICTS`.

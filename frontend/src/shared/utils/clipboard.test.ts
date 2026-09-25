@@ -1,4 +1,4 @@
-import { copyToClipboard, isClipboardSupported } from './clipboard';
+import { copyToClipboard } from './clipboard';
 
 describe('clipboard utilities', () => {
   let originalClipboard: Clipboard | undefined;
@@ -191,32 +191,4 @@ describe('clipboard utilities', () => {
     });
   });
 
-  describe('isClipboardSupported', () => {
-    it('returns true when clipboard API is available', () => {
-      expect(isClipboardSupported()).toBe(true);
-    });
-
-    it('returns true when execCommand copy is supported', () => {
-      Object.defineProperty(navigator, 'clipboard', {
-        value: undefined,
-        configurable: true,
-        writable: true
-      });
-      (document.queryCommandSupported as jest.Mock).mockReturnValue(true);
-
-      expect(isClipboardSupported()).toBe(true);
-      expect(document.queryCommandSupported).toHaveBeenCalledWith('copy');
-    });
-
-    it('returns false when no clipboard methods are available', () => {
-      Object.defineProperty(navigator, 'clipboard', {
-        value: undefined,
-        configurable: true,
-        writable: true
-      });
-      (document.queryCommandSupported as jest.Mock).mockReturnValue(false);
-
-      expect(isClipboardSupported()).toBe(false);
-    });
-  });
 });

@@ -85,7 +85,6 @@ frontend/src/features/admin/audit-logs/components/TopThreats.tsx|severity-fn|get
 frontend/src/features/admin/components/MultiTenancyConfigPanel.tsx|empty-state
 frontend/src/features/admin/components/MultiTenancyConfigPanel.tsx|empty-state
 frontend/src/features/admin/components/ProxySettingsTab.tsx|empty-state
-frontend/src/features/admin/components/settings/SettingsComponents.tsx|stat-card|StatsCard
 frontend/src/features/admin/workers/components/WorkerActivityDashboard.tsx|empty-state
 frontend/src/features/admin/workers/components/WorkerActivityDashboard.tsx|status-fn|getEventStatusColor
 frontend/src/features/admin/workers/components/WorkerCard.tsx|status-fn|getStatusColor
@@ -198,7 +197,6 @@ frontend/src/features/ai/monitoring/components/AlertManagementCenter.tsx|severit
 frontend/src/features/ai/monitoring/components/AlertManagementCenter.tsx|severity-fn|getSeverityColor
 frontend/src/features/ai/monitoring/components/ConversationAnalytics.tsx|empty-state
 frontend/src/features/ai/monitoring/components/ConversationAnalytics.tsx|status-fn|getStatusBadge
-frontend/src/features/ai/monitoring/utils/monitoringFormatters.ts|status-fn|getConnectionStatusColor
 frontend/src/features/ai/orchestration/components/RealTimeActivityFeed.tsx|empty-state
 frontend/src/features/ai/parallel-execution/components/ParallelSessionListPanel.tsx|empty-state
 frontend/src/features/ai/parallel-execution/components/ParallelSessionListPanel.tsx|empty-state

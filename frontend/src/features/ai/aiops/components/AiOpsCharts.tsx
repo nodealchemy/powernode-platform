@@ -1,8 +1,5 @@
 import React from 'react';
-import {
-  AreaChart, Area, LineChart, Line, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-} from 'recharts';
+import { AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { CHART_COLORS, tooltipStyle } from '@/features/ai/agent-teams/components/teamAnalyticsHelpers';
 
 /**
@@ -55,25 +52,6 @@ export const CostAreaChart: React.FC<{
       <Tooltip contentStyle={tooltipStyle} />
       <Area type="monotone" dataKey={yKey} name={name} stroke="var(--color-success, #10B981)" fillOpacity={1} fill="url(#aiopsCostGrad)" />
     </AreaChart>
-  </ChartFrame>
-);
-
-/** Horizontal bar chart for categorical cost breakdowns (e.g. by provider). */
-export const CategoryBarChart: React.FC<{
-  title: string;
-  data: Array<Record<string, number | string>>;
-  xKey: string;
-  yKey: string;
-  name: string;
-}> = ({ title, data, xKey, yKey, name }) => (
-  <ChartFrame title={title} height={Math.max(200, data.length * 44)}>
-    <BarChart data={data} layout="vertical">
-      <CartesianGrid strokeDasharray="3 3" className="stroke-theme-border" />
-      <XAxis type="number" tick={{ fontSize: 11 }} />
-      <YAxis type="category" dataKey={xKey} tick={{ fontSize: 11 }} width={120} />
-      <Tooltip contentStyle={tooltipStyle} />
-      <Bar dataKey={yKey} name={name} fill="var(--color-info, #3B82F6)" />
-    </BarChart>
   </ChartFrame>
 );
 

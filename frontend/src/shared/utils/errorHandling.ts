@@ -62,14 +62,6 @@ export function getErrorMessage(error: unknown): string {
   return 'An unexpected error occurred';
 }
 
-// Create a formatted error object from unknown error
-export function createErrorObject(error: unknown) {
-  return {
-    message: getErrorMessage(error),
-    originalError: error
-  };
-}
-
 // ErrorHandler class for compatibility with legacy code
 export class ErrorHandler {
   static getUserMessage(error: unknown): string {
@@ -112,11 +104,4 @@ export function isNetworkError(error: unknown): boolean {
     return error.message === 'Network Error' || error.message.includes('network');
   }
   return false;
-}
-
-/**
- * Checks if error is an authentication error (401)
- */
-export function isAuthError(error: unknown): boolean {
-  return getErrorStatus(error) === 401;
 }

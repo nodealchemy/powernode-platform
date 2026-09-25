@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { store, injectReducer, injectedReducerKeys } from '@/shared/services';
+import { store, injectReducer } from '@/shared/services';
 
 // The extension state seam. Extensions compose routes/nav/channels through
 // featureRegistry; before this existed there was no equivalent for Redux state,
@@ -27,7 +27,6 @@ describe('injectReducer (extension state seam)', () => {
     injectReducer('ext_alpha', slice.reducer);
 
     expect((store.getState() as Record<string, unknown>).ext_alpha).toEqual({ value: 1 });
-    expect(injectedReducerKeys()).toContain('ext_alpha');
   });
 
   it('keeps core slices intact across an injection', () => {
@@ -65,7 +64,6 @@ describe('injectReducer (extension state seam)', () => {
     injectReducer('ext_epsilon', makeSlice('ext_epsilon', { value: 99 }).reducer);
 
     expect((store.getState() as Record<string, unknown>).ext_epsilon).toEqual({ value: 1 });
-    expect(injectedReducerKeys().filter((k) => k === 'ext_epsilon')).toHaveLength(1);
   });
 
   it('dispatches extension actions through the shared store', () => {

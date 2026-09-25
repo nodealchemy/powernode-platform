@@ -3,38 +3,6 @@ import { HeartPulse, Server, MessageSquare, ClipboardCheck, Bell, Zap, Workflow 
 import type { PathTabSpec } from '@/shared/components/navigation/PathTabs';
 
 /**
- * Get color class for health score
- */
-export const getHealthScoreColor = (score: number): string => {
-  if (score >= 80) return 'text-theme-success-fg';
-  if (score >= 50) return 'text-theme-warning-fg';
-  return 'text-theme-error-fg';
-};
-
-/**
- * Get background class for connection status
- */
-export const getConnectionStatusColor = (isConnected: boolean): string => {
-  return isConnected ? 'bg-theme-success-bg' : 'bg-theme-error-bg';
-};
-
-/**
- * Format relative time for last update display
- */
-export const formatLastUpdate = (date: Date | null): string => {
-  if (!date) return 'Never';
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const seconds = Math.floor(diff / 1000);
-
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  return `${hours}h ago`;
-};
-
-/**
  * Path-based tab identifiers for the Observability hub (`/app/ai/observability`).
  */
 export type MonitoringTabId =
@@ -84,26 +52,3 @@ export const MONITORING_TABS: PathTabSpec<MonitoringTabId>[] = [
   { key: 'evaluation', label: 'Evaluation', permission: 'ai.analytics.read', icon: React.createElement(ClipboardCheck, { size: 16 }) },
 ];
 
-/**
- * Valid tab IDs for URL parameter validation (Observability hub).
- */
-export const VALID_TAB_IDS = MONITORING_TABS.map(tab => tab.key);
-
-/**
- * Get breadcrumbs based on active Observability tab.
- *
- * Retained for backward compatibility; ObservabilityPage computes breadcrumbs
- * from `useLocation` + `aiCrumbs(...)` directly.
- */
-export const getMonitoringBreadcrumbs = (activeTab: string) => {
-  const baseBreadcrumbs: Array<{ label: string; href?: string }> = [
-    { label: 'Dashboard', href: '/app' },
-    { label: 'AI', href: '/app/ai' },
-  ];
-
-  const activeTabInfo = MONITORING_TABS.find(tab => tab.key === activeTab);
-  baseBreadcrumbs.push({ label: 'Observability', href: '/app/ai/observability' });
-  if (activeTabInfo) baseBreadcrumbs.push({ label: activeTabInfo.label });
-
-  return baseBreadcrumbs;
-};

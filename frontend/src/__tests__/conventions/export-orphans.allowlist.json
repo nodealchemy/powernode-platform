@@ -1,20 +1,5 @@
 [
   {
-    "path": "frontend/src/features/admin/components/settings/SettingsComponents.tsx",
-    "name": "SectionHeader",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/admin/components/settings/SettingsComponents.tsx",
-    "name": "StatsCard",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/a2ui/catalog/catalog.manifest.ts",
-    "name": "A2UI_CATALOG_ID",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/features/ai/a2ui/catalog/catalog.manifest.ts",
     "name": "SupportedComponent",
     "reason": "unused exported type; swept by the export-orphan offers"
@@ -23,11 +8,6 @@
     "path": "frontend/src/features/ai/agui/pages/AguiPage.tsx",
     "name": "AguiStandalonePage",
     "reason": "found by H1 fix (an export statement is no longer counted as its own use); pending its sweep"
-  },
-  {
-    "path": "frontend/src/features/ai/aiops/components/AiOpsCharts.tsx",
-    "name": "CategoryBarChart",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/features/ai/approvals/types/approvalChainTypes.ts",
@@ -68,31 +48,6 @@
     "path": "frontend/src/features/ai/memory/types/memory.ts",
     "name": "SemanticSearchResult",
     "reason": "unused exported type; swept by the export-orphan offers"
-  },
-  {
-    "path": "frontend/src/features/ai/monitoring/utils/monitoringFormatters.ts",
-    "name": "formatLastUpdate",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/monitoring/utils/monitoringFormatters.ts",
-    "name": "getConnectionStatusColor",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/monitoring/utils/monitoringFormatters.ts",
-    "name": "getHealthScoreColor",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/monitoring/utils/monitoringFormatters.ts",
-    "name": "getMonitoringBreadcrumbs",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/features/ai/monitoring/utils/monitoringFormatters.ts",
-    "name": "VALID_TAB_IDS",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/features/ai/parallel-execution/types/index.ts",
@@ -481,11 +436,6 @@
   },
   {
     "path": "frontend/src/shared/services/index.ts",
-    "name": "injectedReducerKeys",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/services/index.ts",
     "name": "injectReducer",
     "reason": "consumed only outside the public tree; a public export must be used by public code (follow-up offer: move it out of core)"
   },
@@ -540,39 +490,9 @@
     "reason": "unused exported type; swept by the export-orphan offers"
   },
   {
-    "path": "frontend/src/shared/types/platformStatus.ts",
-    "name": "VERDICT_RANK",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/types/storage.ts",
-    "name": "NETWORK_FS_PROVIDERS",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/utils/clipboard.ts",
-    "name": "isClipboardSupported",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/utils/errorHandling.ts",
-    "name": "createErrorObject",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/utils/errorHandling.ts",
-    "name": "isAuthError",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/shared/utils/formatters.ts",
     "name": "calculateAnnualSavings",
     "reason": "consumed only outside the public tree; a public export must be used by public code (follow-up offer: move it out of core)"
-  },
-  {
-    "path": "frontend/src/shared/utils/formatters.ts",
-    "name": "calculateDiscountedPrice",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/shared/utils/formatters.ts",
@@ -586,27 +506,7 @@
   },
   {
     "path": "frontend/src/shared/utils/formatters.ts",
-    "name": "formatSubscriptionPrice",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/utils/markdownUtils.ts",
-    "name": "extractPlainTextExcerpt",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/utils/tokenUtils.ts",
-    "name": "clearStoredTokens",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/utils/tokenUtils.ts",
-    "name": "getTokenExpiry",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/utils/tokenUtils.ts",
-    "name": "hasStoredTokens",
-    "reason": "pending deletion (operator-confirm)"
+    "name": "getBillingCycleLabel",
+    "reason": "consumed only outside the public tree; a public export must be used by public code (follow-up offer: move it out of core)"
   }
 ]

@@ -51,24 +51,6 @@ export const isTokenInvalidError = (error: unknown): boolean => {
 };
 
 /**
- * Clears all authentication tokens from localStorage
- */
-export const clearStoredTokens = (): void => {
-  // Tokens are now stored in Redux state (access_token) and HttpOnly cookies (refresh_token)
-  // No localStorage cleanup needed for auth tokens
-  // Impersonation tokens remain in localStorage and are cleared separately
-};
-
-/**
- * Checks if tokens exist in localStorage
- */
-export const hasStoredTokens = (): boolean => {
-  // Tokens are stored in Redux state and HttpOnly cookies, not localStorage
-  // This function is kept for backward compatibility but always returns false
-  return false;
-};
-
-/**
  * Validates token format - this app uses JWT tokens after authentication conversion
  * JWT tokens have 3 parts separated by dots: header.payload.signature
  */
@@ -89,28 +71,4 @@ export const isValidJWTFormat = (token: string): boolean => {
   // Check if it looks like a JWT (3 parts separated by dots)
   const parts = token.split('.');
   return parts.length === 3; // Allow empty parts for structural validity
-};
-
-/**
- * Gets token expiration time for JWT tokens (for testing/legacy support)
- */
-export const getTokenExpiry = (token: string): Date | null => {
-  try {
-    // Only work with actual JWT format tokens
-    if (!isValidJWTFormat(token)) return null;
-    
-    const parts = token.split('.');
-    const payload = JSON.parse(atob(parts[1]));
-    
-    // payload is untrusted JWT content — call hasOwnProperty via the prototype
-    // so a payload with its own `hasOwnProperty` key can't shadow the method.
-    if (!Object.prototype.hasOwnProperty.call(payload, 'exp') || payload.exp === null || payload.exp === undefined) return null;
-    
-    const expNumber = Number(payload.exp);
-    if (isNaN(expNumber)) return null;
-    
-    return new Date(expNumber * 1000);
-  } catch {
-    return null;
-  }
 };

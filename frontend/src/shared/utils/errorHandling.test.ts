@@ -1,9 +1,4 @@
-import {
-  isErrorWithMessage,
-  isErrorWithResponse,
-  getErrorMessage,
-  createErrorObject
-} from './errorHandling';
+import { isErrorWithMessage, isErrorWithResponse, getErrorMessage } from './errorHandling';
 
 describe('errorHandling utilities', () => {
   describe('isErrorWithMessage', () => {
@@ -192,79 +187,6 @@ describe('errorHandling utilities', () => {
         }
       };
       expect(getErrorMessage(error)).toBe('An error occurred');
-    });
-  });
-
-  describe('createErrorObject', () => {
-    it('creates error object with message and originalError', () => {
-      const originalError = new Error('Original error');
-      const errorObject = createErrorObject(originalError);
-
-      expect(errorObject).toEqual({
-        message: 'Original error',
-        originalError
-      });
-    });
-
-    it('handles API response errors', () => {
-      const originalError = {
-        message: 'API Error',
-        response: {
-          data: {
-            message: 'Server validation error'
-          }
-        }
-      };
-
-      const errorObject = createErrorObject(originalError);
-
-      expect(errorObject).toEqual({
-        message: 'Server validation error',
-        originalError
-      });
-    });
-
-    it('handles string errors', () => {
-      const errorObject = createErrorObject('Simple string error');
-
-      expect(errorObject).toEqual({
-        message: 'Simple string error',
-        originalError: 'Simple string error'
-      });
-    });
-
-    it('handles null/undefined errors', () => {
-      const nullErrorObject = createErrorObject(null);
-      const undefinedErrorObject = createErrorObject(undefined);
-
-      expect(nullErrorObject).toEqual({
-        message: 'An unexpected error occurred',
-        originalError: null
-      });
-
-      expect(undefinedErrorObject).toEqual({
-        message: 'An unexpected error occurred',
-        originalError: undefined
-      });
-    });
-
-    it('preserves original error for debugging', () => {
-      const complexError = {
-        name: 'CustomError',
-        message: 'Complex error',
-        stack: 'Error stack trace...',
-        customProperty: 'custom value',
-        response: {
-          status: 400,
-          data: { error: 'Bad request' }
-        }
-      };
-
-      const errorObject = createErrorObject(complexError);
-
-      expect(errorObject.message).toBe('Bad request');
-      expect(errorObject.originalError).toBe(complexError);
-      expect(errorObject.originalError).toHaveProperty('customProperty', 'custom value');
     });
   });
 

@@ -607,133 +607,7 @@ export function formatBankAccountDisplay(lastFour: string): string {
   return `Bank **** ${lastFour}`;
 }
 
-// ============================================
-// Subscription & Plan Price Formatting
-// ============================================
-
-export interface PriceInput {
-  cents: number;
-  currency_iso?: string;
-}
-
-export interface PlanDiscountInfo {
-  billing_cycle?: string;
-  has_annual_discount?: boolean;
-  annual_discount_percent?: number | string;
-  has_promotional_discount?: boolean;
-  promotional_discount_percent?: number | string;
-  promotional_discount_code?: string;
-  promotional_discount_start?: string;
-  promotional_discount_end?: string;
-}
-
 export type BillingCycle = 'monthly' | 'yearly' | 'quarterly';
-
-/**
- * Formats subscription price with billing cycle
- *
- * @param price - Price in cents or price object
- * @param billingCycle - The billing cycle (monthly, yearly, quarterly)
- * @param currency - ISO 4217 currency code (default: 'USD')
- * @returns Formatted price string (e.g., '$10.00/month')
- *
- * @example
- * formatSubscriptionPrice(1000, 'monthly') // '$10.00/month'
- * formatSubscriptionPrice({ cents: 12000, currency_iso: 'USD' }, 'yearly') // '$120.00/year'
- * formatSubscriptionPrice(0, 'monthly') // 'Free'
- */
-export function formatSubscriptionPrice(
-  price: number | PriceInput | null | undefined,
-  billingCycle: BillingCycle = 'monthly',
-  currency = 'USD'
-): string {
-  const priceCents = normalizePriceCents(price);
-  const actualCurrency = typeof price === 'object' && price?.currency_iso ? price.currency_iso : currency;
-
-  if (priceCents === 0) {
-    return 'Free';
-  }
-
-  const formattedAmount = formatCurrency(priceCents, actualCurrency);
-  const cycleLabel = getBillingCycleLabel(billingCycle);
-
-  return `${formattedAmount}/${cycleLabel}`;
-}
-
-/**
- * Calculates and formats a discounted price
- *
- * @param priceCents - Base price in cents
- * @param discountInfo - Plan discount information
- * @param displayBillingCycle - The billing cycle being displayed (may differ from plan cycle)
- * @param currency - ISO 4217 currency code
- * @returns Object with formatted prices and discount info
- */
-export function calculateDiscountedPrice(
-  priceCents: number,
-  discountInfo: PlanDiscountInfo,
-  displayBillingCycle: BillingCycle = 'monthly',
-  currency = 'USD'
-): {
-  originalPriceCents: number;
-  discountedPriceCents: number;
-  discountPercent: number;
-  formattedOriginal: string;
-  formattedDiscounted: string;
-  hasDiscount: boolean;
-  discountType: 'annual' | 'promotional' | null;
-} {
-  let discountedPriceCents = priceCents;
-  let discountPercent = 0;
-  let discountType: 'annual' | 'promotional' | null = null;
-  let originalPriceCents = priceCents;
-
-  // Apply annual pricing when viewing yearly billing for monthly plans
-  if (
-    displayBillingCycle === 'yearly' &&
-    discountInfo.billing_cycle === 'monthly'
-  ) {
-    originalPriceCents = priceCents * 12;
-
-    // Apply explicit annual discount if configured
-    if (discountInfo.has_annual_discount && discountInfo.annual_discount_percent) {
-      const annualDiscountPercent = parseFloat(String(discountInfo.annual_discount_percent));
-      discountedPriceCents = Math.round(originalPriceCents * (1 - annualDiscountPercent / 100));
-      discountPercent = annualDiscountPercent;
-      discountType = 'annual';
-    } else {
-      // Apply default 10% annual discount for yearly billing view
-      const defaultAnnualDiscount = 10;
-      discountedPriceCents = Math.round(originalPriceCents * (1 - defaultAnnualDiscount / 100));
-      discountPercent = defaultAnnualDiscount;
-      discountType = 'annual';
-    }
-  }
-  // Apply promotional discount (only if no code required)
-  else if (
-    discountInfo.has_promotional_discount &&
-    discountInfo.promotional_discount_percent &&
-    !discountInfo.promotional_discount_code &&
-    isPromotionalDiscountActive(discountInfo)
-  ) {
-    const promoDiscountPercent = parseFloat(String(discountInfo.promotional_discount_percent));
-    discountedPriceCents = Math.round(priceCents * (1 - promoDiscountPercent / 100));
-    discountPercent = promoDiscountPercent;
-    discountType = 'promotional';
-  }
-
-  const cycleLabel = getBillingCycleLabel(displayBillingCycle);
-
-  return {
-    originalPriceCents,
-    discountedPriceCents,
-    discountPercent,
-    formattedOriginal: `${formatCurrency(originalPriceCents, currency)}/${cycleLabel}`,
-    formattedDiscounted: `${formatCurrency(discountedPriceCents, currency)}/${cycleLabel}`,
-    hasDiscount: discountType !== null,
-    discountType,
-  };
-}
 
 /**
  * Calculates savings amount and percentage for yearly billing
@@ -761,26 +635,6 @@ export function calculateAnnualSavings(
   };
 }
 
-// ============================================
-// Helper Functions
-// ============================================
-
-/**
- * Normalizes various price input formats to cents
- */
-export function normalizePriceCents(
-  price: number | PriceInput | null | undefined
-): number {
-  if (price == null) return 0;
-  if (typeof price === 'object' && 'cents' in price) {
-    return price.cents ?? 0;
-  }
-  if (typeof price === 'number') {
-    return isNaN(price) ? 0 : price;
-  }
-  return 0;
-}
-
 /**
  * Gets the display label for a billing cycle
  */
@@ -799,24 +653,3 @@ export function getBillingCycleLabel(cycle: BillingCycle | string): string {
   }
 }
 
-/**
- * Checks if a promotional discount is currently active
- */
-export function isPromotionalDiscountActive(discountInfo: PlanDiscountInfo): boolean {
-  if (!discountInfo.has_promotional_discount || !discountInfo.promotional_discount_percent) {
-    return false;
-  }
-
-  const now = new Date();
-  const startDate = discountInfo.promotional_discount_start
-    ? new Date(discountInfo.promotional_discount_start)
-    : null;
-  const endDate = discountInfo.promotional_discount_end
-    ? new Date(discountInfo.promotional_discount_end)
-    : null;
-
-  const hasStarted = !startDate || startDate <= now;
-  const hasNotEnded = !endDate || endDate >= now;
-
-  return hasStarted && hasNotEnded;
-}

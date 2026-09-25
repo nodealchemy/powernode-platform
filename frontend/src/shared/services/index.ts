@@ -57,11 +57,6 @@ export function injectReducer(key: string, reducer: Reducer): void {
   store.replaceReducer(combineReducers({ ...staticReducers, ...injectedReducers }));
 }
 
-/** Keys injected so far — for diagnostics and tests, not for feature code. */
-export function injectedReducerKeys(): string[] {
-  return Object.keys(injectedReducers);
-}
-
 /**
  * Augmentable map of extension-owned state. Empty in core by design; an
  * extension declares its own slice via declaration merging:

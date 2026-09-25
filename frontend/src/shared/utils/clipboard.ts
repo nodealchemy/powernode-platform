@@ -78,17 +78,3 @@ export const copyToClipboard = async (text: string, options?: {
     }
   }
 };
-
-/**
- * Check if clipboard functionality is available
- */
-export const isClipboardSupported = (): boolean => {
-  try {
-    return !!(typeof navigator !== 'undefined' && navigator.clipboard && 
-             typeof window !== 'undefined' && window.isSecureContext) || 
-           !!(typeof document !== 'undefined' && document.queryCommandSupported && 
-             document.queryCommandSupported('copy'));
-  } catch (_error) {
-    return false;
-  }
-};
