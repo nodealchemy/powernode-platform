@@ -80,7 +80,7 @@ module ChatStreamingConcern
       'Content-Type' => 'application/json',
       'x-api-key' => api_key,
       'anthropic-version' => '2023-06-01'
-    }
+    }.merge(Ai::Llm::AnthropicMessages.beta_headers(body_hash))
 
     accumulated = ""
     input_tokens = 0

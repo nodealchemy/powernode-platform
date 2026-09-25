@@ -64,4 +64,26 @@ RSpec.describe Ai::Llm::AnthropicMessages do
     _system, messages = described_class.split([ { role: 'tool', content: 'r' } ], native_model) { |m| m.merge(role: 'user') }
     expect(messages.first[:role]).to eq('user')
   end
+
+  describe 'turn-scoped (clear_at) system messages' do
+    let(:history) do
+      [ { role: 'user', content: 'a' }, { role: 'system', content: 'ctx', clear_at: 'next_user_message' } ]
+    end
+
+    it 'keeps clear_at on the native form' do
+      _system, messages = split(history, native_model)
+      expect(messages.last).to eq(role: 'system', content: 'ctx', clear_at: 'next_user_message')
+    end
+
+    it 'drops it in the reminder fallback (earlier copies simply stay in place)' do
+      _system, messages = split(history, fallback_model)
+      expect(messages.to_s).not_to include('clear_at')
+    end
+
+    it 'declares the beta the body then needs' do
+      _system, messages = split(history, native_model)
+      expect(described_class.beta_headers(messages: messages)).to eq('anthropic-beta' => described_class::CLEAR_AT_BETA)
+      expect(described_class.beta_headers(messages: [ { role: 'user', content: 'a' } ])).to eq({})
+    end
+  end
 end

@@ -11,9 +11,13 @@ module Ai
   # which keeps the prompt cache warm and leaves intact the prefix that preserved
   # thinking is bound to.
   #
-  # The context rides as a system message directly after its user turn. The LLM
-  # builders place it: natively where the model supports mid-conversation system
-  # messages, otherwise as a reminder on that user turn.
+  # The context rides as a turn-scoped system message (clear_at:
+  # "next_user_message") directly after its user turn. It is only true for that
+  # turn, so once a later user message exists it stays in the history cleared: it
+  # costs no input tokens and is never deleted. The LLM builders place it natively,
+  # with the beta the field needs, where the model supports mid-conversation system
+  # messages. Elsewhere it becomes a reminder on that user turn, and earlier copies
+  # stay in place.
   class ConciergeHistory
     TURN_CONTEXT_KEY = "turn_context"
 
@@ -46,7 +50,7 @@ module Ai
       rows.flat_map do |row|
         entry = { role: row.role, content: row.content }
         context = row.role == "user" ? row.processing_metadata&.dig(TURN_CONTEXT_KEY) : nil
-        context.present? ? [ entry, { role: "system", content: context } ] : [ entry ]
+        context.present? ? [ entry, { role: "system", content: context, clear_at: "next_user_message" } ] : [ entry ]
       end
     end
 

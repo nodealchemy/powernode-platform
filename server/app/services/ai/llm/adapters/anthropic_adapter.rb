@@ -74,6 +74,11 @@ module Ai
 
         private
 
+        # Adds the anthropic-beta the body's own features need (AnthropicMessages).
+        def request_headers(body)
+          headers.merge(Ai::Llm::AnthropicMessages.beta_headers(body))
+        end
+
         # One request, streamed when max_tokens is above the non-streaming ceiling
         # (a large unstreamed response risks HTTP timeouts; a stream's read timeout
         # is per chunk). Callers get the same Response either way.

@@ -366,6 +366,7 @@ module Ai
       max_iter = max_iterations
       iteration = 0
       accumulated_usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
+      turn_scoped = turn_scoped_tail(messages)
       tool_calls_log = []
       # Surface non-truncated results for tools whitelisted in CARD_TOOLS.
       # Frontend reads these from message.content_metadata.cards.
@@ -479,7 +480,21 @@ module Ai
           }
           messages << { role: "tool", tool_call_id: tool_call_id, content: result_json }
         end
+
+        # A tool_result message counts as the next user message, which clears a
+        # turn-scoped (clear_at) system message. Append a fresh copy after each
+        # round so the turn's context stays in view; the cleared copies stay where
+        # they are (append-only).
+        turn_scoped.each { |message| messages << message.dup }
       end
+    end
+
+    # Turn-scoped system messages (clear_at: "next_user_message") that close the
+    # incoming history: the context of the turn this loop is answering.
+    def turn_scoped_tail(messages)
+      messages.reverse.take_while do |m|
+        (m[:role] || m["role"]).to_s == "system" && (m[:clear_at] || m["clear_at"]).to_s == "next_user_message"
+      end.reverse
     end
 
     # Pull the DECLARED slice of a tool result out for a chat card. Tool results

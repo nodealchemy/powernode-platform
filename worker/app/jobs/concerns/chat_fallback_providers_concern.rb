@@ -51,7 +51,7 @@ module ChatFallbackProvidersConcern
         'Content-Type' => 'application/json',
         'x-api-key' => api_key,
         'anthropic-version' => '2023-06-01'
-      },
+      }.merge(Ai::Llm::AnthropicMessages.beta_headers(body_hash)),
       body: body_hash.to_json,
       timeout: 600
     )

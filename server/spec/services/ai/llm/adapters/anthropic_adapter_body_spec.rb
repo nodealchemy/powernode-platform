@@ -152,4 +152,13 @@ RSpec.describe Ai::Llm::Adapters::AnthropicAdapter, "#build_messages_body" do
       expect(body_for_history(turn2, "claude-fable-5")[:messages].last).to eq(role: "system", content: "live context for turn 2")
     end
   end
+
+  describe "per-request beta headers" do
+    it "sends the clear_at beta only when the body carries a turn-scoped system message" do
+      scoped = { messages: [ { role: "system", content: "ctx", clear_at: "next_user_message" } ] }
+
+      expect(adapter.send(:request_headers, scoped)["anthropic-beta"]).to eq(Ai::Llm::AnthropicMessages::CLEAR_AT_BETA)
+      expect(adapter.send(:request_headers, { messages: messages })).not_to have_key("anthropic-beta")
+    end
+  end
 end

@@ -67,12 +67,16 @@ module Ai
           url = "#{base_url}#{path}"
           response = HTTParty.post(
             url,
-            headers: headers,
+            headers: request_headers(body),
             body: body.to_json,
             timeout: Ai::Llm::ModelCapabilities.request_timeout_seconds(model)
           )
           [response.code, response.parsed_response, response.headers]
         end
+
+        # Headers for one request. Adapters add the ones the body itself requires
+        # (e.g. a beta for a feature the body uses).
+        def request_headers(_body) = headers
 
         # Streaming HTTP POST via Net::HTTP — yields raw chunks. The read timeout is
         # capability-aware but never below STREAM_READ_TIMEOUT_FLOOR: an
@@ -89,7 +93,7 @@ module Ai
           http.open_timeout = 30
 
           request = Net::HTTP::Post.new(uri.request_uri)
-          headers.each { |k, v| request[k] = v }
+          request_headers(body).each { |k, v| request[k] = v }
           request.body = body.to_json
 
           http.request(request) do |response|

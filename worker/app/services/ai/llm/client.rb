@@ -142,11 +142,17 @@ module Ai
       def openai_url = "#{@base_url}/chat/completions"
       def anthropic_url = "#{@base_url}/messages"
       def ollama_url = @base_url.end_with?("/api") ? "#{@base_url}/chat" : "#{@base_url}/api/chat"
+      # Headers for one request: an Anthropic body adds the betas its own features
+      # need (AnthropicMessages.beta_headers). Mirrors the server adapters.
+      def request_headers(body)
+        provider_format == :anthropic ? @headers.merge(AnthropicMessages.beta_headers(body)) : @headers
+      end
+
       def http_post(url, body, model = nil)
         # Capability-aware read timeout: adaptive-only/effort models (Fable etc.)
         # can run for minutes → 600s; legacy models keep 120s.
         timeout = ModelCapabilities.request_timeout_seconds(model)
-        r = HTTParty.post(url, headers: @headers, body: body.to_json, timeout: timeout)
+        r = HTTParty.post(url, headers: request_headers(body), body: body.to_json, timeout: timeout)
         [r.code, r.parsed_response, r.headers]
       end
       def http_stream(url, body, model = nil)
@@ -159,7 +165,7 @@ module Ai
         http.read_timeout = [ModelCapabilities.request_timeout_seconds(model), STREAM_READ_TIMEOUT_FLOOR].max
         http.open_timeout = 30
         req = Net::HTTP::Post.new(uri.request_uri)
-        @headers.each { |k, v| req[k] = v }
+        request_headers(body).each { |k, v| req[k] = v }
         req.body = body.to_json
         http.request(req) do |resp|
           raise RequestError.new("HTTP #{resp.code}: #{resp.body}", status_code: resp.code.to_i) unless resp.is_a?(Net::HTTPSuccess)

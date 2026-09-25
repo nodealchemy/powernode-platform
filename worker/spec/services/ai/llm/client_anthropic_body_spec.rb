@@ -152,4 +152,22 @@ RSpec.describe Ai::Llm::Client, '#build_anthropic_body' do
       expect(body_for_history(turn2, 'claude-fable-5')[:messages].last).to eq(role: 'system', content: 'live context for turn 2')
     end
   end
+
+  describe 'per-request beta headers' do
+    it 'sends the clear_at beta only when the body carries a turn-scoped system message' do
+      sent = []
+      allow(HTTParty).to receive(:post) do |_url, opts|
+        sent << opts[:headers]
+        instance_double(HTTParty::Response, code: 200, headers: {},
+                                            parsed_response: { 'content' => [], 'stop_reason' => 'end_turn' })
+      end
+      scoped = [{ role: 'user', content: 'a' }, { role: 'system', content: 'ctx', clear_at: 'next_user_message' }]
+
+      client.complete(messages: scoped, model: 'claude-fable-5')
+      client.complete(messages: messages, model: 'claude-fable-5')
+
+      expect(sent.first['anthropic-beta']).to eq(Ai::Llm::AnthropicMessages::CLEAR_AT_BETA)
+      expect(sent.last).not_to have_key('anthropic-beta')
+    end
+  end
 end
