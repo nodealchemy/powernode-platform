@@ -19,6 +19,7 @@ jest.mock('../api/autonomyApi', () => ({
   useDeleteInterventionPolicy: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useResolveInterventionPolicy: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useTrustScores: () => ({ data: [] }),
+  useInvalidateInterventionPolicies: () => jest.fn(),
 }));
 
 jest.mock('@/shared/hooks/useNotifications', () => ({

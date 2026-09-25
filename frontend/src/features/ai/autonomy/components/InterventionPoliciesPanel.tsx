@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   Settings, Shield, Trash2, ToggleLeft, ToggleRight, ChevronDown, Plus, Pencil, FlaskConical,
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import {
   useDeleteInterventionPolicy,
   useResolveInterventionPolicy,
   useTrustScores,
+  useInvalidateInterventionPolicies,
 } from '../api/autonomyApi';
 import { PolicyDomainSections } from './PolicyDomainSections';
 import type { InterventionPolicy, InterventionPolicyAction, PolicyResolutionResult } from '../types/autonomy';
@@ -180,7 +181,8 @@ const PolicyCard: React.FC<{
   isExpanded: boolean;
   onToggle: () => void;
   agents: Array<{ id: string; name: string }>;
-}> = ({ policy, isExpanded, onToggle, agents }) => {
+  onChanged: () => void;
+}> = ({ policy, isExpanded, onToggle, agents, onChanged }) => {
   const [editing, setEditing] = useState(false);
   const updatePolicy = useUpdateInterventionPolicy();
   const deletePolicy = useDeleteInterventionPolicy();
@@ -190,6 +192,7 @@ const PolicyCard: React.FC<{
     try {
       await updatePolicy.mutateAsync({ id: policy.id, is_active: !policy.is_active });
       addNotification({ type: 'success', message: `Policy ${policy.is_active ? 'disabled' : 'enabled'}` });
+      onChanged();
     } catch {
       addNotification({ type: 'error', message: 'Failed to update policy' });
     }
@@ -207,6 +210,7 @@ const PolicyCard: React.FC<{
         conditions: data.conditions,
       } as Parameters<typeof updatePolicy.mutateAsync>[0]);
       addNotification({ type: 'success', message: 'Policy updated' });
+      onChanged();
       setEditing(false);
     } catch {
       addNotification({ type: 'error', message: 'Failed to update policy' });
@@ -218,6 +222,7 @@ const PolicyCard: React.FC<{
     try {
       await deletePolicy.mutateAsync(policy.id);
       addNotification({ type: 'success', message: 'Policy deleted' });
+      onChanged();
     } catch {
       addNotification({ type: 'error', message: 'Failed to delete policy' });
     }
@@ -398,8 +403,12 @@ const TestResolveForm: React.FC = () => {
   );
 };
 
-/** Every policy row, one card each: create, edit, delete, test resolution. */
-const PolicyList: React.FC = () => {
+/**
+ * Every policy row, one card each: create, edit, delete, test resolution.
+ * `onChanged` fires after each successful write, so a sibling view of the same
+ * rows can refetch.
+ */
+const PolicyList: React.FC<{ onChanged: () => void }> = ({ onChanged }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [showTest, setShowTest] = useState(false);
@@ -422,6 +431,7 @@ const PolicyList: React.FC = () => {
         ...(data.agent_id ? { agent_id: data.agent_id } : {}),
       } as Parameters<typeof createPolicy.mutateAsync>[0]);
       addNotification({ type: 'success', message: 'Policy created' });
+      onChanged();
       setShowCreate(false);
     } catch {
       addNotification({ type: 'error', message: 'Failed to create policy' });
@@ -494,6 +504,7 @@ const PolicyList: React.FC = () => {
               isExpanded={expandedId === policy.id}
               onToggle={() => setExpandedId(prev => prev === policy.id ? null : policy.id)}
               agents={agents}
+              onChanged={onChanged}
             />
           ))}
         </div>
@@ -518,13 +529,26 @@ interface InterventionPoliciesPanelProps {
  */
 export const InterventionPoliciesPanel: React.FC<InterventionPoliciesPanelProps> = ({ namespace }) => {
   if (namespace !== undefined) return <PolicyDomainSections namespace={namespace} />;
+  return <GroupedAndListedPolicies />;
+};
+
+/**
+ * Both views of the same rows, kept in agreement: they read different endpoints
+ * and hold their own state, so a save in either refreshes the other. A grouped
+ * save invalidates the list's query; a list write bumps the grouped view's
+ * refresh key, which refetches it.
+ */
+const GroupedAndListedPolicies: React.FC = () => {
+  const invalidateList = useInvalidateInterventionPolicies();
+  const [groupedRefreshKey, setGroupedRefreshKey] = useState(0);
+  const refreshGrouped = useCallback(() => setGroupedRefreshKey((key) => key + 1), []);
 
   return (
     <div className="space-y-6">
-      <PolicyDomainSections />
+      <PolicyDomainSections refreshKey={groupedRefreshKey} onSaved={invalidateList} />
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-theme-primary">All policies</h3>
-        <PolicyList />
+        <PolicyList onChanged={refreshGrouped} />
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
 import type {
@@ -680,6 +681,19 @@ export function useInterventionPolicies() {
       return (raw?.policies ?? raw ?? []) as InterventionPolicy[];
     },
   });
+}
+
+/**
+ * Marks the intervention-policy list stale, so it refetches. For a writer that
+ * changes policy rows through another endpoint (the grouped editor's bulk save)
+ * and must not leave the list showing the old rows.
+ */
+export function useInvalidateInterventionPolicies() {
+  const queryClient = useQueryClient();
+  return useCallback(
+    () => queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.interventionPolicies() }),
+    [queryClient]
+  );
 }
 
 export function useCreateInterventionPolicy() {

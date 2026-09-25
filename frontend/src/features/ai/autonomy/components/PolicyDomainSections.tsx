@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Settings } from 'lucide-react';
 import { AutonomyPolicyGroup } from '@/shared/components/autonomy/AutonomyPolicyGroup';
 import { useAutonomyConfig } from '@/shared/hooks/useAutonomyConfig';
@@ -30,6 +30,10 @@ interface PolicyDomainSectionsProps {
    * with must not vanish, which is how the old literal list lost 28 categories.
    */
   namespace?: string;
+  /** Changing this refetches the rows (a sibling view wrote to them). Drops unsaved edits. */
+  refreshKey?: number;
+  /** Called after a save lands, so a sibling view of the same rows can refetch. */
+  onSaved?: () => void;
 }
 
 interface AgentGroup {
@@ -142,9 +146,24 @@ function UnreadablePolicyGroup({ label, actions }: { label: string; actions: str
  * grouping (GET /ai/intervention_policies/grouped). Edits are held locally and
  * saved in one bulk request, each addressed to the row it was rendered from.
  */
-export const PolicyDomainSections: React.FC<PolicyDomainSectionsProps> = ({ namespace }) => {
+export const PolicyDomainSections: React.FC<PolicyDomainSectionsProps> = ({ namespace, refreshKey, onSaved }) => {
   const autonomy = useAutonomyConfig(interventionPolicyConfigSource);
   const [activeKey, setActiveKey] = useState<string>('');
+
+  // The mount already fetched; refetch only when the key moves after that.
+  const { reload } = autonomy;
+  const seenRefreshKey = useRef(refreshKey);
+  useEffect(() => {
+    if (seenRefreshKey.current === refreshKey) return;
+    seenRefreshKey.current = refreshKey;
+    reload();
+  }, [refreshKey, reload]);
+
+  const { save } = autonomy;
+  const saveAndNotify = useCallback(async () => {
+    await save();
+    onSaved?.();
+  }, [save, onSaved]);
   // An extension registering its domains after mount re-sorts the sections.
   const registryVersion = useSyncExternalStore(
     (listener) => featureRegistry.subscribe(listener),
@@ -251,7 +270,7 @@ export const PolicyDomainSections: React.FC<PolicyDomainSectionsProps> = ({ name
             actions={group.actions}
             getPolicy={autonomy.getPolicy}
             updatePolicy={autonomy.updatePolicy}
-            onSave={autonomy.save}
+            onSave={saveAndNotify}
             isDirty={autonomy.isDirty}
           />
         ))}
