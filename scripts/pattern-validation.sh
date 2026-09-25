@@ -587,6 +587,25 @@ else
 fi
 rm -rf "$console_tmp"
 
+# Local copies of shared UI primitives (plan §3, fc-48): get*Status*/Severity*
+# colour/badge fns, formatCurrency/relative-time/formatBytes, StatCard and
+# inline empty states. scripts/list-local-primitive-sites.sh is the single
+# definition of a match; the checker compares it to the tracked
+# .claude/hooks/local-primitive-baseline.txt plus the gitignored .local.txt as
+# an EQUALITY ratchet — a new copy fails, and so does a ledger entry whose copy
+# was removed (the sweep shrinks the ledger in the same diff). A lister that
+# returns nothing while the ledger holds entries fails loud, as above.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No new local copies of shared UI primitives (ledger equality)... "
+if primitives_out=$(bash scripts/checks/local-primitives-ratchet.sh 2>&1); then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC}"
+    printf '%s\n' "$primitives_out" | sed 's/^/    /'
+    failed_checks=$((failed_checks + 1))
+fi
+
 check_pattern "TypeScript any types (should be minimal)" \
     "grep -r ': any' frontend/src/ | grep -v 'node_modules' | wc -l" \
     "5"
