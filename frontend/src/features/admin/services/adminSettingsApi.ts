@@ -256,10 +256,61 @@ class AdminSettingsApi {
     return response.data;
   }
 
-  // getUsers()/getAccounts() (`/admin_settings/users`, `/admin_settings/accounts`)
-  // were removed here (fc-38): usersApi.getAllUsers() (`/admin/users`) and
-  // accountsApi are the canonical clients now — see UserManagement.tsx.
-  // getAccounts() had zero callers, so no migration was needed for it.
+  // Get all users (with pagination)
+  async getUsers(options: {
+    page?: number;
+    per_page?: number;
+    search?: string;
+    roles?: string[];
+    status?: string;
+  } = {}): Promise<{
+    users: AdminUser[];
+    pagination: {
+      current_page: number;
+      per_page: number;
+      total_count: number;
+      total_pages: number;
+    };
+  }> {
+    const params = new URLSearchParams();
+    
+    if (options.page) params.set('page', options.page.toString());
+    if (options.per_page) params.set('per_page', options.per_page.toString());
+    if (options.search) params.set('search', options.search);
+    if (options.roles && options.roles.length > 0) params.set('roles', options.roles.join(','));
+    if (options.status && options.status !== 'all') params.set('status', options.status);
+    
+    const response = await api.get(`/admin_settings/users?${params.toString()}`);
+    return response.data;
+  }
+
+  // Get all accounts (with pagination)
+  async getAccounts(options: {
+    page?: number;
+    per_page?: number;
+    search?: string;
+    status?: string;
+    plan?: string;
+  } = {}): Promise<{
+    accounts: AdminAccount[];
+    pagination: {
+      current_page: number;
+      per_page: number;
+      total_count: number;
+      total_pages: number;
+    };
+  }> {
+    const params = new URLSearchParams();
+    
+    if (options.page) params.set('page', options.page.toString());
+    if (options.per_page) params.set('per_page', options.per_page.toString());
+    if (options.search) params.set('search', options.search);
+    if (options.status && options.status !== 'all') params.set('status', options.status);
+    if (options.plan && options.plan !== 'all') params.set('plan', options.plan);
+    
+    const response = await api.get(`/admin_settings/accounts?${params.toString()}`);
+    return response.data;
+  }
 
   // Get system logs
   async getSystemLogs(options: {

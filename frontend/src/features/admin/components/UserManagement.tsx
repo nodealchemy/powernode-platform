@@ -1,20 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 
-import { usersApi, User } from '@/features/account/users/services/usersApi';
+import { adminSettingsApi, AdminUser } from '../services/adminSettingsApi';
 import type { RootState } from '@/shared/services';
 
-const PER_PAGE = 20;
-
-// fc-38: migrated off adminSettingsApi.getUsers() (`/admin_settings/users`,
-// deleted — no callers left it once this moved). usersApi.getAllUsers()
-// (`/admin/users`) returns every user across every account in one response
-// with no server-side pagination/status filter, so both are now applied
-// client-side — which also FIXES the status filter: the old
-// `/admin_settings/users` action silently ignored the `status` param it was
-// sent, so this control has never actually filtered anything until now.
 export const UserManagement: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [usersData, setUsersData] = useState<{
+    users: AdminUser[];
+    pagination: {
+      current_page: number;
+      per_page: number;
+      total_count: number;
+      total_pages: number;
+    };
+  } | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<string>('');
@@ -22,27 +21,24 @@ export const UserManagement: React.FC = () => {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [currentPage, statusFilter]);
 
   const loadUsers = async () => {
     try {
-      const response = await usersApi.getAllUsers();
-      setUsers(response.data);
+      const data = await adminSettingsApi.getUsers({
+        page: currentPage,
+        per_page: 20,
+        status: statusFilter || undefined
+      });
+      setUsersData(data);
     } catch (_error) {
       // Error handling
     }
   };
 
-  const filteredUsers = useMemo(
-    () => (statusFilter ? users.filter((u) => u.status === statusFilter) : users),
-    [users, statusFilter]
-  );
-
-  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PER_PAGE));
-  const pagedUsers = filteredUsers.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
-
   const handleStatusFilter = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStatusFilter(e.target.value);
+    const status = e.target.value;
+    setStatusFilter(status);
     setCurrentPage(1); // Reset to first page on filter change
   };
 
@@ -66,10 +62,10 @@ export const UserManagement: React.FC = () => {
       </select>
 
       {/* Users List */}
-      {pagedUsers.map((userData) => (
+      {usersData?.users.map((userData: AdminUser) => (
         <div key={userData.id}>
           <div>{userData.email}</div>
-          <div>{userData.name}</div>
+          <div>{userData.full_name || userData.name}</div>
           <div>{userData.account.status === 'active' ? 'Active' : 'Suspended'}</div>
           {userData.roles?.map((role: string) => (
             <span key={role}>{role}</span>
@@ -84,10 +80,10 @@ export const UserManagement: React.FC = () => {
       >
         Previous
       </button>
-      <span>Page {currentPage} of {totalPages}</span>
+      <span>Page {currentPage} of {usersData?.pagination.total_pages || 1}</span>
       <button
         onClick={() => setCurrentPage(prev => prev + 1)}
-        disabled={currentPage >= totalPages}
+        disabled={!usersData || currentPage >= usersData.pagination.total_pages}
       >
         Next
       </button>

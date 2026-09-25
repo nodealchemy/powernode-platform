@@ -72,10 +72,33 @@ class Api::V1::AdminSettingsController < ApplicationController
   # USER & ACCOUNT MANAGEMENT
   # =============================================================================
 
-  # #users and #accounts (`/admin_settings/users`, `/admin_settings/accounts`)
-  # were removed here (fc-38): usersApi.getAllUsers() (`/admin/users`) is the
-  # canonical user-listing client now (see frontend UserManagement.tsx);
-  # nothing called adminSettingsApi.getAccounts() at all.
+  # GET /api/v1/admin_settings/users
+  def users
+    users_data = settings_service.recent_users_data(limit: 100)
+    stats = settings_service.user_management_data
+
+    render_success({
+      users: users_data,
+      total_count: stats[:total_users],
+      active_count: User.where(status: "active").count,
+      inactive_count: User.where(status: "inactive").count,
+      suspended_count: User.where(status: "suspended").count
+    })
+  end
+
+  # GET /api/v1/admin_settings/accounts
+  def accounts
+    accounts_data = settings_service.recent_accounts_data(limit: 100)
+    platform_stats = settings_service.platform_statistics
+
+    render_success({
+      accounts: accounts_data,
+      total_count: platform_stats[:total_accounts],
+      active_count: platform_stats[:active_accounts],
+      suspended_count: Account.where(status: "suspended").count,
+      cancelled_count: Account.where(status: "cancelled").count
+    })
+  end
 
   # GET /api/v1/admin_settings/system_logs
   def system_logs
