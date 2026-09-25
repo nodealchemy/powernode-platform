@@ -27,9 +27,14 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "kubernetes_get_cluster", mutating: false
-      declare_action "kubernetes_list_clusters", mutating: false
-      declare_action "kubernetes_list_nodes", mutating: false
+      declare_action "kubernetes_get_cluster", mutating: false,
+                                               returns: "the cluster summary plus description, sync interval, consecutive sync failures, metadata and timestamps",
+                                               refuses: "no cluster in this account matches cluster_id by id, slug or name"
+      declare_action "kubernetes_list_clusters", mutating: false,
+                                                 returns: "id, name, slug, flavor, environment, status, k8s_version, node and pod counts and last sync time per cluster, ordered by name"
+      declare_action "kubernetes_list_nodes", mutating: false,
+                                              returns: "id, name, role, status, k8s_version, node_instance_id and last heartbeat per node, ordered by role then name",
+                                              refuses: "no cluster in this account matches cluster_id by id, slug or name"
 
       def self.definition
         {
@@ -45,17 +50,17 @@ module Ai
       def self.action_definitions
         {
           "kubernetes_list_clusters" => {
-            description: "List all Kubernetes clusters in the account with status, flavor (k3s|kubeadm), node + pod counts",
+            description: "List all Kubernetes clusters in the account with status, flavor (k3s|kubeadm), node and pod counts.",
             parameters: {}
           },
           "kubernetes_get_cluster" => {
-            description: "Detailed info on a specific Kubernetes cluster including k8s_version, sync state, and metadata",
+            description: "Get detailed info on one Kubernetes cluster, including k8s_version, sync state and metadata.",
             parameters: {
               cluster_id: { type: "string", required: true, description: "Cluster ID, slug, or name" }
             }
           },
           "kubernetes_list_nodes" => {
-            description: "List all member nodes of a Kubernetes cluster with their roles (server/agent/control_plane/worker) and status",
+            description: "List the member nodes of one Kubernetes cluster with their roles (server/agent/control_plane/worker) and status.",
             parameters: {
               cluster_id: { type: "string", required: true, description: "Cluster ID, slug, or name" }
             }
