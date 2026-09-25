@@ -4,7 +4,7 @@ import { ROUTES } from '../fixtures/test-data';
 /**
  * AI Skills E2E Tests
  *
- * Tests for the Skills tab under the Knowledge page.
+ * Tests for the Skills page (AI Agents → Skills).
  * Skills display a grid of SkillCards with name, category, toggle,
  * command/connector counts, and optional search/filtering.
  * Uses error-capture pattern to detect runtime crashes.

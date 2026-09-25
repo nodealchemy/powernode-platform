@@ -215,7 +215,6 @@ export const ROUTES = {
   trajectories: '/app/ai/agent-teams/trajectories',
   ralphLoops: '/app/ai/ralph-loops',
   communityAgents: '/app/ai/community',
-  containers: '/app/ai/execution/containers',
   chatChannels: '/app/ai/chat-channels',
   marketplace: '/app/ai/agent-marketplace',
   publisher: '/app/ai/publisher',
@@ -224,25 +223,26 @@ export const ROUTES = {
   devopsTemplates: '/app/ai/devops-templates',
   parallelExecution: '/app/ai/parallel-execution',
   selfHealing: '/app/ai/self-healing',
-  learningRecommendations: '/app/ai/learning/recommendations',
-  learningInsights: '/app/ai/learning/insights',
+  learningRecommendations: '/app/ai/knowledge/learning/recommendations',
+  learningInsights: '/app/ai/knowledge/learning/insights',
   chatDetached: '/chat/detached',
 
   // Missions & Code Factory
   missions: '/app/ai/missions',
   missionsCodeFactory: '/app/ai/missions/code-factory',
 
-  // Knowledge sub-tabs
-  skills: '/app/ai/knowledge/skills',
+  // AI Agents: Skills is its own page; Graph is a Knowledge tab
+  skills: '/app/ai/skills',
   knowledgeGraph: '/app/ai/knowledge/graph',
 
   // AI consolidated routes
-  infrastructure: '/app/ai/infrastructure',
-  modelRouter: '/app/ai/infrastructure/model-router',
+  // AI Platform (the former Infrastructure hub; providers and mcp are above)
+  dataSources: '/app/ai/data-sources',
+  modelRouter: '/app/ai/model-router',
   memory: '/app/ai/memory',
   execution: '/app/ai/execution',
   knowledge: '/app/ai/knowledge',
-  sandboxes: '/app/ai/execution/containers',
+  sandboxes: '/app/ai/execution/sandboxes',
   evaluation: '/app/ai/evaluation',
   aiBilling: '/app/ai/billing',
   workflowMonitoring: '/app/ai/workflows/monitoring',

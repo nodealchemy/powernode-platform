@@ -4,7 +4,7 @@ import { ROUTES } from '../fixtures/test-data';
 /**
  * AI Learning & Recommendations E2E Tests
  *
- * Tests for Recommendations Dashboard and Trajectory Insights pages.
+ * Tests for the Recommendations and Insights sub-tabs of Knowledge → Learning.
  * These pages display AI improvement recommendations and prompt cache/quality metrics.
  */
 

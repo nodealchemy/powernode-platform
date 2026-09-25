@@ -139,6 +139,9 @@ test.describe('AI pages — interactive smoke', () => {
     ['Memory', ROUTES.memory],
     ['Chat Channels', ROUTES.chatChannels],
     ['Model Router', ROUTES.modelRouter],
+    ['Data Sources', ROUTES.dataSources],
+    ['Skills', ROUTES.skills],
+    ['Prompts', ROUTES.prompts],
   ];
 
   for (const [name, route] of PAGE_ROUTES) {

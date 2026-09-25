@@ -162,19 +162,19 @@ test.describe('AI Agent Containers', () => {
     });
   });
 
-  // ── Container Page ─────────────────────────────────────────────────
+  // ── Sandboxes Page ─────────────────────────────────────────────────
 
-  test.describe('Container Page', () => {
-    test('should load containers page', async ({ page }) => {
+  test.describe('Sandboxes Page', () => {
+    test('should load the sandboxes page', async ({ page }) => {
       await setupContainerMocks(page);
-      await page.goto(ROUTES.containers);
+      await page.goto(ROUTES.sandboxes);
       await page.waitForLoadState('networkidle');
       await expect(page.locator('body')).toBeVisible();
     });
 
     test('should display container cards or empty state', async ({ page }) => {
       await setupContainerMocks(page);
-      await page.goto(ROUTES.containers);
+      await page.goto(ROUTES.sandboxes);
       await page.waitForLoadState('networkidle');
 
       const hasCards = (await page.locator('[class*="card"], [class*="Card"]').count()) > 0;
@@ -186,7 +186,7 @@ test.describe('AI Agent Containers', () => {
 
     test('should display container status when containers exist', async ({ page }) => {
       await setupContainerMocks(page);
-      await page.goto(ROUTES.containers);
+      await page.goto(ROUTES.sandboxes);
       await page.waitForLoadState('networkidle');
 
       // Status indicator or text should be present
@@ -196,7 +196,7 @@ test.describe('AI Agent Containers', () => {
 
     test('should display agent information in container context', async ({ page }) => {
       await setupContainerMocks(page);
-      await page.goto(ROUTES.containers);
+      await page.goto(ROUTES.sandboxes);
       await page.waitForLoadState('networkidle');
 
       // The page may show agent names if containers are listed
@@ -205,7 +205,7 @@ test.describe('AI Agent Containers', () => {
 
     test('should display resource usage metrics when present', async ({ page }) => {
       await setupContainerMocks(page);
-      await page.goto(ROUTES.containers);
+      await page.goto(ROUTES.sandboxes);
       await page.waitForLoadState('networkidle');
 
       // Resource metrics (memory/CPU) may be shown on container cards
