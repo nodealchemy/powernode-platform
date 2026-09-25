@@ -6,16 +6,12 @@ import { logger } from '@/shared/utils/logger';
 
 interface SettingsWebSocketOptions {
   onSettingsUpdate?: (data: unknown) => void;
-  onPreferencesUpdate?: (data: unknown) => void;
-  onNotificationsUpdate?: (data: unknown) => void;
   onProfileUpdate?: (data: unknown) => void;
   onError?: (error: string) => void;
 }
 
 export const useSettingsWebSocket = ({
   onSettingsUpdate,
-  onPreferencesUpdate,
-  onNotificationsUpdate,
   onProfileUpdate,
   onError
 }: SettingsWebSocketOptions) => {
@@ -25,14 +21,10 @@ export const useSettingsWebSocket = ({
 
   // Store latest callback refs to avoid dependency issues
   const onSettingsUpdateRef = useRef(onSettingsUpdate);
-  const onPreferencesUpdateRef = useRef(onPreferencesUpdate);
-  const onNotificationsUpdateRef = useRef(onNotificationsUpdate);
   const onProfileUpdateRef = useRef(onProfileUpdate);
   const onErrorRef = useRef(onError);
-  
+
   onSettingsUpdateRef.current = onSettingsUpdate;
-  onPreferencesUpdateRef.current = onPreferencesUpdate;
-  onNotificationsUpdateRef.current = onNotificationsUpdate;
   onProfileUpdateRef.current = onProfileUpdate;
   onErrorRef.current = onError;
 
@@ -50,15 +42,12 @@ export const useSettingsWebSocket = ({
       case 'settings_updated':
         onSettingsUpdateRef.current?.(data);
         break;
-      
-      case 'preferences_updated':
-        onPreferencesUpdateRef.current?.(data);
-        break;
-        
-      case 'notifications_updated':
-        onNotificationsUpdateRef.current?.(data);
-        break;
-        
+
+      // fc-27: preferences_updated/notifications_updated were removed —
+      // their only source, SettingsController#update_preferences/
+      // #update_notifications, was deleted (settings/{preferences,
+      // notifications} had no caller; settingsApi only ever hit PUT /settings,
+      // whose broadcast is settings_updated above).
       case 'profile_updated':
         onProfileUpdateRef.current?.(data);
         break;

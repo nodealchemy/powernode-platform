@@ -127,39 +127,13 @@ export const ProfilePage: React.FC = () => {
     setIsReceivingUpdate(false);
   }, [theme, setTheme, dispatch]);
 
-  const handlePreferencesUpdate = useCallback((updatedPreferences: unknown) => {
-    if (!isSettingsUpdateData(updatedPreferences)) return;
-    
-    setPreferences(prev => ({ ...prev, ...updatedPreferences }));
-    
-    // If theme was updated from another session, apply it locally
-    if (updatedPreferences.user_preferences?.theme && updatedPreferences.user_preferences.theme !== theme) {
-      setTheme(updatedPreferences.user_preferences.theme);
-    }
-    
-    setLastUpdated(new Date());
-    dispatch(addNotification({
-      type: 'success',
-      message: 'Preferences synced from another session'
-    }));
-  }, [theme, setTheme, dispatch]);
-
-  const handleNotificationsUpdate = useCallback((updatedNotifications: unknown) => {
-    if (!isSettingsUpdateData(updatedNotifications)) return;
-    
-    setNotifications(prev => ({ ...prev, ...updatedNotifications }));
-    setLastUpdated(new Date());
-    dispatch(addNotification({
-      type: 'success',
-      message: 'Notification settings synced from another session'
-    }));
-  }, [dispatch]);
-
-  // Initialize WebSocket for real-time updates
+  // Initialize WebSocket for real-time updates. onPreferencesUpdate/
+  // onNotificationsUpdate were removed along with the server's
+  // preferences_updated/notifications_updated broadcasts (fc-27 — their only
+  // source, SettingsController#update_preferences/#update_notifications, was
+  // deleted since settings/{preferences,notifications} had no caller).
   const { requestSettingsSync } = useSettingsWebSocket({
     onSettingsUpdate: handleSettingsUpdate,
-    onPreferencesUpdate: handlePreferencesUpdate,
-    onNotificationsUpdate: handleNotificationsUpdate,
   });
 
   const loadSettings = useCallback(async () => {

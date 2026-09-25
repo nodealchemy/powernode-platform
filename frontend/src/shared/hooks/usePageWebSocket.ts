@@ -228,8 +228,11 @@ export const usePageWebSocket = ({
           }
           break;
         case 'settings':
-          if (data.type === 'settings_updated' || data.type === 'preferences_updated' ||
-              data.type === 'notifications_updated' || data.type === 'profile_updated') {
+          // fc-27: preferences_updated/notifications_updated were removed —
+          // their only source (SettingsController#update_preferences/
+          // #update_notifications) was deleted along with the dead
+          // settings/{preferences,notifications} routes.
+          if (data.type === 'settings_updated' || data.type === 'profile_updated') {
             onSettingsUpdateRef.current?.(data);
           }
           break;
