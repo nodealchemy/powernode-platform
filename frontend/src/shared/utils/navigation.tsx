@@ -278,9 +278,9 @@ export const defaultNavigationConfig: NavigationConfig = {
           permissions: [],
           order: 2
         },
-        // 'Subscription' (order 3) is registered by the business extension via
+        // 'Billing' (order 4) is registered by the business extension via
         // featureRegistry.registerNavItems('business', [{ section: 'account', ... }]),
-        // since billing/subscription is a commercial concern owned by that extension.
+        // since billing is a commercial concern owned by that extension.
         {
           id: 'users',
           name: 'Users',
@@ -344,9 +344,6 @@ export const defaultNavigationConfig: NavigationConfig = {
           permissions: [],
           order: 10
         }
-        // 'Billing' (order 4) is registered by the business extension via
-        // featureRegistry.registerNavItems('business', [{ section: 'account', ... }]),
-        // slotting in after Subscription.
       ],
       collapsible: true,
       defaultExpanded: true,
