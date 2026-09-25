@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { skillsApi } from './services/skillsApi';
-import { skillLifecycleApi } from './services/skillLifecycleApi';
+import { skillGraphApi } from '@/shared/services/ai/skillGraphApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { useRefreshAction } from '@/shared/hooks/useRefreshAction';
 import { usePermissions } from '@/shared/hooks/usePermissions';
@@ -133,7 +133,7 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
   );
 
   const loadPendingCount = useCallback(async () => {
-    const response = await skillLifecycleApi.getProposals(1, 'proposed');
+    const response = await skillGraphApi.getProposals(1, 'proposed');
     if (response.success && response.data) {
       setPendingCount(response.data.proposals.length);
     }

@@ -64,7 +64,7 @@ export {
   useAutoDetect,
   useSkillDiscovery,
   useSkillRecommendations,
-} from './api/skillGraphApi';
+} from '@/shared/services/ai/skillGraphApi';
 
 // Page
 export { KnowledgeGraphPage, KnowledgeGraphContent } from './pages/KnowledgeGraphPage';

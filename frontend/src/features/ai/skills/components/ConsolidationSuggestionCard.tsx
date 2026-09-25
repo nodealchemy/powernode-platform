@@ -4,7 +4,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Card } from '@/shared/components/ui/Card';
 import { Button } from '@/shared/components/ui/Button';
 import { EntityLink } from '@/shared/components/entity';
-import { skillLifecycleApi } from '../services/skillLifecycleApi';
+import { skillGraphApi } from '@/shared/services/ai/skillGraphApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import type { SkillConflict, ConflictSeverity, ConflictType } from '../types/lifecycle';
 
@@ -46,7 +46,7 @@ export function ConsolidationSuggestionCard({ conflict, onResolved }: Consolidat
 
   const handleResolve = async () => {
     setActing(true);
-    const response = await skillLifecycleApi.resolveConflict(conflict.id, conflict.resolution_strategy || undefined);
+    const response = await skillGraphApi.resolveConflict(conflict.id, conflict.resolution_strategy || undefined);
     if (response.success) {
       showNotification('Conflict resolved', 'success');
       onResolved();
@@ -58,7 +58,7 @@ export function ConsolidationSuggestionCard({ conflict, onResolved }: Consolidat
 
   const handleDismiss = async () => {
     setActing(true);
-    const response = await skillLifecycleApi.dismissConflict(conflict.id);
+    const response = await skillGraphApi.dismissConflict(conflict.id);
     if (response.success) {
       showNotification('Conflict dismissed', 'success');
       onResolved();

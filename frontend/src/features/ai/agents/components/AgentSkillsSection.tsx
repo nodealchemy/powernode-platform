@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { X, Loader2, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/shared/components/ui/Badge';
-import { useSkillGraph } from '@/features/ai/knowledge-graph/api/skillGraphApi';
+import { useSkillGraph } from '@/shared/services/ai/skillGraphApi';
 import type { AiAgentSkill } from '@/shared/services/ai/types/agent-api-types';
 import type { SkillOption } from './useEditAgentForm';
 

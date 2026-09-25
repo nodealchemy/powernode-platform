@@ -1,7 +1,7 @@
 import React from 'react';
 import { Users, Trash2, UserCog, Settings, Clock, Wrench, Bot, Crown, Monitor, Zap, Cpu, Activity, History } from 'lucide-react';
 import { EntityLink } from '@/shared/components/entity';
-import { useSkillCoverage } from '@/features/ai/knowledge-graph/api/skillGraphApi';
+import { useSkillCoverage } from '@/shared/services/ai/skillGraphApi';
 import type { Team, TeamRole, TeamActivationRules, TeamEventHistoryEntry } from '@/shared/services/ai/TeamsApiService';
 
 interface TeamOverviewTabProps {

@@ -25,7 +25,7 @@ import { Button } from '@/shared/components/ui/Button';
 import { autoArrangeNodes } from '@/shared/utils/workflowLayout';
 import { SkillNodeDetailPanel } from './SkillNodeDetailPanel';
 import { SkillGraphStatisticsPanel } from './SkillGraphStatisticsPanel';
-import { useSkillGraph, useCreateSkillEdge, useSyncSkills } from '../api/skillGraphApi';
+import { useSkillGraph, useCreateSkillEdge, useSyncSkills } from '@/shared/services/ai/skillGraphApi';
 import { SKILL_EDGE_DISPLAY } from '../types/skillGraph';
 import type { SkillGraphNodeData, SkillEdgeRelation } from '../types/skillGraph';
 

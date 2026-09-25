@@ -3,7 +3,7 @@ import { CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
-import { skillLifecycleApi } from '../services/skillLifecycleApi';
+import { skillGraphApi } from '@/shared/services/ai/skillGraphApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { ProposalCard } from './ProposalCard';
 import { ProposalDetailPanel } from './ProposalDetailPanel';
@@ -28,7 +28,7 @@ export function ProposalsList() {
 
   const loadProposals = useCallback(async () => {
     setLoading(true);
-    const response = await skillLifecycleApi.getProposals(1, statusFilter || undefined);
+    const response = await skillGraphApi.getProposals(1, statusFilter || undefined);
     if (response.success && response.data) {
       setProposals(response.data.proposals);
     } else {
@@ -54,7 +54,7 @@ export function ProposalsList() {
     const pending = proposals.filter((p) => selectedIds.has(p.id) && p.status === 'proposed');
     let approved = 0;
     for (const p of pending) {
-      const res = await skillLifecycleApi.approveProposal(p.id);
+      const res = await skillGraphApi.approveProposal(p.id);
       if (res.success) approved++;
     }
     showNotification(`Approved ${approved} proposal(s)`, 'success');
@@ -66,7 +66,7 @@ export function ProposalsList() {
     const pending = proposals.filter((p) => selectedIds.has(p.id) && p.status === 'proposed');
     let rejected = 0;
     for (const p of pending) {
-      const res = await skillLifecycleApi.rejectProposal(p.id, 'Batch rejected');
+      const res = await skillGraphApi.rejectProposal(p.id, 'Batch rejected');
       if (res.success) rejected++;
     }
     showNotification(`Rejected ${rejected} proposal(s)`, 'success');

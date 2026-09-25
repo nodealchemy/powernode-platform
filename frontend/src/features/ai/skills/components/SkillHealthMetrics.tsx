@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Activity, Loader2 } from 'lucide-react';
 import { Card } from '@/shared/components/ui/Card';
-import { skillLifecycleApi } from '../services/skillLifecycleApi';
+import { skillGraphApi } from '@/shared/services/ai/skillGraphApi';
 import type { SkillHealthMetricsData } from '../types/lifecycle';
 
 const GRADE_COLORS: Record<string, string> = {
@@ -41,7 +41,7 @@ export function SkillHealthMetrics() {
 
   useEffect(() => {
     const load = async () => {
-      const response = await skillLifecycleApi.getHealth();
+      const response = await skillGraphApi.getHealth();
       if (response.success && response.data) {
         setHealth(response.data.health);
       }

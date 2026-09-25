@@ -3,7 +3,7 @@ import { Wrench, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EmptyState } from '@/shared/components/ui/EmptyState';
-import { skillLifecycleApi } from '../services/skillLifecycleApi';
+import { skillGraphApi } from '@/shared/services/ai/skillGraphApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { SkillHealthMetrics } from './SkillHealthMetrics';
 import { ConsolidationSuggestionCard } from './ConsolidationSuggestionCard';
@@ -18,7 +18,7 @@ export function OptimizationDashboard() {
 
   const loadConflicts = useCallback(async () => {
     setLoadingConflicts(true);
-    const response = await skillLifecycleApi.getConflicts();
+    const response = await skillGraphApi.getConflicts();
     if (response.success && response.data) {
       setConflicts(response.data.conflicts);
     }
@@ -31,7 +31,7 @@ export function OptimizationDashboard() {
 
   const handleScan = async () => {
     setScanning(true);
-    const response = await skillLifecycleApi.scanConflicts();
+    const response = await skillGraphApi.scanConflicts();
     if (response.success) {
       const summary = response.data?.summary;
       const total = summary ? Object.values(summary).reduce((a, b) => a + b, 0) : 0;
@@ -45,7 +45,7 @@ export function OptimizationDashboard() {
 
   const handleOptimize = async () => {
     setOptimizing(true);
-    const response = await skillLifecycleApi.runOptimization('full');
+    const response = await skillGraphApi.runOptimization('full');
     if (response.success) {
       showNotification('Optimization complete', 'success');
       loadConflicts();

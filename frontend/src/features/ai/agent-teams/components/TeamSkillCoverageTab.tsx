@@ -5,7 +5,7 @@ import { Card } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { Button } from '@/shared/components/ui/Button';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import { useSkillCoverage, useSkillRecommendations } from '@/features/ai/knowledge-graph/api/skillGraphApi';
+import { useSkillCoverage, useSkillRecommendations } from '@/shared/services/ai/skillGraphApi';
 import type { SkillRecommendation } from '@/features/ai/knowledge-graph/types/skillGraph';
 
 interface TeamSkillCoverageTabProps {

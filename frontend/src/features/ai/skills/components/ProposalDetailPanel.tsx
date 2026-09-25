@@ -5,7 +5,7 @@ import { Badge } from '@/shared/components/ui/Badge';
 import { Card } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EntityLink } from '@/shared/components/entity';
-import { skillLifecycleApi } from '../services/skillLifecycleApi';
+import { skillGraphApi } from '@/shared/services/ai/skillGraphApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { ResearchResultsPanel } from './ResearchResultsPanel';
 import type { SkillProposal, ProposalStatus } from '../types/lifecycle';
@@ -35,7 +35,7 @@ export function ProposalDetailPanel({ proposalId, onClose, onUpdated }: Proposal
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      const response = await skillLifecycleApi.getProposal(proposalId);
+      const response = await skillGraphApi.getProposal(proposalId);
       if (response.success && response.data) {
         setProposal(response.data.proposal);
       }
@@ -46,7 +46,7 @@ export function ProposalDetailPanel({ proposalId, onClose, onUpdated }: Proposal
 
   const handleApprove = async () => {
     setActing(true);
-    const response = await skillLifecycleApi.approveProposal(proposalId);
+    const response = await skillGraphApi.approveProposal(proposalId);
     if (response.success) {
       showNotification('Proposal approved', 'success');
       onUpdated();
@@ -60,7 +60,7 @@ export function ProposalDetailPanel({ proposalId, onClose, onUpdated }: Proposal
   const handleReject = async () => {
     if (!rejectReason.trim()) return;
     setActing(true);
-    const response = await skillLifecycleApi.rejectProposal(proposalId, rejectReason);
+    const response = await skillGraphApi.rejectProposal(proposalId, rejectReason);
     if (response.success) {
       showNotification('Proposal rejected', 'success');
       onUpdated();
@@ -73,7 +73,7 @@ export function ProposalDetailPanel({ proposalId, onClose, onUpdated }: Proposal
 
   const handleCreateSkill = async () => {
     setActing(true);
-    const response = await skillLifecycleApi.createSkillFromProposal(proposalId);
+    const response = await skillGraphApi.createSkillFromProposal(proposalId);
     if (response.success) {
       showNotification('Skill created from proposal', 'success');
       onUpdated();
@@ -86,7 +86,7 @@ export function ProposalDetailPanel({ proposalId, onClose, onUpdated }: Proposal
 
   const handleSubmit = async () => {
     setActing(true);
-    const response = await skillLifecycleApi.submitProposal(proposalId);
+    const response = await skillGraphApi.submitProposal(proposalId);
     if (response.success) {
       showNotification('Proposal submitted for review', 'success');
       onUpdated();

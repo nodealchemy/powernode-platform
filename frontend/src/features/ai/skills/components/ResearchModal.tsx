@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Search, Loader2, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Modal } from '@/shared/components/ui/Modal';
 import { Button } from '@/shared/components/ui/Button';
-import { skillLifecycleApi } from '../services/skillLifecycleApi';
+import { skillGraphApi } from '@/shared/services/ai/skillGraphApi';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { ResearchResultsPanel } from './ResearchResultsPanel';
 import type { ResearchReport } from '../types/lifecycle';
@@ -40,7 +40,7 @@ export function ResearchModal({ isOpen, onClose, onProposalCreated }: ResearchMo
     if (!topic.trim()) return;
     setPhase('researching');
 
-    const response = await skillLifecycleApi.startResearch({ topic: topic.trim(), sources });
+    const response = await skillGraphApi.startResearch({ topic: topic.trim(), sources });
     if (response.success && response.data) {
       setReport(response.data.research);
       setPhase('results');
