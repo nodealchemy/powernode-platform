@@ -46,19 +46,6 @@ export interface CostTrends {
   avg_daily_cost: number;
 }
 
-export interface BudgetUtilization {
-  id: string;
-  name: string;
-  entity_type: 'agent' | 'account' | 'team';
-  budget_limit: number;
-  current_spend: number;
-  utilization_pct: number;
-  projected_spend?: number;
-  period: string;
-  alert_threshold: number;
-  is_over_budget: boolean;
-}
-
 export interface TokenAnalytics {
   total_input_tokens: number;
   total_output_tokens: number;
@@ -113,6 +100,3 @@ export interface TrendParams {
   model_tier?: ModelTier;
 }
 
-export interface BudgetParams extends FinOpsPaginationParams {
-  entity_type?: 'agent' | 'account' | 'team';
-}

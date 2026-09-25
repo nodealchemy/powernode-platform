@@ -1,29 +1,20 @@
 import React from 'react';
-import { Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
-import { DollarSign, Wallet } from 'lucide-react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { DollarSign } from 'lucide-react';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { CostTrendChart } from '../components/CostTrendChart';
-import { BudgetUtilizationPanel } from '../components/BudgetUtilizationPanel';
 import { OptimizationRecommendations } from '../components/OptimizationRecommendations';
 
-const FINOPS_BASE = '/app/ai/cost/finops';
-
-// No "Overview" tab here — it duplicated CostPage's own `/app/ai/cost/overview`
-// (same CostOverviewPanel + CostTrendChart); that top-level tab is canonical.
-const TABS = [
-  { key: 'cost-explorer', label: 'Cost Explorer', icon: DollarSign },
-  { key: 'budget', label: 'Budget', icon: Wallet },
-] as const;
-
 /**
- * FinOpsContent — path-based tabs (per-tab URL segment), the canonical platform
- * tab pattern (see pages/app/admin/AdminSettingsPage.tsx). Reached via the
- * `/ai/cost/finops/*` wildcard route so the nested <Routes> handles tab matching.
+ * FinOpsContent — spend analytics (the cost explorer). Reached via the
+ * `/ai/cost/finops/*` wildcard route. No "Overview" here — it duplicated
+ * CostPage's own `/app/ai/cost/overview`, which is canonical — and no budget
+ * view: agent budgets live on the one Budgets page (/app/ai/control/budgets).
+ * With a single view left there is no tab strip.
  */
 export const FinOpsContent: React.FC = () => {
   const { hasPermission } = usePermissions();
-  const location = useLocation();
 
   if (!hasPermission('ai.finops.view')) {
     return (
@@ -34,53 +25,27 @@ export const FinOpsContent: React.FC = () => {
     );
   }
 
-  const activeTab = TABS.find((t) => location.pathname.endsWith(`/${t.key}`))?.key ?? 'cost-explorer';
-
   return (
-    <div className="space-y-6">
-      <nav className="flex gap-1 border-b border-theme">
-        {TABS.map((t) => {
-          const Icon = t.icon;
-          const isActive = t.key === activeTab;
-          return (
-            <Link
-              key={t.key}
-              to={`${FINOPS_BASE}/${t.key}`}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
-                isActive
-                  ? 'border-theme-focus text-theme-primary'
-                  : 'border-transparent text-theme-secondary hover:text-theme-primary'
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {t.label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      <Routes>
-        <Route index element={<Navigate to="cost-explorer" replace />} />
-        <Route
-          path="cost-explorer"
-          element={
-            <div className="space-y-6">
-              <CostTrendChart />
-              <OptimizationRecommendations />
-            </div>
-          }
-        />
-        <Route path="budget" element={<BudgetUtilizationPanel />} />
-        <Route path="*" element={<Navigate to="cost-explorer" replace />} />
-      </Routes>
-    </div>
+    <Routes>
+      <Route index element={<Navigate to="cost-explorer" replace />} />
+      <Route
+        path="cost-explorer"
+        element={
+          <div className="space-y-6">
+            <CostTrendChart />
+            <OptimizationRecommendations />
+          </div>
+        }
+      />
+      <Route path="*" element={<Navigate to="cost-explorer" replace />} />
+    </Routes>
   );
 };
 
 export const FinOpsPage: React.FC = () => (
   <PageContainer
     title="AI FinOps"
-    description="Monitor AI costs, token usage, budgets, and optimization opportunities"
+    description="Monitor AI costs, token usage, and optimization opportunities"
     breadcrumbs={[
       { label: 'Dashboard', href: '/app' },
       { label: 'AI', href: '/app/ai' },

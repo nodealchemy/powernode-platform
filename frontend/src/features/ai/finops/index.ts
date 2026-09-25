@@ -10,7 +10,6 @@ export type {
   CostBreakdown,
   CostTrendPoint,
   CostTrends,
-  BudgetUtilization,
   TokenAnalytics,
   TokensByModel,
   OptimizationScore,
@@ -18,7 +17,6 @@ export type {
   FinOpsPaginationParams,
   CostBreakdownParams,
   TrendParams,
-  BudgetParams,
 } from './types/finops';
 
 // API hooks
@@ -26,7 +24,6 @@ export {
   useFinOpsOverview,
   useCostBreakdown,
   useCostTrends,
-  useBudgetUtilization,
   useTokenAnalytics,
   useOptimizationScore,
 } from './api/finopsApi';
@@ -37,5 +34,4 @@ export { FinOpsPage, FinOpsContent } from './pages/FinOpsPage';
 // Components
 export { CostOverviewPanel } from './components/CostOverviewPanel';
 export { CostTrendChart } from './components/CostTrendChart';
-export { BudgetUtilizationPanel } from './components/BudgetUtilizationPanel';
 export { OptimizationRecommendations } from './components/OptimizationRecommendations';
