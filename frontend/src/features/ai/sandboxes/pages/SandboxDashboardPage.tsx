@@ -18,7 +18,7 @@ import { CreateSandboxModal } from '@/features/ai/sandboxes/components/CreateSan
 
 const subTabs = [
   { id: 'executions', label: 'Executions', icon: <Box className="w-4 h-4" />, path: '/' },
-  { id: 'templates', label: 'Templates', icon: <FileCode className="w-4 h-4" />, path: '/templates' },
+  { id: 'templates', label: 'Sandbox Templates', icon: <FileCode className="w-4 h-4" />, path: '/templates' },
   { id: 'quotas', label: 'Quotas', icon: <Gauge className="w-4 h-4" />, path: '/quotas' },
 ];
 

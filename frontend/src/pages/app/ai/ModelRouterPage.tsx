@@ -276,8 +276,8 @@ export const ModelRouterContent: React.FC = () => {
   const tabs = [
     { id: 'rules', label: 'Rules', icon: <Route size={16} />, path: '/' },
     { id: 'decisions', label: 'Decisions', icon: <Zap size={16} />, path: '/decisions' },
-    { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={16} />, path: '/analytics' },
-    { id: 'optimization', label: 'Optimization', icon: <TrendingUp size={16} />, path: '/optimization' },
+    { id: 'analytics', label: 'Routing Analytics', icon: <BarChart3 size={16} />, path: '/analytics' },
+    { id: 'optimization', label: 'Routing Optimization', icon: <TrendingUp size={16} />, path: '/optimization' },
     ...(canReadRouting ? [{ id: 'escalations', label: 'Escalations', icon: <ArrowUpRight size={16} />, path: '/escalations' }] : [])
   ];
 

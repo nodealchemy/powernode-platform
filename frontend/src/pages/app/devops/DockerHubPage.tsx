@@ -16,8 +16,8 @@ const tabs = [
   { id: 'hosts', label: 'Hosts', icon: <HardDrive size={16} />, path: '/' },
   { id: 'containers', label: 'Containers', icon: <Container size={16} />, path: '/containers' },
   { id: 'images', label: 'Images', icon: <Layers size={16} />, path: '/images' },
-  { id: 'networks', label: 'Networks', icon: <Network size={16} />, path: '/networks' },
-  { id: 'volumes', label: 'Volumes', icon: <Database size={16} />, path: '/volumes' },
+  { id: 'networks', label: 'Docker Networks', icon: <Network size={16} />, path: '/networks' },
+  { id: 'volumes', label: 'Docker Volumes', icon: <Database size={16} />, path: '/volumes' },
   { id: 'monitoring', label: 'Monitoring', icon: <Activity size={16} />, path: '/monitoring' },
 ];
 

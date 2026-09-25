@@ -20,7 +20,7 @@ const COMMUNITY_AGENTS_BASE_PATH = '/app/ai/agents/community';
 
 const communityAgentsTabs = [
   { id: 'discover', label: 'Discover', icon: <Globe className="w-4 h-4" />, path: '/' },
-  { id: 'federation', label: 'Federation', icon: <Users className="w-4 h-4" />, path: '/federation' },
+  { id: 'federation', label: 'Agent Federation', icon: <Users className="w-4 h-4" />, path: '/federation' },
 ];
 
 const getActiveCommunityAgentsTab = (pathname: string): string =>

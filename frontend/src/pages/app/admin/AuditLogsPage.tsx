@@ -222,7 +222,7 @@ export const AuditLogsPage: React.FC = () => {
   // Define tabs
   const tabs = [
     { id: 'table', label: 'Table View', icon: '📋', path: '/' },
-    { id: 'analytics', label: 'Analytics', icon: '📊', path: '/analytics' }
+    { id: 'analytics', label: 'Audit Analytics', icon: '📊', path: '/analytics' }
   ];
 
   // Get breadcrumbs with dynamic tab support

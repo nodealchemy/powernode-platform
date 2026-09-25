@@ -13,7 +13,7 @@ export const ProvidersPage: React.FC = () => {
       breadcrumbs={[
         { label: 'Dashboard', href: '/app' },
         { label: 'AI', href: '/app/ai' },
-        { label: 'Providers' },
+        { label: 'AI Providers' },
       ]}
       actions={actions}
     >

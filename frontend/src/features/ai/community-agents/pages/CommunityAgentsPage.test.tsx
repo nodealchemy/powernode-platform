@@ -71,7 +71,7 @@ describe('CommunityAgentsContent path tabs', () => {
 
   it('updates the URL when a tab is clicked', async () => {
     renderAt('/app/ai/agents/community');
-    fireEvent.click(screen.getByText('Federation'));
+    fireEvent.click(screen.getByText('Agent Federation'));
 
     await waitFor(() =>
       expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/agents/community/federation')

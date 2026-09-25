@@ -344,7 +344,7 @@ export const RagContent: React.FC<RagContentProps> = ({ onActionsReady }) => {
     { id: 'documents', label: 'Documents', icon: <FileText size={16} />, path: '/documents' },
     { id: 'query', label: 'Query', icon: <Search size={16} />, path: '/query' },
     { id: 'connectors', label: 'Connectors', icon: <Link size={16} />, path: '/connectors' },
-    { id: 'analytics', label: 'Analytics', icon: <BarChart3 size={16} />, path: '/analytics' }
+    { id: 'analytics', label: 'Retrieval Analytics', icon: <BarChart3 size={16} />, path: '/analytics' }
   ];
 
   return (

@@ -145,7 +145,7 @@ const aiWorkItems: NavigationItem[] = [
 const aiPlatformItems: NavigationItem[] = [
   {
     id: 'ai-providers',
-    name: 'Providers',
+    name: 'AI Providers',
     href: '/app/ai/providers',
     icon: Plug,
     description: 'AI providers and their credentials',
@@ -463,7 +463,7 @@ export const defaultNavigationConfig: NavigationConfig = {
           // family, so this item shows when ANY leaf would. Sandboxes are not
           // a leaf: they live once, under AI › Execution (fc-32).
           id: 'containers',
-          name: 'Containers',
+          name: 'Container Platforms',
           href: '/app/devops/containers',
           icon: Container,
           description: 'Docker, Swarm, and Kubernetes',

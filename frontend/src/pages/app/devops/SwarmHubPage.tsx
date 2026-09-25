@@ -13,12 +13,12 @@ import { SwarmDeploymentsPage } from '@/features/devops/swarm/pages/SwarmDeploym
 import { SwarmHealthPage } from '@/features/devops/swarm/pages/SwarmHealthPage';
 
 const tabs = [
-  { id: 'clusters', label: 'Clusters', icon: <Server size={16} />, path: '/' },
+  { id: 'clusters', label: 'Swarm Clusters', icon: <Server size={16} />, path: '/' },
   { id: 'stacks', label: 'Stacks', icon: <Boxes size={16} />, path: '/stacks' },
   { id: 'services', label: 'Services', icon: <Layers size={16} />, path: '/services' },
-  { id: 'networks', label: 'Networks', icon: <Network size={16} />, path: '/networks' },
+  { id: 'networks', label: 'Swarm Networks', icon: <Network size={16} />, path: '/networks' },
   { id: 'secrets', label: 'Secrets', icon: <Lock size={16} />, path: '/secrets' },
-  { id: 'operations', label: 'Operations', icon: <Rocket size={16} />, path: '/operations' },
+  { id: 'operations', label: 'Deployments', icon: <Rocket size={16} />, path: '/operations' },
 ];
 
 export const SwarmHubPage: React.FC = () => {

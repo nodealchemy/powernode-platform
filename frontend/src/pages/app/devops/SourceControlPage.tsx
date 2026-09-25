@@ -8,7 +8,7 @@ import { RepositoriesPage } from '@/pages/app/devops/RepositoriesPage';
 
 // Providers is the default tab: the bare /app/devops/source-control URL opens it.
 const tabs = [
-  { id: 'providers', label: 'Providers', icon: <GitBranch size={16} />, path: '/providers' },
+  { id: 'providers', label: 'Git Providers', icon: <GitBranch size={16} />, path: '/providers' },
   { id: 'repositories', label: 'Repositories', icon: <FolderGit2 size={16} />, path: '/repositories' },
 ];
 

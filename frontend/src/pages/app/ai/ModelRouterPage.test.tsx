@@ -75,9 +75,9 @@ describe('ModelRouterContent path tabs', () => {
 
   it('updates the URL when a tab is clicked', async () => {
     renderAt('/app/ai/model-router');
-    await waitFor(() => expect(screen.getByText('Optimization')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Routing Optimization')).toBeInTheDocument());
 
-    fireEvent.click(screen.getByText('Optimization'));
+    fireEvent.click(screen.getByText('Routing Optimization'));
 
     await waitFor(() =>
       expect(screen.getByTestId('location-probe')).toHaveTextContent('/app/ai/model-router/optimization')

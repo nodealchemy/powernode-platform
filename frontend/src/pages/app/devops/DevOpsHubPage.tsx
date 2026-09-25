@@ -214,7 +214,7 @@ export function DevOpsHubPage() {
     },
     {
       id: 'containers',
-      name: 'Containers',
+      name: 'Container Platforms',
       description: 'Docker, Swarm, and Kubernetes',
       href: '/app/devops/containers',
       icon: Server,

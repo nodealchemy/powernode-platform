@@ -9,7 +9,7 @@ import { KubernetesClustersPage } from '@/features/devops/kubernetes/pages/Kuber
 // adds Pods + Deployments tabs once we're pulling that state from
 // the cluster API server.
 const tabs = [
-  { id: 'clusters', label: 'Clusters', icon: <Boxes size={16} />, path: '/' },
+  { id: 'clusters', label: 'Kubernetes Clusters', icon: <Boxes size={16} />, path: '/' },
 ];
 
 export const KubernetesHubPage: React.FC = () => {

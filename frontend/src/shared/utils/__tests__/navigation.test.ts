@@ -125,7 +125,7 @@ describe('defaultNavigationConfig — DevOps regroup (fc-44)', () => {
       'CI/CD',
       'Integrations & Webhooks',
       'API Keys',
-      'Containers',
+      'Container Platforms',
       'Developer Portal',
     ]);
   });

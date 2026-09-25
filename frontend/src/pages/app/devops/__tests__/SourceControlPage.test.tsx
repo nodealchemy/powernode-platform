@@ -54,13 +54,13 @@ function renderAt(path: string) {
 describe('SourceControlPage', () => {
   it('has exactly the Providers and Repositories tabs', () => {
     renderAt('/app/devops/source-control');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Providers', 'Repositories']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Git Providers', 'Repositories']);
   });
 
   it('opens on Providers at the base URL', () => {
     renderAt('/app/devops/source-control');
     expect(screen.getByTestId('providers-tab')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Providers' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Git Providers' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('shows Repositories at /repositories', () => {

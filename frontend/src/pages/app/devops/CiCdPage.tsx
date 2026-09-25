@@ -40,7 +40,7 @@ interface SlotTab {
 const staticTabs: Tab[] = [
   { id: 'pipelines', label: 'Pipelines', icon: <Workflow size={16} />, path: '/pipelines' },
   { id: 'runners', label: 'Runners', icon: <Server size={16} />, path: '/runners' },
-  { id: 'templates', label: 'Templates', icon: <FileText size={16} />, path: '/templates', permissions: ['ai.devops.read'] },
+  { id: 'templates', label: 'Pipeline Templates', icon: <FileText size={16} />, path: '/templates', permissions: ['ai.devops.read'] },
 ];
 
 export const CiCdPage: React.FC = () => {

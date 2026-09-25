@@ -58,7 +58,7 @@ const SECTIONS: Array<[string, string]> = [
   ['CI/CD', '/app/devops/ci-cd'],
   ['Integrations & Webhooks', '/app/devops/integrations'],
   ['API Keys', '/app/devops/api-keys'],
-  ['Containers', '/app/devops/containers'],
+  ['Container Platforms', '/app/devops/containers'],
   ['Sandboxes', '/app/ai/execution/sandboxes'],
   ['Developer Portal', '/app/developer'],
 ];

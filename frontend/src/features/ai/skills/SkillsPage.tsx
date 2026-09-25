@@ -219,7 +219,7 @@ export function SkillsPage({ onActionsReady }: SkillsPageProps) {
       path: '/proposals',
       badge: pendingCount > 0 ? { count: pendingCount, variant: 'warning' as const } : undefined,
     },
-    { id: 'optimization', label: 'Optimization', path: '/optimization' },
+    { id: 'optimization', label: 'Skill Optimization', path: '/optimization' },
   ];
 
   return (

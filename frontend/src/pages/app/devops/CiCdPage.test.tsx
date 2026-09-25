@@ -132,7 +132,7 @@ describe('CiCdPage', () => {
 
     expect(screen.getByRole('tab', { name: 'Pipelines' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Runners' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Templates' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Pipeline Templates' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
     expect(screen.queryAllByRole('tab')).toHaveLength(3);
   });
