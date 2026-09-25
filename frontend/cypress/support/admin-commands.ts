@@ -42,18 +42,6 @@ declare global {
       interceptAdminApi(): Chainable<void>;
 
       /**
-       * Start user impersonation
-       * @example cy.startImpersonation('user-id-123')
-       */
-      startImpersonation(userId: string): Chainable<void>;
-
-      /**
-       * End user impersonation
-       * @example cy.endImpersonation()
-       */
-      endImpersonation(): Chainable<void>;
-
-      /**
        * Get user table rows
        * @example cy.getUserTableRows()
        */
@@ -295,30 +283,6 @@ Cypress.Commands.add('interceptAdminApi', () => {
     },
   }).as('deleteRole');
 
-  // Intercept impersonation start
-  cy.intercept('POST', '**/api/v1/admin/impersonation', {
-    statusCode: 200,
-    body: {
-      success: true,
-      data: {
-        token: 'impersonation-token-123',
-        impersonated_user: {
-          id: 'user-123',
-          email: 'impersonated@example.com',
-        },
-      },
-    },
-  }).as('startImpersonation');
-
-  // Intercept impersonation end
-  cy.intercept('DELETE', '**/api/v1/admin/impersonation', {
-    statusCode: 200,
-    body: {
-      success: true,
-      message: 'Impersonation ended',
-    },
-  }).as('endImpersonation');
-
   // Intercept email settings
   cy.intercept('GET', '**/api/v1/admin/settings/email**', {
     fixture: 'admin/email-settings.json',
@@ -328,48 +292,6 @@ Cypress.Commands.add('interceptAdminApi', () => {
   cy.intercept('GET', '**/api/v1/admin/settings**', {
     fixture: 'admin/system-settings.json',
   }).as('systemSettings');
-});
-
-// Start user impersonation
-Cypress.Commands.add('startImpersonation', (userId: string) => {
-  cy.request({
-    method: 'POST',
-    url: `${Cypress.env('apiUrl')}/admin/impersonation`,
-    headers: {
-      Authorization: `Bearer ${window.localStorage.getItem('accessToken')}`,
-    },
-    body: { user_id: userId },
-    failOnStatusCode: false,
-  }).then((response) => {
-    if (response.status === 200 && response.body.data?.token) {
-      // Store original token
-      const originalToken = window.localStorage.getItem('accessToken');
-      window.localStorage.setItem('originalAccessToken', originalToken || '');
-      // Set impersonation token
-      window.localStorage.setItem('accessToken', response.body.data.token);
-      window.localStorage.setItem('isImpersonating', 'true');
-    }
-  });
-});
-
-// End user impersonation
-Cypress.Commands.add('endImpersonation', () => {
-  cy.request({
-    method: 'DELETE',
-    url: `${Cypress.env('apiUrl')}/admin/impersonation`,
-    headers: {
-      Authorization: `Bearer ${window.localStorage.getItem('accessToken')}`,
-    },
-    failOnStatusCode: false,
-  }).then(() => {
-    // Restore original token
-    const originalToken = window.localStorage.getItem('originalAccessToken');
-    if (originalToken) {
-      window.localStorage.setItem('accessToken', originalToken);
-    }
-    window.localStorage.removeItem('originalAccessToken');
-    window.localStorage.removeItem('isImpersonating');
-  });
 });
 
 // Get user table rows
