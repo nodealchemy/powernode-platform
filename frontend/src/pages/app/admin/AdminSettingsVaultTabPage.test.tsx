@@ -24,8 +24,9 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 }));
 
 // fc-38 review round 3 item #3(b): auto-confirm so the Clear buttons' own
-// confirm step doesn't need a real modal in these tests — established
-// pattern (see ApiKeysManager.test.tsx).
+// confirm step doesn't need a real modal in these tests (fc-21: the
+// ApiKeysManager.test.tsx this pattern was borrowed from is gone — it was
+// an unrouted duplicate of the live devops API-keys UI).
 const mockConfirmFn = jest.fn();
 jest.mock('@/shared/components/ui/ConfirmationModal', () => ({
   useConfirmation: () => ({
