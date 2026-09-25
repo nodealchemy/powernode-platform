@@ -190,7 +190,11 @@ module Ai
                                                      "null), expectations and expectation_count",
                                             refuses: ENDPOINT_NOT_FOUND,
                                             see_also: { "data_source_contract" => "a fresh fetch judged against the contract" }
-      declare_action "data_source_query", mutating: false,
+      # mutating: true — besides reads, this action executes a write/side-effecting
+      # endpoint (e.g. X.com's POST /2/tweets; Ai::Growth::CrossPostService
+      # publishes through it) for an agent holding WRITE_ENDPOINT_PERMISSION on top
+      # of QUERY_PERMISSION, and files a proposal for one that lacks it.
+      declare_action "data_source_query", mutating: true,
                                           refuses: ENDPOINT_NOT_FOUND,
                                           see_also: {
                                             "data_source_failover_query" => "trying equivalent endpoints in order",

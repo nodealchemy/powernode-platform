@@ -71,6 +71,22 @@ RSpec.describe Ai::Tools::DataSourceTool do
     end
   end
 
+  describe "action declarations" do
+    # data_source_query dispatches a write/side-effecting endpoint (POST
+    # /2/tweets, the CrossPostService publish path) for an agent that holds
+    # WRITE_ENDPOINT_PERMISSION — see "write endpoint gate" below. A
+    # `mutating: false` declaration advertises it as read-only (readOnlyHint,
+    # read-only agent allowlists) while it can publish.
+    it "declares data_source_query mutating, because it can execute a write endpoint" do
+      expect(described_class.declared_action("data_source_query")[:mutating]).to be(true)
+    end
+
+    it "gates the write arm of data_source_query on an existing permission" do
+      expect(described_class::QUERY_ACTIONS).to include("data_source_query")
+      expect(described_class::WRITE_ENDPOINT_PERMISSION).to eq("ai.data_sources.manage")
+    end
+  end
+
   # ------------------------------------------------------------------------
   # read actions
   # ------------------------------------------------------------------------
