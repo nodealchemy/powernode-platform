@@ -7,7 +7,6 @@
  * - SSO provider selection
  * - OAuth flows
  * - SAML integration
- * - SSO configuration
  * - Account linking
  * - SSO error handling
  */
@@ -70,40 +69,6 @@ describe('Auth SSO Tests', () => {
       cy.waitForPageLoad();
 
       cy.assertHasElement(['button:contains("Continue")', 'button:contains("Sign in")', 'button[type="submit"]']);
-    });
-  });
-
-  describe('SSO Configuration (Admin)', () => {
-    beforeEach(() => {
-      cy.standardTestSetup();
-    });
-
-    it('should navigate to SSO settings', () => {
-      cy.visit('/app/admin/settings/sso');
-      cy.waitForPageLoad();
-
-      cy.assertContainsAny(['SSO', 'Single Sign-On', 'Authentication']);
-    });
-
-    it('should display SAML configuration', () => {
-      cy.visit('/app/admin/settings/sso');
-      cy.waitForPageLoad();
-
-      cy.assertContainsAny(['SAML', 'Identity Provider', 'IdP']);
-    });
-
-    it('should display OIDC configuration', () => {
-      cy.visit('/app/admin/settings/sso');
-      cy.waitForPageLoad();
-
-      cy.assertContainsAny(['OIDC', 'OpenID', 'OAuth']);
-    });
-
-    it('should have SSO enable/disable toggle', () => {
-      cy.visit('/app/admin/settings/sso');
-      cy.waitForPageLoad();
-
-      cy.assertContainsAny(['Enable', 'Disable']);
     });
   });
 

@@ -7,7 +7,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Page Navigation', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should navigate to Admin Settings Overview page', () => {
@@ -29,7 +29,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Page Actions', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should have Refresh button', () => {
@@ -39,7 +39,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('System Status Section', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should display System Status section', () => {
@@ -69,7 +69,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('System Metrics Section', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should display System Metrics section', () => {
@@ -95,7 +95,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Payment Gateway Status', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should display Payment Gateway section', () => {
@@ -117,7 +117,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Services Health Section', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should display Services Health section', () => {
@@ -140,7 +140,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Recent Activity Section', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should display Recent Activity section', () => {
@@ -162,7 +162,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Configuration Overview Section', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should display Configuration Overview section', () => {
@@ -188,7 +188,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Quick Links', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should display quick action cards', () => {
@@ -208,13 +208,13 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Error Handling', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should handle API errors gracefully', () => {
       cy.testErrorHandling('**/api/**/admin/**', {
         statusCode: 500,
-        visitUrl: '/app/admin/settings/overview'
+        visitUrl: '/app/admin/settings'
       });
     });
 
@@ -224,7 +224,7 @@ describe('Admin Settings Overview Page Tests', () => {
         body: { error: 'Failed to load' }
       }).as('loadError');
 
-      cy.visit('/app/admin/settings/overview');
+      cy.visit('/app/admin/settings');
       cy.waitForPageLoad();
       cy.assertContainsAny(['Error', 'Failed', 'Overview', 'Settings']);
     });
@@ -232,7 +232,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Loading State', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should display loading indicator', () => {
@@ -243,36 +243,36 @@ describe('Admin Settings Overview Page Tests', () => {
         });
       }).as('slowLoad');
 
-      cy.visit('/app/admin/settings/overview');
+      cy.visit('/app/admin/settings');
       cy.assertHasElement(['[class*="animate-spin"]', '[class*="loading"]', 'body']);
     });
   });
 
   describe('Responsive Design', () => {
     beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings/overview');
+      cy.assertPageReady('/app/admin/settings');
     });
 
     it('should display properly on mobile viewport', () => {
-      cy.testViewport('mobile', '/app/admin/settings/overview');
+      cy.testViewport('mobile', '/app/admin/settings');
       cy.assertContainsAny(['Settings', 'Overview']);
     });
 
     it('should display properly on tablet viewport', () => {
-      cy.testViewport('tablet', '/app/admin/settings/overview');
+      cy.testViewport('tablet', '/app/admin/settings');
       cy.assertContainsAny(['Settings', 'Overview']);
     });
 
     it('should stack cards on small screens', () => {
       cy.viewport('iphone-x');
-      cy.visit('/app/admin/settings/overview');
+      cy.visit('/app/admin/settings');
       cy.waitForPageLoad();
       cy.assertHasElement(['[class*="grid-cols-1"]', '[class*="md:grid-cols"]', '[class*="flex-col"]']);
     });
 
     it('should show multi-column layout on large screens', () => {
       cy.viewport(1920, 1080);
-      cy.visit('/app/admin/settings/overview');
+      cy.visit('/app/admin/settings');
       cy.waitForPageLoad();
       // Simplified - just verify page has relevant content on large screens
       cy.assertContainsAny(['Settings', 'Overview']);
@@ -281,7 +281,7 @@ describe('Admin Settings Overview Page Tests', () => {
 
   describe('Permission Check', () => {
     it('should require admin permissions', () => {
-      cy.testPermissionDenied('/app/admin/settings/overview');
+      cy.testPermissionDenied('/app/admin/settings');
     });
   });
 });
