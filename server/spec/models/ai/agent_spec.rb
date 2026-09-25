@@ -434,6 +434,18 @@ RSpec.describe Ai::Agent, type: :model do
     end
   end
 
+  describe 'Fable/Mythos guardrail (B8)' do
+    # A model cannot observe its own stop_reason and the reframe/fallback is the
+    # executor's, so that half is context; the briefing preference is the
+    # actionable part. The dev-loop guardrails carry the same line.
+    it 'states the briefing preference and the platform-handled refusal, without the anxious register' do
+      line = "When you brief or prompt a Fable/Mythos agent, state the goal and constraints"
+      expect(Ai::Agent::BASE_GUARDRAILS).to include(line)
+      expect(Ai::Agent::BASE_GUARDRAILS).not_to include("don't panic")
+      expect(Ai::DevLoop::LoopGuardrails::TAIL.join("\n")).to include(line)
+    end
+  end
+
   describe '#resolved_model Fable candidacy gate (pinned path)' do
     let(:gate_account) { create(:account) }
     let(:gate_provider) do

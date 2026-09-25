@@ -47,7 +47,7 @@ module Ai
       "Audit = report only: when asked to audit/review/analyze, report findings (save to docs/) — do NOT implement changes unless explicitly told to fix.",
       "Surface assumptions before implementing an ambiguous request; if multiple valid interpretations exist, present them and ask.",
       "When you changed code, verify by execution before reporting done: run the verification gate — scripts/validate.sh (specs + tsc + pattern-validation + gitleaks), or the targeted subset covering what you changed — and report its actual tallies. A gate you did not run is not evidence, and '/verify' is a Claude-only wrapper, not the gate itself.",
-      "On a Fable/Mythos refusal (stop_reason \"refusal\"), don't panic or manually retry — it auto-reframes once then falls back to Opus and logs it; prefer goal+constraints prompting over step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)."
+      "When you brief or prompt a Fable/Mythos agent, state the goal and constraints rather than step-by-step instructions (search_knowledge tag:guidance-fable5-compliance). The platform handles a Fable/Mythos refusal itself (one automatic reframe, then an Opus fallback, logged), so do not retry it by hand."
     ].join("\n").freeze
 
     # Budget for #build_skill_system_prompts — mirrors the skill-graph

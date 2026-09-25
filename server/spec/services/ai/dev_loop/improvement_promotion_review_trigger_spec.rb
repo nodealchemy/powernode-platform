@@ -111,6 +111,13 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService, "independent-review tri
       expect(refreshed.join(" ")).to include("don't trust spec-green alone")
     end
 
+    it "drops a retired shared line rather than serving it beside its rewording (B8)" do
+      old = Ai::DevLoop::LoopGuardrails::RETIRED_SHARED.first
+      refreshed = Ai::DevLoop::LoopGuardrails.refresh(stale_snapshot + [ old ])
+      expect(refreshed).not_to include(old)
+      expect(refreshed.join(" ")).to include("When you brief or prompt a Fable/Mythos agent")
+    end
+
     it "preserves loop-specific lines it does not recognise" do
       expect(refreshed).to include("Re-verify the finding against current code BEFORE changing anything (findings rot)")
       expect(refreshed).to include("Commit only to the loop branch — never develop/master, never push")

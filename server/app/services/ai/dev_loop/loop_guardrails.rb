@@ -37,7 +37,7 @@ module Ai
         "You are operating autonomously — the user is not watching and cannot answer mid-task. Do not pause to ask permission before a reversible action that follows from the task; proceed. Before ending a turn, if your final message is a plan, a question, or a promise ('I'll…', 'next…') rather than completed work, do that work now with a tool call instead of ending on the promise",
         "Ground every progress or completion claim in a tool result from this session: audit each claim against real evidence before reporting it, and say plainly when a step failed, was skipped, or is unverified — never report success you cannot point to",
         "After 3 failed attempts on the same task, report outcome=failed and stop",
-        "On a Fable/Mythos refusal (stop_reason \"refusal\"), don't panic or manually retry — it auto-reframes once then falls back to Opus and logs it; prefer goal+constraints prompting over step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)"
+        "When you brief or prompt a Fable/Mythos agent, state the goal and constraints rather than step-by-step instructions (search_knowledge tag:guidance-fable5-compliance). The platform handles a Fable/Mythos refusal itself (one automatic reframe, then an Opus fallback, logged), so do not retry it by hand"
       ].freeze
 
       module_function
@@ -88,8 +88,18 @@ module Ai
           "shared and concurrent runs deadlock"
       }.freeze
 
+      # Former exact wordings of HEAD/TAIL lines. A persisted snapshot still
+      # holds them, and #refresh would otherwise keep them as stray "middle"
+      # lines next to their rewording (the limitation noted above). Exact text,
+      # since the old wording is known.
+      RETIRED_SHARED = [
+        "On a Fable/Mythos refusal (stop_reason \"refusal\"), don't panic or manually retry — it " \
+        "auto-reframes once then falls back to Opus and logs it; prefer goal+constraints prompting over " \
+        "step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)"
+      ].freeze
+
       def refresh(persisted)
-        middle = Array(persisted) - HEAD - TAIL
+        middle = Array(persisted) - HEAD - TAIL - RETIRED_SHARED
         middle = middle.map { |line| supersede(line) }
         compose(middle)
       end
