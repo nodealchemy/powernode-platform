@@ -174,7 +174,7 @@ module Ai
             }
           },
           "bootstrap_disk_image_ci" => {
-            description: "End-to-end setup: provision webhook + CI worker, set all 4 needed Gitea Actions secrets in one call (POWERNODE_DISK_IMAGE_WEBHOOK_URL, POWERNODE_DISK_IMAGE_WEBHOOK_SECRET, POWERNODE_CI_WORKER_TOKEN, POWERNODE_API_BASE). Optionally also mints a Gitea PAT and sets it as PLATFORM_READ_TOKEN for the parent platform checkout step. Idempotent: re-running with the same label rotates secrets + token.",
+            description: "Set up disk-image CI for a Gitea repo in one call: a webhook, a CI worker and their Actions secrets. It provisions the webhook and CI worker and sets all 4 needed Gitea Actions secrets (POWERNODE_DISK_IMAGE_WEBHOOK_URL, POWERNODE_DISK_IMAGE_WEBHOOK_SECRET, POWERNODE_CI_WORKER_TOKEN, POWERNODE_API_BASE). Optionally also mints a Gitea PAT and sets it as PLATFORM_READ_TOKEN for the parent platform checkout step. Idempotent: re-running with the same label rotates secrets + token.",
             parameters: {
               owner:           { type: "string",  required: true,  description: "Gitea repo owner" },
               repo:            { type: "string",  required: true,  description: "Gitea repo name" },
