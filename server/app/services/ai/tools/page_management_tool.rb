@@ -9,10 +9,18 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "create_page", mutating: true
-      declare_action "get_page", mutating: false
+      declare_action "create_page", mutating: true,
+                                    returns: "page_id, slug and title",
+                                    refuses: "title or content is blank, the slug is already taken, or status is not draft or published"
+      declare_action "get_page", mutating: false,
+                                 returns: "the page's content, status, meta fields, word_count and timestamps",
+                                 refuses: "neither page_id nor slug matches a page in this account",
+                                 see_also: { "list_pages" => "finding a page's id or slug" }
       declare_action "list_pages", mutating: false, limit: 50, returns: "page summaries, most recently updated first"
-      declare_action "update_page", mutating: true
+      declare_action "update_page", mutating: true,
+                                    returns: "page_id and slug",
+                                    refuses: [ "the page is not in this account",
+                                               "the new values fail validation, such as a slug already taken or an unknown status" ]
 
       def self.definition
         {
@@ -40,14 +48,16 @@ module Ai
             }
           },
           "get_page" => {
-            description: "Get a content page by ID or slug",
+            description: "Get a content page by ID or slug. " \
+                         "The id is used when both are given.",
             parameters: {
               page_id: { type: "string", required: false, description: "Page ID" },
               slug: { type: "string", required: false, description: "Page slug (alternative to ID)" }
             }
           },
           "create_page" => {
-            description: "Create a new content page",
+            description: "Create a new content page. " \
+                         "The status defaults to draft, and the slug is generated from the title when omitted.",
             parameters: {
               title: { type: "string", required: true, description: "Page title" },
               content: { type: "string", required: true, description: "Page content in markdown" },
@@ -58,7 +68,8 @@ module Ai
             }
           },
           "update_page" => {
-            description: "Update an existing content page",
+            description: "Update an existing content page. " \
+                         "Only the fields you pass are changed; passing meta_description or meta_keywords empty clears it.",
             parameters: {
               page_id: { type: "string", required: true, description: "Page ID" },
               title: { type: "string", required: false, description: "New page title" },

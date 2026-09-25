@@ -13,7 +13,6 @@ add_team_member
 compose_skills
 create_gitea_repository
 create_knowledge_base
-create_page
 create_team
 delete_document
 delete_ralph_loop
@@ -23,7 +22,6 @@ get_component_status
 get_investigation
 get_investigations
 get_llm_provider
-get_page
 get_pipeline_status
 get_ralph_loop_statistics
 get_remediation_route
@@ -197,6 +195,5 @@ system_update_package_repository
 system_update_volume
 trigger_pipeline
 update_gitea_repository
-update_page
 update_ralph_loop
 update_team
