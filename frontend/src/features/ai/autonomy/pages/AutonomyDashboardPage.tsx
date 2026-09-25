@@ -15,7 +15,6 @@ import { AgentLineageTree } from '../components/AgentLineageTree';
 import { BudgetRegimeIndicator } from '@/features/ai/budgets/components/BudgetRegimeIndicator';
 import { computeBudgetRegime } from '@/features/ai/budgets/budgetRegime';
 import { CapabilityMatrixViewer } from '../components/CapabilityMatrixViewer';
-import { CircuitBreakerStatusPanel } from '../components/CircuitBreakerStatusPanel';
 import { BehavioralFingerprintChart } from '../components/BehavioralFingerprintChart';
 import { ApprovalQueuePanel } from '@/features/ai/approvals/components/ApprovalQueuePanel';
 import { DelegationPolicyPanel } from '../components/DelegationPolicyPanel';
@@ -185,9 +184,14 @@ const LineageTab: React.FC<{
   );
 };
 
+// fc-42 review fix: CircuitBreakerStatusPanel moved out — Observability →
+// Circuit Breakers is now the one home for circuit breakers (agent AND
+// provider, under distinct labels), and a second mount here would recreate
+// exactly the kind of duplicate-surface split that consolidation fixed. fc-41
+// is on record that Control → Safety (its future home) won't carry breakers
+// either.
 const SecurityTab: React.FC<{ selectedAgentId: string }> = ({ selectedAgentId }) => (
   <div className="space-y-6">
-    <CircuitBreakerStatusPanel />
     <BehavioralFingerprintChart agentId={selectedAgentId} />
   </div>
 );

@@ -28,7 +28,6 @@ jest.mock('../components/TrustScoreCard', () => ({ TrustScoreCard: () => null })
 jest.mock('../components/AgentLineageTree', () => ({ AgentLineageTree: () => null }));
 jest.mock('@/features/ai/budgets/components/BudgetRegimeIndicator', () => ({ BudgetRegimeIndicator: () => null }));
 jest.mock('../components/CapabilityMatrixViewer', () => ({ CapabilityMatrixViewer: () => null }));
-jest.mock('../components/CircuitBreakerStatusPanel', () => ({ CircuitBreakerStatusPanel: () => null }));
 jest.mock('../components/BehavioralFingerprintChart', () => ({ BehavioralFingerprintChart: () => null }));
 jest.mock('@/features/ai/approvals/components/ApprovalQueuePanel', () => ({
   ApprovalQueuePanel: () => <div data-testid="section-approvals" />,
