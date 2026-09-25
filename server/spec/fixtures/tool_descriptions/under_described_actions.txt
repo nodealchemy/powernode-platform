@@ -49,9 +49,6 @@ delete_document
 delete_memory_pool
 delete_ralph_loop
 delete_shared_memory
-deliver
-delivery_list
-delivery_status
 deploy_container_agent
 detect_collusion
 disable_autonomy

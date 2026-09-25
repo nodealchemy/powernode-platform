@@ -14,9 +14,15 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "deliver", mutating: true
-      declare_action "delivery_list", mutating: false
-      declare_action "delivery_status", mutating: false
+      declare_action "deliver", mutating: true,
+                                returns: "the delivery run summary (id, strategy, status, dry_run, steps, deploy_run_id, error_message)",
+                                refuses: [ "a project repository_id is not in this account", "the delivery run fails validation" ]
+      declare_action "delivery_list", mutating: false,
+                                      returns: "delivery run summaries, newest first, capped by limit (default 50)",
+                                      see_also: { "delivery_status" => "one run by its id" }
+      declare_action "delivery_status", mutating: false,
+                                        returns: "the run's strategy, status, dry_run, steps, deploy_run_id, detail and error_message",
+                                        refuses: "no delivery run with that id exists in this account"
 
       def self.definition
         {
@@ -44,9 +50,9 @@ module Ai
       def self.action_definitions
         {
           "deliver" => {
-            description: "Deliver a ref to a target via a strategy. direct delegates to Ai::Deploy " \
-                         "(migration-safety + health + auto-rollback); canary/blue_green record the staged " \
-                         "rollout plan. DRY-RUN by default — pass dry_run:false for a real delivery.",
+            description: "Deliver a git ref to a target (platform_self or a project) via a strategy. The direct " \
+                         "strategy delegates to Ai::Deploy (migration-safety + health + auto-rollback); " \
+                         "canary/blue_green record the staged rollout plan. DRY-RUN by default — pass dry_run:false for a real delivery.",
             parameters: {
               target_kind: { type: "string", required: false, description: "platform_self | project (default project)" },
               repository_id: { type: "string", required: false, description: "Devops::GitRepository UUID (project)" },
