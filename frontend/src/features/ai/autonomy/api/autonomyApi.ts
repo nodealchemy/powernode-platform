@@ -108,13 +108,14 @@ export function useAgentLineageForest() {
 /** The autonomy stats query key, for writers elsewhere whose changes move the stats (budgets). */
 export const autonomyStatsQueryKey = () => AUTONOMY_KEYS.stats();
 
-export function useAutonomyStats() {
+export function useAutonomyStats(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: AUTONOMY_KEYS.stats(),
     queryFn: async () => {
       const response = await apiClient.get('/ai/autonomy/stats');
       return (response.data?.data ?? {}) as AutonomyStats;
     },
+    enabled: options.enabled ?? true,
   });
 }
 

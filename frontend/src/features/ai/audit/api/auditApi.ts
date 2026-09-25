@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
 import type {
-  AuditStats,
   PolicyViolation,
   CompliancePolicy,
   AuditEntry,
@@ -15,31 +14,36 @@ import type {
 
 const AUDIT_KEYS = {
   all: ['audit'] as const,
-  stats: () => [...AUDIT_KEYS.all, 'stats'] as const,
   violations: (params?: ViolationFilterParams) => [...AUDIT_KEYS.all, 'violations', params] as const,
   policies: (params?: PolicyFilterParams) => [...AUDIT_KEYS.all, 'policies', params] as const,
   auditEntries: (params?: AuditEntryFilterParams) => [...AUDIT_KEYS.all, 'audit-entries', params] as const,
   securityEvents: (params?: SecurityEventFilterParams) => [...AUDIT_KEYS.all, 'security-events', params] as const,
 };
 
-export function useAuditStats() {
-  return useQuery({
-    queryKey: AUDIT_KEYS.stats(),
-    queryFn: async () => {
-      // TODO(verify governance route): no `stats` action under scope :governance;
-      // closest is GET /ai/governance/summary (different payload shape than AuditStats).
-      const response = await apiClient.get('/ai/governance/stats');
-      return response.data?.data as AuditStats;
-    },
-  });
+/**
+ * GovernanceController renders each list as `{ <name>: [...], pagination }`
+ * inside the success envelope; the lists read `{ data: [...], pagination }`.
+ */
+async function fetchList<T>(url: string, listKey: string, params?: object): Promise<PaginatedResponse<T>> {
+  const response = await apiClient.get(url, { params });
+  const body = (response.data?.data ?? {}) as Record<string, unknown>;
+  return {
+    data: (body[listKey] ?? []) as T[],
+    pagination: body.pagination as PaginatedResponse<T>['pagination'],
+  };
 }
+
+type ServerViolation = Omit<PolicyViolation, 'policy_name'> & { policy?: { id: string; name: string } };
 
 export function useViolations(params?: ViolationFilterParams) {
   return useQuery({
     queryKey: AUDIT_KEYS.violations(params),
     queryFn: async () => {
-      const response = await apiClient.get('/ai/governance/violations', { params });
-      return response.data as PaginatedResponse<PolicyViolation>;
+      const page = await fetchList<ServerViolation>('/ai/governance/violations', 'violations', params);
+      return {
+        ...page,
+        data: page.data.map(({ policy, ...violation }) => ({ ...violation, policy_name: policy?.name })),
+      } as PaginatedResponse<PolicyViolation>;
     },
   });
 }
@@ -47,9 +51,10 @@ export function useViolations(params?: ViolationFilterParams) {
 export function usePolicies(params?: PolicyFilterParams) {
   return useQuery({
     queryKey: AUDIT_KEYS.policies(params),
-    queryFn: async () => {
-      const response = await apiClient.get('/ai/governance/policies', { params });
-      return response.data as PaginatedResponse<CompliancePolicy>;
+    queryFn: () => {
+      // The server filters on `type`, not `policy_type`.
+      const { policy_type, ...rest } = params ?? {};
+      return fetchList<CompliancePolicy>('/ai/governance/policies', 'policies', { ...rest, type: policy_type });
     },
   });
 }
@@ -57,21 +62,14 @@ export function usePolicies(params?: PolicyFilterParams) {
 export function useAuditEntries(params?: AuditEntryFilterParams) {
   return useQuery({
     queryKey: AUDIT_KEYS.auditEntries(params),
-    queryFn: async () => {
-      const response = await apiClient.get('/ai/governance/audit_log', { params });
-      return response.data as PaginatedResponse<AuditEntry>;
-    },
+    queryFn: () => fetchList<AuditEntry>('/ai/governance/audit_log', 'entries', params),
   });
 }
 
 export function useSecurityEvents(params?: SecurityEventFilterParams) {
   return useQuery({
     queryKey: AUDIT_KEYS.securityEvents(params),
-    queryFn: async () => {
-      // TODO(verify governance route): no `security_events` action under scope :governance.
-      const response = await apiClient.get('/ai/governance/security_events', { params });
-      return response.data as PaginatedResponse<SecurityEvent>;
-    },
+    queryFn: () => fetchList<SecurityEvent>('/ai/governance/security_events', 'events', params),
   });
 }
 
@@ -81,11 +79,10 @@ export function useResolveViolation() {
   return useMutation({
     mutationFn: async (violationId: string) => {
       const response = await apiClient.put(`/ai/governance/violations/${violationId}/resolve`);
-      return response.data?.data as PolicyViolation;
+      return response.data?.data?.violation as PolicyViolation;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUDIT_KEYS.violations() });
-      queryClient.invalidateQueries({ queryKey: AUDIT_KEYS.stats() });
+      queryClient.invalidateQueries({ queryKey: [...AUDIT_KEYS.all, 'violations'] });
     },
   });
 }
@@ -95,14 +92,17 @@ export function useTogglePolicy() {
 
   return useMutation({
     mutationFn: async (policyId: string) => {
-      // TODO(verify governance route): no `policies/:id/toggle` action under scope :governance;
-      // closest is PUT /ai/governance/policies/:id/activate (activate-only, not a toggle).
       const response = await apiClient.put(`/ai/governance/policies/${policyId}/toggle`);
-      return response.data?.data as CompliancePolicy;
+      return response.data?.data?.policy as CompliancePolicy;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: AUDIT_KEYS.policies() });
-      queryClient.invalidateQueries({ queryKey: AUDIT_KEYS.stats() });
+      queryClient.invalidateQueries({ queryKey: [...AUDIT_KEYS.all, 'policies'] });
     },
   });
+}
+
+/** Invalidate every compliance-policy list, e.g. after a policy is created. */
+export function useInvalidateCompliancePolicies() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: [...AUDIT_KEYS.all, 'policies'] });
 }

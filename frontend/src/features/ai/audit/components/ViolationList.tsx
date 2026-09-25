@@ -36,7 +36,7 @@ export const ViolationList: React.FC = () => {
   const { data, isLoading } = useViolations(filters);
   const resolveViolation = useResolveViolation();
 
-  const canResolve = hasPermission('ai.audits.manage');
+  const canResolve = hasPermission('ai.governance.manage');
 
   const handleStatusFilter = (status: ViolationStatus | undefined) => {
     setFilters((prev) => ({ ...prev, status, page: 1 }));

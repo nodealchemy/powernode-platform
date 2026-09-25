@@ -59,17 +59,6 @@ export interface SecurityEvent {
   created_at: string;
 }
 
-export interface AuditStats {
-  total_violations: number;
-  open_violations: number;
-  critical_violations: number;
-  active_policies: number;
-  audit_entries_today: number;
-  security_events_today: number;
-  compliance_score: number;
-  violation_trend: { date: string; count: number }[];
-}
-
 export interface AuditPaginationParams {
   page?: number;
   per_page?: number;

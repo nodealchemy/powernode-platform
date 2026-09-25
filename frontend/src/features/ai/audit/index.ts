@@ -9,7 +9,6 @@ export type {
   CompliancePolicy,
   AuditEntry,
   SecurityEvent,
-  AuditStats,
   AuditPaginationParams,
   ViolationFilterParams,
   PolicyFilterParams,
@@ -20,17 +19,14 @@ export type {
 
 // API hooks
 export {
-  useAuditStats,
   useViolations,
   usePolicies,
   useAuditEntries,
   useSecurityEvents,
   useResolveViolation,
   useTogglePolicy,
+  useInvalidateCompliancePolicies,
 } from './api/auditApi';
-
-// Page
-export { AuditDashboardPage } from './pages/AuditDashboardPage';
 
 // Components
 export { ViolationList } from './components/ViolationList';

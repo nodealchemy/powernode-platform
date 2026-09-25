@@ -32,7 +32,7 @@ export const PolicyList: React.FC = () => {
   const { data, isLoading } = usePolicies({ ...filters, policy_type: typeFilter });
   const togglePolicy = useTogglePolicy();
 
-  const canManage = hasPermission('ai.audits.manage');
+  const canManage = hasPermission('ai.governance.manage');
 
   const handleToggle = (policyId: string) => {
     togglePolicy.mutate(policyId, {
