@@ -50,8 +50,9 @@ type TabType = 'templates' | 'installations' | 'executions' | 'risks' | 'reviews
 // deleted and the standalone branch along with it — CiCdPage's "Templates"
 // tab is the only mount left, reporting its actions up via onActionsReady,
 // same contract as CiCdPage's other embedded tabs (PipelinesPage,
-// RunnersPage). fc-34 deleted the fourth, ModuleBuildsPage — that surface
-// moved to the system extension's own registered route.
+// RunnersPage). fc-34 deleted the fourth, core's ModuleBuildsPage — that
+// surface now mounts as a devops.ci-cd.tab.* component slot the system
+// extension registers, discovered generically by CiCdPage (review fix).
 export const TemplatesContent: React.FC<{ onActionsReady?: (actions: PageAction[]) => void }> = ({ onActionsReady }) => {
   const dispatch = useDispatch<AppDispatch>();
   const [activeTab, setActiveTab] = useState<TabType>('templates');

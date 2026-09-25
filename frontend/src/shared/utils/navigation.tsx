@@ -386,8 +386,21 @@ export const defaultNavigationConfig: NavigationConfig = {
           name: 'CI/CD',
           href: '/app/devops/ci-cd',
           icon: Workflow,
-          description: 'Pipelines, runners, and module build management',
-          permissions: ['devops.pipelines.read', 'git.runners.read', 'system.module_builds.read'],
+          // fc-34 review fix: this used to list system.module_builds.read
+          // (an extension-owned permission core must not name) so a Module
+          // Builds tab lived here too. That tab now mounts through
+          // CiCdPage's generic devops.ci-cd.tab.* component-slot seam
+          // instead — core has no way to make THIS item's visibility
+          // conditional on a slot being registered, so the decision here is:
+          // an operator who holds ONLY system.module_builds.read (no
+          // devops.pipelines.read / git.runners.read) no longer sees this
+          // nav entry. That is a discoverability gap, not a security one —
+          // ModuleBuildsCiCdTab's own hasPermission check is still the real
+          // gate on the tab's content, and the URL
+          // (/app/devops/ci-cd/module-builds) still works for anyone who
+          // reaches it by a direct link.
+          description: 'Pipelines and runner management',
+          permissions: ['devops.pipelines.read', 'git.runners.read'],
           order: 3
         },
         {
@@ -445,7 +458,9 @@ export const defaultNavigationConfig: NavigationConfig = {
           order: 9
         }
       ],
-      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'git.runners.read', 'system.module_builds.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'devops.containers.read', 'devops.swarm.read', 'devops.docker.read', 'devops.kubernetes.read'],
+      // fc-34 review fix: dropped system.module_builds.read (extension-owned;
+      // see the 'ci-cd' item's own comment above for the visibility decision).
+      permissions: ['git.providers.read', 'git.repositories.read', 'devops.pipelines.read', 'git.runners.read', 'webhook.read', 'integrations.read', 'api.manage_keys', 'devops.containers.read', 'devops.swarm.read', 'devops.docker.read', 'devops.kubernetes.read'],
       collapsible: true,
       defaultExpanded: true,
       order: 11
