@@ -18,48 +18,25 @@ RSpec.describe 'Worker-Backend Communication', type: :integration do
   # endpoint and BackendApiClient#verify_service_token method were removed
   # alongside the JWT path conversion (#110).
 
-  describe 'Job Status Reporting Flow' do
-    let(:job_id) { 'job-integration-test-123' }
-    let(:job_result) do
-      {
-        status: 'completed',
-        duration: 2.5,
-        processed_items: 100,
-        errors: []
-      }
-    end
+  # PATCH transport: a 5xx from the backend surfaces as ApiError so the
+  # calling job can retry. (Success on PATCH is covered by
+  # backend_api_client_spec's #patch example.) Uses a live internal PATCH
+  # route.
+  describe 'Status update transport' do
+    let(:execution_id) { 'task-execution-integration-123' }
+    let(:path) { "/api/v1/internal/maintenance/task_executions/#{execution_id}" }
 
-    before do
-      stub_job_status_update(job_id)
-    end
-
-    it 'reports job status to backend' do
-      response = api_client.patch("/api/v1/internal/jobs/#{job_id}", {
-        status: job_result[:status],
-        result: job_result
-      })
-      
-      expect(response).to include('success' => true)
-      
-      expect_api_request(:patch, "/api/v1/internal/jobs/#{job_id}", 
-        with_body: {
-          status: 'completed',
-          result: job_result
-        }
-      )
-    end
-
-    context 'when backend is unavailable during status update' do
+    context 'when backend is unavailable during a status update' do
       before do
-        stub_backend_api_error(:patch, "/api/v1/internal/jobs/#{job_id}", 
-          status: 503, 
+        stub_backend_api_error(:patch, path,
+          status: 503,
           error_message: 'Service temporarily unavailable'
         )
       end
 
       it 'raises appropriate error for retry handling' do
         expect {
-          api_client.patch("/api/v1/internal/jobs/#{job_id}", { status: 'completed' })
+          api_client.patch(path, { status: 'completed' })
         }.to raise_error(BackendApiClient::ApiError) do |error|
           expect(error.status).to eq(503)
           expect(error.message).to eq('Backend server error')

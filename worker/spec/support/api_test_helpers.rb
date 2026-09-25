@@ -120,16 +120,6 @@ module ApiTestHelpers
     })
   end
 
-  def stub_job_status_update(job_id)
-    stub_backend_api_success(:patch, "/api/v1/internal/jobs/#{job_id}", {
-      success: true,
-      data: {
-        id: job_id,
-        status: 'completed'
-      }
-    })
-  end
-
   def stub_email_delivery_success
     stub_backend_api_success(:post, '/api/v1/internal/notifications/email', {
       success: true,
