@@ -394,22 +394,21 @@ class LlmProxyClient
     return 0.0 unless model
 
     pricing = resolve_pricing(model.to_s)
+    # Same formula as the server's Ai::CostCalculationService: cache reads and
+    # writes are subsets of prompt_tokens; an unmodelled (0) rate is the input rate.
     input_per_1k = (pricing["input_per_1k"] || 0).to_f
-    output_per_1k = (pricing["output_per_1k"] || 0).to_f
-    cached_per_1k = (pricing["cached_input_per_1k"] || 0).to_f
+    read_per_1k = (pricing["cached_input_per_1k"] || 0).to_f
+    read_per_1k = input_per_1k unless read_per_1k.positive?
+    write_per_1k = (pricing["cache_write_per_1k"] || 0).to_f
+    write_per_1k = input_per_1k unless write_per_1k.positive?
 
-    prompt = response.prompt_tokens
-    completion = response.completion_tokens
     cached = response.cached_tokens
-    non_cached = [prompt - cached, 0].max
+    written = response.cache_creation_tokens
+    uncached = [response.prompt_tokens - cached - written, 0].max
 
-    input_cost = if cached_per_1k > 0 && cached > 0
-                   (non_cached / 1000.0) * input_per_1k + (cached / 1000.0) * cached_per_1k
-                 else
-                   (prompt / 1000.0) * input_per_1k
-                 end
-
-    output_cost = (completion / 1000.0) * output_per_1k
+    input_cost = (uncached / 1000.0) * input_per_1k + (cached / 1000.0) * read_per_1k +
+                 (written / 1000.0) * write_per_1k
+    output_cost = (response.completion_tokens / 1000.0) * (pricing["output_per_1k"] || 0).to_f
     (input_cost + output_cost).round(6)
   end
 

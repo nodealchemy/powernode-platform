@@ -313,6 +313,7 @@ module Ai
           input_per_1k: pricing["input"],
           output_per_1k: pricing["output"],
           cached_input_per_1k: pricing["cached_input"],
+          cache_write_per_1k: pricing["cache_write"] || 0,
           tier: pricing["tier"],
           model_id: params[:model_id],
           provider_type: params[:provider_type]

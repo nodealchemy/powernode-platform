@@ -155,4 +155,22 @@ RSpec.describe Ai::Autonomy::PricingSyncService do
       expect(Ai::ModelPricing.find_by(model_id: "claude-opus-4-8").tier).to eq("standard")
     end
   end
+
+  # LiteLLM's cache_creation_input_token_cost reaches the catalog as the
+  # per-1K cache-write rate CostCalculationService prices writes with.
+  describe "cache write rate" do
+    it "syncs cache_creation_input_token_cost into cache_write_per_1k" do
+      data = { "anthropic/cost-sync-model" => {
+        "input_cost_per_token" => 0.000003, "output_cost_per_token" => 0.000015,
+        "cache_read_input_token_cost" => 0.0000003, "cache_creation_input_token_cost" => 0.00000375,
+        "litellm_provider" => "anthropic"
+      } }
+      result = { synced: 0, failed: 0, errors: [] }
+
+      described_class.send(:process_litellm_data, data, result)
+
+      pricing = Ai::ModelPricing.find_by!(model_id: "cost-sync-model")
+      expect(pricing.cache_write_per_1k.to_f).to eq(0.00375)
+    end
+  end
 end

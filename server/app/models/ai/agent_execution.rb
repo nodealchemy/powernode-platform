@@ -240,12 +240,14 @@ module Ai
                       performance_metrics&.dig("completion_tokens")&.to_i || 0
       cached = output_data&.dig("cached_tokens")&.to_i ||
                performance_metrics&.dig("cached_tokens")&.to_i || 0
+      written = performance_metrics&.dig("cache_creation_tokens").to_i
 
       Ai::CostCalculationService.calculate(
         model_id: model_id.to_s,
         prompt_tokens: input_tokens,
         completion_tokens: output_tokens,
-        cached_tokens: cached
+        cached_tokens: cached,
+        cache_creation_tokens: written
       )
     end
 

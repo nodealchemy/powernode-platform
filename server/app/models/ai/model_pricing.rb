@@ -38,6 +38,7 @@ module Ai
         "input" => input_per_1k.to_f,
         "output" => output_per_1k.to_f,
         "cached_input" => (cached_input_per_1k || 0).to_f,
+        "cache_write" => (cache_write_per_1k || 0).to_f,
         "tier" => tier
       }
     end

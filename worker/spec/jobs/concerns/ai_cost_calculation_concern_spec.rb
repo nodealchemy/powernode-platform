@@ -27,6 +27,18 @@ RSpec.describe AiCostCalculationConcern do
         .to be_within(1e-9).of(3.0)
     end
 
+    it 'prices cache writes at their own rate, and at the input rate when unmodelled' do
+      # uncached 500 * 3.0 + 400 * 0.3 + 100 * 3.75 = 1.5 + 0.12 + 0.375
+      expect(host.send(:token_cost, input_tokens: 1000, output_tokens: 0, cached_tokens: 400,
+                                    input_per_1k: 3.0, output_per_1k: 0.0, cached_per_1k: 0.3,
+                                    cache_creation_tokens: 100, cache_write_per_1k: 3.75))
+        .to be_within(1e-9).of(1.995)
+      expect(host.send(:token_cost, input_tokens: 1000, output_tokens: 0, cached_tokens: 0,
+                                    input_per_1k: 3.0, output_per_1k: 0.0, cached_per_1k: 0.0,
+                                    cache_creation_tokens: 1000, cache_write_per_1k: 0.0))
+        .to be_within(1e-9).of(3.0)
+    end
+
     it 'clamps non-cached input at zero when cached exceeds input' do
       # non_cached=0 → 0 + 0.5*0.3 = 0.15
       expect(host.send(:token_cost, input_tokens: 100, output_tokens: 0, cached_tokens: 500,
@@ -44,7 +56,8 @@ RSpec.describe AiCostCalculationConcern do
                             'cache_creation_input_tokens' => 100 } }
       expect(host.send(:calculate_anthropic_cost, data, 'claude')).to eq(
         host.send(:token_cost, input_tokens: 1500, output_tokens: 500, cached_tokens: 400,
-                               input_per_1k: 3.0, output_per_1k: 15.0, cached_per_1k: 0.3))
+                               input_per_1k: 3.0, output_per_1k: 15.0, cached_per_1k: 0.3,
+                               cache_creation_tokens: 100, cache_write_per_1k: 0.0))
     end
 
     it 'calculate_openai_cost matches token_cost' do

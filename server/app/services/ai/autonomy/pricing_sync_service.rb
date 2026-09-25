@@ -107,6 +107,7 @@ module Ai
             input_per_1k = (model_data["input_cost_per_token"].to_f * 1000).round(8)
             output_per_1k = (model_data["output_cost_per_token"].to_f * 1000).round(8)
             cached_per_1k = ((model_data["cache_read_input_token_cost"] || 0).to_f * 1000).round(8)
+            cache_write_per_1k = ((model_data["cache_creation_input_token_cost"] || 0).to_f * 1000).round(8)
 
             next if input_per_1k <= 0 && output_per_1k <= 0
 
@@ -116,6 +117,7 @@ module Ai
               input_per_1k: input_per_1k,
               output_per_1k: output_per_1k,
               cached_input_per_1k: cached_per_1k,
+              cache_write_per_1k: cache_write_per_1k,
               tier: classify_tier(input_per_1k),
               source: "litellm",
               last_synced_at: Time.current

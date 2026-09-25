@@ -127,6 +127,7 @@ class Ai::StreamingService
         prompt: usage[:prompt_tokens] || usage["prompt_tokens"] || 0,
         completion: usage[:completion_tokens] || usage["completion_tokens"] || 0,
         cached: usage[:cached_tokens] || usage["cached_tokens"] || 0,
+        cache_creation: usage[:cache_creation_tokens] || usage["cache_creation_tokens"] || 0,
         total: usage[:total_tokens] || usage["total_tokens"] || 0
       }
     end
@@ -349,7 +350,8 @@ class Ai::StreamingService
       model_id: model_id.to_s,
       prompt_tokens: token_count[:prompt] || 0,
       completion_tokens: token_count[:completion] || 0,
-      cached_tokens: token_count[:cached] || 0
+      cached_tokens: token_count[:cached] || 0,
+      cache_creation_tokens: token_count[:cache_creation] || 0
     )
   end
 end

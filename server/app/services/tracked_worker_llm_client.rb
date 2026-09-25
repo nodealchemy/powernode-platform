@@ -124,7 +124,8 @@ class TrackedWorkerLlmClient
       model_id: response.model.to_s,
       prompt_tokens: response.prompt_tokens,
       completion_tokens: response.completion_tokens,
-      cached_tokens: response.cached_tokens
+      cached_tokens: response.cached_tokens,
+      cache_creation_tokens: response.cache_creation_tokens
     )
 
     execution.update!(
