@@ -143,6 +143,10 @@ class TrackedWorkerLlmClient
         prompt_tokens: response.prompt_tokens,
         completion_tokens: response.completion_tokens,
         cached_tokens: response.cached_tokens,
+        # Phase 0 (a): cache writes and the stop reason, so a usage report can
+        # tell a cache that is rewritten every call, and max_tokens cut-offs.
+        cache_creation_tokens: response.cache_creation_tokens,
+        finish_reason: response.finish_reason,
         model: response.model,
         provider: response.provider,
         # Served-by attribution for the model-performance signal: on a Fable→X

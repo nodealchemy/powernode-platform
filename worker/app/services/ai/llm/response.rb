@@ -69,6 +69,10 @@ module Ai
         usage[:cached_tokens] || 0
       end
 
+      def cache_creation_tokens
+        usage[:cache_creation_tokens] || 0
+      end
+
       def to_h
         {
           content: content,
@@ -94,6 +98,8 @@ module Ai
           prompt_tokens: raw[:prompt_tokens] || raw[:input_tokens] || 0,
           completion_tokens: raw[:completion_tokens] || raw[:output_tokens] || 0,
           cached_tokens: raw[:cached_tokens] || raw[:cache_read_input_tokens] || 0,
+          # Anthropic cache WRITES (billed above the base input rate); 0 elsewhere.
+          cache_creation_tokens: raw[:cache_creation_tokens] || raw[:cache_creation_input_tokens] || 0,
           total_tokens: raw[:total_tokens] || (
             (raw[:prompt_tokens] || raw[:input_tokens] || 0) +
             (raw[:completion_tokens] || raw[:output_tokens] || 0)

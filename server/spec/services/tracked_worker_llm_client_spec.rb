@@ -38,6 +38,20 @@ RSpec.describe TrackedWorkerLlmClient do
     expect(execution.ai_provider_id).not_to eq(raw_provider.id)
   end
 
+  # Phase 0 (a): the usage report reads these off performance_metrics.
+  it "records cache writes and the stop reason" do
+    allow(inner_client).to receive(:complete).and_return(
+      Ai::Llm::Response.new(content: "hi", model: "claude-x", provider: "anthropic", finish_reason: "max_tokens",
+                            usage: { prompt_tokens: 1, completion_tokens: 1, cache_creation_tokens: 40, total_tokens: 2 })
+    )
+
+    tracked_client.complete(messages: [ { role: "user", content: "hi" } ], model: "claude-x")
+
+    metrics = Ai::AgentExecution.order(:created_at).last.performance_metrics
+    expect(metrics["cache_creation_tokens"]).to eq(40)
+    expect(metrics["finish_reason"]).to eq("max_tokens")
+  end
+
   it "falls back to the raw provider association when resolution returns nil" do
     allow(agent).to receive(:resolved_provider).and_return(nil)
 

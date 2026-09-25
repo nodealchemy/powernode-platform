@@ -109,7 +109,7 @@ class LlmProxyClient
 
     tool_calls_log = []
     current_messages = deep_copy_messages(messages)
-    total_usage = { prompt_tokens: 0, completion_tokens: 0, cached_tokens: 0, total_tokens: 0 }
+    total_usage = { prompt_tokens: 0, completion_tokens: 0, cached_tokens: 0, cache_creation_tokens: 0, total_tokens: 0 }
     total_cost = 0.0
     last_response = nil
     last_served_by = nil
@@ -419,6 +419,7 @@ class LlmProxyClient
     total[:prompt_tokens] += (iteration_usage[:prompt_tokens] || 0)
     total[:completion_tokens] += (iteration_usage[:completion_tokens] || 0)
     total[:cached_tokens] += (iteration_usage[:cached_tokens] || 0)
+    total[:cache_creation_tokens] += (iteration_usage[:cache_creation_tokens] || 0)
     total[:total_tokens] += (iteration_usage[:total_tokens] || 0)
   end
 

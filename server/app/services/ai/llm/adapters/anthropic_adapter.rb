@@ -184,6 +184,7 @@ module Ai
                 if parsed.dig("message", "usage")
                   usage_data[:prompt_tokens] = parsed["message"]["usage"]["input_tokens"]
                   usage_data[:cached_tokens] = parsed["message"]["usage"]["cache_read_input_tokens"] || 0
+                  usage_data[:cache_creation_tokens] = parsed["message"]["usage"]["cache_creation_input_tokens"] || 0
                 end
               end
             end
@@ -341,6 +342,7 @@ module Ai
               prompt_tokens: usage["input_tokens"] || 0,
               completion_tokens: usage["output_tokens"] || 0,
               cached_tokens: usage["cache_read_input_tokens"] || 0,
+              cache_creation_tokens: usage["cache_creation_input_tokens"] || 0,
               total_tokens: (usage["input_tokens"] || 0) + (usage["output_tokens"] || 0)
             },
             thinking_content: (refusal ? nil : thinking.presence),

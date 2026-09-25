@@ -450,6 +450,7 @@ module Ai
                        refusal: refusal,
                        usage: { prompt_tokens: u["input_tokens"] || 0, completion_tokens: u["output_tokens"] || 0,
                                 cached_tokens: u["cache_read_input_tokens"] || 0,
+                                cache_creation_tokens: u["cache_creation_input_tokens"] || 0,
                                 total_tokens: (u["input_tokens"] || 0) + (u["output_tokens"] || 0) })
       end
 
@@ -542,6 +543,7 @@ module Ai
               if p.dig("message", "usage")
                 usage[:prompt_tokens] = p["message"]["usage"]["input_tokens"]
                 usage[:cached_tokens] = p["message"]["usage"]["cache_read_input_tokens"] || 0
+                usage[:cache_creation_tokens] = p["message"]["usage"]["cache_creation_input_tokens"] || 0
               end
             end
           end
