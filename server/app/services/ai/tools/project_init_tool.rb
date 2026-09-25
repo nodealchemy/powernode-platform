@@ -9,12 +9,16 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "create_gitea_repository", mutating: true
+      declare_action "create_gitea_repository", mutating: true,
+                                                returns: "the repository name, clone URL and default branch, plus files_created",
+                                                refuses: "the account has no active Gitea credential"
 
       def self.definition
         {
           name: "create_gitea_repository",
-          description: "Create a new Gitea repository with project scaffold",
+          description: "Create a Gitea repository and seed it with a fixed Todo-app scaffold. " \
+                       "It uses the account's default active Gitea credential, auto-initializes the repository on branch master, " \
+                       "then commits README.md, .gitignore, docs/ARCHITECTURE.md and docs/TASKS.md; files_created lists the files that were written.",
           parameters: {
             repo_name: { type: "string", required: true, description: "Repository name" },
             description: { type: "string", required: false, description: "Repository description" },
@@ -27,7 +31,9 @@ module Ai
       def self.action_definitions
         {
           "create_gitea_repository" => {
-            description: "Create a new Gitea repository with project scaffold",
+            description: "Create a Gitea repository and seed it with a fixed Todo-app scaffold. " \
+                         "It uses the account's default active Gitea credential, auto-initializes the repository on branch master, " \
+                         "then commits README.md, .gitignore, docs/ARCHITECTURE.md and docs/TASKS.md; files_created lists the files that were written.",
             parameters: {
               repo_name: { type: "string", required: true, description: "Repository name" },
               description: { type: "string", required: false, description: "Repository description" },
