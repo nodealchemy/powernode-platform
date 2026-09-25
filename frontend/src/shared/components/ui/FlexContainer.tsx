@@ -74,20 +74,6 @@ export const FlexContainer: React.FC<FlexContainerProps> = ({
   return React.createElement(Component, { className: classes }, children);
 };
 
-
-// Commonly used variations as convenience exports
-export const FlexRow: React.FC<Omit<FlexContainerProps, 'direction'>> = (props) => (
-  <FlexContainer direction="row" {...props} />
-);
-
-export const FlexCol: React.FC<Omit<FlexContainerProps, 'direction'>> = (props) => (
-  <FlexContainer direction="col" {...props} />
-);
-
-export const FlexCentered: React.FC<Omit<FlexContainerProps, 'align' | 'justify'>> = (props) => (
-  <FlexContainer align="center" justify="center" {...props} />
-);
-
 export const FlexBetween: React.FC<Omit<FlexContainerProps, 'justify'>> = (props) => (
   <FlexContainer justify="between" {...props} />
 );

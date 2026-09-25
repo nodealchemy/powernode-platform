@@ -265,7 +265,7 @@ const canEdit = currentUser?.permissions?.includes('widgets.update');
 
 return (
   <Card>
-    <CardBody>{widget.name}</CardBody>
+    <CardContent>{widget.name}</CardContent>
     {canEdit && <Button onClick={openEdit}>Edit</Button>}
   </Card>
 );

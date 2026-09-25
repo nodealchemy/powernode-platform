@@ -165,94 +165,9 @@
     "reason": "consumed only outside the public tree; a public export must be used by public code (follow-up offer: move it out of core)"
   },
   {
-    "path": "frontend/src/shared/components/ui/Card.tsx",
-    "name": "CardBody",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/Card.tsx",
-    "name": "CardDescription",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/Card.tsx",
-    "name": "CardFooter",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/Card.tsx",
-    "name": "CardTitle",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
     "path": "frontend/src/shared/components/ui/DateRangePicker.tsx",
     "name": "DateRangePicker",
     "reason": "consumed only outside the public tree; a public export must be used by public code (follow-up offer: move it out of core)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/FlexContainer.tsx",
-    "name": "FlexCentered",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/FlexContainer.tsx",
-    "name": "FlexCol",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/FlexContainer.tsx",
-    "name": "FlexRow",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/GridContainer.tsx",
-    "name": "GridAutoFit",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/GridContainer.tsx",
-    "name": "GridCols2",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/GridContainer.tsx",
-    "name": "GridCols3",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/GridContainer.tsx",
-    "name": "GridCols4",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/GridContainer.tsx",
-    "name": "GridResponsive",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/Modal.tsx",
-    "name": "__resetModalStackForTests",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/StatusIndicator.tsx",
-    "name": "ActiveStatus",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/StatusIndicator.tsx",
-    "name": "ErrorStatus",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/StatusIndicator.tsx",
-    "name": "InactiveStatus",
-    "reason": "pending deletion (operator-confirm)"
-  },
-  {
-    "path": "frontend/src/shared/components/ui/StatusIndicator.tsx",
-    "name": "LoadingStatus",
-    "reason": "pending deletion (operator-confirm)"
   },
   {
     "path": "frontend/src/shared/components/ui/verdictCoverage.ts",

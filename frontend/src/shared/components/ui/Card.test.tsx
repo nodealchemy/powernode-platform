@@ -1,16 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import {
-  Card,
-  CardHeader,
-  CardBody,
-  CardFooter,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  MetricCard,
-  ActionCard
-} from './Card';
+import { Card, CardHeader, CardContent, MetricCard, ActionCard } from './Card';
 
 describe('Card', () => {
   describe('rendering', () => {
@@ -188,64 +178,6 @@ describe('CardHeader', () => {
   it('applies custom className', () => {
     const { container } = render(<CardHeader title="Title" className="custom-header" />);
     expect(container.firstChild).toHaveClass('custom-header');
-  });
-});
-
-describe('CardBody', () => {
-  it('renders children correctly', () => {
-    render(<CardBody>Body content</CardBody>);
-    expect(screen.getByText('Body content')).toBeInTheDocument();
-  });
-
-  it('applies custom className', () => {
-    const { container } = render(<CardBody className="custom-body">Content</CardBody>);
-    expect(container.firstChild).toHaveClass('custom-body');
-  });
-});
-
-describe('CardFooter', () => {
-  it('renders children correctly', () => {
-    render(<CardFooter>Footer content</CardFooter>);
-    expect(screen.getByText('Footer content')).toBeInTheDocument();
-  });
-
-  it('applies divider by default', () => {
-    const { container } = render(<CardFooter>Footer</CardFooter>);
-    expect(container.firstChild).toHaveClass('border-t');
-  });
-
-  it('removes divider when divider is false', () => {
-    const { container } = render(<CardFooter divider={false}>Footer</CardFooter>);
-    expect(container.firstChild).not.toHaveClass('border-t');
-  });
-
-  it('applies custom className', () => {
-    const { container } = render(<CardFooter className="custom-footer">Footer</CardFooter>);
-    expect(container.firstChild).toHaveClass('custom-footer');
-  });
-});
-
-describe('CardTitle', () => {
-  it('renders children correctly', () => {
-    render(<CardTitle>Title Text</CardTitle>);
-    expect(screen.getByText('Title Text')).toBeInTheDocument();
-  });
-
-  it('applies custom className', () => {
-    const { container } = render(<CardTitle className="custom-title">Title</CardTitle>);
-    expect(container.firstChild).toHaveClass('custom-title');
-  });
-});
-
-describe('CardDescription', () => {
-  it('renders children correctly', () => {
-    render(<CardDescription>Description text</CardDescription>);
-    expect(screen.getByText('Description text')).toBeInTheDocument();
-  });
-
-  it('applies custom className', () => {
-    const { container } = render(<CardDescription className="custom-desc">Desc</CardDescription>);
-    expect(container.firstChild).toHaveClass('custom-desc');
   });
 });
 

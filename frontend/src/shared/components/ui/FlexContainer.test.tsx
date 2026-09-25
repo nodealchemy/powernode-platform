@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { FlexContainer, FlexRow, FlexCol, FlexCentered, FlexBetween, FlexItemsCenter } from './FlexContainer';
+import { FlexContainer, FlexBetween, FlexItemsCenter } from './FlexContainer';
 
 describe('FlexContainer', () => {
   describe('rendering', () => {
@@ -238,35 +238,6 @@ describe('FlexContainer', () => {
 });
 
 describe('Convenience Components', () => {
-  describe('FlexRow', () => {
-    it('renders row direction', () => {
-      const { container } = render(
-        <FlexRow>Content</FlexRow>
-      );
-
-      expect(container.firstChild).toHaveClass('flex-row');
-    });
-  });
-
-  describe('FlexCol', () => {
-    it('renders column direction', () => {
-      const { container } = render(
-        <FlexCol>Content</FlexCol>
-      );
-
-      expect(container.firstChild).toHaveClass('flex-col');
-    });
-  });
-
-  describe('FlexCentered', () => {
-    it('renders centered content', () => {
-      const { container } = render(
-        <FlexCentered>Content</FlexCentered>
-      );
-
-      expect(container.firstChild).toHaveClass('items-center', 'justify-center');
-    });
-  });
 
   describe('FlexBetween', () => {
     it('renders space-between', () => {

@@ -219,45 +219,6 @@ export const CardHeader: React.FC<CardHeaderProps> = ({
   );
 };
 
-// Card Body Component
-export interface CardBodyProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export const CardBody: React.FC<CardBodyProps> = ({
-  children,
-  className = ''
-}) => {
-  return (
-    <div className={`text-theme-secondary ${className}`}>
-      {children}
-    </div>
-  );
-};
-
-// Card Footer Component
-export interface CardFooterProps {
-  children: React.ReactNode;
-  className?: string;
-  divider?: boolean;
-}
-
-export const CardFooter: React.FC<CardFooterProps> = ({
-  children,
-  className = '',
-  divider = true
-}) => {
-  return (
-    <div className={`
-      ${divider ? 'border-t border-theme pt-4 mt-4' : 'mt-4'}
-      ${className}
-    `}>
-      {children}
-    </div>
-  );
-};
-
 // Metric Card Component for dashboard statistics
 export interface MetricCardProps {
   title: string;
@@ -437,39 +398,6 @@ export const ActionCard: React.FC<ActionCardProps> = ({
   }
 
   return cardContent;
-};
-
-// Standard Card Sub-components for consistency with shadcn/ui pattern
-export interface CardTitleProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export const CardTitle: React.FC<CardTitleProps> = ({
-  children,
-  className = ''
-}) => {
-  return (
-    <h3 className={`text-lg font-semibold text-theme-primary ${className}`}>
-      {children}
-    </h3>
-  );
-};
-
-export interface CardDescriptionProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-export const CardDescription: React.FC<CardDescriptionProps> = ({
-  children,
-  className = ''
-}) => {
-  return (
-    <p className={`text-sm text-theme-secondary ${className}`}>
-      {children}
-    </p>
-  );
 };
 
 export interface CardContentProps {

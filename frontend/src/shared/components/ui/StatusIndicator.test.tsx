@@ -1,11 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import {
-  StatusIndicator,
-  ActiveStatus,
-  InactiveStatus,
-  LoadingStatus,
-  ErrorStatus,
-} from './StatusIndicator';
+import { StatusIndicator } from './StatusIndicator';
 
 describe('StatusIndicator', () => {
   describe('rendering', () => {
@@ -119,59 +113,5 @@ describe('StatusIndicator', () => {
 });
 
 describe('Convenience Components', () => {
-  describe('ActiveStatus', () => {
-    it('renders active status', () => {
-      render(<ActiveStatus />);
 
-      expect(screen.getByText('Active')).toBeInTheDocument();
-    });
-
-    it('accepts custom text', () => {
-      render(<ActiveStatus text="Running" />);
-
-      expect(screen.getByText('Running')).toBeInTheDocument();
-    });
-  });
-
-  describe('InactiveStatus', () => {
-    it('renders inactive status', () => {
-      render(<InactiveStatus />);
-
-      expect(screen.getByText('Inactive')).toBeInTheDocument();
-    });
-
-    it('accepts custom text', () => {
-      render(<InactiveStatus text="Stopped" />);
-
-      expect(screen.getByText('Stopped')).toBeInTheDocument();
-    });
-  });
-
-  describe('LoadingStatus', () => {
-    it('renders loading status', () => {
-      render(<LoadingStatus />);
-
-      expect(screen.getByText('Loading')).toBeInTheDocument();
-    });
-
-    it('accepts custom text', () => {
-      render(<LoadingStatus text="Processing..." />);
-
-      expect(screen.getByText('Processing...')).toBeInTheDocument();
-    });
-  });
-
-  describe('ErrorStatus', () => {
-    it('renders error status', () => {
-      render(<ErrorStatus />);
-
-      expect(screen.getByText('Error')).toBeInTheDocument();
-    });
-
-    it('accepts custom text', () => {
-      render(<ErrorStatus text="Failed" />);
-
-      expect(screen.getByText('Failed')).toBeInTheDocument();
-    });
-  });
 });

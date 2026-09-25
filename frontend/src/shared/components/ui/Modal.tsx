@@ -74,17 +74,6 @@ function isTopmostModal(instanceId: string): boolean {
   return deepest[deepest.length - 1]?.instanceId === instanceId;
 }
 
-// Test-only reset seam (C14-4). Module-wide state cannot leak between RTL
-// tests through normal unmount/cleanup (push and pop are balanced by React's
-// own effect cleanup), but a raw root that skips RTL's cleanup — or a test
-// that crashes mid-render — could leave it dirty for the next test file in
-// the same worker. Never called from application code.
-export function __resetModalStackForTests(): void {
-  openModalStack = [];
-  scrollLockCount = 0;
-  document.body.style.overflow = 'unset';
-}
-
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;

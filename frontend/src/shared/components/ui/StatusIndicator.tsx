@@ -69,21 +69,3 @@ export const StatusIndicator: React.FC<StatusIndicatorProps> = ({
   );
 };
 
-
-// Convenience components for common statuses
-export const ActiveStatus: React.FC<Omit<StatusIndicatorProps, 'status'>> = (props) => (
-  <StatusIndicator status="active" {...props} />
-);
-
-export const InactiveStatus: React.FC<Omit<StatusIndicatorProps, 'status'>> = (props) => (
-  <StatusIndicator status="inactive" {...props} />
-);
-
-export const LoadingStatus: React.FC<Omit<StatusIndicatorProps, 'status'>> = (props) => (
-  <StatusIndicator status="loading" {...props} />
-);
-
-export const ErrorStatus: React.FC<Omit<StatusIndicatorProps, 'status'>> = (props) => (
-  <StatusIndicator status="error" {...props} />
-);
-

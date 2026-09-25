@@ -1,6 +1,5 @@
 // Layout Components
 export * from '@/shared/components/ui/FlexContainer';
-export * from '@/shared/components/ui/GridContainer';
 
 // UI Components
 export * from '@/shared/components/ui/Badge';
