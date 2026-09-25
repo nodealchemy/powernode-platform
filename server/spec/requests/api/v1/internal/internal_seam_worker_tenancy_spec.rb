@@ -141,7 +141,7 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
       }
     },
     {
-      name: "internal/approval_tokens#show (foreign pipeline step details)",
+      name: "internal/devops/approval_tokens#show (foreign pipeline step details)",
       build: ->(account, sentinel) {
         pipeline = FactoryBot.create(:devops_pipeline, account: account)
         run  = FactoryBot.create(:devops_pipeline_run, pipeline: pipeline)
@@ -149,7 +149,7 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
         FactoryBot.create(:devops_step_execution, pipeline_run: run, pipeline_step: step)
       },
       request: ->(ctx, worker, rec) {
-        ctx.get "/api/v1/internal/approval_tokens/#{rec.id}", headers: ctx.headers_for(worker)
+        ctx.get "/api/v1/internal/devops/approval_tokens/#{rec.id}", headers: ctx.headers_for(worker)
       }
     },
     {
@@ -186,7 +186,7 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
     internal/devops/docker#connection
     internal/devops/swarm#connection
     internal/devops/integration_health#probe
-    internal/approval_tokens#show
+    internal/devops/approval_tokens#show
     internal/ai/goal_plans#execute_step
     internal/ai/improvement_discovery#run
     internal/ai/improvement_discovery#timed_out
@@ -424,7 +424,7 @@ RSpec.describe "Internal seam cross-account worker tenancy", type: :request do
   # ==========================================================================
   describe "approval_tokens#create_tokens" do
     def create_tokens(worker, step_execution, recipients)
-      post "/api/v1/internal/approval_tokens/#{step_execution.id}/create_tokens",
+      post "/api/v1/internal/devops/approval_tokens/#{step_execution.id}/create_tokens",
         params: { recipients: recipients }.to_json, headers: headers_for(worker)
     end
 
