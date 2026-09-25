@@ -10,7 +10,7 @@ import {
   Route, MessageSquare, Share2, Lock, Lightbulb
 } from 'lucide-react';
 import { NavigationConfig } from '@/shared/types/navigation';
-import { CONTROL_PERMISSIONS } from '@/features/ai/control/controlPaths';
+import { CONTROL_PERMISSIONS } from '@/shared/constants/controlPermissions';
 
 export const defaultNavigationConfig: NavigationConfig = {
   items: [

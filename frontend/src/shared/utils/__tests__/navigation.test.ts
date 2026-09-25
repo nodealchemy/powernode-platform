@@ -1,6 +1,6 @@
 import { defaultNavigationConfig } from '@/shared/utils/navigation';
 import { hasAccess } from '@/shared/utils/permissionUtils';
-import { CONTROL_PERMISSIONS } from '@/features/ai/control/controlPaths';
+import { CONTROL_PERMISSIONS } from '@/shared/constants/controlPermissions';
 import type { User } from '@/shared/services/slices/authSlice';
 
 const sections = defaultNavigationConfig.sections ?? [];

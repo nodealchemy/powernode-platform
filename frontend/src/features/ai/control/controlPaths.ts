@@ -8,19 +8,5 @@ export const CONTROL_BASE_PATH = '/app/ai/control';
  */
 export const CONTROL_APPROVALS_PATH = `${CONTROL_BASE_PATH}/approvals/queue`;
 
-/**
- * Every permission that opens some part of Control: the route guard. The
- * ControlPage suite pins this to the leaves' own gates, so it cannot drift.
- */
-export const CONTROL_PERMISSIONS: string[] = [
-  'ai.agents.read',
-  'ai.proposals.view',
-  'ai.escalations.view',
-  'ai.approval_chains.manage',
-  'ai.intervention_policies.manage',
-  'ai.governance.read',
-  'ai.kill_switch.manage',
-  'ai.security.manage',
-  'ai.feedback.view',
-  'ai.goals.manage',
-];
+/** Every permission that opens some part of Control (defined in shared for the nav gate). */
+export { CONTROL_PERMISSIONS } from '@/shared/constants/controlPermissions';
