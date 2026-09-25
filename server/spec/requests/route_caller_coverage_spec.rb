@@ -9,6 +9,7 @@ require "rails_helper"
 # design has no frontend/MCP caller) must have EITHER:
 #   - a frontend literal caller (core + public/private extension frontend), or
 #   - an MCP-tool / extension-service caller, or
+#   - a worker-job or Go node-agent caller, or
 #   - be an INBOUND webhook/callback receiver, listed below with a reason
 #     (a third party calls these, not our own frontend or MCP tooling — a
 #     literal-string search can never find that caller because it doesn't
@@ -24,7 +25,7 @@ RSpec.describe "Route caller coverage", type: :routing do
   # One-way ratchet: pinned to the baseline's EXACT size. A shrink (a route
   # gets a caller, or is deleted) must lower this in the same diff, so the
   # freed slot can never be silently re-spent; growing it is never an option.
-  MAX_BASELINE_SIZE = 552
+  MAX_BASELINE_SIZE = 452
   # controller#action => human reason it is legitimately caller-less from
   # OUR OWN code's point of view. Every entry here is a receiver: the request
   # originates from a third party (a git/registry provider, a spawned agent
@@ -190,6 +191,55 @@ RSpec.describe "Route caller coverage", type: :routing do
       text = "api.get(`/supply_chain/sboms/${sbomId}/components/${componentId}/vulnerabilities`);"
 
       expect(literal_caller?("/api/v1/components/:id", text)).to be(false)
+    end
+
+    # Review round 4: the worker (standalone Sidekiq) and the Go node agent
+    # call the API over HTTP too; a route only they call is not dead.
+    it "counts a worker job's server_post path literal" do
+      text = <<~RUBY
+        response = server_post(
+          "/api/v1/admin/daily_summaries/generate",
+          { account_id: account_id }
+        )
+      RUBY
+
+      expect(literal_caller?("/api/v1/admin/daily_summaries/generate", text)).to be(true)
+    end
+
+    it "counts a Go agent's fmt.Sprintf path with a %s segment" do
+      text = 'path := fmt.Sprintf("/api/v1/system/node_api/storage_assignments/%s/status", id)'
+
+      expect(literal_caller?("/api/v1/system/node_api/storage_assignments/:id/status", text)).to be(true)
+    end
+
+    it "scans the worker and the Go agent trees, but not their tests" do
+      dirs = RouteCallerCoverageChecker::SERVICE_DIRS
+      expect(dirs).to include("worker/app/jobs", "worker/app/services", "extensions/system/agent")
+      expect(dirs).not_to include("worker/app/controllers")
+      expect(RouteCallerCoverageChecker.caller_source_file?("/x/worker/app/jobs/a_job.rb")).to be(true)
+      expect(RouteCallerCoverageChecker.caller_source_file?("/x/agent/internal/y/client.go")).to be(true)
+      expect(RouteCallerCoverageChecker.caller_source_file?("/x/agent/internal/y/client_test.go")).to be(false)
+      expect(RouteCallerCoverageChecker.caller_source_file?("/x/agent/internal/y/client.py")).to be(false)
+    end
+
+    it "does not count a whole-line Go or Ruby comment as a caller" do
+      checker = RouteCallerCoverageChecker
+      go = "//   - Otherwise, POSTs to <parent_url>/api/v1/system/federation_api/accept\n"
+      rb = "  # calls /api/v1/admin/daily_summaries/generate nightly\n"
+      interp = "  \#{base}/api/v1/admin/daily_summaries/generate\n"
+
+      expect(checker.send(:strip_comment_lines, go)).to eq("")
+      expect(checker.send(:strip_comment_lines, rb)).to eq("")
+      expect(checker.send(:strip_comment_lines, interp)).to eq(interp)
+    end
+
+    it "credits a route only the worker calls" do
+      route = RouteCallerCoverageChecker.non_internal_api_v1_routes.find do |r|
+        r.key == "api/v1/admin/daily_summaries#generate"
+      end
+
+      expect(route).not_to be_nil
+      expect(RouteCallerCoverageChecker.covered?(route)).to be(true)
     end
 
     it "credits the real callers these shapes used to miss" do

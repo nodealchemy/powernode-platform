@@ -11,7 +11,10 @@ require "set"
 #     frontend/src, and — best-effort, since they're gitignored and may not
 #     be present at guard-run time — private extensions' frontend/src), or
 #   - an MCP-TOOL / EXTENSION-SERVICE caller (server/app/services/ai/tools,
-#     and every extension's server/app/services tree, core + private).
+#     and every extension's server/app/services tree, core + private), or
+#   - a WORKER or NODE-AGENT caller: the standalone Sidekiq worker's jobs and
+#     services, and any extension's Go agent (tests and whole-line comments
+#     excluded).
 #
 # MATCHING HEURISTIC (two tiers, because this codebase has two real calling
 # shapes for the same route):
@@ -75,17 +78,39 @@ module RouteCallerCoverageChecker
     ] + PRIVATE_EXTENSION_NAMES.map { |name| "extensions/private/#{name}/frontend/src" }
   ).freeze
 
+  # Server-side callers: MCP tools and extension services, plus the two
+  # other processes that call the API over HTTP — the standalone Sidekiq
+  # worker (`server_post("/api/v1/...")`) and any Go node agent shipped by an
+  # extension (`fmt.Sprintf("/api/v1/.../%s/...", id)`). Agent directories
+  # are globbed, like the private-extension list above, so no extension is
+  # named here beyond the public ones.
+  AGENT_DIRS = Dir.glob(File.join(REPO_ROOT, "{agent,extensions/*/agent,extensions/private/*/agent}"))
+    .select { |d| File.directory?(d) }
+    .map { |d| d.delete_prefix("#{REPO_ROOT}/") }
+    .sort
+    .freeze
+
   SERVICE_DIRS = (
     [
       "server/app/services/ai/tools",
       "extensions/system/server/app/services",
       "extensions/marketing/server/app/services",
-      "extensions/supply-chain/server/app/services"
-    ] + PRIVATE_EXTENSION_NAMES.map { |name| "extensions/private/#{name}/server/app/services" }
+      "extensions/supply-chain/server/app/services",
+      # Not worker/app/controllers: those declare the worker's OWN endpoints
+      # (`['POST', '/api/v1/jobs']`), which are not calls to this server.
+      "worker/app/jobs",
+      "worker/app/services"
+    ] + PRIVATE_EXTENSION_NAMES.map { |name| "extensions/private/#{name}/server/app/services" } + AGENT_DIRS
   ).freeze
 
   FRONTEND_EXTS = %w[.ts .tsx].freeze
-  SERVICE_EXTS = %w[.rb].freeze
+  SERVICE_EXTS = %w[.rb .go].freeze
+  # A test that builds a route path is not a caller of it.
+  SERVICE_TEST_FILE = /(_test\.go|_spec\.rb)\z/.freeze
+  # A whole-line Ruby `#` or Go `//` comment that mentions a path is prose,
+  # not a call (e.g. "POSTs to <parent_url>/api/v1/..."). Only whole lines:
+  # a trailing comment can't be told from `#{...}` interpolation cheaply.
+  SERVICE_COMMENT_LINE = %r{\A\s*(?:#(?!\{)|//)}.freeze
 
   API_CALL_HINT = /buildPath\(|apiClient\.|api\.(get|post|put|patch|delete)\(|this\.(get|post|put|patch|delete)\(/.freeze
   QUOTED_TOKEN = /(['"`])([A-Za-z0-9_\-]{1,60})\1/.freeze
@@ -156,6 +181,11 @@ module RouteCallerCoverageChecker
       resolved.match?(contiguous_regex(path_segments(path)))
     end
 
+    # Whether `file` belongs in the server-side caller corpus.
+    def caller_source_file?(file)
+      SERVICE_EXTS.include?(File.extname(file)) && !SERVICE_TEST_FILE.match?(file)
+    end
+
     def reset_memoized_corpus!
       @frontend_file_index = nil
       @service_file_index = nil
@@ -172,7 +202,7 @@ module RouteCallerCoverageChecker
     end
 
     def service_file_index
-      @service_file_index ||= build_file_index(SERVICE_DIRS, SERVICE_EXTS)
+      @service_file_index ||= build_file_index(SERVICE_DIRS, SERVICE_EXTS, reject: SERVICE_TEST_FILE)
     end
 
     def frontend_blob
@@ -184,7 +214,7 @@ module RouteCallerCoverageChecker
     end
 
     # file => { text:, tokens: Set[quoted string contents], api_hint: bool }
-    def build_file_index(dirs, exts)
+    def build_file_index(dirs, exts, reject: nil)
       sources = {}
       dirs.each do |rel_dir|
         dir = File.join(REPO_ROOT, rel_dir)
@@ -193,8 +223,11 @@ module RouteCallerCoverageChecker
         Dir.glob(File.join(dir, "**", "*")).each do |file|
           next unless exts.include?(File.extname(file))
           next if file.include?("/node_modules/")
+          next if reject&.match?(file)
 
-          sources[file] = strip_import_lines(File.read(file))
+          text = strip_import_lines(File.read(file))
+          text = strip_comment_lines(text) if reject
+          sources[file] = text
         rescue StandardError
           next
         end
@@ -209,6 +242,10 @@ module RouteCallerCoverageChecker
 
     def strip_import_lines(text)
       text.lines.reject { |line| IMPORT_LINE.match?(line) }.join
+    end
+
+    def strip_comment_lines(text)
+      text.lines.reject { |line| SERVICE_COMMENT_LINE.match?(line) }.join
     end
 
     # Base-path names with exactly ONE value across the whole frontend
