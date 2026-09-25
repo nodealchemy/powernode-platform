@@ -7,7 +7,9 @@ argument-hint: [scope: backend|frontend|e2e|path/to/spec] [--loop]
 
 # Fix Tests Workflow
 
-Run the test suite for the given scope, diagnose failures, fix them, and re-run. Follow this process exactly:
+Run the test suite for the given scope, diagnose failures, fix them, and re-run. The fixed parts are the
+3-attempt limit per failure, the final re-run of the original scope, and the summary; how you diagnose
+each failure is your call (the Step 3 checklist lists common causes in this codebase).
 
 ## Step 1: Determine Scope & Mode
 
