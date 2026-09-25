@@ -859,11 +859,27 @@ RSpec.describe Ai::Tools::ImprovementTool do
       expect(loop_record.next_scheduled_at).to be_present
     end
 
-    it "refuses to enable autonomy while the kill switch is active" do
+    # W2-5: the refusal used to be success_result(halted: true) — a caller
+    # reading `success` saw autonomy enabled. It must be an error.
+    it "refuses to enable autonomy, as an error, while the kill switch is active" do
       allow_any_instance_of(Account).to receive(:ai_suspended?).and_return(true)
       result = tool.execute(params: { action: "enable_autonomy", agent_id: agent.id })
 
-      expect(result[:data][:halted]).to be true
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/emergency halt/i)
+      expect(account.ai_ralph_loops.find_by(name: "dev-improve").reload.scheduling_mode).to eq("manual")
+    end
+
+    # A halt thrown AFTER the tool's Account was loaded (another process ran
+    # emergency_halt!) must still refuse: the check reads the flag fresh.
+    it "refuses when the halt lands after the tool's account was loaded" do
+      Account.where(id: account.id).update_all(ai_suspended: true, ai_suspended_at: Time.current)
+      expect(account.ai_suspended?).to be false # the tool's in-memory copy is stale
+
+      result = tool.execute(params: { action: "enable_autonomy", agent_id: agent.id })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/emergency halt/i)
       expect(account.ai_ralph_loops.find_by(name: "dev-improve").reload.scheduling_mode).to eq("manual")
     end
 

@@ -44,9 +44,9 @@ module Ai
                               "promoted_task_status when a promoted task exists",
                      refuses: "no recommendation in this account has that id"
       declare_action "enable_autonomy", mutating: true,
-                     returns: "loop, scheduling_mode autonomous, default_agent and max_iterations_per_day; halted: true " \
-                              "instead when the kill switch is active",
-                     refuses: [ "the account has no dev-improve loop yet", "agent_id matches no active agent" ],
+                     returns: "loop, scheduling_mode autonomous, default_agent and max_iterations_per_day",
+                     refuses: [ "the account kill switch is active", "the account has no dev-improve loop yet",
+                                "agent_id matches no active agent" ],
                      see_also: { "disable_autonomy" => "returning the loop to operator-driven pull" }
       declare_action "list_improvements", mutating: false, limit: 50, refuses: "status is not one of pending, approved, applied, dismissed"
       declare_action "revert_improvement", mutating: true,
@@ -147,8 +147,9 @@ module Ai
             }
           },
           "enable_autonomy" => {
-            description: "Gated opt-in: flip the dev-improve loop to unattended autonomous push drained by a " \
-                         "capability-matched platform agent. OFF by default; refused while the kill switch is active.",
+            description: "Explicit opt-in: flip the dev-improve loop to unattended autonomous push drained by a " \
+                         "capability-matched platform agent. OFF by default; returns an error while the kill switch " \
+                         "is active.",
             parameters: {
               agent_id: { type: "string", required: true, description: "Agent (UUID/slug/name) to drain the loop" },
               max_iterations_per_day: { type: "integer", required: false, description: "Daily iteration cap" }
@@ -414,12 +415,19 @@ module Ai
         success_result(recommendation_id: rec.id, task_key: task.task_key, reverted_at: task.reverted_at&.iso8601)
       end
 
-      # Gated opt-in (Tier-2e): flip the dev-improve loop to unattended autonomous
-      # push, drained by a capability-matched platform agent. OFF by default — the
-      # loop is created manual; an operator must explicitly enable this. Refused
-      # while the kill switch is active.
+      # Explicit opt-in (Tier-2e): flip the dev-improve loop to unattended
+      # autonomous push, drained by a capability-matched platform agent. OFF by
+      # default — the loop is created manual; an operator must explicitly enable
+      # this. REFUSED, as an error, while the kill switch is active: turning
+      # unattended execution ON is the opposite of what a halt asks for, so a
+      # success-shaped `halted: true` would read to a caller as "done". Asks
+      # KillSwitchService.halted_now? — a fresh read — so a halt thrown after this
+      # tool's Account was loaded still refuses.
       def enable_autonomy(params)
-        return success_result(halted: true, reason: "emergency_halt") if halted?
+        if Ai::Autonomy::KillSwitchService.halted_now?(account.id)
+          return error_result("AI activity is suspended for this account (emergency halt) — " \
+                              "enable_autonomy is refused until the kill switch is resumed")
+        end
 
         loop_record = dev_improve_loop
         return error_result("No dev-improve loop yet — approve an improvement first") unless loop_record
