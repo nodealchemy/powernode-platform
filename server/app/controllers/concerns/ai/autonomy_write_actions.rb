@@ -236,13 +236,14 @@ module Ai
     # PATCH pricing/:model_id
     def update_pricing
       pricing = ::Ai::ModelPricing.find_by!(model_id: params[:model_id])
-      pricing.update!(
+      rates = {
         input_per_1k: params[:input_per_1k],
         output_per_1k: params[:output_per_1k],
-        cached_input_per_1k: params[:cached_input_per_1k],
-        source: "manual",
-        last_synced_at: Time.current
-      )
+        cached_input_per_1k: params[:cached_input_per_1k]
+      }
+      # Optional: a client that predates the column omits it and keeps the stored rate.
+      rates[:cache_write_per_1k] = params[:cache_write_per_1k] if params.key?(:cache_write_per_1k)
+      pricing.update!(**rates, source: "manual", last_synced_at: Time.current)
 
       render_success(data: serialize_pricing(pricing))
     rescue ActiveRecord::RecordNotFound
@@ -356,6 +357,7 @@ module Ai
         input_per_1k: pricing.input_per_1k.to_f,
         output_per_1k: pricing.output_per_1k.to_f,
         cached_input_per_1k: pricing.cached_input_per_1k.to_f,
+        cache_write_per_1k: pricing.cache_write_per_1k.to_f,
         tier: pricing.tier,
         source: pricing.source,
         last_synced_at: pricing.last_synced_at
