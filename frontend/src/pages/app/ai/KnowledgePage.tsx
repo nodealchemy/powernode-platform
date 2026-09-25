@@ -9,7 +9,7 @@ import { ContextsContent } from '@/pages/app/ai/ContextsPage';
 import { RagContent } from '@/pages/app/ai/RagPage';
 import { KnowledgeGraphContent } from '@/features/ai/knowledge-graph';
 import { KnowledgeMemoryContent } from '@/features/ai/memory';
-import { LearningContent } from '@/pages/app/ai/LearningPage';
+import { LearningContent } from '@/features/ai/learning/components/LearningContent';
 
 const P = KNOWLEDGE_TAB_PERMISSIONS;
 const tabs = [

@@ -433,7 +433,7 @@ row expansion). High-severity items to look at (23):
 | **One-time secret-reveal lists** | ApiKeyManager, CI-worker/webhook/spawn-token reveals |
 | **Full-page detail views** | AgentCardDetail, AgentDetailPage, ContextDetailPage, ContainerDetailPage, SwarmServiceDetailPage, KbArticleContent, TaskDetail, NotificationDetailModal, BacklinksPanel, KbCategoryList tree, KbArticleComments thread |
 | **Hub / page organizers (tabs only)** | CommunityAgentsPage, AutonomyDashboardPage, KnowledgeGraphPage, EvaluationDashboardPage, McpAppsPage, DeveloperPortal |
-| **Forms / editors / management consoles** (link their cross-ref selectors) | All `*FormModal`/`*Editor`/`*SettingsModal`/create-edit modals; mgmt consoles: AgentDetailModal, TeamDetailModal, ProviderDetailModal, ChannelDetailPanel, WorkerDetailsPanel, RoleUsersModal, UserRolesModal, ProfilePage, FileDetails, WebhookDetails, MissionDetailModal, DelegationDetailsModal, AdminMarketplacePage, DataSourceDetailModal, ConversationDetailModal, AgentSkillsTab, WorkspaceMembersPanel |
+| **Forms / editors / management consoles** (link their cross-ref selectors) | All `*FormModal`/`*Editor`/`*SettingsModal`/create-edit modals; mgmt consoles: AgentDetailPage (fc-43: the former AgentDetailModal), TeamDetailModal, ProviderDetailModal, ChannelDetailPanel, WorkerDetailsPanel, RoleUsersModal, UserRolesModal, ProfilePage, FileDetails, WebhookDetails, MissionDetailModal, DelegationDetailsModal, AdminMarketplacePage, DataSourceDetailModal, ConversationDetailModal, AgentSkillsTab, WorkspaceMembersPanel |
 
 ---
 

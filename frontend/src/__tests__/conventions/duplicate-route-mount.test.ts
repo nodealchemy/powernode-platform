@@ -445,7 +445,7 @@ function findRedirectEntriesInExtensionSrc(src: string, label: string): string[]
 // static per-tab paths (each independently permission-gated, or internally
 // branching on the active path) plus, in most cases, a `/*` wildcard
 // fallback for anything else. That is a deliberate navigation pattern
-// already used throughout this codebase (AIAgentsPage, LearningPage,
+// already used throughout this codebase (AIAgentsPage,
 // IntegrationsWebhooksPage) — not an accidental "two routes, one panel" duplicate like
 // the ones fc-25 fixed. Consolidating any of these into a single `/*` route
 // is a design decision for its own owning campaign, not fc-25's

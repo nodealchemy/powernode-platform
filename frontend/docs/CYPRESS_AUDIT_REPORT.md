@@ -123,8 +123,8 @@ cy.waitForPageLoad();
 | Page | Route | Status | Notes |
 |------|-------|--------|-------|
 | AIDebugPage | `/ai/debug` | ✅ Covered | Developer utility |
-| McpBrowserPage | `/ai/mcp` | ✅ Covered | MCP integration |
-| AgentMemoryPage | `/ai/agents/:id/memory` | ✅ Covered | Agent details |
+| McpPage (Servers tab) | `/ai/mcp` | ✅ Covered | MCP integration |
+| AgentDetailPage (Memory tab) | `/ai/agents/:id/memory` | ✅ Covered | Agent details |
 
 ---
 
