@@ -1,14 +1,17 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
+import { configureStore } from '@reduxjs/toolkit';
 import { AdminSettingsOverviewPage } from './AdminSettingsOverviewPage';
-import { adminSettingsApi } from '@/features/admin/services/adminSettingsApi';
+import { featureRegistry } from '@/shared/services/featureRegistry';
 
-jest.mock('@/features/admin/services/adminSettingsApi', () => ({
-  adminSettingsApi: {
-    getOverview: jest.fn(),
-    formatUptime: jest.fn(() => '1h'),
-    formatNumber: jest.fn((n: number) => `${n}`),
-    formatCurrency: jest.fn((n: number) => `$${n}`)
+// Mock ONE LAYER BELOW adminSettingsApi — at the raw `api` client — so the
+// real getOverview() unwraps the actual server envelope,
+// { success, data: {...} } (ApiResponse#render_success).
+const mockGet = jest.fn();
+jest.mock('@/shared/services/api', () => ({
+  api: {
+    get: (...args: unknown[]) => mockGet(...args)
   }
 }));
 
@@ -22,43 +25,58 @@ jest.mock('react-router-dom', () => ({
   useNavigate: () => mockNavigate
 }));
 
-describe('AdminSettingsOverviewPage', () => {
-  const baseOverview = {
-    metrics: {
-      system_health: 'healthy',
-      uptime: 3600,
-      total_users: 10,
-      active_accounts: 2,
-      total_accounts: 3,
-      monthly_revenue: 100,
-      active_subscriptions: 1,
-      total_subscriptions: 2
-    },
-    recent_accounts: [],
-    recent_logs: [],
-    payment_gateways: {
-      stripe: { connected: false, environment: 'test', last_webhook: null, webhook_status: 'no_data' },
-      paypal: { connected: false, environment: 'sandbox', last_webhook: null, webhook_status: 'no_data' }
-    },
-    settings_summary: {}
-  };
+// The admin_overview payload core serves: metrics and the settings summary.
+const overview = (settingsSummary: Record<string, unknown> = {}) => ({
+  metrics: {
+    system_health: 'healthy',
+    uptime: 3600,
+    total_users: 10,
+    total_accounts: 3,
+    active_accounts: 2,
+    suspended_accounts: 1,
+    cancelled_accounts: 0
+  },
+  settings_summary: settingsSummary
+});
 
+const respondWith = (data: Record<string, unknown>) =>
+  mockGet.mockResolvedValue({ data: { success: true, data } });
+
+describe('AdminSettingsOverviewPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    featureRegistry.clear();
   });
 
-  const renderPage = () =>
-    render(
-      <MemoryRouter>
-        <AdminSettingsOverviewPage />
-      </MemoryRouter>
+  afterEach(() => featureRegistry.clear());
+
+  const renderPage = (permissions: string[] = ['admin.settings.read']) => {
+    const store = configureStore({
+      reducer: {
+        auth: (state = { user: { id: 'u1', permissions }, isAuthenticated: true }) => state
+      }
+    });
+
+    return render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <AdminSettingsOverviewPage />
+        </MemoryRouter>
+      </Provider>
     );
+  };
+
+  it('reads the overview from GET /admin_settings', async () => {
+    respondWith(overview());
+
+    renderPage();
+
+    await screen.findByText('Total Users');
+    expect(mockGet).toHaveBeenCalledWith('/admin_settings');
+  });
 
   it('renders no maintenance mode toggle — only a link to the Maintenance tab', async () => {
-    (adminSettingsApi.getOverview as jest.Mock).mockResolvedValue({
-      success: true,
-      data: { ...baseOverview, settings_summary: { maintenance_mode: false } }
-    });
+    respondWith(overview({ maintenance_mode: false }));
 
     renderPage();
 
@@ -75,10 +93,7 @@ describe('AdminSettingsOverviewPage', () => {
   });
 
   it('links to the Maintenance Mode tab when maintenance is already active', async () => {
-    (adminSettingsApi.getOverview as jest.Mock).mockResolvedValue({
-      success: true,
-      data: { ...baseOverview, settings_summary: { maintenance_mode: true } }
-    });
+    respondWith(overview({ maintenance_mode: true }));
 
     renderPage();
 
@@ -88,29 +103,63 @@ describe('AdminSettingsOverviewPage', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/app/admin/maintenance/mode');
   });
 
-  // fc-06: this quick link's label read "Services" while its destination was
-  // /app/admin/workers (WorkersPage, titled "Worker Management") -- label and
-  // destination disagreed.
-  it('labels the /app/admin/workers quick link Workers, agreeing with its destination', async () => {
-    (adminSettingsApi.getOverview as jest.Mock).mockResolvedValue({
-      success: true,
-      data: baseOverview
-    });
+  // fc-45: the overview is metrics only.
+  it('shows the core metrics, with no invented change figures', async () => {
+    respondWith(overview());
 
     renderPage();
 
-    const link = await screen.findByRole('link', { name: /Workers/i });
-    expect(link).toHaveAttribute('href', '/app/admin/workers');
-    expect(screen.queryByText('Services')).not.toBeInTheDocument();
+    await screen.findByText('Total Users');
+    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.getByText('Active Accounts')).toBeInTheDocument();
+    expect(screen.getByText('2/3')).toBeInTheDocument();
+    expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   });
 
-  // fc-33: Administration → All Users is the one place that lists users.
-  it('lists no recent users', async () => {
-    (adminSettingsApi.getOverview as jest.Mock).mockResolvedValue({ success: true, data: baseOverview });
+  it('shows no billing figures, activity lists, quick actions or configuration cards', async () => {
+    respondWith(overview());
 
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('Recent Accounts')).toBeInTheDocument());
-    expect(screen.queryByText('Recent Users')).not.toBeInTheDocument();
+    await screen.findByText('Total Users');
+    [
+      'Monthly Revenue', 'Active Subscriptions', 'Payment Gateway Status', 'Stripe', 'PayPal',
+      'Recent Activity', 'Recent Accounts', 'System Logs', 'Recent Users',
+      'Quick Actions', 'Configuration Overview'
+    ].forEach((text) => expect(screen.queryByText(text)).not.toBeInTheDocument());
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  // Extension status cards mount through a generic component-slot prefix;
+  // core names no extension.
+  it("renders every component registered under 'admin.settings.overview.'", async () => {
+    featureRegistry.registerComponentSlots({
+      'admin.settings.overview.first': () => <div>First extension card</div>,
+      'admin.settings.overview.second': () => <div>Second extension card</div>,
+      'admin.settings.elsewhere': () => <div>Not an overview card</div>
+    });
+    respondWith(overview());
+
+    renderPage();
+
+    expect(await screen.findByText('First extension card')).toBeInTheDocument();
+    expect(screen.getByText('Second extension card')).toBeInTheDocument();
+    expect(screen.queryByText('Not an overview card')).not.toBeInTheDocument();
+  });
+
+  it("hides a slot card from a viewer without the slot's declared permissions", async () => {
+    featureRegistry.registerComponentSlots({
+      'admin.settings.overview.gated': () => <div>Gated extension card</div>
+    });
+    featureRegistry.registerSlotMeta({ 'admin.settings.overview.gated': { permissions: ['some.extension.read'] } });
+    respondWith(overview());
+
+    const { unmount } = renderPage(['admin.settings.read']);
+    await screen.findByText('Total Users');
+    expect(screen.queryByText('Gated extension card')).not.toBeInTheDocument();
+    unmount();
+
+    renderPage(['admin.settings.read', 'some.extension.read']);
+    expect(await screen.findByText('Gated extension card')).toBeInTheDocument();
   });
 });

@@ -253,16 +253,6 @@ RSpec.describe WebhookEvent, type: :model do
       end
     end
 
-    describe '.for_provider' do
-      let!(:stripe_event) { create(:webhook_event, :stripe, account: account) }
-      let!(:paypal_event) { create(:webhook_event, :paypal, account: account) }
-
-      it 'returns events for the specified provider' do
-        expect(described_class.for_provider('stripe')).to include(stripe_event)
-        expect(described_class.for_provider('stripe')).not_to include(paypal_event)
-      end
-    end
-
     describe '.recent' do
       it 'returns events ordered by created_at descending' do
         results = described_class.recent

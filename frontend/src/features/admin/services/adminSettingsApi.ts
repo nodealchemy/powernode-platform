@@ -13,45 +13,16 @@ export interface ExtensionInfo {
   enabled: boolean;
 }
 
+// Core's admin_overview metrics (Admin::SettingsService#system_metrics).
+// Billing figures are an extension's: they mount as overview slot cards.
 export interface SystemMetrics {
   total_users: number;
   total_accounts: number;
   active_accounts: number;
   suspended_accounts: number;
   cancelled_accounts: number;
-  total_subscriptions: number;
-  active_subscriptions: number;
-  trial_subscriptions: number;
-  total_revenue: number;
-  monthly_revenue: number;
-  failed_payments: number;
-  webhook_events_today: number;
   system_health: 'healthy' | 'warning' | 'error';
   uptime: number;
-}
-
-export interface AdminAccount {
-  id: string;
-  name: string;
-  subdomain: string;
-  status: 'active' | 'suspended' | 'cancelled';
-  created_at: string;
-  updated_at: string;
-  users_count: number;
-  subscription?: {
-    id: string;
-    status: string;
-    plan: {
-      name: string;
-      price_cents: number;
-    };
-    current_period_end: string;
-  };
-  owner: {
-    id: string;
-    name: string;
-    email: string;
-  };
 }
 
 export interface SystemLog {
@@ -113,26 +84,8 @@ export interface AdminSettings {
   updated_at: string;
 }
 
-export interface PaymentGatewayStatus {
-  stripe: {
-    connected: boolean;
-    environment: 'live' | 'test';
-    last_webhook: string | null;
-    webhook_status: 'healthy' | 'warning' | 'unhealthy' | 'no_data';
-  };
-  paypal: {
-    connected: boolean;
-    environment: 'live' | 'sandbox';
-    last_webhook: string | null;
-    webhook_status: 'healthy' | 'warning' | 'unhealthy' | 'no_data';
-  };
-}
-
 export interface AdminOverviewData {
   metrics: SystemMetrics;
-  recent_accounts: AdminAccount[];
-  recent_logs: SystemLog[];
-  payment_gateways: PaymentGatewayStatus;
   settings_summary: Partial<AdminSettings>;
 }
 
@@ -230,12 +183,6 @@ class AdminSettingsApi {
     }
   }
 
-  // Get detailed system metrics
-  async getMetrics(): Promise<SystemMetrics> {
-    const response = await api.get('/admin_settings/metrics');
-    return response.data;
-  }
-
   // getUsers()/getAccounts() (`/admin_settings/users`, `/admin_settings/accounts`)
   // were removed here (fc-38): usersApi.getAllUsers() (`/admin/users`) and
   // accountsApi are the canonical clients now — see AdminUsersPage.tsx
@@ -298,22 +245,6 @@ class AdminSettingsApi {
     return response.data;
   }
 
-  // Test system health
-  async testSystemHealth(): Promise<{
-    database: 'healthy' | 'error';
-    redis: 'healthy' | 'error';
-    background_jobs: 'healthy' | 'error';
-    payment_gateways: PaymentGatewayStatus;
-    disk_space: {
-      available_gb: number;
-      used_percent: number;
-      status: 'healthy' | 'warning' | 'critical';
-    };
-  }> {
-    const response = await api.get('/admin_settings/health');
-    return response.data;
-  }
-
   // Utility methods
   formatBytes(bytes: number, decimals = 2): string {
     if (bytes === 0) return '0 Bytes';
@@ -340,13 +271,6 @@ class AdminSettingsApi {
     } else {
       return `${minutes}m`;
     }
-  }
-
-  formatCurrency(amountCents: number, currency = 'USD'): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency.toUpperCase(),
-    }).format(amountCents / 100);
   }
 
   formatNumber(num: number): string {

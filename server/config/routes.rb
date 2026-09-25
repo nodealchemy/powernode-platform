@@ -965,8 +965,6 @@ Rails.application.routes.draw do
         get :system_logs, on: :member
         post :suspend_account, on: :member
         post :activate_account, on: :member
-        get :metrics, on: :member
-        get :health, on: :member
 
         # Extensions management
         get :extensions, on: :member

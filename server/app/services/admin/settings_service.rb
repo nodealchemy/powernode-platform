@@ -5,10 +5,8 @@ module Admin
   #
   # Provides settings management including:
   # - System metrics and overview
-  # - User and account management data
   # - System logs retrieval
   # - Account status management
-  # - Payment gateway status
   # - Platform statistics
   #
   # Usage:
@@ -23,14 +21,13 @@ module Admin
       @account = user.account
     end
 
-    # Get complete admin overview data
-    # @return [Hash] Admin overview with all sections
+    # Admin overview: metrics and the settings summary only. Activity lists
+    # live on their own Administration pages, and billing figures and payment
+    # gateway status are an extension's (it contributes its own overview card).
+    # @return [Hash]
     def admin_overview
       {
         metrics: system_metrics,
-        recent_accounts: recent_accounts_data,
-        recent_logs: recent_system_logs,
-        payment_gateways: payment_gateway_status,
         settings_summary: settings_summary_data
       }
     end
@@ -44,26 +41,9 @@ module Admin
         active_accounts: Account.where(status: "active").count,
         suspended_accounts: Account.where(status: "suspended").count,
         cancelled_accounts: Account.where(status: "cancelled").count,
-        total_subscriptions: subscription_class&.count || 0,
-        active_subscriptions: subscription_class&.where(status: %w[active trialing])&.count || 0,
-        trial_subscriptions: subscription_class&.where(status: "trialing")&.count || 0,
-        total_revenue: payment_class&.where(status: "completed")&.sum(:amount_cents) || 0,
-        monthly_revenue: calculate_monthly_revenue,
-        failed_payments: payment_class&.where(status: "failed")&.where("created_at > ?", 30.days.ago)&.count || 0,
-        webhook_events_today: webhook_events_today_count,
         system_health: calculate_system_health,
         uptime: calculate_uptime
       }
-    end
-
-    # Get recent accounts data
-    # @param limit [Integer] Number of accounts to return
-    # @return [Array<Hash>] Recent accounts
-    def recent_accounts_data(limit: 10)
-      Account.includes(account_includes)
-             .order(created_at: :desc)
-             .limit(limit)
-             .map { |account| serialize_account(account) }
     end
 
     # Get recent system logs
@@ -74,25 +54,6 @@ module Admin
               .order(created_at: :desc)
               .limit(limit)
               .map { |log| serialize_log(log) }
-    end
-
-    # Get payment gateway status
-    # @return [Hash] Status of payment gateways
-    def payment_gateway_status
-      {
-        stripe: {
-          connected: stripe_configured?,
-          environment: Rails.env.production? ? "live" : "test",
-          webhook_status: stripe_webhook_health,
-          last_webhook: last_stripe_webhook_time
-        },
-        paypal: {
-          connected: paypal_configured?,
-          environment: Rails.env.production? ? "live" : "sandbox",
-          webhook_status: paypal_webhook_health,
-          last_webhook: last_paypal_webhook_time
-        }
-      }
     end
 
     # Get security settings data
@@ -203,22 +164,6 @@ module Admin
 
     private
 
-    def calculate_monthly_revenue
-      return 0 unless payment_class
-
-      payment_class.where(
-        status: "completed",
-        created_at: Date.current.beginning_of_month..Date.current.end_of_month
-      ).sum(:amount_cents) || 0
-    end
-
-    def webhook_events_today_count
-      AuditLog.where(
-        source: %w[stripe_webhook paypal_webhook],
-        created_at: Date.current.beginning_of_day..Date.current.end_of_day
-      ).count
-    end
-
     def calculate_system_health
       failed_payments = payment_class&.where(status: "failed", created_at: 24.hours.ago..Time.current)&.count || 0
       error_logs = AuditLog.where(action: "system_error", created_at: 24.hours.ago..Time.current).count
@@ -235,35 +180,6 @@ module Admin
     def calculate_uptime
       process_start_time = File.stat("/proc/self").ctime rescue (Time.current - 1.day)
       [ Time.current - process_start_time, 0 ].max
-    end
-
-    def serialize_account(account)
-      owner = account.users.first
-
-      {
-        id: account.id,
-        name: account.name,
-        subdomain: account.subdomain,
-        status: account.status,
-        created_at: account.created_at,
-        updated_at: account.updated_at,
-        users_count: account.users.count,
-        subscription: (sub = account.current_subscription) ? {
-          id: sub.id,
-          status: sub.status,
-          plan: {
-            name: sub.plan&.name,
-            price_cents: sub.plan&.price
-          },
-          current_period_end: sub.current_period_end
-        } : nil,
-        owner: owner ? {
-          id: owner.id,
-          name: owner.name,
-          full_name: owner.full_name,
-          email: owner.email
-        } : nil
-      }
     end
 
     def serialize_log(log)
@@ -305,48 +221,6 @@ module Admin
       else
         log.action.humanize
       end
-    end
-
-    def stripe_configured?
-      Rails.application.credentials.dig(:stripe, :publishable_key).present? &&
-        Rails.application.credentials.dig(:stripe, :secret_key).present?
-    end
-
-    def paypal_configured?
-      Rails.application.credentials.dig(:paypal, :client_id).present? &&
-        Rails.application.credentials.dig(:paypal, :client_secret).present?
-    end
-
-    def stripe_webhook_health
-      stripe_events = WebhookEvent.for_provider("stripe").where("created_at >= ?", 24.hours.ago)
-      calculate_webhook_health_status(stripe_events)
-    end
-
-    def paypal_webhook_health
-      paypal_events = WebhookEvent.for_provider("paypal").where("created_at >= ?", 24.hours.ago)
-      calculate_webhook_health_status(paypal_events)
-    end
-
-    def calculate_webhook_health_status(events)
-      return "no_data" if events.empty?
-
-      total = events.count
-      processed = events.processed.count
-      success_rate = (processed.to_f / total * 100).round(1)
-
-      return "healthy" if success_rate >= 95
-      return "warning" if success_rate >= 80
-      "unhealthy"
-    end
-
-    def last_stripe_webhook_time
-      WebhookEvent.for_provider("stripe").order(:created_at).last&.created_at ||
-        AuditLog.where(source: "stripe_webhook").order(:created_at).last&.created_at
-    end
-
-    def last_paypal_webhook_time
-      WebhookEvent.for_provider("paypal").order(:created_at).last&.created_at ||
-        AuditLog.where(source: "paypal_webhook").order(:created_at).last&.created_at
     end
 
     # user_role_distribution's sole caller, user_management_data, was removed
@@ -429,32 +303,6 @@ module Admin
 
     def payment_class
       Powernode::BillingBridge.payment_model
-    end
-
-    # Eager-load list for the accounts query. The `subscription` association
-    # only exists when a billing extension is loaded (it is added by the
-    # business extension's Account decorator). In core mode the association is
-    # absent, so eager-loading `subscription: :plan` would raise. Include it
-    # only when the model actually reflects the association — this is the exact
-    # condition under which the eager-load can succeed, and it avoids naming any
-    # specific extension.
-    # @return [Array, Hash] argument(s) for Account.includes(...)
-    def account_includes
-      if subscription_association?
-        [ :users, { subscription: :plan } ]
-      else
-        [ :users ]
-      end
-    end
-
-    # Whether Account carries the optional `subscription` association (added by
-    # the business billing extension). Pairs the billing-capability bridge with
-    # an actual ActiveRecord reflection check so we never eager-load a missing
-    # association even if the bridge/model wiring is partial.
-    # @return [Boolean]
-    def subscription_association?
-      Powernode::BillingBridge.subscription_model.present? &&
-        Account.reflect_on_association(:subscription).present?
     end
 
     def log_admin_action(action, resource, metadata = {})

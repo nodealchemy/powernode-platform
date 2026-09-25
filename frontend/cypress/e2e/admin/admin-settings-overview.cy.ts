@@ -83,36 +83,6 @@ describe('Admin Settings Overview Page Tests', () => {
     it('should display Active Accounts metric', () => {
       cy.assertContainsAny(['Active Accounts', 'Accounts', 'Overview']);
     });
-
-    it('should display Total Revenue metric', () => {
-      cy.assertContainsAny(['Revenue', 'MRR', 'Overview']);
-    });
-
-    it('should display Active Subscriptions metric', () => {
-      cy.assertContainsAny(['Subscriptions', 'Active Plans', 'Overview']);
-    });
-  });
-
-  describe('Payment Gateway Status', () => {
-    beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings');
-    });
-
-    it('should display Payment Gateway section', () => {
-      cy.assertContainsAny(['Payment', 'Gateway', 'Overview']);
-    });
-
-    it('should display Stripe status', () => {
-      cy.assertContainsAny(['Stripe', 'Payment', 'Overview']);
-    });
-
-    it('should display PayPal status', () => {
-      cy.assertContainsAny(['PayPal', 'Payment', 'Overview']);
-    });
-
-    it('should display gateway connection status', () => {
-      cy.assertContainsAny(['Connected', 'Configured', 'Not Configured', 'Overview']);
-    });
   });
 
   describe('Services Health Section', () => {
@@ -135,74 +105,6 @@ describe('Admin Settings Overview Page Tests', () => {
     it('should display service health indicators', () => {
       // Simplified - just verify page has relevant content since status indicators may vary
       cy.assertContainsAny(['Services', 'Health', 'Overview', 'Status']);
-    });
-  });
-
-  describe('Recent Activity Section', () => {
-    beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings');
-    });
-
-    it('should display Recent Activity section', () => {
-      cy.assertContainsAny(['Recent Activity', 'Activity', 'Overview']);
-    });
-
-    it('should display recent users', () => {
-      cy.assertContainsAny(['Recent Users', 'New Users', 'Users', 'Overview']);
-    });
-
-    it('should display recent accounts', () => {
-      cy.assertContainsAny(['Recent Accounts', 'New Accounts', 'Accounts', 'Overview']);
-    });
-
-    it('should display audit logs preview', () => {
-      cy.assertContainsAny(['Audit', 'Logs', 'Activity Log', 'Overview']);
-    });
-  });
-
-  describe('Configuration Overview Section', () => {
-    beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings');
-    });
-
-    it('should display Configuration Overview section', () => {
-      cy.assertContainsAny(['Configuration', 'Settings', 'Overview']);
-    });
-
-    it('should display General Settings link', () => {
-      cy.assertContainsAny(['General', 'Site Settings', 'Overview']);
-    });
-
-    it('should display Security Settings link', () => {
-      cy.assertContainsAny(['Security', 'Overview']);
-    });
-
-    it('should display Billing Settings link', () => {
-      cy.assertContainsAny(['Billing', 'Overview']);
-    });
-
-    it('should display Email Settings link', () => {
-      cy.assertContainsAny(['Email', 'Notifications', 'Overview']);
-    });
-  });
-
-  describe('Quick Links', () => {
-    beforeEach(() => {
-      cy.assertPageReady('/app/admin/settings');
-    });
-
-    it('should display quick action cards', () => {
-      cy.assertHasElement(['[class*="card"]', '[class*="rounded"]', '[class*="container"]']);
-    });
-
-    it('should navigate to Users Management', () => {
-      cy.contains('a', 'Users').click();
-      cy.url().should('include', '/admin');
-    });
-
-    it('should navigate to Roles Management', () => {
-      cy.contains('a', 'Roles').click();
-      cy.url().should('include', '/admin');
     });
   });
 

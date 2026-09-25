@@ -17,8 +17,7 @@ class WebhookEvent < ApplicationRecord
   # row created by WebhookEventPublisher for a subscribable platform event
   # (user.created, account.updated, ...), as opposed to an INBOUND stripe/paypal
   # billing callback. Kept distinct from stripe/paypal so it is never counted by
-  # the provider-scoped billing queries (Admin::SettingsService.for_provider,
-  # WebhookHealthService#webhook_event_stats).
+  # the provider-scoped billing queries (WebhookHealthService#webhook_event_stats).
   INBOUND_PROVIDERS = %w[stripe paypal].freeze
   OUTBOUND_PROVIDER = "system"
   ALL_PROVIDERS = (INBOUND_PROVIDERS + [ OUTBOUND_PROVIDER ]).freeze
@@ -32,7 +31,6 @@ class WebhookEvent < ApplicationRecord
   scope :pending, -> { where(status: "pending") }
   scope :failed, -> { where(status: "failed") }
   scope :processed, -> { where(status: "processed") }
-  scope :for_provider, ->(provider) { where(provider: provider) }
   scope :recent, -> { order(created_at: :desc) }
 
   aasm column: :status do

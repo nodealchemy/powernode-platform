@@ -1,18 +1,47 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/shared/services';
 import { adminSettingsApi, AdminOverviewData } from '@/features/admin/services/adminSettingsApi';
-import { ActionCard, MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
+import { MetricCard as StandardMetricCard } from '@/shared/components/ui/Card';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
-import {
-  SystemStatusCard,
-  SecurityConfigCard,
-  BusinessConfigCard,
-  CommunicationConfigCard
-} from '@/features/admin/components/admin-settings';
+import { SystemStatusCard } from '@/features/admin/components/admin-settings';
+import { featureRegistry } from '@/shared/services/featureRegistry';
+import { hasPermissions } from '@/shared/utils/permissionUtils';
+
+// Extension metric cards mount through this generic component-slot prefix:
+// featureRegistry.registerComponentSlots({ 'admin.settings.overview.<id>':
+// Card }), optionally gated by registerSlotMeta permissions. Core names no
+// extension and renders no extension data of its own.
+const OVERVIEW_SLOT_PREFIX = 'admin.settings.overview.';
+
+// The registered overview cards the viewer may see, re-read whenever an
+// extension registers one.
+const useOverviewSlotCards = (): Array<{ id: string; Card: React.ComponentType }> => {
+  const { user } = useSelector((state: RootState) => state.auth);
+  const [registryVersion, setRegistryVersion] = useState(() => featureRegistry.getVersion());
+  useEffect(
+    () => featureRegistry.subscribe(() => setRegistryVersion(featureRegistry.getVersion())),
+    []
+  );
+
+  return useMemo(
+    () =>
+      featureRegistry.getComponentSlotIds(OVERVIEW_SLOT_PREFIX).flatMap((id) => {
+        const Card = featureRegistry.getComponentSlot(id) as React.ComponentType | undefined;
+        const permissions = featureRegistry.getSlotMeta(id)?.permissions ?? [];
+        if (!Card || !hasPermissions(user, permissions)) return [];
+        return [{ id, Card }];
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- registryVersion is the real dependency; the registry is a stable singleton.
+    [registryVersion, user]
+  );
+};
 
 export const AdminSettingsOverviewPage: React.FC = () => {
   const navigate = useNavigate();
+  const slotCards = useOverviewSlotCards();
   const [data, setData] = useState<AdminOverviewData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +98,7 @@ export const AdminSettingsOverviewPage: React.FC = () => {
 
   if (!data) return null;
 
-  const { metrics, recent_accounts, recent_logs, payment_gateways, settings_summary } = data;
+  const { metrics, settings_summary } = data;
 
   // Determine overall system status
   const getSystemStatus = () => {
@@ -180,295 +209,19 @@ export const AdminSettingsOverviewPage: React.FC = () => {
             title="Total Users"
             value={adminSettingsApi.formatNumber(metrics.total_users)}
             icon="👥"
-            change={12}
             description="Platform users"
           />
           <StandardMetricCard
             title="Active Accounts"
             value={`${metrics.active_accounts}/${metrics.total_accounts}`}
             icon="🏢"
-            change={5}
             description="Business accounts"
           />
-          <StandardMetricCard
-            title="Monthly Revenue"
-            value={adminSettingsApi.formatCurrency(metrics.monthly_revenue)}
-            icon="💰"
-            change={8}
-            description="Platform revenue"
-          />
-          <StandardMetricCard
-            title="Active Subscriptions"
-            value={`${metrics.active_subscriptions}/${metrics.total_subscriptions}`}
-            icon="📋"
-            change={3}
-            description="Subscription status"
-          />
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div>
-        <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
-          <span>⚡</span>
-          <span>Quick Actions</span>
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <ActionCard
-            icon="⚙️"
-            title="System Settings"
-            description="Configure platform settings, security, and business rules"
-            href="/app/admin/settings"
-          />
-          <ActionCard
-            icon="👥"
-            title="User Management"
-            description="View and manage user accounts, roles, and permissions"
-            href="/app/admin/users"
-          />
-          <ActionCard
-            icon="💳"
-            title="Payment Gateways"
-            description="Configure Stripe and PayPal integrations"
-            href="/app/admin/settings/payment-gateways"
-          />
-          <ActionCard
-            icon="🔗"
-            title="Webhooks"
-            description="Manage payment gateway webhooks and endpoints"
-            href="/app/devops/integrations/webhook-endpoints"
-          />
-          <ActionCard
-            icon="📝"
-            title="Audit Logs"
-            description="Review system activity and security events"
-            href="/app/admin/audit-logs"
-            badge={recent_logs.length.toString()}
-          />
-          <ActionCard
-            icon="⚡"
-            title="Workers"
-            description="Manage background job workers and worker authentication"
-            href="/app/admin/workers"
-          />
-        </div>
-      </div>
-
-      {/* Configuration Overview */}
-      <div>
-        <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
-          <span>🛠️</span>
-          <span>Configuration Overview</span>
-        </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <SecurityConfigCard settingsSummary={settings_summary} />
-          <BusinessConfigCard settingsSummary={settings_summary} />
-          <CommunicationConfigCard settingsSummary={settings_summary} />
-        </div>
-      </div>
-
-      {/* Payment Gateway Status */}
-      <div>
-        <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
-          <span>💳</span>
-          <span>Payment Gateway Status</span>
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="group bg-theme-surface rounded-xl p-6 border border-theme hover:bg-theme-surface-hover transition-all duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-theme-background rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl">💳</span>
-                </div>
-                <h3 className="text-lg font-semibold text-theme-primary">Stripe</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${
-                  payment_gateways.stripe.connected ? 'bg-theme-success-bg' : 'bg-theme-error-bg'
-                } shadow-sm`} />
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  payment_gateways.stripe.connected 
-                    ? 'bg-theme-success-bg text-theme-success-fg' 
-                    : 'bg-theme-error-bg text-theme-error-fg'
-                }`}>
-                  {payment_gateways.stripe.connected ? '✓ Connected' : '✗ Disconnected'}
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Environment</span>
-                <span className="text-sm font-medium text-theme-primary">{payment_gateways.stripe.environment}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Webhook Status</span>
-                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                  payment_gateways.stripe.webhook_status === 'healthy' 
-                    ? 'bg-theme-success-bg text-theme-success-fg' 
-                    : 'bg-theme-warning-bg text-theme-warning-fg'
-                }`}>
-                  {payment_gateways.stripe.webhook_status}
-                </span>
-              </div>
-              {payment_gateways.stripe.last_webhook && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-theme-secondary">Last Webhook</span>
-                  <span className="text-sm font-medium text-theme-primary">
-                    {adminSettingsApi.formatRelativeTime(payment_gateways.stripe.last_webhook)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="group bg-theme-surface rounded-xl p-6 border border-theme hover:bg-theme-surface-hover transition-all duration-200">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-theme-background rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl">🅿️</span>
-                </div>
-                <h3 className="text-lg font-semibold text-theme-primary">PayPal</h3>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${
-                  payment_gateways.paypal.connected ? 'bg-theme-success-bg' : 'bg-theme-error-bg'
-                } shadow-sm`} />
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  payment_gateways.paypal.connected 
-                    ? 'bg-theme-success-bg text-theme-success-fg' 
-                    : 'bg-theme-error-bg text-theme-error-fg'
-                }`}>
-                  {payment_gateways.paypal.connected ? '✓ Connected' : '✗ Disconnected'}
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Environment</span>
-                <span className="text-sm font-medium text-theme-primary">{payment_gateways.paypal.environment}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-theme-secondary">Webhook Status</span>
-                <span className={`text-xs px-2 py-1 rounded font-medium ${
-                  payment_gateways.paypal.webhook_status === 'healthy' 
-                    ? 'bg-theme-success-bg text-theme-success-fg' 
-                    : 'bg-theme-warning-bg text-theme-warning-fg'
-                }`}>
-                  {payment_gateways.paypal.webhook_status}
-                </span>
-              </div>
-              {payment_gateways.paypal.last_webhook && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-theme-secondary">Last Webhook</span>
-                  <span className="text-sm font-medium text-theme-primary">
-                    {adminSettingsApi.formatRelativeTime(payment_gateways.paypal.last_webhook)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Activity */}
-      <div>
-        <h2 className="text-xl font-semibold text-theme-primary mb-6 flex items-center gap-2">
-          <span>📈</span>
-          <span>Recent Activity</span>
-        </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Accounts */}
-          <div className="bg-theme-surface rounded-xl border border-theme overflow-hidden">
-            <div className="px-6 py-4 border-b border-theme bg-theme-background-secondary">
-              <h3 className="font-semibold text-theme-primary flex items-center gap-2">
-                <span>🏢</span>
-                <span>Recent Accounts</span>
-                <span className="bg-theme-interactive-primary text-theme-on-primary text-xs px-2 py-1 rounded-full">
-                  {recent_accounts.length}
-                </span>
-              </h3>
-            </div>
-            <div className="max-h-80 overflow-y-auto">
-              {recent_accounts.length === 0 ? (
-                <div className="p-6 text-center text-theme-secondary">
-                  <span className="text-4xl mb-2 block">🏢</span>
-                  <p>No recent accounts</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-theme">
-                  {recent_accounts.filter(account => account && account.name).map((account) => (
-                    <div key={account.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-theme-primary truncate">{account.name}</p>
-                          <p className="text-sm text-theme-secondary truncate">{account.owner?.email || 'No owner assigned'}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className={`text-xs px-2 py-1 rounded font-medium ${
-                              account.status === 'active' ? 'bg-theme-success-bg text-theme-success-fg' :
-                              account.status === 'suspended' ? 'bg-theme-warning-bg text-theme-warning-fg' :
-                              'bg-theme-error-bg text-theme-error-fg'
-                            }`}>
-                              {account.status}
-                            </span>
-                            <span className="text-xs text-theme-tertiary">
-                              {adminSettingsApi.formatRelativeTime(account.created_at)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent System Logs */}
-          <div className="bg-theme-surface rounded-xl border border-theme overflow-hidden">
-            <div className="px-6 py-4 border-b border-theme bg-theme-background-secondary">
-              <h3 className="font-semibold text-theme-primary flex items-center gap-2">
-                <span>📝</span>
-                <span>System Logs</span>
-                <span className="bg-theme-interactive-primary text-theme-on-primary text-xs px-2 py-1 rounded-full">
-                  {recent_logs.length}
-                </span>
-              </h3>
-            </div>
-            <div className="max-h-80 overflow-y-auto">
-              {recent_logs.length === 0 ? (
-                <div className="p-6 text-center text-theme-secondary">
-                  <span className="text-4xl mb-2 block">📝</span>
-                  <p>No recent logs</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-theme">
-                  {recent_logs.map((log) => (
-                    <div key={log.id} className="p-4">
-                      <div className="flex items-start gap-3">
-                        <span className={`text-xs px-2 py-1 rounded font-medium flex-shrink-0 ${
-                          log.level === 'error' ? 'bg-theme-error-bg text-theme-error-fg' :
-                          log.level === 'warning' ? 'bg-theme-warning-bg text-theme-warning-fg' :
-                          log.level === 'info' ? 'bg-theme-info-bg text-theme-info-fg' :
-                          'bg-theme-surface text-theme-secondary'
-                        }`}>
-                          {log.level.toUpperCase()}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-theme-primary break-words">{log.message}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-theme-tertiary">{log.source}</span>
-                            <span className="text-xs text-theme-tertiary">
-                              {adminSettingsApi.formatRelativeTime(log.timestamp)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+          {slotCards.map(({ id, Card }) => (
+            <Suspense key={id} fallback={<LoadingSpinner size="sm" />}>
+              <Card />
+            </Suspense>
+          ))}
         </div>
       </div>
 

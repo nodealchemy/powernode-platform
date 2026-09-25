@@ -21,13 +21,23 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
         expect_success_response
       end
 
-      # fc-33: the overview no longer lists recent users; Administration →
-      # All Users is the one place that lists users.
-      it 'does not carry a recent_users list' do
+      # fc-33/fc-45: the overview is metrics only. No activity lists
+      # (Administration lists users, accounts and audit logs), no payment
+      # gateways and no billing figures — an extension contributes those as
+      # its own overview card.
+      it 'carries only metrics and the settings summary' do
         get '/api/v1/admin_settings', headers: headers, as: :json
 
-        expect(json_response['data']).not_to have_key('recent_users')
-        expect(json_response['data']).to have_key('recent_accounts')
+        expect(json_response['data'].keys).to contain_exactly('metrics', 'settings_summary')
+      end
+
+      it 'reports core metrics only, no billing figures' do
+        get '/api/v1/admin_settings', headers: headers, as: :json
+
+        expect(json_response['data']['metrics'].keys).to contain_exactly(
+          'total_users', 'total_accounts', 'active_accounts', 'suspended_accounts',
+          'cancelled_accounts', 'system_health', 'uptime'
+        )
       end
 
       # settings_summary used to dump AdminSetting#value RAW (a string), so a
