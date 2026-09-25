@@ -128,27 +128,21 @@ module Ai
       # === LLM-driven design ============================================
 
       def generate_recipe_design(intent, shortlist, suggested_name, max_steps)
-        # OpenAI-compatible provider preferred — Anthropic's structured-output
-        # path doesn't reliably return JSON-only via the worker. Falling back
-        # to default if openai isn't configured.
         # Wrapped so the design call lands an Ai::AgentExecution (IMP 019fe1da).
         # Attributed to the INVOKING agent only: this is skill design, not
         # provisioning, so falling back to a provisioning agent would file the
         # cost under the wrong actor. With no invoking agent the call stays
-        # untracked rather than mis-attributed. The openai preference and the
-        # provider that serves the call are unchanged — this only wraps.
-        llm = ::WorkerLlmClient.for_account(@account, provider_type: "openai") ||
-              ::WorkerLlmClient.for_account(@account)
-        llm = tracked_client_for(llm, agent: @agent)
+        # untracked rather than mis-attributed. The account's own provider serves
+        # it: the old OpenAI preference worked around structured output failing
+        # on Anthropic, which Ai::Llm::StructuredSchema now fixes at the adapter.
+        llm = tracked_client_for(::WorkerLlmClient.for_account(@account), agent: @agent)
         return { error: "No LLM provider configured for account" } unless llm
 
         messages = build_design_messages(intent, shortlist, suggested_name, max_steps)
 
-        # Use plain `complete` and parse JSON ourselves; the structured-output
-        # path on the worker returns empty/error response in current build.
-        # The system prompt is explicit that the model must output ONLY JSON.
-        result = llm.complete(
+        result = llm.complete_structured(
           messages: messages,
+          schema:   { name: "recipe_design", schema: recipe_design_schema },
           model:    designer_model(llm),
           temperature: 0.2,
           max_tokens: 2048
@@ -159,11 +153,7 @@ module Ai
           return { error: "LLM call failed (finish_reason=#{err})" }
         end
 
-        content = result.content.to_s.strip
-        # Strip possible markdown JSON fences if the model added them despite instructions.
-        content = content.sub(/\A```(?:json)?\s*\n?/i, "").sub(/\n?```\s*\z/, "").strip
-        parsed = JSON.parse(content)
-        { recipe: parsed }
+        { recipe: recipe_from_design(JSON.parse(result.content.to_s)) }
       rescue JSON::ParserError => e
         { error: "LLM returned malformed JSON: #{e.message.truncate(120)}" }
       rescue StandardError => e
@@ -188,21 +178,13 @@ module Ai
           operator's natural-language workflow description and a shortlist of
           available MCP tools, produce a recipe specification.
 
-          Recipe spec format (JSON):
-          {
-            "name":        "<short skill name>",
-            "description": "<one-sentence description>",
-            "inputs":      [ { "name": "...", "type": "string|number|boolean", "required": true|false } ],
-            "steps": [
-              { "id": "step1",
-                "tool": "<exact tool name from shortlist>",
-                "params": { "<param>": "<literal or {{ inputs.x }} or {{ stepN.field }}>" },
-                "capture": "<variable name for later steps>",
-                "require_approval": true|false  // true for state-mutating actions
-              }
-            ],
-            "output": { "<key>": "<{{ stepN.field }} reference>" }
-          }
+          A recipe has a short name, a one-sentence description, its inputs
+          (name, type, whether required), its steps, and its output. Each step
+          has an id ("step1", ...), the exact tool name from the shortlist, its
+          params as name/value pairs (a value is a literal, `{{ inputs.x }}` or
+          `{{ stepN.field }}`), an optional capture name for later steps, and
+          require_approval. The output is name/value pairs whose values are
+          `{{ stepN.field }}` references.
 
           Rules:
             * Use ONLY tools from the shortlist below. Don't invent tool names.
@@ -223,8 +205,7 @@ module Ai
           #{suggested_name.present? ? "OPERATOR-SUGGESTED NAME: #{suggested_name}\n\n" : ''}AVAILABLE TOOLS (shortlist of #{shortlist.size}):
           #{tools_section}
 
-          Design a recipe to accomplish the intent above. Output only the JSON
-          recipe spec — no commentary, no markdown fences.
+          Design a recipe to accomplish the intent above.
         USER
 
         [
@@ -233,43 +214,64 @@ module Ai
         ]
       end
 
+      # Structured-output schema. params and output are maps with arbitrary
+      # keys, which strict structured output cannot express, so the model returns
+      # them as [{name, value}] pairs and #recipe_from_design folds them back.
+      # Ai::Llm::StructuredSchema closes the objects and nulls the optional
+      # fields (description, capture, require_approval).
       def recipe_design_schema
+        pairs = lambda do |value|
+          { type: "array",
+            items: { type: "object", required: %w[name value],
+                     properties: { name: { type: "string" }, value: value } } }
+        end
+        scalar = { anyOf: [ { type: "string" }, { type: "number" }, { type: "boolean" } ] }
         {
-          "type" => "object",
-          "required" => %w[name description inputs steps output],
-          "properties" => {
-            "name"        => { "type" => "string" },
-            "description" => { "type" => "string" },
-            "inputs" => {
-              "type" => "array",
-              "items" => {
-                "type" => "object",
-                "required" => %w[name type required],
-                "properties" => {
-                  "name" => { "type" => "string" },
-                  "type" => { "type" => "string", "enum" => %w[string number boolean] },
-                  "required" => { "type" => "boolean" },
-                  "description" => { "type" => "string" }
+          type: "object",
+          required: %w[name description inputs steps output],
+          properties: {
+            name: { type: "string" },
+            description: { type: "string" },
+            inputs: {
+              type: "array",
+              items: {
+                type: "object",
+                required: %w[name type required],
+                properties: {
+                  name: { type: "string" },
+                  type: { type: "string", enum: %w[string number boolean] },
+                  required: { type: "boolean" },
+                  description: { type: "string" }
                 }
               }
             },
-            "steps" => {
-              "type" => "array",
-              "items" => {
-                "type" => "object",
-                "required" => %w[id tool params],
-                "properties" => {
-                  "id" => { "type" => "string" },
-                  "tool" => { "type" => "string" },
-                  "params" => { "type" => "object", "additionalProperties" => true },
-                  "capture" => { "type" => "string" },
-                  "require_approval" => { "type" => "boolean" }
+            steps: {
+              type: "array",
+              items: {
+                type: "object",
+                required: %w[id tool params],
+                properties: {
+                  id: { type: "string" },
+                  tool: { type: "string" },
+                  params: pairs.call(scalar),
+                  capture: { type: "string" },
+                  require_approval: { type: "boolean" }
                 }
               }
             },
-            "output" => { "type" => "object", "additionalProperties" => true }
+            output: pairs.call({ type: "string" })
           }
         }
+      end
+
+      # The recipe shape the rest of the platform reads: params and output as
+      # hashes, and optional fields the model left null omitted.
+      def recipe_from_design(design)
+        to_hash = ->(list) { Array(list).to_h { |pair| [ pair["name"].to_s, pair["value"] ] } }
+        recipe = design.merge("output" => to_hash.call(design["output"]))
+        recipe["inputs"] = Array(design["inputs"]).map(&:compact)
+        recipe["steps"] = Array(design["steps"]).map { |step| step.compact.merge("params" => to_hash.call(step["params"])) }
+        recipe
       end
 
       # === Recipe validation ============================================
