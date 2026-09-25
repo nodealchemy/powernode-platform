@@ -466,14 +466,16 @@ if [[ "$SKIP_TS" == "false" ]]; then
     echo -e "${RED}     nav-link reachability lint failed${NC}"
     TS_OK=false
   fi
-  # Page reverse-reachability lint (C15b): the other direction of the same gap —
-  # a finished *Page.tsx with no route, registration, or importer anywhere
-  # (ChatChannelsPage/AIConversationsPage both shipped exactly this way once).
-  echo -e "${BLUE}  └─ page reverse-reachability lint...${NC}"
-  if (cd "$PROJECT_ROOT/frontend" && npx jest src/__tests__/conventions/page-reverse-reachability.test.ts --silent 2>&1); then
+  # Export orphan ratchet (P1/P7, fc-48; supersedes the page reverse-
+  # reachability lint): every exported symbol in core and every checked-out
+  # extension is used by production code, or allowlisted with a reason — a
+  # finished page no route reaches (ChatChannelsPage/AIConversationsPage both
+  # shipped exactly this way once) is one such export.
+  echo -e "${BLUE}  └─ export orphan ratchet...${NC}"
+  if (cd "$PROJECT_ROOT/frontend" && npx jest src/__tests__/conventions/export-orphans --silent 2>&1); then
     :
   else
-    echo -e "${RED}     page reverse-reachability lint failed${NC}"
+    echo -e "${RED}     export orphan ratchet failed${NC}"
     TS_OK=false
   fi
   # Each extensions/*/frontend/tsconfig.check.json is a tsc gate for that

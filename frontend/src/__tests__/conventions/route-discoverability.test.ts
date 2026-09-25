@@ -18,9 +18,8 @@ import { tmpdir } from 'os';
  * almost verbatim (routeToRegex, extractRouteTable, extractLinkLiterals,
  * stripComments, the extension-discovery helpers) — duplicated here rather
  * than imported, matching this suite's existing convention of each guard
- * file being self-contained (see nav-link-reachability.test.ts and
- * page-reverse-reachability.test.ts, which duplicate the same helpers
- * against each other already). A nav config `href: '/app/...'` is a plain
+ * file being self-contained (see nav-link-reachability.test.ts, whose
+ * helpers this duplicates). A nav config `href: '/app/...'` is a plain
  * quoted string starting with `/app/`, so the SAME link-literal scan that
  * satisfies C15 also satisfies "has a nav entry" here — no separate nav-config
  * parser is needed. Likewise `navigate('/app/...')` is just another quoted
