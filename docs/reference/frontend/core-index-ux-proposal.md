@@ -249,8 +249,8 @@ row expansion). High-severity items to look at (23):
 | `ai/execution-resources/.../ResourceList.tsx` · ResourceList | execution_resource | index-table | **Expand** rows OR keep detail panel; link `agent` cell | Med | Rows already open `ResourceDetailPanel`; link agent |
 | `ai/execution-resources/.../ResourceListPanel.tsx` · ResourceListPanel | execution_resource | custom-panel (split) | **Keep (exception — split console)** | Low | Filters+list+detail side-by-side |
 | `ai/execution-resources/.../ResourceDetailPanel.tsx` · ResourceDetailPanel | execution_resource | detail-drawer | **Keep (own-detail drawer)**; link `agent`, `agent_team`, `user` in type-specific viewers | Low | Drawer ≈ row expansion |
-| `ai/sandboxes/.../SandboxDashboardPage.tsx` · ContainerSandboxContent | sandbox_instance | card-grid | **Keep (exception — dashboard)** | — | Stats + sandbox grid |
-| `ai/sandboxes/.../SandboxList.tsx` · SandboxList | sandbox_instance | card-grid | **Keep (exception — live grid)**; link `agent`; keep pause/resume/destroy | Low | Status-filtered live cards |
+| `ai/sandboxes/.../SandboxDashboardPage.tsx` · ContainerSandboxContent | sandbox_instance | card-grid | **Keep (exception — dashboard)** | — | Stats + merged sandbox/execution grid |
+| `devops/containers/.../ContainerList.tsx` · ContainerList | sandbox_instance / container_instance | card-grid | **Keep (exception — live grid)**; link `agent`; keep pause/resume/destroy | Low | Status- and sandbox-filtered live cards (fc-32 merged the standalone SandboxList into this one) |
 
 ### AI Ops
 
