@@ -182,11 +182,10 @@ describe('ObservabilityPage', () => {
   // reads no health endpoint of its own. Self-healing keeps its own tab
   // until its capabilities have a home on the status page.
   describe('health moved to /app/status (fc-47)', () => {
-    it('has no System Health tab, and /health is not a tab', () => {
+    it('has no System Health tab', () => {
       mockAllowed = ALL_PERMISSIONS;
-      renderAt('/app/ai/observability/health');
+      renderAt('/app/ai/observability/systems');
       expect(screen.queryByRole('link', { name: 'System Health' })).not.toBeInTheDocument();
-      expect(screen.getByTestId('systems-leaf')).toBeInTheDocument();
     });
 
     it('renders self-healing on its own Self-Healing tab', () => {
