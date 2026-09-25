@@ -1,41 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { PageContainer } from '@/shared/components/layout/PageContainer';
+import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { EvalResultsViewer } from '../components/EvalResultsViewer';
 import { BenchmarkBuilder } from '../components/BenchmarkBuilder';
 import { EvalComparison } from '../components/EvalComparison';
 
 type TabType = 'results' | 'benchmarks' | 'comparison';
 
-const evalTabs: { id: TabType; label: string }[] = [
-  { id: 'results', label: 'Evaluation Results' },
-  { id: 'benchmarks', label: 'Benchmarks' },
-  { id: 'comparison', label: 'Agent Comparison' },
+// Nested under ObservabilityPage's "evaluation" tab (routed as `evaluation/*`
+// so paths beneath it aren't caught by ObservabilityPage's own catch-all).
+const EVALUATION_BASE_PATH = '/app/ai/observability/evaluation';
+
+const evalTabs: { id: TabType; label: string; path: string }[] = [
+  { id: 'results', label: 'Evaluation Results', path: '/' },
+  { id: 'benchmarks', label: 'Benchmarks', path: '/benchmarks' },
+  { id: 'comparison', label: 'Agent Comparison', path: '/comparison' },
 ];
 
+const getActiveEvalTab = (pathname: string): TabType => {
+  if (pathname.includes('/evaluation/benchmarks')) return 'benchmarks';
+  if (pathname.includes('/evaluation/comparison')) return 'comparison';
+  return 'results';
+};
+
 export const EvaluationContent: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabType>('results');
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<TabType>(getActiveEvalTab(location.pathname));
+
+  useEffect(() => {
+    const newTab = getActiveEvalTab(location.pathname);
+    if (newTab !== activeTab) setActiveTab(newTab);
+  }, [location.pathname]);
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-1 border-b border-theme">
-        {evalTabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.id
-                ? 'border-theme-primary text-theme-primary'
-                : 'border-transparent text-theme-tertiary hover:text-theme-secondary'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === 'results' && <EvalResultsViewer />}
-      {activeTab === 'benchmarks' && <BenchmarkBuilder />}
-      {activeTab === 'comparison' && <EvalComparison />}
+      <TabContainer
+        tabs={evalTabs}
+        activeTab={activeTab}
+        onTabChange={(id) => setActiveTab(id as TabType)}
+        basePath={EVALUATION_BASE_PATH}
+        variant="underline"
+      >
+        <TabPanel tabId="results" activeTab={activeTab}>
+          <EvalResultsViewer />
+        </TabPanel>
+        <TabPanel tabId="benchmarks" activeTab={activeTab}>
+          <BenchmarkBuilder />
+        </TabPanel>
+        <TabPanel tabId="comparison" activeTab={activeTab}>
+          <EvalComparison />
+        </TabPanel>
+      </TabContainer>
     </div>
   );
 };

@@ -386,7 +386,7 @@ export const ObservabilityPage: React.FC = () => {
 
             <Route path="traces" element={<ExecutionTracesContent />} />
 
-            <Route path="evaluation" element={<EvaluationContent />} />
+            <Route path="evaluation/*" element={<EvaluationContent />} />
 
             <Route path="*" element={<Navigate to={firstTabPath} replace />} />
           </Routes>
