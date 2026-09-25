@@ -9,12 +9,14 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "update_gitea_repository", mutating: true
+      declare_action "update_gitea_repository", mutating: true,
+                                                returns: "the repository name, full_name, visibility, archived flag, default branch, description and web URL",
+                                                refuses: [ "the account has no active Gitea credential", "none of private, description, archived or default_branch is given" ]
 
       def self.definition
         {
           name: "update_gitea_repository",
-          description: "Update settings on an existing Gitea repository (visibility, description, archival, etc.)",
+          description: "Update visibility, description, archival or default branch on an existing Gitea repository.",
           parameters: {
             owner: { type: "string", required: true, description: "Repository owner (username or organization)" },
             repo: { type: "string", required: true, description: "Repository name" },

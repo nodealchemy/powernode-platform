@@ -169,5 +169,4 @@ system_update_architecture
 system_update_instance
 system_update_package_repository
 system_update_volume
-update_gitea_repository
 update_team
