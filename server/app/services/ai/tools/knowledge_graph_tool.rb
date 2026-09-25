@@ -9,14 +9,41 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "extract", mutating: true
-      declare_action "get_neighbors", mutating: false
-      declare_action "get_node", mutating: false
-      declare_action "list_nodes", mutating: false
-      declare_action "reason", mutating: false
-      declare_action "search", mutating: false
-      declare_action "statistics", mutating: false
-      declare_action "subgraph", mutating: false
+      declare_action "extract", mutating: true,
+                                returns: "nodes_created, nodes_existing, edges_created, edges_existing, and the nodes and edges touched",
+                                refuses: "text is blank, or extraction fails"
+      declare_action "get_neighbors", mutating: false,
+                                      returns: "count and neighbors (id, name, node_type, entity_type, description, properties, confidence, depth)",
+                                      refuses: "node_id is blank, or the node is not in this account",
+                                      see_also: { "get_subgraph" => "the edges among a set of nodes you already hold" }
+      declare_action "get_node", mutating: false,
+                                 returns: "the node's id, name, node_type, entity_type, description, properties, confidence, " \
+                                          "mention_count, status and created_at",
+                                 refuses: "node_id is blank, or the node is not in this account",
+                                 see_also: { "get_graph_neighbors" => "the nodes linked to it" }
+      declare_action "list_nodes", mutating: false,
+                                   returns: "count and active nodes newest first; with page set, also page and total_pages",
+                                   see_also: { "search_knowledge_graph" => "ranking nodes by meaning rather than name" }
+      declare_action "reason", mutating: false,
+                               returns: "answer_nodes, scored paths, reasoning_chain, confidence, seed_nodes_found and total_paths_explored",
+                               refuses: "query is blank",
+                               see_also: { "search_knowledge_graph" => "a ranked list of matches without path expansion" }
+      declare_action "search", mutating: false, limit: 50,
+                               returns: "fused results (id, type, content, score, source, metadata), per-mode result counts and the search id",
+                               refuses: [ "query is blank", "mode is not hybrid, vector, keyword or graph" ],
+                               see_also: {
+                                 "search_knowledge" => "curated shared knowledge entries such as guidance",
+                                 "query_learnings" => "lessons extracted from agent and team executions",
+                                 "query_knowledge_base" => "document chunks in one named RAG knowledge base",
+                                 "search_memory" => "one agent's short-term memory and learnings, by keyword"
+                               }
+      declare_action "statistics", mutating: false,
+                                   returns: "node and edge counts, counts by node, entity and relation type, average confidence " \
+                                            "and degree, density, nodes_with_embeddings and the five most connected nodes"
+      declare_action "subgraph", mutating: false,
+                                 returns: "the named nodes in this account and the active edges between them",
+                                 refuses: "node_ids is empty",
+                                 see_also: { "get_graph_neighbors" => "expanding outward from one node" }
 
       def self.definition
         {
@@ -48,7 +75,12 @@ module Ai
       def self.action_definitions
         {
           "search_knowledge_graph" => {
-            description: "Search the knowledge graph using hybrid retrieval (vector + keyword + graph)",
+            description: "Search the knowledge graph and RAG document chunks by hybrid retrieval: vector, keyword and graph modes fused by rank. " \
+                         "The graph holds this account's nodes (entities, concepts, code entities, pages and articles) and the edges between them. " \
+                         "They are written by extract_to_knowledge_graph, the skill and agent graph sync, page and article linking, the data source " \
+                         "bridge, the code index, learning promotion and the codebase knowledge-population scan. " \
+                         "Vector and keyword modes match document chunks; graph mode matches embedded nodes and the chunks of their source documents. " \
+                         "Each call records a hybrid search result row.",
             parameters: {
               query: { type: "string", required: true, description: "Search query" },
               mode: { type: "string", required: false, description: "Search mode: hybrid/vector/keyword/graph (default: hybrid)" },
@@ -57,7 +89,9 @@ module Ai
             }
           },
           "reason_knowledge_graph" => {
-            description: "Perform multi-hop reasoning over the knowledge graph",
+            description: "Answer a question by multi-hop reasoning over the knowledge graph. " \
+                         "Seed nodes are found by embedding similarity (by name or description keywords when embeddings find none) and expanded along edges. " \
+                         "The max_hops value is capped at 5 and top_k at 20.",
             parameters: {
               query: { type: "string", required: true, description: "Reasoning query" },
               max_hops: { type: "integer", required: false, description: "Max reasoning hops (default 3)" },
@@ -65,13 +99,14 @@ module Ai
             }
           },
           "get_graph_node" => {
-            description: "Get detailed information about a specific knowledge graph node",
+            description: "Get one knowledge graph node by id, in any status.",
             parameters: {
               node_id: { type: "string", required: true, description: "Node ID" }
             }
           },
           "list_graph_nodes" => {
-            description: "List knowledge graph nodes with optional filters and pagination",
+            description: "List active knowledge graph nodes with optional type, entity type, name and knowledge base filters. " \
+                         "The query filter matches node names by substring. The per_page value (default 20, max 50) applies only when page is set.",
             parameters: {
               node_type: { type: "string", required: false, description: "Filter by node type" },
               entity_type: { type: "string", required: false, description: "Filter by entity type" },
@@ -82,7 +117,8 @@ module Ai
             }
           },
           "get_graph_neighbors" => {
-            description: "Get neighboring nodes and edges for a specific graph node",
+            description: "Get the nodes reachable from one knowledge graph node, up to depth hops away. " \
+                         "Depth defaults to 1 and is capped at 5; relation_types limits which edges are followed.",
             parameters: {
               node_id: { type: "string", required: true, description: "Node ID" },
               depth: { type: "integer", required: false, description: "Traversal depth (default 1, max 5)" },
@@ -90,17 +126,19 @@ module Ai
             }
           },
           "graph_statistics" => {
-            description: "Get knowledge graph statistics (node counts, edge counts, etc.)",
+            description: "Get statistics for this account's active knowledge graph nodes and edges.",
             parameters: {}
           },
           "get_subgraph" => {
-            description: "Extract a subgraph containing the specified nodes and their connections",
+            description: "Get the listed knowledge graph nodes and the edges that connect them to each other. " \
+                         "Ids not in this account are skipped.",
             parameters: {
               node_ids: { type: "array", required: true, description: "Array of node IDs" }
             }
           },
           "extract_to_knowledge_graph" => {
-            description: "Extract entities and relationships from text and add them to the knowledge graph",
+            description: "Extract entities and relationships from text and add them to the knowledge graph. " \
+                         "An active entity node with the same name is reused and its mention count raised. The source_label value is only written to the log.",
             parameters: {
               text: { type: "string", required: true, description: "Text to extract entities and relations from" },
               source_label: { type: "string", required: false, description: "Label for the extraction source" }

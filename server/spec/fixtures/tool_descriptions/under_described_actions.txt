@@ -18,11 +18,8 @@ create_team
 delete_document
 delete_ralph_loop
 dispatch_to_runner
-extract_to_knowledge_graph
 generate_video
 get_component_status
-get_graph_neighbors
-get_graph_node
 get_investigation
 get_investigations
 get_llm_provider
@@ -31,13 +28,10 @@ get_pipeline_status
 get_ralph_loop_statistics
 get_remediation_route
 get_schedule
-get_subgraph
 get_team
-graph_statistics
 kubernetes_get_cluster
 kubernetes_list_clusters
 kubernetes_list_nodes
-list_graph_nodes
 list_knowledge_bases
 list_ralph_loops
 pause_ralph_loop
@@ -48,10 +42,8 @@ process_document
 project_get
 project_list
 project_status
-reason_knowledge_graph
 reopen_ralph_loop
 resume_ralph_loop
-search_knowledge_graph
 system_abort_task
 system_acme_get_certificate
 system_acme_provision_certificate
