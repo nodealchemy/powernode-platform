@@ -58,3 +58,28 @@ describe('DashboardPage route guards — Control (fc-41)', () => {
     expect(DASHBOARD_SRC).not.toMatch(/GovernancePage|ApprovalChainsPage|BudgetsPage/);
   });
 });
+
+// fc-43: the regrouped AI pages are each guarded on what their endpoints
+// enforce — Knowledge on any of its tabs' permissions (KNOWLEDGE_PERMISSIONS),
+// a context's detail on ai.context.read, and the pages split out of the
+// Knowledge and Infrastructure hubs on their own read permissions.
+describe('DashboardPage route guards — AI regroup (fc-43)', () => {
+  it('/ai/knowledge/* renders KnowledgePage behind KNOWLEDGE_PERMISSIONS', () => {
+    const element = protectedRouteElement('/ai/knowledge/\\*');
+    expect(element).toMatch(/^<ProtectedRoute\s+requiredPermissions=\{KNOWLEDGE_PERMISSIONS\}><KnowledgePage \/><\/ProtectedRoute>$/);
+    expect(DASHBOARD_SRC).toMatch(/import \{ KNOWLEDGE_PERMISSIONS \} from '@\/shared\/constants\/knowledgePermissions';/);
+  });
+
+  it.each([
+    ['/ai/knowledge/contexts/:id', "\\['ai\\.context\\.read'\\]"],
+    ['/ai/skills/\\*', "\\['ai\\.skills\\.read'\\]"],
+    ['/ai/prompts', "\\['ai\\.prompt_templates\\.read'\\]"],
+    ['/ai/providers', "\\['ai\\.providers\\.read'\\]"],
+    ['/ai/data-sources', "\\['ai\\.data_sources\\.read'\\]"],
+    ['/ai/model-router/\\*', "\\['ai\\.routing\\.read'\\]"],
+    ['/ai/mcp/\\*', 'MCP_PERMISSIONS'],
+  ])('%s is guarded on %s', (path, permissions) => {
+    // eslint-disable-next-line security/detect-non-literal-regexp -- built from the fixed table above
+    expect(protectedRouteElement(path)).toMatch(new RegExp(`^<ProtectedRoute\\s+requiredPermissions=\\{${permissions}\\}>`));
+  });
+});

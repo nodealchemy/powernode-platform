@@ -5,6 +5,7 @@ import { featureRegistry } from '@/shared/services/featureRegistry';
 import { ProtectedRoute } from '@/shared/components/ui/ProtectedRoute';
 import { CONTROL_PERMISSIONS } from '@/features/ai/control/controlPaths';
 import { MCP_PERMISSIONS } from '@/shared/constants/mcpPermissions';
+import { KNOWLEDGE_PERMISSIONS } from '@/shared/constants/knowledgePermissions';
 import { DashboardOverview } from '@/pages/app/dashboard/DashboardOverview';
 
 // Context providers used inline in route elements (must be synchronous)
@@ -156,8 +157,10 @@ const DashboardPage: React.FC = () => {
 
         {/* AI Pages - Tabbed wrappers */}
         <Route path="/ai/execution/*" element={<ExecutionPage />} />
-        <Route path="/ai/knowledge/contexts/:id" element={<ContextDetailPage />} />
-        <Route path="/ai/knowledge/*" element={<KnowledgePage />} />
+        {/* Knowledge opens on any of its tabs' permissions (each tab re-checks its
+            own); a context's detail needs ai.context.read (ContextsController). */}
+        <Route path="/ai/knowledge/contexts/:id" element={<ProtectedRoute requiredPermissions={['ai.context.read']}><ContextDetailPage /></ProtectedRoute>} />
+        <Route path="/ai/knowledge/*" element={<ProtectedRoute requiredPermissions={KNOWLEDGE_PERMISSIONS}><KnowledgePage /></ProtectedRoute>} />
         {/* AI → Platform, each gated like its endpoints (ProvidersController
             ai.providers.read, DataSourcesController ai.data_sources.read,
             ModelRouterController ai.routing.read; MCP opens on any of its
