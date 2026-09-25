@@ -391,18 +391,14 @@ module AiMonitoringConcern
     sorted[index]
   end
 
+  # The one shared check (Platform::Health::CoreChecks); it used to report a
+  # fixed 1ms instead of a measured response time.
   def check_database_health
-    ActiveRecord::Base.connection.execute("SELECT 1")
-    { status: "healthy", response_time_ms: 1 }
-  rescue StandardError => e
-    { status: "unhealthy", error: e.message }
+    ::Platform::Health::CoreChecks.database
   end
 
   def check_redis_health
-    redis.ping
-    { status: "healthy", response_time_ms: 1 }
-  rescue StandardError => e
-    { status: "unhealthy", error: e.message }
+    ::Platform::Health::CoreChecks.redis
   end
 
   def check_providers_health

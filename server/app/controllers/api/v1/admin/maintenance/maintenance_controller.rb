@@ -206,13 +206,16 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
 
   # Health endpoint
   def health
+    # The one set of core checks (Platform::Health::CoreChecks), under the
+    # key names this endpoint has always used.
+    checks = ::Platform::Health::CoreChecks.all
     health_check = {
-      database: check_database_health,
-      redis: check_redis_health,
-      sidekiq: check_sidekiq_health,
-      disk_space: check_disk_space,
-      memory_usage: check_memory_usage,
-      cpu_usage: check_cpu_usage
+      database: checks[:database],
+      redis: checks[:redis],
+      sidekiq: checks[:sidekiq],
+      disk_space: checks[:disk],
+      memory_usage: checks[:memory],
+      cpu_usage: checks[:cpu]
     }
 
     overall_status = health_check.values.all? { |v| v[:status] == "healthy" } ? "healthy" : "degraded"
@@ -381,87 +384,6 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
       seconds: uptime_seconds,
       formatted: format_duration(uptime_seconds)
     }
-  end
-
-  def check_database_health
-    start = Time.current
-    ActiveRecord::Base.connection.execute("SELECT 1")
-    response_time = ((Time.current - start) * 1000).round(2)
-
-    { status: "healthy", response_time_ms: response_time }
-  rescue StandardError => e
-    { status: "unhealthy", error: e.message }
-  end
-
-  def check_redis_health
-    start = Time.current
-    Powernode::Redis.new_client.ping
-    response_time = ((Time.current - start) * 1000).round(2)
-
-    { status: "healthy", response_time_ms: response_time }
-  rescue StandardError => e
-    { status: "unhealthy", error: e.message }
-  end
-
-  def check_sidekiq_health
-    stats = Sidekiq::Stats.new
-    {
-      status: "healthy",
-      processed: stats.processed,
-      failed: stats.failed,
-      queues: stats.queues
-    }
-  rescue StandardError => e
-    { status: "unhealthy", error: e.message }
-  end
-
-  def check_disk_space
-    stat = Sys::Filesystem.stat("/")
-    used_percentage = ((1 - (stat.bytes_free.to_f / stat.bytes_total)) * 100).round(2)
-
-    {
-      status: used_percentage < 80 ? "healthy" : "warning",
-      used_percentage: used_percentage,
-      free_gb: (stat.bytes_free / 1.gigabyte).round(2)
-    }
-  rescue StandardError => e
-    Rails.logger.error "Disk space check failed: #{e.message}"
-    { status: "unknown" }
-  end
-
-  def check_memory_usage
-    memory_info = `free -m`.split("\n")[1].split
-    total = memory_info[1].to_f
-    used = memory_info[2].to_f
-    used_percentage = ((used / total) * 100).round(2)
-
-    {
-      status: used_percentage < 80 ? "healthy" : "warning",
-      used_percentage: used_percentage,
-      used_mb: used.round,
-      total_mb: total.round
-    }
-  rescue StandardError => e
-    Rails.logger.error "Memory usage check failed: #{e.message}"
-    { status: "unknown" }
-  end
-
-  def check_cpu_usage
-    load_average = `uptime`.match(/load average: ([\d.]+), ([\d.]+), ([\d.]+)/)
-    if load_average
-      one_min = load_average[1].to_f
-      {
-        status: one_min < 2.0 ? "healthy" : "warning",
-        load_1min: one_min,
-        load_5min: load_average[2].to_f,
-        load_15min: load_average[3].to_f
-      }
-    else
-      { status: "unknown" }
-    end
-  rescue StandardError => e
-    Rails.logger.error "CPU usage check failed: #{e.message}"
-    { status: "unknown" }
   end
 
   def get_total_records_count

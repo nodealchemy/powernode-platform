@@ -14,6 +14,7 @@ RSpec.describe Platform::Status::Contributors do
     %w[
       agent_circuit_breaker
       ai_provider
+      core_service
       docker_host
       integration_instance
       kubernetes_cluster
@@ -31,7 +32,7 @@ RSpec.describe Platform::Status::Contributors do
   end
 
   describe ".register_all!" do
-    it "registers exactly the six core kinds" do
+    it "registers exactly the core kinds" do
       expect(described_class.register_all!).to eq(core_kinds)
       expect(registry.kinds.sort).to eq(core_kinds)
     end

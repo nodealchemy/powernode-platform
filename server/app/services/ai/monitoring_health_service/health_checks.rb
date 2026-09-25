@@ -32,43 +32,18 @@ module Ai
         }
       end
 
+      # Both read the one shared check (Platform::Health::CoreChecks), keeping
+      # the keys this service's consumers read.
       def check_database_health
-        ActiveRecord::Base.connection.execute("SELECT 1")
+        result = ::Platform::Health::CoreChecks.database
+        return result unless result[:status] == "healthy"
 
-        pool_stat = ActiveRecord::Base.connection_pool.stat
-        {
-          status: "healthy",
-          connection: "active",
-          connection_pool: {
-            size: pool_stat[:size],
-            connections: pool_stat[:connections],
-            busy: pool_stat[:busy],
-            idle: pool_stat[:idle],
-            available: pool_stat[:idle]
-          }
-        }
-      rescue StandardError => e
-        {
-          status: "unhealthy",
-          error: e.message
-        }
+        pool = result[:connection_pool]
+        result.merge(connection: "active", connection_pool: pool.merge(available: pool[:idle]))
       end
 
       def check_redis_health
-        redis = Powernode::Redis.new_client
-        redis.ping
-
-        info = redis.info
-        {
-          status: "healthy",
-          used_memory: info["used_memory_human"],
-          connected_clients: info["connected_clients"]&.to_i || 0
-        }
-      rescue StandardError => e
-        {
-          status: "unhealthy",
-          error: e.message
-        }
+        ::Platform::Health::CoreChecks.redis
       end
 
       def check_provider_health
