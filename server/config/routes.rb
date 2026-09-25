@@ -161,13 +161,6 @@ Rails.application.routes.draw do
           end
         end
 
-        # DevOps Approval Tokens (for worker service)
-        resources :approval_tokens, only: [ :show ], param: :step_execution_id do
-          member do
-            post :create_tokens
-          end
-        end
-
         # MCP (Model Context Protocol) internal endpoints
         resources :mcp_servers, only: [ :index, :show, :update ] do
           member do
@@ -417,8 +410,14 @@ Rails.application.routes.draw do
             end
           end
 
-          # Approval token management for worker service
-          resources :approval_tokens, only: [] do
+          # Approval token management for worker service. fc-27: merged from
+          # the former internal/approval_tokens (show/create_tokens) and this
+          # internal/devops/approval_tokens (expire_stale/pending_count) — two
+          # controllers over the same Devops::StepApprovalToken resource.
+          resources :approval_tokens, only: [ :show ], param: :step_execution_id do
+            member do
+              post :create_tokens
+            end
             collection do
               post :expire_stale
               get :pending_count

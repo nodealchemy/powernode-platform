@@ -26,7 +26,7 @@ RSpec.describe Devops::ApprovalNotificationJob, type: :job do
   describe '#fetch_step_execution_details (private)' do
     it 'returns the string-keyed data payload from a real BackendApiClient body' do
       allow(api_client).to receive(:get)
-        .with("/api/v1/internal/approval_tokens/#{step_execution_id}")
+        .with("/api/v1/internal/devops/approval_tokens/#{step_execution_id}")
         .and_return('success' => true, 'data' => { 'step_name' => 'Deploy to prod' })
 
       result = job.send(:fetch_step_execution_details, step_execution_id)
@@ -40,7 +40,7 @@ RSpec.describe Devops::ApprovalNotificationJob, type: :job do
       recipients = ['approver@example.com']
       token_data = { 'recipient_email' => 'approver@example.com', 'raw_token' => 'tok123' }
       allow(api_client).to receive(:post)
-        .with("/api/v1/internal/approval_tokens/#{step_execution_id}/create_tokens", { recipients: recipients })
+        .with("/api/v1/internal/devops/approval_tokens/#{step_execution_id}/create_tokens", { recipients: recipients })
         .and_return('success' => true, 'data' => { 'tokens' => [token_data] })
 
       result = job.send(:create_approval_tokens, step_execution_id, recipients)
@@ -52,7 +52,7 @@ RSpec.describe Devops::ApprovalNotificationJob, type: :job do
   describe '#execute' do
     it 'reports the step execution as not found when the fetch legitimately fails' do
       allow(api_client).to receive(:get)
-        .with("/api/v1/internal/approval_tokens/#{step_execution_id}")
+        .with("/api/v1/internal/devops/approval_tokens/#{step_execution_id}")
         .and_raise(BackendApiClient::ApiError.new('Not found', 404))
 
       result = job.execute(step_execution_id, [])
@@ -62,10 +62,10 @@ RSpec.describe Devops::ApprovalNotificationJob, type: :job do
 
     it 'reports failed token creation when create_approval_tokens returns no tokens' do
       allow(api_client).to receive(:get)
-        .with("/api/v1/internal/approval_tokens/#{step_execution_id}")
+        .with("/api/v1/internal/devops/approval_tokens/#{step_execution_id}")
         .and_return('success' => true, 'data' => { 'step_name' => 'Deploy to prod' })
       allow(api_client).to receive(:post)
-        .with("/api/v1/internal/approval_tokens/#{step_execution_id}/create_tokens", { recipients: [] })
+        .with("/api/v1/internal/devops/approval_tokens/#{step_execution_id}/create_tokens", { recipients: [] })
         .and_return('success' => true, 'data' => { 'tokens' => [] })
 
       result = job.execute(step_execution_id, [])
