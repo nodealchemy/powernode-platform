@@ -17,7 +17,6 @@ agent_recall
 agent_reflect
 agent_remember
 approve_improvement
-archive_by_predicate
 bootstrap_disk_image_ci
 campaign_answer_question
 campaign_check_rebase
@@ -54,7 +53,6 @@ content_production_status
 create_agent
 create_gitea_repository
 create_kb_article
-create_knowledge
 create_knowledge_base
 create_learning
 create_memory_pool
@@ -63,7 +61,6 @@ create_team
 create_workspace
 delete_document
 delete_gitea_action_secret
-delete_knowledge
 delete_memory_pool
 delete_ralph_loop
 delete_shared_memory
@@ -119,7 +116,6 @@ get_user
 governance_dashboard
 governance_scan
 graph_statistics
-hard_delete_archived
 hard_delete_retired
 integration_health
 invite_agent
@@ -159,7 +155,6 @@ process_document
 project_get
 project_list
 project_status
-promote_knowledge
 rate_knowledge
 read_shared_memory
 reason_knowledge_graph
@@ -178,7 +173,6 @@ retire_by_predicate
 revert_improvement
 route_task
 scoreboard
-search_knowledge
 search_knowledge_graph
 search_memory
 send_concierge_message
@@ -346,7 +340,6 @@ unpin_conversation
 update_agent
 update_gitea_repository
 update_kb_article
-update_knowledge
 update_page
 update_ralph_loop
 update_team

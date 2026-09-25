@@ -36,17 +36,46 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "create_knowledge", mutating: true
-      declare_action "delete_knowledge", mutating: true, destructive: true
-      declare_action "promote_knowledge", mutating: true
+      BULK_RETURNS = "count and a first-3/last-1 sample; a real run also returns ids, failed and row_errors"
+      BULK_REFUSES = "the predicate matches more than 500 rows, or a filter value is blank"
+
+      declare_action "create_knowledge", mutating: true,
+                                         returns: "the entry; a keyed write also returns action, the upsert outcome",
+                                         refuses: "content_type or access_level is invalid, key is not \"<prefix>:<slug>\", " \
+                                                  "or a near-duplicate entry already exists (its id is returned)",
+                                         see_also: { "create_learning" => "a lesson learned from a task outcome" }
+      declare_action "delete_knowledge", mutating: true, destructive: true,
+                                         returns: "entry_id and method (archived or hard_delete)",
+                                         refuses: "the entry is not found",
+                                         see_also: { "archive_by_predicate" => "archiving many entries at once" }
+      declare_action "promote_knowledge", mutating: true,
+                                          returns: "the updated entry",
+                                          refuses: "the entry is not found, or the target level is invalid or not above the current one"
       # IMP-3c9a6dc8f0a9 — dry_run: true is the CALLER'S default too (matches
       # the service methods' own default); a dry-run call does not mutate
       # anything, so `destructive: true` describes the SHAPE this action can
       # take, not every invocation of it.
-      declare_action "archive_by_predicate", mutating: true, destructive: true
-      declare_action "hard_delete_archived", mutating: true, destructive: true
-      declare_action "search_knowledge", mutating: false
-      declare_action "update_knowledge", mutating: true
+      declare_action "archive_by_predicate", mutating: true, destructive: true,
+                                             returns: BULK_RETURNS, refuses: BULK_REFUSES,
+                                             see_also: { "hard_delete_archived" => "permanently removing entries already archived" }
+      declare_action "hard_delete_archived", mutating: true, destructive: true,
+                                             returns: BULK_RETURNS, refuses: BULK_REFUSES,
+                                             see_also: { "archive_by_predicate" => "archiving entries first" }
+      declare_action "search_knowledge", mutating: false, limit: 50,
+                                         returns: "entries (id, title, content, tags, provenance, quality_score, similarity " \
+                                                  "and freshness) and count; a guidance-* tag filter also returns store " \
+                                                  "and guidance_corpus_size",
+                                         refuses: "query is blank",
+                                         see_also: {
+                                           "query_learnings" => "lessons extracted from agent and team executions",
+                                           "query_knowledge_base" => "document chunks in a RAG knowledge base",
+                                           "search_memory" => "one agent's short-term memory and learnings, by keyword",
+                                           "search_knowledge_graph" => "entities and their relations"
+                                         }
+      declare_action "update_knowledge", mutating: true,
+                                         returns: "the updated entry",
+                                         refuses: "the entry is not found, or access_level is invalid",
+                                         see_also: { "promote_knowledge" => "raising the access level one step" }
 
       def self.definition
         {
@@ -70,7 +99,12 @@ module Ai
       def self.action_definitions
         {
           "search_knowledge" => {
-            description: "Search shared knowledge entries using semantic and keyword search",
+            description: "Search shared knowledge entries using semantic and keyword search. Shared knowledge " \
+                         "holds curated account entries (procedures, references, facts, guides), written with " \
+                         "create_knowledge, promoted by memory consolidation, and imported nightly from " \
+                         "high-importance compound learnings. Semantic search runs when the query and the stored " \
+                         "entries have embeddings; otherwise keyword search runs. Archived entries are excluded, " \
+                         "and each hit bumps the entry's usage count. limit defaults to 10.",
             parameters: {
               query: { type: "string", required: true, description: "Search query" },
               content_type: { type: "string", required: false, description: "Filter by content type" },
@@ -93,7 +127,8 @@ module Ai
             }
           },
           "update_knowledge" => {
-            description: "Update an existing shared knowledge entry",
+            description: "Update an existing shared knowledge entry's content, tags or access level. Changing the " \
+                         "content regenerates its embedding and quality score.",
             parameters: {
               entry_id: { type: "string", required: true, description: "Knowledge entry ID" },
               content: { type: "string", required: false, description: "Updated content" },
@@ -102,7 +137,8 @@ module Ai
             }
           },
           "promote_knowledge" => {
-            description: "Promote a shared knowledge entry to a higher access level",
+            description: "Promote a shared knowledge entry to a higher access level. Without access_level it " \
+                         "moves one step up the order private, team, account, global.",
             parameters: {
               entry_id: { type: "string", required: true, description: "Knowledge entry ID to promote" },
               access_level: { type: "string", required: false, description: "Target access level (auto-determined if omitted)" }
@@ -117,7 +153,7 @@ module Ai
           },
           "archive_by_predicate" => {
             description: "Predicate-scoped bulk archive (soft, reversible) of shared knowledge entries. " \
-                         "dry_run defaults to true — returns the count and a first-3/last-1 sample without " \
+                         "`dry_run` defaults to true — returns the count and a first-3/last-1 sample without " \
                          "mutating anything; pass dry_run: false to actually archive. Refuses (does not " \
                          "truncate) if the predicate matches more than the per-call ceiling.",
             parameters: {
