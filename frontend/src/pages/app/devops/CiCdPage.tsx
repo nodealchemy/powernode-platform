@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
-import { LayoutDashboard, Workflow, Server, FileText, Puzzle } from 'lucide-react';
+import { Workflow, Server, FileText, Puzzle } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel, type Tab } from '@/shared/components/layout/TabContainer';
 import { featureRegistry } from '@/shared/services/featureRegistry';
-import { CiCdOverviewTab } from '@/pages/app/devops/CiCdOverviewTab';
 import { PipelinesPage } from '@/pages/app/devops/PipelinesPage';
 import { RunnersPage as AiPipelinesRunnersPage } from '@/features/devops/pipelines';
+import { RunnerHealthPanel } from '@/features/devops/pipelines/components/RunnerHealthPanel';
 import { TemplatesContent } from '@/pages/app/ai/DevOpsTemplatesPage';
 
 // fc-34 review fix: an extension-contributed CI/CD tab (e.g. the system
@@ -36,8 +36,8 @@ interface SlotTab {
   Component: React.ComponentType<{ onActionsReady?: (actions: PageAction[]) => void }>;
 }
 
+// Pipelines is the default tab: the bare /app/devops/ci-cd URL opens it.
 const staticTabs: Tab[] = [
-  { id: 'overview', label: 'Overview', icon: <LayoutDashboard size={16} />, path: '/' },
   { id: 'pipelines', label: 'Pipelines', icon: <Workflow size={16} />, path: '/pipelines' },
   { id: 'runners', label: 'Runners', icon: <Server size={16} />, path: '/runners' },
   { id: 'templates', label: 'Templates', icon: <FileText size={16} />, path: '/templates', permissions: ['ai.devops.read'] },
@@ -76,12 +76,11 @@ export const CiCdPage: React.FC = () => {
 
   const getActiveTab = useCallback(() => {
     const path = location.pathname;
-    if (path.includes('/ci-cd/pipelines')) return 'pipelines';
     if (path.includes('/ci-cd/runners')) return 'runners';
     if (path.includes('/ci-cd/templates')) return 'templates';
     const slotMatch = slotTabs.find((t) => path.includes(`/ci-cd/${t.id}`));
     if (slotMatch) return slotMatch.id;
-    return 'overview';
+    return 'pipelines';
   }, [location.pathname, slotTabs]);
 
   const [activeTab, setActiveTab] = useState(getActiveTab());
@@ -109,7 +108,7 @@ export const CiCdPage: React.FC = () => {
       { label: 'Dashboard', href: '/app' },
       { label: 'DevOps', href: '/app/devops' },
     ];
-    if (activeTab === 'overview') {
+    if (activeTab === 'pipelines') {
       base.push({ label: 'CI/CD' });
     } else {
       base.push({ label: 'CI/CD', href: '/app/devops/ci-cd' });
@@ -134,13 +133,11 @@ export const CiCdPage: React.FC = () => {
         variant="underline"
         className="mb-6"
       >
-        <TabPanel tabId="overview" activeTab={activeTab}>
-          <CiCdOverviewTab />
-        </TabPanel>
         <TabPanel tabId="pipelines" activeTab={activeTab}>
           <PipelinesPage onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="runners" activeTab={activeTab}>
+          <RunnerHealthPanel />
           <AiPipelinesRunnersPage onActionsReady={handleActionsReady} />
         </TabPanel>
         <TabPanel tabId="templates" activeTab={activeTab}>

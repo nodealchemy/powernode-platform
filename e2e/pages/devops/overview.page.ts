@@ -3,7 +3,7 @@ import { Page, Locator, expect } from '@playwright/test';
 /**
  * DevOps Overview Page Object Model
  *
- * Matches actual DevOpsOverviewPage component:
+ * Matches the DevOps overview at /app/devops (DevOpsHubPage):
  * - PageContainer with title "DevOps Overview"
  * - Actions: "Refresh" (or "Refreshing...")
  * - StatCard components for Git Providers, Repositories, Runners, Webhooks, Integrations, API Keys

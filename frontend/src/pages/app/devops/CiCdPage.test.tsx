@@ -7,15 +7,15 @@ import { CiCdPage } from './CiCdPage';
 // =============================================================================
 // Mocks
 //
-// CiCdPage composes four static tabs plus, per the fc-34 review fix, any
+// CiCdPage composes three static tabs plus, per the fc-34 review fix, any
 // number of extension-contributed tabs discovered from the
 // `devops.ci-cd.tab.*` component-slot prefix. The static tabs are stubbed so
 // this file tests CiCdPage's own tab-switching + slot-discovery logic, not
 // their internals (each has its own test file).
 // =============================================================================
 
-jest.mock('@/pages/app/devops/CiCdOverviewTab', () => ({
-  CiCdOverviewTab: () => <div data-testid="ci-cd-overview-tab">Overview</div>,
+jest.mock('@/features/devops/pipelines/components/RunnerHealthPanel', () => ({
+  RunnerHealthPanel: () => <div data-testid="runner-health">Runner health</div>,
 }));
 
 jest.mock('@/pages/app/devops/PipelinesPage', () => ({
@@ -127,14 +127,36 @@ describe('CiCdPage', () => {
   // No slot registered anywhere in this describe block yet — must run before
   // any test below registers one, since featureRegistry is a real singleton
   // with no unregister call and state persists across tests in this file.
-  it('renders only the four static tabs when no devops.ci-cd.tab.* slot is registered', () => {
+  it('renders only the three static tabs when no devops.ci-cd.tab.* slot is registered', () => {
     renderPage();
 
-    expect(screen.getByRole('tab', { name: 'Overview' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Pipelines' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Runners' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Templates' })).toBeInTheDocument();
-    expect(screen.queryAllByRole('tab')).toHaveLength(4);
+    expect(screen.queryByRole('tab', { name: 'Overview' })).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('tab')).toHaveLength(3);
+  });
+
+  // fc-44: the Overview tab was deleted; the bare URL opens Pipelines.
+  it('opens on Pipelines at the bare /app/devops/ci-cd URL', () => {
+    renderPage();
+
+    expect(screen.getByTestId('pipelines-page')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Pipelines' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  // fc-44: runner health moved from the deleted Overview tab to Runners.
+  it('shows runner health on the Runners tab', () => {
+    renderPage('/app/devops/ci-cd/runners');
+
+    expect(screen.getByTestId('runner-health')).toBeInTheDocument();
+    expect(screen.getByTestId('runners-page')).toBeInTheDocument();
+  });
+
+  it('does not show runner health on the Pipelines tab', () => {
+    renderPage();
+
+    expect(screen.queryByTestId('runner-health')).not.toBeInTheDocument();
   });
 
   describe('with a devops.ci-cd.tab.* slot registered', () => {
@@ -160,25 +182,25 @@ describe('CiCdPage', () => {
       renderPage();
 
       expect(screen.getByRole('tab', { name: 'Module builds' })).toBeInTheDocument();
-      expect(screen.queryAllByRole('tab')).toHaveLength(5);
+      expect(screen.queryAllByRole('tab')).toHaveLength(4);
     });
 
     it('renders the slot component when its tab is active via URL', () => {
       renderPage('/app/devops/ci-cd/module-builds');
 
       expect(screen.getByTestId('module-builds-slot')).toBeInTheDocument();
-      expect(screen.queryByTestId('ci-cd-overview-tab')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pipelines-page')).not.toBeInTheDocument();
     });
 
     it('marks the slot tab active from the URL and switches to it on click', () => {
       renderPage();
 
-      expect(screen.getByTestId('ci-cd-overview-tab')).toBeInTheDocument();
+      expect(screen.getByTestId('pipelines-page')).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole('tab', { name: 'Module builds' }));
 
       expect(screen.getByTestId('module-builds-slot')).toBeInTheDocument();
-      expect(screen.queryByTestId('ci-cd-overview-tab')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('pipelines-page')).not.toBeInTheDocument();
     });
 
     it('bridges the slot component’s onActionsReady into the page actions', async () => {
@@ -241,8 +263,8 @@ describe('CiCdPage', () => {
       renderPage();
 
       const lastTabs = tabsPropCalls[tabsPropCalls.length - 1];
-      const overviewTab = lastTabs.find((t) => t.id === 'overview');
-      expect(overviewTab?.permissions).toBeUndefined();
+      const pipelinesTab = lastTabs.find((t) => t.id === 'pipelines');
+      expect(pipelinesTab?.permissions).toBeUndefined();
     });
   });
 

@@ -7,6 +7,7 @@ import { useAuth } from '@/shared/hooks/useAuth';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { usePipelines } from '@/features/devops/pipelines/hooks/usePipelines';
 import { PipelineList } from '@/features/devops/pipelines/components/PipelineList';
+import { PipelineRunsSummary } from '@/features/devops/pipelines/components/PipelineRunsSummary';
 
 interface PipelinesPageProps {
   onActionsReady?: (actions: PageAction[]) => void;
@@ -117,6 +118,12 @@ export const PipelinesPage: React.FC<PipelinesPageProps> = ({ onActionsReady }) 
   return (
     <>
       <div className="space-y-6">
+        {/* Devops::Pipeline records, run by the platform itself — distinct from
+            a git provider's own CI, which the Runners tab reaches. */}
+        <p className="text-sm text-theme-secondary">
+          Platform-native pipelines, defined and run by Powernode.
+        </p>
+
         {/* Stats Cards */}
         {meta && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -155,6 +162,8 @@ export const PipelinesPage: React.FC<PipelinesPageProps> = ({ onActionsReady }) 
             </div>
           </div>
         )}
+
+        <PipelineRunsSummary />
 
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-4">
