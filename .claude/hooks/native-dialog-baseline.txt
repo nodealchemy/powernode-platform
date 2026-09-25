@@ -18,7 +18,6 @@
 # extension) is the shape they want, so migrating them needs that hook lifted
 # to core first.
 frontend/src/features/admin/workers/components/WorkerSettings.tsx|1
-frontend/src/features/ai/autonomy/components/BudgetAllocationPanel.tsx|1
 frontend/src/features/ai/autonomy/components/GoalsPanel.tsx|1
 frontend/src/features/ai/autonomy/components/InterventionPoliciesPanel.tsx|1
 frontend/src/features/ai/autonomy/components/TrustScoreCard.tsx|3

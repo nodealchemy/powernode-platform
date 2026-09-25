@@ -231,6 +231,40 @@ describe('BudgetsPanel — allocate to a child agent', () => {
   });
 });
 
+describe('BudgetsPanel — delete asks in the app, not the browser', () => {
+  let nativeConfirm: jest.SpyInstance;
+  beforeEach(() => {
+    nativeConfirm = jest.spyOn(window, 'confirm').mockImplementation(() => true);
+  });
+  afterEach(() => nativeConfirm.mockRestore());
+
+  it('deletes only after the confirmation dialog is accepted', async () => {
+    mockDelete.mockResolvedValue({ data: { success: true, data: { deleted: true } } });
+    renderPanel();
+    await waitFor(() => expect(listedAgents()).toHaveLength(4));
+
+    fireEvent.click(within(row('Old Agent')).getByTitle('Delete budget'));
+    expect(await screen.findByText(/delete the budget for Old Agent/i)).toBeInTheDocument();
+    expect(mockDelete).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith('/ai/autonomy/budgets/old'));
+    expect(nativeConfirm).not.toHaveBeenCalled();
+  });
+
+  it('deletes nothing when the dialog is cancelled', async () => {
+    renderPanel();
+    await waitFor(() => expect(listedAgents()).toHaveLength(4));
+
+    fireEvent.click(within(row('Old Agent')).getByTitle('Delete budget'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => expect(screen.queryByText(/delete the budget for Old Agent/i)).not.toBeInTheDocument());
+    expect(mockDelete).not.toHaveBeenCalled();
+    expect(nativeConfirm).not.toHaveBeenCalled();
+  });
+});
+
 describe('BudgetsPanel — gated on what the endpoints check', () => {
   it('shows the list but no write controls without ai.autonomy.manage', async () => {
     mockPermissions = ['ai.agents.read'];

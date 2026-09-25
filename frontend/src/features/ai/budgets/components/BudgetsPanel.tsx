@@ -4,6 +4,7 @@ import { DollarSign, Plus, Edit2, Trash2, ChevronDown, ChevronUp, AlertTriangle,
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
 import { Badge } from '@/shared/components/ui/Badge';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
+import { useConfirmation } from '@/shared/components/ui/ConfirmationModal';
 import { EntityLink } from '@/shared/components/entity';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { cn } from '@/shared/utils/cn';
@@ -175,6 +176,7 @@ export const BudgetsPanel: React.FC = () => {
   const { data: budgets, isLoading } = useAgentBudgets();
   const { data: stats } = useAutonomyStats();
   const deleteBudget = useDeleteBudget();
+  const { confirm, ConfirmationDialog } = useConfirmation();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -214,8 +216,14 @@ export const BudgetsPanel: React.FC = () => {
   const regime = computeBudgetRegime(stats);
   const filtering = !!(agentFilter || periodFilter || statusFilter);
 
-  const handleDelete = (budgetId: string) => {
-    if (window.confirm('Delete this budget?')) deleteBudget.mutate(budgetId);
+  const handleDelete = (budget: AgentBudget) => {
+    confirm({
+      title: 'Delete budget',
+      message: `Delete the budget for ${budget.agent_name || 'this agent'}? Its transaction history goes with it.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+      onConfirm: () => deleteBudget.mutateAsync(budget.id),
+    });
   };
 
   return (
@@ -305,7 +313,7 @@ export const BudgetsPanel: React.FC = () => {
                                 className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary hover:text-theme-primary">
                                 <Edit2 className="h-3.5 w-3.5" />
                               </button>
-                              <button type="button" onClick={() => handleDelete(budget.id)} title="Delete budget"
+                              <button type="button" onClick={() => handleDelete(budget)} title="Delete budget"
                                 className="p-1 rounded hover:bg-theme-background-secondary text-theme-tertiary hover:text-theme-error-fg">
                                 <Trash2 className="h-3.5 w-3.5" />
                               </button>
@@ -371,6 +379,7 @@ export const BudgetsPanel: React.FC = () => {
           }}
         />
       )}
+      {ConfirmationDialog}
     </div>
   );
 };
