@@ -52,8 +52,15 @@ module Ai
       }.freeze
 
       declare_action "list_users", mutating: false
-      declare_action "get_user", mutating: false
-      declare_action "list_roles", mutating: false
+      declare_action "get_user", mutating: false,
+                                 returns: "id, name, email, status, email_verified, created_at, last_login_at, roles, " \
+                                          "and the sorted permission names those roles confer",
+                                 refuses: "the caller lacks admin.user.read, or no user with that id is in this account",
+                                 see_also: { "list_users" => "finding a user id" }
+      declare_action "list_roles", mutating: false, paginated: true,
+                                   returns: "id, name, display_name, description, role_type, scope, is_system, immutable " \
+                                            "and sorted permission names per role",
+                                   refuses: "the caller lacks admin.role.read, or scope is not all, global or account"
       declare_action "list_permissions", mutating: false
       declare_action "list_audit_logs", mutating: false
 

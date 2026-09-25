@@ -41,7 +41,6 @@ get_remediation_route
 get_schedule
 get_subgraph
 get_team
-get_user
 graph_statistics
 integration_health
 kill_switch_status
@@ -52,7 +51,6 @@ list_generated_images
 list_graph_nodes
 list_knowledge_bases
 list_ralph_loops
-list_roles
 pause_ralph_loop
 platform_provisioning_approve_plan
 platform_provisioning_compose_plan
