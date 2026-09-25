@@ -76,16 +76,18 @@ module Ai
         data_source_list data_source_get data_source_describe
         data_source_health data_source_validate_config
         data_source_discover data_source_provenance data_source_impact
-        data_source_schema_history data_source_quality data_source_contract
+        data_source_schema_history data_source_quality
         data_source_export data_source_list_templates data_source_config_versions
         data_source_replay
       ].freeze
 
-      # QUERY-permission actions: a governed external fetch (data_source_query) plus
-      # the multi-source coordinators that fetch + merge / fetch + failover. All
-      # require ai.data_sources.query because they exercise the upstream fetch path.
+      # QUERY-permission actions: a governed external fetch (data_source_query), the
+      # contract verdict judged against a fresh fetch (data_source_contract; it has
+      # no fetch-free path), plus the multi-source coordinators that fetch + merge /
+      # fetch + failover. All require ai.data_sources.query because they exercise
+      # the upstream fetch path.
       QUERY_ACTIONS = %w[
-        data_source_query data_source_reconcile data_source_failover_query
+        data_source_query data_source_contract data_source_reconcile data_source_failover_query
       ].freeze
 
       # Phase 2b introspection creates endpoints from an OpenAPI spec, so it is a
@@ -378,7 +380,8 @@ module Ai
           "data_source_contract" => {
             description: "Check an endpoint's data contract with a fresh governed fetch. " \
                          "Ai::DataSources::ContractService aggregates the fetch's schema_valid + quality_passed + " \
-                         "within_sla into a single contract verdict (met + violations). " \
+                         "within_sla into a single contract verdict (met + violations). Requires ai.data_sources.query, " \
+                         "like data_source_query. " \
                          "A write/side-effecting endpoint additionally requires ai.data_sources.manage; without it, files a " \
                          "proposal instead of dispatching the live call.",
             parameters: {

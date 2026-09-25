@@ -1084,8 +1084,9 @@ RSpec.describe Ai::Tools::DataSourceTool do
   end
 
   # ------------------------------------------------------------------------
-  # data_source_contract — aggregate verdict (read). Delegates to QueryService
-  # + ContractService; the QueryService fetch is stubbed (no network).
+  # data_source_contract — aggregate verdict (query-gated: it runs a live
+  # fetch). Delegates to QueryService + ContractService; the QueryService fetch
+  # is stubbed (no network).
   # ------------------------------------------------------------------------
 
   describe "#execute data_source_contract" do
@@ -1116,8 +1117,12 @@ RSpec.describe Ai::Tools::DataSourceTool do
       expect(data[:fetch_success]).to be true
     end
 
-    it "denies contract (a read action) when the agent's account lacks ai.data_sources.read" do
+    # The contract verdict is always judged against a FRESH live fetch — the same
+    # governed fetch data_source_query performs — so it takes the query grant,
+    # not the read grant. A read-only account must not reach the upstream here.
+    it "denies contract when the agent's account holds ai.data_sources.read but not ai.data_sources.query" do
       locked_account = create(:account)
+      create(:user, account: locked_account, permissions: %w[ai.data_sources.read])
       no_perm_user = create(:user, account: locked_account, permissions: [])
       locked_agent = create(:ai_agent, account: locked_account, creator: no_perm_user)
       locked_source = create(:ai_data_source, account: locked_account, slug: "locked-src")
@@ -1130,7 +1135,24 @@ RSpec.describe Ai::Tools::DataSourceTool do
       })
 
       expect(result[:success]).to be false
-      expect(result[:error]).to match(/Permission denied: ai\.data_sources\.read/)
+      expect(result[:error]).to match(/Permission denied: ai\.data_sources\.query/)
+    end
+
+    it "allows contract when a user in the agent's account holds ai.data_sources.query" do
+      query_account = create(:account)
+      create(:user, account: query_account, permissions: %w[ai.data_sources.query])
+      no_perm_user = create(:user, account: query_account, permissions: [])
+      query_agent = create(:ai_agent, account: query_account, creator: no_perm_user)
+      query_source = create(:ai_data_source, account: query_account, slug: "query-src")
+      create(:ai_data_source_endpoint, data_source: query_source, slug: "ep")
+
+      agent_tool = described_class.new(account: query_account, agent: query_agent, user: no_perm_user)
+      result = agent_tool.execute(params: {
+        action: "data_source_contract", data_source_id: "query-src", endpoint_id: "ep"
+      })
+
+      expect(result[:success]).to be true
+      expect(result[:data][:contract]).to include(met: true)
     end
   end
 
