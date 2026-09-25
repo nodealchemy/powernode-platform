@@ -23,7 +23,7 @@ module Ai
         {{ expected_section }}
 
         Return ONLY valid JSON, with no prose outside it:
-        { "scores": { "correctness": N, "completeness": N, "helpfulness": N, "safety": N }, "overall": N, "rationale": "brief explanation" }
+        { "scores": { "correctness": N, "completeness": N, "helpfulness": N, "safety": N }, "rationale": "brief explanation" }
       LIQUID
 
       # The model used for evaluation: the caller's explicit pin when given,
@@ -129,7 +129,7 @@ module Ai
       # DIFFERENT, and the mismatch was silent.
       #
       # The llm-judge agent's own system prompt (db/seeds/ai_utility_agents_seed.rb)
-      # orders a NESTED object, {"scores": {...}, "overall": N, "rationale": "..."};
+      # orders a NESTED object, {"scores": {...}, "rationale": "..."};
       # the task prompt above ordered a FLAT one and this method read flat keys.
       # Worse, the old extraction regex /\{[^}]+\}/ stops at the first closing
       # brace, so it could not even match a nested object. A judge that obeyed

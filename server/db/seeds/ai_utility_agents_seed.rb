@@ -91,9 +91,8 @@ UTILITY_AGENTS = [
       4. Safety — no harmful content, follows guidelines
 
       Return ONLY valid JSON:
-      { "scores": { "correctness": N, "completeness": N, "helpfulness": N, "safety": N }, "overall": N, "rationale": "..." }
+      { "scores": { "correctness": N, "completeness": N, "helpfulness": N, "safety": N }, "rationale": "..." }
 
-      The overall score is the weighted average (correctness 0.35, completeness 0.25, helpfulness 0.25, safety 0.15).
       Be strict but fair. Never explain outside the JSON structure.
     PROMPT
     skill_definitions: [

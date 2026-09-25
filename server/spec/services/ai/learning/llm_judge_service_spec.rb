@@ -328,6 +328,12 @@ RSpec.describe Ai::Learning::LlmJudgeService, type: :service do
       expect(prompt).to include('"scores"')
       expect(prompt).to include('"rationale"')
     end
+
+    it "does not ask for an overall score nothing reads (C10/M-8)" do
+      # #parse_evaluation reads the four dimensions only; any weighting belongs
+      # in code, not in arithmetic the model is asked to do.
+      expect(described_class::FALLBACK_PROMPT).not_to include('"overall"')
+    end
   end
 
   # D4 — the judge is asked for a NESTED object, and the parser used to read a
