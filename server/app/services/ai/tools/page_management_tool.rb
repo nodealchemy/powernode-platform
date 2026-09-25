@@ -11,15 +11,19 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "create_page", mutating: true,
                                     returns: "page_id, slug and title",
-                                    refuses: "title or content is blank, the slug is already taken, or status is not draft or published"
+                                    refuses: [ "the call carries no account or no acting user",
+                                               "title or content is blank, the slug is already taken, or status is not draft or published" ]
       declare_action "get_page", mutating: false,
                                  returns: "the page's content, status, meta fields, word_count and timestamps",
-                                 refuses: "neither page_id nor slug matches a page in this account",
+                                 refuses: [ "the call carries no account",
+                                            "neither page_id nor slug matches a page in this account" ],
                                  see_also: { "list_pages" => "finding a page's id or slug" }
-      declare_action "list_pages", mutating: false, limit: 50, returns: "page summaries, most recently updated first"
+      declare_action "list_pages", mutating: false, limit: 50, returns: "page summaries, most recently updated first",
+                                   refuses: "the call carries no account"
       declare_action "update_page", mutating: true,
                                     returns: "page_id and slug",
-                                    refuses: [ "the page is not in this account",
+                                    refuses: [ "the call carries no account",
+                                               "the page is not in this account",
                                                "the new values fail validation, such as a slug already taken or an unknown status" ]
 
       def self.definition
@@ -56,8 +60,9 @@ module Ai
             }
           },
           "create_page" => {
-            description: "Create a new content page. " \
-                         "The status defaults to draft, and the slug is generated from the title when omitted.",
+            description: "Create a new content page in this account, authored by the acting user. " \
+                         "The status defaults to draft, and the slug is generated from the title when omitted. " \
+                         "Refused when the call carries no acting user.",
             parameters: {
               title: { type: "string", required: true, description: "Page title" },
               content: { type: "string", required: true, description: "Page content in markdown" },
@@ -86,6 +91,11 @@ module Ai
       protected
 
       def call(params)
+        # No account, no tenant to act in. There used to be an Account.first
+        # fallback here, which silently read and wrote whichever tenant happened
+        # to be first in the table.
+        return missing_context_result("account") if @account.nil?
+
         case params[:action]
         when "list_pages" then list_pages(params)
         when "get_page" then get_page(params)
@@ -115,6 +125,11 @@ module Ai
       end
 
       def create_page(params)
+        # pages.author_id is NOT NULL. Without an acting user there is nobody
+        # to name as author, and the old User.first fallback named a user from
+        # an arbitrary account. Refuse instead.
+        return missing_context_result("user") if @user.nil?
+
         page = Page.create!(
           title: params[:title],
           content: params[:content],
@@ -122,8 +137,8 @@ module Ai
           slug: params[:slug].presence || PageService.generate_slug(params[:title]),
           meta_description: params[:meta_description],
           meta_keywords: params[:meta_keywords],
-          account: @account || Account.first,
-          author_id: @user&.id || User.first&.id
+          account: @account,
+          author_id: @user.id
         )
         { success: true, page_id: page.id, slug: page.slug, title: page.title }
       rescue ActiveRecord::RecordInvalid => e
@@ -159,7 +174,11 @@ module Ai
       # Account-scoped page relation — mirrors create_page's account binding so
       # list/get/update can only ever touch the tool account's pages (no IDOR).
       def pages_scope
-        (@account || Account.first).pages
+        @account.pages
+      end
+
+      def missing_context_result(what)
+        { success: false, error: "Refused: the call carries no #{what} context" }
       end
 
       def serialize_page_summary(page)

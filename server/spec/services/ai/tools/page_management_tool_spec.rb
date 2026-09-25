@@ -58,4 +58,57 @@ RSpec.describe Ai::Tools::PageManagementTool do
       expect(own_page.reload.title).to eq("Updated")
     end
   end
+
+  # The tool used to fall back to Account.first / User.first when the call
+  # carried no account or user, writing into whichever tenant (and naming
+  # whichever author) happened to be first in the table.
+  describe "missing account or user context" do
+    # Present so the removed fallback would have had somewhere to write.
+    let!(:first_account) { create(:account) }
+    let!(:first_user) { create(:user, account: first_account) }
+
+    let(:page_params) { { action: "create_page", title: "Orphan Page", content: "Body" } }
+
+    it "create_page without an account refuses and creates nothing" do
+      result = nil
+
+      expect {
+        result = described_class.new(account: nil, user: first_user).send(:call, page_params)
+      }.not_to change(Page, :count)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/no account/i)
+    end
+
+    it "create_page without a user refuses and creates nothing" do
+      result = nil
+
+      expect {
+        result = described_class.new(account: account_a).send(:call, page_params)
+      }.not_to change(Page, :count)
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/no user/i)
+    end
+
+    it "list_pages without an account refuses rather than reading the first account's pages" do
+      create(:page, account: first_account, title: "First account's page")
+
+      result = described_class.new(account: nil).send(:call, { action: "list_pages" })
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/no account/i)
+    end
+
+    it "create_page with both account and user creates the page in that account, authored by that user" do
+      author = create(:user, account: account_a)
+
+      result = described_class.new(account: account_a, user: author).send(:call, page_params)
+
+      expect(result[:success]).to be true
+      page = Page.find(result[:page_id])
+      expect(page.account_id).to eq(account_a.id)
+      expect(page.author_id).to eq(author.id)
+    end
+  end
 end
