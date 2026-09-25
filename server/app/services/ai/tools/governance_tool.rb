@@ -54,12 +54,31 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "detect_collusion", mutating: true
-      declare_action "get_governance_report", mutating: false
-      declare_action "governance_dashboard", mutating: false
-      declare_action "governance_scan", mutating: true
-      declare_action "list_governance_reports", mutating: false
-      declare_action "resolve_governance_report", mutating: true
+      declare_action "detect_collusion", mutating: true,
+                                         returns: "count and the indicators created (id, indicator_type, correlation_score, agent_cluster)",
+                                         refuses: "the caller lacks ai.governance.manage"
+      declare_action "get_governance_report", mutating: false,
+                                              returns: "every field of the report except updated_at",
+                                              refuses: "the report is not in this account",
+                                              see_also: { "list_governance_reports" => "finding report ids" }
+      declare_action "governance_dashboard", mutating: false,
+                                             returns: "open_reports, critical_reports, open counts by type and severity, " \
+                                                      "collusion_indicators and agents_under_investigation",
+                                             see_also: { "list_governance_reports" => "the reports behind the counts" }
+      declare_action "governance_scan", mutating: true,
+                                        returns: "count and the reports created (id, report_type, severity, status, confidence_score)",
+                                        refuses: [ "neither agent_id nor team_id is given",
+                                                   "the agent or team is not in this account",
+                                                   "the caller lacks ai.governance.manage" ]
+      declare_action "list_governance_reports", mutating: false,
+                                                returns: "count and reports newest first (id, report_type, severity, status, " \
+                                                         "confidence_score, subject_agent_id, created_at)",
+                                                see_also: { "get_governance_report" => "one report's evidence and recommended actions" }
+      declare_action "resolve_governance_report", mutating: true,
+                                                  returns: "report_id and the new status",
+                                                  refuses: [ "the report is not in this account",
+                                                             "resolution_status is not a known report status",
+                                                             "the caller lacks ai.governance.manage" ]
 
       def self.definition
         { name: "governance", description: "Agent governance monitoring, scanning, and collusion detection", parameters: { type: "object", properties: {} } }
@@ -68,14 +87,17 @@ module Ai
       def self.action_definitions
         {
           "governance_scan" => {
-            description: "Run a governance scan on a specific agent or team",
+            description: "Run a governance scan on a specific agent or team and record a report for each finding. " \
+                         "An agent is checked for policy violations, resource abuse and behavioural anomalies. " \
+                         "A team is checked for one member doing over 80% of the last 7 days' executions.",
             parameters: {
               agent_id: { type: "string", required: false, description: "Agent to scan" },
               team_id: { type: "string", required: false, description: "Team to scan" }
             }
           },
           "list_governance_reports" => {
-            description: "List governance reports with optional filters",
+            description: "List this account's governance reports, newest first, filtered by status, severity or subject agent. " \
+                         "The limit value defaults to 20.",
             parameters: {
               status: { type: "string", required: false, description: "Filter by status" },
               severity: { type: "string", required: false, description: "Filter by severity" },
@@ -84,13 +106,14 @@ module Ai
             }
           },
           "get_governance_report" => {
-            description: "Get detailed governance report",
+            description: "Get one governance report with its evidence.",
             parameters: {
               report_id: { type: "string", required: true, description: "Report ID" }
             }
           },
           "resolve_governance_report" => {
-            description: "Resolve a governance report with a status and notes",
+            description: "Resolve a governance report with a status and notes. " \
+                         "The status and notes are also recorded under the resolution key of the report's evidence.",
             parameters: {
               report_id: { type: "string", required: true, description: "Report ID" },
               resolution_status: { type: "string", required: true, description: "Resolution: confirmed, dismissed, remediated" },
@@ -98,11 +121,13 @@ module Ai
             }
           },
           "detect_collusion" => {
-            description: "Run collusion detection across active agents",
+            description: "Run collusion detection across every pair of this account's active agents. " \
+                         "Each pair scoring 0.7 or more gets a collusion indicator and a collusion_suspicion report.",
             parameters: {}
           },
           "governance_dashboard" => {
-            description: "Get governance dashboard with summary metrics",
+            description: "Get governance dashboard summary metrics for this account. " \
+                         "Counts cover open and investigating reports, and collusion indicators are high-confidence ones from the last 30 days.",
             parameters: {}
           }
         }
