@@ -44,7 +44,11 @@ module Ai
       }.freeze
 
       declare_action "list_schedules", mutating: false
-      declare_action "get_schedule", mutating: false
+      declare_action "get_schedule", mutating: false,
+                                     returns: "id, name, cron_expression, timezone, is_active, last_run_at, next_run_at, " \
+                                              "the pipeline's id and name, inputs, created_at and updated_at",
+                                     refuses: "the caller lacks devops.schedules.read, or no schedule with that id belongs to this account's pipelines",
+                                     see_also: { "list_schedules" => "finding a schedule id" }
 
       def self.definition
         {
