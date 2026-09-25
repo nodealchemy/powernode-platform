@@ -9,14 +9,23 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "add_team_member", mutating: true
-      declare_action "create_team", mutating: true
+      declare_action "add_team_member", mutating: true,
+                     returns: "member_id of the new membership; a backing TeamRole is also created when the agent has none on the team",
+                     refuses: "no team matches team_id or no agent in this account matches agent_id"
+      declare_action "create_team", mutating: true,
+                     returns: "team_id and name of the new team, created with status active",
+                     refuses: "the team fails validation"
       declare_action "delete_team", mutating: true, destructive: true
       declare_action "execute_team", mutating: true, returns: "execution_id to follow the run, team_id and status execution_dispatched; the result arrives on the execution, not here", refuses: "the team is not found or the worker cannot be reached (the execution is then cancelled)"
-      declare_action "get_team", mutating: false
+      declare_action "get_team", mutating: false,
+                     returns: "id, name, team_type, status, coordination_strategy, canonical, template_id, source_key, " \
+                              "team_config, review_config and members (agent_name, role, is_lead each)",
+                     refuses: "no team in this account matches the UUID, or the name case-insensitively"
       declare_action "list_teams", mutating: false, limit: 50, returns: "id, name, type, coordination strategy, member count, canonical flag and template id per team, in no particular order"
       declare_action "remove_team_member", mutating: true, destructive: true
-      declare_action "update_team", mutating: true
+      declare_action "update_team", mutating: true,
+                     returns: "team_id, name and status; only the fields given non-blank change, and team_config and review_config are merged",
+                     refuses: [ "no team matches team_id", "the update fails validation" ]
 
       # HIER-P4 — a CANONICAL team (the account's materialisation of a global
       # Ai::TeamTemplate, Ai::AgentTeam#canonical?) is read-only through these
