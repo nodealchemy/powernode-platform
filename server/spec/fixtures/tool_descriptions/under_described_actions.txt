@@ -26,8 +26,6 @@ dismiss_improvement
 dispatch_to_runner
 enable_autonomy
 extract_to_knowledge_graph
-federation_invoke_tool
-federation_list_partners
 generate_image
 generate_video
 get_component_status

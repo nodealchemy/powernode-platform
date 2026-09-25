@@ -21,8 +21,17 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "federation_invoke_tool", mutating: true
-      declare_action "federation_list_partners", mutating: false
+      declare_action "federation_invoke_tool", mutating: true,
+                                               returns: "the remote tool's result and the partner_id it ran on",
+                                               refuses: [ "the caller is a federated or instance principal",
+                                                          "no active partner in this account matches partner_id or organization_id",
+                                                          "tool is missing",
+                                                          "the partner is rate limited, lacks an outbound token or presented organization id, " \
+                                                          "has a non-public endpoint host, or the remote call fails" ],
+                                               see_also: { "federation_list_partners" => "finding a partner_id to target" }
+      declare_action "federation_list_partners", mutating: false,
+                                                 returns: "id, organization_id, name, endpoint_url, trust_level and allowed_capabilities per active partner",
+                                                 refuses: "the caller is a federated or instance principal"
 
       # BaseTool.definition raises NotImplementedError, and McpPlatformToolRegistrar
       # calls it OUTSIDE its per-tool rescue (register_all!), so a tool missing this
