@@ -3,40 +3,12 @@
 class Api::V1::Admin::DailySummariesController < ApplicationController
   before_action :ensure_admin_access!
 
-  # GET /api/v1/admin/daily_summaries
-  def index
-    summaries = Page.where(account: current_user.account)
-                    .where("slug LIKE ?", "daily-summary-%")
-                    .order(created_at: :desc)
-
-    pagination = pagination_params
-    total_count = summaries.count
-    summaries = summaries.limit(pagination[:per_page]).offset((pagination[:page] - 1) * pagination[:per_page])
-
-    render_success(
-      summaries: summaries.map { |page| serialize_summary(page) },
-      meta: {
-        current_page: pagination[:page],
-        per_page: pagination[:per_page],
-        total_count: total_count,
-        total_pages: (total_count.to_f / pagination[:per_page]).ceil
-      }
-    )
-  end
-
-  # GET /api/v1/admin/daily_summaries/latest
-  def latest
-    summary = Page.where(account: current_user.account)
-                  .where("slug LIKE ?", "daily-summary-%")
-                  .order(created_at: :desc)
-                  .first
-
-    if summary
-      render_success(summary: serialize_summary(summary, include_content: true))
-    else
-      render_success(summary: nil)
-    end
-  end
+  # #index and #latest (fc-21) were deleted: the only caller was the admin
+  # DailySummariesPage/Panel frontend, which had zero route or importer
+  # anywhere and was deleted alongside them. #generate stays — the
+  # scheduled DailySummaryJob (worker/app/jobs/daily_summary_job.rb) is
+  # still a live caller of it. Confirmed via command grep across core,
+  # extensions (public and private) and the worker before deleting.
 
   # POST /api/v1/admin/daily_summaries/generate
   def generate

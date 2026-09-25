@@ -1027,13 +1027,11 @@ Rails.application.routes.draw do
           end
         end
 
-        # Daily operational summaries (auto-generated Pages)
-        resources :daily_summaries, only: [ :index ] do
-          collection do
-            get :latest
-            post :generate
-          end
-        end
+        # Daily operational summaries (auto-generated Pages). #index and
+        # #latest (fc-21) were deleted along with their only caller, the
+        # unrouted admin DailySummariesPage/Panel — #generate stays, the
+        # scheduled DailySummaryJob (worker) is still a live caller.
+        post "daily_summaries/generate", to: "daily_summaries#generate"
 
         # Circuit Breakers management
         resources :circuit_breakers do

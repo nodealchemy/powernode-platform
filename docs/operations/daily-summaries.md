@@ -66,13 +66,16 @@ curl -X POST \
 
 ## Admin API
 
-All endpoints require the `admin.access` permission.
+Requires the `admin.access` permission.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| `GET` | `/api/v1/admin/daily_summaries` | Paginated list of past summaries |
-| `GET` | `/api/v1/admin/daily_summaries/latest` | Most recent summary with full content |
 | `POST` | `/api/v1/admin/daily_summaries/generate` | Generate (or fetch idempotent existing). Accepts `date` (ISO8601); defaults to `Date.yesterday` |
+
+`GET /api/v1/admin/daily_summaries` (paginated list) and `GET .../latest` (most recent) were
+deleted (fc-21): their only caller was the admin `DailySummariesPage`/`Panel` frontend, which had
+no route or importer anywhere and was deleted alongside them. `generate`'s only remaining caller
+is the scheduled `DailySummaryJob` (worker), which only ever calls it, never lists or fetches.
 
 ### Response shape
 
@@ -80,29 +83,20 @@ All endpoints require the `admin.access` permission.
 {
   "success": true,
   "data": {
-    "summaries": [
-      {
-        "id": "uuid",
-        "title": "Daily Summary — April 16, 2026",
-        "slug": "daily-summary-2026-04-16",
-        "date": "2026-04-16",
-        "published_at": "2026-04-17T06:00:00Z",
-        "word_count": 142,
-        "estimated_read_time": 1,
-        "created_at": "2026-04-17T06:00:00Z"
-      }
-    ],
-    "meta": {
-      "current_page": 1,
-      "per_page": 10,
-      "total_count": 37,
-      "total_pages": 4
+    "summary": {
+      "id": "uuid",
+      "title": "Daily Summary — April 16, 2026",
+      "slug": "daily-summary-2026-04-16",
+      "date": "2026-04-16",
+      "published_at": "2026-04-17T06:00:00Z",
+      "word_count": 142,
+      "estimated_read_time": 1,
+      "created_at": "2026-04-17T06:00:00Z",
+      "content": "# Daily Summary — Thursday, April 16, 2026\n\n..."
     }
   }
 }
 ```
-
-`GET /latest` and `POST /generate` also include a `content` field with the full Markdown body.
 
 ## Service
 
@@ -142,9 +136,10 @@ The job operates via the worker → server HTTP API only — it never touches Ra
 
 Deleted (fc-21): `DailySummariesPage`/`DailySummariesPanel` had no route or importer
 anywhere in the tree — confirmed via a repo-wide search before removal. This feature is
-now backend-only: the scheduled `DailySummaryJob` (worker) is still the sole caller of
-`POST /api/v1/admin/daily_summaries/generate`, and `index`/`latest` remain reachable via
-the API for anyone building a replacement UI, but nothing in core currently renders them.
+now backend-only: the scheduled `DailySummaryJob` (worker) is the sole caller of
+`POST /api/v1/admin/daily_summaries/generate`. `index`/`latest` were deleted along with
+the frontend (they had no other caller); a replacement UI would need to add a listing
+endpoint back rather than assume one still exists.
 
 ## Verification
 
