@@ -136,15 +136,15 @@ RSpec.describe "devops/swarm/docker/worker audit action literals are registered"
     # matched nothing at all — a literal rewritten to reference a constant,
     # or called without parens, silently leaves the scanned set and this
     # spec would stay green while coverage quietly shrank. This floor is the
-    # positive counterpart: 113 is the actual raw literal-occurrence count
-    # across this exact glob as of 2026-09-18 (measured by an independent
-    # reviewer and reproduced here); the floor sits a little under it (not
-    # equal, which would be brittle against a legitimate future addition or
-    # deletion) so that losing a whole file's worth of coverage still trips
-    # it. Verified: temporarily excluding one scanned file from `scan_roots`
-    # drops the count below this floor and fails the example (mutation-
-    # verified, not just asserted).
-    expect(total_literal_occurrences).to be >= 105
+    # positive counterpart. The raw literal-occurrence count across this exact
+    # glob was 113 on 2026-09-18; re-measured 85 on 2026-09-25 after cb684138e
+    # deleted 4 devops_* controllers (28 literals). The floor sits a little
+    # under it (not equal, which would be brittle against a legitimate future
+    # addition or deletion) so that losing a whole file's worth of coverage
+    # still trips it: dropping container_templates_controller.rb (9) or
+    # pipelines_controller.rb (8) from the scan takes it below 80
+    # (mutation-verified, not just asserted).
+    expect(total_literal_occurrences).to be >= 80
   end
 
   it "actually covers every devops/swarm/docker/worker writer file found by an unscoped repo grep (guards the glob itself)" do
