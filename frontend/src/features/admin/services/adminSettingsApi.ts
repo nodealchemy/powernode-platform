@@ -532,24 +532,13 @@ class AdminSettingsApi {
   // is the live, routed security tab, and it reads/writes security settings
   // through getOverview()/updateSettings() instead, never these three. The
   // matching backend actions/routes/service methods were deleted alongside.
-
-  async regenerateJwtSecret(): Promise<{
-    success: boolean;
-    message: string;
-    warning: string;
-  }> {
-    const response = await api.post('/admin_settings/security/regenerate_jwt_secret');
-    return response.data;
-  }
-
-  async clearBlacklistedTokens(): Promise<{
-    success: boolean;
-    message: string;
-    cleared_count: number;
-  }> {
-    const response = await api.delete('/admin_settings/security/blacklisted_tokens');
-    return response.data;
-  }
+  //
+  // regenerateJwtSecret()/clearBlacklistedTokens() were also removed here
+  // (fc-21): zero callers anywhere, pre-dating SecuritySettings.tsx's own
+  // deletion (it never called them either). The backend actions
+  // (regenerate_jwt_secret, clear_blacklisted_tokens) are left alone —
+  // secret-rotation operations, out of this task's scope; whether they get
+  // a UI or are removed is an operator decision.
 
   getStatusColor(status: string): 'green' | 'yellow' | 'red' | 'blue' | 'gray' {
     switch (status.toLowerCase()) {
