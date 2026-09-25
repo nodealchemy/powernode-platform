@@ -146,7 +146,6 @@ For the full live tool catalogue exposed via MCP, see [../auto/mcp-tools.md](../
 | `AiOpsController` | `/ai/ai_ops` | AI operations |
 | `MonitoringController` | `/ai/monitoring` | System health |
 | `AnalyticsController` | `/ai/analytics` | Metrics |
-| `AnalyticsReportsController` | `/ai/analytics_reports` | Report generation |
 | `DevopsRiskReviewController` | `/ai/devops_risk_review` | Risk assessment |
 | `SelfHealingController` | `/ai/self_healing` | Self-healing ops |
 | `FinopsController` | `/ai/finops` | Financial operations |

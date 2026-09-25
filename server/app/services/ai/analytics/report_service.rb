@@ -91,19 +91,6 @@ module Ai
         }
       end
 
-      # List available report types
-      # @return [Array<Hash>] Available report types
-      def available_reports
-        REPORT_TYPES.map do |type|
-          {
-            type: type,
-            name: type.titleize,
-            description: report_description(type),
-            estimated_generation_time: estimate_generation_time(type)
-          }
-        end
-      end
-
       private
 
       # =============================================================================
@@ -347,28 +334,6 @@ module Ai
         when 30 then "30 days"
         when 90 then "90 days"
         else "#{days} days"
-        end
-      end
-
-      def report_description(type)
-        case type
-        when "executive_summary" then "High-level overview of AI operations with key metrics and trends"
-        when "cost_analysis" then "Detailed cost breakdown and optimization recommendations"
-        when "performance_analysis" then "Performance metrics, SLA compliance, and bottleneck analysis"
-        when "agent_analysis" then "Agent performance and utilization analysis"
-        when "custom" then "Customizable report with selected sections"
-        else "Report"
-        end
-      end
-
-      def estimate_generation_time(type)
-        case type
-        when "executive_summary" then "~5 seconds"
-        when "cost_analysis" then "~10 seconds"
-        when "performance_analysis" then "~15 seconds"
-        when "agent_analysis" then "~10 seconds"
-        when "custom" then "Varies"
-        else "Unknown"
         end
       end
 

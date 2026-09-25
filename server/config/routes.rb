@@ -1996,17 +1996,6 @@ Rails.application.routes.draw do
           get "agents/:agent_id", action: :agent_analytics
         end
 
-        # Analytics reports → AnalyticsReportsController
-        scope "analytics/reports", controller: "analytics_reports" do
-          get "/", action: :reports_index
-          post "/", action: :report_create
-          get "templates", action: :report_templates
-          get "/:id", action: :report_show
-          delete "/:id", action: :report_cancel
-          get "/:id/download", action: :report_download
-        end
-
-
         # Marketplace routes (8) are in business/server/config/routes.rb
 
         # Publisher routes are in business/server/config/routes.rb

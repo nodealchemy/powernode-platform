@@ -6,7 +6,6 @@ RSpec.describe 'Api::V1::Ai::Analytics', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, permissions: [ 'ai.analytics.read', 'ai.analytics.create', 'ai.analytics.export' ]) }
   let(:read_only_user) { create(:user, account: account, permissions: [ 'ai.analytics.read' ]) }
-  let(:manage_user) { create(:user, account: account, permissions: [ 'ai.analytics.read', 'ai.analytics.create', 'ai.analytics.manage' ]) }
   let(:regular_user) { create(:user, account: account, permissions: []) }
   let(:headers) { auth_headers_for(user) }
 
@@ -388,109 +387,6 @@ RSpec.describe 'Api::V1::Ai::Analytics', type: :request do
         expect_success_response
         data = json_response_data
         expect(data).to have_key('agent_analytics')
-      end
-    end
-  end
-
-  describe 'GET /api/v1/ai/analytics/reports' do
-    before do
-      allow(ReportRequest).to receive_message_chain(:where, :order, :page, :per)
-        .and_return(double(map: [], current_page: 1, total_pages: 1,
-                           total_count: 0, limit_value: 20))
-    end
-
-    context 'with permission' do
-      it 'returns list of reports' do
-        get '/api/v1/ai/analytics/reports',
-            headers: headers,
-            as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data).to have_key('reports')
-        expect(data).to have_key('pagination')
-      end
-    end
-  end
-
-  describe 'POST /api/v1/ai/analytics/reports' do
-    let(:report) { create(:report_request, account: account, user: user, report_type: 'comprehensive_report') }
-
-    before do
-      allow(ReportRequest).to receive(:create!).and_return(report)
-      allow(WorkerJobService).to receive(:enqueue_job)
-    end
-
-    context 'with ai.analytics.create permission' do
-      it 'creates a new report request' do
-        post '/api/v1/ai/analytics/reports',
-             params: {
-               report: {
-                 template_id: 'comprehensive_report',
-                 parameters: {}
-               }
-             },
-             headers: headers,
-             as: :json
-
-        expect(response).to have_http_status(:created)
-        expect_success_response
-      end
-    end
-
-    context 'without permission' do
-      it 'returns forbidden error' do
-        post '/api/v1/ai/analytics/reports',
-             params: { report: { template_id: 'comprehensive_report' } },
-             headers: auth_headers_for(read_only_user),
-             as: :json
-
-        expect(response).to have_http_status(:forbidden)
-      end
-    end
-  end
-
-  describe 'DELETE /api/v1/ai/analytics/reports/:id' do
-    let!(:report) do
-      # Use 'pending' status which is valid for both model validation and database constraint
-      create(:report_request, account: account, user: user, report_type: 'comprehensive_report', status: 'pending')
-    end
-
-    context 'with ai.analytics.manage permission' do
-      it 'cancels the report' do
-        delete "/api/v1/ai/analytics/reports/#{report.id}",
-               headers: auth_headers_for(manage_user),
-               as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data['message']).to eq('Report cancelled successfully')
-      end
-    end
-  end
-
-  describe 'GET /api/v1/ai/analytics/reports/templates' do
-    let(:templates) do
-      [
-        { id: 'executive_summary', name: 'Executive Summary' },
-        { id: 'cost_analysis', name: 'Cost Analysis' }
-      ]
-    end
-
-    before do
-      allow(report_service).to receive(:available_reports).and_return(templates)
-    end
-
-    context 'with permission' do
-      it 'returns available report templates' do
-        get '/api/v1/ai/analytics/reports/templates',
-            headers: headers,
-            as: :json
-
-        expect_success_response
-        data = json_response_data
-        expect(data).to have_key('templates')
-        expect(data['templates']).to be_an(Array)
       end
     end
   end

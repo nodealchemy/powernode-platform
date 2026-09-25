@@ -48,7 +48,7 @@
 | Notifications / Audit | `/notifications`, `/audit_logs` | notifications/* | NotificationCenter, `/admin/audit-logs` | ✅ |
 | Privacy | `/privacy/*` | compliance/* | `/privacy` | ✅ |
 | OAuth apps | `/oauth/applications` | auth_cleanup | consent + callback only | 🟡 no app-mgmt UI |
-| Reports | `/reports`, `/analytics_reports` | reports/* | — | ❌ no report builder UI |
+| Reports | `/reports` | reports/* | — | ❌ no report builder UI |
 | **Developer portal** | `api_reference`, `/api-keys` | — | `features/developer` built (Portal/ApiDocs/ApiKeyManager) | 🔌 **orphaned** |
 
 ## System / Fleet (extension `extensions/system/`)

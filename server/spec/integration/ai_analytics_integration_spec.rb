@@ -315,13 +315,6 @@ RSpec.describe 'AI Analytics Integration', type: :request do
       expect(json_response['success']).to be true
     end
 
-    it 'generates scheduled reports' do
-      get '/api/v1/ai/analytics/reports'
-
-      expect(response).to have_http_status(:ok)
-      expect(json_response['success']).to be true
-    end
-
     it 'supports custom analytics queries' do
       get '/api/v1/ai/analytics/overview', params: {
         time_range: '30d'

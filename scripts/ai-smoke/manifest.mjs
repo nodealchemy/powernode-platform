@@ -297,7 +297,6 @@ export function buildManifest(runId) {
         { id: 'insights', method: 'GET', path: '/ai/analytics/insights' },
         { id: 'recommendations', method: 'GET', path: '/ai/analytics/recommendations' },
         { id: 'trends', method: 'GET', path: '/ai/analytics/trends' },
-        { id: 'reports', method: 'GET', path: '/ai/analytics/reports' },
       ],
     },
 

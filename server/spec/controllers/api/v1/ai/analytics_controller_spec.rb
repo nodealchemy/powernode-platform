@@ -228,12 +228,6 @@ RSpec.describe Api::V1::Ai::AnalyticsController, type: :controller do
     })
 
     # --- ReportService stubs ---
-    allow_any_instance_of(Ai::Analytics::ReportService).to receive(:available_reports).and_return([
-      { id: 'executive_summary', name: 'Executive Summary', description: 'High-level overview', category: 'summary', formats: [ 'json', 'csv', 'pdf' ] },
-      { id: 'cost_analysis', name: 'Cost Analysis', description: 'Detailed cost breakdown', category: 'cost', formats: [ 'json', 'csv' ] },
-      { id: 'performance_analysis', name: 'Performance Analysis', description: 'Performance metrics', category: 'performance', formats: [ 'json', 'csv' ] }
-    ])
-
     allow_any_instance_of(Ai::Analytics::ReportService).to receive(:generate).and_return({
       report_type: 'executive_summary',
       generated_at: Time.current.iso8601,

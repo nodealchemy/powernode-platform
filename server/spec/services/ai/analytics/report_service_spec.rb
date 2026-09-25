@@ -269,29 +269,6 @@ RSpec.describe Ai::Analytics::ReportService do
     end
   end
 
-  describe "#available_reports" do
-    it "returns all report types with metadata" do
-      result = service.available_reports
-
-      expect(result.length).to eq(described_class::REPORT_TYPES.length)
-
-      result.each do |report|
-        expect(report).to include(:type, :name, :description, :estimated_generation_time)
-        expect(report[:type]).to be_in(described_class::REPORT_TYPES)
-        expect(report[:name]).to be_present
-        expect(report[:description]).to be_present
-        expect(report[:estimated_generation_time]).to be_present
-      end
-    end
-
-    it "returns correct descriptions for each type" do
-      result = service.available_reports
-      exec_report = result.find { |r| r[:type] == "executive_summary" }
-
-      expect(exec_report[:description]).to include("overview")
-    end
-  end
-
   describe "time range formatting" do
     it "formats 1 day range" do
       svc = described_class.new(account: account, user: user, time_range: 1.day)

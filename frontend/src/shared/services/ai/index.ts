@@ -20,8 +20,10 @@
  * - Old: aiMonitoringService, circuitBreakersApi
  *   New: monitoringApi (single consolidated service)
  *
- * - Old: aiAnalyticsApi, reportsApi
- *   New: analyticsApi (single consolidated service)
+ * - Old: aiAnalyticsApi
+ *   New: analyticsApi (single consolidated service; the ReportRequest
+ *   workflow is served separately, through Api::V1::ReportsController's
+ *   own /api/v1/reports/* routes)
  *
  * - Old: marketplaceApi, templatesApi
  *   New: marketplaceApi (single consolidated service)
@@ -128,10 +130,6 @@ export type {
   Insight,
   Recommendation,
   Trend,
-  Report,
-  ReportType,
-  CreateReportRequest,
-  ScheduleReportRequest,
   ExportRequest,
 } from '@/shared/services/ai/AnalyticsApiService';
 

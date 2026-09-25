@@ -1,12 +1,15 @@
-import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
+import { BaseApiService, QueryFilters } from '@/shared/services/ai/BaseApiService';
 
 /**
  * AnalyticsApiService - Analytics Controller API Client
  *
  * Provides access to the consolidated Analytics Controller endpoints.
- * Replaces the following old controllers:
- * - ai_analytics_controller
- * - reports_controller
+ * Replaces the old ai_analytics_controller.
+ *
+ * This file no longer documents a Reports section: it was dead code (no
+ * component called it), and the live reports client already reaches
+ * ReportRequest through Api::V1::ReportsController's /api/v1/reports/*
+ * routes instead.
  *
  * New endpoint structure:
  * - GET  /api/v1/ai/analytics/dashboard
@@ -20,14 +23,6 @@ import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/servic
  * - GET  /api/v1/ai/analytics/trends
  * - POST /api/v1/ai/analytics/export
  * - GET  /api/v1/ai/analytics/formats
- * - GET  /api/v1/ai/analytics/reports
- * - POST /api/v1/ai/analytics/reports
- * - GET  /api/v1/ai/analytics/reports/:id
- * - POST /api/v1/ai/analytics/reports/:id/generate
- * - POST /api/v1/ai/analytics/reports/:id/schedule
- * - POST /api/v1/ai/analytics/reports/:id/share
- * - GET  /api/v1/ai/analytics/reports/:id/download
- * - GET  /api/v1/ai/analytics/reports/types
  */
 
 export interface AnalyticsFilters extends QueryFilters {
@@ -126,47 +121,6 @@ export interface Trend {
     date: string;
     value: number;
   }>;
-}
-
-export interface Report {
-  id: string;
-  name: string;
-  report_type: string;
-  status: 'pending' | 'generating' | 'completed' | 'failed';
-  schedule?: {
-    frequency: 'daily' | 'weekly' | 'monthly';
-    next_run_at?: string;
-  };
-  created_at: string;
-  completed_at?: string;
-  download_url?: string;
-}
-
-export interface ReportType {
-  type: string;
-  name: string;
-  description: string;
-  available_formats: string[];
-  parameters: Array<{
-    name: string;
-    label: string;
-    type: 'string' | 'number' | 'date' | 'select';
-    required: boolean;
-    options?: string[];
-  }>;
-}
-
-export interface CreateReportRequest {
-  name: string;
-  report_type: string;
-  parameters?: Record<string, unknown>;
-  format?: 'pdf' | 'excel' | 'csv';
-}
-
-export interface ScheduleReportRequest {
-  frequency: 'daily' | 'weekly' | 'monthly';
-  recipients?: string[];
-  format?: 'pdf' | 'excel' | 'csv';
 }
 
 export interface ExportRequest {
@@ -310,78 +264,6 @@ class AnalyticsApiService extends BaseApiService {
     }>>(`${this.basePath}/formats`);
   }
 
-  // ===================================================================
-  // Reports - Nested Resource
-  // ===================================================================
-
-  /**
-   * Get list of reports
-   * GET /api/v1/ai/analytics/reports
-   */
-  async getReports(filters?: QueryFilters): Promise<PaginatedResponse<Report>> {
-    const queryString = this.buildQueryString(filters);
-    return this.get<PaginatedResponse<Report>>(`${this.basePath}/reports${queryString}`);
-  }
-
-  /**
-   * Get available report types
-   * GET /api/v1/ai/analytics/reports/types
-   */
-  async getReportTypes(): Promise<ReportType[]> {
-    return this.get<ReportType[]>(`${this.basePath}/reports/types`);
-  }
-
-  /**
-   * Create new report
-   * POST /api/v1/ai/analytics/reports
-   */
-  async createReport(request: CreateReportRequest): Promise<Report> {
-    return this.post<Report>(`${this.basePath}/reports`, { report: request });
-  }
-
-  /**
-   * Get single report
-   * GET /api/v1/ai/analytics/reports/:id
-   */
-  async getReport(id: string): Promise<Report> {
-    return this.get<Report>(`${this.basePath}/reports/${id}`);
-  }
-
-  /**
-   * Generate report
-   * POST /api/v1/ai/analytics/reports/:id/generate
-   */
-  async generateReport(id: string): Promise<Report> {
-    return this.post<Report>(`${this.basePath}/reports/${id}/generate`);
-  }
-
-  /**
-   * Schedule report
-   * POST /api/v1/ai/analytics/reports/:id/schedule
-   */
-  async scheduleReport(id: string, schedule: ScheduleReportRequest): Promise<Report> {
-    return this.post<Report>(`${this.basePath}/reports/${id}/schedule`, schedule);
-  }
-
-  /**
-   * Share report
-   * POST /api/v1/ai/analytics/reports/:id/share
-   */
-  async shareReport(id: string, recipients: string[]): Promise<{ success: boolean }> {
-    return this.post<{ success: boolean }>(`${this.basePath}/reports/${id}/share`, {
-      recipients,
-    });
-  }
-
-  /**
-   * Download report
-   * GET /api/v1/ai/analytics/reports/:id/download
-   */
-  async downloadReport(id: string): Promise<{ download_url: string; expires_at: string }> {
-    return this.get<{ download_url: string; expires_at: string }>(
-      `${this.basePath}/reports/${id}/download`
-    );
-  }
 }
 
 // Export singleton instance

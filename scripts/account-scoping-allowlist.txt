@@ -15,7 +15,6 @@ server/app/controllers/api/v1/admin/validation_rules_controller.rb:191dc973e65bf
 server/app/controllers/api/v1/admin/validation_rules_controller.rb:4f4e46dcb37f7b19830d8b3f810fc3db3ec46b3b
 server/app/controllers/api/v1/ai/agent_memory_controller.rb:6b31d88fcc716500c43fc9a1108a6f8332018bbf
 server/app/controllers/api/v1/ai/analytics_controller.rb:2f17603aae01c00b0536337e6bfc357564c1c1f8
-server/app/controllers/api/v1/ai/analytics_reports_controller.rb:2f17603aae01c00b0536337e6bfc357564c1c1f8
 server/app/controllers/api/v1/ai/community_agents_controller.rb:b872d14a2ae5046eade2dc92d3d2a806a72096b8
 server/app/controllers/api/v1/ai/learning_controller.rb:6f924c5e0d6110cd9e6b388d04a3083a47047769
 server/app/controllers/api/v1/ai/learning_controller.rb:ab85592a3fde186019253211cefbdc9939b7043e
