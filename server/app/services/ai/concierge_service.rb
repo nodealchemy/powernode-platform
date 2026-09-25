@@ -121,6 +121,7 @@ module Ai
     # the router has a bad day.
     def process_message(content)
       apply_routing!(invoke_router(content))
+      freeze_turn_context!
 
       credential = find_credential
 
@@ -385,26 +386,25 @@ module Ai
       TOOL_CAPABLE_PROVIDERS.include?(credential.provider.provider_type)
     end
 
-    # The persisted history already ends with the user's message: every caller
-    # saves it (Ai::Conversation#add_user_message) before #process_message.
+    # The persisted history already ends with the user's message (every caller
+    # saves it with Ai::Conversation#add_user_message before #process_message),
+    # and each user turn carries its frozen context (Ai::ConciergeHistory).
     def build_tool_messages
-      messages = []
+      history.messages(limit: 15)
+    end
 
-      @conversation.messages.not_deleted.ordered.last(15).each do |msg|
-        messages << { role: msg.role, content: msg.content }
-      end
+    def history
+      @history ||= Ai::ConciergeHistory.new(@conversation)
+    end
 
-      # Router-invoked skill result, injected as a synthetic system message
-      # IMMEDIATELY AFTER the user's latest message (a mid-conversation system
-      # message, placed in position by the builders). This positioning is
-      # deliberate (R5 fix 2026-05-12): when the addendum lived inside the
-      # global system prompt, ~10 turns of accumulated "couldn't find"
-      # context in conversation history would outweigh the directive. Placing
-      # it adjacent to the user message means the LLM sees the override
-      # right next to the question — recency bias works *for* us instead
-      # of against us.
-      messages << router_override_message if router_override_message
-      messages
+    # Freezes this turn's live context onto the user's message: the runtime data
+    # (missions, repos, teams, members) and, when the router handled the
+    # question, its override. The override comes last, directly before the
+    # model's turn (R5 fix 2026-05-12). When the addendum lived inside the global
+    # system prompt, ~10 turns of accumulated "couldn't find" history outweighed
+    # the directive; placed next to the question, recency works for it.
+    def freeze_turn_context!
+      history.freeze_turn_context!([ build_context_section, router_override_message&.dig(:content) ].compact.join("\n\n"))
     end
 
     def concierge_tool_system_prompt
@@ -420,21 +420,15 @@ module Ai
       # DB prompt) — the concierge prefers delegating to agents/teams/missions/campaigns.
       parts << DELEGATION_POSTURE
 
-      # Dynamic runtime context (live data: missions, repos, teams, workspace members)
-      context_section = build_context_section
-      parts << context_section
-
-      # NOTE: router invocation result is NOT injected here. It's placed
-      # adjacent to the user message via build_tool_messages /
-      # build_legacy_messages instead — adjacent injection avoids the
-      # recency-bias problem where ~10 turns of "couldn't find" history
-      # outweigh a directive buried in the global system prompt.
+      # Live runtime data and the router override are NOT here: they change
+      # between turns, so they ride with each user turn (#freeze_turn_context!)
+      # and this prompt stays byte-identical across the conversation.
 
       assembled = parts.join("\n\n")
 
       # Diagnostic logging — helps verify skill injection and workspace context
       has_skill_prompts = assembled.include?("MANDATORY RULE") || assembled.include?("HOW TO DELEGATE")
-      has_workspace_context = assembled.include?("CURRENT WORKSPACE:")
+      has_workspace_context = history.current_turn_context.to_s.include?("CURRENT WORKSPACE:")
       has_delegation_block = assembled.include?("TO SEND A MESSAGE TO AN AGENT")
       Rails.logger.info(
         "[ConciergeService] System prompt assembled: " \
@@ -488,19 +482,10 @@ module Ai
       end
     end
 
-    # See #build_tool_messages: the user's message is already the last history row.
+    # See #build_tool_messages: the history ends with the user's message and
+    # each user turn carries its frozen context.
     def build_legacy_messages
-      messages = []
-      messages << { role: "system", content: legacy_system_prompt }
-
-      @conversation.messages.not_deleted.ordered.last(10).each do |msg|
-        messages << { role: msg.role, content: msg.content }
-      end
-
-      # Router-invoked skill result — same adjacent-injection pattern as
-      # build_tool_messages. See R5 fix note there.
-      messages << router_override_message if router_override_message
-      messages
+      [ { role: "system", content: legacy_system_prompt } ] + history.messages(limit: 10)
     end
 
     # Synthetic system message carrying the router's invocation addendum
@@ -679,11 +664,8 @@ module Ai
       # DB prompt) — the concierge prefers delegating to agents/teams/missions/campaigns.
       parts << DELEGATION_POSTURE
 
-      # Dynamic runtime context (live data: missions, repos, teams, workspace members)
-      parts << build_context_section
-
-      # Router invocation result is injected adjacent to the user message
-      # in build_legacy_messages, not here. See router_override_message.
+      # Live runtime data and the router override ride with each user turn
+      # (#freeze_turn_context!), not here, so this prompt stays stable.
 
       # Action-grammar markers — tightly coupled to parse_action, must stay in code
       parts << <<~INSTRUCTIONS

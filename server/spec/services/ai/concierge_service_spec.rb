@@ -205,6 +205,71 @@ RSpec.describe Ai::ConciergeService do
     end
   end
 
+  # M-5: live context is frozen onto the user turn it was sent with and replayed
+  # from there, so the system prompt stays byte-identical and an earlier turn
+  # renders the same on every later request.
+  describe "frozen turn context" do
+    let(:repo) { create(:git_repository, account: account) }
+
+    def context_after(messages, question)
+      index = messages.index { |m| m[:role] == "user" && m[:content] == question }
+      messages[index + 1]
+    end
+
+    it "rides as a system message right after its user turn, not in the system prompt" do
+      conversation.add_user_message("status?", user: user)
+      service.send(:freeze_turn_context!)
+      messages = service.send(:build_legacy_messages)
+
+      expect(messages.first[:content]).not_to include("ACTIVE MISSIONS")
+      expect(context_after(messages, "status?")).to include(role: "system")
+      expect(context_after(messages, "status?")[:content]).to include("ACTIVE MISSIONS", "None currently active")
+    end
+
+    it "includes the missions active when the turn was sent" do
+      create(:ai_mission, :active, account: account, created_by: user, name: "Active Test", repository: repo)
+      conversation.add_user_message("status?", user: user)
+      service.send(:freeze_turn_context!)
+
+      expect(context_after(service.send(:build_tool_messages), "status?")[:content]).to include("Active Test")
+    end
+
+    it "replays an earlier turn's context byte-identically after live data changes" do
+      conversation.add_user_message("first?", user: user)
+      service.send(:freeze_turn_context!)
+      first_request = service.send(:build_tool_messages)
+
+      create(:ai_mission, :active, account: account, created_by: user, name: "Started Later", repository: repo)
+      conversation.add_assistant_message("first answer")
+      conversation.add_user_message("second?", user: user)
+      later_service = described_class.new(conversation: conversation, user: user)
+      later_service.send(:freeze_turn_context!)
+      second_request = later_service.send(:build_tool_messages)
+
+      expect(second_request.first(first_request.size)).to eq(first_request)
+      expect(context_after(second_request, "first?")[:content]).not_to include("Started Later")
+      expect(context_after(second_request, "second?")[:content]).to include("Started Later")
+    end
+
+    it "keeps the tool-path system prompt identical across turns" do
+      conversation.add_user_message("first?", user: user)
+      first = service.send(:concierge_tool_system_prompt)
+      create(:ai_mission, :active, account: account, created_by: user, name: "Started Later", repository: repo)
+      conversation.add_user_message("second?", user: user)
+
+      expect(described_class.new(conversation: conversation, user: user).send(:concierge_tool_system_prompt)).to eq(first)
+    end
+
+    it "is write-once: re-freezing a turn keeps the first snapshot" do
+      conversation.add_user_message("status?", user: user)
+      service.send(:freeze_turn_context!)
+      create(:ai_mission, :active, account: account, created_by: user, name: "Started Later", repository: repo)
+      service.send(:freeze_turn_context!)
+
+      expect(context_after(service.send(:build_tool_messages), "status?")[:content]).not_to include("Started Later")
+    end
+  end
+
   describe "#handle_confirmed_action" do
     context "create_mission" do
       let(:repo) { create(:git_repository, account: account, full_name: "org/my-repo") }
@@ -453,24 +518,11 @@ RSpec.describe Ai::ConciergeService do
   end
 
   describe "legacy_system_prompt" do
-    it "includes platform capabilities" do
+    it "includes the action grammar and none of the live runtime data" do
       prompt = service.send(:legacy_system_prompt)
-      expect(prompt).to include("ACTIVE MISSIONS")
       expect(prompt).to include("[RESPOND]")
       expect(prompt).to include("[CONFIRM:create_mission]")
-    end
-
-    it "includes active missions context" do
-      repo = create(:git_repository, account: account)
-      create(:ai_mission, :active, account: account, created_by: user, name: "Active Test", repository: repo)
-
-      prompt = service.send(:legacy_system_prompt)
-      expect(prompt).to include("Active Test")
-    end
-
-    it "shows no missions when none active" do
-      prompt = service.send(:legacy_system_prompt)
-      expect(prompt).to include("None currently active")
+      expect(prompt).not_to include("ACTIVE MISSIONS")
     end
 
     it "injects the delegate-first operating posture into the system prompt" do
