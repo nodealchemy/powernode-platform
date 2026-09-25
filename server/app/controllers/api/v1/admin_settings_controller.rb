@@ -74,8 +74,10 @@ class Api::V1::AdminSettingsController < ApplicationController
 
   # #users and #accounts (`/admin_settings/users`, `/admin_settings/accounts`)
   # were removed here (fc-38): usersApi.getAllUsers() (`/admin/users`) is the
-  # canonical user-listing client now (see frontend UserManagement.tsx);
-  # nothing called adminSettingsApi.getAccounts() at all.
+  # canonical user-listing client now (see frontend AdminUsersPage.tsx —
+  # fc-21: the UserManagement.tsx this comment used to cite had zero
+  # route/importer of its own and was deleted); nothing called
+  # adminSettingsApi.getAccounts() at all.
 
   # GET /api/v1/admin_settings/system_logs
   def system_logs
