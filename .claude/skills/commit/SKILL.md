@@ -25,7 +25,7 @@ Run these commands in parallel:
 - `git status` — see all changed/untracked files in the parent repo
 - `git diff --stat` — see change summary for tracked files
 - `git diff --cached --stat` — see already-staged changes
-- `for d in extensions/*/; do git -C "$d" status --short; done` — changes in each extension submodule (business, supply-chain, system, marketing, and any private extension a maintainer has added)
+- `for d in extensions/*/; do git -C "$d" status --short; done` — changes in each extension submodule (the public ones and any private extension a maintainer has added)
 - `git log --oneline -5` — see recent commit style
 
 ## Step 1.5: Pre-commit Safety Scan
@@ -39,15 +39,12 @@ Before creating any commits:
 
 ## Step 2: Group Files by Concern
 
-Organize changed files into groups (skip empty groups):
-1. **Migrations** — `db/migrate/`
-2. **Models** — `app/models/`
-3. **Services** — `app/services/`
-4. **Controllers & Routes** — `app/controllers/`, `config/routes.rb`
-5. **Frontend** — `frontend/src/`
-6. **Tests** — `spec/`, `e2e/`, `__tests__/`
-7. **Seeds & Config** — `db/seeds/`, `config/`, `.claude/`, `scripts/`
-8. **Documentation** — `docs/`, `*.md` (only if explicitly changed)
+Group changed files by concern: one commit per logical change, keeping a fix or feature together
+with its migration, specs, and docs. Use these areas to spot unrelated changes that belong in
+separate commits, not as the commit boundaries themselves: migrations (`db/migrate/`), models,
+services, controllers and routes, frontend (`frontend/src/`), tests, seeds and config
+(`db/seeds/`, `config/`, `.claude/`, `scripts/`), documentation (`docs/`, `*.md`, only if
+explicitly changed).
 
 When changes span multiple repos, group each submodule's changes separately from core.
 
@@ -68,13 +65,13 @@ For each non-empty group:
 1. `git add <specific-files>` — NEVER use `git add -A` or `git add .`
 2. Commit with conventional format: `type(scope): description`
    - Types: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`
-   - Scope: `backend`, `frontend`, `worker`, `config`, `db`, or an extension name (e.g. `business`)
+   - Scope: `backend`, `frontend`, `worker`, `config`, `db`, or an extension name (e.g. `system`)
    - Description: concise, lowercase, no period
 
 If submodule pointers changed (from submodule commits above), include them in the appropriate parent commit or as a separate `chore(<name>): update submodule pointer` commit.
 
 **Rules:**
-- **NO** Claude attribution (no Co-Authored-By, no "Generated with")
+- **NO** AI attribution from any model (no Co-Authored-By, no "Generated with")
 - **NO** `git add -A` or `git add .`
 - If a hint/scope argument was provided, use it to guide the commit messages
 
