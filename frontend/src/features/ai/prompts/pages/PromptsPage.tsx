@@ -271,16 +271,11 @@ export const PromptsContent: React.FC<PromptsContentProps> = ({ onActionsReady }
   );
 };
 
+// The page's actions come from PromptsContent (onActionsReady), so Refresh
+// refetches the list on screen — like SkillsPage, and unlike a wrapper-owned
+// usePromptTemplates(), which would be a second, hidden list.
 const PromptsPageContent: React.FC = () => {
-  const {
-    loading,
-    refresh,
-  } = usePromptTemplates();
-
-  const { refreshAction } = useRefreshAction({
-    onRefresh: refresh,
-    loading,
-  });
+  const [actions, setActions] = useState<PageAction[]>([]);
 
   const breadcrumbs = [
     { label: 'Dashboard', href: '/app' },
@@ -288,18 +283,14 @@ const PromptsPageContent: React.FC = () => {
     { label: 'Prompts' }
   ];
 
-  const actions = [
-    refreshAction,
-  ];
-
   return (
     <PageContainer
-      title="Prompt Templates"
-      description="Manage reusable AI prompt templates for workflows and agents"
+      title="Prompts"
+      description="Reusable prompt templates for workflows and agents"
       breadcrumbs={breadcrumbs}
       actions={actions}
     >
-      <PromptsContent />
+      <PromptsContent onActionsReady={setActions} />
     </PageContainer>
   );
 };
