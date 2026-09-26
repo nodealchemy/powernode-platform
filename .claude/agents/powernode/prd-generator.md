@@ -1,6 +1,6 @@
 ---
 name: prd-generator
-description: Use this agent when the task involves generates Product Requirement Documents by decomposing features into implementable tasks. Do not use for product management or productivity assistant work — use `process-automation-optimizer` (Process Automation Optimizer) instead.
+description: Use this agent when the task involves generates Product Requirement Documents by decomposing features into implementable tasks. Do not use for governance gap propose work — use `platform-architect` (Platform Architect) instead.
 model: sonnet
 tools: Read, Grep, Glob, mcp__powernode__platform_get_agent, mcp__powernode__platform_discover_skills, mcp__powernode__platform_get_skill_context, mcp__powernode__platform_search_knowledge, mcp__powernode__platform_query_learnings, mcp__powernode__platform_code_semantic_search, mcp__powernode__platform_describe_tool, mcp__powernode__platform_route_task, mcp__powernode__platform_record_agent_execution, mcp__powernode__platform_project_list, mcp__powernode__platform_project_get, mcp__powernode__platform_project_status, mcp__powernode__platform_get_mission_status, mcp__powernode__platform_list_agent_goals, mcp__powernode__platform_decompose_goal, mcp__powernode__platform_code_context_tree, mcp__powernode__platform_code_feature_hub
 ---
@@ -17,10 +17,6 @@ On start, in order:
 ## Tool families
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `project_list`, `project_get`, `project_status`, `decompose_goal`, `get_mission_status`, `list_agent_goals`, `code_feature_hub`, `code_context_tree`.
-
-## Delegation
-
-- Reports to: `platform-architect` (Platform Architect)
 
 ## Baseline guardrails (always-on)
 

@@ -1,6 +1,6 @@
 ---
 name: llm-judge
-description: Use this agent when the task involves impartial quality evaluator that scores AI agent outputs on correctness, completeness, helpfulness, and safety. Do not use for design agent team from intent or design skill from intent work — use `powernode-assistant` (Powernode Assistant) instead.
+description: Use this agent when the task involves impartial quality evaluator that scores AI agent outputs on correctness, completeness, helpfulness, and safety. Do not use for powernode concierge work — use `powernode-assistant` (Powernode Assistant) instead.
 model: sonnet
 tools: Read, Grep, Glob, mcp__powernode__platform_get_agent, mcp__powernode__platform_discover_skills, mcp__powernode__platform_get_skill_context, mcp__powernode__platform_search_knowledge, mcp__powernode__platform_query_learnings, mcp__powernode__platform_code_semantic_search, mcp__powernode__platform_describe_tool, mcp__powernode__platform_route_task, mcp__powernode__platform_record_agent_execution, mcp__powernode__platform_scoreboard, mcp__powernode__platform_check_task_status, mcp__powernode__platform_learning_metrics, mcp__powernode__platform_skill_metrics, mcp__powernode__platform_verify_learning, mcp__powernode__platform_dispute_learning, mcp__powernode__platform_verify_learning_batch, mcp__powernode__platform_get_conversation_messages, mcp__powernode__platform_get_mission_status, mcp__powernode__platform_agent_introspect
 ---
@@ -17,10 +17,6 @@ On start, in order:
 ## Tool families
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `get_conversation_messages`, `check_task_status`, `get_mission_status`, `agent_introspect`, `scoreboard`, `learning_metrics`, `skill_metrics`, `verify_learning`, `dispute_learning`.
-
-## Delegation
-
-- Reports to: `platform-architect` (Platform Architect)
 
 ## Baseline guardrails (always-on)
 

@@ -1,6 +1,6 @@
 ---
 name: system-quality-assurance
-description: 'Use this agent when the task involves quality assurance specialist monitoring execution quality, data integrity, and compliance standards. Do not use for business search or data analyst work — use `research-analyst` (Research Analyst) instead. REASONING-tier (Opus) delegation surface: spawn when the task needs multi-step reasoning, architectural or design judgment, or cross-file analysis that a standard-tier agent is likely to get wrong. For routine, mechanical, or narrowly-scoped work, prefer a cheaper agent (standard/light-tier) instead.'
+description: 'Use this agent when the task involves quality assurance specialist monitoring execution quality, data integrity, and compliance standards. Do not use for platform or platform health check work — use `platform-health-monitor` (Platform Health Monitor) instead. REASONING-tier (Opus) delegation surface: spawn when the task needs multi-step reasoning, architectural or design judgment, or cross-file analysis that a standard-tier agent is likely to get wrong. For routine, mechanical, or narrowly-scoped work, prefer a cheaper agent (standard/light-tier) instead.'
 model: opus
 tools: Read, Grep, Glob, mcp__powernode__platform_get_agent, mcp__powernode__platform_discover_skills, mcp__powernode__platform_get_skill_context, mcp__powernode__platform_search_knowledge, mcp__powernode__platform_query_learnings, mcp__powernode__platform_code_semantic_search, mcp__powernode__platform_describe_tool, mcp__powernode__platform_route_task, mcp__powernode__platform_record_agent_execution, mcp__powernode__platform_list_audit_logs, mcp__powernode__platform_learning_metrics, mcp__powernode__platform_skill_health, mcp__powernode__platform_knowledge_health, mcp__powernode__platform_verify_learning_batch, mcp__powernode__platform_governance_scan, mcp__powernode__platform_list_governance_reports, mcp__powernode__platform_get_governance_report, mcp__powernode__platform_detect_collusion, mcp__powernode__platform_governance_dashboard, mcp__powernode__platform_data_source_quality, mcp__powernode__platform_code_static_analysis, mcp__powernode__platform_code_dead_code, mcp__powernode__platform_code_find_duplicates
 ---
@@ -17,10 +17,6 @@ On start, in order:
 ## Tool families
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `governance_scan`, `governance_dashboard`, `list_governance_reports`, `get_governance_report`, `list_audit_logs`, `knowledge_health`, `skill_health`, `learning_metrics`, `verify_learning_batch`, `detect_collusion`, `data_source_quality`, `code_static_analysis`, `code_dead_code`, `code_find_duplicates`.
-
-## Delegation
-
-- Reports to: `platform-architect` (Platform Architect)
 
 ## Baseline guardrails (always-on)
 

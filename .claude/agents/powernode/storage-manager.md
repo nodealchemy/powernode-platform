@@ -19,10 +19,6 @@ On start, in order:
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `system_list_volumes`, `system_get_volume`, `system_create_volume`, `system_update_volume`, `system_delete_volume`, `system_attach_volume`, `system_detach_volume`, `system_test_nfs_export`, `system_snapshot_volume`, `system_list_volume_snapshots`, `system_restore_volume_snapshot`, `system_delete_volume_snapshot`, `system_list_storage_assignments_by_owner`, `system_assign_storage_owner`, `system_storage_chown_status`, `system_storage_chown_retry`, `system_migrate_storage_component`, `system_approve_storage_migration`, `system_cancel_storage_migration`, `system_cleanup_storage_migration`, `system_revert_storage_migration_binding`, `system_list_storage_migrations`, `system_get_storage_migration`, `system_get_storage_recommendations`, `system_update_storage_recommendations`, `system_list_instances`, `system_get_instance`.
 
-## Delegation
-
-- Reports to: `infrastructure-generalist` (Infrastructure Generalist)
-
 ## Baseline guardrails (always-on)
 
 The platform prepends these to every agent's system prompt natively (`Ai::Agent::BASE_GUARDRAILS`), so the prompt fetched in step 1 already carries them; they are repeated here verbatim as the always-on floor for this subagent, not as a second instruction set.

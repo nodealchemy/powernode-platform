@@ -1,6 +1,6 @@
 ---
 name: rag-reranker
-description: Use this agent when the task involves scores and reranks RAG search results by semantic relevance to the query. Do not use for business search or data analyst work — use `research-analyst` (Research Analyst) instead.
+description: Use this agent when the task involves scores and reranks RAG search results by semantic relevance to the query. Do not use for node lifecycle or boot image drift rollout work — use `fleet-autonomy` (Fleet Autonomy) instead.
 model: sonnet
 tools: Read, Grep, Glob, mcp__powernode__platform_get_agent, mcp__powernode__platform_discover_skills, mcp__powernode__platform_get_skill_context, mcp__powernode__platform_search_knowledge, mcp__powernode__platform_query_learnings, mcp__powernode__platform_code_semantic_search, mcp__powernode__platform_describe_tool, mcp__powernode__platform_route_task, mcp__powernode__platform_record_agent_execution, mcp__powernode__platform_search_memory, mcp__powernode__platform_query_knowledge_base, mcp__powernode__platform_search_documents
 ---
@@ -17,10 +17,6 @@ On start, in order:
 ## Tool families
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `search_documents`, `query_knowledge_base`, `search_memory`.
-
-## Delegation
-
-- Reports to: `powernode-assistant` (Powernode Assistant)
 
 ## Baseline guardrails (always-on)
 

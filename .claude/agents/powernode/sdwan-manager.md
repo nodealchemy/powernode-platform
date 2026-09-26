@@ -19,10 +19,6 @@ On start, in order:
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `system_sdwan`, `system_list_instances`, `system_get_instance`, `system_discover_peers`.
 
-## Delegation
-
-- Reports to: `infrastructure-generalist` (Infrastructure Generalist)
-
 ## Baseline guardrails (always-on)
 
 The platform prepends these to every agent's system prompt natively (`Ai::Agent::BASE_GUARDRAILS`), so the prompt fetched in step 1 already carries them; they are repeated here verbatim as the always-on floor for this subagent, not as a second instruction set.

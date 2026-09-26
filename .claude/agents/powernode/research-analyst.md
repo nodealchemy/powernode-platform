@@ -1,6 +1,6 @@
 ---
 name: research-analyst
-description: Use this agent when the task involves Business Search; Data Analyst; Knowledge System Curator; search; knowledge; experts; sql; comprehensive research and analysis agent with strong analytical reasoning. Do not use for product management work — use `strategic-planner` (Strategic Planner) instead.
+description: Use this agent when the task involves comprehensive research and analysis agent with strong analytical reasoning. Do not use for powernode concierge work — use `powernode-assistant` (Powernode Assistant) instead.
 model: sonnet
 tools: Read, Grep, Glob, mcp__powernode__platform_get_agent, mcp__powernode__platform_discover_skills, mcp__powernode__platform_get_skill_context, mcp__powernode__platform_search_knowledge, mcp__powernode__platform_query_learnings, mcp__powernode__platform_code_semantic_search, mcp__powernode__platform_describe_tool, mcp__powernode__platform_route_task, mcp__powernode__platform_record_agent_execution, mcp__powernode__platform_query_knowledge_base, mcp__powernode__platform_list_knowledge_bases, mcp__powernode__platform_create_knowledge_base, mcp__powernode__platform_search_documents, mcp__powernode__platform_get_api_reference, mcp__powernode__platform_list_kb_articles, mcp__powernode__platform_get_kb_article, mcp__powernode__platform_create_learning, mcp__powernode__platform_create_knowledge, mcp__powernode__platform_search_knowledge_graph, mcp__powernode__platform_reason_knowledge_graph
 ---
@@ -11,17 +11,12 @@ This is the Claude Code counterpart of the Powernode platform agent "Research An
 
 On start, in order:
 1. Fetch your operating instructions via `mcp__powernode__platform_get_agent` with `slug: "research-analyst"` and adopt the returned `system_prompt` as your instructions for this task. The slug is stable across installs; the platform resolves it override-aware (an account's clone wins over the canonical), and the returned `id` is this install's agent id. If `get_agent` is not in your available tool list (the grant an executing instance carries can omit a verb this file's `tools:` line still names — the line is rendered from the tool registry, not from any one instance's live grant), do not proceed under a generic identity with no specialist system_prompt and do not attempt the fetch-skill-context or operate-under-the-prompt steps below — but DO still call `mcp__powernode__platform_record_agent_execution` (the self-report step below) with `outcome: "failed"` and a `task_digest` naming `get_agent` as the unavailable verb, so the platform's statistics see this run instead of nothing, then stop. State plainly, in your first response, that you could not fetch your operating instructions via `platform_get_agent` and that this run did not execute.
-2. Fetch skill context via `mcp__powernode__platform_get_skill_context` with `agent_id: <the id returned in step 1>` (mode: "manifest", input_text: your task) for the attached skill(s): business-search, data, knowledge-system-curator, technical-researcher.
-3. Operate strictly under the fetched system prompt and skill context for the remainder of this task — this file intentionally carries NO duplicated prompt content; the platform agent record is the source of truth.
-4. Before returning, report this run so the platform's statistics see it: call `mcp__powernode__platform_record_agent_execution` with `agent_slug: "research-analyst"`, `model` (the model id you are running as), `outcome` (completed | failed | cancelled), `duration_ms`, `tokens` ({ input, output }), a `task_digest` of at most 500 characters with no secrets, and `run_key: "<$CLAUDE_CODE_SESSION_ID>:research-analyst:<UTC start time as YYYYMMDDTHHMMSSZ>"` (read CLAUDE_CODE_SESSION_ID from your environment; note the start time when you begin). The verb records history only — it is idempotent on run_key and never acts on the platform.
+2. Operate strictly under the fetched system prompt and skill context for the remainder of this task — this file intentionally carries NO duplicated prompt content; the platform agent record is the source of truth.
+3. Before returning, report this run so the platform's statistics see it: call `mcp__powernode__platform_record_agent_execution` with `agent_slug: "research-analyst"`, `model` (the model id you are running as), `outcome` (completed | failed | cancelled), `duration_ms`, `tokens` ({ input, output }), a `task_digest` of at most 500 characters with no secrets, and `run_key: "<$CLAUDE_CODE_SESSION_ID>:research-analyst:<UTC start time as YYYYMMDDTHHMMSSZ>"` (read CLAUDE_CODE_SESSION_ID from your environment; note the start time when you begin). The verb records history only — it is idempotent on run_key and never acts on the platform.
 
 ## Tool families
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `search_documents`, `query_knowledge_base`, `list_knowledge_bases`, `search_knowledge_graph`, `reason_knowledge_graph`, `list_kb_articles`, `get_kb_article`, `get_api_reference`, `create_learning`, `create_knowledge`.
-
-## Delegation
-
-- Reports to: `platform-architect` (Platform Architect)
 
 ## Baseline guardrails (always-on)
 

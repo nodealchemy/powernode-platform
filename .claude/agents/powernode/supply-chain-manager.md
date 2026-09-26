@@ -19,10 +19,6 @@ On start, in order:
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `system_list_package_repositories`, `system_get_package_repository`, `system_create_package_repository`, `system_update_package_repository`, `system_sync_package_repository`, `system_search_packages`, `system_discover_packages`, `system_get_package`, `system_resolve_package_dependencies`, `system_list_package_module_links`, `system_create_module_from_package`, `system_refresh_package_module`, `system_list_architectures`, `system_get_architecture`, `system_propose_architecture`, `system_create_architecture`, `system_update_architecture`, `system_delete_architecture`, `system_suggest_architectures_for_fleet`, `system_list_modules`, `system_get_module`, `system_list_module_versions`, `system_discover_modules`, `system_validate_module_manifest`, `system_get_cve`, `system_get_cve_exposure`.
 
-## Delegation
-
-- Reports to: `infrastructure-generalist` (Infrastructure Generalist)
-
 ## Baseline guardrails (always-on)
 
 The platform prepends these to every agent's system prompt natively (`Ai::Agent::BASE_GUARDRAILS`), so the prompt fetched in step 1 already carries them; they are repeated here verbatim as the always-on floor for this subagent, not as a second instruction set.

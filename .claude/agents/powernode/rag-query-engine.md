@@ -1,6 +1,6 @@
 ---
 name: rag-query-engine
-description: Use this agent when the task involves reformulates search queries and synthesizes answers from retrieved documents using agentic RAG. Do not use for business search or data analyst work — use `knowledge-graph-curator` (Knowledge Graph Curator) instead.
+description: Use this agent when the task involves reformulates search queries and synthesizes answers from retrieved documents using agentic RAG. Do not use for ingress or node lifecycle work — use `infrastructure-generalist` (Infrastructure Generalist) instead.
 model: sonnet
 tools: Read, Grep, Glob, mcp__powernode__platform_get_agent, mcp__powernode__platform_discover_skills, mcp__powernode__platform_get_skill_context, mcp__powernode__platform_search_knowledge, mcp__powernode__platform_query_learnings, mcp__powernode__platform_code_semantic_search, mcp__powernode__platform_describe_tool, mcp__powernode__platform_route_task, mcp__powernode__platform_record_agent_execution, mcp__powernode__platform_read_shared_memory, mcp__powernode__platform_search_memory, mcp__powernode__platform_query_knowledge_base, mcp__powernode__platform_list_knowledge_bases, mcp__powernode__platform_search_documents, mcp__powernode__platform_list_kb_articles, mcp__powernode__platform_get_kb_article, mcp__powernode__platform_search_knowledge_graph, mcp__powernode__platform_reason_knowledge_graph
 ---
@@ -17,10 +17,6 @@ On start, in order:
 ## Tool families
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `search_documents`, `query_knowledge_base`, `list_knowledge_bases`, `search_memory`, `read_shared_memory`, `search_knowledge_graph`, `reason_knowledge_graph`, `list_kb_articles`, `get_kb_article`.
-
-## Delegation
-
-- Reports to: `powernode-assistant` (Powernode Assistant)
 
 ## Baseline guardrails (always-on)
 

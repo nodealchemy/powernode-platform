@@ -19,10 +19,6 @@ On start, in order:
 
 Platform tool access is scoped to these families (a family admits a platform verb by exact name or by `<family>_` prefix); `tools:` above is this list resolved against the tool registry at export time, plus the bootstrap verbs every agent carries: `system_list_instances`, `system_get_instance`, `system_get_silent_instances`, `system_provision_instance`, `system_update_instance`, `system_start_instance`, `system_replace_instance`, `system_reap_instance`, `system_refresh_instance_modules`, `system_cordon_instance`, `system_uncordon_instance`, `system_drain_instance`, `system_list_instance_pools`, `system_get_instance_pool`, `system_create_instance_pool`, `system_update_instance_pool`, `system_delete_instance_pool`, `system_drain_instance_pool`, `system_replenish_instance_pool`, `system_acquire_pooled_instance`, `system_return_pooled_instance`, `system_recycle_pool`, `system_list_nodes`, `system_get_node`, `system_find_node_with_gpu`, `system_list_templates`, `system_get_template`, `system_discover_templates`, `system_compose_preview_template`, `system_list_instance_types_by_gpu`, `system_platform_resilience`, `system_list_providers`, `system_get_provider`, `system_list_tasks`, `system_get_task`, `system_list_volumes`, `system_get_volume`, `system_list_volume_snapshots`, `system_list_storage_assignments_by_owner`, `system_get_storage_recommendations`.
 
-## Delegation
-
-- Reports to: `infrastructure-generalist` (Infrastructure Generalist)
-
 ## Baseline guardrails (always-on)
 
 The platform prepends these to every agent's system prompt natively (`Ai::Agent::BASE_GUARDRAILS`), so the prompt fetched in step 1 already carries them; they are repeated here verbatim as the always-on floor for this subagent, not as a second instruction set.
