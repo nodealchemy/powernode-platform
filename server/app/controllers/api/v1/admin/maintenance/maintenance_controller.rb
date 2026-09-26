@@ -194,7 +194,7 @@ class Api::V1::Admin::Maintenance::MaintenanceController < ApplicationController
   def health
     # The one set of core checks (Platform::Health::CoreChecks), under the
     # key names this endpoint has always used.
-    checks = ::Platform::Health::CoreChecks.all
+    checks = ::Platform::Health::CoreChecks.all # scoping-ok: platform-wide infra health (db/redis/sidekiq/disk/memory/cpu), not tenant data; require_admin_maintenance_permission above gates the action
     health_check = {
       database: checks[:database],
       redis: checks[:redis],
