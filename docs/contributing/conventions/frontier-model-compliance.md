@@ -1,7 +1,8 @@
-# Fable 5 Compliance
+# Frontier Model Compliance
 
-Ground rules for working with **Claude Fable 5** (`claude-fable-5`; `claude-mythos-5` on Project
-Glasswing) — Anthropic's most capable model, premium-priced ($10 input / $50 output per MTok).
+Ground rules for working with the platform's **frontier-tier model** — the premium, adaptive-thinking-only
+tier gated by `Ai::FableRouting`. Today that tier is Claude Fable 5 (`claude-fable-5`; `claude-mythos-5`
+on Project Glasswing) — Anthropic's most capable model, premium-priced ($10 input / $50 output per MTok).
 These rules apply to every executor (Claude Code and non-Claude loop executors); they are enforced
 in code (`Ai::Llm::ModelCapabilities`, `Ai::Llm::Adapters::Anthropic`, `Ai::Routing::EffortMapper`,
 `Ai::FableRouting`), not something an executor hand-implements per call.

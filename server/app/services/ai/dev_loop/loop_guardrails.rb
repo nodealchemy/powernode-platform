@@ -11,7 +11,7 @@ module Ai
     # payload's "guardrails" field.
     #
     # The TAIL carries two Fable-5 tunings (adapted from Anthropic's Fable-5
-    # prompting guidance, recallable as guidance-fable5-compliance). They are
+    # prompting guidance, recallable as guidance-frontier-model-compliance). They are
     # stated model-agnostically because they improve every long-running executor,
     # not only Fable:
     #   * autonomous-operation — don't pause to ask permission mid-loop for
@@ -37,7 +37,7 @@ module Ai
         "You are operating autonomously — the user is not watching and cannot answer mid-task. Do not pause to ask permission before a reversible action that follows from the task; proceed. Before ending a turn, if your final message is a plan, a question, or a promise ('I'll…', 'next…') rather than completed work, do that work now with a tool call instead of ending on the promise",
         "Ground every progress or completion claim in a tool result from this session: audit each claim against real evidence before reporting it, and say plainly when a step failed, was skipped, or is unverified — never report success you cannot point to",
         "After 3 failed attempts on the same task, report outcome=failed and stop",
-        "When you brief or prompt a Fable/Mythos agent, state the goal and constraints rather than step-by-step instructions (search_knowledge tag:guidance-fable5-compliance). The platform handles a Fable/Mythos refusal itself (one automatic reframe, then an Opus fallback, logged), so do not retry it by hand"
+        "When you brief or prompt a Fable/Mythos agent, state the goal and constraints rather than step-by-step instructions (search_knowledge tag:guidance-frontier-model-compliance). The platform handles a Fable/Mythos refusal itself (one automatic reframe, then an Opus fallback, logged), so do not retry it by hand"
       ].freeze
 
       module_function
@@ -95,7 +95,13 @@ module Ai
       RETIRED_SHARED = [
         "On a Fable/Mythos refusal (stop_reason \"refusal\"), don't panic or manually retry — it " \
         "auto-reframes once then falls back to Opus and logs it; prefer goal+constraints prompting over " \
-        "step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)"
+        "step-by-step for Fable (search_knowledge tag:guidance-fable5-compliance)",
+        # The TAIL line as worded before the convention was renamed to
+        # guidance-frontier-model-compliance; a persisted snapshot still names the old tag.
+        "When you brief or prompt a Fable/Mythos agent, state the goal and constraints rather than " \
+        "step-by-step instructions (search_knowledge tag:guidance-fable5-compliance). The platform handles " \
+        "a Fable/Mythos refusal itself (one automatic reframe, then an Opus fallback, logged), so do not " \
+        "retry it by hand"
       ].freeze
 
       def refresh(persisted)

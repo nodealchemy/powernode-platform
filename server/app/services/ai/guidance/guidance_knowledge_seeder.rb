@@ -25,9 +25,19 @@ module Ai
       EXCLUDE = %w[MANIFEST.md adherence-baseline.md README.md].freeze
       DEPLOYMENT_DIR = %w[docs operations local].freeze
 
-      Result = Struct.new(:created, :updated, :unchanged, :refused, keyword_init: true) do
+      # Conventions docs whose file was renamed: old slug => new slug. The key is
+      # derived from the filename, so without this a rename would seed a SECOND
+      # entry and leave the old one recallable under its old tag. #call moves the
+      # old entry onto the new key before seeding (keeping its id, usage and
+      # provenance), or archives it when an entry under the new key already
+      # exists. Acts only when the new doc is present in the seeded directory.
+      RENAMED = {
+        "fable5-compliance" => "frontier-model-compliance"
+      }.freeze
+
+      Result = Struct.new(:created, :updated, :unchanged, :refused, :renamed, keyword_init: true) do
         def summary
-          "created=#{created} updated=#{updated} unchanged=#{unchanged} refused=#{refused}"
+          "created=#{created} updated=#{updated} unchanged=#{unchanged} refused=#{refused} renamed=#{renamed}"
         end
       end
 
@@ -38,13 +48,13 @@ module Ai
           account: account, repository: repository, private_names: private_names,
           dir: dir || Rails.root.parent.join(*DEPLOYMENT_DIR),
           tag_prefix: "deployment", source_dir_label: DEPLOYMENT_DIR.join("/"),
-          refuse_private_references: false
+          refuse_private_references: false, renamed: {}
         )
       end
 
       def initialize(account:, repository: "powernode-platform", dir: nil, private_names: nil,
                      tag_prefix: "guidance", source_dir_label: "docs/contributing/conventions",
-                     refuse_private_references: true)
+                     refuse_private_references: true, renamed: RENAMED)
         @account = account
         @repository = repository
         @dir = Pathname.new(dir || default_dir)
@@ -52,11 +62,16 @@ module Ai
         @tag_prefix = tag_prefix
         @source_dir_label = source_dir_label
         @refuse_private_references = refuse_private_references
+        @renamed = renamed
       end
 
       def call
-        result = Result.new(created: 0, updated: 0, unchanged: 0, refused: 0)
+        result = Result.new(created: 0, updated: 0, unchanged: 0, refused: 0, renamed: 0)
         return result unless @dir.exist?
+
+        renamed.each do |old_slug, new_slug|
+          result.renamed += 1 if retire_renamed(old_slug, new_slug)
+        end
 
         Dir.glob(@dir.join("*.md")).sort.each do |path|
           next if EXCLUDE.include?(File.basename(path))
@@ -141,7 +156,41 @@ module Ai
       private
 
       attr_reader :account, :repository, :dir, :private_names, :tag_prefix, :source_dir_label,
-                  :refuse_private_references
+                  :refuse_private_references, :renamed
+
+      def find_by_key(key)
+        Ai::SharedKnowledge.where(account: account).where("provenance->>'guidance_key' = ?", key).first
+      end
+
+      # Move the entry seeded from a renamed doc onto the new key, dropping its
+      # old guidance-<slug> tag (tags merge on upsert, so the old tag would
+      # otherwise survive the rename). If an entry under the new key already
+      # exists, the old one is archived instead so the two never both surface.
+      # Returns true when it changed a row.
+      def retire_renamed(old_slug, new_slug)
+        return false unless dir.join("#{new_slug}.md").exist?
+
+        old_record = find_by_key("#{tag_prefix}:#{old_slug}")
+        return false unless old_record
+
+        stored = old_record.provenance || {}
+        if find_by_key("#{tag_prefix}:#{new_slug}")
+          return false if stored["archived"] == true
+
+          old_record.update!(provenance: stored.merge(
+            "archived" => true,
+            "archived_at" => Time.current.iso8601,
+            "archived_by" => "guidance-seeder:renamed-to:#{new_slug}"
+          ))
+        else
+          old_record.update!(
+            tags: Array(old_record.tags).map { |t| t == "#{tag_prefix}-#{old_slug}" ? "#{tag_prefix}-#{new_slug}" : t }.uniq,
+            provenance: stored.merge("guidance_key" => "#{tag_prefix}:#{new_slug}", "renamed_from" => "#{tag_prefix}:#{old_slug}")
+          )
+        end
+        Rails.logger.info("[GuidanceSeeder] Retired #{tag_prefix}:#{old_slug} in favour of #{tag_prefix}:#{new_slug}")
+        true
+      end
 
       def default_dir
         Rails.root.parent.join("docs", "contributing", "conventions")

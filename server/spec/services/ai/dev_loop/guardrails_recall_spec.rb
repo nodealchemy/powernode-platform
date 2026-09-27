@@ -36,8 +36,21 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
 
       it "#{const_name} includes the Fable refusal-handling guardrail" do
         expect(guardrails).to include(match(/Fable.*refusal/i))
-        expect(guardrails).to include(match(/guidance-fable5-compliance/))
+        expect(guardrails).to include(match(/guidance-frontier-model-compliance/))
+        expect(guardrails).not_to include(match(/guidance-fable5-compliance/))
       end
+    end
+
+    it "refresh drops a persisted TAIL line that still names the pre-rename tag" do
+      tail = Ai::DevLoop::LoopGuardrails::TAIL
+      stale_line = tail.last.sub("guidance-frontier-model-compliance", "guidance-fable5-compliance")
+      expect(stale_line).not_to eq(tail.last) # the mutation applied
+
+      refreshed = Ai::DevLoop::LoopGuardrails.refresh([ "loop-specific rule", stale_line ])
+
+      expect(refreshed).not_to include(stale_line)
+      expect(refreshed).to include("loop-specific rule")
+      expect(refreshed.last).to eq(tail.last)
     end
   end
 
@@ -91,7 +104,8 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
     it "includes the Fable refusal-handling + prompting guardrail" do
       expect(baseline).to match(/Fable.*refusal/i)
       expect(baseline).to match(/Opus/)
-      expect(baseline).to match(/guidance-fable5-compliance/)
+      expect(baseline).to match(/guidance-frontier-model-compliance/)
+      expect(baseline).not_to match(/guidance-fable5-compliance/)
     end
   end
 end

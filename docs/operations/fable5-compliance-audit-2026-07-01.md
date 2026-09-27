@@ -3,8 +3,8 @@
 Verification of the platform's Fable 5 rules and prompts against Anthropic's published
 restrictions (per the `claude-api` reference current as of 2026-07-01), plus the
 deprecated/obsolete-functionality cleanup performed in the same pass. Companion to
-[conventions/fable5-compliance.md](../contributing/conventions/fable5-compliance.md)
-(`guidance-fable5-compliance`).
+[conventions/frontier-model-compliance.md](../contributing/conventions/frontier-model-compliance.md)
+(`guidance-frontier-model-compliance`).
 
 ## Verdict
 

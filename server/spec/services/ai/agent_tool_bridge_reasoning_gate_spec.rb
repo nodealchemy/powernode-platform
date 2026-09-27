@@ -10,7 +10,7 @@ require "rails_helper"
 # Ai::Llm::ModelCapabilities.thinking_mode is :adaptive_only, and keep them for
 # legacy and non-Claude models. plan_and_execute produces subtasks, not a
 # reasoning transcript, so it is intentionally out of scope. See
-# guidance-fable5-compliance.
+# guidance-frontier-model-compliance.
 RSpec.describe Ai::AgentToolBridgeService, "reasoning-scaffold gate (adaptive-only models)" do
   let(:account) { create(:account) }
   let(:agent) { create(:ai_agent, account: account) }

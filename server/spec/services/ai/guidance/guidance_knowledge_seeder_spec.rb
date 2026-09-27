@@ -123,16 +123,63 @@ RSpec.describe Ai::Guidance::GuidanceKnowledgeSeeder do
     end
   end
 
+  describe "a renamed conventions doc" do
+    let(:renamed) { { "old-name" => "new-name" } }
+
+    def seed_renamed
+      described_class.new(account: account, dir: dir, private_names: [], renamed: renamed).call
+    end
+
+    before { File.write(File.join(dir, "old-name.md"), "# Old Name\n\nThe rule.\n") }
+
+    it "moves the existing entry onto the new key instead of seeding a duplicate" do
+      seed_renamed
+      original = entry_for("guidance:old-name")
+      expect(original).to be_present
+
+      File.delete(File.join(dir, "old-name.md"))
+      File.write(File.join(dir, "new-name.md"), "# New Name\n\nThe rule.\n")
+      result = seed_renamed
+
+      expect(result.renamed).to eq(1)
+      expect(entry_for("guidance:old-name")).to be_nil
+      moved = entry_for("guidance:new-name")
+      expect(moved.id).to eq(original.id)
+      expect(moved.title).to eq("New Name")
+      expect(moved.tags).to include("guidance-new-name")
+      expect(moved.tags).not_to include("guidance-old-name")
+      expect(moved.provenance["renamed_from"]).to eq("guidance:old-name")
+      expect(Ai::SharedKnowledge.where(account: account).with_tag("guidance-new-name").count).to eq(1)
+    end
+
+    it "archives the old entry when the new key already has one" do
+      File.write(File.join(dir, "new-name.md"), "# New Name\n\nThe rule.\n")
+      described_class.new(account: account, dir: dir, private_names: [], renamed: {}).call
+      File.delete(File.join(dir, "old-name.md"))
+
+      expect(seed_renamed.renamed).to eq(1)
+      expect(entry_for("guidance:old-name").provenance["archived"]).to eq(true)
+      expect(entry_for("guidance:new-name").provenance["archived"]).to be_nil
+      expect(seed_renamed.renamed).to eq(0) # idempotent
+    end
+
+    it "leaves the old entry alone while the new doc is absent" do
+      seed_renamed
+      expect(seed_renamed.renamed).to eq(0)
+      expect(entry_for("guidance:old-name")).to be_present
+    end
+  end
+
   describe "against the real docs/contributing/conventions directory" do
-    it "seeds fable5-compliance.md as a recallable guidance-fable5-compliance entry" do
+    it "seeds frontier-model-compliance.md as a recallable guidance-frontier-model-compliance entry" do
       result = described_class.new(account: account).call
 
       expect(result.refused).to eq(0)
 
-      entry = entry_for("guidance:fable5-compliance")
+      entry = entry_for("guidance:frontier-model-compliance")
       expect(entry).to be_present
-      expect(entry.title).to eq("Fable 5 Compliance")
-      expect(entry.tags).to include("guidance", "guidance-fable5-compliance")
+      expect(entry.title).to eq("Frontier Model Compliance")
+      expect(entry.tags).to include("guidance", "guidance-frontier-model-compliance")
       expect(entry.content_type).to eq("reference")
       expect(entry.content).to include("claude-fable-5")
       expect(entry.content).to include("fable_routing_enabled")

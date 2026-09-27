@@ -71,7 +71,7 @@ regardless of score.
 (`AgentModelSelector.fable_preferred_agent_type?`), `expert` complexity OR an explicit
 operator frontier pin, account budget headroom, and no active refusal pre-route for that
 `(agent_type, category)`. Any missing condition caps the target to `:reasoning` (see
-[fable5-compliance.md](fable5-compliance.md) for the Fable-specific rules this gate defers to).
+[frontier-model-compliance.md](frontier-model-compliance.md) for the Fable-specific rules this gate defers to).
 
 Every resolution persists one `Ai::TaskComplexityAssessment` + one `Ai::RoutingDecision`
 (linked bidirectionally) carrying the full rationale — best-effort, a persistence failure
@@ -82,7 +82,7 @@ never breaks the calling execution.
 | Key | Governs | Default | Resolution |
 |---|---|---|---|
 | `ai_task_tier_routing_enabled` | Master per-task routing gate. OFF ⇒ `TaskTierResolver` is never called by any of the three seams — behavior is byte-identical to pre-inc2. ON ⇒ every governed call gets tier + effort resolution and a persisted rationale. | **OFF** | `Account#settings` → `SiteSetting` fallback → `false` (`TaskTierResolver.enabled_for?`, mirrors `Ai::FableRouting`'s reader) |
-| `fable_routing_enabled` | Platform-side frontier (Fable/Mythos) candidacy for the platform's OWN model selection. OFF ⇒ Fable is excluded from the candidate set entirely — non-selectable by preference, UCB exploration, or cost tie. | **OFF** | `Ai::FableRouting.enabled_for?(account)`; operator flips ON only after platform Fable readiness (compliance, refusal-handling, budget guards — see [fable5-compliance.md](fable5-compliance.md)) |
+| `fable_routing_enabled` | Platform-side frontier (Fable/Mythos) candidacy for the platform's OWN model selection. OFF ⇒ Fable is excluded from the candidate set entirely — non-selectable by preference, UCB exploration, or cost tie. | **OFF** | `Ai::FableRouting.enabled_for?(account)`; operator flips ON only after platform Fable readiness (compliance, refusal-handling, budget guards — see [frontier-model-compliance.md](frontier-model-compliance.md)) |
 
 Both gates are per-account settings with a site-wide fallback, both default OFF, and both are
 independent: routing can be governed (`ai_task_tier_routing_enabled=true`) while frontier
