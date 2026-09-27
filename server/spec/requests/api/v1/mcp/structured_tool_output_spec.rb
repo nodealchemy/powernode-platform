@@ -340,8 +340,11 @@ RSpec.describe "MCP Streamable HTTP - structured tool output", type: :request do
 
       listed = tools.find { |t| t["name"] == name }
       expect(listed["description"].length).to be <= limit
-      # The ellipsis ends the sentence part; D2's contract tags may follow it.
-      expect(listed["description"].sub(/( \[[a-z ]+\])+\z/, "")).to end_with("…")
+      # The listing carries the lead sentence (cut with an ellipsis only when the
+      # sentence itself is over the limit); D2's contract tags may follow it.
+      summary = listed["description"].sub(/( \[[a-z ]+\])+\z/, "").delete_suffix("…")
+      expect(summary.length).to be < full.length
+      expect(full).to start_with(summary)
 
       result = describe_tool(name)
       expect(result["success"]).to be(true)
