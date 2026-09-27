@@ -70,6 +70,13 @@ module Ai
             summary: { type: "string", required: false, description: "What was done / why it failed, blocked, or was skipped" },
             check_results: { type: "object", required: false, description: "Verification evidence (specs run, results)" },
             learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
+            learnings_used: { type: "array", required: false,
+                              description: "IDs of compound learnings from context.relevant_learnings that you " \
+                                           "actually applied on this task (dev_complete_task). An id credits " \
+                                           "only when it was ALSO one this claim injected — citing an id that " \
+                                           "was never handed to you credits nothing. Omitting this, or citing " \
+                                           "none, credits nothing: that is the intended negative signal, not an " \
+                                           "error." },
             git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
             commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
             files_changed: { type: "array", required: false, description: "Paths touched by this task" },
@@ -147,6 +154,18 @@ module Ai
                                                "the platform never saw the claim, so inferred evidence is not " \
                                                "enough to close it." },
               learning: { type: "string", required: false, description: "Reusable learning extracted from this task" },
+              learnings_used: { type: "array", required: false,
+                                description: "IDs of compound learnings from context.relevant_learnings you " \
+                                             "actually used (IMP-8673c0533e24). This is a second declared-" \
+                                             "evidence contract alongside check_results: an id is credited " \
+                                             "(counts as a positive outcome for that learning) ONLY when it is " \
+                                             "BOTH in this list AND one this claim's task.metadata." \
+                                             "injected_learning_ids actually named — citing an id you were never " \
+                                             "handed credits nothing, silently. An absent or empty list credits " \
+                                             "NOTHING: the injection stays neutral rather than being scored " \
+                                             "positive by default, and that neutral result IS the negative " \
+                                             "signal for a learning nobody ever finds worth citing. Only " \
+                                             "meaningful on a passed + verified outcome; ignored otherwise." },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
               commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
               files_changed: { type: "array", required: false, description: "Paths touched by this task" },
@@ -903,13 +922,20 @@ module Ai
         end
         return error_result(pairing_error) if pairing_error
 
-        # Credit-loop half B (IMP-5f8a744b8892): a VERIFIED passed outcome
-        # resolves the claim-time injections positively. Attested-only passes
-        # do not credit (IMP-f2b3e9a67d11: the platform does not trust the
-        # outcome enough to auto-apply the offer, so it must not inflate
-        # learning effectiveness on it either); failed/blocked leave the
-        # injections unresolved — that depression is the intended signal.
-        credit_injected_learnings!(task) if outcome == "passed" && verification == :verified
+        # Credit-loop half B (IMP-5f8a744b8892, re-scoped by IMP-8673c0533e24):
+        # a VERIFIED passed outcome resolves the claim-time injections — but
+        # ONLY the ones the executor actually cited via learnings_used.
+        # Attested-only passes do not credit (IMP-f2b3e9a67d11: the platform
+        # does not trust the outcome enough to auto-apply the offer, so it
+        # must not inflate learning effectiveness on it either); failed/
+        # blocked leave the injections unresolved. An uncited injection on a
+        # verified pass is ALSO left unresolved (never auto-credited just
+        # because the task succeeded) — that neutral result, not an explicit
+        # negative counter, is the signal a learning nobody finds worth
+        # citing degrades under (see #credit_injected_learnings!).
+        if outcome == "passed" && verification == :verified
+          credit_injected_learnings!(task, learnings_used: params[:learnings_used])
+        end
 
         # D4: hand the completed work to the LLM judge. Enqueued for EVERY
         # terminal outcome, not just passes — scoring only successes would bias
@@ -1426,18 +1452,41 @@ module Ai
         Rails.logger.warn("[DevLoopTool] evaluation enqueue failed for #{task.task_key}: #{e.message}")
       end
 
-      # Credit-loop half B (see complete_task): resolve this claim's injections
-      # positively via the learning service, then clear the marker so an
-      # operator resolution or replayed report cannot double-credit. Best-effort
-      # — a crediting hiccup must never fail the completion itself.
-      def credit_injected_learnings!(task)
-        ids = Array(task.metadata["injected_learning_ids"])
-        return if ids.empty?
+      # Credit-loop half B (see complete_task; re-scoped by IMP-8673c0533e24):
+      # resolve this claim's injections via the learning service, crediting
+      # ONLY the ones the executor actually cited, then clear the marker so an
+      # operator resolution or replayed report cannot double-credit (or
+      # re-attempt crediting via a later, unrelated citation). Best-effort —
+      # a crediting hiccup must never fail the completion itself.
+      #
+      # Intersected against task.metadata["injected_learning_ids"], not used
+      # as-is: an executor citing an id it was never handed (typo, a stale id
+      # copied from another task, or an attempt to farm effectiveness for a
+      # learning it didn't actually see) must credit nothing, silently — the
+      # same "judge by what actually happened, not by the caller's claim"
+      # discipline the rest of this tool already applies to files_changed /
+      # agent_execution_id. An absent or empty learnings_used is NOT an error
+      # (citing is optional) and NOT a failure to reach for — it credits
+      # nothing, and that neutral outcome is the intended negative signal for
+      # a learning nobody finds worth citing (see complete_task's comment).
+      def credit_injected_learnings!(task, learnings_used: nil)
+        injected_ids = Array(task.metadata["injected_learning_ids"])
+        return if injected_ids.empty?
 
-        ::Ai::Learning::CompoundLearningService.new(account: account)
-          .credit_injections!(learning_ids: ids)
+        cited_ids = Array(learnings_used).map(&:to_s)
+        ids_to_credit = injected_ids & cited_ids
+
+        if ids_to_credit.present?
+          ::Ai::Learning::CompoundLearningService.new(account: account)
+            .credit_injections!(learning_ids: ids_to_credit)
+        end
+
         # Key REMOVAL, so jsonb `-` rather than the `||` merge — same reason:
-        # rewriting the whole column would drop concurrent writers' keys.
+        # rewriting the whole column would drop concurrent writers' keys. This
+        # runs whether or not anything was credited above: this claim's
+        # injections are RESOLVED either way (credited, or left permanently
+        # neutral) — leaving the marker on an uncited pass would let a later,
+        # unrelated report against the same task re-offer the same ids.
         Ai::RalphTask.where(id: task.id)
                      .update_all([ "metadata = COALESCE(metadata, '{}'::jsonb) - ?, updated_at = ?",
                                    "injected_learning_ids", Time.current ])

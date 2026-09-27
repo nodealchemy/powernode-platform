@@ -423,7 +423,10 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
       expect(learning.injection_count).to eq(3)
       expect(learning.positive_outcome_count).to eq(3)
       expect(learning.effectiveness_score.to_f).to eq(1.0)
-      expect(learning.confidence_score.to_f).to be_within(0.001).of(0.52)
+      # IMP-8673c0533e24: credit_injections! no longer bumps confidence — a
+      # citation is evidence of USEFULNESS (positive_outcome_count /
+      # effectiveness_score), not of the content being more TRUE.
+      expect(learning.confidence_score.to_f).to eq(0.5)
     end
 
     it "credits nothing when the execution recorded no injected ids, and logs the absence" do

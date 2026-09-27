@@ -999,15 +999,19 @@ module Ai
         { learnings: candidates.first(limit).each(&:record_access!), match_mode: match_mode }
       end
 
+      # IMP-8673c0533e24 (round of review): no confidence bump here. Confidence
+      # scores how much the platform trusts the CONTENT (it is seeded and
+      # raised by #verify!, an explicit human/heuristic attestation) — it is
+      # not a proxy for usefulness, which is exactly what a citation-driven
+      # credit already measures via positive_outcome_count / effectiveness.
+      # Bumping it here double-counted "this was cited" as evidence toward
+      # "this is TRUE", which a citation says nothing about.
       def credit_injections!(learning_ids:)
         return if Array(learning_ids).empty?
 
         Ai::CompoundLearning.for_account(@account.id)
           .where(id: learning_ids, status: %w[active verified])
-          .find_each do |learning|
-            learning.record_positive_outcome!
-            learning.update_column(:confidence_score, [ learning.confidence_score + 0.02, 1.0 ].min)
-          end
+          .find_each(&:record_positive_outcome!)
       rescue StandardError => e
         Rails.logger.warn("[CompoundLearning] credit_injections failed: #{e.message}")
       end

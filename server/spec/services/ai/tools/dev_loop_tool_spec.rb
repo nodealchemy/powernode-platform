@@ -1223,7 +1223,12 @@ RSpec.describe Ai::Tools::DevLoopTool do
         .with(:compound_learning_injection, account).and_return(true)
     end
 
-    it "resolves claim-time injections positively when the task passes" do
+    # IMP-8673c0533e24 (re-scoped 2026-09-24): a verified pass no longer
+    # auto-credits every injection by default — only the ids the executor
+    # cites via learnings_used. An absent/empty learnings_used credits
+    # nothing; that neutral result is the intended negative signal for a
+    # learning nobody finds worth citing.
+    it "does not credit an injected learning when the executor cites nothing" do
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "credit-task", priority: 5,
              description: "Fix widget reconciliation idempotency across retries",
              acceptance_criteria: "Reconciliation is idempotent")
@@ -1236,13 +1241,63 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(task.metadata["injected_learning_ids"]).to eq([ learning.id ])
 
       # Verified evidence required since IMP-f2b3e9a67d11 — an attested-only
-      # pass must not inflate learning effectiveness.
+      # pass must not inflate learning effectiveness. No learnings_used here
+      # on purpose: this is the RED case the review round asked for.
       tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.id,
                              task_key: "credit-task", outcome: "passed", summary: "done",
                              check_results: { "rspec" => "8 examples, 0 failures" } })
 
+      expect(learning.reload.positive_outcome_count).to eq(0)
+      # The marker is still cleared — this claim's injections are RESOLVED
+      # (permanently neutral here), not left open for a later report to
+      # re-offer the same ids for credit.
+      expect(task.reload.metadata).not_to have_key("injected_learning_ids")
+    end
+
+    it "credits exactly the learnings the executor cites via learnings_used" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "credit-task", priority: 5,
+             description: "Fix widget reconciliation idempotency across retries",
+             acceptance_criteria: "Reconciliation is idempotent")
+
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+      task = ralph_loop.ralph_tasks.find_by(task_key: "credit-task")
+      expect(task.metadata["injected_learning_ids"]).to eq([ learning.id ])
+
+      tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.id,
+                             task_key: "credit-task", outcome: "passed", summary: "done",
+                             check_results: { "rspec" => "8 examples, 0 failures" },
+                             learnings_used: [ learning.id ] })
+
       expect(learning.reload.positive_outcome_count).to eq(1)
       expect(task.reload.metadata).not_to have_key("injected_learning_ids")
+    end
+
+    it "does not credit a cited id that this claim never injected" do
+      uninjected = create(:ai_compound_learning, account: account, status: "active",
+                          category: "best_practice", title: "Unrelated fact",
+                          content: "Zebras have stripes for thermoregulation and biting-fly deterrence",
+                          importance_score: 0.8)
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "credit-task", priority: 5,
+             description: "Fix widget reconciliation idempotency across retries",
+             acceptance_criteria: "Reconciliation is idempotent")
+
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+      task = ralph_loop.ralph_tasks.find_by(task_key: "credit-task")
+      # `uninjected` shares no keyword overlap with the task description, so
+      # the deterministic keyword-fallback retrieval (no stored embedding in
+      # the factory) never surfaces it — only `learning` is injected.
+      expect(task.metadata["injected_learning_ids"]).to eq([ learning.id ])
+
+      tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.id,
+                             task_key: "credit-task", outcome: "passed", summary: "done",
+                             check_results: { "rspec" => "8 examples, 0 failures" },
+                             learnings_used: [ uninjected.id ] })
+
+      # Citing an id you were never handed credits nothing — for it, AND it
+      # does not somehow fall back to crediting the actually-injected
+      # learning either (an uncited injection stays uncited).
+      expect(uninjected.reload.positive_outcome_count).to eq(0)
+      expect(learning.reload.positive_outcome_count).to eq(0)
     end
 
     it "does not credit injections on an attested-only pass" do
