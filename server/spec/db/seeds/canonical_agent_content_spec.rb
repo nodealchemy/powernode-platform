@@ -31,7 +31,7 @@ RSpec.describe "canonical agent content" do
   # seed's text and no stamp.
   def age!(slug, description:)
     agent = global(slug)
-    agent.update_columns(description: description, mcp_metadata: agent.mcp_metadata.except(stamp_key))
+    agent.update_columns(description: description, mcp_metadata: agent.mcp_metadata.except(Ai::Agents::CanonicalContentRefresh::STAMP_KEY))
   end
 
   describe "the content file" do
@@ -122,7 +122,7 @@ RSpec.describe "canonical agent content" do
 
     def plant_dead_prompt!(agent, text)
       manifest = agent.mcp_tool_manifest.merge("configuration" => { "system_prompt" => text, "temperature" => 0.3 })
-      agent.update_columns(mcp_tool_manifest: manifest, mcp_metadata: agent.mcp_metadata.except("system_prompt", stamp_key))
+      agent.update_columns(mcp_tool_manifest: manifest, mcp_metadata: agent.mcp_metadata.except("system_prompt", Ai::Agents::CanonicalContentRefresh::STAMP_KEY))
     end
 
     it "seeds the prompt where it is read and never into the manifest" do
