@@ -1,0 +1,40 @@
+# Claude context budget: the maximum bytes each surface measured by
+# scripts/measure-claude-context.sh may occupy. Checked by
+# `scripts/measure-claude-context.sh --check`, which runs in scripts/validate.sh.
+#
+# Format: <surface> <max_bytes>. The surface is the key --check reports: the
+# file path, or .claude/agents/powernode:<field> for the frontmatter summed over
+# every generated agent. Every measured surface needs a line here; a line for a
+# surface that no longer exists also fails.
+#
+# How the initial budgets were set (2026-09-27):
+#   - CLAUDE.md and SKILL.md files: the measured size rounded UP to the next
+#     multiple of 256 bytes. That leaves at most 255 bytes (~64 tokens), enough
+#     for a typo fix or a reworded line, and not enough for a new section.
+#   - Agent frontmatter: exactly the measured size, no headroom. These files are
+#     generated, and regenerating the skeletons is expected to shrink them, so
+#     the budget holds the current size as a ceiling. Lower it once they shrink.
+# To raise a budget, edit its line in the same change that grows the surface
+# and say why in the commit.
+
+CLAUDE.md                               16640
+server/CLAUDE.md                         6144
+frontend/CLAUDE.md                       5120
+worker/CLAUDE.md                         3328
+
+.claude/agents/powernode:description    14532
+.claude/agents/powernode:tools          51257
+
+.claude/skills/audit/SKILL.md            3328
+.claude/skills/bootstrap/SKILL.md        2560
+.claude/skills/campaign/SKILL.md         6400
+.claude/skills/cleanup/SKILL.md          1792
+.claude/skills/commit/SKILL.md           4096
+.claude/skills/deploy/SKILL.md           3840
+.claude/skills/dev-loop/SKILL.md         7936
+.claude/skills/fix-tests/SKILL.md        3072
+.claude/skills/gen-tests/SKILL.md        5120
+.claude/skills/improve/SKILL.md          5376
+.claude/skills/powernode/SKILL.md        2304
+.claude/skills/verify/SKILL.md           3328
+.claude/skills/workspace/SKILL.md        4352

@@ -1,7 +1,8 @@
 #!/bin/bash
 # Pre-push validation script for Powernode Platform
-# Runs backend specs, TypeScript check, and pattern validation
-# Usage: ./scripts/validate.sh [--skip-tests] [--skip-ts] [--skip-patterns] [--skip-secrets]
+# Runs backend specs, TypeScript check, pattern validation, secret scanning and
+# the Claude context budget
+# Usage: ./scripts/validate.sh [--skip-tests] [--skip-ts] [--skip-patterns] [--skip-secrets] [--skip-context-budget]
 
 set -eo pipefail
 
@@ -18,6 +19,7 @@ SKIP_TESTS=false
 SKIP_TS=false
 SKIP_PATTERNS=false
 SKIP_SECRETS=false
+SKIP_CONTEXT_BUDGET=false
 SKIP_EXT_SPECS=false
 SKIP_PRIVATE_PASS=false
 
@@ -49,16 +51,18 @@ for arg in "$@"; do
     --skip-ts)      SKIP_TS=true ;;
     --skip-patterns) SKIP_PATTERNS=true ;;
     --skip-secrets)  SKIP_SECRETS=true ;;
+    --skip-context-budget) SKIP_CONTEXT_BUDGET=true ;;
     --skip-extension-specs) SKIP_EXT_SPECS=true ;;
     --skip-private-bundle-pass) SKIP_PRIVATE_PASS=true ;;
     --help)
-      echo "Usage: ./scripts/validate.sh [--skip-tests] [--skip-ts] [--skip-patterns] [--skip-secrets] [--skip-extension-specs] [--skip-private-bundle-pass]"
+      echo "Usage: ./scripts/validate.sh [--skip-tests] [--skip-ts] [--skip-patterns] [--skip-secrets] [--skip-extension-specs] [--skip-private-bundle-pass] [--skip-context-budget]"
       echo ""
       echo "Runs pre-push validation checks:"
       echo "  1. Backend RSpec tests (platform + every extension that ships specs)"
       echo "  2. Frontend TypeScript type check"
       echo "  3. Pattern validation audit"
       echo "  4. Secret scanning (gitleaks)"
+      echo "  5. Claude context budget (scripts/claude-context-budget.txt)"
       echo ""
       echo "Options:"
       echo "  --skip-tests             Skip ALL RSpec specs (platform and extensions)"
@@ -77,6 +81,7 @@ for arg in "$@"; do
       echo "  --skip-ts                Skip TypeScript type check"
       echo "  --skip-patterns          Skip pattern validation"
       echo "  --skip-secrets           Skip gitleaks secret scanning"
+      echo "  --skip-context-budget    Skip the Claude context budget check"
       exit 0
       ;;
   esac
@@ -93,7 +98,7 @@ OVERALL_EXIT=0
 # of a boot-critical gem (json, rdoc, ...) crashes boot with "already activated
 # <gem>-X", so nothing after this can run reliably; see
 # scripts/doctor-gem-preactivation.sh for remediation)
-echo -e "${BLUE}[0/4] Gem pre-activation doctor...${NC}"
+echo -e "${BLUE}[0/5] Gem pre-activation doctor...${NC}"
 if "$SCRIPT_DIR/doctor-gem-preactivation.sh"; then
   echo ""
 else
@@ -104,7 +109,7 @@ fi
 
 # 1. Backend RSpec tests
 if [[ "$SKIP_TESTS" == "false" ]]; then
-  echo -e "${BLUE}[1/4] Running backend specs...${NC}"
+  echo -e "${BLUE}[1/5] Running backend specs...${NC}"
   SPECS_OK=true
 
   # Platform specs. `bundle exec rspec` uses RSpec's default pattern
@@ -448,7 +453,7 @@ fi
 
 # 2. TypeScript type check (platform + each extension that has tsconfig.check.json)
 if [[ "$SKIP_TS" == "false" ]]; then
-  echo -e "${BLUE}[2/4] Running TypeScript type check...${NC}"
+  echo -e "${BLUE}[2/5] Running TypeScript type check...${NC}"
   TS_OK=true
   if (cd "$PROJECT_ROOT/frontend" && npx tsc --noEmit 2>&1); then
     :
@@ -542,7 +547,7 @@ fi
 
 # 3. Pattern validation
 if [[ "$SKIP_PATTERNS" == "false" ]]; then
-  echo -e "${BLUE}[3/4] Running pattern validation...${NC}"
+  echo -e "${BLUE}[3/5] Running pattern validation...${NC}"
   if (cd "$PROJECT_ROOT" && ./scripts/pattern-validation.sh 2>&1); then
     RESULTS+=("${GREEN}PASS${NC} Pattern validation")
   else
@@ -561,7 +566,7 @@ fi
 
 # 4. Secret scanning (gitleaks)
 if [[ "$SKIP_SECRETS" == "false" ]]; then
-  echo -e "${BLUE}[4/4] Running secret scanning (gitleaks)...${NC}"
+  echo -e "${BLUE}[4/5] Running secret scanning (gitleaks)...${NC}"
   if command -v gitleaks &> /dev/null; then
     GITLEAKS_CONFIG=""
     if [[ -f "$PROJECT_ROOT/.gitleaks.toml" ]]; then
@@ -594,6 +599,23 @@ if [[ "$SKIP_SECRETS" == "false" ]]; then
   echo ""
 else
   RESULTS+=("${YELLOW}SKIP${NC} Secret scanning")
+fi
+
+# 5. Claude context budget: CLAUDE.md files, generated agent frontmatter and
+# SKILL.md files are loaded into every session, so each has a byte budget in
+# scripts/claude-context-budget.txt. Growing past it fails; raising a budget is
+# a deliberate edit to that file.
+if [[ "$SKIP_CONTEXT_BUDGET" == "false" ]]; then
+  echo -e "${BLUE}[5/5] Checking Claude context budget...${NC}"
+  if "$SCRIPT_DIR/measure-claude-context.sh" --check 2>&1; then
+    RESULTS+=("${GREEN}PASS${NC} Claude context budget")
+  else
+    RESULTS+=("${RED}FAIL${NC} Claude context budget (see scripts/claude-context-budget.txt)")
+    OVERALL_EXIT=1
+  fi
+  echo ""
+else
+  RESULTS+=("${YELLOW}SKIP${NC} Claude context budget")
 fi
 
 # Summary
