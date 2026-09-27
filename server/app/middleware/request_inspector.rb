@@ -393,17 +393,30 @@ class RequestInspector
     check_body_xss(body, result)
   end
 
-  # Round 3 (reviewer, MEDIUM): a JSON string value can carry an
-  # HTML-entity-escaped tag (e.g. `"&lt;img src=x onerror=alert(1)&gt;"`)
-  # instead of literal angle brackets — the pre-hotfix rule matched a bare
-  # "on...=" substring with no tag requirement at all, so it still caught
-  # this; the round-1/2 tag-context rule needs an actual '<'/'>' to work
-  # with. Un-escaping &lt;/&gt; (case-insensitively) is a plain
-  # literal-substring replacement — linear, no backtracking risk — and is
-  # scoped to the XSS check only, same "decode only where it's needed"
-  # principle as the query-string split in #check_query_string_xss.
+  # Round 3 (reviewer, MEDIUM — corrected after an in-transit HTML-rendering
+  # mistake in the original finding): a JSON string value can carry its
+  # angle brackets as a JSON unicode escape — the six literal characters
+  # backslash, u, 0, 0, 3, c (and backslash, u, 0, 0, 3, e for the closing
+  # bracket) — rather than literal '<'/'>'. This middleware sees the RAW
+  # body ahead of any JSON.parse, so those six characters are still
+  # sitting there literally; Rails' own JSON parser would turn them back
+  # into '<'/'>' before the app ever saw the value, so scanning the raw
+  # bytes without accounting for this escapes detection entirely. The
+  # pre-hotfix rule matched a bare "on...=" substring with no tag
+  # requirement at all, so it still caught this; the round-1/2 tag-context
+  # rule needs an actual '<'/'>' to work with. Un-escaping the two
+  # sequences (case-insensitively — an uppercase hex digit is equally
+  # valid) is a plain literal-substring replacement — linear, no
+  # backtracking risk — and is scoped to the XSS check only, same "decode
+  # only where it's needed" principle as the query-string split in
+  # #check_query_string_xss.
+  #
+  # Deliberately NOT decoded: HTML entities (&lt;/&gt;). An entity-escaped
+  # tag cannot execute as markup — decoding those would only manufacture a
+  # false positive (e.g. a user pasting escaped HTML into an ordinary text
+  # field). See the "known limits" spec pinning this.
   def check_body_xss(body, result)
-    unescaped = body.gsub(/&lt;/i, "<").gsub(/&gt;/i, ">")
+    unescaped = body.gsub(/\\u003c/i, "<").gsub(/\\u003e/i, ">")
 
     SUSPICIOUS_PATTERNS[:xss].each do |pattern|
       if unescaped.match?(pattern)

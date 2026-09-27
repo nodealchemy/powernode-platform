@@ -153,7 +153,7 @@ RSpec.describe RequestInspector do
     end
   end
 
-  # 2026-09-27 hotfix — the operator was IP-blocked twice on ops-hub during
+  # 2026-09-27 hotfix — the operator was IP-blocked twice on a self-hosted hub during
   # normal UI work. Root cause: SUSPICIOUS_PATTERNS[:xss]'s event-handler
   # rule was /on\w+\s*=/i, matched against the RAW query string with no
   # markup context — it fired on ANY param whose name happens to contain
@@ -384,12 +384,17 @@ RSpec.describe RequestInspector do
     end
   end
 
-  # Round 3 (reviewer, MEDIUM): a JSON string value can carry an
-  # HTML-entity-escaped tag instead of literal angle brackets — the
-  # pre-hotfix rule matched a bare "on...=" substring with no tag
-  # requirement, so it still caught this; the tag-context rule needs an
-  # actual '<'/'>' unless it is first un-escaped.
-  describe 'HTML-entity-escaped tags in a request body are still flagged' do
+  # Round 3 (reviewer, MEDIUM — corrected after an in-transit HTML-rendering
+  # mistake in the original finding): a JSON string value can carry its
+  # angle brackets as a JSON unicode escape (the six literal characters
+  # backslash, u, 0, 0, 3, c / backslash, u, 0, 0, 3, e) instead of literal
+  # '<'/'>'. This middleware sees the raw body ahead of any JSON.parse, so
+  # those six characters are still sitting there literally; Rails' own
+  # JSON parser would turn them back into '<'/'>' before the app ever saw
+  # the value. The pre-hotfix rule matched a bare "on...=" substring with
+  # no tag requirement, so it still caught this; the tag-context rule
+  # needs an actual '<'/'>' unless it is first un-escaped.
+  describe 'JSON unicode-escaped tags in a request body are still flagged' do
     def inspect_post_body(body)
       env = Rack::MockRequest.env_for('/api/v1/widgets', method: 'POST', input: body)
       env['REMOTE_ADDR'] = '203.0.113.7'
@@ -398,11 +403,32 @@ RSpec.describe RequestInspector do
       middleware.send(:inspect_request, Rack::Request.new(env))
     end
 
-    it 'flags an &lt;/&gt;-escaped onerror handler inside a JSON string value' do
-      result = inspect_post_body('{"bio":"&lt;img src=x onerror=alert(1)&gt;"}')
+    # Built via Integer#chr rather than a literal backslash in this
+    # source file, so the escape sequence itself can't be misread or
+    # mangled while authoring the spec — the same class of mistake that
+    # produced the original, incorrect version of this finding.
+    def json_unicode_escaped_tag(markup)
+      backslash = 92.chr
+      markup.gsub("<", "#{backslash}u003c").gsub(">", "#{backslash}u003e")
+    end
+
+    it 'flags a JSON-unicode-escaped onerror handler inside a JSON string value' do
+      tag = json_unicode_escaped_tag('<img src=x onerror=alert(1)>')
+      result = inspect_post_body(%({"bio":"#{tag}"}))
 
       expect(result[:suspicious]).to be(true)
       expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+
+    # Deliberate, not a gap (reviewer): an HTML-entity-escaped tag
+    # (&lt;/&gt;) cannot execute as markup, so decoding it would only
+    # manufacture a false positive — e.g. a user pasting escaped HTML
+    # into an ordinary text field. Only the JSON unicode escape above is
+    # decoded.
+    it 'does not flag an HTML-entity-escaped (&lt;/&gt;) tag' do
+      result = inspect_post_body('{"bio":"&lt;img src=x onerror=alert(1)&gt;"}')
+
+      expect(result[:threats].map { |t| t[:type] }).not_to include(:xss)
     end
   end
 
