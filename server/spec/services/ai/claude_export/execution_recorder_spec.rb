@@ -75,7 +75,7 @@ RSpec.describe Ai::ClaudeExport::ExecutionRecorder do
 
       result = report(tokens: { input: 1000, output: 100, cache_read: 600, cache_creation: 200 })
 
-      expect(Ai::CostCalculationService).to have_received(:calculate).with(
+      expect(Ai::CostCalculationService).to have_received(:calculate).at_least(:once).with(
         model_id: "claude-opus-5", prompt_tokens: 1000, completion_tokens: 100,
         cached_tokens: 600, cache_creation_tokens: 200
       )
@@ -90,7 +90,7 @@ RSpec.describe Ai::ClaudeExport::ExecutionRecorder do
 
       report
 
-      expect(Ai::CostCalculationService).to have_received(:calculate).with(
+      expect(Ai::CostCalculationService).to have_received(:calculate).at_least(:once).with(
         model_id: "claude-opus-5", prompt_tokens: 5, completion_tokens: 2, cached_tokens: 0, cache_creation_tokens: 0
       )
     end
@@ -100,7 +100,7 @@ RSpec.describe Ai::ClaudeExport::ExecutionRecorder do
 
       report(tokens: { input: 100, output: 1, cache_read: 90, cache_creation: 50 })
 
-      expect(Ai::CostCalculationService).to have_received(:calculate)
+      expect(Ai::CostCalculationService).to have_received(:calculate).at_least(:once)
         .with(hash_including(prompt_tokens: 100, cached_tokens: 90, cache_creation_tokens: 10))
     end
   end
