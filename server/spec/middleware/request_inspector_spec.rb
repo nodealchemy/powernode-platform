@@ -32,6 +32,11 @@ RSpec.describe RequestInspector do
     middleware.call(build_env(**opts))
   end
 
+  def inspect_query(query)
+    request = Rack::Request.new(build_env(query: query))
+    middleware.send(:inspect_request, request)
+  end
+
   describe 'benign traffic' do
     it 'passes a normal request through to the app' do
       status, _headers, body = call(query: 'page=2&sort=name')
@@ -128,11 +133,6 @@ RSpec.describe RequestInspector do
   end
 
   describe 'threat detection' do
-    def inspect_query(query)
-      request = Rack::Request.new(build_env(query: query))
-      middleware.send(:inspect_request, request)
-    end
-
     it 'flags a SQL-injection query string as suspicious' do
       result = inspect_query('id=1 UNION SELECT password FROM users')
       expect(result[:suspicious]).to be(true)
@@ -149,6 +149,88 @@ RSpec.describe RequestInspector do
       result = inspect_query('q=hello&limit=10')
       expect(result[:suspicious]).to be(false)
       expect(result[:score]).to eq(0)
+    end
+  end
+
+  # 2026-09-27 hotfix — the operator was IP-blocked twice on ops-hub during
+  # normal UI work. Root cause: SUSPICIOUS_PATTERNS[:xss]'s event-handler
+  # rule was /on\w+\s*=/i, matched against the RAW query string with no
+  # markup context — it fired on ANY param whose name happens to contain
+  # "on...=" (environment=, version_id=, action_category=,
+  # include_decisions=, region_id=, notification_type=), each scoring 8
+  # (>=5 == suspicious), and 10 such requests in an hour is a block.
+  describe 'ordinary operator query strings do not false-positive' do
+    # The exact param names from the incident, plus realistic query
+    # strings from the approvals queue, module versions, and drift screens.
+    [
+      'environment=production',
+      'version_id=5',
+      'action_category=deploy',
+      'include_decisions=true',
+      'region_id=3',
+      'notification_type=email',
+      'status=pending&decision=approve&approver_id=42&resource_type=module',
+      'module_id=abc123&version=1.2.0&diff=true&target_version_id=9&current_version_id=8',
+      'drift_status=detected&node_id=xyz&severity=high&resolved=false&reconciled_at=2026-09-27'
+    ].each do |query|
+      it "scores #{query.inspect} as clean" do
+        result = inspect_query(query)
+        expect(result[:score]).to eq(0), "expected score 0, threats=#{result[:threats].inspect}"
+        expect(result[:suspicious]).to be(false)
+      end
+    end
+  end
+
+  # Driver audit (same hotfix): the SQL SELECT...FROM / DELETE...FROM /
+  # INSERT...INTO / UPDATE...SET rules used an unbounded `.*` between the
+  # two keywords, which also matches ordinary sentences in a free-text
+  # search/filter param — the same "matches prose, not attack syntax"
+  # defect class as the XSS rule above.
+  describe 'free-text search params containing SQL keywords in prose do not false-positive' do
+    [
+      'q=please select a region from the list below',
+      'q=insert a new record into the queue',
+      'search=how do I delete files from the archive',
+      'q=update your account and set your preferences'
+    ].each do |query|
+      it "scores #{query.inspect} as clean" do
+        result = inspect_query(query)
+        expect(result[:score]).to eq(0), "expected score 0, threats=#{result[:threats].inspect}"
+      end
+    end
+  end
+
+  describe 'real attacks are still flagged after the false-positive fixes' do
+    it 'flags an onerror handler inside an actual HTML tag' do
+      result = inspect_query('q=<img src=x onerror=alert(1)>')
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+
+    it 'flags the URL-encoded form of the same payload (query string is decoded before matching)' do
+      result = inspect_query('q=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E')
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+
+    it 'flags a <script> tag' do
+      result = inspect_query('q=<script>alert(1)</script>')
+      expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+
+    it 'flags a javascript: scheme' do
+      result = inspect_query('q=javascript:alert(1)')
+      expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+
+    it 'flags UNION SELECT' do
+      result = inspect_query('id=1 UNION SELECT password FROM users')
+      expect(result[:threats].map { |t| t[:type] }).to include(:sql_injection)
+    end
+
+    it 'flags path traversal' do
+      result = inspect_query('file=../../../../etc/passwd')
+      expect(result[:threats].map { |t| t[:type] }).to include(:path_traversal)
     end
   end
 

@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "cgi"
+
 # Request Inspector Middleware for DDoS Protection
 # Analyzes incoming requests for suspicious patterns and potential attacks
 
@@ -8,22 +10,54 @@ class RequestInspector
   # CONFIGURATION
   # =========================================================================
 
+  # Natural-language filler words that follow FROM/INTO/SET in ordinary
+  # prose ("select a region FROM THE list", "insert a record INTO THE
+  # queue", "set YOUR preferences") but essentially never precede a table,
+  # column or value name in actual SQL syntax ("FROM users",
+  # "SET password = ?"). Used below to keep the two-keyword co-occurrence
+  # rules from firing on free-text search/filter param values.
+  SQL_NATURAL_LANGUAGE_FOLLOWERS = /(?:the|a|an|your|my|our|this|these|those|some|any)\b/i
+
   # Suspicious patterns that indicate potential attacks
   SUSPICIOUS_PATTERNS = {
     # SQL Injection patterns
+    #
+    # 2026-09-27 (hotfix, operator IP-blocked twice on ops-hub): the
+    # SELECT...FROM / DELETE...FROM / INSERT...INTO / UPDATE...SET rules
+    # used an unbounded `.*` between the two keywords, which matches an
+    # entire ordinary sentence in a free-text search/filter param just as
+    # readily as real SQL ("please select a region from the list below"
+    # scored as sql_injection). UNION...SELECT and DROP...TABLE are left
+    # unbounded — neither co-occurs in ordinary prose — and the negative
+    # lookahead only excludes the specific "keyword followed by a filler
+    # word" shape prose uses, so "SELECT password FROM users",
+    # "DELETE FROM users", "INSERT INTO users" and "UPDATE users SET x"
+    # (no filler word after FROM/INTO/SET) are unaffected.
     sql_injection: [
-      /(\bUNION\b.*\bSELECT\b|\bSELECT\b.*\bFROM\b)/i,
-      /(\bDROP\b.*\bTABLE\b|\bDELETE\b.*\bFROM\b)/i,
-      /(\bINSERT\b.*\bINTO\b|\bUPDATE\b.*\bSET\b)/i,
+      /(\bUNION\b.*\bSELECT\b|\bSELECT\b.*\bFROM\b(?!\s+#{SQL_NATURAL_LANGUAGE_FOLLOWERS}))/i,
+      /(\bDROP\b.*\bTABLE\b|\bDELETE\b.*\bFROM\b(?!\s+#{SQL_NATURAL_LANGUAGE_FOLLOWERS}))/i,
+      /(\bINSERT\b.*\bINTO\b(?!\s+#{SQL_NATURAL_LANGUAGE_FOLLOWERS})|\bUPDATE\b.*\bSET\b(?!\s+#{SQL_NATURAL_LANGUAGE_FOLLOWERS}))/i,
       /(\b1\s*=\s*1\b|\b1\s*=\s*'1'\b)/i,
       /(\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)/i
     ],
 
     # XSS patterns
+    #
+    # 2026-09-27 (hotfix): the event-handler rule used to be
+    # /on\w+\s*=/i, matched against the raw query string with no markup
+    # context at all — it fired on ANY "on<word>=" param, which includes
+    # ordinary param names built by tacking a suffix onto "on" purely by
+    # coincidence of English (environment=, version_id=, action_category=,
+    # include_decisions=, region_id=, notification_type= all contain
+    # "on...=" somewhere and all scored 8, crossing the suspicious
+    # threshold on completely normal UI traffic and IP-blocking the
+    # operator). Real event-handler XSS only means anything inside an HTML
+    # tag, so the rule now requires that shape: an unclosed "<" followed by
+    # some non-">" tag content, then "on<letters>=".
     xss: [
       /<script\b[^>]*>/i,
       /javascript:/i,
-      /on\w+\s*=/i,
+      /<[^>]*\bon[a-z]+\s*=/i,
       /<iframe\b[^>]*>/i,
       /document\.(cookie|location|write)/i
     ],
@@ -206,14 +240,32 @@ class RequestInspector
     query = request.query_string.to_s
     return if query.empty?
 
+    decoded_query = decode_query_string(query)
+
     SUSPICIOUS_PATTERNS.each do |threat_type, patterns|
       patterns.each do |pattern|
-        if query.match?(pattern)
+        if decoded_query.match?(pattern)
           result[:threats] << { type: threat_type, location: "query_string", pattern: pattern.to_s }
           result[:score] += threat_score(threat_type)
         end
       end
     end
+  end
+
+  # 2026-09-27 (hotfix): patterns used to run against the RAW (still
+  # percent-encoded) query string, which meant an encoded attack payload
+  # (e.g. "%3Cscript%3E", or an onerror handler with its "=" written
+  # "%3D") could slip past every literal-substring rule above. Decoding
+  # once, up front, lets the existing plain-text patterns catch the
+  # decoded form directly instead of needing an encoded twin of every
+  # rule. A query string that fails to decode (malformed percent-encoding)
+  # falls back to the raw string rather than raising — this runs in
+  # middleware ahead of routing, so an exception here must not take down
+  # the request.
+  def decode_query_string(query)
+    CGI.unescape(query)
+  rescue StandardError
+    query
   end
 
   def check_request_body(request, result)
