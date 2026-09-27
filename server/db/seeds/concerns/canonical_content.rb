@@ -49,6 +49,41 @@ module CoreSeeds
       end
     end
 
+    # Sets each catalog entry's mcp_flags on its global row in `model` where the
+    # row lacks the key; a key the row already has (an operator's choice) is
+    # kept. Returns the slugs it changed.
+    def apply_flags_catalog!(model)
+      CanonicalAgentContent::AGENTS.keys.filter_map do |slug|
+        flags = CanonicalAgentContent.mcp_flags(slug)
+        next if flags.empty?
+
+        agent = model.find_by(account_id: nil, slug: slug)
+        next unless agent
+
+        metadata = agent.mcp_metadata.is_a?(Hash) ? agent.mcp_metadata : {}
+        missing = flags.reject { |key, _| metadata.key?(key) }
+        next if missing.empty?
+
+        agent.update_columns(mcp_metadata: metadata.merge(missing))
+        slug
+      end
+    end
+
+    # Removes a catalog flag from its global row only where the row still holds
+    # the seeded value.
+    def revert_flags_catalog!(model)
+      CanonicalAgentContent::AGENTS.keys.each do |slug|
+        flags = CanonicalAgentContent.mcp_flags(slug)
+        next if flags.empty?
+
+        agent = model.find_by(account_id: nil, slug: slug)
+        next unless agent && agent.mcp_metadata.is_a?(Hash)
+
+        seeded = flags.select { |key, value| agent.mcp_metadata.key?(key) && agent.mcp_metadata[key] == value }
+        agent.update_columns(mcp_metadata: agent.mcp_metadata.except(*seeded.keys)) if seeded.any?
+      end
+    end
+
     def warn_skipped(outcome)
       return unless outcome.skipped?
 

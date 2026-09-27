@@ -10,6 +10,9 @@
 # that no wave has changed stay inline in their seed (the seed still writes them
 # through the same guard).
 #
+# `mcp_flags` are mcp_metadata keys set only where the row lacks them, so an
+# operator's own value wins (see .mcp_flags).
+#
 # `previous` lists what earlier seeds wrote for each field. A row with no stamp
 # yet is updated only when its text is one of these (or blank); any other text
 # is an operator edit and is left alone. When changing a value here, move the
@@ -85,6 +88,7 @@ module CoreSeeds
 
     AGENTS = {
       "prd-generator" => {
+        mcp_flags: { "claude_code_export" => false },
         description: "Generates Product Requirement Documents by decomposing features into implementable tasks. " \
                      "Use when a feature or objective must become a PRD with ordered, testable tasks.",
         previous: {
@@ -92,6 +96,7 @@ module CoreSeeds
         }
       },
       "llm-judge" => {
+        mcp_flags: { "claude_code_export" => false },
         description: "Impartial quality evaluator that scores AI agent outputs on correctness, completeness, " \
                      "helpfulness, and safety. Use when an agent output needs a rubric score and rationale, " \
                      "not a rewrite.",
@@ -110,6 +115,7 @@ module CoreSeeds
         }
       },
       "rag-reranker" => {
+        mcp_flags: { "claude_code_export" => false },
         description: "Scores and reranks RAG search results by semantic relevance to the query. " \
                      "Use when retrieved results must be ordered by relevance to a query.",
         previous: {
@@ -117,6 +123,7 @@ module CoreSeeds
         }
       },
       "rag-query-engine" => {
+        mcp_flags: { "claude_code_export" => false },
         description: "Reformulates search queries and synthesizes answers from retrieved documents using agentic RAG. " \
                      "Use when a question must be answered from retrieved documents, including rewriting the " \
                      "query for recall.",
@@ -125,6 +132,7 @@ module CoreSeeds
         }
       },
       "intent-classifier" => {
+        mcp_flags: { "claude_code_export" => false },
         description: "Classifies user message intent for team conversation routing (approve, change, discussion). " \
                      "Use when a team-conversation message must be routed by its intent.",
         previous: {
@@ -209,7 +217,15 @@ module CoreSeeds
 
     # @return [Hash{Symbol => String}] the seeded fields for `slug`
     def fields(slug)
-      AGENTS.fetch(slug).except(:previous)
+      AGENTS.fetch(slug).except(:previous, :mcp_flags)
+    end
+
+    # mcp_metadata keys the seed sets when the row does not carry them yet (an
+    # operator's own value for a key is kept). `claude_code_export: false`
+    # keeps a JSON pipeline worker out of the Claude Code agent export.
+    # @return [Hash{String => Object}]
+    def mcp_flags(slug)
+      AGENTS.fetch(slug, {}).fetch(:mcp_flags, {})
     end
 
     def previous(slug)

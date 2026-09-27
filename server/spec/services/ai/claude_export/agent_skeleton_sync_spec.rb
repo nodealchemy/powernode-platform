@@ -93,6 +93,32 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
         expect(service.send(:syncable_agents).map(&:slug)).not_to include(mcp_client_agent.slug)
       end
 
+      # Operator decision (2026-09-25): the JSON pipeline workers are called
+      # by services, never delegated to from a Claude Code session, so each
+      # carries mcp_metadata["claude_code_export"] = false from its seed.
+      it "excludes an agent whose claude_code_export flag is false, and keeps one without the flag" do
+        worker = build_canonical(name: "Pipeline Worker", mcp_metadata: { "claude_code_export" => false })
+        opted_in = build_canonical(name: "Opted In", mcp_metadata: { "claude_code_export" => true })
+        plain = build_canonical(name: "Plain Canonical")
+
+        slugs = service.send(:syncable_agents).map(&:slug)
+
+        expect(slugs).not_to include(worker.slug)
+        expect(slugs).to include(opted_in.slug, plain.slug)
+      end
+
+      it "removes the committed skeleton of an agent flagged out of the export" do
+        worker = build_canonical(name: "Pipeline Worker", mcp_metadata: { "claude_code_export" => false })
+        keeper = build_canonical(name: "Keeper Canonical")
+        allow(service).to receive(:trustworthy_roster?).and_return(true)
+        File.write(path_for(worker), "#{described_class::GENERATED_HEADER}\nstale\n")
+
+        service.sync!
+
+        expect(File.exist?(path_for(worker))).to be(false)
+        expect(File.exist?(path_for(keeper))).to be(true)
+      end
+
       it "targets .claude/agents/powernode by default" do
         expect(described_class.new.send(:default_target_dir).to_s).to end_with("/.claude/agents/powernode")
       end

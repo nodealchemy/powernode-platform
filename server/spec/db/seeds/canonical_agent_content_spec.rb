@@ -3,6 +3,7 @@
 require "rails_helper"
 require Rails.root.join("db/migrate/20260925130000_refresh_canonical_agent_content").to_s
 require Rails.root.join("db/migrate/20260925150000_move_manifest_prompts_to_system_prompt").to_s
+require Rails.root.join("db/migrate/20260927120000_exclude_pipeline_workers_from_claude_export").to_s
 
 # Seeded canonical text reaches existing rows (every seed run, and the data
 # migration for installs whose seeds never re-run) without overwriting what an
@@ -155,6 +156,55 @@ RSpec.describe "canonical agent content" do
 
       moved.each { |slug| expect(global(slug).system_prompt).to be_nil, slug }
       expect(global("prd-generator").description).to eq(content.description("prd-generator"))
+    end
+  end
+
+  # Operator decision (2026-09-25): the five JSON pipeline workers stay out of
+  # the Claude Code export through a per-agent flag the seed and the data
+  # migration set, never a slug list in the exporter.
+  describe "the claude_code_export flag" do
+    pipeline_workers = %w[rag-reranker llm-judge intent-classifier prd-generator rag-query-engine]
+    flag = Ai::ClaudeExport::AgentSkeletonSync::EXPORT_FLAG
+    let(:migration) { ExcludePipelineWorkersFromClaudeExport.new }
+
+    it "is declared in the content file for exactly the five pipeline workers" do
+      flagged = content::AGENTS.keys.select { |slug| content.mcp_flags(slug)[flag] == false }
+
+      expect(flagged).to match_array(pipeline_workers)
+    end
+
+    it "is set by the seed on the five workers and on no other seeded agent" do
+      seed_all!
+
+      pipeline_workers.each { |slug| expect(global(slug).mcp_metadata[flag]).to be(false), slug }
+      expect(global("powernode-assistant").mcp_metadata).not_to have_key(flag)
+    end
+
+    it "keeps an operator's own value on re-seed" do
+      seed_all!
+      judge = global("llm-judge")
+      judge.update_columns(mcp_metadata: judge.mcp_metadata.merge(flag => true))
+
+      seed_all!
+
+      expect(global("llm-judge").mcp_metadata[flag]).to be(true)
+    end
+
+    it "reaches rows seeded before the flag existed, keeps an operator's value, and reverts on down" do
+      seed_all!
+      pipeline_workers.each { |slug| a = global(slug); a.update_columns(mcp_metadata: a.mcp_metadata.except(flag)) }
+      reranker = global("rag-reranker")
+      reranker.update_columns(mcp_metadata: reranker.mcp_metadata.merge(flag => true))
+
+      expect { migration.migrate(:up) }.to output.to_stdout
+
+      (pipeline_workers - [ "rag-reranker" ]).each { |slug| expect(global(slug).mcp_metadata[flag]).to be(false), slug }
+      expect(global("rag-reranker").mcp_metadata[flag]).to be(true)
+
+      expect { migration.migrate(:down) }.to output.to_stdout
+
+      (pipeline_workers - [ "rag-reranker" ]).each { |slug| expect(global(slug).mcp_metadata).not_to have_key(flag), slug }
+      expect(global("rag-reranker").mcp_metadata[flag]).to be(true)
     end
   end
 end

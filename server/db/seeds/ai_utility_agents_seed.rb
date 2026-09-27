@@ -289,7 +289,8 @@ UTILITY_AGENTS.each do |attrs|
           "temperature" => attrs[:temperature],
           "max_tokens" => attrs[:max_tokens]
         }.compact
-      ).merge(is_new ? { "system_prompt" => attrs[:system_prompt] } : {}),
+      ).merge(is_new ? { "system_prompt" => attrs[:system_prompt] } : {})
+       .merge(CoreSeeds::CanonicalAgentContent.mcp_flags(attrs[:slug]).reject { |key, _| (agent.mcp_metadata || {}).key?(key) }),
       attrs[:tool_families]
     )
   )
