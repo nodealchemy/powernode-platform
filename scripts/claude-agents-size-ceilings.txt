@@ -1,0 +1,22 @@
+# Size ceilings for the generated Claude Code agent roster (.claude/agents/powernode/*.md),
+# enforced by scripts/check-claude-agents-size.sh (run from check-claude-agents-fresh.sh).
+#
+# Format: key=value, one per line; `#` comments and blank lines are ignored.
+#   max_tools_per_agent  the most entries any one agent's frontmatter `tools:` list may hold
+#   max_roster_bytes     the most bytes all agent files together may hold
+#
+# THESE CEILINGS CAN ONLY BE LOWERED. The check compares each value with the version of
+# this file committed at HEAD and FAILS if any ceiling is higher than it was (or a key
+# that HEAD has is gone). When the roster shrinks, lower the ceiling to the new value in
+# the same commit so the saving is locked in. Do not raise a ceiling to turn a red gate
+# green; shrink the roster instead.
+#
+# Limit: the baseline is HEAD, so the raise check bites on UNCOMMITTED edits (the
+# pre-commit gate, a local run). Once a raise is committed, HEAD holds the raised value
+# and a later run compares against it. Review changes to this file in the diff.
+#
+# Initial values: measured on the tree as of 2026-09-27 (the largest `tools:` list is
+# infrastructure-generalist.md; the roster is 29 files). The skeletons were stale when
+# measured; lower both values after the next regeneration.
+max_tools_per_agent=121
+max_roster_bytes=232171

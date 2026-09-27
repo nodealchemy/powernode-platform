@@ -26,6 +26,12 @@
 #                    hides every regression the check exists to catch. The
 #                    generator's own output is replayed so the cause is visible.
 #
+# SIZE GATE: scripts/check-claude-agents-size.sh (per-agent tools-list and
+# whole-roster byte ceilings, which can only be lowered) runs first, against the
+# same committed directory. It needs no database, so it is enforced even on an
+# unseeded checkout: a size violation turns outcome 0 or 2 into 1. Outcome 3
+# (broken generator) is left as 3, and 1 stays 1.
+#
 # Test seams (scripts/checks/tests/check-claude-agents-fresh-test.sh):
 #   CLAUDE_AGENTS_SYNC_CMD  replaces the generator; it must write into $TARGET_DIR
 #   CLAUDE_AGENTS_DIR       replaces the committed directory
@@ -35,6 +41,20 @@ cd "$(git rev-parse --show-toplevel)"
 
 COMMITTED="${CLAUDE_AGENTS_DIR:-.claude/agents/powernode}"
 REGEN_CMD='cd server && env -u BUNDLE_GEMFILE POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0 POWERNODE_DEPLOYED=0 bundle exec rails claude:sync_agents'
+
+# Size gate first; its output goes to stderr with the rest of this check.
+size_status=0
+CLAUDE_AGENTS_DIR="$COMMITTED" bash scripts/check-claude-agents-size.sh >&2 || size_status=$?
+
+# finish STATUS: exit with STATUS, raised to 1 (a FAIL) when the size gate failed,
+# except that a broken generator (3) keeps its own outcome.
+finish() {
+    local status="$1"
+    if [[ "$size_status" -ne 0 && "$status" -ne 3 ]]; then
+        status=1
+    fi
+    exit "$status"
+}
 
 tmp="$(mktemp -d)"
 sync_log="$tmp.log"
@@ -73,12 +93,12 @@ if [[ "$regen_count" -eq 0 ]]; then
     echo "Claude agent skeleton freshness is UNVERIFIABLE: the export produced no canonical agent." >&2
     echo "  The development database holds no global, is_system agent (platform agent seeds never ran here)." >&2
     echo "  Regenerate on a seeded install with: $REGEN_CMD" >&2
-    exit 2
+    finish 2
 fi
 
 mkdir -p "$COMMITTED"
 if diff -r "$COMMITTED" "$tmp" >/dev/null 2>&1; then
-    exit 0
+    finish 0
 fi
 
 echo "Claude agent skeletons are stale — .claude/agents/powernode/ no longer matches the canonical agents:" >&2
