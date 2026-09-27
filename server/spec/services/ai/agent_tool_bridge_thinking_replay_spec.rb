@@ -12,7 +12,7 @@ require "rails_helper"
 RSpec.describe Ai::AgentToolBridgeService, "thinking replay across tool rounds" do
   let(:account) { create(:account) }
   let(:agent) { create(:ai_agent, account: account) }
-  subject(:bridge) { described_class.new(agent: agent, account: account) }
+  subject(:bridge) { Ai::AgentToolBridgeService.new(agent: agent, account: account) }
 
   let(:llm) { instance_double(WorkerLlmClient, provider_type: "anthropic") }
   let(:blocks) do
