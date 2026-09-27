@@ -13,7 +13,8 @@ RSpec.describe Ai::RalphTask, "#requeue!", type: :model do
                            execution_attempts: 2,
                            metadata: { "blocked_for" => "review", "claimed_by" => "instance:abc",
                                        "claimed_holder" => "default", "claimed_at" => 1.hour.ago.iso8601,
-                                       "operator_notes" => [ { "note" => "ruling" } ] })
+                                       "operator_notes" => [ { "note" => "ruling" } ],
+                                       "injected_learning_ids" => [ "learning-from-the-previous-claimant" ] })
   end
 
   it "returns a blocked task to the queue and clears the claim and the block" do
@@ -23,6 +24,16 @@ RSpec.describe Ai::RalphTask, "#requeue!", type: :model do
     expect(task.error_message).to be_nil
     expect(task.metadata.values_at("blocked_for", "claimed_by", "claimed_holder", "claimed_at")).to all(be_nil)
     expect(task.review_parked?).to be(false)
+  end
+
+  # IMP-8673c0533e24 (review round, LOW): without this, the NEXT claimant's
+  # out-of-band completion (claim_if_pending) could cite the PREVIOUS
+  # claimant's injected_learning_ids and credit them for injections it was
+  # never actually handed.
+  it "clears the previous claimant's injected_learning_ids" do
+    task.requeue!(reason: "operator answered", by: "user:1")
+
+    expect(task.reload.metadata["injected_learning_ids"]).to be_nil
   end
 
   it "keeps what blocked it, who requeued it and why, and the notes and attempt count" do

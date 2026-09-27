@@ -148,6 +148,13 @@ module Ai
         error_message: nil,
         error_code: nil
       )
+      # IMP-8673c0533e24 (review round, LOW): a repeating task cycles back
+      # through pending without a fresh claim necessarily happening before
+      # the NEXT out-of-band completion (claim_if_pending) — without this,
+      # that completion could cite (and credit) the PREVIOUS cycle's
+      # injected_learning_ids, which have nothing to do with the work it
+      # actually did this time.
+      merge_metadata!("injected_learning_ids" => nil)
     end
 
     # Return a BLOCKED task to the queue. The only other blocked -> pending move
@@ -173,8 +180,13 @@ module Ai
           "previous_claimed_by" => meta["claimed_by"]
         }
         update!(status: "pending", error_message: nil, error_code: nil)
+        # injected_learning_ids cleared alongside the claim stamps (review
+        # round, LOW): the requeued task goes back to a DIFFERENT claimant,
+        # who must not be able to cite (and credit) the PREVIOUS claimant's
+        # injections via claim_if_pending on this same task_key.
         merge_metadata!("requeue_history" => Array(meta["requeue_history"]) + [ entry ],
-                        "blocked_for" => nil, "claimed_by" => nil, "claimed_holder" => nil, "claimed_at" => nil)
+                        "blocked_for" => nil, "claimed_by" => nil, "claimed_holder" => nil, "claimed_at" => nil,
+                        "injected_learning_ids" => nil)
       end
     end
 

@@ -281,5 +281,21 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(described_class.action_definitions["dev_complete_task"][:parameters]).to have_key(:claim_if_pending)
       expect(described_class.definition[:parameters]).to have_key(:claim_if_pending)
     end
+
+    # IMP-8673c0533e24 (review round, LOW): claim_if_pending never goes
+    # through #next_task, so a stale injected_learning_ids left on the row by
+    # an EARLIER cycle (this pending task was never freshly claimed before
+    # this call) must not be citable for credit — #start_claim! clears it
+    # defensively when via: "dev_complete_task".
+    it "does not credit a stale injected_learning_ids left over from before this pending state" do
+      stale_learning = create(:ai_compound_learning, account: account, status: "active")
+      target.update!(metadata: { "injected_learning_ids" => [ stale_learning.id ] })
+
+      result = complete(claim_if_pending: true, learnings_used: [ stale_learning.id ])
+
+      expect(result[:success]).to be true
+      expect(stale_learning.reload.positive_outcome_count).to eq(0)
+      expect(target.reload.metadata["injected_learning_ids"]).to be_nil
+    end
   end
 end

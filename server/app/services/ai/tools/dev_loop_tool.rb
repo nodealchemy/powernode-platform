@@ -660,6 +660,15 @@ module Ai
           "claimed_at" => Time.current.iso8601
         }
         claim_meta["claimed_via"] = via if via
+        # IMP-8673c0533e24 (review round, LOW): claim_if_pending's atomic
+        # claim-and-close (via: "dev_complete_task") never went through
+        # #next_task, so there is no FRESH injected_learning_ids for this
+        # claim — any value already on the row is a previous cycle's,
+        # left behind by whichever "back to pending" path the task took.
+        # Defensive here too (on top of #reset!/#requeue! clearing it) so an
+        # out-of-band completion can never cite, and credit, injections that
+        # were never handed to THIS claim.
+        claim_meta["injected_learning_ids"] = nil if via == "dev_complete_task"
         task.merge_metadata!(claim_meta)
       end
 
@@ -1473,8 +1482,13 @@ module Ai
         injected_ids = Array(task.metadata["injected_learning_ids"])
         return if injected_ids.empty?
 
-        cited_ids = Array(learnings_used).map(&:to_s)
-        ids_to_credit = injected_ids & cited_ids
+        # Normalized (stripped/downcased) for the MEMBERSHIP check only — an
+        # executor citing an id with incidental whitespace or mixed case
+        # should still match. #select on injected_ids (not the normalized
+        # forms) so credit_injections! is always given the canonical ids this
+        # claim actually recorded, never a caller-supplied string verbatim.
+        cited_ids = Array(learnings_used).map { |id| id.to_s.strip.downcase }
+        ids_to_credit = injected_ids.select { |id| cited_ids.include?(id.to_s.strip.downcase) }
 
         if ids_to_credit.present?
           ::Ai::Learning::CompoundLearningService.new(account: account)

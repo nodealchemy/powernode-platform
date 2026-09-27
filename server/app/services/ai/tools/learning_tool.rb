@@ -226,13 +226,7 @@ module Ai
         learning = Ai::CompoundLearning.find_by(id: params[:learning_id], account: account)
         return { success: false, error: "Learning not found" } unless learning
 
-        # IMP-8673c0533e24: was the single call learning.record_injection_outcome!
-        # (successful: true) — that method's only other arm (successful: false)
-        # had no caller anywhere, so it was deleted rather than kept as dead
-        # code. #record_injection! + #record_positive_outcome! together record
-        # the same state this always-true call did.
-        learning.record_injection!
-        learning.record_positive_outcome!
+        learning.record_injection_outcome!(successful: true)
         learning.boost_importance!(0.05)
 
         { success: true, learning_id: learning.id, new_importance: learning.importance_score.to_f.round(4) }

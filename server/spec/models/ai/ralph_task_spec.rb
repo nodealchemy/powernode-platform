@@ -342,6 +342,31 @@ RSpec.describe Ai::RalphTask, type: :model do
     end
   end
 
+  describe "#reset!" do
+    let(:task) do
+      create(:ai_ralph_task, :passed, ralph_loop: loop_record,
+             metadata: { "injected_learning_ids" => [ "learning-from-the-previous-cycle" ] })
+    end
+
+    it "returns the task to pending and clears the previous run's fields" do
+      task.reset!
+
+      expect(task.reload.status).to eq("pending")
+      expect(task.iteration_completed_at).to be_nil
+      expect(task.completed_in_iteration).to be_nil
+    end
+
+    # IMP-8673c0533e24 (review round, LOW): a repeating task's #reset! is not
+    # necessarily followed by a fresh #next_task claim before the NEXT
+    # out-of-band completion (claim_if_pending) — without this, that
+    # completion could cite the PREVIOUS cycle's injected_learning_ids.
+    it "clears the previous cycle's injected_learning_ids" do
+      task.reset!
+
+      expect(task.reload.metadata["injected_learning_ids"]).to be_nil
+    end
+  end
+
   describe "#apply_operator_edit!" do
     let(:task) { create(:ai_ralph_task, ralph_loop: loop_record, acceptance_criteria: "original") }
 

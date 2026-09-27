@@ -151,6 +151,38 @@ module Ai
       update!(importance_score: [decayed, 0.05].max)
     end
 
+    # Combined injection+outcome record for a caller that knows the outcome
+    # IMMEDIATELY (no separate recall step to have already counted the
+    # injection) — unlike #record_injection! + #record_positive_outcome!,
+    # which are for the recall-then-later-resolve shape.
+    #
+    # IMP-8673c0533e24 (review round correction): a previous version of this
+    # change deleted this method, reasoning that its `successful: false` arm
+    # (increment!(:negative_outcome_count)) had zero callers in server/app —
+    # true, but incomplete: an extension caller invokes this with a real,
+    # data-derived boolean on a live path, and a per-id `rescue StandardError;
+    # next` around that call would have swallowed the resulting NoMethodError
+    # silently — the caller's own outcome tracking would have just stopped,
+    # with nothing surfacing the break. `command grep -r` over the whole repo
+    # (not the sandboxed `grep` that hides extensions/private) is required
+    # before ever calling a model method "dead" — see grep rulebook. Restored
+    # with both arms; the dev-loop credit path (#credit_injections! via
+    # DevLoopTool#credit_injected_learnings!) is unaffected — it never called
+    # this method and still resolves injections structurally (an uncited one
+    # simply never reaches #record_positive_outcome!, depressing effectiveness
+    # by omission, not via negative_outcome_count).
+    def record_injection_outcome!(successful:)
+      increment!(:injection_count)
+      if successful
+        increment!(:positive_outcome_count)
+      else
+        increment!(:negative_outcome_count)
+      end
+      update!(last_injected_at: Time.current)
+      recalculate_effectiveness!
+      touch_event_processed!
+    end
+
     # Neutral injection recorded at recall time (context injection). Counts the
     # injection immediately; the outcome resolves later — positively via
     # record_positive_outcome! when the consuming execution succeeds, or stays
@@ -165,21 +197,8 @@ module Ai
 
     # Resolve a previously recorded (neutral) injection as positive. Does NOT
     # bump injection_count — the injection was already counted at recall via
-    # #record_injection!.
-    #
-    # IMP-8673c0533e24 (review round): this used to be one half of
-    # record_injection_outcome!(successful:), a combined injection+outcome
-    # method whose `successful: false` arm (increment!(:negative_outcome_count))
-    # had exactly zero callers anywhere in the app — negative_outcome_count was
-    # 0 across all 1,388 live rows. Every design this platform now has for a
-    # LEARNING going unrewarded is structural (an uncited/uncredited injection
-    # simply never reaches this method, depressing effectiveness by omission —
-    # see #credit_injections! and DevLoopTool#credit_injected_learnings!), not
-    # an explicit negative counter, so there was no real caller to "wire" the
-    # dead arm to. Deleted rather than kept as a silent no-op: #record_injection!
-    # + #record_positive_outcome! (called separately by the one real caller,
-    # LearningTool#reinforce_learning) already cover the only outcome this
-    # method needs to support.
+    # #record_injection!, unlike #record_injection_outcome! which records an
+    # injection+outcome pair at once.
     def record_positive_outcome!
       increment!(:positive_outcome_count)
       recalculate_effectiveness!

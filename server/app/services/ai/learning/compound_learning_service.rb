@@ -63,11 +63,16 @@ module Ai
       # Injection (evaluation 2026-09-18 §1.1 / design D3.2). The recall floor
       # above is deliberately loose — a caller reading results can discount a
       # weak match. Injection has no such backstop: every surfaced row is
-      # counted (record_injection!) and later credited on task success
-      # (credit_injections! / boost_injected_learnings_on_success), which is
-      # exactly the feedback loop that let a handful of heavily-credited,
-      # weakly-similar rows dominate every task regardless of relevance.
-      # Injection therefore needs a tighter floor than recall. Overridable via
+      # counted (record_injection!) and later credited (credit_injections! /
+      # boost_injected_learnings_on_success) — on the dev-loop path ONLY when
+      # the executor actually cites it (IMP-8673c0533e24: DevLoopTool#
+      # credit_injected_learnings! intersects task.metadata.injected_learning
+      # _ids against learnings_used before crediting; an uncited injection
+      # stays neutral). This is still exactly the feedback loop that let a
+      # handful of heavily-credited, weakly-similar rows dominate every task
+      # regardless of relevance, for whichever caller credits without asking
+      # for a citation. Injection therefore needs a tighter floor than
+      # recall. Overridable via
       # Account#settings["ai_learning_injection_similarity_threshold"], same
       # convention as the recall threshold above.
       DEFAULT_INJECTION_SIMILARITY_THRESHOLD = 0.65
@@ -1097,7 +1102,9 @@ module Ai
 
         credit_injections!(learning_ids: learning_ids)
       rescue StandardError => e
-        Rails.logger.warn("[CompoundLearning] Confidence boost failed: #{e.message}")
+        # IMP-8673c0533e24: was "Confidence boost failed" — #credit_injections!
+        # no longer touches confidence_score, only positive_outcome_count.
+        Rails.logger.warn("[CompoundLearning] Injection credit failed: #{e.message}")
       end
 
       # Exact-id attribution seam (IMP-01daa42e33de), deliberately generic on

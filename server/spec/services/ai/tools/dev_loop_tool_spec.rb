@@ -1272,6 +1272,23 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(task.reload.metadata).not_to have_key("injected_learning_ids")
     end
 
+    it "normalizes a citation's incidental whitespace and case before matching" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "credit-task", priority: 5,
+             description: "Fix widget reconciliation idempotency across retries",
+             acceptance_criteria: "Reconciliation is idempotent")
+
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+      task = ralph_loop.ralph_tasks.find_by(task_key: "credit-task")
+      expect(task.metadata["injected_learning_ids"]).to eq([ learning.id ])
+
+      tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.id,
+                             task_key: "credit-task", outcome: "passed", summary: "done",
+                             check_results: { "rspec" => "8 examples, 0 failures" },
+                             learnings_used: [ " #{learning.id.upcase} " ] })
+
+      expect(learning.reload.positive_outcome_count).to eq(1)
+    end
+
     it "does not credit a cited id that this claim never injected" do
       uninjected = create(:ai_compound_learning, account: account, status: "active",
                           category: "best_practice", title: "Unrelated fact",
@@ -1300,26 +1317,46 @@ RSpec.describe Ai::Tools::DevLoopTool do
       expect(learning.reload.positive_outcome_count).to eq(0)
     end
 
-    it "does not credit injections on an attested-only pass" do
+    # A cited learnings_used is passed on EACH of these on purpose (review
+    # round #5): the guard that matters here is verification/outcome, not
+    # citation — an attested-only pass, a failed task, or a blocked task
+    # must credit nothing even when the executor cites exactly the id it
+    # was handed.
+    it "does not credit injections on an attested-only pass, even when cited" do
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "attested-task", priority: 5,
              description: "Fix widget reconciliation idempotency across retries",
              acceptance_criteria: "Reconciliation is idempotent")
       tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
 
       tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.id,
-                             task_key: "attested-task", outcome: "passed", summary: "trust me" })
+                             task_key: "attested-task", outcome: "passed", summary: "trust me",
+                             learnings_used: [ learning.id ] })
 
       expect(learning.reload.positive_outcome_count).to eq(0)
     end
 
-    it "leaves injections unresolved when the task fails" do
+    it "leaves injections unresolved when the task fails, even when cited" do
       create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "fail-task", priority: 5,
              description: "Fix widget reconciliation idempotency across retries",
              acceptance_criteria: "Reconciliation is idempotent")
 
       tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
       tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.id,
-                             task_key: "fail-task", outcome: "failed", summary: "did not work" })
+                             task_key: "fail-task", outcome: "failed", summary: "did not work",
+                             learnings_used: [ learning.id ] })
+
+      expect(learning.reload.positive_outcome_count).to eq(0)
+    end
+
+    it "leaves injections unresolved when the task is blocked, even when cited" do
+      create(:ai_ralph_task, ralph_loop: ralph_loop, task_key: "blocked-task", priority: 5,
+             description: "Fix widget reconciliation idempotency across retries",
+             acceptance_criteria: "Reconciliation is idempotent")
+
+      tool.execute(params: { action: "dev_next_task", loop_id: ralph_loop.id })
+      tool.execute(params: { action: "dev_complete_task", loop_id: ralph_loop.id,
+                             task_key: "blocked-task", outcome: "blocked", summary: "needs a decision",
+                             learnings_used: [ learning.id ] })
 
       expect(learning.reload.positive_outcome_count).to eq(0)
     end

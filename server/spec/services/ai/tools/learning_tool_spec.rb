@@ -67,6 +67,35 @@ RSpec.describe Ai::Tools::LearningTool do
     end
   end
 
+  # IMP-8673c0533e24 (review round #5): reinforce_learning had no spec at all
+  # before this — added when record_injection_outcome!(successful: true) was
+  # (wrongly, then restored) touched by that task, to pin the counters it
+  # actually produces.
+  describe "reinforce_learning" do
+    it "increments injection_count and positive_outcome_count by one" do
+      result = tool.send(:call, action: "reinforce_learning", learning_id: learning.id)
+
+      expect(result[:success]).to be true
+      learning.reload
+      expect(learning.injection_count).to eq(1)
+      expect(learning.positive_outcome_count).to eq(1)
+      expect(learning.negative_outcome_count).to eq(0)
+    end
+
+    it "boosts importance and returns it" do
+      result = tool.send(:call, action: "reinforce_learning", learning_id: learning.id)
+
+      expect(result[:new_importance]).to be > 0.8
+      expect(learning.reload.importance_score.to_f).to eq(result[:new_importance])
+    end
+
+    it "returns an error for an unknown learning id" do
+      result = tool.send(:call, action: "reinforce_learning", learning_id: SecureRandom.uuid)
+
+      expect(result[:success]).to be false
+    end
+  end
+
   describe "query_learnings without a query" do
     it "keeps the filtered browse behavior" do
       result = tool.send(:call, action: "query_learnings")

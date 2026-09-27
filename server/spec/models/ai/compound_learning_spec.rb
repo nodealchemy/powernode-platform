@@ -230,6 +230,11 @@ RSpec.describe Ai::CompoundLearning, type: :model do
       expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
     end
 
+    it "record_injection_outcome! sets last_event_processed_at" do
+      learning.record_injection_outcome!(successful: true)
+      expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
+    end
+
     it "retire! sets last_event_processed_at" do
       learning.retire!(domain: "trading")
       expect(learning.reload.last_event_processed_at).to be_within(2.seconds).of(Time.current)
@@ -292,6 +297,33 @@ RSpec.describe Ai::CompoundLearning, type: :model do
       result = learning.effective_importance
       expect(result).to be > 0.5
       expect(result).to be <= 1.0
+    end
+  end
+
+  describe "#record_injection_outcome!" do
+    let(:learning) { create(:ai_compound_learning, account: account, ai_agent_team: team) }
+
+    # IMP-8673c0533e24 (review round correction): restored — an extension
+    # caller invokes this with a real, data-derived boolean on a live path,
+    # so both arms are exercised in production, not just the true one the
+    # dev-loop credit path happens to use.
+    it "increments counters on success" do
+      learning.record_injection_outcome!(successful: true)
+      learning.reload
+
+      expect(learning.injection_count).to eq(1)
+      expect(learning.positive_outcome_count).to eq(1)
+      expect(learning.negative_outcome_count).to eq(0)
+      expect(learning.last_injected_at).to be_within(2.seconds).of(Time.current)
+    end
+
+    it "increments counters on failure" do
+      learning.record_injection_outcome!(successful: false)
+      learning.reload
+
+      expect(learning.injection_count).to eq(1)
+      expect(learning.positive_outcome_count).to eq(0)
+      expect(learning.negative_outcome_count).to eq(1)
     end
   end
 
