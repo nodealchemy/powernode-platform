@@ -55,6 +55,23 @@ class RequestInspector
     # (no ambiguous overlap between the quoted and unquoted alternatives,
     # so no catastrophic backtracking; deliberately has NO lookaround, per
     # the ReDoS finding on the sql_injection lookahead above).
+    #
+    # Known gap (round 3, reviewer, LOW): a STRAY, unpaired quote before
+    # the handler defeats this rule — `<img src=x" onerror=alert(1)>` has
+    # one unmatched '"' with no closing partner, so the quoted-span
+    # alternative can never close and the unquoted span can't cross it
+    # either; nothing after the stray quote can reach "on[a-z]+\s*=".
+    # Accepted as a known limitation: closing it invites a broader,
+    # quote-balancing scheme, which is exactly the kind of complexity
+    # round 2 spent a ReDoS incident closing off. Pinned by a spec, not
+    # left undocumented.
+    #
+    # Deliberate, NOT a gap: a bare "on...=" with no preceding '<' at all
+    # (e.g. `x" onfocus=alert(1)`) is NOT flagged. That is the entire
+    # point of round 1 — the pre-hotfix rule (/on\w+\s*=/i) matched this
+    # shape unconditionally and false-positived on ordinary param names
+    # (version_id=, notification_type=, ...). Also pinned by a spec, so a
+    # future "fix" doesn't quietly reopen the round-1 incident.
     xss: [
       /<script\b[^>]*>/i,
       /javascript:/i,
@@ -267,37 +284,54 @@ class RequestInspector
     check_query_string_xss(query, result)
   end
 
-  # 2026-09-27 hotfix, round 2 (reviewer CHANGES REQUIRED). Two bugs in the
-  # round-1 whole-string decode:
+  # 2026-09-27 hotfix. Bugs found across two reviews of the per-parameter
+  # decode:
   #
-  #   1. HIGH — CGI.unescape("%FF") produces a string with an invalid UTF-8
-  #      byte, which #match? then raises ArgumentError on. That exception
-  #      escaped inspect_request entirely and was swallowed by #call's own
-  #      top-level rescue, which passes the request through COMPLETELY
-  #      UNINSPECTED (no body check, no UA check, no rate tracking) — a
-  #      single stray %FF anywhere in the query string was a full bypass.
-  #   2. A '<' in one param's value could combine with an unrelated
-  #      "on...=" NAME in a later param into a false tag match
-  #      (`q=a%3Cb&online=true` decoded as one blob reads "...a<b&online=
-  #      true...", and the tag-context rule can't tell the '<' and the
-  #      "on...=" came from different params).
+  #   1. HIGH (round 2) — CGI.unescape("%FF") produces a string with an
+  #      invalid UTF-8 byte, which #match? then raises ArgumentError on.
+  #      That exception escaped inspect_request entirely and was
+  #      swallowed by #call's own top-level rescue, which passes the
+  #      request through COMPLETELY UNINSPECTED (no body check, no UA
+  #      check, no rate tracking) — a single stray %FF anywhere in the
+  #      query string was a full bypass.
+  #   2. MEDIUM (round 2) — a '<' in one param's value could combine with
+  #      an unrelated "on...=" NAME in a LATER param into a false tag
+  #      match (`q=a%3Cb&online=true` decoded as one blob reads
+  #      "...a<b&online=true...", and the tag-context rule can't tell the
+  #      '<' and the "on...=" came from different params).
+  #   3. MEDIUM (round 3) — round 2's fix for #2 went one step too far: it
+  #      split each param into KEY and VALUE and matched them SEPARATELY,
+  #      which let an attack split across the "=" evade entirely — a tag
+  #      opening in the key half, the handler in the value half
+  #      (`%3Cimg%20src=x%20onerror=alert(1)%3E` decodes to key "<img
+  #      src", value "x onerror=alert(1)>" — neither half alone matches).
+  #      Matching the WHOLE decoded pair (not key and value separately)
+  #      fixes this without reopening #2: splitting on '&' still keeps
+  #      different PARAMS' pairs apart, it just no longer ALSO splits
+  #      within one param's own pair.
+  #   4. LOW (round 3) — splitting on /[&;]/ was wrong twice over: it ran
+  #      on the unscrubbed RAW query string, so a raw invalid byte in the
+  #      query string itself (not just one CGI.unescape produces) raised
+  #      out of String#split before decoding ever started; and Rack 3
+  #      does not treat ';' as a query separator at all, so a ';' inside
+  #      an attribute value (`q=<img alt=";" onerror=alert(1)>`) was
+  #      wrongly treated as a param boundary and fragmented the payload
+  #      across two "params" that neither matched alone.
   #
-  # Decoding and matching PER PARAMETER, independently, fixes both: each
-  # piece is #scrub'd before it is ever matched (an invalid byte sequence
-  # becomes U+FFFD, never an exception — see #safe_string), and a '<' in
-  # one param's value can never see a different param's name or value.
+  # Splitting the SCRUBBED string, on '&' only, into whole pairs — each
+  # pair decoded and matched as ONE piece — fixes all four: a raw invalid
+  # byte can't survive to #split, CGI.unescape's invalid bytes can't
+  # survive to #match? (see #safe_string), ';' is no longer a false
+  # boundary, and an attack spanning the '=' can't be severed by one.
   def check_query_string_xss(query, result)
-    query.split(/[&;]/).each do |pair|
-      key, value = pair.split("=", 2)
+    safe_string(query).split("&").each do |pair|
+      piece = decode_query_component(pair)
+      next if piece.nil? || piece.empty?
 
-      [ decode_query_component(key), decode_query_component(value) ].each do |piece|
-        next if piece.nil? || piece.empty?
-
-        SUSPICIOUS_PATTERNS[:xss].each do |pattern|
-          if piece.match?(pattern)
-            result[:threats] << { type: :xss, location: "query_string", pattern: pattern.to_s }
-            result[:score] += threat_score(:xss)
-          end
+      SUSPICIOUS_PATTERNS[:xss].each do |pattern|
+        if piece.match?(pattern)
+          result[:threats] << { type: :xss, location: "query_string", pattern: pattern.to_s }
+          result[:score] += threat_score(:xss)
         end
       end
     end
@@ -343,13 +377,38 @@ class RequestInspector
     # in the raw body must not raise out of every remaining check.
     body = safe_string(body)
 
-    # Check for malicious patterns in body
+    # Check for malicious patterns in body. xss is handled separately —
+    # see #check_body_xss.
     SUSPICIOUS_PATTERNS.each do |threat_type, patterns|
+      next if threat_type == :xss
+
       patterns.each do |pattern|
         if body.match?(pattern)
           result[:threats] << { type: threat_type, location: "body", pattern: pattern.to_s }
           result[:score] += threat_score(threat_type)
         end
+      end
+    end
+
+    check_body_xss(body, result)
+  end
+
+  # Round 3 (reviewer, MEDIUM): a JSON string value can carry an
+  # HTML-entity-escaped tag (e.g. `"&lt;img src=x onerror=alert(1)&gt;"`)
+  # instead of literal angle brackets — the pre-hotfix rule matched a bare
+  # "on...=" substring with no tag requirement at all, so it still caught
+  # this; the round-1/2 tag-context rule needs an actual '<'/'>' to work
+  # with. Un-escaping &lt;/&gt; (case-insensitively) is a plain
+  # literal-substring replacement — linear, no backtracking risk — and is
+  # scoped to the XSS check only, same "decode only where it's needed"
+  # principle as the query-string split in #check_query_string_xss.
+  def check_body_xss(body, result)
+    unescaped = body.gsub(/&lt;/i, "<").gsub(/&gt;/i, ">")
+
+    SUSPICIOUS_PATTERNS[:xss].each do |pattern|
+      if unescaped.match?(pattern)
+        result[:threats] << { type: :xss, location: "body", pattern: pattern.to_s }
+        result[:score] += threat_score(:xss)
       end
     end
   end

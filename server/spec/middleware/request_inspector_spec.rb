@@ -222,6 +222,29 @@ RSpec.describe RequestInspector do
       expect(result[:threats].map { |t| t[:type] }).to include(:xss)
     end
 
+    # Round 3 (reviewer, MEDIUM): round 2 fixed the cross-PARAMETER false
+    # positive by decoding and matching each param's KEY and VALUE
+    # separately, but that let an attack SPLIT ACROSS the '=' evade
+    # entirely — the tag opens in the key half, the handler is in the
+    # value half, and neither half alone matches.
+    it 'flags a tag/handler pair split across the "=" (a tag opening in the param NAME)' do
+      result = inspect_query('%3Cimg%20src=x%20onerror=alert(1)%3E')
+
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+
+    # Round 3 (reviewer, LOW): Rack 3 does not treat ';' as a query
+    # separator at all — splitting on /[&;]/ wrongly fragmented a ';'
+    # inside an attribute value into two "params", neither of which
+    # matched alone.
+    it 'flags an onerror handler with a literal ";" inside a quoted attribute (";" is not a param separator)' do
+      result = inspect_query('q=<img alt=";" onerror=alert(1)>')
+
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+
     it 'flags a <script> tag' do
       result = inspect_query('q=<script>alert(1)</script>')
       expect(result[:threats].map { |t| t[:type] }).to include(:xss)
@@ -286,10 +309,33 @@ RSpec.describe RequestInspector do
       expect(result[:threats].map { |t| t[:type] }).to include(:xss)
     end
 
-    # Round 2 (reviewer, finding #1 body surface): the same class of
-    # exception must not be reachable via the request BODY either — the
-    # body is scrubbed before matching, same as the query string.
-    it 'does not raise on an invalid UTF-8 byte in the request body, and still flags a real attack in it' do
+    # Round 3 (reviewer, LOW): round 2's per-param split ran on the
+    # UNSCRUBBED raw query string — a raw invalid byte already present in
+    # the query string itself (not one CGI.unescape produces from a %FF)
+    # raised out of String#split before decoding ever started. The string
+    # is now scrubbed before it is split.
+    it 'does not raise on a raw invalid UTF-8 byte in the query string itself (not percent-encoded)' do
+      expect { inspect_query("\xFF&id=1") }.not_to raise_error
+    end
+
+    it 'still flags a real attack alongside a raw invalid byte in the query string itself' do
+      result = inspect_query("\xFF&id=1 UNION SELECT password FROM users")
+
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:sql_injection)
+    end
+
+    # Round 2 (reviewer, finding #1 body surface). NOTE (round 3, reviewer):
+    # this spec passes identically on the pre-fix code too, so it does NOT
+    # discriminate this fix from the bug — Rack::MockRequest hands back the
+    # body as ASCII-8BIT (BINARY), under which no byte sequence is ever
+    # "invalid", so #match? never raises here regardless of #scrub. Kept as
+    # a defensive GUARD for #safe_string's use in #check_request_body (in
+    # case a future Rack version, or some other caller, ever hands this
+    # method a UTF-8-tagged string with a genuinely invalid byte), not as a
+    # regression-pinning test — there is no known way to make body input
+    # actually exercise the raise this scrubs against.
+    it 'GUARD: does not raise on an invalid UTF-8 byte in the request body, and still flags a real attack in it' do
       body = "\xFF id=1 UNION SELECT password FROM users"
       env = Rack::MockRequest.env_for('/api/v1/widgets', method: 'POST', input: body)
       env['REMOTE_ADDR'] = '203.0.113.7'
@@ -335,6 +381,57 @@ RSpec.describe RequestInspector do
 
       expect(result[:threats].map { |t| t[:type] }).not_to include(:xss)
       expect(result[:score]).to eq(0), "expected score 0, threats=#{result[:threats].inspect}"
+    end
+  end
+
+  # Round 3 (reviewer, MEDIUM): a JSON string value can carry an
+  # HTML-entity-escaped tag instead of literal angle brackets — the
+  # pre-hotfix rule matched a bare "on...=" substring with no tag
+  # requirement, so it still caught this; the tag-context rule needs an
+  # actual '<'/'>' unless it is first un-escaped.
+  describe 'HTML-entity-escaped tags in a request body are still flagged' do
+    def inspect_post_body(body)
+      env = Rack::MockRequest.env_for('/api/v1/widgets', method: 'POST', input: body)
+      env['REMOTE_ADDR'] = '203.0.113.7'
+      env['HTTP_USER_AGENT'] = 'Mozilla/5.0 (X11; Linux x86_64)'
+      env['HTTP_ACCEPT'] = 'application/json'
+      middleware.send(:inspect_request, Rack::Request.new(env))
+    end
+
+    it 'flags an &lt;/&gt;-escaped onerror handler inside a JSON string value' do
+      result = inspect_post_body('{"bio":"&lt;img src=x onerror=alert(1)&gt;"}')
+
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+  end
+
+  # Round 3 (reviewer, LOW): two boundary cases for the xss event-handler
+  # rule, both pinned deliberately rather than left as unexplained gaps.
+  describe 'known limits of the xss event-handler rule' do
+    # KNOWN GAP, accepted rather than chased: a stray, unpaired quote
+    # before the handler defeats the quoted-span segmentation (there is no
+    # partner to close the quoted alternative, and the unquoted span
+    # cannot cross it either), so nothing after it can ever reach
+    # "on[a-z]+\s*=". Closing this invites a broader quote-balancing
+    # scheme — exactly the kind of complexity round 2 spent a ReDoS
+    # incident closing off.
+    it 'KNOWN GAP: does not flag an onerror handler preceded by a stray, unpaired quote' do
+      result = inspect_query('q=<img src=x" onerror=alert(1)>')
+
+      expect(result[:threats].map { |t| t[:type] }).not_to include(:xss)
+    end
+
+    # DELIBERATE, not a gap: a bare "on...=" with no preceding '<' at all
+    # is not flagged. That is the entire point of round 1 — the pre-hotfix
+    # rule (/on\w+\s*=/i) matched this shape unconditionally and
+    # false-positived on ordinary param names (version_id=,
+    # notification_type=, ...). Pinned so a future "fix" doesn't quietly
+    # reopen that incident.
+    it 'DELIBERATE: does not flag a tagless "on...=" handler with no preceding "<"' do
+      result = inspect_query('q=x" onfocus=alert(1)')
+
+      expect(result[:threats].map { |t| t[:type] }).not_to include(:xss)
     end
   end
 
