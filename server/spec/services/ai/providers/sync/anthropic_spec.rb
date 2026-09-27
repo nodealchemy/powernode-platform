@@ -181,6 +181,85 @@ RSpec.describe Ai::Providers::Sync::Anthropic do
       end
     end
 
+    # Re-audit trigger (prompt-audit guardrail): a synced id whose family is in
+    # neither ModelCapabilities::LEGACY_CLAUDE_PREFIXES nor ModelTiers::TIERS
+    # files one improvement offer per family through ImprovementTool. The ids
+    # below are synthetic; they name no real or announced model.
+    context "with a model family the platform does not know" do
+      let(:unknown_family) { "claude-zephyr" }
+      let(:fingerprint) { "new_model_family|claude-zephyr" }
+      let(:api_response_body) do
+        {
+          data: [
+            { id: "claude-zephyr-1-20990101", display_name: "Synthetic Zephyr 1", created_at: "2099-01-01T00:00:00Z" },
+            { id: "claude-zephyr-1-20990601", display_name: "Synthetic Zephyr 1", created_at: "2099-06-01T00:00:00Z" },
+            { id: "claude-opus-4-5-20251101", display_name: "Claude Opus 4.5", created_at: "2025-11-01T00:00:00Z" },
+            { id: "claude-sonnet-5", display_name: "Claude Sonnet 5", created_at: "2026-03-01T00:00:00Z" },
+            { id: "claude-fable-5", display_name: "Claude Fable 5", created_at: "2026-07-01T00:00:00Z" },
+            { id: "claude-3-5-sonnet-20241022", display_name: "Claude 3.5 Sonnet", created_at: "2024-10-22T00:00:00Z" }
+          ]
+        }
+      end
+
+      before do
+        stub_request(:get, api_url)
+          .to_return(status: 200, body: api_response_body.to_json, headers: { "Content-Type" => "application/json" })
+      end
+
+      def sync!
+        Ai::ProviderManagementService.send(:sync_anthropic_models, provider)
+      end
+
+      it "files exactly one pending offer for the new family, and none for the known families" do
+        expect { sync! }.to change { Ai::ImprovementRecommendation.where(account: account).count }.by(1)
+
+        rec = Ai::ImprovementRecommendation.find_by!(account: account)
+        expect(rec.fingerprint).to eq(fingerprint)
+        expect(rec.status).to eq("pending")
+        expect(rec.target_type).to eq("Account")
+        expect(rec.evidence["title"]).to include(unknown_family, "prompt audit", "effort sweep")
+        expect(rec.evidence["description"]).to include("claude-zephyr-1-20990101", "claude-zephyr-1-20990601")
+      end
+
+      it "does not file another offer on a second sync" do
+        sync!
+        expect { sync! }.not_to(change { Ai::ImprovementRecommendation.where(account: account).count })
+      end
+
+      it "does not re-file once the offer has been dismissed" do
+        sync!
+        Ai::ImprovementRecommendation.find_by!(account: account, fingerprint: fingerprint)
+                                     .update!(status: "dismissed")
+
+        expect { sync! }.not_to(change { Ai::ImprovementRecommendation.where(account: account).count })
+      end
+
+      it "still completes the sync when filing the offer raises" do
+        tool = instance_double(Ai::Tools::ImprovementTool)
+        allow(Ai::Tools::ImprovementTool).to receive(:new).and_return(tool)
+        expect(tool).to receive(:execute).and_raise(StandardError, "offer store unavailable")
+
+        expect(sync!).to be true
+        expect(provider.reload.supported_models.map { |m| m["id"] }).to include("claude-zephyr-1-20990101")
+        expect(Ai::ImprovementRecommendation.where(account: account)).to be_empty
+      end
+    end
+
+    context "with only known model families" do
+      before do
+        stub_request(:get, api_url)
+          .to_return(status: 200, body: api_response_body.to_json, headers: { "Content-Type" => "application/json" })
+      end
+
+      it "files no offer" do
+        expect(Ai::Tools::ImprovementTool).not_to receive(:new)
+
+        expect {
+          Ai::ProviderManagementService.send(:sync_anthropic_models, provider)
+        }.not_to(change { Ai::ImprovementRecommendation.count })
+      end
+    end
+
     context "with no credentials" do
       let(:provider_without_creds) { create(:ai_provider, :anthropic, account: account, name: "Anthropic No Creds", slug: "anthropic-no-creds") }
 

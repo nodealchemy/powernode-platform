@@ -52,6 +52,7 @@ module Ai
 
                   provider.update(supported_models: supported_models)
                   Rails.logger.info "Successfully synced #{supported_models.length} models from Anthropic API for provider #{provider.id}"
+                  file_new_anthropic_family_offers(provider, supported_models.map { |m| m["id"] })
                   return true
                 else
                   Rails.logger.warn "Anthropic API returned #{response.status}, falling back to static models"
@@ -115,6 +116,70 @@ module Ai
 
           def fable_family?(model_id)
             model_id.include?("fable") || model_id.include?("mythos")
+          end
+
+          # Re-audit trigger. A synced id whose family no capability or tier table
+          # knows means prompts, effort settings and routing were never checked
+          # against that family, so file one improvement offer per family asking
+          # for the prompt audit and the effort sweep. Filing goes through
+          # ImprovementTool#create_improvement, the same path the MCP verb uses.
+          #
+          # The family prefix is `claude-<first segment>`: "claude-zephyr" for
+          # "claude-zephyr-1-20990101". Version and date suffixes are dropped on
+          # purpose, so a new dated snapshot or a new major of a family already
+          # offered adds nothing. A new major of a KNOWN family (claude-opus-6) is
+          # matched by ModelTiers' family prefix and files nothing; the fail-closed
+          # capability gate covers it.
+          #
+          # Deduplicated per family across every status: an offer that was
+          # dismissed or applied is the operator's answer and is not re-filed.
+          # Filing never fails the sync.
+          def file_new_anthropic_family_offers(provider, model_ids)
+            account = provider.account
+            return unless account
+
+            unknown = Array(model_ids).map(&:to_s).select { |id| unknown_anthropic_family?(id) }
+            unknown.group_by { |id| anthropic_family_prefix(id) }.each do |prefix, ids|
+              file_new_anthropic_family_offer(account, prefix, ids)
+            end
+          rescue StandardError => e
+            Rails.logger.error "[ProviderSync] new-model-family offer failed for provider #{provider.id}: #{e.class}: #{e.message}"
+          end
+
+          def file_new_anthropic_family_offer(account, prefix, ids)
+            fingerprint = "new_model_family|#{prefix}"
+            return if ::Ai::ImprovementRecommendation.exists?(account_id: account.id, fingerprint: fingerprint)
+
+            result = ::Ai::Tools::ImprovementTool.new(
+              account: account, internal: true, call_origin: ::Ai::Tools::CallOrigin::SYSTEM_SERVICE
+            ).execute(params: {
+              action: "create_improvement",
+              recommendation_type: "convention_adherence",
+              fingerprint: fingerprint,
+              title: "New model family #{prefix}: run the prompt audit and the effort sweep",
+              description: "Model sync found #{ids.join(', ')}. No prefix in " \
+                           "Ai::Llm::ModelCapabilities::LEGACY_CLAUDE_PREFIXES or Ai::ModelTiers::TIERS " \
+                           "matches the #{prefix} family, so the capability gate treats it as adaptive-only " \
+                           "and tier routing falls back to price. Run the prompt audit and the effort sweep " \
+                           "against it, then add the family to ModelTiers::TIERS.",
+              files: %w[server/app/services/ai/llm/model_capabilities.rb server/app/models/ai/model_tiers.rb],
+              verifier_evidence: "Anthropic /v1/models listed #{ids.join(', ')} during provider model sync",
+              confidence_score: 0.9
+            })
+            return if result[:success]
+
+            Rails.logger.warn "[ProviderSync] new-model-family offer for #{prefix} not filed: #{result[:error]}"
+          end
+
+          def unknown_anthropic_family?(model_id)
+            return false unless model_id.start_with?("claude-")
+
+            known = ::Ai::Llm::ModelCapabilities::LEGACY_CLAUDE_PREFIXES + ::Ai::ModelTiers::TIERS.values.flatten
+            known.none? { |prefix| model_id.start_with?(prefix) }
+          end
+
+          def anthropic_family_prefix(model_id)
+            "claude-#{model_id.delete_prefix('claude-').split('-').first}"
           end
 
           def anthropic_model_sort_priority(model_id)
