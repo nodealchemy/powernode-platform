@@ -114,6 +114,18 @@ self-authenticates.
 - Scheduled regression guard: `/loop 1h node scripts/ai-smoke/run.mjs` (or wire
   into CI). The non-zero exit on findings makes it a usable gate.
 
+## Prompt-cache probe
+
+`cache_probe.rb` sends one long-prefix request twice through the server
+Anthropic adapter. It checks that the second call reads from the prompt cache,
+and that `prompt_tokens` equals input + cache read + cache write on both calls.
+It makes two live model calls, so run it deliberately:
+
+    cd server && bin/rails runner ../scripts/ai-smoke/cache_probe.rb -- MODEL [PROVIDER_ID]
+
+MODEL is required. The API key stays in-process and is never printed. Exit
+codes: 0 pass, 1 a check failed, 2 it could not run.
+
 ## Notes
 
 - The abandoned plugin-marketplace feature (frontend `PluginsApiService`, no
