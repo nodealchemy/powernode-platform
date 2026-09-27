@@ -77,6 +77,93 @@ RSpec.describe Security::IpBlockStore do
     end
   end
 
+  # 2026-09-27 hotfix — the operator was IP-blocked again, this time by
+  # rapid_requests. Root cause: #bump re-applied EXPIRE on EVERY call, so as
+  # long as requests kept arriving less than ttl_seconds apart the key never
+  # expired — a SLIDING window, not the "N requests per ttl_seconds" fixed
+  # window RequestInspector's threshold check assumes. Ordinary UI polling,
+  # comfortably under 10s apart, accumulated the rapid counter without limit.
+  # #bump_rapid and #bump_suspicious both go through #bump and are fixed now;
+  # #bump_offense deliberately still slides (its own describe block below).
+  describe "fixed-window counters (bump_rapid / bump_suspicious)" do
+    it "does not extend the TTL on a later bump — only the first bump in a window sets it" do
+      described_class.bump_rapid(ip, ttl_seconds: 10)
+      first_ttl = described_class.with { |redis| redis.ttl(described_class::RAPID_PREFIX + ip) }
+
+      sleep 1.5
+      described_class.bump_rapid(ip, ttl_seconds: 10)
+      second_ttl = described_class.with { |redis| redis.ttl(described_class::RAPID_PREFIX + ip) }
+
+      expect(first_ttl).to be_between(8, 10)
+      # A SLIDING window would read ~10 again here (the bug: EXPIRE
+      # re-applied on every call). A FIXED window keeps counting down from
+      # the first bump regardless of how many more bumps arrive.
+      expect(second_ttl).to be < first_ttl
+      expect(second_ttl).to be_between(6, 9)
+    end
+
+    it "a steady trickle spread across more than one window does not accumulate without limit" do
+      # ttl 2s, bumped every 0.5s for ~3s (6 calls) — well under the ttl, the
+      # exact shape of the incident (requests arriving faster than the
+      # window). A SLIDING window never expires under this traffic and ends
+      # at count 6; a FIXED window resets ~1s into this run and again before
+      # it ends, so the final count reflects only the bumps since the LAST
+      # reset, not the full 6.
+      total_bumps = 6
+      final_count = nil
+      total_bumps.times do
+        final_count = described_class.bump_rapid(ip, ttl_seconds: 2)
+        sleep 0.5
+      end
+
+      expect(final_count).to be < total_bumps
+    end
+
+    it "a true burst within one window still reaches the full count" do
+      # No sleeps: every bump lands well inside the 60s ttl, so all of them
+      # belong to the SAME window regardless of whether it is fixed or
+      # sliding — a real flood must still score every hit.
+      30.times { described_class.bump_rapid(ip, ttl_seconds: 60) }
+
+      expect(described_class.rapid_count(ip)).to eq(30)
+    end
+
+    it "gives a key with no TTL one, rather than leaving it permanent" do
+      # Simulates a key that predates this fix (or any other path that could
+      # leave the counter without an expiry) — the fallback must not require
+      # the key to be freshly created to pick up a TTL.
+      described_class.with { |redis| redis.set(described_class::SUSPICIOUS_PREFIX + ip, 5) }
+      expect(described_class.with { |redis| redis.ttl(described_class::SUSPICIOUS_PREFIX + ip) }).to eq(-1)
+
+      described_class.bump_suspicious(ip, ttl_seconds: 30)
+
+      ttl = described_class.with { |redis| redis.ttl(described_class::SUSPICIOUS_PREFIX + ip) }
+      expect(ttl).to be_between(1, 30)
+    end
+  end
+
+  # bump_offense is deliberately UNCHANGED by the fixed-window fix above —
+  # it is progressive-penalty memory ("how many times has this IP been
+  # blocked recently"), not a rate window, so a repeat offender extending
+  # its own 7-day memory on every new offense is the intended behavior.
+  describe "sliding-window counter (bump_offense)" do
+    it "extends its TTL on every bump, unlike the fixed-window counters above" do
+      described_class.bump_offense(ip)
+      first_ttl = described_class.with { |redis| redis.ttl(described_class::OFFENSES_PREFIX + ip) }
+
+      sleep 1.5
+      described_class.bump_offense(ip)
+      second_ttl = described_class.with { |redis| redis.ttl(described_class::OFFENSES_PREFIX + ip) }
+
+      # A fixed window would read LOWER here (time elapsed, TTL untouched);
+      # bump_offense's sliding behavior instead resets it back up near the
+      # full window on every call.
+      expect(second_ttl).to be > first_ttl - 1
+      expect(second_ttl).to be_between(Security::IpBlockStore::OFFENSE_TTL_SECONDS - 2,
+                                        Security::IpBlockStore::OFFENSE_TTL_SECONDS)
+    end
+  end
+
   describe "rapid-window claim" do
     it "is won exactly once per window" do
       expect(described_class.claim_rapid_window!(ip, ttl_seconds: 30)).to be(true)

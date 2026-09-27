@@ -124,8 +124,19 @@ module Security
     # INCR + EXPIRE rather than read-modify-write. The old implementation read
     # the value, added one and wrote it back, which loses increments under
     # concurrency — on the exact traffic shape (a flood) the counter exists to
-    # measure. EXPIRE is re-applied on every bump, matching the previous
-    # `expires_in:` on every write.
+    # measure.
+    #
+    # 2026-09-27 hotfix (operator IP-blocked by rapid_requests): #bump used to
+    # re-apply EXPIRE on EVERY call — a SLIDING window. As long as requests
+    # kept arriving less than ttl_seconds apart, the key never expired, so
+    # "N requests per ttl_seconds" became "N requests, ever, at any rate
+    # under 1/ttl_seconds" — ordinary UI polling (well under 10s apart)
+    # accumulated the rapid counter without limit. #bump is now a FIXED
+    # window: see its own doc for the mechanism. #bump_offense's 7-day
+    # counter is progressive-penalty MEMORY, not a rate window, and is
+    # unaffected — it deliberately keeps sliding via #bump_sliding, kept as
+    # its own explicitly-named method so a future counter doesn't inherit
+    # sliding behavior by accident.
 
     def bump_suspicious(ip, ttl_seconds:)
       bump(SUSPICIOUS_PREFIX + ip.to_s, ttl_seconds)
@@ -147,8 +158,12 @@ module Security
       read_count(OFFENSES_PREFIX + ip.to_s)
     end
 
+    # Deliberately SLIDING (see #bump_sliding): the offense count is
+    # progressive-penalty memory — "how many times has this IP been blocked
+    # recently" — not a rate window, so each new offense extending its own
+    # 7-day memory is the intended behavior, not the bug #bump fixed above.
     def bump_offense(ip)
-      bump(OFFENSES_PREFIX + ip.to_s, OFFENSE_TTL_SECONDS)
+      bump_sliding(OFFENSES_PREFIX + ip.to_s, OFFENSE_TTL_SECONDS)
     end
 
     # Claims the current rapid-request window for this IP: true for the FIRST
@@ -176,7 +191,37 @@ module Security
 
     # === Plumbing ===
 
+    # FIXED window: the TTL is set once, when the key is created (or found
+    # with none — see below), and never extended after that by a later
+    # call. INCR is unconditionally atomic on its own; `expire(..., nx:
+    # true)` is the atomic "only if this key has no TTL yet" primitive
+    # (Redis EXPIRE NX) — no separate read-then-decide step, so there is no
+    # window for a race to reintroduce sliding. On a brand-new key, INCR
+    # creates it (value 0, no TTL) before incrementing, so the very next
+    # EXPIRE NX call is exactly the FIRST one to see "no TTL" and sets it —
+    # every later call in the same window sees the TTL already set and the
+    # NX condition makes EXPIRE a no-op, so it can never be pushed out.
+    # This is also the fallback for a key that exists with no TTL at all
+    # (e.g. one written before this fix shipped): the same EXPIRE NX call
+    # gives it one, unconditionally, the next time it is bumped.
     def bump(key, ttl_seconds)
+      ttl = ttl_seconds.to_i
+      value = with do |redis|
+        count = redis.incr(key)
+        redis.expire(key, ttl, nx: true) if ttl.positive?
+        count
+      end
+      value.to_i
+    end
+
+    # SLIDING window: EXPIRE is re-applied on every call, so the key's
+    # lifetime keeps extending as long as bumps keep arriving. Correct for
+    # #bump_offense's progressive-penalty memory (the whole point is that
+    # a REPEAT offender's history keeps extending); wrong for a rate
+    # window like rapid/suspicious, which is exactly the bug #bump above
+    # exists to fix. Named separately, deliberately, so nothing reaches
+    # for this by reflex.
+    def bump_sliding(key, ttl_seconds)
       value = with do |redis|
         count = redis.incr(key)
         redis.expire(key, ttl_seconds.to_i) if ttl_seconds.to_i.positive?
