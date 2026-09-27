@@ -37,7 +37,7 @@ Before writing code for a non-trivial change:
 | Billing/payments | `platform.search_knowledge` query: "billing" or "payment integration" |
 | Agent/team resources | `platform.list_agents` / `platform.list_teams` — inspect existing resources |
 | Memory tier operations | `platform.search_memory` + `platform.memory_stats` — understand current memory state |
-| RAG / knowledge bases | `platform.list_knowledge_bases` + `platform.search_documents` — check existing document stores |
+| RAG / knowledge bases | `platform.list_knowledge_bases` + `platform.query_knowledge_base` — check existing document stores |
 | Pipeline / CI/CD | `platform.list_pipelines` + `platform.get_pipeline_status` — verify pipeline state |
 | Content (KB articles / pages) | `platform.list_kb_articles` / `platform.list_pages` — check existing content |
 | Autonomy models/services | `platform.search_knowledge` query: "agent autonomy" |

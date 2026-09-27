@@ -1275,6 +1275,225 @@ else
 fi
 
 echo ""
+echo -e "${BLUE}## Prompt Surfaces & Anthropic Request Shape${NC}"
+# Recurrence guards from the 2026-09-25 prompt audit (guardrail 1, checks a-e). Two
+# families: the prose an executor reads (skills, CLAUDE.md) and the request bodies the
+# platform sends to Anthropic. None is security-critical; each is a plain FAIL.
+#
+# Doc scope for (a)/(b)/(e): TRACKED files only (`git ls-files`), core plus each
+# PUBLIC extension checkout (its own repo, so its own ls-files). Private extensions
+# are not tracked by the public repo and are never scanned here — which is also why
+# (b) needs no allowlist for private-extension tools: a PUBLIC doc naming one is a
+# core-purity leak in its own right, so a FAIL on it is the correct verdict.
+pv_prompt_docs() {   # $1 = git pathspec(s) relative to each repo root
+    git ls-files -- "$@" 2>/dev/null || true
+    local ext
+    for ext in extensions/*/; do
+        ext="${ext%/}"
+        [ "$ext" = "extensions/private" ] && continue
+        [ -e "$ext/.git" ] || continue
+        git -C "$ext" ls-files -- "$@" 2>/dev/null | sed "s|^|$ext/|" || true
+    done
+}
+pv_skill_files=$(pv_prompt_docs '.claude/skills/*')
+pv_doc_files=$(printf '%s\n%s\n' "$pv_skill_files" "$(pv_prompt_docs 'CLAUDE.md' '*/CLAUDE.md')" | sed '/^$/d' | sort -u)
+
+# (a) No `action=` pseudo-parameters, and no "`platform.<tool>` `<action>`" phrasing.
+# Both are the pre-split consolidated-tool calling convention (one tool + an action
+# argument); every action is now its own tool, so an executor that follows the old
+# shape invents a parameter the tool does not take. 7e1d8fc9f removed 14 of them from
+# the powernode skill; this keeps them out.
+# Tuning: `action=` must not be preceded by a word char or `-`, so `redaction=`,
+# `missing-action=` (a count label in a UX doc) and `action_type=` do not trip it.
+# The phrasing arm needs the tool token followed by whitespace and then either the word
+# `action` (with `=`/`:`/space) or a SECOND backticked identifier — the bare form
+# "(`platform.improvement` `list_improvements`)" is exactly the legacy shape. Prose
+# such as "`platform.search_knowledge` query:" or "`platform.x(<id>, ...)`" does not
+# match: a parameter named in prose is not backticked right after the tool.
+total_checks=$((total_checks + 1))
+echo -n "Checking: No action= pseudo-params or platform.<tool> + action phrasing in skills/CLAUDE.md... "
+pv_action_hits=""
+if [ -n "$pv_doc_files" ]; then
+    pv_action_hits=$(printf '%s\n' "$pv_doc_files" | xargs -d '\n' grep -HnE \
+        '(^|[^A-Za-z0-9_-])action=|platform\.[a-z0-9_]+`?[[:space:]]+((with[[:space:]]+)?action([[:space:]]*[:=]|[[:space:]]+[`"'"'"'])|`[a-z0-9_]+`)' \
+        2>/dev/null || true)
+fi
+if [ -z "$pv_doc_files" ]; then
+    echo -e "${RED}✗ FAIL${NC} (no tracked skill/CLAUDE.md files found — broken lister, not a clean tree)"
+    failed_checks=$((failed_checks + 1))
+elif [ -z "$pv_action_hits" ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} ($(printf '%s\n' "$pv_action_hits" | grep -c .) line(s); each action is its own tool — call it by name with its own params:)"
+    printf '%s\n' "$pv_action_hits" | sed 's/^/    /'
+    failed_checks=$((failed_checks + 1))
+fi
+
+# (b) Every `platform.<name>` token in a tracked skill/CLAUDE.md resolves to a tool in
+# docs/reference/auto/mcp-tools.md. The catalog heads each tool `### \`<name>\`` with
+# NO `platform.`/`platform_` prefix (system tools keep their own `system_` stem), so the
+# token's suffix is compared verbatim. The catalog is the public-bundle rendering
+# (POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0), matching the public scan scope above.
+# Only a complete identifier inside backticks counts: `platform.system_*` (a glob) and
+# `platform.<name>` (a placeholder) are skipped, the former by rejecting a token that
+# continues with `*`, `<` or `{`, the latter because `<` is not an identifier char.
+# The catalog freshness check above keeps the catalog itself honest; this keeps the
+# prose honest against it. FAIL CLOSED when the catalog is missing or parses to nothing.
+pv_catalog="docs/reference/auto/mcp-tools.md"
+total_checks=$((total_checks + 1))
+echo -n "Checking: Every \`platform.<tool>\` in skills/CLAUDE.md exists in the MCP catalog... "
+pv_catalog_names=$(sed -nE 's/^### `([a-z0-9_]+)`$/\1/p' "$pv_catalog" 2>/dev/null | sort -u || true)
+if [ -z "$pv_catalog_names" ]; then
+    echo -e "${RED}✗ FAIL${NC} (catalog missing or unparseable: $pv_catalog)"
+    failed_checks=$((failed_checks + 1))
+else
+    pv_unresolved=""
+    while IFS= read -r pv_hit; do
+        [ -n "$pv_hit" ] || continue
+        pv_tok="${pv_hit##*\`platform.}"
+        case "$pv_tok" in *'*'|*'<'|*'{') continue ;; esac
+        if ! printf '%s\n' "$pv_catalog_names" | grep -qxF "$pv_tok"; then
+            pv_unresolved+="${pv_hit%%:\`platform.*}:platform.${pv_tok}"$'\n'
+        fi
+    done < <(printf '%s\n' "$pv_doc_files" | sed '/^$/d' \
+                | xargs -r -d '\n' grep -HnoE '`platform\.[a-z0-9_]+[*<{]?' 2>/dev/null || true)
+    if [ -z "$pv_unresolved" ]; then
+        echo -e "${GREEN}✓ PASS${NC}"
+        passed_checks=$((passed_checks + 1))
+    else
+        echo -e "${RED}✗ FAIL${NC} ($(printf '%s' "$pv_unresolved" | grep -c .) reference(s) to a tool the catalog does not have:)"
+        printf '%s' "$pv_unresolved" | sed 's/^/    /'
+        failed_checks=$((failed_checks + 1))
+    fi
+fi
+
+# (c) + (d) scan the Anthropic request builders in BOTH apps with one awk walker.
+# Files whose every method builds for Anthropic are scanned whole (mode=all); files that
+# mix providers (worker client.rb, the worker chat concerns) are scanned only inside
+# methods whose name contains `anthropic` (mode=defs), so the OpenAI/Ollama builders
+# beside them — which legitimately write temperature and force tools — are not read.
+# Comment lines and `def` lines are skipped. Specs are not scanned. FAIL CLOSED when a
+# listed builder file is missing: a moved builder would otherwise disarm the check.
+pv_anthropic_all="server/app/services/ai/llm/adapters/anthropic_adapter.rb server/app/services/ai/llm/anthropic_messages.rb server/app/services/ai/llm/model_capabilities.rb worker/app/services/ai/llm/anthropic_messages.rb worker/app/services/ai/llm/model_capabilities.rb"
+pv_anthropic_defs="worker/app/services/ai/llm/client.rb worker/app/jobs/concerns/chat_streaming_concern.rb worker/app/jobs/concerns/chat_fallback_providers_concern.rb"
+pv_anthropic_missing=""
+for f in $pv_anthropic_all $pv_anthropic_defs; do [ -r "$f" ] || pv_anthropic_missing+="$f "; done
+# Exempt: the body of apply_anthropic_request_gate! (the one sanctioned writer), and the
+# arguments of a call to it (tracked by paren depth from the call's opening paren).
+pv_anthropic_awk='
+FNR == 1 { indef = (mode == "all"); ingate = 0; depth = 0; cur = "" }
+{
+    line = $0
+    if (line ~ /^[[:space:]]*#/) next
+    if (match(line, /^[[:space:]]*def[[:space:]]+(self\.)?[A-Za-z0-9_!?]+/)) {
+        cur = substr(line, RSTART, RLENGTH); sub(/^[[:space:]]*def[[:space:]]+(self\.)?/, "", cur)
+        indef = (mode == "all") || (cur ~ /anthropic/)
+        next
+    }
+    if (cur == "apply_anthropic_request_gate!") next
+    seg = line
+    if (!ingate && line ~ /apply_anthropic_request_gate!\(/) { ingate = 1; depth = 0; seg = substr(line, index(line, "apply_anthropic_request_gate!(")) }
+    if (ingate) {
+        o = gsub(/\(/, "(", seg); c = gsub(/\)/, ")", seg); depth += o - c
+        if (depth <= 0) ingate = 0
+        next
+    }
+    if (indef && line ~ pat) printf "%s:%d:%s\n", FILENAME, FNR, line
+}'
+pv_anthropic_scan() {   # $1 = ERE flagged on in-scope code lines
+    awk -v mode=all -v pat="$1" "$pv_anthropic_awk" $pv_anthropic_all 2>/dev/null || true
+    awk -v mode=defs -v pat="$1" "$pv_anthropic_awk" $pv_anthropic_defs 2>/dev/null || true
+}
+
+# (c) No forced tool choice on the Anthropic path. `tool_choice: {type: "any"}` or
+# `{type: "tool", name: ...}` 400s on current Claude models ("tool_choice: type tool and
+# any are not supported"); both builders' anthropic_tool_choice degrade every forcing
+# intent to auto and let the prompt steer. Matches symbol, string-key and hash-rocket
+# spellings of a `type` of any/tool; `"tool_use"`/`"tool_result"` content blocks do not
+# match (the closing quote is required right after the value).
+total_checks=$((total_checks + 1))
+echo -n "Checking: Anthropic builders never force tool use (tool_choice type any/tool)... "
+if [ -n "$pv_anthropic_missing" ]; then
+    echo -e "${RED}✗ FAIL${NC} (Anthropic builder file(s) MISSING — update the list in this check: $pv_anthropic_missing)"
+    failed_checks=$((failed_checks + 1))
+else
+    pv_tc_hits=$(pv_anthropic_scan '(^|[^A-Za-z0-9_])["'"'"']?type["'"'"']?[[:space:]]*(:|=>)[[:space:]]*(["'"'"'](any|tool)["'"'"']|:(any|tool)([^A-Za-z0-9_]|$))')
+    if [ -z "$pv_tc_hits" ]; then
+        echo -e "${GREEN}✓ PASS${NC}"
+        passed_checks=$((passed_checks + 1))
+    else
+        echo -e "${RED}✗ FAIL${NC} (forced tool_choice 400s on current Claude models; emit auto/none only:)"
+        printf '%s\n' "$pv_tc_hits" | sed 's/^/    /'
+        failed_checks=$((failed_checks + 1))
+    fi
+fi
+
+# (d) No temperature/top_p written into an Anthropic body except by
+# ModelCapabilities.apply_anthropic_request_gate!, which drops them on adaptive-only
+# models (they 400 there). The legitimate shape is passing them AS ARGUMENTS to the gate
+# (`temperature: opts[:temperature], top_p: opts[:top_p]`), which the walker exempts.
+# Flagged: a `temperature:`/`top_p:` hash key or kwarg outside a gate call, an
+# assignment `body[:temperature] =` (also `||=`), and string-keyed `"temperature" =>` /
+# `["temperature"]`. A read such as `opts[:temperature]` is not flagged.
+total_checks=$((total_checks + 1))
+echo -n "Checking: Anthropic bodies get temperature/top_p only via apply_anthropic_request_gate!... "
+if [ -n "$pv_anthropic_missing" ]; then
+    echo -e "${RED}✗ FAIL${NC} (Anthropic builder file(s) MISSING — update the list in this check: $pv_anthropic_missing)"
+    failed_checks=$((failed_checks + 1))
+else
+    pv_samp_hits=$(pv_anthropic_scan '(^|[^A-Za-z0-9_])(temperature|top_p)[[:space:]]*:([^:]|$)|\[:(temperature|top_p)\][[:space:]]*(\|\||&&)?=([^=~]|$)|["'"'"'](temperature|top_p)["'"'"'][[:space:]]*(=>|\])')
+    if [ -z "$pv_samp_hits" ]; then
+        echo -e "${GREEN}✓ PASS${NC}"
+        passed_checks=$((passed_checks + 1))
+    else
+        echo -e "${RED}✗ FAIL${NC} (sampling params bypass the capability gate and 400 on adaptive-only models; pass them to apply_anthropic_request_gate!:)"
+        printf '%s\n' "$pv_samp_hits" | sed 's/^/    /'
+        failed_checks=$((failed_checks + 1))
+    fi
+fi
+
+# (e) No `$VAR` in a skill without a definition line in the same file. Shell state does
+# not carry between Bash tool calls and the harness exports almost nothing, so a skill
+# that says `cd $PROJECT_DIR` without first assigning it runs `cd` with an empty
+# argument (the audit skill did exactly that before it grew its own assignment).
+# Definition forms accepted: `VAR=`, `export VAR`, `local VAR`, `readonly VAR`,
+# `declare VAR`, `read [-flags] VAR`, `for VAR in`, and `${VAR:=`.
+# Upper-case names only; lower-case loop/positional variables are out of scope.
+# Allowlist, kept small on purpose:
+#   HOME PATH PWD OLDPWD USER LOGNAME SHELL TMPDIR LANG HOSTNAME — set by any login shell
+#   CI — set by every CI runner this repo uses
+#   ARGUMENTS CLAUDE_SESSION_ID CLAUDE_SKILL_DIR — substituted into skill text by the
+#     harness itself before any shell sees it
+# NOT allowlisted: CLAUDE_PROJECT_DIR. The harness sets it for hook and statusline
+# commands (.claude/settings.json uses it there), NOT in the Bash tool's environment,
+# so a skill that relies on it gets an empty string.
+pv_env_allow=" HOME PATH PWD OLDPWD USER LOGNAME SHELL TMPDIR LANG HOSTNAME CI ARGUMENTS CLAUDE_SESSION_ID CLAUDE_SKILL_DIR "
+total_checks=$((total_checks + 1))
+echo -n "Checking: Every \$VAR used in a skill is defined in that skill... "
+pv_env_hits=""
+while IFS= read -r sf; do
+    [ -n "$sf" ] && [ -r "$sf" ] || continue
+    for v in $(grep -oE '\$\{?[A-Z_][A-Z0-9_]*' "$sf" 2>/dev/null | sed -E 's/^\$\{?//' | sort -u); do
+        case "$pv_env_allow" in *" $v "*) continue ;; esac
+        if ! grep -qE "(^|[^A-Za-z0-9_\$])${v}=|(export|local|readonly|declare)([[:space:]]+-[A-Za-z]+)*[[:space:]]+${v}([^A-Za-z0-9_]|\$)|read([[:space:]]+-[A-Za-z]+)*[[:space:]]+([A-Za-z_]+[[:space:]]+)*${v}([^A-Za-z0-9_]|\$)|for[[:space:]]+${v}[[:space:]]+in|\\\$\\{${v}:=" "$sf" 2>/dev/null; then
+            pv_env_hits+="${sf}: \$${v}"$'\n'
+        fi
+    done
+done <<< "$pv_skill_files"
+if [ -z "$pv_skill_files" ]; then
+    echo -e "${RED}✗ FAIL${NC} (no tracked skill files found — broken lister, not a clean tree)"
+    failed_checks=$((failed_checks + 1))
+elif [ -z "$pv_env_hits" ]; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (variable(s) used but never assigned in the skill — assign them in the same Bash block, e.g. VAR=\"\$(git rev-parse --show-toplevel)\":)"
+    printf '%s' "$pv_env_hits" | sed 's/^/    /'
+    failed_checks=$((failed_checks + 1))
+fi
+
+echo ""
 echo -e "${BLUE}## File Organization${NC}"
 # Model-agnostic enforcement of the "NEVER save files to project root" rule
 # (recall knowledge guidance-file-organization). Loose docs/reports/scratch files must
