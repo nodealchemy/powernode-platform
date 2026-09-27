@@ -55,7 +55,7 @@ RSpec.describe Ai::Tools::AgentMemoryManagementTool do
       result = recall(query: "deploy", include_team: true)
 
       expect(result[:success]).to be true
-      keys = result[:results].map { |r| r[:key] }
+      keys = result[:data][:results].map { |r| r[:key] }
       expect(keys).to contain_exactly("deploy.window", "deploy.freeze")
     end
 
@@ -63,7 +63,7 @@ RSpec.describe Ai::Tools::AgentMemoryManagementTool do
       result = recall(query: "deploy")
 
       expect(result[:success]).to be true
-      expect(result[:count]).to eq(0)
+      expect(result[:data][:count]).to eq(0)
     end
   end
 end
