@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'rails_helper'
+require 'benchmark'
 
 RSpec.describe RequestInspector do
   let(:downstream_called) { [] }
@@ -181,24 +182,17 @@ RSpec.describe RequestInspector do
     end
   end
 
-  # Driver audit (same hotfix): the SQL SELECT...FROM / DELETE...FROM /
-  # INSERT...INTO / UPDATE...SET rules used an unbounded `.*` between the
-  # two keywords, which also matches ordinary sentences in a free-text
-  # search/filter param — the same "matches prose, not attack syntax"
-  # defect class as the XSS rule above.
-  describe 'free-text search params containing SQL keywords in prose do not false-positive' do
-    [
-      'q=please select a region from the list below',
-      'q=insert a new record into the queue',
-      'search=how do I delete files from the archive',
-      'q=update your account and set your preferences'
-    ].each do |query|
-      it "scores #{query.inspect} as clean" do
-        result = inspect_query(query)
-        expect(result[:score]).to eq(0), "expected score 0, threats=#{result[:threats].inspect}"
-      end
-    end
-  end
+  # Round 2 (reviewer CHANGES REQUIRED on the round-1 fix): round 1 added a
+  # negative lookahead to the SQL keyword-pair rules to stop them firing on
+  # free-text search-param prose ("select a region from the list"). The
+  # reviewer found that lookahead disables Ruby 3.2's linear-time regex
+  # matcher (100KB of repeated "select " went from 0.003s to 43.7s), and it
+  # runs on POST bodies up to 10MB, pre-auth — a HIGH-severity ReDoS. That
+  # change was REVERTED; the SQL-prose false positive was never the
+  # reported incident (the XSS rule below was) and is tracked separately.
+  # There is deliberately NO "SQL prose does not false-positive" spec here
+  # any more — asserting that behavior would just re-encode the reverted,
+  # unsafe fix.
 
   describe 'real attacks are still flagged after the false-positive fixes' do
     it 'flags an onerror handler inside an actual HTML tag' do
@@ -209,6 +203,21 @@ RSpec.describe RequestInspector do
 
     it 'flags the URL-encoded form of the same payload (query string is decoded before matching)' do
       result = inspect_query('q=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E')
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+
+    # Round 2 (reviewer, finding #4): the round-1 pattern, /<[^>]*\bon[a-z]+\s*=/i,
+    # stopped scanning at the FIRST '>' — including one INSIDE a quoted
+    # attribute value — so it never reached "onerror=" here. The round-1
+    # rule did NOT catch this; the round-2 rule (quoted-span-aware) does.
+    it 'flags an onerror handler with a quoted ">" earlier in the tag (missed by the round-1 rule)' do
+      round1_rule = /<[^>]*\bon[a-z]+\s*=/i
+      payload = 'q=<img alt=">" onerror=alert(1)>'
+
+      expect(payload).not_to match(round1_rule)
+
+      result = inspect_query(payload)
       expect(result[:suspicious]).to be(true)
       expect(result[:threats].map { |t| t[:type] }).to include(:xss)
     end
@@ -228,9 +237,135 @@ RSpec.describe RequestInspector do
       expect(result[:threats].map { |t| t[:type] }).to include(:sql_injection)
     end
 
+    # Positive coverage for the three OTHER sql_injection rules — round 2
+    # (reviewer, finding #5): the only existing SQL attack spec matched via
+    # the untouched UNION...SELECT branch, so nothing exercised
+    # SELECT...FROM, DELETE...FROM, INSERT...INTO or UPDATE...SET at all
+    # (a mutant breaking any of those three would have gone undetected).
+    it 'flags SELECT...FROM, DELETE...FROM, INSERT...INTO and UPDATE...SET individually' do
+      {
+        'id=1 SELECT password FROM users' => 'SELECT...FROM',
+        'id=1 DELETE FROM users' => 'DELETE...FROM',
+        'id=1 INSERT INTO users VALUES(1)' => 'INSERT...INTO',
+        "id=1 UPDATE users SET password='x'" => 'UPDATE...SET'
+      }.each do |query, label|
+        result = inspect_query(query)
+        expect(result[:threats].map { |t| t[:type] }).to include(:sql_injection),
+          "expected #{label} (#{query.inspect}) to flag sql_injection, threats=#{result[:threats].inspect}"
+      end
+    end
+
     it 'flags path traversal' do
       result = inspect_query('file=../../../../etc/passwd')
       expect(result[:threats].map { |t| t[:type] }).to include(:path_traversal)
+    end
+  end
+
+  # Round 2 (reviewer, finding #1, HIGH): CGI.unescape("%FF") produces a
+  # string with an invalid UTF-8 byte; matching a pattern against it used
+  # to raise ArgumentError, which escaped inspect_request and was swallowed
+  # by #call's own top-level rescue — passing the request through
+  # completely UNINSPECTED (no body check, no UA check, no rate tracking).
+  # A single stray %FF anywhere in the query string was a full bypass.
+  describe 'invalid percent-encoded bytes cannot bypass inspection' do
+    it 'does not raise on an invalid UTF-8 byte' do
+      expect { inspect_query('x=%FF') }.not_to raise_error
+    end
+
+    it 'still flags a real attack elsewhere in the same query string as an invalid byte' do
+      result = inspect_query('x=%FF&id=1 UNION SELECT password FROM users')
+
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:sql_injection)
+    end
+
+    it 'still flags a real XSS attack in a different param from the invalid byte' do
+      result = inspect_query('x=%FF&q=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E')
+
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:xss)
+    end
+
+    # Round 2 (reviewer, finding #1 body surface): the same class of
+    # exception must not be reachable via the request BODY either — the
+    # body is scrubbed before matching, same as the query string.
+    it 'does not raise on an invalid UTF-8 byte in the request body, and still flags a real attack in it' do
+      body = "\xFF id=1 UNION SELECT password FROM users"
+      env = Rack::MockRequest.env_for('/api/v1/widgets', method: 'POST', input: body)
+      env['REMOTE_ADDR'] = '203.0.113.7'
+      env['HTTP_USER_AGENT'] = 'Mozilla/5.0 (X11; Linux x86_64)'
+      env['HTTP_ACCEPT'] = 'application/json'
+
+      result = nil
+      expect { result = middleware.send(:inspect_request, Rack::Request.new(env)) }.not_to raise_error
+      expect(result[:suspicious]).to be(true)
+      expect(result[:threats].map { |t| t[:type] }).to include(:sql_injection)
+    end
+  end
+
+  # Round 2 (reviewer, finding #3, MEDIUM): round 1 decoded the WHOLE query
+  # string once and matched EVERY rule (not just xss) against the decoded
+  # form, which turned ordinary encoded values into new false positives —
+  # an encoded backtick/space is not an attack. Non-xss rules now run
+  # against the raw, still-encoded string, same as before this hotfix.
+  describe 'decoding does not introduce new false positives on non-XSS rules' do
+    it 'does not flag an encoded backtick pair as command_injection' do
+      result = inspect_query('q=%60rails%20console%60')
+
+      expect(result[:threats].map { |t| t[:type] }).not_to include(:command_injection)
+      expect(result[:score]).to eq(0), "expected score 0, threats=#{result[:threats].inspect}"
+    end
+
+    it 'does not flag an encoded prose value as sql_injection' do
+      result = inspect_query('q=select%20all%20items%20from%20inventory')
+
+      expect(result[:threats].map { |t| t[:type] }).not_to include(:sql_injection)
+      expect(result[:score]).to eq(0), "expected score 0, threats=#{result[:threats].inspect}"
+    end
+  end
+
+  # Round 2 (reviewer, finding #4, second half): decoding the WHOLE query
+  # string as one blob let a '<' in one param's value combine with an
+  # unrelated "on...=" NAME in a LATER param into a false tag match.
+  # Decoding per parameter, independently, means a value can never see a
+  # different param's name or value.
+  describe 'a stray "<" in one param cannot combine with a different param\'s name' do
+    it 'does not flag q=a<b alongside an unrelated online= param' do
+      result = inspect_query('q=a%3Cb&online=true')
+
+      expect(result[:threats].map { |t| t[:type] }).not_to include(:xss)
+      expect(result[:score]).to eq(0), "expected score 0, threats=#{result[:threats].inspect}"
+    end
+  end
+
+  # Round 2 (reviewer, findings #2 and #4): the round-1 lookahead disabled
+  # Ruby 3.2's linear-time regex matcher for the SQL rules; the round-2 XSS
+  # rule adds a quoted-span alternation and must not repeat that mistake.
+  # Both are asserted to complete well inside a generous bound on
+  # adversarial input designed to maximize backtracking.
+  describe 'pattern matching stays linear-time (no ReDoS) on adversarial input' do
+    it 'matches the XSS event-handler rule in well under half a second on 100KB of "<"' do
+      input = "q=#{'<' * 100_000}"
+
+      elapsed = Benchmark.realtime { middleware.send(:check_query_string_xss, input, { threats: [], score: 0 }) }
+
+      expect(elapsed).to be < 0.5
+    end
+
+    it 'matches the XSS event-handler rule in well under half a second on 100KB of quote-heavy input' do
+      input = "q=#{'<a \"' * 25_000}"
+
+      elapsed = Benchmark.realtime { middleware.send(:check_query_string_xss, input, { threats: [], score: 0 }) }
+
+      expect(elapsed).to be < 0.5
+    end
+
+    it 'matches the (reverted, unbounded) SQL rules in well under half a second on 100KB of "select "' do
+      request = Rack::Request.new(build_env(query: "q=#{'select ' * 14_000}"))
+
+      elapsed = Benchmark.realtime { middleware.send(:inspect_request, request) }
+
+      expect(elapsed).to be < 0.5
     end
   end
 

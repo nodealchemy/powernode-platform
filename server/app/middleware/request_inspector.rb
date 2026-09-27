@@ -10,54 +10,55 @@ class RequestInspector
   # CONFIGURATION
   # =========================================================================
 
-  # Natural-language filler words that follow FROM/INTO/SET in ordinary
-  # prose ("select a region FROM THE list", "insert a record INTO THE
-  # queue", "set YOUR preferences") but essentially never precede a table,
-  # column or value name in actual SQL syntax ("FROM users",
-  # "SET password = ?"). Used below to keep the two-keyword co-occurrence
-  # rules from firing on free-text search/filter param values.
-  SQL_NATURAL_LANGUAGE_FOLLOWERS = /(?:the|a|an|your|my|our|this|these|those|some|any)\b/i
-
   # Suspicious patterns that indicate potential attacks
   SUSPICIOUS_PATTERNS = {
-    # SQL Injection patterns
+    # SQL Injection patterns.
     #
-    # 2026-09-27 (hotfix, operator IP-blocked twice on ops-hub): the
-    # SELECT...FROM / DELETE...FROM / INSERT...INTO / UPDATE...SET rules
-    # used an unbounded `.*` between the two keywords, which matches an
-    # entire ordinary sentence in a free-text search/filter param just as
-    # readily as real SQL ("please select a region from the list below"
-    # scored as sql_injection). UNION...SELECT and DROP...TABLE are left
-    # unbounded — neither co-occurs in ordinary prose — and the negative
-    # lookahead only excludes the specific "keyword followed by a filler
-    # word" shape prose uses, so "SELECT password FROM users",
-    # "DELETE FROM users", "INSERT INTO users" and "UPDATE users SET x"
-    # (no filler word after FROM/INTO/SET) are unaffected.
+    # 2026-09-27 hotfix, round 2 (reviewer CHANGES REQUIRED on the round-1
+    # fix): round 1 added a negative lookahead to SELECT...FROM /
+    # DELETE...FROM / INSERT...INTO / UPDATE...SET to stop them firing on
+    # free-text search-param prose ("select a region from the list"). The
+    # reviewer found that lookahead disables Ruby 3.2's linear-time regex
+    # matcher — 100KB of repeated "select " took 43.7s (vs 0.003s at 10KB
+    # for the original rule), and this runs on POST bodies up to 10MB,
+    # pre-auth. REVERTED to the original, unbounded form: the SQL-prose
+    # false positive was never the reported incident (that was the XSS
+    # rule below) and is tracked as a separate follow-up.
     sql_injection: [
-      /(\bUNION\b.*\bSELECT\b|\bSELECT\b.*\bFROM\b(?!\s+#{SQL_NATURAL_LANGUAGE_FOLLOWERS}))/i,
-      /(\bDROP\b.*\bTABLE\b|\bDELETE\b.*\bFROM\b(?!\s+#{SQL_NATURAL_LANGUAGE_FOLLOWERS}))/i,
-      /(\bINSERT\b.*\bINTO\b(?!\s+#{SQL_NATURAL_LANGUAGE_FOLLOWERS})|\bUPDATE\b.*\bSET\b(?!\s+#{SQL_NATURAL_LANGUAGE_FOLLOWERS}))/i,
+      /(\bUNION\b.*\bSELECT\b|\bSELECT\b.*\bFROM\b)/i,
+      /(\bDROP\b.*\bTABLE\b|\bDELETE\b.*\bFROM\b)/i,
+      /(\bINSERT\b.*\bINTO\b|\bUPDATE\b.*\bSET\b)/i,
       /(\b1\s*=\s*1\b|\b1\s*=\s*'1'\b)/i,
       /(\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)/i
     ],
 
-    # XSS patterns
+    # XSS patterns.
     #
-    # 2026-09-27 (hotfix): the event-handler rule used to be
-    # /on\w+\s*=/i, matched against the raw query string with no markup
-    # context at all — it fired on ANY "on<word>=" param, which includes
-    # ordinary param names built by tacking a suffix onto "on" purely by
-    # coincidence of English (environment=, version_id=, action_category=,
+    # 2026-09-27 hotfix: the event-handler rule used to be /on\w+\s*=/i,
+    # matched against the raw query string with no markup context at all —
+    # it fired on ANY "on<word>=" param, which includes ordinary param
+    # names built by tacking a suffix onto "on" purely by coincidence of
+    # English (environment=, version_id=, action_category=,
     # include_decisions=, region_id=, notification_type= all contain
     # "on...=" somewhere and all scored 8, crossing the suspicious
     # threshold on completely normal UI traffic and IP-blocking the
-    # operator). Real event-handler XSS only means anything inside an HTML
-    # tag, so the rule now requires that shape: an unclosed "<" followed by
-    # some non-">" tag content, then "on<letters>=".
+    # operator).
+    #
+    # Round 2 (reviewer): the round-1 replacement, /<[^>]*\bon[a-z]+\s*=/i,
+    # missed a quoted '>' inside an attribute value (`<img alt=">"
+    # onerror=alert(1)>` — the `[^>]*` stops at the FIRST '>', which is
+    # the one INSIDE the quoted alt value, so it never reaches "onerror=").
+    # This version segments the tag content into quoted spans ("...' or
+    # '...') and unquoted spans ([^>"']*), each parsed independently, so a
+    # '>' or 'on...=' inside a quoted value can't be mistaken for the tag
+    # boundary — the same technique used to keep this kind of scan linear
+    # (no ambiguous overlap between the quoted and unquoted alternatives,
+    # so no catastrophic backtracking; deliberately has NO lookaround, per
+    # the ReDoS finding on the sql_injection lookahead above).
     xss: [
       /<script\b[^>]*>/i,
       /javascript:/i,
-      /<[^>]*\bon[a-z]+\s*=/i,
+      /<[a-z!\/][^>"']*(?:(?:"[^"]*"|'[^']*')[^>"']*)*\bon[a-z]+\s*=/i,
       /<iframe\b[^>]*>/i,
       /document\.(cookie|location|write)/i
     ],
@@ -240,32 +241,95 @@ class RequestInspector
     query = request.query_string.to_s
     return if query.empty?
 
-    decoded_query = decode_query_string(query)
-
+    # Every threat class EXCEPT xss runs against the raw (still
+    # percent-encoded) query string, exactly as before this hotfix.
+    #
+    # Round 2 (reviewer): round 1 decoded the WHOLE query string once and
+    # matched every rule against the decoded form, which introduced its
+    # own false positives — an encoded backtick/space/etc turning an
+    # ordinary value into a command_injection or sql_injection hit
+    # (`q=%60rails%20console%60`, `q=select%20all%20items%20from%20inventory`)
+    # — on top of the ReDoS and invalid-UTF-8 issues below. Only the XSS
+    # rule actually needs the decoded form (an encoded onerror= attack must
+    # still be caught); every other rule stays on the raw string.
+    scrubbed_query = safe_string(query)
     SUSPICIOUS_PATTERNS.each do |threat_type, patterns|
+      next if threat_type == :xss
+
       patterns.each do |pattern|
-        if decoded_query.match?(pattern)
+        if scrubbed_query.match?(pattern)
           result[:threats] << { type: threat_type, location: "query_string", pattern: pattern.to_s }
           result[:score] += threat_score(threat_type)
         end
       end
     end
+
+    check_query_string_xss(query, result)
   end
 
-  # 2026-09-27 (hotfix): patterns used to run against the RAW (still
-  # percent-encoded) query string, which meant an encoded attack payload
-  # (e.g. "%3Cscript%3E", or an onerror handler with its "=" written
-  # "%3D") could slip past every literal-substring rule above. Decoding
-  # once, up front, lets the existing plain-text patterns catch the
-  # decoded form directly instead of needing an encoded twin of every
-  # rule. A query string that fails to decode (malformed percent-encoding)
-  # falls back to the raw string rather than raising — this runs in
-  # middleware ahead of routing, so an exception here must not take down
-  # the request.
-  def decode_query_string(query)
-    CGI.unescape(query)
+  # 2026-09-27 hotfix, round 2 (reviewer CHANGES REQUIRED). Two bugs in the
+  # round-1 whole-string decode:
+  #
+  #   1. HIGH — CGI.unescape("%FF") produces a string with an invalid UTF-8
+  #      byte, which #match? then raises ArgumentError on. That exception
+  #      escaped inspect_request entirely and was swallowed by #call's own
+  #      top-level rescue, which passes the request through COMPLETELY
+  #      UNINSPECTED (no body check, no UA check, no rate tracking) — a
+  #      single stray %FF anywhere in the query string was a full bypass.
+  #   2. A '<' in one param's value could combine with an unrelated
+  #      "on...=" NAME in a later param into a false tag match
+  #      (`q=a%3Cb&online=true` decoded as one blob reads "...a<b&online=
+  #      true...", and the tag-context rule can't tell the '<' and the
+  #      "on...=" came from different params).
+  #
+  # Decoding and matching PER PARAMETER, independently, fixes both: each
+  # piece is #scrub'd before it is ever matched (an invalid byte sequence
+  # becomes U+FFFD, never an exception — see #safe_string), and a '<' in
+  # one param's value can never see a different param's name or value.
+  def check_query_string_xss(query, result)
+    query.split(/[&;]/).each do |pair|
+      key, value = pair.split("=", 2)
+
+      [ decode_query_component(key), decode_query_component(value) ].each do |piece|
+        next if piece.nil? || piece.empty?
+
+        SUSPICIOUS_PATTERNS[:xss].each do |pattern|
+          if piece.match?(pattern)
+            result[:threats] << { type: :xss, location: "query_string", pattern: pattern.to_s }
+            result[:score] += threat_score(:xss)
+          end
+        end
+      end
+    end
+  end
+
+  # CGI.unescape itself does not raise on malformed percent-encoding (an
+  # incomplete "%2" or similar is simply left literal), but the STRING IT
+  # PRODUCES can carry an invalid byte sequence for the string's encoding
+  # (CGI.unescape("%FF") is exactly this) — #scrub fixes that up before
+  # anything ever matches against it. The rescue is defense in depth for
+  # any other decode failure; a component that fails to decode is scrubbed
+  # and matched in its raw (still-encoded) form rather than skipped.
+  def decode_query_component(component)
+    return nil if component.nil?
+
+    safe_string(CGI.unescape(component))
   rescue StandardError
-    query
+    safe_string(component)
+  end
+
+  # 2026-09-27 hotfix, round 2 (reviewer): "make sure no pattern-match
+  # exception can skip inspection ... at minimum, scrub every string
+  # before matching." An invalid byte sequence for the string's encoding
+  # makes Regexp#match?/#match? raise ArgumentError — not caught by any
+  # per-check rescue, so it propagates out of inspect_request and is
+  # swallowed by #call's top-level rescue, which lets the request through
+  # WITHOUT running any of the other checks. #scrub replaces invalid bytes
+  # with the Unicode replacement character up front, so a pattern can
+  # still fail to MATCH an attack hidden behind bad encoding, but it can
+  # never raise and skip every remaining check because of it.
+  def safe_string(value)
+    value.to_s.scrub
   end
 
   def check_request_body(request, result)
@@ -274,6 +338,10 @@ class RequestInspector
     body = request.body.read
     request.body.rewind
     return if body.empty?
+
+    # #scrub before matching — see #safe_string: an invalid byte sequence
+    # in the raw body must not raise out of every remaining check.
+    body = safe_string(body)
 
     # Check for malicious patterns in body
     SUSPICIOUS_PATTERNS.each do |threat_type, patterns|
@@ -287,7 +355,7 @@ class RequestInspector
   end
 
   def check_user_agent(request, result)
-    user_agent = request.user_agent.to_s
+    user_agent = safe_string(request.user_agent)
 
     SUSPICIOUS_USER_AGENTS.each do |pattern|
       if user_agent.match?(pattern)
