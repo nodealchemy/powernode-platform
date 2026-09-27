@@ -7,7 +7,7 @@ require "rails_helper"
 # before the column existed) keeps the stored rate instead of clearing it.
 RSpec.describe "Api::V1::Ai::Autonomy pricing update", type: :request do
   let(:account) { create(:account) }
-  let(:user)    { create(:user, account: account, permissions: %w[ai.autonomy.manage]) }
+  let(:user)    { create(:user, account: account, permissions: %w[ai.agents.read ai.autonomy.manage]) }
   let(:headers) { auth_headers_for(user) }
   let!(:pricing) do
     Ai::ModelPricing.create!(model_id: "pricing-spec-model", provider_type: "anthropic", source: "litellm",
