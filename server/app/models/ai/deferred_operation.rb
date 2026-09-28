@@ -178,7 +178,12 @@ module Ai
     # Synchronous execution. Used by AutonomyGate for auto-approved operations
     # (so the calling controller gets the result inline) and by
     # on_approval_decision after a chain completes. The result is captured in
-    # :result JSONB; row transitions to :completed (or :failed) atomically.
+    # :result JSONB; row transitions to :completed (or :failed). Not atomic:
+    # approve!, start_execution!, the executor's own writes, and complete!/
+    # fail! are each their own commit (IMP-9ce0ed39c557 — on the approval path
+    # this method now runs with no enclosing transaction at all, see below), so
+    # an executor that writes durable state and then raises leaves that write
+    # in place even though this row lands in :failed rather than :completed.
     def execute_now!
       approve! if pending?
       start_execution!
@@ -195,11 +200,15 @@ module Ai
       # left alone so a caller passing its own payload still controls it.
       #
       # The APPROVAL path has no :proceed branch to render on (IMP-7b81ca22f661):
-      # the requester got `pending: true` and left, and this method runs later
-      # inside Ai::ApprovalRequest#notify_source_of_decision on an instance that
-      # callback discards, so `result_data` below returns to nobody. Handing it
-      # to the one-shot slot is what makes "exactly once" survive deferral —
-      # zero reveals, not one, is what redaction alone would produce there.
+      # the requester got `pending: true` and left, and this method now runs
+      # later from Ai::ApprovalRequest#dispatch_to_source!, itself deferred to
+      # ActiveRecord.after_all_transactions_commit (IMP-9ce0ed39c557) — by the
+      # time it runs, the decision's own transaction has already committed and
+      # nothing wraps this call, so `result_data` below returns to nobody, and
+      # this instance is a fresh find_by, not the one the callback loaded
+      # pre-commit. Handing it to the one-shot slot is what makes "exactly
+      # once" survive deferral — zero reveals, not one, is what redaction
+      # alone would produce there.
       @revealed_result = result_data
       complete!(::Ai::SensitiveParams.filter(result_data || {}))
       result_data

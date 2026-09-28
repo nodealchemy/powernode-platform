@@ -459,5 +459,84 @@ RSpec.describe Ai::ApprovalRequest, type: :model do
       expect(req.status).to eq('approved')
       expect(req.execution_status).to be_nil
     end
+
+    # IMP-9ce0ed39c557. All five on_approval_decision implementers on
+    # origin/develop (Ai::AgentProposal, Ai::CampaignLand,
+    # Ai::DeferredOperation, Ai::ImprovementRecommendation, Ai::Mission) are
+    # invoked from the single #notify_source_of_decision call site this
+    # describes. Ai::DeferredOperation is the generic dispatcher every
+    # extension gated verb replays through (e.g. system reboot/stop/start via
+    # a provider adapter, attach_storage's SSH step, promote_replica) — its
+    # `executor_class` is just a string naming an ::execute(params,
+    # deferred_operation:) callable, so exercising it here with a stub
+    # executor (as the rest of this describe block already does) covers every
+    # such verb without core depending on the extension that defines it. The
+    # other four implementers' own #on_approval_decision method bodies are
+    # untouched by this change (only the call site that invokes them moves);
+    # their existing specs (agent_proposal_spec.rb's gateway-cascade block,
+    # campaign_land_spec.rb, improvement_recommendation_spec.rb,
+    # mission_spec.rb) are run alongside this file as this task's regression
+    # evidence.
+    #
+    # Before this fix, on_approval_decision (and the capture/declare calls
+    # after it) ran synchronously inside the status-flip's own transaction —
+    # pre-commit. A real side effect an implementer performs (e.g. running a
+    # command over SSH) already happened by the time that transaction was
+    # decided; if something then rolled that transaction back, the side
+    # effect could not be undone, but the declared outcome (execution_status,
+    # the operation's own status, any Ai::ExecutionEvent) silently vanished
+    # with it — a command that ran with no record that it had. Deferring the
+    # whole approved-arm dispatch to ActiveRecord.after_all_transactions_commit
+    # means a rollback now means NEITHER the side effect nor its declaration
+    # happens: the dispatch simply never fires.
+    context 'approved-arm dispatch is deferred to after commit' do
+      it 'never invokes the executor when an enclosing transaction rolls back' do
+        op = gated_operation('SucceedingPerformer')
+        req = request_for(op)
+        allow(SucceedingPerformer).to receive(:execute).and_call_original
+
+        expect {
+          ActiveRecord::Base.transaction do
+            req.record_decision!(approver: user, decision: 'approved')
+            raise ActiveRecord::Rollback
+          end
+        }.not_to raise_error
+
+        expect(SucceedingPerformer).not_to have_received(:execute)
+        expect(req.reload.status).to eq('pending')
+        expect(req.execution_status).to be_nil
+        expect(op.reload.status).to eq('pending')
+      end
+
+      it 'invokes the executor only once every transaction open at decision time has closed' do
+        op = gated_operation('SucceedingPerformer')
+        req = request_for(op)
+        open_txn_count_at_dispatch = nil
+
+        allow(SucceedingPerformer).to receive(:execute) do |params, deferred_operation:|
+          open_txn_count_at_dispatch = ActiveRecord.all_open_transactions.size
+          { performed: true, params: params }
+        end
+
+        req.record_decision!(approver: user, decision: 'approved')
+
+        # The row-lock transaction record_decision! opened for the decision
+        # itself (the only joinable transaction a plain transactional-fixture
+        # test has open) must already be closed by dispatch time.
+        expect(open_txn_count_at_dispatch).to eq(0)
+      end
+
+      it 'still declares the same outcome as before once the (unwrapped) decision transaction commits' do
+        op = gated_operation('SucceedingPerformer')
+        req = request_for(op)
+
+        req.record_decision!(approver: user, decision: 'approved')
+
+        req.reload
+        expect(req.status).to eq('approved')
+        expect(req.execution_status).to eq('succeeded')
+        expect(op.reload.status).to eq('completed')
+      end
+    end
   end
 end

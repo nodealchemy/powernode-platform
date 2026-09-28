@@ -341,18 +341,55 @@ module Ai
     # See DISPATCH_EXECUTED / DISPATCH_NOOP for the reply vocabulary and why the
     # source reports instead of the caller guessing.
     #
-    # Known residual, deliberately out of scope here: this callback fires
-    # pre-commit inside the status-flip's own transaction, so an executor
-    # failing at the DATABASE level (RecordNotUnique/StatementInvalid) aborts
-    # that transaction and the declaration writes below no-op — and the status
-    # flip itself rolls back with them. Declaring that class requires either a
-    # savepoint around the dispatch (which would change what an executor's
-    # partial writes and the operation's own fail! survive) or an off-
-    # transaction sink; both alter semantics this change is pinned not to touch.
+    # IMP-9ce0ed39c557: this callback previously fired pre-commit, inside the
+    # status-flip's own transaction. A source's #on_approval_decision can run
+    # a real, irreversible side effect (an out-of-band SSH command, a provider
+    # API call) — running that mid-transaction meant a caller who wraps
+    # record_decision! in a further transaction and later rolls it back could
+    # not undo the side effect, yet the declaration writes below (execution_
+    # status, the operation's own status, any Ai::ExecutionEvent) rolled back
+    # with it: a command that ran with no record that it had.
+    #
+    # On the approved arm only, the dispatch (on_approval_decision, the result
+    # capture, and the outcome declaration — or, on failure, the failure
+    # declaration) is deferred to ActiveRecord.after_all_transactions_commit,
+    # so it runs once every transaction open at decision time has actually
+    # committed, and never at all if one of them rolls back instead. Rejected
+    # and expired notifications are not a real-world side effect (nothing to
+    # protect from an uncommitted state) and stay inline, as before.
     def notify_source_of_decision
       return unless %w[approved rejected expired].include?(status)
       return if source_type.blank? || source_id.blank?
 
+      klass = source_type.safe_constantize
+      return unless klass.respond_to?(:find_by)
+
+      source = klass.find_by(id: source_id)
+      return unless source.respond_to?(:on_approval_decision)
+
+      unless approved?
+        outcome = source.on_approval_decision(self)
+        capture_revealed_result!(source)
+        declare_dispatch_outcome!(outcome)
+        return
+      end
+
+      ActiveRecord.after_all_transactions_commit { dispatch_to_source! }
+    rescue StandardError => e
+      Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
+      declare_execution_failure!(e) if approved?
+    end
+
+    # The approved-arm dispatch, run from inside the after_all_transactions_commit
+    # block above — its own rescue, not the one in notify_source_of_decision,
+    # is what applies once that block has fired (the caller has long since
+    # returned by then). Re-resolves the source from source_type/source_id
+    # rather than closing over the object notify_source_of_decision already
+    # looked up: that object was read before the transaction committed, so by
+    # the time this runs it may be stale (a concurrent writer, or the source's
+    # own commit-time side effects) — on_approval_decision must act on the
+    # source as it is now, not as it was pre-commit.
+    def dispatch_to_source!
       klass = source_type.safe_constantize
       return unless klass.respond_to?(:find_by)
 
@@ -364,7 +401,7 @@ module Ai
       declare_dispatch_outcome!(outcome)
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
-      declare_execution_failure!(e) if approved?
+      declare_execution_failure!(e)
     end
 
     # Take the source's one-shot reveal onto this instance before `source` goes
@@ -406,10 +443,14 @@ module Ai
       declare_execution_outcome!("succeeded")
     end
 
-    # Direct column write: this runs inside the status-flip's own after_update,
-    # so re-entering the callback chain (or validations) via update! is the one
-    # thing it must not do. Never raises — the enclosing rescue's contract is
-    # that a declaration problem cannot take down the decision itself.
+    # Direct column write. On the rejected/expired arms this still runs inside
+    # the status-flip's own after_update, so re-entering the callback chain
+    # (or validations) via update! is the one thing it must not do; on the
+    # approved arm (IMP-9ce0ed39c557) it now runs from the deferred dispatch,
+    # after that transaction has already committed, but update_columns is used
+    # unconditionally either way so both arms share one code path. Never
+    # raises — the enclosing rescue's contract is that a declaration problem
+    # cannot take down the decision itself.
     def declare_execution_outcome!(outcome, error: nil)
       detail = error ? "#{error.class}: #{error.message}" : nil
       update_columns(execution_status: outcome, execution_error: detail,
