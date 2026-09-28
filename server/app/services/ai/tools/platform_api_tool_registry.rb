@@ -79,6 +79,14 @@ module Ai
         "system_stop_instance" => "Ai::Tools::SystemFleetTool",
         "system_reboot_instance" => "Ai::Tools::SystemFleetTool",
         "system_upgrade_boot_image" => "Ai::Tools::SystemFleetTool",
+        # IMP-9ce0ed39c557 — the governed out-of-band exec verb. Approval-
+        # gated (declare_action, system.instance.out_of_band_exec) and
+        # denied outright to every instance principal
+        # (Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS' *system_out_of_band_exec*
+        # entry) — without this row the declaration is inert the same way
+        # the DR lane's would be: BaseTool#execute is only reached because
+        # this map routes the action name onto the serving class.
+        "system_out_of_band_exec" => "Ai::Tools::SystemFleetTool",
         # IMP-b2f80e6d1c65 — operator ops hold (2026-07-27 incident response):
         # had ACTION_PERMISSIONS + dispatch but no registry key, so it was
         # reachable only by smuggling the action into another tool's name.

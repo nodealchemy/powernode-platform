@@ -192,8 +192,16 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # were declared destructive with no overlay entry: bulk verbs over up to
     # a whole account's knowledge or learnings in one call. LITERAL, like the
     # three above. Collateral pinned below: exactly those two registry keys.
+    #
+    # 25 since IMP-9ce0ed39c557 added *system_out_of_band_exec* — the
+    # governed out-of-band SSH exec verb (System::Executors::OutOfBandExec,
+    # gated under system.instance.out_of_band_exec). Out-of-band root command
+    # execution on a fleet node must never be self-grantable by an instance
+    # principal — the same reasoning *replace_instance* and *reap_* already
+    # apply to other node-lifecycle primitives, just for arbitrary code
+    # execution instead. Collateral pinned below: exactly one registry key.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(24)
+      expect(patterns.size).to eq(25)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -251,6 +259,20 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
       end
 
       expect(denied.sort).to eq(literals.sort)
+    end
+
+    # Same mechanical collateral check as *replace_instance* above. Substring-
+    # anchored (not bare-word) because the verb name itself is long and
+    # specific enough that nothing else in the registry could contain it —
+    # pinned here rather than asserted from prose.
+    it "denies exactly system_out_of_band_exec with the *system_out_of_band_exec* pattern" do
+      expect(patterns).to include("*system_out_of_band_exec*")
+
+      denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        ::File.fnmatch("*system_out_of_band_exec*", name, ::File::FNM_EXTGLOB)
+      end
+
+      expect(denied).to eq(%w[system_out_of_band_exec])
     end
   end
 

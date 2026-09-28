@@ -207,6 +207,23 @@ module Mcp
       # the whole account's knowledge or learnings in one call, and is declared
       # destructive. An archive can be undone row by row, but a bulk sweep is an
       # operator's decision, not an instance's.
+      #
+      # *system_out_of_band_exec* (IMP-9ce0ed39c557) — out-of-band root
+      # command execution on a fleet node, run from the control plane
+      # without that node's own agent. Never self-grantable by an instance
+      # principal: an mTLS node cert that could invoke this could run an
+      # arbitrary command on ANY node the control plane manages, including
+      # itself or a peer — exactly the escalation this deny overlay exists
+      # to foreclose. Substring-anchored rather than a broader shape (no
+      # `*exec*`, which would sweep in unrelated verbs) — narrow on purpose,
+      # the same discipline *replace_instance* above documents.
+      #
+      # NOTE for anyone editing this array: every entry below is a %w[]
+      # WORD, not a line — a "#" comment INSIDE the %w[...] literal is not a
+      # comment at all, it becomes a literal array element (the historical
+      # defect this file's header and principal_deny_overlay_spec's hygiene
+      # check both exist to catch). Explanations belong up here, before the
+      # array opens, never between its entries.
       DESTRUCTIVE_TOOL_PATTERNS = %w[
         *_deferred_operation
         *intervention_policy
@@ -232,6 +249,7 @@ module Mcp
         data_source_unsubscribe
         archive_by_predicate
         retire_by_predicate
+        *system_out_of_band_exec*
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every
