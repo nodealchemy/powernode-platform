@@ -49,80 +49,33 @@
 # This migration computes the SAME values with the SAME formulas (read out of ralph_loop.rb,
 # not guessed) and writes them in the same update_columns call, rather than pull in the
 # app model to get them from its callbacks.
+#
+# SUPERSEDED — NOW A NO-OP. IMP-3e36e30d5c72 (incident, 2026-09-28 ~05:07-05:21 UTC): the
+# `up` body above (kept, unrun, for the record) writes
+# `(now - loop_row.started_at) * 1000).to_i` into ai_ralph_loops.duration_ms. On prod, every
+# stale loop this migration selects is weeks old, so that write is ~2.24e9 — out of range
+# for the (then int4) duration_ms column: `ActiveModel::RangeError: ... is out of range for
+# ActiveModel::Type::Integer with limit 4 bytes`. rails-start runs pending migrations on
+# every boot, so this crash-looped ops-hub Rails for ~14 minutes until this version was
+# stamped into schema_migrations directly (NOT by actually running this body) to restore
+# service. Because it is stamped as applied on prod, this file must stay in the tree
+# (deleting it would desync a prod DB that already has this version recorded) and its
+# version must never be reused — but its body must NEVER run again, on prod (already
+# stamped, so `up` won't be invoked there) OR on a fresh database (where it WOULD be
+# invoked, and would hit the exact same overflow, since duration_ms is still int4 at this
+# migration's own version — the widening happens later, in 20260928010000).
+#
+# The backfill this migration was meant to perform still needs to happen — it does, redone
+# byte-for-byte identically, in 20260928020000_close_stale_completed_campaign_loops_redo.rb,
+# under a version that runs AFTER duration_ms has been widened to bigint. This migration's
+# `up` is replaced with nothing at all: no table-only models, no query, no writes.
 class CloseStaleCompletedCampaignLoops < ActiveRecord::Migration[8.1]
-  # Table-only models: no Ai::RalphLoop/Ai::Campaign/Ai::RalphTask callbacks,
-  # validations, or state-machine concerns run.
-  class CampaignRow < ActiveRecord::Base
-    self.table_name = "ai_campaigns"
-  end
-
-  class RalphLoopRow < ActiveRecord::Base
-    self.table_name = "ai_ralph_loops"
-  end
-
-  class RalphTaskRow < ActiveRecord::Base
-    self.table_name = "ai_ralph_tasks"
-  end
-
-  CLEAN_STATUSES = %w[passed skipped].freeze
-
   def up
-    CampaignRow.reset_column_information
-    RalphLoopRow.reset_column_information
-    RalphTaskRow.reset_column_information
-
-    completed_campaign_ids = CampaignRow.where(status: "completed").select(:id)
-    stale_loops = RalphLoopRow.where(status: "running", campaign_id: completed_campaign_ids)
-
-    say "IMP-3e36e30d5c72: found #{stale_loops.count} running loop(s) under a completed campaign"
-
-    stale_loops.find_each do |loop_row|
-      tasks = RalphTaskRow.where(ralph_loop_id: loop_row.id)
-      task_statuses = tasks.pluck(:status)
-      clean = task_statuses.all? { |s| CLEAN_STATUSES.include?(s) }
-      has_repeating = tasks.where(repeating: true).exists?
-
-      configuration = loop_row.configuration || {}
-      if clean && !has_repeating
-        new_status = "completed"
-        configuration = configuration.merge("final_result" => { "reason" => "backfill_imp_3e36e30d5c72" })
-      elsif clean && has_repeating
-        new_status = "cancelled"
-        configuration = configuration.merge(
-          "cancellation_reason" =>
-            "campaign stopped: backfill (IMP-3e36e30d5c72 — campaign completed while this loop was still " \
-            "running, and it could not be completed because it has a repeating task)"
-        )
-      else
-        new_status = "cancelled"
-        configuration = configuration.merge(
-          "cancellation_reason" =>
-            "campaign stopped: backfill (IMP-3e36e30d5c72 — campaign completed while this loop was still " \
-            "running)"
-        )
-      end
-
-      say "IMP-3e36e30d5c72: loop #{loop_row.id} (#{loop_row.name.inspect}, campaign #{loop_row.campaign_id}) " \
-          "-> #{new_status} (tasks: #{task_statuses.tally}#{' — has a repeating task' if has_repeating})"
-
-      now = Time.current
-      attrs = { status: new_status, completed_at: now, updated_at: now, configuration: configuration,
-                total_tasks: task_statuses.size,
-                completed_tasks: task_statuses.count { |s| s == "passed" },
-                failed_tasks: task_statuses.count { |s| s == "failed" } }
-      # Matches RalphLoop#calculate_duration exactly (before_save, only when started_at
-      # is present) — a `running` row should always have one (set by #start!), but this
-      # guards a legacy/manually-inserted row the same way the real callback would.
-      attrs[:duration_ms] = ((now - loop_row.started_at) * 1000).to_i if loop_row.started_at.present?
-
-      loop_row.update_columns(attrs)
-    end
+    say "IMP-3e36e30d5c72: no-op (superseded by 20260928020000 after the duration_ms " \
+        "bigint widening in 20260928010000 — see this file's header comment)."
   end
 
-  # Which pre-existing "running" rows this touched, and what each one's tasks looked
-  # like at backfill time, cannot be reconstructed afterward — same irreversibility
-  # shape as 20260919140000_backfill_mcp_server_allow_network.rb.
   def down
-    raise ActiveRecord::IrreversibleMigration
+    # No-op forward, no-op back.
   end
 end

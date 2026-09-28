@@ -462,6 +462,43 @@ RSpec.describe Ai::RalphLoop, type: :model do
         expect(record.reload.status).to eq("running")
         expect(record.completed_at).to be_nil
       end
+
+      # IMP-3e36e30d5c72 (incident, 2026-09-28). duration_ms was int4; a loop whose
+      # started_at is more than ~24.855 days old overflows it on completion
+      # (`ActiveModel::RangeError`, the exact prod crash). This is red before
+      # duration_ms was widened to bigint (20260928010000), green after.
+      it "completes a loop started 30 days ago without overflowing duration_ms" do
+        record = create(:ai_ralph_loop, :running, account: account, started_at: 30.days.ago)
+
+        expect { record.complete! }.not_to raise_error
+
+        record.reload
+        expect(record.status).to eq("completed")
+        expect(record.duration_ms).to be > 2_147_483_647
+      end
+    end
+
+    describe "#calculate_duration" do
+      # Direct unit coverage of the before_save callback itself, per the operator's
+      # request — not just exercised incidentally through #complete!.
+      it "sets duration_ms from started_at/completed_at without overflowing for a multi-week span" do
+        record = create(:ai_ralph_loop, :running, account: account, started_at: 45.days.ago)
+
+        record.completed_at = Time.current
+        record.save!
+
+        expect(record.duration_ms).to eq(((record.completed_at - record.started_at) * 1000).to_i)
+        expect(record.duration_ms).to be > 2_147_483_647
+      end
+
+      it "does not set duration_ms when started_at is blank" do
+        record = create(:ai_ralph_loop, :pending, account: account, started_at: nil)
+
+        record.completed_at = Time.current
+        record.save!
+
+        expect(record.duration_ms).to be_nil
+      end
     end
 
     describe "#fail!" do

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_28_020000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -196,7 +196,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
     t.jsonb "dag_dependents", default: []
     t.uuid "dag_execution_id"
     t.string "dag_node_id"
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.string "error_code"
     t.jsonb "error_details", default: {}
     t.text "error_message"
@@ -2992,7 +2992,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
     t.integer "deployed_port"
     t.string "deployed_url"
     t.text "description"
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.jsonb "error_details", default: {}
     t.text "error_message"
     t.jsonb "feature_suggestions", default: []
@@ -3575,7 +3575,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
     t.datetime "completed_at"
     t.decimal "cost", precision: 10, scale: 6, default: "0.0"
     t.datetime "created_at", null: false
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.string "error_code"
     t.jsonb "error_details", default: {}
     t.text "error_message"
@@ -3616,7 +3616,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
     t.text "description"
     t.string "driver_kind"
     t.jsonb "driver_target", default: {}, null: false
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.jsonb "duty_cycle_config", default: {}
     t.string "error_code"
     t.jsonb "error_details", default: {}
@@ -5380,7 +5380,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
     t.datetime "completed_at"
     t.float "cpu_used_millicores"
     t.datetime "created_at", null: false
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.jsonb "environment_variables", default: {}
     t.text "error_message"
     t.string "execution_id", null: false
@@ -5493,7 +5493,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
     t.uuid "container_id"
     t.datetime "created_at", null: false
     t.uuid "docker_host_id", null: false
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.uuid "image_id"
     t.jsonb "params", default: {}
     t.jsonb "result", default: {}
@@ -5665,7 +5665,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
     t.datetime "completed_at"
     t.decimal "cost_estimate", precision: 10, scale: 6
     t.datetime "created_at", null: false
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.jsonb "error_details", default: {}
     t.string "execution_id", null: false
     t.jsonb "input_data", default: {}
@@ -6129,7 +6129,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
     t.datetime "created_at", null: false
     t.string "deployment_type", null: false
     t.jsonb "desired_state", default: {}
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.string "git_sha"
     t.jsonb "previous_state", default: {}
     t.jsonb "result", default: {}
@@ -7409,7 +7409,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_27_120000) do
     t.datetime "created_at", null: false
     t.integer "duration_ms"
     t.text "error_message"
-    t.integer "execution_time_ms"
+    t.bigint "execution_time_ms"
     t.uuid "mcp_tool_id", null: false
     t.jsonb "parameters", default: {}
     t.jsonb "result", default: {}

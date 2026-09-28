@@ -391,4 +391,33 @@ RSpec.describe Ai::Mission, type: :model do
       end
     end
   end
+
+  # IMP-3e36e30d5c72 (incident, 2026-09-28). duration_ms was int4; a mission whose
+  # started_at is more than ~24.855 days old overflows it on completion
+  # (`ActiveModel::RangeError`). Missions are long-running by design, making this a
+  # realistic exposure, not just a theoretical one. Widened to bigint in 20260928010000.
+  describe "#calculate_duration" do
+    let(:account) { create(:account) }
+    let(:user) { create(:user, account: account) }
+
+    it "sets duration_ms without overflowing for a mission started weeks ago" do
+      mission = create(:ai_mission, account: account, created_by: user, status: "active",
+                                    started_at: 30.days.ago)
+
+      mission.completed_at = Time.current
+      mission.save!
+
+      expect(mission.duration_ms).to eq(((mission.completed_at - mission.started_at) * 1000).to_i)
+      expect(mission.duration_ms).to be > 2_147_483_647
+    end
+
+    it "does not set duration_ms when started_at is blank" do
+      mission = create(:ai_mission, account: account, created_by: user, status: "active", started_at: nil)
+
+      mission.completed_at = Time.current
+      mission.save!
+
+      expect(mission.duration_ms).to be_nil
+    end
+  end
 end
