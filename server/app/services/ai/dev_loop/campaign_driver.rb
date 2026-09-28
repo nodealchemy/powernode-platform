@@ -533,11 +533,32 @@ module Ai
       # Seed the campaign plan as pending RalphTasks on its loop, one per increment, so
       # completion_pct measures progress against the whole plan rather than against the
       # single task the first increment would otherwise create. Each increment is either a
-      # String title or a Hash { "title" =>, "description" =>, "task_key" => }. task_key
-      # derivation mirrors #record_increment! ("increment-<title>".parameterize, 120-char
-      # cap), so a later record_increment! on the same title flips the seeded task from
-      # pending → passed instead of adding a duplicate. Duplicate keys within one plan are
-      # disambiguated with a -N suffix to satisfy the (loop, task_key) uniqueness constraint.
+      # String title or a Hash { "title" =>, "description" =>, "task_key" =>, "files" =>,
+      # "acceptance_criteria" =>, "dependencies" => }. task_key derivation mirrors
+      # #record_increment! ("increment-<title>".parameterize, 120-char cap), so a later
+      # record_increment! on the same title flips the seeded task from pending → passed
+      # instead of adding a duplicate. Duplicate keys within one plan are disambiguated
+      # with a -N suffix to satisfy the (loop, task_key) uniqueness constraint.
+      #
+      # "files" lands in metadata["files"] — not a guessed key: it is the exact metadata
+      # sub-key Ai::Tools::DevLoopTool#task_files already reads for the file-collision
+      # guard that gates concurrent dev_next_task claims once a loop's
+      # max_concurrent_claims > 1 (IMP-edf58df219cf). Before this, every seeded increment
+      # landed with metadata {} — the guard treats missing/empty files as maximally unsafe
+      # ("unknown blast radius = always colliding"), so a seeded plan's second claim was
+      # refused unconditionally, whether or not its declared files actually overlapped an
+      # in-progress one. "acceptance_criteria"/"dependencies" land on RalphTask's own
+      # columns of the same name — dependencies are task_key strings (the same convention
+      # RalphTask#dependencies already uses). A declared dependency is run through the
+      # SAME `.parameterize` task_key derivation goes through (never the -N duplicate-key
+      # disambiguation, which only resolves a collision within this same seeding pass), so
+      # write a dependency in the exact textual shape the target increment's key will
+      # take — its own explicit "task_key" (e.g. "kx"), or "increment-<title>" for a
+      # title-derived one (e.g. "increment-Second Thing", which parameterizes to
+      # "increment-second-thing", matching what that increment's own key derives to).
+      # Writing a dependency unparameterized used to silently never match any row —
+      # dependencies_satisfied? reads "no matching rows" as "nothing to wait on", so the
+      # dependency was dropped rather than enforced, and the seeding order was lost.
       def seed_plan_increments!(loop_record, increments)
         return unless increments.is_a?(Array)
 
@@ -558,7 +579,10 @@ module Ai
             task_key: key,
             description: spec["description"].presence || title.presence || key,
             status: "pending",
-            position: idx + 1
+            position: idx + 1,
+            metadata: { "files" => normalized_string_list(spec["files"]) },
+            acceptance_criteria: spec["acceptance_criteria"].presence,
+            dependencies: normalized_task_key_list(spec["dependencies"])
           )
           seeded += 1
         end
@@ -573,6 +597,22 @@ module Ai
         loop_record.update!(
           configuration: loop_record.configuration.merge("completion" => { "all_tasks_terminal" => true })
         )
+      end
+
+      # Normalizes an increment-supplied list (metadata.files): strings only, blanks
+      # dropped, order-preserving de-duplication. Anything not an Array (nil, a bare
+      # String) reads as no declared entries rather than raising, since a plan
+      # increment's list fields are optional.
+      def normalized_string_list(value)
+        Array(value).map { |v| v.to_s.strip }.reject(&:blank?).uniq
+      end
+
+      # Same normalization as #normalized_string_list, plus `.parameterize` (see the
+      # comment on #seed_plan_increments! for why: dependencies are matched against
+      # task_key, which is always parameterized). Re-uniq's after parameterizing since
+      # two distinct raw strings can parameterize to the same key.
+      def normalized_task_key_list(value)
+        normalized_string_list(value).map { |v| v.parameterize[0, 120] }.uniq
       end
 
       # The decision row must name the person who re-armed the campaign. The tool refuses

@@ -80,6 +80,54 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
         expect(campaign.completion_pct).to be_within(0.01).of(6.67)
         expect(campaign.status).to eq("active")
       end
+
+      # IMP-edf58df219cf: seed_plan_increments! previously created each RalphTask
+      # with only task_key/description/status/position, dropping any files /
+      # acceptance_criteria / dependencies the increment Hash supplied. "files"
+      # is not a guessed key — it is the exact metadata sub-key
+      # Ai::Tools::DevLoopTool#task_files already reads for the parallel-claim
+      # collision guard; acceptance_criteria/dependencies are RalphTask's own
+      # column names.
+      it "carries increment files into metadata.files, normalized (strings, unique, blanks dropped)" do
+        loop = driver.start(
+          name: "Files",
+          configuration: {
+            "plan_increments" => [
+              { "title" => "First", "files" => [ "b.rb", "a.rb", "a.rb", "", nil, 42 ] }
+            ]
+          }
+        )[:loop]
+
+        task = loop.ralph_tasks.find_by(task_key: "increment-first")
+        expect(task.metadata["files"]).to eq(%w[b.rb a.rb 42])
+      end
+
+      it "seeds an empty files list (not a missing key) when the increment declares none" do
+        loop = driver.start(
+          name: "NoFiles",
+          configuration: { "plan_increments" => [ "Untracked increment" ] }
+        )[:loop]
+
+        task = loop.ralph_tasks.find_by(task_key: "increment-untracked-increment")
+        expect(task.metadata["files"]).to eq([])
+      end
+
+      it "carries acceptance_criteria and dependencies onto the seeded RalphTask's own columns" do
+        loop = driver.start(
+          name: "Criteria",
+          configuration: {
+            "plan_increments" => [
+              { "title" => "First", "task_key" => "first" },
+              { "title" => "Second", "task_key" => "second",
+                "acceptance_criteria" => "Do the thing", "dependencies" => [ "first" ] }
+            ]
+          }
+        )[:loop]
+
+        second = loop.ralph_tasks.find_by(task_key: "second")
+        expect(second.acceptance_criteria).to eq("Do the thing")
+        expect(second.dependencies).to eq([ "first" ])
+      end
     end
   end
 
@@ -145,6 +193,119 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
       expect(campaign.reload.status).to eq("completed")
       expect(campaign.completion_summary).to eq("shipped")
       expect(campaign.ralph_loops.first.reload.schedule_paused).to be true
+    end
+  end
+
+  # IMP-edf58df219cf: drives the REAL dev_next_task path (Ai::Tools::DevLoopTool),
+  # not a stub, per the operator's acceptance criteria — via seed_plan_increments!
+  # itself (the exact producer under test), on a plain (non-campaign) RalphLoop.
+  #
+  # RE-VERIFICATION FINDING (findings rot — this one did, partially): a
+  # claude_code-driven campaign loop cannot exhibit this "two holders claim two
+  # seeded tasks" scenario via dev_next_task, campaign lease or no.
+  # Ai::Tools::DevLoopTool#next_task gates every campaign-scoped loop with
+  # #delegation_block_reason, which — for the claude_code/external_cli branch —
+  # asks Campaign#acquire_driver_lease!(holder:) BEFORE claim_under_lock ever
+  # runs, and that lease is keyed on the literal `holder` string: a second call
+  # under a DIFFERENT holder than the one currently leasing the campaign is
+  # refused with "leased_to:<holder>" regardless of file collision, and a
+  # second call under the SAME holder just idempotently reclaims the first task
+  # instead of claiming a second. This is NOT universal, though: a
+  # PLATFORM-DRIVEN campaign loop takes a different branch of
+  # #delegation_block_reason (dev_loop_tool.rb:316, `if
+  # loop_record.platform_driven?`) that returns nil — no lease check at all —
+  # once the caller is the loop's delegated platform agent, so a
+  # platform-driven campaign with two holders and max_concurrent_claims > 1 CAN
+  # reach the collision guard. The evidence for part (2) of the brief is
+  # therefore narrower than "always inert": raising the DEFAULT cap for
+  # claude_code-driven campaign loops would still be dead configuration
+  # (unreachable behind the lease), so that default is left alone; whether to
+  # raise it for platform-driven loops is a live, separate question this task
+  # was not asked to decide (see the report). These specs exercise
+  # seed_plan_increments! against a plain RalphLoop (no campaign_id, so no
+  # lease gate either way) to prove the GUARD MECHANISM itself now
+  # discriminates correctly on the metadata the fix populates — the part of
+  # the finding this task can actually verify and fix, independent of which
+  # driver_kind a real campaign eventually uses it under.
+  describe "seed_plan_increments!'s metadata.files driving the REAL collision guard (IMP-edf58df219cf)" do
+    let(:loop) { create(:ai_ralph_loop, account: account) }
+
+    it "lets two holders claim two seeded increments with disjoint declared files, once cap > 1" do
+      loop.update!(configuration: { "max_concurrent_claims" => 2 })
+      driver.send(:seed_plan_increments!, loop, [
+                    { "title" => "First", "task_key" => "first", "files" => [ "a.rb" ] },
+                    { "title" => "Second", "task_key" => "second", "files" => [ "b.rb" ] }
+                  ])
+      tool = Ai::Tools::DevLoopTool.new(account: account, user: user)
+
+      first = tool.execute(params: { action: "dev_next_task", loop_id: loop.id, holder: "lane-a" })
+      second = tool.execute(params: { action: "dev_next_task", loop_id: loop.id, holder: "lane-b" })
+
+      expect(first[:task][:task_key]).to eq("first")
+      expect(second[:task][:task_key]).to eq("second")
+      expect(loop.ralph_tasks.in_progress.count).to eq(2)
+    end
+
+    it "still refuses a second holder a seeded increment whose declared files overlap an in-progress one" do
+      loop.update!(configuration: { "max_concurrent_claims" => 2 })
+      driver.send(:seed_plan_increments!, loop, [
+                    { "title" => "First", "task_key" => "first", "files" => [ "a.rb" ] },
+                    { "title" => "Second", "task_key" => "second", "files" => [ "a.rb" ] }
+                  ])
+      tool = Ai::Tools::DevLoopTool.new(account: account, user: user)
+
+      tool.execute(params: { action: "dev_next_task", loop_id: loop.id, holder: "lane-a" })
+      second = tool.execute(params: { action: "dev_next_task", loop_id: loop.id, holder: "lane-b" })
+
+      expect(second[:task]).to be_nil
+      expect(second[:no_eligible_task]).to be true
+      expect(second[:reason]).to eq("file_collision")
+      expect(loop.ralph_tasks.in_progress.count).to eq(1)
+    end
+
+    # Regression guard: the two specs above both hold before AND after a broken fix
+    # (e.g. one that populates metadata.files with the WRONG value, or a files-vs-
+    # dependencies mixup) could slip past, since "disjoint succeeds" only proves SOME
+    # files landed, and "overlap refused" passes even with metadata.files unpopulated
+    # (see the file-level comment). Mixing one increment WITH declared files and one
+    # WITHOUT pins the actual guard rule under test: missing files is unconditionally
+    # unsafe, so it must refuse even though it isn't "overlapping" the other task's
+    # single declared file in any literal sense.
+    it "refuses a second holder a seeded increment with NO declared files, next to one that has some" do
+      loop.update!(configuration: { "max_concurrent_claims" => 2 })
+      driver.send(:seed_plan_increments!, loop, [
+                    { "title" => "First", "task_key" => "first", "files" => [ "a.rb" ] },
+                    { "title" => "Second", "task_key" => "second" }
+                  ])
+      tool = Ai::Tools::DevLoopTool.new(account: account, user: user)
+
+      tool.execute(params: { action: "dev_next_task", loop_id: loop.id, holder: "lane-a" })
+      second = tool.execute(params: { action: "dev_next_task", loop_id: loop.id, holder: "lane-b" })
+
+      expect(second[:reason]).to eq("file_collision")
+    end
+  end
+
+  # IMP-edf58df219cf (review round, item 3): dependencies are matched against task_key,
+  # which is always parameterized ("Foo Bar" -> "foo-bar") — an unparameterized
+  # dependency would never match a row, dependencies_satisfied? reads that as "nothing
+  # to wait on", and the declared ordering would be silently lost.
+  describe "seed_plan_increments! parameterizes declared dependencies to match task_key (IMP-edf58df219cf)" do
+    it "normalizes a title-shaped dependency to the parameterized key it must match" do
+      loop = driver.start(
+        name: "DepsParam",
+        configuration: {
+          "plan_increments" => [
+            { "title" => "First Thing" },
+            { "title" => "Second", "task_key" => "second", "dependencies" => [ "Increment-First Thing" ] }
+          ]
+        }
+      )[:loop]
+
+      second = loop.ralph_tasks.find_by(task_key: "second")
+      expect(second.dependencies).to eq([ "increment-first-thing" ])
+      expect(second.dependencies_satisfied?).to be false
+      expect(second.blocking_dependencies).to eq([ "increment-first-thing" ])
     end
   end
 end
