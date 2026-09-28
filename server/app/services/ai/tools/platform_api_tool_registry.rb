@@ -181,6 +181,8 @@ module Ai
         "system_cordon_instance" => "Ai::Tools::SystemFleetTool",
         "system_uncordon_instance" => "Ai::Tools::SystemFleetTool",
         "system_get_silent_instances" => "Ai::Tools::SystemFleetTool",
+        # IMP-054397261461 — read-only rollout long-poll; wait_seconds rides on get_task / get_module_build_batch.
+        "system_wait_for" => "Ai::Tools::SystemFleetTool",
         # IMP-ca485128072e (APO-2e) — operator-tunable fleet sensor thresholds.
         "system_get_sensor_config" => "Ai::Tools::SystemFleetTool",
         "system_update_sensor_config" => "Ai::Tools::SystemFleetTool",
