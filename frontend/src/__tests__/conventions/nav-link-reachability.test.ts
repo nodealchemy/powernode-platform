@@ -146,11 +146,6 @@ function isPrivateExtensionSrcDir(dir: string): boolean {
 // here is portable. Each is owned and will get an offer filed to its owner;
 // this repo must not commit into either extension's own submodule.
 const ALLOWED_UNBUILT: readonly string[] = [
-  // marketing extension: ConnectSocialModal.tsx's OAuth redirect_uri. No
-  // register.ts entry and no page component handle /marketing/social/callback
-  // — the social-connect OAuth flow has no landing page for the provider's
-  // redirect to return to.
-  '/app/marketing/social/callback',
   // fc-26: the 4 supply-chain entries formerly here (container-images stale
   // rename x2, license-policies/-violations stale renames, and the
   // genuinely-missing vulnerabilities destination) were fixed at their
