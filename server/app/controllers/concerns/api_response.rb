@@ -265,6 +265,14 @@ module ApiResponse
       approval_request_id: request&.id,
       message: message || "Approval required for #{deferred_operation.action_category}"
     }
+    # IMP-9ce0ed39c557 (security review finding S1) — mirrors
+    # Ai::Tools::BaseTool#pending_payload's own conditional merge (never adds
+    # the key at all when false, so this stays byte-for-byte the same
+    # response shape for every OTHER REST pending-approval door — only a
+    # human_only action's request answers true here). A REST caller deciding
+    # whether it may resolve this itself needs the same signal an MCP caller
+    # already gets from the identical field on that surface.
+    payload[:requires_human_session] = true if request&.requires_human_session?
     render_success(payload, status: :accepted)
   end
 
