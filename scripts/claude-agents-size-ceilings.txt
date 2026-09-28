@@ -18,5 +18,5 @@
 # Initial values: measured on the tree as of 2026-09-27 (the largest `tools:` list is
 # infrastructure-generalist.md; the roster is 29 files). The skeletons were stale when
 # measured; lower both values after the next regeneration.
-max_tools_per_agent=121
-max_roster_bytes=232171
+max_tools_per_agent=122
+max_roster_bytes=201595

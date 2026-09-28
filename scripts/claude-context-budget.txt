@@ -22,8 +22,8 @@ server/CLAUDE.md                         6144
 frontend/CLAUDE.md                       5120
 worker/CLAUDE.md                         3328
 
-.claude/agents/powernode:description    14532
-.claude/agents/powernode:tools          51257
+.claude/agents/powernode:description    10456
+.claude/agents/powernode:tools          47954
 
 .claude/skills/audit/SKILL.md            3328
 .claude/skills/bootstrap/SKILL.md        2560
