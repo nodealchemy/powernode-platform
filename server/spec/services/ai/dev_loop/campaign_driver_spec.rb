@@ -194,6 +194,77 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
       expect(campaign.completion_summary).to eq("shipped")
       expect(campaign.ralph_loops.first.reload.schedule_paused).to be true
     end
+
+    # IMP-3e36e30d5c72: #stop never transitioned the LOOP — only the campaign. Loops
+    # stayed status="running" forever, since only the iteration-drain path ever called
+    # RalphLoop#complete! and the API only ever exposed #cancel.
+    it "closes a loop whose tasks are all passed or skipped as completed" do
+      campaign = driver.start(name: "AllDone")[:campaign]
+      loop = campaign.ralph_loops.first
+      create(:ai_ralph_task, ralph_loop: loop, task_key: "t1", status: "passed")
+      create(:ai_ralph_task, ralph_loop: loop, task_key: "t2", status: "skipped")
+      loop.start!
+
+      driver.stop(campaign, summary: "shipped")
+
+      expect(loop.reload.status).to eq("completed")
+    end
+
+    it "cancels a loop with leftover work instead, keeping its tasks untouched and visible" do
+      campaign = driver.start(name: "Leftover")[:campaign]
+      loop = campaign.ralph_loops.first
+      create(:ai_ralph_task, ralph_loop: loop, task_key: "t1", status: "passed")
+      create(:ai_ralph_task, ralph_loop: loop, task_key: "t2", status: "pending")
+      loop.start!
+
+      driver.stop(campaign, summary: "cutting it short")
+
+      loop.reload
+      expect(loop.status).to eq("cancelled")
+      expect(loop.configuration["cancellation_reason"]).to eq("campaign stopped: cutting it short")
+      expect(loop.ralph_tasks.pluck(:task_key, :status)).to contain_exactly(%w[t1 passed], %w[t2 pending])
+    end
+
+    it "cancels a pending (never-started) loop rather than raising, even though zero tasks trivially satisfy 'all terminal'" do
+      campaign = driver.start(name: "NeverStarted")[:campaign]
+      loop = campaign.ralph_loops.first
+      expect(loop.status).to eq("pending")
+
+      expect { driver.stop(campaign, summary: "shipped") }.not_to raise_error
+
+      expect(loop.reload.status).to eq("cancelled")
+    end
+
+    it "a second stop is a no-op at the loop level (idempotent)" do
+      campaign = driver.start(name: "Twice")[:campaign]
+      loop = campaign.ralph_loops.first
+      create(:ai_ralph_task, ralph_loop: loop, task_key: "t1", status: "passed")
+      loop.start!
+
+      driver.stop(campaign, summary: "first")
+      completed_at = loop.reload.completed_at
+
+      expect { driver.stop(campaign, summary: "second") }.not_to raise_error
+      loop.reload
+      expect(loop.status).to eq("completed")
+      expect(loop.completed_at).to eq(completed_at)
+    end
+
+    # IMP-3e36e30d5c72 (review round, item 1): RalphLoop#complete! does NOT raise on a
+    # loop with a repeating task — it logs a warning and returns early, leaving the loop
+    # exactly as non-terminal as before the call. An "all tasks passed or skipped" loop
+    # with one repeating task would otherwise slip through complete! and stay "running"
+    # forever — the exact bug this whole task fixes, reappearing one guard downstream.
+    it "cancels (rather than leaves running) a clean loop that complete! declines because it has a repeating task" do
+      campaign = driver.start(name: "Repeating")[:campaign]
+      loop = campaign.ralph_loops.first
+      create(:ai_ralph_task, ralph_loop: loop, task_key: "t1", status: "passed", repeating: true)
+      loop.start!
+
+      driver.stop(campaign, summary: "shipped")
+
+      expect(loop.reload.status).to eq("cancelled")
+    end
   end
 
   # IMP-edf58df219cf: drives the REAL dev_next_task path (Ai::Tools::DevLoopTool),

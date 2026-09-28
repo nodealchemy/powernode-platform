@@ -193,11 +193,16 @@ module Ai
         q.reload.summary
       end
 
-      # Stop the campaign: pause its loops' scheduling (executors stop pulling) + mark completed.
+      # Stop the campaign: pause its loops' scheduling (executors stop pulling), close
+      # each loop through ITS OWN state machine (IMP-3e36e30d5c72 — previously only the
+      # campaign transitioned; every loop was left at status "running" forever, since
+      # only the iteration-drain path ever called RalphLoop#complete! and the API only
+      # ever exposed #cancel), then mark the campaign completed.
       def stop(campaign, summary: nil)
         authorize_actor!(campaign.account)
         campaign.ralph_loops.each do |l|
           l.pause_schedule!(reason: "campaign stopped") if l.respond_to?(:pause_schedule!)
+          close_loop_for_campaign_stop!(l, summary: summary)
         end
         campaign.complete!(summary)
         campaign.reload.summary
@@ -597,6 +602,59 @@ module Ai
         loop_record.update!(
           configuration: loop_record.configuration.merge("completion" => { "all_tasks_terminal" => true })
         )
+      end
+
+      # Closes ONE loop through its own state machine when a campaign stops
+      # (IMP-3e36e30d5c72). The rule: every task passed or skipped (nothing pending,
+      # in_progress, blocked, or failed) means the loop's work genuinely finished, so
+      # complete! it; anything else means real work is being cut short, so cancel! it —
+      # its tasks are left exactly as they are (visible, untouched), which is what
+      # cancel! already does (it only ever writes the LOOP's own columns). If the loop
+      # has a repeating task, complete! silently declines (its own guard, below) and
+      # cancel! is the fallback there too — the operator's direction is that a stopped
+      # campaign's loops always end terminal, with no third "still running" outcome.
+      #
+      # A `pending` loop (never started — no task was ever claimed) can satisfy the
+      # "all terminal" rule vacuously (zero tasks), but RalphLoop#can_complete? is
+      # running|paused ONLY — calling complete! on a pending loop always raises
+      # InvalidTransitionError (learning 019feeec, "Campaign closeout root cause").
+      # A loop that never ran was not completed by any meaningful definition anyway, so
+      # route it through cancel! instead regardless of the task tally — the sensible,
+      # non-raising outcome the operator asked for.
+      #
+      # Idempotent: a loop already in a terminal status (completed/cancelled/failed) is
+      # left untouched, so a second #stop call is a no-op at the loop level exactly as
+      # it already was at the campaign level (Campaign#complete! has no transition guard
+      # of its own).
+      #
+      # NOT SHARED WITH THE ONE-TIME BACKFILL MIGRATION for this same finding
+      # (db/migrate/*_close_stale_completed_campaign_loops.rb): a migration's model
+      # classes are deliberately table-only (no app code, so a future refactor or
+      # deletion of CampaignDriver/RalphLoop can never break a migration that already
+      # ran) and must independently reimplement this SAME decision rule with raw
+      # column writes rather than calling this method or RalphLoop#complete!/#cancel!.
+      # The two are kept in sync by mirroring the rule's WORDING (not its code) in both
+      # places' comments, each naming the other, plus each side's own spec — see the
+      # migration's own comment for its half of this note.
+      def close_loop_for_campaign_stop!(loop_record, summary: nil)
+        return if loop_record.terminal?
+
+        clean = loop_record.status != "pending" &&
+                loop_record.ralph_tasks.where.not(status: %w[passed skipped]).none?
+        reason = "campaign stopped: #{summary.presence || 'no summary'}"
+
+        if clean
+          loop_record.complete!(result: { "reason" => "campaign_stopped" })
+          # complete! does NOT raise when the loop has a repeating task — its own guard
+          # (state_machine.rb) logs a warning and returns early instead, leaving the loop
+          # exactly as non-terminal as it was before this call: the bug this task fixes,
+          # reappearing one guard downstream. The operator's direction is that every
+          # running loop under a stopped campaign ends terminal, so fall through to
+          # cancel! when complete! silently declined.
+          loop_record.cancel!(reason: reason) unless loop_record.reload.terminal?
+        else
+          loop_record.cancel!(reason: reason)
+        end
       end
 
       # Normalizes an increment-supplied list (metadata.files): strings only, blanks
