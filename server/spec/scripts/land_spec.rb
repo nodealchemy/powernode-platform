@@ -175,11 +175,57 @@ RSpec.describe "scripts/land.sh" do
       repos.transform_values do |r|
         git_dir = File.exist?(File.join(r, ".git")) ? File.join(r, ".git") : r
         {
-          refs: sh!("git", "--git-dir", git_dir, "for-each-ref", "--format=%(objectname) %(refname)").lines.reject { |l| l.include?("refs/remotes/") },
+          # ALL refs, remote-tracking included: a fetch would move them
+          refs: sh!("git", "--git-dir", git_dir, "for-each-ref", "--format=%(objectname) %(refname)").lines,
+          fetch_head: File.exist?(File.join(git_dir, "FETCH_HEAD")) ? File.read(File.join(git_dir, "FETCH_HEAD")) : :absent,
           loose: sh!("git", "--git-dir", git_dir, "count-objects").split.first,
           status: File.exist?(File.join(r, ".git")) ? sh!("git", "-C", r, "status", "--porcelain", "--ignored") : nil
         }
       end
+    end
+
+    def dry_env
+      { "POWERNODE_LOCAL_CONFIG" => "none", "LAND_REPO_ROOT" => @work, "LAND_MCP_URL" => "http://127.0.0.1:#{@port}/",
+        "POWERNODE_MCP_TOKEN" => token, "LAND_EXT_PATH" => "extensions/widgets", "LAND_PROMOTE_ENVS" => "staging ops",
+        "TMPDIR" => tmpdir, "GIT_AUTHOR_NAME" => "T", "GIT_AUTHOR_EMAIL" => "t@example.invalid",
+        "GIT_COMMITTER_NAME" => "T", "GIT_COMMITTER_EMAIL" => "t@example.invalid" }
+    end
+
+    it "does not fetch: when the remote target moved to a commit this clone lacks, it says so and changes nothing" do
+      other = File.join(@dir, "other")
+      sh!("git", "clone", "-q", "-b", "develop", File.join(@dir, "core.git"), other)
+      commit_file(other, "elsewhere.txt", "someone else landed")
+      sh!("git", "push", "-q", "origin", "develop", chdir: other)
+      before = snapshot
+      _out, err, code = Open3.capture3(dry_env, File.join(copy, "land.sh"), "IMP-x1", *base_args, "--dry-run").then { |o, e, st| [ o, e, st.exitstatus ] }
+
+      expect(code).to eq(1)
+      expect(err).to match(/not in this clone; --dry-run does not fetch/)
+      expect(snapshot).to eq(before)
+      expect(snapshot[:work][:fetch_head]).to eq(:absent)
+    end
+
+    it "reads the remote tips with ls-remote and leaves every ref and FETCH_HEAD untouched" do
+      happy_mock
+      before = snapshot
+      _out, err, code = Open3.capture3(dry_env, File.join(copy, "land.sh"), "IMP-x1", *base_args, "--dry-run").then { |o, e, st| [ o, e, st.exitstatus ] }
+
+      expect(code).to eq(0), err
+      expect(err).to match(/step 0: read the remote develop tips \(git ls-remote; --dry-run does not fetch\)/)
+      expect(snapshot).to eq(before)
+      expect(snapshot[:work][:fetch_head]).to eq(:absent)
+      expect(snapshot[:ext][:fetch_head]).to eq(:absent)
+    end
+
+    it "runs the catalog freshness check against the repository, not the caller's working directory (outside --dry-run)" do
+      happy_mock
+      File.write(File.join(copy, "check-mcp-catalog-fresh.sh"), "#!/usr/bin/env bash\npwd -P > #{@dir}/catalog-cwd\n")
+      elsewhere = File.join(@dir, "elsewhere")
+      FileUtils.mkdir_p(elsewhere)
+      _out, err, st = Open3.capture3(dry_env, File.join(copy, "land.sh"), "IMP-x1", *(base_args - [ "--skip-catalog-check" ]), chdir: elsewhere)
+
+      expect(st.exitstatus).to eq(0), err
+      expect(File.read(File.join(@dir, "catalog-cwd")).strip).to eq(File.realpath(@work))
     end
 
     [ %w[git], %w[mcp], %w[none] ].each do |(mode)|
@@ -196,7 +242,7 @@ RSpec.describe "scripts/land.sh" do
                      "GIT_COMMITTER_NAME" => "T", "GIT_COMMITTER_EMAIL" => "t@example.invalid" }
         out, err, st = Open3.capture3(full_env, File.join(copy, "land.sh"), "IMP-x1", *args)
 
-        expect(err).to include("(dry-run) would: check the MCP tool catalog")
+        expect(err).to include("(dry-run) would: run the catalog freshness check")
         expect(err).not_to match(/BUG: an MCP call/)
         expect(snapshot).to eq(before)
         expect(calls).to be_empty

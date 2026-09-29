@@ -40,10 +40,11 @@
 #   --skip-verify          Do not run verify-hub-deploy.sh (recorded as skipped in the evidence).
 #   --skip-catalog-check   Do not run check-mcp-catalog-fresh.sh first.
 #   --no-fetch             Do not fetch the remotes' target branches first.
-#   --dry-run              Do every READ-ONLY step (config, scans, fast-forward checks, and a `git fetch`) and
-#                          print the steps that would mutate. INERT otherwise: no push, commit or ref/state/
-#                          base-file write, no MCP call (so no token file either), no catalog check (it
-#                          rewrites the catalog temporarily), no lock.
+#   --dry-run              Do every READ-ONLY step (config, scans, fast-forward checks) and print the steps that
+#                          would mutate. INERT: no fetch (the remote tips are read with `git ls-remote`, and
+#                          must already be in the clone), no push, commit or ref/FETCH_HEAD/state/base-file
+#                          write, no MCP call (so no token file), no catalog check (it rewrites the catalog
+#                          temporarily), no lock.
 #
 # Steps stop at the FIRST failure with a message naming it. Exit: 0 done, 1 a step failed, 2 usage or
 # configuration, 3 parked for approval (merge or promotion; approve, then re-run).
@@ -219,23 +220,42 @@ CORE_FULL="$(resolve "$REPO_ROOT" "$CORE_SHA")" || LC_DIE_CODE=2 lc_die "core co
 EXT_FULL=""
 if [ -n "$EXT_SHA" ]; then EXT_FULL="$(resolve "$EXT_DIR" "$EXT_SHA")" || LC_DIE_CODE=2 lc_die "extension commit $EXT_SHA is not in $EXT_PATH"; fi
 
-if [ "$NO_FETCH" -eq 0 ]; then
-  step 0 "fetch $TARGET from the remotes (read-only)"
-  gitc fetch --quiet "$CORE_REMOTE" "$TARGET" || LC_DIE_CODE=1 lc_die "could not fetch $CORE_REMOTE/$TARGET"
-  [ -z "$EXT_FULL" ] || gite fetch --quiet "$EXT_REMOTE" "$TARGET" || LC_DIE_CODE=1 lc_die "could not fetch $EXT_REMOTE/$TARGET for $EXT_PATH"
+# The remote target tips. A real run fetches (updating the remote-tracking refs and FETCH_HEAD). A --dry-run does
+# not: it asks the remote with `git ls-remote` and uses the answer only if that commit is already in this clone,
+# so it leaves every ref, FETCH_HEAD and the object store alone.
+remote_tip_readonly() { # repo remote label
+  local sha
+  sha="$(git -C "$1" ls-remote "$2" "refs/heads/$TARGET" | awk 'NR==1{print $1}')" || LC_DIE_CODE=1 lc_die "could not read $2/$TARGET on the remote"
+  [ -n "$sha" ] || LC_DIE_CODE=1 lc_die "the remote $2 has no $TARGET branch"
+  git -C "$1" cat-file -e "$sha^{commit}" 2>/dev/null ||
+    LC_DIE_CODE=1 lc_die "$3: the remote $TARGET is at ${sha:0:12}, which is not in this clone; --dry-run does not fetch, so run scripts/land.sh without --dry-run (or fetch by hand) first"
+  printf '%s\n' "$sha"
+}
+if [ "$DRY" -eq 1 ] && [ "$NO_FETCH" -eq 0 ]; then
+  step 0 "read the remote $TARGET tips (git ls-remote; --dry-run does not fetch)"
+  CORE_TIP="$(remote_tip_readonly "$REPO_ROOT" "$CORE_REMOTE" core)"
+  EXT_TIP=""
+  [ -z "$EXT_FULL" ] || EXT_TIP="$(remote_tip_readonly "$EXT_DIR" "$EXT_REMOTE" "$EXT_PATH")"
+else
+  if [ "$NO_FETCH" -eq 0 ]; then
+    step 0 "fetch $TARGET from the remotes (read-only)"
+    gitc fetch --quiet "$CORE_REMOTE" "$TARGET" || LC_DIE_CODE=1 lc_die "could not fetch $CORE_REMOTE/$TARGET"
+    [ -z "$EXT_FULL" ] || gite fetch --quiet "$EXT_REMOTE" "$TARGET" || LC_DIE_CODE=1 lc_die "could not fetch $EXT_REMOTE/$TARGET for $EXT_PATH"
+  fi
+  CORE_TIP="$(resolve "$REPO_ROOT" "refs/remotes/$CORE_REMOTE/$TARGET")" || LC_DIE_CODE=1 lc_die "no $CORE_REMOTE/$TARGET ref"
+  EXT_TIP=""
+  [ -z "$EXT_FULL" ] || EXT_TIP="$(resolve "$EXT_DIR" "refs/remotes/$EXT_REMOTE/$TARGET")" || LC_DIE_CODE=1 lc_die "no $EXT_REMOTE/$TARGET ref in $EXT_PATH"
 fi
-CORE_TIP="$(resolve "$REPO_ROOT" "refs/remotes/$CORE_REMOTE/$TARGET")" || LC_DIE_CODE=1 lc_die "no $CORE_REMOTE/$TARGET ref"
-EXT_TIP=""
-[ -z "$EXT_FULL" ] || EXT_TIP="$(resolve "$EXT_DIR" "refs/remotes/$EXT_REMOTE/$TARGET")" || LC_DIE_CODE=1 lc_die "no $EXT_REMOTE/$TARGET ref in $EXT_PATH"
 
 if [ "$SKIP_CATALOG" -eq 1 ]; then
   :
 elif [ "$DRY" -eq 1 ]; then
   # That check regenerates the catalog file in place (and boots Rails) before restoring it: not inert.
-  would "check the MCP tool catalog is fresh (scripts/check-mcp-catalog-fresh.sh rewrites the file temporarily)"
+  would "run the catalog freshness check (scripts/check-mcp-catalog-fresh.sh rewrites the catalog file temporarily, so a dry run skips it)"
 else
   step 1 "the MCP tool catalog is fresh"
-  "$SELF_DIR/check-mcp-catalog-fresh.sh" >&2 || LC_DIE_CODE=1 lc_die "the MCP tool catalog is stale; regenerate and commit it before landing"
+  # Against THIS repository, not whatever the caller's working directory happens to be inside.
+  (cd "$REPO_ROOT" && "$SELF_DIR/check-mcp-catalog-fresh.sh") >&2 || LC_DIE_CODE=1 lc_die "the MCP tool catalog is stale; regenerate and commit it before landing"
 fi
 
 scan_range() { # repo label base head
