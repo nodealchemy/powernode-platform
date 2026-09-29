@@ -138,6 +138,10 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 (the SAME category TasksController#create reads,
   #                                 seeded require_approval; replays through the
   #                                 generic executor so the unit checks re-run)
+  #   system_apply_unit_dropin      IMP-9951cbf20bb0  system.instance.unit_dropin
+  #                                 (human-only like system_out_of_band_exec, seeded
+  #                                 require_approval; replays through the generic
+  #                                 executor so the unit and directive checks re-run)
   #   system_replace_instance       IMP-4e49eb79c5e0  system.instance_replace
   #   system_reap_instance          IMP-4e49eb79c5e0  system.instance_reap
   #   system_set_default_disk_image_publication
@@ -205,6 +209,7 @@ RSpec.describe "MCP action declaration completeness" do
     system_inspect_node
     system_out_of_band_exec
     system_restart_unit
+    system_apply_unit_dropin
     system_gitops_register_repository
     set_delegation_policy
     system_set_default_disk_image_publication

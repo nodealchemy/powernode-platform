@@ -205,8 +205,13 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # lifecycle act in the class of *_stop_instance / *_reboot_instance that an
     # instance principal must never aim at a peer. Collateral pinned below:
     # exactly one registry key.
+    # 27 since IMP-9951cbf20bb0 added *unit_dropin* — the governed runtime
+    # systemd drop-in verb, which rewrites how a unit runs as root on a node
+    # (capabilities, writable paths, limits) and so must never be aimed at a
+    # peer by an instance principal. Collateral pinned below: exactly one
+    # registry key.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(26)
+      expect(patterns.size).to eq(27)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -288,6 +293,16 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
       end
 
       expect(denied).to eq(%w[system_restart_unit])
+    end
+
+    it "denies exactly system_apply_unit_dropin with the *unit_dropin* pattern" do
+      expect(patterns).to include("*unit_dropin*")
+
+      denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        ::File.fnmatch("*unit_dropin*", name, ::File::FNM_EXTGLOB)
+      end
+
+      expect(denied).to eq(%w[system_apply_unit_dropin])
     end
   end
 

@@ -93,6 +93,11 @@ module Ai
         # *system_restart_unit* entry); without this row the declaration is
         # inert for the same reason as the rows above.
         "system_restart_unit" => "Ai::Tools::SystemFleetTool",
+        # IMP-9951cbf20bb0 — the governed runtime drop-in verb. Human-only and
+        # approval-gated (declare_action, system.instance.unit_dropin) and
+        # denied outright to every instance principal (*unit_dropin*); without
+        # this row the declaration is inert for the same reason as the rows above.
+        "system_apply_unit_dropin" => "Ai::Tools::SystemFleetTool",
         # IMP-b2f80e6d1c65 — operator ops hold (2026-07-27 incident response):
         # had ACTION_PERMISSIONS + dispatch but no registry key, so it was
         # reachable only by smuggling the action into another tool's name.

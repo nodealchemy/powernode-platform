@@ -226,6 +226,14 @@ module Mcp
       # peer. Substring-anchored on the full verb name, like
       # *system_out_of_band_exec*, so nothing else in the registry can match.
       #
+      # *unit_dropin* (IMP-9951cbf20bb0) — system_apply_unit_dropin writes a
+      # runtime systemd drop-in for a composed unit on a fleet node, which
+      # changes how that unit runs as root (capabilities, writable paths,
+      # limits). An mTLS node cert that could invoke it could re-privilege a
+      # service on ANY node the control plane manages, including a peer.
+      # Anchored on the verb's distinctive stem; exactly one registry key
+      # matches (principal_deny_overlay_spec pins it).
+      #
       # NOTE for anyone editing this array: every entry below is a %w[]
       # WORD, not a line — a "#" comment INSIDE the %w[...] literal is not a
       # comment at all, it becomes a literal array element (the historical
@@ -259,6 +267,7 @@ module Mcp
         retire_by_predicate
         *system_out_of_band_exec*
         *system_restart_unit*
+        *unit_dropin*
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every
