@@ -242,6 +242,29 @@ else
     security_critical_failed_checks+=("No tool RecordNotFound WHERE-clause leaks (not-found-result guard)")
 fi
 
+# Skill executor error-message leak guard (IMP-8552945f2672): System::Ai::
+# Skills::BaseSkillExecutor#execute's shared rescue used to be
+# `failure(e.message)` — #perform is subclass-authored, unaudited code (67
+# direct subclasses) that can raise ANYTHING, and the result reaches the
+# model provider the same way a tool's does. check-skill-executor-error-
+# leak.sh scans services/system/ai/skills for a rescue clause building a
+# direct caller-facing return from the caught variable's raw message without
+# routing through BaseSkillExecutor#safe_error_text/#safe_failure. Hard-fail,
+# no baseline for what it checks — every site THIS guard's shape covers was
+# fixed alongside it. It deliberately does NOT cover the `errors <<
+# {...}` / `failures << {...}` rollback-bookkeeping array-push shape (a
+# separate, larger, documented gap — see the guard's own header).
+total_checks=$((total_checks + 1))
+echo -n "Checking: No skill executor error-message leaks (safe_error_text guard)... "
+if bash scripts/check-skill-executor-error-leak.sh >/dev/null 2>&1; then
+    echo -e "${GREEN}✓ PASS${NC}"
+    passed_checks=$((passed_checks + 1))
+else
+    echo -e "${RED}✗ FAIL${NC} (Skill executor forwards a raw exception message; run: bash scripts/check-skill-executor-error-leak.sh)"
+    failed_checks=$((failed_checks + 1))
+    security_critical_failed_checks+=("No skill executor error-message leaks (safe_error_text guard)")
+fi
+
 # MCP catalog freshness guard: docs/reference/auto/mcp-tools.md is generated
 # FROM Ai::Tools::PlatformApiToolRegistry.all_tools action_definitions (rails
 # mcp:generate_tool_catalog). A commit that adds/changes an MCP tool action's

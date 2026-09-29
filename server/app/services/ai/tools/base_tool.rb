@@ -240,6 +240,35 @@ module Ai
           exception.is_a?(CallerFacingError) ? exception.message : DISPATCH_FALLBACK_GENERIC_MESSAGE
         end
 
+        # Class-level so a caller OUTSIDE the Ai::Tools hierarchy — e.g.
+        # System::Ai::Skills::BaseSkillExecutor (IMP-8552945f2672), which
+        # rescues its own ActiveRecord::RecordNotFound and is not a BaseTool
+        # subclass — can author the same safe not-found text without
+        # constructing a tool instance just to reach a protected method. The
+        # instance-level #not_found_message/#not_found_result below delegate
+        # here so there is exactly one definition, not two that could drift.
+        def not_found_message(e)
+          if e.model.present? && e.id.present?
+            return "Couldn't find #{e.model} with '#{e.primary_key}'=#{truncated_id(e.id)}"
+          end
+          # model set but id nil — find_by!/take!/first! on a scoped relation:
+          # Rails's own message here has no "with 'id'=..." segment at all
+          # ("Couldn't find X with [WHERE ...]"), so stripping the WHERE
+          # suffix from THAT text would leave a dangling "with".
+          return "Couldn't find #{e.model}" if e.model.present?
+
+          e.message.sub(/\s*\[WHERE\b.*\z/m, "")
+        end
+
+        # Caps the echoed id in a not-found message — a caller-supplied id is
+        # otherwise unbounded (and could itself be a composite-key array).
+        def truncated_id(id)
+          repr = id.inspect
+          return repr if repr.length <= 64
+
+          "#{repr[0, 64]}…"
+        end
+
         # Operator-configured page size, with the constant as the fallback.
         # A non-positive configured value is ignored rather than honoured: a
         # zero would make every list action answer with an empty page and no
@@ -1506,24 +1535,10 @@ module Ai
         error_result(not_found_message(e))
       end
 
+      # Delegates to the class method — see its comment for why this exists
+      # at both levels.
       def not_found_message(e)
-        return "Couldn't find #{e.model} with '#{e.primary_key}'=#{truncated_id(e.id)}" if e.model.present? && e.id.present?
-        # model set but id nil — find_by!/take!/first! on a scoped relation:
-        # Rails's own message here has no "with 'id'=..." segment at all
-        # ("Couldn't find X with [WHERE ...]"), so stripping the WHERE
-        # suffix from THAT text would leave a dangling "with".
-        return "Couldn't find #{e.model}" if e.model.present?
-
-        e.message.sub(/\s*\[WHERE\b.*\z/m, "")
-      end
-
-      # Caps the echoed id in a not-found message — a caller-supplied id is
-      # otherwise unbounded (and could itself be a composite-key array).
-      def truncated_id(id)
-        repr = id.inspect
-        return repr if repr.length <= 64
-
-        "#{repr[0, 64]}…"
+        self.class.not_found_message(e)
       end
 
       # True only when the caller explicitly declared itself an in-process
