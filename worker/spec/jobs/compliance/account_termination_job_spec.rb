@@ -686,6 +686,65 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
         expect(appended).to include(hash_including(event: 'deleted_export_requests', count: 5))
       end
 
+      # The archive is written to THIS host's tmp directory by
+      # Compliance::DataExportJob and the server deletes only its own
+      # filesystem, so the worker removes what the server reports it deleted.
+      context 'when the server reports the archive paths of the export rows it deleted' do
+        let(:archive_path) { File.join(Compliance::DataExportJob.export_dir, "export_#{SecureRandom.hex(4)}.json") }
+
+        before do
+          FileUtils.mkdir_p(Compliance::DataExportJob.export_dir)
+          File.write(archive_path, '{}')
+          allow(api_client).to receive(:delete)
+            .with("/api/v1/internal/accounts/#{account_id}/data_export_requests", anything)
+            .and_return('success' => true, 'data' => { 'count' => 1, 'deferred' => 0, 'file_paths' => [ archive_path ] })
+        end
+
+        after { FileUtils.rm_f(archive_path) }
+
+        it 'removes the archive from the worker host' do
+          job.execute
+
+          expect(File.exist?(archive_path)).to be false
+        end
+
+        it 'does not fail the termination when the archive cannot be removed' do
+          allow(File).to receive(:delete).and_call_original
+          allow(File).to receive(:delete).with(File.expand_path(archive_path)).and_raise(Errno::EACCES)
+          expect(job).to receive(:log_warn).with(/left on the worker host \(failed\)/)
+          expect(api_client).to receive(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", hash_including(status: 'completed'))
+            .and_return('success' => true, 'data' => delivered_export_termination)
+
+          expect { job.execute }.not_to raise_error
+
+          expect(File.exist?(archive_path)).to be true
+        end
+
+        it 'never deletes a reported path outside the export directory' do
+          outside = Tempfile.new('not-an-export')
+          outside.close
+          allow(api_client).to receive(:delete)
+            .with("/api/v1/internal/accounts/#{account_id}/data_export_requests", anything)
+            .and_return('success' => true, 'data' => { 'count' => 1, 'deferred' => 0, 'file_paths' => [ outside.path ] })
+          expect(job).to receive(:log_warn).with(/left on the worker host \(outside_export_dir\)/)
+
+          job.execute
+
+          expect(File.exist?(outside.path)).to be true
+        ensure
+          outside&.unlink
+        end
+
+        it 'copes with a server that reports no file_paths at all (older build)' do
+          allow(api_client).to receive(:delete)
+            .with("/api/v1/internal/accounts/#{account_id}/data_export_requests", anything)
+            .and_return('success' => true, 'data' => { 'count' => 1, 'deferred' => 0 })
+
+          expect { job.execute }.not_to raise_error
+        end
+      end
+
       # A deferral reported back by the server at this point would be
       # unexpected (export_ready_for_deletion? already confirmed this export
       # is resolved before deletion ever starts) — but if it happens anyway,

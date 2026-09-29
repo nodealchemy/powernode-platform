@@ -193,11 +193,18 @@ module DataManagement
       file_path.present? && File.exist?(file_path)
     end
 
+    # Best effort: the path may belong to another host or another uid, and a
+    # file this process cannot remove must not fail the request that asked
+    # (an account termination's sweep has no path back). The row keeps its
+    # path when the delete fails.
     def cleanup_file!
       return unless file_path.present? && File.exist?(file_path)
 
       File.delete(file_path)
       update!(file_path: nil)
+    rescue SystemCallError => e
+      Rails.logger.warn("[DataManagement::ExportRequest] could not remove the archive of export #{id}: #{e.class}")
+      false
     end
 
     def regenerate_download_token!

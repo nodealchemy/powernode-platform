@@ -5,6 +5,33 @@ module Compliance
   class DataExportJob < BaseJob
     sidekiq_options queue: :compliance
 
+    # Where this job writes an archive on the worker host. The archive is the
+    # subject's full personal-data export, so whatever writes it here owns
+    # removing it: the server never sees this directory (it deletes only its
+    # own filesystem), see .discard_archive.
+    EXPORT_DIR_NAME = 'powernode_exports'
+
+    def self.export_dir
+      File.join(Dir.tmpdir, EXPORT_DIR_NAME)
+    end
+
+    # Removes an archive this job wrote. Only a path inside .export_dir is ever
+    # touched (the path arrives from the server's row, so it is not trusted to
+    # name a file this job owns). Returns :removed, :missing, :outside_export_dir
+    # or :failed; never raises, so a cleanup problem cannot fail the caller.
+    def self.discard_archive(path)
+      return :missing if path.blank?
+
+      expanded = File.expand_path(path.to_s)
+      return :outside_export_dir unless expanded.start_with?("#{File.expand_path(export_dir)}#{File::SEPARATOR}")
+      return :missing unless File.exist?(expanded)
+
+      File.delete(expanded)
+      :removed
+    rescue SystemCallError
+      :failed
+    end
+
     # IMP-0310a1351dab BLOCKER: this job could never finish before this fix.
     # Two independent breaks, both against
     # Api::V1::Internal::DataExportRequestsController:
@@ -52,6 +79,7 @@ module Compliance
         raise "Failed to start export request #{export_request_id}: #{start_response['error']}"
       end
 
+      file_path = nil
       begin
         export_data = gather_export_data(export_request)
         file_path, file_size = write_export_file(export_request, export_data)
@@ -79,6 +107,7 @@ module Compliance
         notify_user_export_ready(export_request, nil)
       rescue => e
         log_error "Data export failed: #{e.message}"
+        discard_unrecorded_archive(file_path)
 
         api_client.patch(
           "/api/v1/internal/data_export_requests/#{export_request_id}",
@@ -90,6 +119,16 @@ module Compliance
     end
 
     private
+
+    # An archive written by a run that then failed is on no row (the complete
+    # write never landed, or its response was refused), so nothing else will
+    # ever remove it, and a retry writes a fresh one.
+    def discard_unrecorded_archive(file_path)
+      return if file_path.blank?
+
+      result = self.class.discard_archive(file_path)
+      log_warn "Could not remove the archive of a failed data export (#{result})" if result == :failed
+    end
 
     def gather_export_data(export_request)
       user_id = export_request['user_id']
@@ -177,7 +216,7 @@ module Compliance
     end
 
     def write_export_file(export_request, data)
-      export_dir = File.join(Dir.tmpdir, 'powernode_exports')
+      export_dir = self.class.export_dir
       FileUtils.mkdir_p(export_dir)
 
       timestamp = Time.current.strftime('%Y%m%d_%H%M%S')

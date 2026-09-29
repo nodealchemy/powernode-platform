@@ -377,6 +377,46 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         real_file&.unlink
       end
 
+      # The archive lives on the WORKER host, which this action cannot reach:
+      # it reports the paths of the rows it deleted so the worker removes them.
+      it 'reports the archive path of the row it deleted, read before the path is cleared' do
+        real_file = Tempfile.new('export-report-test')
+        real_file.close
+        export_request.update_column(:file_path, real_file.path)
+
+        delete_own_export_requests(export_request.id)
+
+        expect(json_response_data['file_paths']).to eq([ real_file.path ])
+      ensure
+        real_file&.unlink
+      end
+
+      it 'reports no archive paths when the deleted rows have none' do
+        export_request.update_column(:file_path, nil)
+
+        delete_own_export_requests(export_request.id)
+
+        expect(json_response_data['file_paths']).to eq([])
+      end
+
+      # A file this process cannot remove (another uid on a shared tmp, say)
+      # must not turn the termination's sweep into a permanent 500.
+      it 'still deletes the row and answers 200 when the archive cannot be removed' do
+        real_file = Tempfile.new('export-eacces-test')
+        real_file.close
+        export_request.update_column(:file_path, real_file.path)
+        allow(File).to receive(:delete).and_call_original
+        allow(File).to receive(:delete).with(real_file.path).and_raise(Errno::EACCES)
+
+        expect { delete_own_export_requests(export_request.id) }.not_to raise_error
+
+        expect_success_response
+        expect(DataManagement::ExportRequest.exists?(export_request.id)).to be false
+        expect(json_response_data['file_paths']).to eq([ real_file.path ])
+      ensure
+        real_file&.unlink
+      end
+
       context 'and the export has not yet been delivered (still pending)' do
         let(:export_request) { create(:data_management_export_request, :pending, account: account, user: owner) }
 

@@ -208,6 +208,7 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
     own_export_request_id = params[:own_export_request_id].presence
     deferred = false
     count = 0
+    archive_paths = []
 
     DataManagement::ExportRequest.transaction do
       locked_scope = DataManagement::ExportRequest.where(account_id: @account.id).lock
@@ -234,7 +235,10 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
         # own `update!(file_path: nil)` has a normal, unlocked row to write
         # to — the FOR UPDATE lock taken above already serializes against
         # any concurrent writer for the remainder of this transaction.
-        DataManagement::ExportRequest.where(id: deletable_ids).find_each(&:cleanup_file!)
+        DataManagement::ExportRequest.where(id: deletable_ids).find_each do |row|
+          archive_paths << row.file_path if row.file_path.present?
+          row.cleanup_file!
+        end
         count = DataManagement::ExportRequest.where(id: deletable_ids).delete_all
       end
     end
@@ -244,7 +248,11 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
     # log the real outcome instead of unconditionally recording
     # 'deleted_export_requests' regardless of whether anything was actually
     # deleted — review round 2, item 2.
-    data = { count: count, deferred: deferred ? 1 : 0 }
+    #
+    # `file_paths` lists the archives the deleted rows pointed at, read before
+    # cleanup_file! nulls them: the archive lives on the WORKER host, which
+    # this action cannot reach, so the worker removes those itself.
+    data = { count: count, deferred: deferred ? 1 : 0, file_paths: archive_paths }
     log_internal_audit(
       "account.delete_data_export_requests", "Account", @account.id,
       account_id: @account.id, records_deleted: count, records_deferred: data[:deferred]

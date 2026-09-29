@@ -927,6 +927,7 @@ module Compliance
       export_data = export_response['data'] || {}
       deleted_export_count = export_data['count'] || 0
       deferred_export_count = export_data['deferred'] || 0
+      discard_export_archives(export_data['file_paths'])
 
       termination_log << { event: 'deleted_export_requests', count: deleted_export_count, at: Time.current.iso8601 } if deleted_export_count.positive?
       termination_log << { event: 'export_deletion_deferred', at: Time.current.iso8601 } if deferred_export_count.positive?
@@ -950,6 +951,25 @@ module Compliance
         reason: 'no_billing_extension_provider',
         at: Time.current.iso8601
       }
+    end
+
+    # Compliance::DataExportJob writes the subject's full personal-data archive
+    # to THIS host's tmp directory and the server only ever deletes its own
+    # filesystem, so the worker removes what the server just told it it
+    # deleted the rows for. The server's own cleanup is best effort and may
+    # have removed the file already (same host) — :missing is expected then.
+    # Best effort here too: a leftover archive is logged, never a reason to
+    # fail a termination that has no path back.
+    def discard_export_archives(file_paths)
+      Array(file_paths).each do |path|
+        result = Compliance::DataExportJob.discard_archive(path)
+        case result
+        when :removed
+          log_info 'Removed a data export archive from the worker host'
+        when :failed, :outside_export_dir
+          log_warn "A data export archive was left on the worker host (#{result})"
+        end
+      end
     end
 
     def send_termination_reminders(results)

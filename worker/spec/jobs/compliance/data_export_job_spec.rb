@@ -333,6 +333,91 @@ RSpec.describe Compliance::DataExportJob, type: :job do
       end
     end
 
+    # The archive is the subject's full personal-data export, written to this
+    # host's tmp directory. A run that fails after writing it leaves it on no
+    # row, so nothing but the job itself will ever remove it.
+    context 'when the run fails after the archive was written' do
+      let(:archive_path) { File.join(described_class.export_dir, "export_#{SecureRandom.hex(4)}.json") }
+
+      before do
+        FileUtils.mkdir_p(described_class.export_dir)
+        File.write(archive_path, '{}')
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_export_requests/#{export_request_id}")
+          .and_return(export_response(export_request_data))
+        allow(job).to receive(:gather_export_data).and_return({ test: 'data' })
+        allow(job).to receive(:write_export_file).and_return([ archive_path, 2 ])
+        allow(api_client).to receive(:patch).and_return('success' => true)
+        allow(api_client).to receive(:patch)
+          .with(anything, hash_including(action_type: 'complete'))
+          .and_return('success' => false, 'error' => 'refused')
+      end
+
+      after { FileUtils.rm_f(archive_path) }
+
+      it 'removes the orphaned archive and still marks the request failed' do
+        expect(api_client).to receive(:patch)
+          .with(anything, hash_including(action_type: 'fail'))
+
+        expect { job.execute(export_request_id) }.to raise_error(/Failed to complete export request/)
+
+        expect(File.exist?(archive_path)).to be false
+      end
+    end
+
+    describe '.discard_archive' do
+      let(:dir) { described_class.export_dir }
+      let(:path) { File.join(dir, "export_#{SecureRandom.hex(4)}.json") }
+
+      before { FileUtils.mkdir_p(dir) }
+
+      after { FileUtils.rm_f(path) }
+
+      it 'removes an archive inside the export directory' do
+        File.write(path, '{}')
+
+        expect(described_class.discard_archive(path)).to eq(:removed)
+        expect(File.exist?(path)).to be false
+      end
+
+      it 'answers :missing for a blank path or an archive that is already gone' do
+        expect(described_class.discard_archive(nil)).to eq(:missing)
+        expect(described_class.discard_archive('')).to eq(:missing)
+        expect(described_class.discard_archive(path)).to eq(:missing)
+      end
+
+      it 'never touches a path outside the export directory, including a traversal out of it' do
+        outside = Tempfile.new('not-an-export')
+        outside.close
+
+        expect(described_class.discard_archive(outside.path)).to eq(:outside_export_dir)
+        expect(described_class.discard_archive(File.join(dir, '..', File.basename(outside.path)))).to eq(:outside_export_dir)
+        expect(File.exist?(outside.path)).to be true
+      ensure
+        outside&.unlink
+      end
+
+      it 'does not treat a sibling directory sharing the prefix as inside' do
+        sibling = "#{dir}_other"
+        FileUtils.mkdir_p(sibling)
+        file = File.join(sibling, 'x.json')
+        File.write(file, '{}')
+
+        expect(described_class.discard_archive(file)).to eq(:outside_export_dir)
+        expect(File.exist?(file)).to be true
+      ensure
+        FileUtils.rm_rf(sibling)
+      end
+
+      it 'answers :failed rather than raising when the file cannot be removed' do
+        File.write(path, '{}')
+        allow(File).to receive(:delete).and_call_original
+        allow(File).to receive(:delete).with(File.expand_path(path)).and_raise(Errno::EACCES)
+
+        expect(described_class.discard_archive(path)).to eq(:failed)
+      end
+    end
+
     context 'with different export formats' do
       let(:csv_request) { export_request_data.merge('format' => 'csv', 'include_data_types' => ['profile']) }
 
