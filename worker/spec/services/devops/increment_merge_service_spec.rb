@@ -522,6 +522,42 @@ RSpec.describe Devops::IncrementMergeService do
       expect(tip(parent_primary)).to eq(parent_base)
     end
 
+    # The remote itself enforces the head observed by ls-remote: a push
+    # carries --force-with-lease=<ref>:<observed>, so a remote that moves
+    # after the ls-remote refuses the push, even when the move was itself a
+    # fast-forward that a plain push would have built on.
+    it 'refuses a remote that moves between its ls-remote and its push, even along the increment' do
+      sh!('git', 'checkout', '--quiet', '-B', 'feature/increment', base_sha, dir: @sub_work)
+      midway = commit!(@sub_work, 'm1.txt', 'first half')
+      tip_sha = commit!(@sub_work, 'm2.txt', 'second half')
+      sh!('git', 'push', '--quiet', '--force', sub_primary, 'feature/increment', dir: @sub_work)
+      payload['expected_source_sha'] = tip_sha
+      payload.delete('pointer_bump')
+      allow(git_ops).to receive(:get_branch).and_return({ commit: { sha: tip_sha } })
+
+      moved = false
+      allow(Devops::GitCli).to receive(:new).and_wrap_original do |original, **kwargs|
+        cli = original.call(**kwargs)
+        allow(cli).to receive(:run).and_wrap_original do |run, *args, **opts|
+          if args.first == 'push' && args.include?(sub_mirror) && !moved
+            moved = true
+            sh!('git', 'push', '--quiet', sub_mirror, "#{midway}:refs/heads/develop", dir: @sub_work)
+          end
+          run.call(*args, **opts)
+        end
+        cli
+      end
+
+      report = service.call
+
+      expect(report).to include('status' => 'failed', 'stage' => 'push')
+      expect(report['remotes'].map { |r| [ r['repository_id'], r['status'] ] })
+        .to eq([ %w[sub-primary pushed], %w[sub-mirror refused] ])
+      expect(report['remotes'].last['error']).to match(/moved/)
+      expect(tip(sub_mirror)).to eq(midway)
+      expect(tip(sub_primary)).to eq(tip_sha)
+    end
+
     it 'does the same for the pointer-bump push to the parent remotes' do
       advanced = advance_at_push_time(parent_mirror, file: 'parent-race.txt')
 

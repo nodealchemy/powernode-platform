@@ -210,7 +210,7 @@ module Api
               web_url: repo_params[:web_url],
               is_private: repo_params[:is_private] || false,
               is_active: repo_params[:is_active].nil? ? true : repo_params[:is_active],
-              metadata: repo_params[:metadata] || {},
+              metadata: repository.metadata_from_provider(repo_params[:metadata]),
               last_synced_at: repo_params[:last_synced_at] || Time.current
             )
 

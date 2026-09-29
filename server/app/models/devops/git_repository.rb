@@ -34,6 +34,10 @@ module Devops
     # Constants
     BRANCH_FILTER_TYPES = %w[none exact wildcard regex].freeze
     PUSH_MIRRORS_KEY = "push_mirror_repository_ids"
+    # Metadata keys the OPERATOR owns. A provider sync rewrites the rest of
+    # metadata from what the provider reports, but never these (see
+    # #metadata_from_provider).
+    OPERATOR_METADATA_KEYS = [ PUSH_MIRRORS_KEY ].freeze
 
     # Validations
     validates :external_id, presence: true
@@ -153,6 +157,16 @@ module Devops
     # by dev_merge_increment (Ai::Tools::DevMergeTool), which pushes to this
     # repository and every mirror named here and reports a push that reached
     # only some of them as failed.
+    # The metadata a provider sync should write: what the provider reported,
+    # with the operator-owned keys taken from this row instead. A provider can
+    # neither drop nor set them, so a sync cannot silently turn a push to
+    # every configured mirror into a push to the origin alone.
+    def metadata_from_provider(reported)
+      reported = reported.to_unsafe_h if reported.respond_to?(:to_unsafe_h)
+      provided = (reported.is_a?(Hash) ? reported : {}).deep_stringify_keys.except(*OPERATOR_METADATA_KEYS)
+      provided.merge((metadata || {}).stringify_keys.slice(*OPERATOR_METADATA_KEYS))
+    end
+
     def push_mirror_repository_ids
       Array(metadata&.dig(PUSH_MIRRORS_KEY)).map(&:to_s).reject(&:blank?).uniq - [ id.to_s ]
     end

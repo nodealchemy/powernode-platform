@@ -62,6 +62,18 @@ module Ai
       SUBMODULE_PATH = %r{\A(?!-)(?!.*(?:\A|/)\.{1,2}(?:/|\z))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\z}
       SUMMARY_MAX = 200
 
+      # gate_attestation is copied verbatim into the parked operation, the
+      # approval card and two audit rows, so it is bounded: the shape is
+      # dev_complete_task's evidence block (an object of scalars, whose values
+      # may be one more object of scalars or a list of them), with caps on
+      # keys, strings, lists and the whole document.
+      ATTESTATION_MAX_KEYS = 16
+      ATTESTATION_MAX_KEY = 64
+      ATTESTATION_MAX_STRING = 500
+      ATTESTATION_MAX_LIST = 10
+      ATTESTATION_MAX_BYTES = 8192
+      ATTESTATION_MAX_DEPTH = 2
+
       # A committer for the pointer-bump commit when the replay runs as no
       # person (an agent or an in-process caller). The .invalid TLD is reserved
       # and never resolves.
@@ -75,7 +87,9 @@ module Ai
                                "expected_source_sha is not a full 40-character SHA",
                                "the repository or a configured mirror is not active in this account",
                                "a pointer_bump summary carries AI attribution or names a private extension",
-                               "gate_attestation is missing",
+                               "gate_attestation is missing, or outside its bounds (at most 16 keys per object, " \
+                               "objects two levels deep, lists of 10, strings of 500 characters, 8 KB in all)",
+                               "the caller (person, or an agent through its creator) lacks devops.repositories.write",
                                "a remote's clone URL is not https with a host and no userinfo",
                                "this host cannot tell which private extensions exist (declare them in the " \
                                "protected site setting dev_merge.private_extension_names; [] declares none)",
@@ -173,11 +187,20 @@ module Ai
 
       private
 
+      # The same permission for every principal type, checked before
+      # anything parks: a person holds it; an agent (with no person) is held
+      # to it through its creator's role, the platform's agent seam
+      # (BaseTool.permitted?). An instance principal never reaches here (the
+      # *dev_merge* deny overlay refuses it first) and is refused if it does;
+      # an in-process caller is trusted by construction; anything else is
+      # refused.
       def caller_permitted?
-        return true if internal? || instance_authorized?
-        return true if user.nil?
+        return true if internal?
+        return false if instance_authorized?
+        return user.has_permission?(REQUIRED_PERMISSION) == true if user
+        return self.class.permitted?(agent: agent) if agent
 
-        user.has_permission?(REQUIRED_PERMISSION) == true
+        false
       end
 
       def halted_result
@@ -201,6 +224,9 @@ module Ai
         unless attestation.is_a?(Hash) && attestation.present?
           return [ nil, "gate_attestation is required: attest to the verification gate you ran" ]
         end
+        if (problem = attestation_problem(attestation))
+          return [ nil, "gate_attestation #{problem}" ]
+        end
 
         names = ::Ai::DevMerge::ForbiddenNames.resolve
         return [ nil, names.reason ] unless names.determinate?
@@ -217,6 +243,48 @@ module Ai
         [ Plan.new(repository: repository, remotes: remotes, source_ref: source_ref, target_branch: target,
                    expected_source_sha: sha, pointer_bump: pointer_bump,
                    gate_attestation: attestation.deep_stringify_keys, forbidden_names: names.names), nil ]
+      end
+
+      # nil when the attestation fits its bounds, else what is wrong with it.
+      def attestation_problem(attestation)
+        problem = attestation_shape_problem(attestation, 0)
+        return problem if problem
+        return nil if attestation.to_json.bytesize <= ATTESTATION_MAX_BYTES
+
+        "is over #{ATTESTATION_MAX_BYTES} bytes"
+      end
+
+      def attestation_shape_problem(value, depth)
+        case value
+        when Hash
+          return "nests objects deeper than #{ATTESTATION_MAX_DEPTH} levels" if depth >= ATTESTATION_MAX_DEPTH
+          return "has an object with more than #{ATTESTATION_MAX_KEYS} keys" if value.size > ATTESTATION_MAX_KEYS
+
+          value.each do |key, inner|
+            return "has a key longer than #{ATTESTATION_MAX_KEY} characters" if key.to_s.length > ATTESTATION_MAX_KEY
+
+            problem = attestation_shape_problem(inner, depth + 1)
+            return problem if problem
+          end
+          nil
+        when Array
+          return "has a list inside a list" if value.any?(Array)
+          return "has a list longer than #{ATTESTATION_MAX_LIST} items" if value.size > ATTESTATION_MAX_LIST
+
+          value.each do |item|
+            # A list's items sit at the list's own level: a list of suite
+            # objects is the same depth as a single suite object.
+            problem = attestation_shape_problem(item, depth)
+            return problem if problem
+          end
+          nil
+        when String
+          value.length > ATTESTATION_MAX_STRING ? "has a string longer than #{ATTESTATION_MAX_STRING} characters" : nil
+        when Integer, Float, true, false, nil
+          nil
+        else
+          "has a value that is not a JSON string, number, boolean or null"
+        end
       end
 
       def allowed_target?(target)

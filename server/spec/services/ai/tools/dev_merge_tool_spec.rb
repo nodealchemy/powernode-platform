@@ -164,6 +164,31 @@ RSpec.describe Ai::Tools::DevMergeTool do
       expect_refused(merge, /https/)
     end
 
+    describe "a gate_attestation outside its bounds" do
+      {
+        "too many keys" => (1..(Ai::Tools::DevMergeTool::ATTESTATION_MAX_KEYS + 1)).to_h { |i| [ "k#{i}", i ] },
+        "an overlong string" => { "command" => "x" * (Ai::Tools::DevMergeTool::ATTESTATION_MAX_STRING + 1) },
+        "an overlong key" => { ("k" * 65) => 1 },
+        "nesting deeper than the evidence shape" => { "evidence" => { "suite" => { "deeper" => { "x" => 1 } } } },
+        "a list longer than allowed" => { "evidence" => Array.new(Ai::Tools::DevMergeTool::ATTESTATION_MAX_LIST + 1) { { "passed" => 1 } } },
+        # Every key and string inside its own bound; only the total is over.
+        "an oversize document" => { "evidence" => Array.new(Ai::Tools::DevMergeTool::ATTESTATION_MAX_LIST) do
+          { "command" => "y" * 499, "notes" => "z" * 499 }
+        end },
+        "a value that is not JSON-scalar" => { "evidence" => { "suites" => [ [ 1, 2 ] ] } }
+      }.each do |label, attestation|
+        it(label) { expect_refused(merge(gate_attestation: attestation), /gate_attestation/) }
+      end
+
+      it "accepts the dev_complete_task evidence shape, a single suite or a list" do
+        single = { "evidence" => { "framework" => "rspec", "passed" => 173, "failed" => 0, "command" => "bundle exec rspec x" } }
+        list = { "evidence" => [ single["evidence"], single["evidence"].merge("framework" => "jest") ] }
+
+        expect(merge(gate_attestation: single)[:data]).to include(pending: true)
+        expect(merge(gate_attestation: list)[:data]).to include(pending: true)
+      end
+    end
+
     it "a configured mirror that is no longer active" do
       mirror.update!(is_archived: true)
 
@@ -327,6 +352,57 @@ RSpec.describe Ai::Tools::DevMergeTool do
       expect(approve(parked)).to be(true)
       expect(WorkerJobService).to have_received(:enqueue_job).once
         .with(anything, hash_including(args: [ hash_including("committer" => hash_including("email" => user.email)) ]))
+    end
+  end
+
+  describe "the same permission for every principal type, before parking" do
+    let(:provider) { create(:ai_provider, account: account) }
+
+    def agent_created_by(creator)
+      create(:ai_agent, account: account, creator: creator, provider: provider)
+    end
+
+    it "refuses an agent-only caller whose creator lacks devops.repositories.write, and parks nothing" do
+      weak = create(:user, account: account, permissions: [])
+      agent_tool = described_class.new(account: account, agent: agent_created_by(weak),
+                                       call_origin: Ai::Tools::CallOrigin::MCP_OAUTH)
+
+      result = agent_tool.execute(params: { action: "dev_merge_increment", repository: repository.full_name,
+                                            source_ref: "feature/increment", target_branch: "develop",
+                                            expected_source_sha: sha, gate_attestation: attestation })
+
+      expect(result[:error]).to match(/devops.repositories.write/)
+      expect(Ai::ApprovalRequest.count).to eq(0)
+    end
+
+    it "parks for an agent-only caller whose creator holds it" do
+      agent_tool = described_class.new(account: account, agent: agent_created_by(user),
+                                       call_origin: Ai::Tools::CallOrigin::MCP_OAUTH)
+
+      result = agent_tool.execute(params: { action: "dev_merge_increment", repository: repository.full_name,
+                                            source_ref: "feature/increment", target_branch: "develop",
+                                            expected_source_sha: sha, gate_attestation: attestation })
+
+      expect(result[:data]).to include(pending: true)
+    end
+
+    let(:full_params) do
+      { action: "dev_merge_increment", repository: repository.full_name, source_ref: "feature/increment",
+        target_branch: "develop", expected_source_sha: sha, gate_attestation: attestation }
+    end
+
+    it "refuses a user without the permission" do
+      weak_tool = described_class.new(account: account, user: create(:user, account: account, permissions: []))
+
+      expect(weak_tool.execute(params: full_params)[:error]).to match(/devops.repositories.write/)
+      expect(Ai::ApprovalRequest.count).to eq(0)
+    end
+
+    it "refuses a caller that is neither a user, an agent nor an in-process caller" do
+      bare = described_class.new(account: account)
+
+      expect(bare.execute(params: full_params)[:error]).to match(/permission denied/)
+      expect(Ai::ApprovalRequest.count).to eq(0)
     end
   end
 

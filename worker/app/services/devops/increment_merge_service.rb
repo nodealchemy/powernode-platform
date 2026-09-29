@@ -36,8 +36,9 @@ module Devops
   #                      single push. Refused, never rewritten.
   #   5. push            per remote, first re-read that remote's CURRENT head
   #                      (ls-remote): a remote that moved since the plan to a
-  #                      non-ancestor is refused. Then <sha>:refs/heads/<target>,
-  #                      no force. Any remote that did not take it makes the
+  #                      non-ancestor is refused. Then <sha>:refs/heads/<target>
+  #                      with --force-with-lease pinned to that exact head, so
+  #                      the remote refuses it if the ref moved in between. Any remote that did not take it makes the
   #                      merge FAILED, and the pointer is then not pushed.
   #
   # Returns the report the job posts to the server and NEVER raises: a
@@ -378,9 +379,20 @@ module Devops
                                       "of #{sha[0, 12]}; refusing a non-fast-forward")
       end
 
-      result = git.run("push", "--porcelain", "--", remote[:url], "#{sha}:refs/heads/#{target}",
+      # The lease makes the REMOTE enforce the head just read: if the ref is
+      # not exactly `head` when the push lands, the remote refuses it. It is
+      # not a force — `head` was verified above to be an ancestor of `sha`,
+      # so the only update the lease can permit is a fast-forward.
+      result = git.run("push", "--porcelain", "--force-with-lease=refs/heads/#{target}:#{head}", "--",
+                       remote[:url], "#{sha}:refs/heads/#{target}",
                        auth_header: remote[:auth_header], secrets: remote[:secrets])
       return entry.merge("status" => "pushed") if result.success?
+
+      if "#{result.stdout}\n#{result.stderr}".include?("stale info")
+        return entry.merge("status" => "refused",
+                           "error" => "#{target} on #{remote[:full_name]} moved after its head (#{head[0, 12]}) was " \
+                                      "read; the remote refused the push against that lease")
+      end
 
       entry.merge("status" => "failed", "error" => result.stderr.strip[0, 500])
     end
