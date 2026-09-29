@@ -141,6 +141,34 @@ module Ai
       Ai::ApprovalRequest::DISPATCH_EXECUTED
     end
 
+    # Polymorphic callback invoked from
+    # `Ai::ApprovalRequest#abandon_stranded_dispatch!` (IMP-0213523480d1): the
+    # request was approved, but the process died before its post-commit
+    # dispatch started, so #on_approval_decision never ran and this row is
+    # still `pending`. The reconciler has declared the request failed; this
+    # settles the operation to match rather than leaving it pending forever.
+    #
+    # approve! then fail! rather than a new pending -> failed edge: the
+    # decision WAS an approval, and `fail` deliberately admits only rows that
+    # got that far. The executor never ran — the error says so, because
+    # fail!'s executed_at stamp alone would read as though it had.
+    #
+    # Runs inside the request's claim transaction, under this row's lock; a
+    # row that is no longer pending was settled by someone else and is left
+    # alone. A parked composed-plan step is released exactly as the reject and
+    # expire arms release it.
+    def on_dispatch_abandoned(error)
+      settled = with_lock do
+        next false unless pending?
+
+        approve!
+        fail!(error)
+        true
+      end
+      release_composed_plan_step! if settled
+      settled
+    end
+
     # A composed provisioning step parked on THIS operation waits on the
     # DECISION, not only on a replay (APO-1f, IMP-117b34656921).
     #

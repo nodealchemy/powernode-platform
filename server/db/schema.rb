@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_29_092723) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -985,6 +985,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_092723) do
     t.datetime "created_at", null: false
     t.integer "current_step", default: 0
     t.text "description"
+    t.datetime "dispatch_scheduled_at"
+    t.datetime "dispatch_started_at"
     t.text "execution_error"
     t.string "execution_status"
     t.datetime "expires_at"
@@ -996,6 +998,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_092723) do
     t.string "status", default: "pending", null: false
     t.jsonb "step_statuses", default: []
     t.datetime "updated_at", null: false
+    t.index ["account_id", "dispatch_scheduled_at"], name: "index_ai_approval_requests_on_owed_dispatch", where: "((dispatch_scheduled_at IS NOT NULL) AND (dispatch_started_at IS NULL) AND (execution_status IS NULL))"
     t.index ["account_id", "status"], name: "index_ai_approval_requests_on_account_id_and_status"
     t.index ["account_id"], name: "index_ai_approval_requests_on_account_id"
     t.index ["approval_chain_id", "created_at"], name: "index_ai_approval_requests_on_approval_chain_id_and_created_at"

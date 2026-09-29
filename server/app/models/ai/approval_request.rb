@@ -41,6 +41,13 @@ module Ai
     DISPATCH_EXECUTED = :executed
     DISPATCH_NOOP = :noop
 
+    # The declared cause of a request whose post-commit dispatch was owed and
+    # never started (IMP-0213523480d1): the process died between the approval's
+    # commit and the dispatch, so the source never heard of the decision.
+    # Written by #abandon_stranded_dispatch! through the same failure
+    # declaration a dispatch that raised uses, so it reaches the same surfaces.
+    class DispatchAbandoned < StandardError; end
+
     # Validations
     validates :request_id, presence: true, uniqueness: true
     validates :status, presence: true, inclusion: { in: %w[pending approved rejected expired cancelled] }
@@ -54,6 +61,14 @@ module Ai
     scope :active, -> { pending.where("expires_at IS NULL OR expires_at > ?", Time.current) }
     scope :for_source, ->(type, id) { where(source_type: type, source_id: id) }
     scope :for_period, ->(start_date, end_date) { where(created_at: start_date..end_date) }
+    # Approved, a post-commit dispatch owed (#notify_source_of_decision stamped
+    # dispatch_scheduled_at in the approval's own transaction), and nobody has
+    # claimed it or declared an outcome. Normally empty for longer than the
+    # moment between a commit and its dispatch; see #claim_owed_dispatch.
+    scope :owed_dispatch, lambda {
+      approved.where.not(dispatch_scheduled_at: nil)
+              .where(dispatch_started_at: nil, execution_status: nil)
+    }
 
     # Callbacks
     before_validation :set_request_id, on: :create
@@ -261,6 +276,50 @@ module Ai
       value
     end
 
+    # Run a stranded dispatch now, as the post-commit block would have
+    # (IMP-0213523480d1). Only Ai::Approvals::StrandedDispatchReconciler calls
+    # this, and only for a category it has established is safe to run twice.
+    # Claims through the same conditional update the post-commit dispatch uses,
+    # so whichever of the two gets there first is the only one that acts.
+    # Returns whether this call claimed (and so ran) the dispatch.
+    def redispatch_stranded!
+      return false unless claim_owed_dispatch
+
+      run_claimed_dispatch!
+      true
+    end
+
+    # Settle a stranded dispatch as FAILED without running it (IMP-0213523480d1).
+    # The default for every category the reconciler may not re-dispatch.
+    #
+    # The request's claim and the source's own settlement share one
+    # transaction: a request marked failed while its operation stayed pending
+    # would be a new strand the reconciler can no longer see. The claim is the
+    # conditional update on execution_status, so a dispatch that starts
+    # concurrently either claimed first (this returns false and touches
+    # nothing) or finds the row already declared and refuses to run.
+    #
+    # Returns whether this call settled the request.
+    def abandon_stranded_dispatch!(reason)
+      error = DispatchAbandoned.new(reason)
+      detail = "#{error.class}: #{error.message}"
+
+      settled = self.class.transaction do
+        won = self.class.owed_dispatch.where(id: id)
+                  .update_all(execution_status: "failed", execution_error: detail, updated_at: Time.current) == 1
+        if won
+          source = resolve_source
+          source.on_dispatch_abandoned(error) if source.respond_to?(:on_dispatch_abandoned)
+        end
+        won
+      end
+      return false unless settled
+
+      reload
+      record_execution_failure_event!(error, reconciled: "failed")
+      true
+    end
+
     private
 
     def human_session_satisfied?(origin)
@@ -374,6 +433,11 @@ module Ai
         return
       end
 
+      # IMP-0213523480d1: the dispatch is now OWED. Written in this same
+      # transaction, so it commits exactly when the approval does and vanishes
+      # with it on a rollback — the one moment that can say "a dispatch must
+      # follow" without the dispatch having to survive to say it.
+      update_columns(dispatch_scheduled_at: Time.current)
       ActiveRecord.after_all_transactions_commit { dispatch_to_source! }
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
@@ -390,10 +454,22 @@ module Ai
     # own commit-time side effects) — on_approval_decision must act on the
     # source as it is now, not as it was pre-commit.
     def dispatch_to_source!
-      klass = source_type.safe_constantize
-      return unless klass.respond_to?(:find_by)
+      # IMP-0213523480d1: claimed before anything else runs, so a dispatch that
+      # has begun is visible as begun. A claim refused means the reconciler
+      # already settled this request (or re-dispatched it): stand down.
+      return unless claim_owed_dispatch
 
-      source = klass.find_by(id: source_id)
+      run_claimed_dispatch!
+    rescue StandardError => e
+      Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
+      declare_execution_failure!(e)
+    end
+
+    # The body of an approved-arm dispatch, once #claim_owed_dispatch has been
+    # won — by the post-commit block or, for a stranded request, by
+    # #redispatch_stranded!.
+    def run_claimed_dispatch!
+      source = resolve_source
       return unless source.respond_to?(:on_approval_decision)
 
       outcome = source.on_approval_decision(self)
@@ -402,6 +478,26 @@ module Ai
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
       declare_execution_failure!(e)
+    end
+
+    def resolve_source
+      klass = source_type.to_s.safe_constantize
+      return nil unless klass.respond_to?(:find_by)
+
+      klass.find_by(id: source_id)
+    end
+
+    # The single claim both a post-commit dispatch and the reconciler's
+    # re-dispatch compete for: a conditional UPDATE, so exactly one caller
+    # sees a row change, whatever either holds in memory. The reconciler's
+    # FAIL arm competes on the same predicate (#owed_dispatch) from the other
+    # side, writing execution_status instead. Returns whether this caller won.
+    def claim_owed_dispatch
+      now = Time.current
+      won = self.class.owed_dispatch.where(id: id)
+                .update_all(dispatch_started_at: now, updated_at: now) == 1
+      self.dispatch_started_at = now if won
+      won
     end
 
     # Take the source's one-shot reveal onto this instance before `source` goes
@@ -461,8 +557,12 @@ module Ai
 
     def declare_execution_failure!(error)
       declare_execution_outcome!("failed", error: error)
-      # Recorder swallows its own errors, so a broken event sink cannot mask
-      # the column declaration above or raise out of the callback.
+      record_execution_failure_event!(error)
+    end
+
+    # Recorder swallows its own errors, so a broken event sink cannot mask
+    # the column declaration or raise out of the callback.
+    def record_execution_failure_event!(error, **extra)
       ::Ai::Introspection::ExecutionEventRecorder.record(
         source: self,
         event_type: "approval_execution",
@@ -472,7 +572,7 @@ module Ai
           operation_source_type: source_type,
           operation_source_id: source_id,
           action_category: request_data&.dig("action_category")
-        }.compact
+        }.merge(extra).compact
       )
     end
 
