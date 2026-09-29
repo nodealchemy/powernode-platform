@@ -43,6 +43,24 @@ RSpec.describe AiApprovalExpiryJob, type: :job do
     expect(job).to have_received(:log_warn).with(a_string_including("2 failed, 1 re-dispatched"))
   end
 
+  it "warns when the sweep could not settle a stranded dispatch" do
+    allow(api_client).to receive(:post)
+      .and_return({ "success" => true, "data" => { "expired_count" => 0, "stranded_errored_count" => 1 } })
+
+    job.execute({})
+
+    expect(job).to have_received(:log_warn).with(a_string_including("1 stranded approval dispatch(es) could not be settled"))
+  end
+
+  it "warns when the sweep signalled an interrupted dispatch" do
+    allow(api_client).to receive(:post)
+      .and_return({ "success" => true, "data" => { "expired_count" => 0, "interrupted_dispatch_count" => 2 } })
+
+    job.execute({})
+
+    expect(job).to have_received(:log_warn).with(a_string_including("2 approval dispatch(es) started and never finished"))
+  end
+
   it "tolerates a server that does not report stranded counts" do
     allow(api_client).to receive(:post)
       .and_return({ "success" => true, "data" => { "expired_count" => 3 } })
