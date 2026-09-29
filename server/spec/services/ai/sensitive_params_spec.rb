@@ -141,6 +141,37 @@ RSpec.describe Ai::SensitiveParams do
       expect(described_class.filter_text('x' * 5_000).length).to eq(described_class::TEXT_LIMIT)
     end
 
+    it 'stays linear on a large text and never emits an unscanned tail' do
+      timed = lambda do |text|
+        started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        result = described_class.filter_text(text)
+        [ result, Process.clock_gettime(Process::CLOCK_MONOTONIC) - started ]
+      end
+      # No newline and a delimiter after every value: the shape that made each
+      # keyed value scan to the end of the text.
+      result, elapsed = timed.call('token=a,' * 50_000)
+
+      expect(result.length).to be <= described_class::TEXT_LIMIT
+      expect(result).not_to include('token=a')
+      expect(elapsed).to be < 1.0
+    end
+
+    it 'scans only the window and marks the cut, so the tail is never emitted unmasked' do
+      secret = %w[not a real tail].join('-')
+      text = ('.' * described_class::TEXT_SCAN_WINDOW) + " password=#{secret}"
+
+      expect(described_class.filter_text(text)).not_to include(secret)
+      expect(described_class.filter_text('x ' * described_class::TEXT_SCAN_WINDOW)).to end_with('...')
+    end
+
+    it 'bounds a large multibyte text with an unclosed bracket' do
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      result = described_class.filter_text("token: [#{'é' * 200_000}")
+
+      expect(result).to eq('token: [FILTERED]...')
+      expect(Process.clock_gettime(Process::CLOCK_MONOTONIC) - started).to be < 1.0
+    end
+
     it 'masks every element of a bracketed list, not only the first' do
       filtered = described_class.filter_text(%({"api_keys"=>["#{s1}","#{s2}"], "after"=>"kept"}))
 

@@ -38,6 +38,12 @@ module Ai
     # caller's to bound: a driver error can quote a whole failing row.
     TEXT_LIMIT = 500
 
+    # How much of a text `filter_text` will scan. The output is cut to
+    # TEXT_LIMIT, so nothing past this can be emitted, and an exception column
+    # is unbounded. Everything emitted was scanned; the cut is marked with an
+    # ellipsis.
+    TEXT_SCAN_WINDOW = 32 * 1024
+
     # Key names `filter_text` masks beyond key_patterns: a header, not a hash
     # key, so it never reaches `filter`.
     TEXT_EXTRA_KEYS = %w[authorization].freeze
@@ -46,6 +52,7 @@ module Ai
     BEARER = /\b(Bearer\s+)\S+/i
     # A `, key=`, `; key:` or `& key=>` that ends an unquoted value.
     VALUE_DELIMITER = /[,;&]\s*[\w.-]+["']?\s*(?:=>|[:=])/
+    VALUE_STOP = ::Regexp.union(/[\r\n]/, VALUE_DELIMITER)
     BRACKET_PAIRS = { "[" => "]", "{" => "}", "(" => ")" }.freeze
 
     # Names for secret material, not for anything merely private. Matched as
@@ -130,8 +137,9 @@ module Ai
       # closed by the wrong kind, masks everything to the end of the text rather
       # than guessing where the value stopped. Over-masking is visible on the
       # card; a leak is not. The URL userinfo of `scheme://user:pw@host` and a
-      # bare Bearer credential are masked wherever they appear. The result is
-      # truncated to TEXT_LIMIT; nil passes through.
+      # bare Bearer credential are masked wherever they appear. Only the first
+      # TEXT_SCAN_WINDOW characters are scanned, and the result is truncated to
+      # TEXT_LIMIT; nil passes through.
       #
       # Still best-effort: prose cannot be judged by a key, so a secret quoted
       # with no key beside it survives, and truncation is the only bound on it.
@@ -140,8 +148,14 @@ module Ai
       def filter_text(text)
         return text if text.nil?
 
-        masked = mask_keyed_values(text.to_s.gsub(URL_USERINFO) { "#{::Regexp.last_match(1)}#{MASK}@" })
-        masked.gsub(BEARER) { "#{::Regexp.last_match(1)}#{MASK}" }.truncate(TEXT_LIMIT)
+        text = text.to_s
+        cut = text.length > TEXT_SCAN_WINDOW
+        text = text[0, TEXT_SCAN_WINDOW] if cut
+
+        masked = mask_keyed_values(text.gsub(URL_USERINFO) { "#{::Regexp.last_match(1)}#{MASK}@" })
+        masked = masked.gsub(BEARER) { "#{::Regexp.last_match(1)}#{MASK}" }
+        masked << "..." if cut
+        masked.truncate(TEXT_LIMIT)
       end
 
       # Resolve the pattern set and compile the matcher ONCE for the duration of
@@ -189,8 +203,9 @@ module Ai
         return quoted_end(text, start) if first == '"' || first == "'"
         return bracket_end(text, start) if BRACKET_PAIRS.key?(first)
 
-        stops = [ text.index(/[\r\n]/, start), text.index(VALUE_DELIMITER, start) ].compact
-        stops.min || text.length
+        # ONE search for both stops: two separate ones each scan to the end of
+        # the text when their stop is absent, which made this quadratic.
+        text.index(VALUE_STOP, start) || text.length
       end
 
       # Just past the closing quote of the string opening at `start`;
