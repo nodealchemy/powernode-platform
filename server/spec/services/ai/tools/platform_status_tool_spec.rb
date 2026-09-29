@@ -218,9 +218,13 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
         .and_raise(ActiveRecord::ConnectionNotEstablished, "connection to server at 10.9.9.9 failed")
       operator = described_class.new(account: account, user: create(:user, account: account, permissions: [ "admin.access" ]))
 
+      allow(Rails.logger).to receive(:error)
+
       result = operator.execute(params: { action: "migration_status" })
 
       expect(result).to eq(success: false, error: "database unavailable")
+      expect(Rails.logger).to have_received(:error)
+        .with(a_string_including("PlatformStatusTool", "ActiveRecord::ConnectionNotEstablished", "10.9.9.9"))
     end
   end
 

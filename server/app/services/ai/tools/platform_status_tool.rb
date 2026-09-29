@@ -239,11 +239,12 @@ module Ai
       end
 
       # A literal error on a database failure: the exception message can carry a
-      # host, port or query, and this verb's audience reads it as data.
+      # host, port or query, and this verb's audience reads it as data. The cause
+      # is logged server-side through rescued_error_result so an operator keeps it.
       def migration_status
         success_result(::Platform::MigrationStatus.current)
-      rescue ActiveRecord::ActiveRecordError
-        error_result("database unavailable")
+      rescue ActiveRecord::ActiveRecordError => e
+        rescued_error_result(e, message: "database unavailable")
       end
 
       # ── helpers ───────────────────────────────────────────────────────────
