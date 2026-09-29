@@ -9,8 +9,10 @@
 # The same server sweep also settles approved requests whose post-commit
 # dispatch never started (IMP-0213523480d1): failed by default, re-dispatched
 # only for an operator-allowlisted idempotent category. It signals, and never
-# re-runs, a dispatch that started and never finished. Each of those, and a
-# stranded request the sweep could not settle, is logged at warn.
+# re-runs, a dispatch that started and never finished. Each of those is logged
+# at warn, as is anything the sweep could not do: a stranded request it could
+# not settle, an interrupted one it could not signal, or an account whose
+# reconciler failed outright.
 class AiApprovalExpiryJob < BaseJob
   sidekiq_options queue: :maintenance, retry: 1
 
@@ -31,6 +33,16 @@ class AiApprovalExpiryJob < BaseJob
       if stranded_errored > 0
         log_warn "[AiApprovalExpiryJob] #{stranded_errored} stranded approval dispatch(es) could not be settled; " \
                  "they stay owed and are retried next run"
+      end
+      interrupted_errored = data["interrupted_errored_count"] || 0
+      if interrupted_errored > 0
+        log_warn "[AiApprovalExpiryJob] #{interrupted_errored} interrupted approval dispatch(es) could not be " \
+                 "signalled; they are retried next run"
+      end
+      failed_accounts = data["reconcile_failed_account_count"] || 0
+      if failed_accounts > 0
+        log_warn "[AiApprovalExpiryJob] approval-dispatch reconciliation failed for #{failed_accounts} account(s); " \
+                 "see the server log"
       end
       interrupted = data["interrupted_dispatch_count"] || 0
       if interrupted > 0

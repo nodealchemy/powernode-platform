@@ -517,17 +517,35 @@ module Ai
       # so — this line is the fingerprint of a request the reconciler judged
       # stranded while its process was in fact alive.
       unless claim_owed_dispatch
-        Rails.logger.warn(
-          "[ApprovalRequest##{id}] post-commit dispatch claim refused: the request was already " \
-          "settled or re-dispatched (execution_status=#{self.class.where(id: id).pick(:execution_status).inspect})"
-        )
+        log_refused_dispatch_claim
         return
       end
 
       run_claimed_dispatch!
     rescue StandardError => e
-      Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
-      declare_execution_failure!(e)
+      # Only the claim itself can raise this far (#run_claimed_dispatch! and
+      # #log_refused_dispatch_claim swallow their own errors). A claim that
+      # raised was not taken, so this call owns no outcome and declares none:
+      # writing execution_status here could overwrite the outcome of whoever
+      # does hold the claim. The request stays owed, and the reconciler
+      # settles it past the grace window.
+      Rails.logger.error("[ApprovalRequest##{id}] post-commit dispatch claim failed: #{e.class}: #{e.message}")
+    end
+
+    # Diagnostic only, and never raises: it runs on a request this call does
+    # NOT hold, so a failure here must not reach a rescue that declares.
+    def log_refused_dispatch_claim
+      current = begin
+        self.class.where(id: id).pick(:execution_status).inspect
+      rescue StandardError => e
+        "unreadable (#{e.class})"
+      end
+      Rails.logger.warn(
+        "[ApprovalRequest##{id}] post-commit dispatch claim refused: the request was already " \
+        "settled or re-dispatched (execution_status=#{current})"
+      )
+    rescue StandardError
+      nil
     end
 
     # The body of an approved-arm dispatch, once #claim_owed_dispatch has been

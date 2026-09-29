@@ -122,7 +122,7 @@ RSpec.describe Ai::Approvals::StrandedDispatchReconciler do
       req, op = stranded_request("test.act")
 
       travel_to(PAST_GRACE.from_now) do
-        expect(reconcile).to include(failed: 1, redispatched: 0, errored: 0)
+        expect(reconcile).to include(failed: 1, redispatched: 0, stranded_errored: 0)
       end
 
       req.reload
@@ -184,7 +184,7 @@ RSpec.describe Ai::Approvals::StrandedDispatchReconciler do
       allow(AuditLog).to receive(:log_action).and_raise(RuntimeError, "audit sink down")
 
       travel_to(PAST_GRACE.from_now) do
-        expect(reconcile).to include(failed: 0, redispatched: 0, errored: 1)
+        expect(reconcile).to include(failed: 0, redispatched: 0, stranded_errored: 1, interrupted_errored: 0)
       end
 
       expect(Ai::Provisioning::SkillCompositionRunner).not_to have_received(:resume_parked_step)
@@ -349,7 +349,7 @@ RSpec.describe Ai::Approvals::StrandedDispatchReconciler do
       req, = interrupted_request
       allow(AuditLog).to receive(:log_action).and_raise(RuntimeError, "audit sink down")
 
-      travel_to(7.hours.from_now) { expect(reconcile).to include(interrupted: 0, errored: 1) }
+      travel_to(7.hours.from_now) { expect(reconcile).to include(interrupted: 0, interrupted_errored: 1, stranded_errored: 0) }
 
       expect(req.reload.dispatch_interrupt_signalled_at).to be_nil
     end
@@ -511,6 +511,36 @@ RSpec.describe Ai::Approvals::StrandedDispatchReconciler do
       expect(req.reload.execution_status).to eq("failed")
     end
 
+    # N1: after a REFUSED claim nothing may write execution_status — not even
+    # when the diagnostic read for the warning fails.
+    it "leaves a re-dispatched request's outcome alone when the refused-claim diagnostic raises" do
+      allowlist!("test.idempotent")
+      req, = stranded_request("test.idempotent")
+      late = Ai::ApprovalRequest.find(req.id)
+      travel_to(PAST_GRACE.from_now) { expect(reconcile).to include(redispatched: 1) }
+      allow_any_instance_of(ActiveRecord::Relation).to receive(:pick) # rubocop:disable RSpec/AnyInstance
+        .and_raise(ActiveRecord::ConnectionNotEstablished, "blip")
+
+      expect { late.send(:dispatch_to_source!) }.not_to raise_error
+
+      expect(req.reload.execution_status).to eq("succeeded")
+      expect(ReconcilerSpecPerformer).to have_received(:execute).once
+      expect(Ai::ExecutionEvent.where(source_type: "Ai::ApprovalRequest", source_id: req.id)).to be_empty
+    end
+
+    it "declares nothing when the claim itself raises: the request stays owed for the reconciler" do
+      req, op = stranded_request("test.act")
+      late = Ai::ApprovalRequest.find(req.id)
+      allow(late).to receive(:claim_owed_dispatch).and_raise(ActiveRecord::ConnectionNotEstablished, "blip")
+
+      expect { late.send(:dispatch_to_source!) }.not_to raise_error
+
+      expect(req.reload.execution_status).to be_nil
+      expect(Ai::ApprovalRequest.owed_dispatch).to include(req)
+      expect(op.reload.status).to eq("pending")
+      expect(Ai::ExecutionEvent.where(source_type: "Ai::ApprovalRequest", source_id: req.id)).to be_empty
+    end
+
     it "leaves a request alone once a late dispatch has claimed it" do
       req, op = stranded_request("test.act")
       Ai::ApprovalRequest.find(req.id).send(:dispatch_to_source!)
@@ -536,11 +566,11 @@ RSpec.describe Ai::Approvals::StrandedDispatchReconciler do
     end
   end
 
-  it "counts a row it could not settle as errored and leaves it owed" do
+  it "counts a stranded row it could not settle as stranded_errored and leaves it owed" do
     req, = stranded_request("test.act")
     allow_any_instance_of(Ai::DeferredOperation).to receive(:on_dispatch_abandoned).and_raise("legacy row") # rubocop:disable RSpec/AnyInstance
 
-    travel_to(PAST_GRACE.from_now) { expect(reconcile).to include(failed: 0, errored: 1) }
+    travel_to(PAST_GRACE.from_now) { expect(reconcile).to include(failed: 0, stranded_errored: 1) }
 
     expect(Ai::ApprovalRequest.owed_dispatch).to include(req.reload)
   end

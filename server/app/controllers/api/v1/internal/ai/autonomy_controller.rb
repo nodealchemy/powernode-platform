@@ -122,7 +122,8 @@ module Api
           # cron. Its counts ride the same response.
           def expire_overdue_approval_requests
             expired_count = 0
-            stranded = { failed: 0, redispatched: 0, errored: 0, interrupted: 0 }
+            stranded = { failed: 0, redispatched: 0, interrupted: 0, stranded_errored: 0, interrupted_errored: 0,
+                         failed_accounts: 0 }
 
             Account.active.find_each do |account|
               service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account)
@@ -136,8 +137,10 @@ module Api
             render_success(expired_count: expired_count,
                            stranded_failed_count: stranded[:failed],
                            stranded_redispatched_count: stranded[:redispatched],
-                           stranded_errored_count: stranded[:errored],
-                           interrupted_dispatch_count: stranded[:interrupted])
+                           stranded_errored_count: stranded[:stranded_errored],
+                           interrupted_dispatch_count: stranded[:interrupted],
+                           interrupted_errored_count: stranded[:interrupted_errored],
+                           reconcile_failed_account_count: stranded[:failed_accounts])
           end
 
           # POST /api/v1/internal/ai/observations/cleanup
@@ -190,12 +193,13 @@ module Api
           private
 
           # Separate from the expiry above so a failure in one never skips the
-          # other for the same account.
+          # other for the same account. A reconciler that raises for a whole
+          # account is counted as an ACCOUNT, never as a row.
           def reconcile_stranded_dispatches(account, totals)
             counts = ::Ai::Approvals::StrandedDispatchReconciler.new(account: account).call
-            totals.each_key { |key| totals[key] += counts[key].to_i }
+            counts.each { |key, value| totals[key] += value.to_i if totals.key?(key) }
           rescue StandardError => e
-            totals[:errored] += 1
+            totals[:failed_accounts] += 1
             Rails.logger.error "[StrandedDispatchReconciler] Failed for account #{account.id}: #{e.message}"
           end
 

@@ -52,6 +52,25 @@ RSpec.describe AiApprovalExpiryJob, type: :job do
     expect(job).to have_received(:log_warn).with(a_string_including("1 stranded approval dispatch(es) could not be settled"))
   end
 
+  it "warns, in its own terms, when an interrupted dispatch could not be signalled" do
+    allow(api_client).to receive(:post)
+      .and_return({ "success" => true, "data" => { "expired_count" => 0, "interrupted_errored_count" => 1 } })
+
+    job.execute({})
+
+    expect(job).to have_received(:log_warn).with(a_string_including("1 interrupted approval dispatch(es) could not be signalled"))
+    expect(job).not_to have_received(:log_warn).with(a_string_including("stay owed"))
+  end
+
+  it "warns when the reconciler failed for a whole account" do
+    allow(api_client).to receive(:post)
+      .and_return({ "success" => true, "data" => { "expired_count" => 0, "reconcile_failed_account_count" => 2 } })
+
+    job.execute({})
+
+    expect(job).to have_received(:log_warn).with(a_string_including("failed for 2 account(s)"))
+  end
+
   it "warns when the sweep signalled an interrupted dispatch" do
     allow(api_client).to receive(:post)
       .and_return({ "success" => true, "data" => { "expired_count" => 0, "interrupted_dispatch_count" => 2 } })

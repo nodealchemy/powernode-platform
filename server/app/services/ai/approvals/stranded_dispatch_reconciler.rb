@@ -120,11 +120,12 @@ module Ai
       end
 
       # Returns what THIS call did: { failed:, redispatched:, interrupted:,
-      # errored: }. A request another caller claimed first counts toward none;
-      # one that raised while being settled or signalled counts as errored and
-      # is left for the next sweep.
+      # stranded_errored:, interrupted_errored: }. A request another caller
+      # claimed first counts toward none. One that raised is counted by the arm
+      # it was in and left for the next sweep: a stranded row stays owed, an
+      # interrupted one stays unsignalled.
       def call
-        counts = { failed: 0, redispatched: 0, interrupted: 0, errored: 0 }
+        counts = { failed: 0, redispatched: 0, interrupted: 0, stranded_errored: 0, interrupted_errored: 0 }
         settle_stranded(counts)
         signal_interrupted(counts)
         counts
@@ -134,14 +135,16 @@ module Ai
 
       def settle_stranded(counts)
         allowlist = self.class.redispatch_allowlist
-        each_guarded(::Ai::ApprovalRequest.owed_dispatch, :dispatch_scheduled_at, self.class.grace_window, counts) do |request|
+        each_guarded(::Ai::ApprovalRequest.owed_dispatch, :dispatch_scheduled_at, self.class.grace_window,
+                     counts, :stranded_errored) do |request|
           settle(request, allowlist, counts)
         end
       end
 
       def signal_interrupted(counts)
         window = self.class.interrupt_window
-        each_guarded(::Ai::ApprovalRequest.unfinished_dispatch, :dispatch_started_at, window, counts) do |request|
+        each_guarded(::Ai::ApprovalRequest.unfinished_dispatch, :dispatch_started_at, window,
+                     counts, :interrupted_errored) do |request|
           reason = "its dispatch started at #{request.dispatch_started_at&.iso8601} and never finished within " \
                    "#{window.inspect}; the process likely stopped mid-dispatch, so its effect is unknown. " \
                    "Not re-run and not failed: check the source before acting on it"
@@ -152,7 +155,7 @@ module Ai
         end
       end
 
-      def each_guarded(scope, clock, window, counts)
+      def each_guarded(scope, clock, window, counts, error_key)
         scope.where(account_id: @account.id)
              .where(clock => ..window.ago)
              .order(clock)
@@ -160,7 +163,7 @@ module Ai
              .each do |request|
           yield request
         rescue StandardError => e
-          counts[:errored] += 1
+          counts[error_key] += 1
           Rails.logger.error(
             "[StrandedDispatchReconciler] request #{request.id} not settled: #{e.class}: #{e.message}"
           )
@@ -233,7 +236,7 @@ module Ai
 
       # Runs inside the claim's transaction and RAISES on failure, so the claim
       # and its audit commit together or not at all; the row is then counted
-      # errored and retried next sweep.
+      # as errored in its arm and retried next sweep.
       def audit!(request, action, categories, reason)
         ::AuditLog.log_action(
           action: action,

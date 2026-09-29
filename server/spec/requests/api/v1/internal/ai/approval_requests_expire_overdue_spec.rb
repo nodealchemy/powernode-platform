@@ -24,11 +24,13 @@ RSpec.describe "Api::V1::Internal::Ai::Autonomy approval-request sweep", type: :
       expect(data["stranded_failed_count"]).to eq(0)
       expect(data["stranded_redispatched_count"]).to eq(0)
       expect(data["stranded_errored_count"]).to eq(0)
+      expect(data["interrupted_errored_count"]).to eq(0)
+      expect(data["reconcile_failed_account_count"]).to eq(0)
       expect(data["interrupted_dispatch_count"]).to eq(0)
     end
 
     it "runs the stranded-dispatch reconciler for each account and sums its counts" do
-      reconciler = instance_double(Ai::Approvals::StrandedDispatchReconciler, call: { failed: 2, redispatched: 1, errored: 3, interrupted: 4 })
+      reconciler = instance_double(Ai::Approvals::StrandedDispatchReconciler, call: { failed: 2, redispatched: 1, stranded_errored: 3, interrupted: 4, interrupted_errored: 5 })
       allow(Ai::Approvals::StrandedDispatchReconciler).to receive(:new).and_return(reconciler)
 
       post "/api/v1/internal/ai/approval_requests/expire_overdue", headers: worker_headers
@@ -38,7 +40,22 @@ RSpec.describe "Api::V1::Internal::Ai::Autonomy approval-request sweep", type: :
       expect(data["stranded_failed_count"]).to be >= 2
       expect(data["stranded_redispatched_count"]).to be >= 1
       expect(data["stranded_errored_count"]).to be >= 3
+      expect(data["interrupted_errored_count"]).to be >= 5
       expect(data["interrupted_dispatch_count"]).to be >= 4
+      expect(data["reconcile_failed_account_count"]).to eq(0)
+    end
+
+    it "counts an account whose reconciler raised separately from any row" do
+      reconciler = instance_double(Ai::Approvals::StrandedDispatchReconciler)
+      allow(reconciler).to receive(:call).and_raise("scan failed")
+      allow(Ai::Approvals::StrandedDispatchReconciler).to receive(:new).and_return(reconciler)
+
+      post "/api/v1/internal/ai/approval_requests/expire_overdue", headers: worker_headers
+
+      data = JSON.parse(response.body)["data"]
+      expect(data["reconcile_failed_account_count"]).to be >= 1
+      expect(data["stranded_errored_count"]).to eq(0)
+      expect(data["interrupted_errored_count"]).to eq(0)
     end
   end
 end
