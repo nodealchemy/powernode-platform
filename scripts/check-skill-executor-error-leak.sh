@@ -83,14 +83,23 @@ mapfile -t SKILL_FILES < <(
   find "${SCAN_DIRS[@]}" -iname "*.rb" 2>/dev/null | sort -u
 )
 
-# Fail CLOSED when there is nothing to scan: a submodule that was never
-# initialised, a moved skills directory or a bad SKILL_LEAK_SCAN_DIRS would
-# otherwise report "no leaks" from an empty file list and hide every real
-# hit. Same stance as check-tool-not-found-leak.sh for the core tree.
+# Nothing to scan. Two different situations, told apart on purpose:
+#   - the extension is not checked out at all (a clone made without
+#     submodules): there is nothing to guard, so say so and pass — the same
+#     stance check-tool-not-found-leak.sh takes for extension globs that
+#     resolve to nothing on a core-only install;
+#   - extensions/system IS present (or SKILL_LEAK_SCAN_DIRS names roots
+#     explicitly) but no skill executor file was found: a moved skills
+#     directory or a bad override would report "no leaks" from an empty list
+#     and hide every real hit, so fail CLOSED.
 if [ "${#SKILL_FILES[@]}" -eq 0 ]; then
+  if [ -z "${SKILL_LEAK_SCAN_DIRS:-}" ] && [ ! -d extensions/system/server ]; then
+    echo "check-skill-executor-error-leak.sh: extensions/system is not checked out —" \
+         "no skill executors to scan, skipping." >&2
+    exit 0
+  fi
   echo "check-skill-executor-error-leak.sh: found ZERO *.rb skill executor files under" \
-       "${SCAN_DIRS[*]} — refusing to report a false all-clear." \
-       "Is extensions/system checked out?" >&2
+       "${SCAN_DIRS[*]} — refusing to report a false all-clear." >&2
   [ "$WARN_ONLY" -eq 1 ] && exit 0
   exit 1
 fi

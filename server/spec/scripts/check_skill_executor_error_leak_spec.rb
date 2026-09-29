@@ -58,6 +58,54 @@ RSpec.describe "check-skill-executor-error-leak.sh (IMP-8552945f2672)" do
     end
   end
 
+  # The default scan roots are relative to the repo root the script sits in, so
+  # these run a copy of the guard inside a scratch tree.
+  def in_scratch_tree
+    Dir.mktmpdir do |root|
+      FileUtils.mkdir_p(File.join(root, "scripts"))
+      %w[check-skill-executor-error-leak.sh check-skill-executor-error-leak.rb].each do |f|
+        FileUtils.cp(File.join(File.dirname(script), f), File.join(root, "scripts", f))
+      end
+      yield root
+    end
+  end
+
+  it "passes with a notice on a clone that has no extensions checked out" do
+    in_scratch_tree do |root|
+      out, status = Open3.capture2e("bash", File.join(root, "scripts/check-skill-executor-error-leak.sh"))
+      expect(status.exitstatus).to eq(0), "a clone without the extension has nothing to guard; output:\n#{out}"
+      expect(out).to include("not checked out")
+    end
+  end
+
+  it "FAILS when extensions/system is checked out but holds no skill executor files" do
+    in_scratch_tree do |root|
+      FileUtils.mkdir_p(File.join(root, "extensions/system/server/app/services/system/ai"))
+      out, status = Open3.capture2e("bash", File.join(root, "scripts/check-skill-executor-error-leak.sh"))
+      expect(status.exitstatus).to eq(1), "a present extension with no skill files must fail closed; output:\n#{out}"
+      expect(out).to include("ZERO")
+    end
+  end
+
+  it "scans the extension's skill executors once it is checked out" do
+    in_scratch_tree do |root|
+      skills = File.join(root, "extensions/system/server/app/services/system/ai/skills")
+      FileUtils.mkdir_p(skills)
+      File.write(File.join(skills, "leaky_executor.rb"), <<~RUBY)
+        class LeakyExecutor < BaseSkillExecutor
+          def perform(**)
+            risky_call
+          rescue StandardError => e
+            failure(e.message)
+          end
+        end
+      RUBY
+      out, status = Open3.capture2e("bash", File.join(root, "scripts/check-skill-executor-error-leak.sh"))
+      expect(status.exitstatus).to eq(1), "output:\n#{out}"
+      expect(out).to include("LEAK")
+    end
+  end
+
   it "reports an empty scan as a pass only in --warn (report-only) mode" do
     Dir.mktmpdir do |dir|
       _out, status = Open3.capture2e({ "SKILL_LEAK_SCAN_DIRS" => dir }, "bash", script, "--warn")
