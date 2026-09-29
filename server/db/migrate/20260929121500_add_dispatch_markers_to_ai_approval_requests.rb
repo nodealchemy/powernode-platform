@@ -14,7 +14,7 @@
 #     Ai::DeferredOperation is still `pending` for a moment inside a dispatch
 #     that has started.
 #
-# Two stamps, both written by the approval path itself:
+# Four stamps, all written by the approval path or its reconciler:
 #   dispatch_scheduled_at — in the flip's own transaction, when the approved
 #     arm registers its post-commit dispatch. It commits or rolls back with
 #     the approval, so it exists exactly when a dispatch is owed. It is also
@@ -23,7 +23,15 @@
 #     before this column existed) out of the reconciler's reach.
 #   dispatch_started_at — by a conditional update at the start of that
 #     dispatch, and the claim the reconciler competes for.
-# Owed but never started, past the grace window, is the stranded state.
+#   dispatch_finished_at — on every terminal path of a claimed dispatch
+#     (executed, no-op, failed, nothing to dispatch to). Started but never
+#     finished is a dispatch that died mid-flight: execution_status nil there
+#     is NOT a reported no-op, and without this stamp the two read the same.
+#   dispatch_interrupt_signalled_at — the reconciler's once-only claim on
+#     signalling such an interrupted dispatch. Signal only: the side effect may
+#     have happened, so nothing re-runs or fails it.
+# Owed but never started, past the grace window, is the stranded state;
+# started but never finished, past a much longer window, is the interrupted one.
 #
 # Backfilled for the one source type where "owed, never started" is provable
 # from existing rows: an approved request whose Ai::DeferredOperation is still
@@ -39,14 +47,35 @@ class AddDispatchMarkersToAiApprovalRequests < ActiveRecord::Migration[8.1]
   def up
     add_column :ai_approval_requests, :dispatch_scheduled_at, :datetime
     add_column :ai_approval_requests, :dispatch_started_at, :datetime
+    add_column :ai_approval_requests, :dispatch_finished_at, :datetime
+    add_column :ai_approval_requests, :dispatch_interrupt_signalled_at, :datetime
 
-    # The reconciler's scan: owed, unclaimed, undeclared, per account, oldest
-    # first. Partial, so it holds only the (normally empty) owed set.
+    # The reconciler's two scans, per account, oldest first. Partial, so each
+    # holds only its (normally empty) set.
     add_index :ai_approval_requests, %i[account_id dispatch_scheduled_at],
               name: "index_ai_approval_requests_on_owed_dispatch",
               where: "dispatch_scheduled_at IS NOT NULL AND dispatch_started_at IS NULL " \
                      "AND execution_status IS NULL"
+    add_index :ai_approval_requests, %i[account_id dispatch_started_at],
+              name: "index_ai_approval_requests_on_unfinished_dispatch",
+              where: "dispatch_started_at IS NOT NULL AND dispatch_finished_at IS NULL " \
+                     "AND dispatch_interrupt_signalled_at IS NULL"
 
+    backfill_owed_dispatches
+  end
+
+  def down
+    remove_index :ai_approval_requests, name: "index_ai_approval_requests_on_unfinished_dispatch"
+    remove_index :ai_approval_requests, name: "index_ai_approval_requests_on_owed_dispatch"
+    remove_column :ai_approval_requests, :dispatch_interrupt_signalled_at
+    remove_column :ai_approval_requests, :dispatch_finished_at
+    remove_column :ai_approval_requests, :dispatch_started_at
+    remove_column :ai_approval_requests, :dispatch_scheduled_at
+  end
+
+  # Its own method so spec/db/migrate can pin the predicate against real rows
+  # once the columns exist.
+  def backfill_owed_dispatches
     execute <<~SQL.squish
       UPDATE ai_approval_requests r
          SET dispatch_scheduled_at = COALESCE(r.completed_at, r.updated_at)
@@ -57,11 +86,5 @@ class AddDispatchMarkersToAiApprovalRequests < ActiveRecord::Migration[8.1]
          AND r.execution_status IS NULL
          AND o.status = 'pending'
     SQL
-  end
-
-  def down
-    remove_index :ai_approval_requests, name: "index_ai_approval_requests_on_owed_dispatch"
-    remove_column :ai_approval_requests, :dispatch_started_at
-    remove_column :ai_approval_requests, :dispatch_scheduled_at
   end
 end

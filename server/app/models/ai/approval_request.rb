@@ -48,6 +48,12 @@ module Ai
     # declaration a dispatch that raised uses, so it reaches the same surfaces.
     class DispatchAbandoned < StandardError; end
 
+    # The declared cause on the signal for a dispatch that STARTED and never
+    # finished (IMP-0213523480d1): the process died mid-dispatch, so its side
+    # effect may or may not have happened. Signalled, never declared as an
+    # execution outcome — execution_status stays nil, and nothing re-runs it.
+    class DispatchInterrupted < StandardError; end
+
     # Validations
     validates :request_id, presence: true, uniqueness: true
     validates :status, presence: true, inclusion: { in: %w[pending approved rejected expired cancelled] }
@@ -68,6 +74,13 @@ module Ai
     scope :owed_dispatch, lambda {
       approved.where.not(dispatch_scheduled_at: nil)
               .where(dispatch_started_at: nil, execution_status: nil)
+    }
+    # Approved, a dispatch claimed (#claim_owed_dispatch), and none of its
+    # terminal paths ever stamped dispatch_finished_at: it died mid-flight.
+    # Nobody has yet signalled it (#signal_interrupted_dispatch!).
+    scope :unfinished_dispatch, lambda {
+      approved.where.not(dispatch_started_at: nil)
+              .where(dispatch_finished_at: nil, dispatch_interrupt_signalled_at: nil)
     }
 
     # Callbacks
@@ -281,9 +294,21 @@ module Ai
     # this, and only for a category it has established is safe to run twice.
     # Claims through the same conditional update the post-commit dispatch uses,
     # so whichever of the two gets there first is the only one that acts.
+    #
+    # A block given runs in the claim's own transaction, once the claim is won
+    # and before the dispatch: the reconciler's audit, so a re-dispatch that
+    # dies mid-run is still on record as started, and a claim whose audit
+    # cannot be written is not taken.
+    #
     # Returns whether this call claimed (and so ran) the dispatch.
     def redispatch_stranded!
-      return false unless claim_owed_dispatch
+      claimed = self.class.transaction do
+        next false unless claim_owed_dispatch
+
+        yield if block_given?
+        true
+      end
+      return false unless claimed
 
       run_claimed_dispatch!
       true
@@ -299,6 +324,10 @@ module Ai
     # concurrently either claimed first (this returns false and touches
     # nothing) or finds the row already declared and refuses to run.
     #
+    # A block given runs inside that same transaction once the claim is won:
+    # the reconciler's audit, so the settlement and its audit commit together
+    # or not at all.
+    #
     # Returns whether this call settled the request.
     def abandon_stranded_dispatch!(reason)
       error = DispatchAbandoned.new(reason)
@@ -310,6 +339,7 @@ module Ai
         if won
           source = resolve_source
           source.on_dispatch_abandoned(error) if source.respond_to?(:on_dispatch_abandoned)
+          yield if block_given?
         end
         won
       end
@@ -317,6 +347,33 @@ module Ai
 
       reload
       record_execution_failure_event!(error, reconciled: "failed")
+      true
+    end
+
+    # Signal, once, a dispatch that started and never finished
+    # (IMP-0213523480d1). SIGNAL ONLY: the side effect may already have
+    # happened, so this neither re-runs the dispatch nor fails the request or
+    # its source, and execution_status stays nil — its CHECK admits only a
+    # declared outcome, and there is none to declare.
+    #
+    # Once-only through a conditional stamp on dispatch_interrupt_signalled_at;
+    # a block given (the reconciler's audit) runs in the stamp's transaction,
+    # so a signal whose audit cannot be written is retried next sweep rather
+    # than marked sent. Returns whether this call signalled it.
+    def signal_interrupted_dispatch!(reason)
+      error = DispatchInterrupted.new(reason)
+
+      signalled = self.class.transaction do
+        now = Time.current
+        won = self.class.unfinished_dispatch.where(id: id)
+                  .update_all(dispatch_interrupt_signalled_at: now, updated_at: now) == 1
+        yield if won && block_given?
+        won
+      end
+      return false unless signalled
+
+      reload
+      record_execution_failure_event!(error, status: "interrupted", reconciled: "interrupted")
       true
     end
 
@@ -456,8 +513,16 @@ module Ai
     def dispatch_to_source!
       # IMP-0213523480d1: claimed before anything else runs, so a dispatch that
       # has begun is visible as begun. A claim refused means the reconciler
-      # already settled this request (or re-dispatched it): stand down.
-      return unless claim_owed_dispatch
+      # already settled this request (or re-dispatched it): stand down, and say
+      # so — this line is the fingerprint of a request the reconciler judged
+      # stranded while its process was in fact alive.
+      unless claim_owed_dispatch
+        Rails.logger.warn(
+          "[ApprovalRequest##{id}] post-commit dispatch claim refused: the request was already " \
+          "settled or re-dispatched (execution_status=#{self.class.where(id: id).pick(:execution_status).inspect})"
+        )
+        return
+      end
 
       run_claimed_dispatch!
     rescue StandardError => e
@@ -468,16 +533,35 @@ module Ai
     # The body of an approved-arm dispatch, once #claim_owed_dispatch has been
     # won — by the post-commit block or, for a stranded request, by
     # #redispatch_stranded!.
+    #
+    # Every terminal path stamps dispatch_finished_at (IMP-0213523480d1):
+    # executed, reported no-op, raised, and nothing left to dispatch to. That
+    # stamp is what tells "finished with nothing to declare" apart from "died
+    # mid-flight" — both leave execution_status nil. Deliberately not an
+    # `ensure`: a non-StandardError escaping here is the process going down,
+    # which is exactly the case that must stay unstamped.
     def run_claimed_dispatch!
       source = resolve_source
-      return unless source.respond_to?(:on_approval_decision)
+      unless source.respond_to?(:on_approval_decision)
+        stamp_dispatch_finished!
+        return
+      end
 
       outcome = source.on_approval_decision(self)
       capture_revealed_result!(source)
       declare_dispatch_outcome!(outcome)
+      stamp_dispatch_finished!
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
       declare_execution_failure!(e)
+      stamp_dispatch_finished!
+    end
+
+    # Never raises, like the declarations beside it.
+    def stamp_dispatch_finished!
+      update_columns(dispatch_finished_at: Time.current)
+    rescue StandardError => e
+      Rails.logger.error("[ApprovalRequest##{id}] stamp_dispatch_finished! failed: #{e.message}")
     end
 
     def resolve_source
@@ -562,11 +646,11 @@ module Ai
 
     # Recorder swallows its own errors, so a broken event sink cannot mask
     # the column declaration or raise out of the callback.
-    def record_execution_failure_event!(error, **extra)
+    def record_execution_failure_event!(error, status: "failed", **extra)
       ::Ai::Introspection::ExecutionEventRecorder.record(
         source: self,
         event_type: "approval_execution",
-        status: "failed",
+        status: status,
         error: error,
         metadata: {
           operation_source_type: source_type,

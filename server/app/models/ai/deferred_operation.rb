@@ -155,8 +155,16 @@ module Ai
     #
     # Runs inside the request's claim transaction, under this row's lock; a
     # row that is no longer pending was settled by someone else and is left
-    # alone. A parked composed-plan step is released exactly as the reject and
-    # expire arms release it.
+    # alone.
+    #
+    # A parked composed-plan step is released once that transaction COMMITS,
+    # never inside it: the release can compensate (a step's `rollback`
+    # on_failure) and broadcast, and doing either before the settlement is
+    # durable would let a failed commit repeat the compensation on the next
+    # sweep, and let subscribers read a settlement that never happened. If the
+    # process dies before the callback runs, the parked-step janitor
+    # (SkillCompositionRunner.reap_parked_steps) reads this row's `failed`
+    # status and releases the step itself.
     def on_dispatch_abandoned(error)
       settled = with_lock do
         next false unless pending?
@@ -165,7 +173,7 @@ module Ai
         fail!(error)
         true
       end
-      release_composed_plan_step! if settled
+      ActiveRecord.after_all_transactions_commit { release_composed_plan_step! } if settled
       settled
     end
 
