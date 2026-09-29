@@ -46,6 +46,10 @@ module Ai
         new(request).required?
       end
 
+      def self.destructive_tool_call?(request)
+        new(request).destructive_tool_call?
+      end
+
       # Could this write to ONE intervention-policy row lift the mark #account_mark reads
       # (IMP-03134d9452d2, secreview §21 G4 option 1)? True when the row carried
       # CONDITION_KEY before the write (a change to its verb, activity, category or
@@ -73,6 +77,22 @@ module Ai
         protected_environment? || destructive_tool_call? || category_listed?
       end
 
+      # Public for Ai::Approvals::StrandedDispatchReconciler, which must refuse
+      # to re-run a destructive call whatever the account's mark says (the mark
+      # decides who may APPROVE it, not whether it is safe to run twice).
+      #
+      # Bounded to the chokepoint's own hierarchy, as Ai::Executors::DeferredToolCall
+      # bounds its replay: a name off a JSONB column is looked up, never called.
+      def destructive_tool_call?
+        params = @data[:params]
+        return false unless params.is_a?(Hash)
+
+        klass = params[:tool_class].to_s.safe_constantize
+        return false unless klass.is_a?(Class) && klass < ::Ai::Tools::BaseTool
+
+        klass.declared_action(params[:action].to_s)&.dig(:destructive) == true
+      end
+
       private
 
       # A gate request names its category; a gateway request names its kind.
@@ -92,18 +112,6 @@ module Ai
       def protected_environment?
         environment = @data[:environment]
         environment.is_a?(Hash) && environment[:is_protected] == true
-      end
-
-      # Bounded to the chokepoint's own hierarchy, as Ai::Executors::DeferredToolCall
-      # bounds its replay: a name off a JSONB column is looked up, never called.
-      def destructive_tool_call?
-        params = @data[:params]
-        return false unless params.is_a?(Hash)
-
-        klass = params[:tool_class].to_s.safe_constantize
-        return false unless klass.is_a?(Class) && klass < ::Ai::Tools::BaseTool
-
-        klass.declared_action(params[:action].to_s)&.dig(:destructive) == true
       end
 
       def category_listed?

@@ -325,6 +325,15 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # AI APPROVAL DISPATCH ACTIONS
+  # =============================================================================
+  # Ai::Approvals::StrandedDispatchReconciler's two settlements of an approved
+  # request whose post-commit dispatch never started (IMP-0213523480d1).
+  AI_APPROVAL_DISPATCH_ACTIONS = %w[
+    ai.approvals.dispatch_abandoned ai.approvals.dispatch_redispatched
+  ].freeze
+
+  # =============================================================================
   # AI AGENT TEAM ACTIONS — renamed from the underscore-namespace form
   # (ai_agent_team.<verb>) to the dot convention (IMP-85fb47438be6, operator
   # decision 2026-09-17): the old form matched LEGACY_ALIAS_PATTERN's shape
@@ -605,6 +614,7 @@ module AuditActions
     AI_MONITORING_ACTIONS,
     AI_ROI_ACTIONS,
     AI_IMPROVEMENT_ACTIONS,
+    AI_APPROVAL_DISPATCH_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
     DEVOPS_ACTIONS,
     SWARM_ACTIONS,

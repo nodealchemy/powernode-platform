@@ -115,17 +115,26 @@ module Api
           # Expire overdue approval requests across all accounts. Previously no
           # cron drove ApprovalRequest expiry, so requests on the canonical seam
           # (deferred-ops, campaign lands) silently never timed out.
+          #
+          # The same sweep settles approved requests whose post-commit dispatch
+          # was owed and never started (IMP-0213523480d1) — one mechanism, not a
+          # second cron. Its counts ride the same response.
           def expire_overdue_approval_requests
             expired_count = 0
+            stranded = { failed: 0, redispatched: 0 }
 
             Account.active.find_each do |account|
               service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account)
               expired_count += service.expire_overdue!
             rescue StandardError => e
               Rails.logger.error "[ApprovalRequestExpiry] Failed for account #{account.id}: #{e.message}"
+            ensure
+              reconcile_stranded_dispatches(account, stranded)
             end
 
-            render_success(expired_count: expired_count)
+            render_success(expired_count: expired_count,
+                           stranded_failed_count: stranded[:failed],
+                           stranded_redispatched_count: stranded[:redispatched])
           end
 
           # POST /api/v1/internal/ai/observations/cleanup
@@ -176,6 +185,16 @@ module Api
           end
 
           private
+
+          # Separate from the expiry above so a failure in one never skips the
+          # other for the same account.
+          def reconcile_stranded_dispatches(account, totals)
+            counts = ::Ai::Approvals::StrandedDispatchReconciler.new(account: account).call
+            totals[:failed] += counts[:failed].to_i
+            totals[:redispatched] += counts[:redispatched].to_i
+          rescue StandardError => e
+            Rails.logger.error "[StrandedDispatchReconciler] Failed for account #{account.id}: #{e.message}"
+          end
 
           POLICY_TUNING_SOURCE = "policy_tuning"
 
