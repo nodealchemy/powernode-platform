@@ -37,9 +37,16 @@ RSpec.describe Platform::MigrationStatus do
     path.to_s
   end
 
-  def status(paths:, applied:, schema_path: nil, limit: described_class::LIST_LIMIT)
+  def status(paths:, applied:, schema_path: nil, limit: described_class::LIST_LIMIT, engine_roots: {})
     described_class.new(migrations_paths: paths, applied_versions: applied, schema_path: schema_path,
-                        root: root, limit: limit).report
+                        root: root, limit: limit, engine_roots: engine_roots).report
+  end
+
+  def write_schema_text(text)
+    path = root.join("db", "schema.rb")
+    path.dirname.mkpath
+    path.write(text)
+    path.to_s
   end
 
   it "reports a pending version: on disk, absent from schema_migrations" do
@@ -121,6 +128,25 @@ RSpec.describe Platform::MigrationStatus do
     expect(report[:schema]).to include(present: false, version: nil, ahead_of_database: false)
   end
 
+  it "reports a schema file with no parseable version header as present, with a nil version" do
+    dir = write_migrations("db/migrate", 20_260_101_000_000)
+    schema = write_schema_text("# a dump with no define line\nActiveRecord::Schema.define do\nend\n")
+
+    report = status(paths: [ dir ], applied: [ 20_260_101_000_000 ], schema_path: schema)
+
+    expect(report[:schema]).to include(present: true, file: "db/schema.rb", version: nil, ahead_of_database: false)
+  end
+
+  it "reads an 8-digit (date-only) schema version, and an 8-digit migration version, as numbers" do
+    dir = write_migrations("db/migrate", 20_260_101)
+    schema = write_schema_text("ActiveRecord::Schema[8.1].define(version: 2026_02_01) do\nend\n")
+
+    report = status(paths: [ dir ], applied: [], schema_path: schema)
+
+    expect(report[:schema]).to include(present: true, version: "20260201", ahead_of_database: true)
+    expect(report[:paths].first[:pending].map { |p| p[:version] }).to eq([ "20260101" ])
+  end
+
   it "groups by migration path, each labelled relative to the root, with its own pending and last applied" do
     core = write_migrations("db/migrate", 20_260_101_000_000, 20_260_103_000_000)
     ext = write_migrations("vendor/ext/db/migrate", 20_260_102_000_000, 20_260_104_000_000)
@@ -133,16 +159,75 @@ RSpec.describe Platform::MigrationStatus do
     expect(report[:paths].map { |p| p[:file_count] }).to eq([ 2, 2 ])
   end
 
-  it "labels a path outside the root without leaking an absolute path" do
-    outside = Dir.mktmpdir("migration-status-outside")
-    Pathname.new(outside).join("20260101000000_x.rb").write("# stub\n")
+  describe "labelling a path outside the repository root" do
+    around do |example|
+      Dir.mktmpdir("migration-status-outside") do |dir|
+        @outside = Pathname.new(dir)
+        example.run
+      end
+    end
 
-    label = status(paths: [ outside ], applied: [])[:paths].first[:path]
+    let(:gem_root) { @outside.join("gems", "some-engine-1.0") }
+    let(:gem_migrations) do
+      gem_root.join("db", "migrate").tap do |dir|
+        dir.mkpath
+        dir.join("20260101000000_x.rb").write("# stub\n")
+      end.to_s
+    end
 
-    expect(label).not_to start_with("/")
-    expect(label).to include("..")
-  ensure
-    FileUtils.rm_rf(outside) if outside
+    it "uses external/<engine>/<path within the engine>, never an absolute or parent-relative path" do
+      label = status(paths: [ gem_migrations ], applied: [], engine_roots: { gem_root.to_s => "some_engine" })[:paths].first[:path]
+
+      expect(label).to eq("external/some_engine/db/migrate")
+    end
+
+    it "still emits a safe label when no engine owns the path" do
+      label = status(paths: [ gem_migrations ], applied: [])[:paths].first[:path]
+
+      expect(label).to start_with("external/")
+      expect(label).not_to start_with("..")
+      expect(label).not_to start_with("/")
+      expect(label).not_to include(@outside.to_s)
+    end
+
+    it "labels a path inside the root relative to it" do
+      inside = write_migrations("extensions/some-ext/server/db/migrate", 20_260_101_000_000)
+
+      expect(status(paths: [ inside ], applied: [])[:paths].first[:path]).to eq("extensions/some-ext/server/db/migrate")
+    end
+  end
+
+  it "counts a migration in a subdirectory, as Rails' own recursive glob does" do
+    dir = write_migrations("db/migrate", 20_260_101_000_000)
+    nested = Pathname.new(dir).join("archive")
+    nested.mkpath
+    nested.join("20260102000000_nested.rb").write("# stub\n")
+
+    path = status(paths: [ dir ], applied: [])[:paths].first
+
+    expect(path[:file_count]).to eq(2)
+    expect(path[:pending].map { |p| p[:version] }).to eq([ "20260101000000", "20260102000000" ])
+  end
+
+  it "reports a version found in more than one path as a duplicate, naming both paths" do
+    a = write_migrations("db/migrate", 20_260_101_000_000, 20_260_102_000_000)
+    b = write_migrations("ext/db/migrate", 20_260_102_000_000)
+
+    report = status(paths: [ a, b ], applied: [])
+
+    expect(report[:duplicate_versions]).to eq(
+      [ { version: "20260102000000", paths: [ "db/migrate", "ext/db/migrate" ],
+          files: [ "20260102000000_change_20260102000000.rb", "20260102000000_change_20260102000000.rb" ] } ]
+    )
+    expect(report[:duplicate_count]).to eq(1)
+    expect(report[:duplicate_truncated]).to be(false)
+  end
+
+  it "reports no duplicates when every version is unique" do
+    a = write_migrations("db/migrate", 20_260_101_000_000)
+    b = write_migrations("ext/db/migrate", 20_260_102_000_000)
+
+    expect(status(paths: [ a, b ], applied: [])[:duplicate_versions]).to eq([])
   end
 
   it "ignores non-migration files and returns basenames only" do
@@ -183,14 +268,53 @@ RSpec.describe Platform::MigrationStatus do
   end
 
   describe ".current" do
+    let(:migrate_paths) { Rails.application.config.paths["db/migrate"] }
+
+    def repo_label(path)
+      Pathname.new(path).relative_path_from(Rails.root.parent).to_s
+    end
+
     it "reads the live connection once and derives its paths from Rails, not from a list" do
       report = described_class.current
 
       expect(report[:paths]).not_to be_empty
-      expect(report[:paths].map { |p| p[:path] }).to include("db/migrate")
       expect(report[:database]).to include(:highest_applied_version, :applied_count, :db_only_versions)
       expect(report[:schema]).to include(:present, :ahead_of_database)
       expect(JSON.generate(report)).not_to include(Rails.root.to_s)
+    end
+
+    # The defect this pins: pool.migration_context.migrations_paths is
+    # ["db/migrate"] outside rake (core only, cwd-relative); engines append to
+    # config.paths["db/migrate"]. A core-only list also passes a "includes
+    # db/migrate" assertion, so the assertion is over EVERY configured path,
+    # with an extra engine path that only that list can supply.
+    it "reports every path in config.paths['db/migrate'], engines included" do
+      Dir.mktmpdir("migration-status-engine") do |dir|
+        engine_root = Pathname.new(dir).join("extra-engine-1.0")
+        extra = engine_root.join("db", "migrate")
+        extra.mkpath
+        extra.join("29990101000000_from_the_extra_engine.rb").write("# stub\n")
+
+        configured = migrate_paths.expanded
+        allow(migrate_paths).to receive(:expanded).and_return([ *configured, extra.to_s ])
+
+        report = described_class.current
+        labels = report[:paths].map { |p| p[:path] }
+
+        configured.each do |path|
+          expect(labels).to include(repo_label(path)), "#{path} is configured but absent from the report"
+        end
+        expect(report[:paths].size).to eq(configured.size + 1)
+        extra_entry = report[:paths].find { |p| p[:pending].any? { |x| x[:version] == "29990101000000" } }
+        expect(extra_entry).not_to be_nil
+        expect(extra_entry[:path]).to start_with("external/")
+      end
+    end
+
+    it "emits no label that starts with '..' or '/'" do
+      labels = described_class.current[:paths].map { |p| p[:path] }
+
+      expect(labels).to all(satisfy { |label| !label.start_with?("..", "/") })
     end
   end
 end

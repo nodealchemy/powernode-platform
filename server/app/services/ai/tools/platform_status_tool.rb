@@ -15,8 +15,9 @@ module Ai
     # A fourth read, `migration_status`, is not a component row: it reports which
     # migrations Rails knows about against schema_migrations
     # (Platform::MigrationStatus). It lives here because it answers the same
-    # operator question — is the platform healthy — under the same
-    # `platform.status.read` floor, rather than in a tool of its own.
+    # operator question — is the platform healthy — rather than in a tool of its
+    # own; unlike the component reads it floors on `admin.access`, being
+    # platform-wide and tenant-blind.
     #
     # ── READ-ONLY, AND DECLARED SO ──────────────────────────────────────────
     #
@@ -43,15 +44,22 @@ module Ai
     class PlatformStatusTool < BaseTool
       REQUIRED_PERMISSION = "platform.status.read"
 
-      # Every action floors on the same read permission — there is no write in
-      # this tool to ladder up to. Stated explicitly rather than left implicit
-      # so a future write action cannot inherit the read floor silently (the
-      # IMP-48abfa2f9e74 failure shape).
+      # The component reads floor on the same read permission — there is no
+      # write in this tool to ladder up to. Stated explicitly rather than left
+      # implicit so a future write action cannot inherit the read floor silently
+      # (the IMP-48abfa2f9e74 failure shape).
+      #
+      # `migration_status` floors on admin.access, NOT the status read. That read
+      # is granted to every role in every account, and this verb is platform-wide
+      # and tenant-blind: it lists the migration stream and, on a deployment that
+      # has them, extension path labels. admin.access is held by the seeded admin
+      # role only (owner and every tenant role lack it); it is the operator floor
+      # the platform-wide site settings tool already uses.
       ACTION_PERMISSIONS = {
         "list_component_status" => "platform.status.read",
         "get_component_status" => "platform.status.read",
         "get_component_impact" => "platform.status.read",
-        "migration_status" => "platform.status.read"
+        "migration_status" => "admin.access"
       }.freeze
 
       declare_action "list_component_status", mutating: false
@@ -64,7 +72,8 @@ module Ai
                                          returns: "database (highest applied version, versions recorded with no file on disk), " \
                                                   "schema (its version header and whether it is ahead of the database) and, per " \
                                                   "migration path, the last applied version and the pending versions with their " \
-                                                  "file names; a pending version older than the highest applied one is flagged buried"
+                                                  "file names; a pending version older than the highest applied one is flagged buried. " \
+                                                  "Also duplicate_versions, a version present in more than one file"
 
       VERDICT_DESCRIPTION = "One of ok | held | progressing | not_measured | degraded | down. " \
                             "`held` is operator intent (cordoned, paused, drained), not a failure. " \
@@ -140,7 +149,8 @@ module Ai
                          "and whether the schema file's version header is ahead of the database's " \
                          "highest applied version. A pending version OLDER than the highest applied one " \
                          "is `buried`: it will not run on a forward migrate. Version numbers and file " \
-                         "basenames only; paths are relative to the app root. Each list is capped at 50 " \
+                         "basenames only; paths are relative to the repository root, or external/<engine> " \
+                         "outside it. Requires admin.access. Each list is capped at 50 " \
                          "entries, with its full count and a truncated flag. Read-only.",
             parameters: {}
           }
@@ -155,7 +165,7 @@ module Ai
         when "list_component_status" then list_component_status(params)
         when "get_component_status"  then get_component_status(params)
         when "get_component_impact" then get_component_impact(params)
-        when "migration_status"      then success_result(::Platform::MigrationStatus.current)
+        when "migration_status"      then migration_status
         else error_result("Unknown action: #{action}")
         end
       end
@@ -226,6 +236,14 @@ module Ai
           heuristic_basis: "upstream-most unhealthy components, ranked by unhealthy-dependent count then earliest transition",
           depth: depth
         )
+      end
+
+      # A literal error on a database failure: the exception message can carry a
+      # host, port or query, and this verb's audience reads it as data.
+      def migration_status
+        success_result(::Platform::MigrationStatus.current)
+      rescue ActiveRecord::ActiveRecordError
+        error_result("database unavailable")
       end
 
       # ── helpers ───────────────────────────────────────────────────────────

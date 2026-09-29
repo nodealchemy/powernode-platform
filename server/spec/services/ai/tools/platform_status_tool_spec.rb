@@ -122,8 +122,7 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       [
         { action: "list_component_status" },
         { action: "get_component_status", id: row.id },
-        { action: "get_component_impact", id: row.id },
-        { action: "migration_status" }
+        { action: "get_component_impact", id: row.id }
       ].each do |params|
         result = stranger.execute(params: params)
         expect(result[:success]).to be(false), "#{params[:action]} was allowed without the permission"
@@ -136,16 +135,16 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       [
         { action: "list_component_status" },
         { action: "get_component_status", id: row.id },
-        { action: "get_component_impact", id: row.id },
-        { action: "migration_status" }
+        { action: "get_component_impact", id: row.id }
       ].each do |params|
         expect(tool.execute(params: params)[:success]).to be(true), "#{params[:action]} was refused for a holder"
       end
     end
   end
 
-  # IMP-d421e10d4677 — migration state, per migration path. Platform-wide, so it
-  # rides the status read permission rather than an account scope.
+  # IMP-d421e10d4677 — migration state, per migration path. Platform-wide and
+  # tenant-blind, so it does NOT ride platform.status.read (held in every
+  # account); it floors on admin.access, which only the seeded admin role holds.
   describe "migration_status" do
     it "is declared read-only and advertises the read-only hint" do
       expect(described_class.declared_action("migration_status")[:mutating]).to be(false)
@@ -157,18 +156,22 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       expect(entry["annotations"]).to include("readOnlyHint" => true)
     end
 
+    let(:operator_tool) do
+      described_class.new(account: account, user: create(:user, account: account, permissions: [ "admin.access" ]))
+    end
+
     it "returns the per-path report from Platform::MigrationStatus" do
       report = { database: { highest_applied_version: "1" }, schema: {}, paths: [] }
       allow(::Platform::MigrationStatus).to receive(:current).and_return(report)
 
-      result = call("migration_status")
+      result = operator_tool.execute(params: { action: "migration_status" })
 
       expect(result[:success]).to be(true)
       expect(result[:data]).to eq(report)
     end
 
     it "reads the live connection when nothing is stubbed" do
-      result = call("migration_status")
+      result = operator_tool.execute(params: { action: "migration_status" })
 
       expect(result[:success]).to be(true)
       expect(result.dig(:data, :paths)).not_to be_empty
@@ -183,10 +186,41 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       expect(result[:success]).to be(true)
     end
 
+    it "floors on admin.access, which no tenant-level role holds" do
+      expect(described_class::ACTION_PERMISSIONS["migration_status"]).to eq("admin.access")
+      tenant_roles = ::Permissions::ROLES.reject { |name, _| %w[admin super_admin system_worker].include?(name) }
+      expect(tenant_roles.select { |_, role| role[:permissions].include?("admin.access") }.keys).to be_empty
+      expect(::Permissions::ROLES["admin"][:permissions]).to include("admin.access")
+    end
+
+    it "refuses a tenant-level user holding only platform.status.read" do
+      result = tool.execute(params: { action: "migration_status" })
+
+      expect(result[:success]).to be(false)
+      expect(result[:error]).to include("admin.access")
+      expect(result[:data]).to be_nil
+    end
+
     it "refuses a user holding no permission" do
       stranger = described_class.new(account: account, user: create(:user, account: account, permissions: []))
 
       expect(stranger.execute(params: { action: "migration_status" })[:success]).to be(false)
+    end
+
+    it "allows an operator holding admin.access" do
+      operator = described_class.new(account: account, user: create(:user, account: account, permissions: [ "admin.access" ]))
+
+      expect(operator.execute(params: { action: "migration_status" })[:success]).to be(true)
+    end
+
+    it "answers a literal error, not the exception message, when the database is unavailable" do
+      allow(::Platform::MigrationStatus).to receive(:current)
+        .and_raise(ActiveRecord::ConnectionNotEstablished, "connection to server at 10.9.9.9 failed")
+      operator = described_class.new(account: account, user: create(:user, account: account, permissions: [ "admin.access" ]))
+
+      result = operator.execute(params: { action: "migration_status" })
+
+      expect(result).to eq(success: false, error: "database unavailable")
     end
   end
 
