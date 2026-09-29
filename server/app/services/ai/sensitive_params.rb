@@ -38,6 +38,16 @@ module Ai
     # caller's to bound: a driver error can quote a whole failing row.
     TEXT_LIMIT = 500
 
+    # Key names `filter_text` masks beyond key_patterns: a header, not a hash
+    # key, so it never reaches `filter`.
+    TEXT_EXTRA_KEYS = %w[authorization].freeze
+
+    URL_USERINFO = %r{([a-z][a-z0-9+.-]*://)[^\s/?#]*@}i
+    BEARER = /\b(Bearer\s+)\S+/i
+    # A `, key=`, `; key:` or `& key=>` that ends an unquoted value.
+    VALUE_DELIMITER = /[,;&]\s*[\w.-]+["']?\s*(?:=>|[:=])/
+    BRACKET_PAIRS = { "[" => "]", "{" => "}", "(" => ")" }.freeze
+
     # Names for secret material, not for anything merely private. Matched as
     # substrings, so "token" covers acceptance_token and
     # acceptance_token_plaintext alike.
@@ -106,24 +116,32 @@ module Ai
       # The free-text counterpart of `filter`, for a column that holds raw
       # exception text ("Class: message") rather than a hash: an executor's
       # error can quote the very params `filter` exists to mask, as
-      # `{"acceptance_token"=>"..."}`, `password=...` or a Bearer header. Masks
-      # the value that follows any secret-named key, in the `key=value`,
-      # `key: value`, `"key"=>"value"` and `"key":"value"` spellings, plus a
-      # Bearer credential, then truncates to TEXT_LIMIT.
+      # `{"acceptance_token"=>"..."}`, `password=...` or an Authorization
+      # header. Scans for a secret-named key (key_patterns plus TEXT_EXTRA_KEYS)
+      # followed by `=`, `:` or `=>`, then masks the WHOLE value after it:
       #
-      # Best-effort by construction: prose cannot be judged by a key, so a
-      # secret quoted with no key beside it survives. The allowlist is
-      # deliberately NOT consulted (a key it vouches for masks here), and
-      # truncation is the bound on what an unkeyed quote can carry. nil
-      # passes through.
+      #   a quoted value           to its closing quote, honouring backslash escapes;
+      #   a [ { ( value            to its MATCHING bracket, so every element of a
+      #                            list or hash goes, quotes and nesting respected;
+      #   any other value          to the end of the line, or the next
+      #                            `, key=` / `; key:` / `& key=` delimiter.
+      #
+      # It FAILS CLOSED: a quote or bracket that is never closed, or a bracket
+      # closed by the wrong kind, masks everything to the end of the text rather
+      # than guessing where the value stopped. Over-masking is visible on the
+      # card; a leak is not. The URL userinfo of `scheme://user:pw@host` and a
+      # bare Bearer credential are masked wherever they appear. The result is
+      # truncated to TEXT_LIMIT; nil passes through.
+      #
+      # Still best-effort: prose cannot be judged by a key, so a secret quoted
+      # with no key beside it survives, and truncation is the only bound on it.
+      # The allowlist is deliberately NOT consulted (a key it vouches for masks
+      # here).
       def filter_text(text)
         return text if text.nil?
 
-        keys = key_patterns.map { |pattern| ::Regexp.escape(pattern) }.join("|")
-        keyed = /([\w.-]*(?:#{keys})[\w.-]*["']?\s*(?:=>|[:=])\s*)("[^"]*"|'[^']*'|[^\s,;)}\]]+)/i
-        text.to_s.gsub(keyed) { "#{::Regexp.last_match(1)}#{MASK}" }
-            .gsub(/\b(Bearer\s+)\S+/i) { "#{::Regexp.last_match(1)}#{MASK}" }
-            .truncate(TEXT_LIMIT)
+        masked = mask_keyed_values(text.to_s.gsub(URL_USERINFO) { "#{::Regexp.last_match(1)}#{MASK}@" })
+        masked.gsub(BEARER) { "#{::Regexp.last_match(1)}#{MASK}" }.truncate(TEXT_LIMIT)
       end
 
       # Resolve the pattern set and compile the matcher ONCE for the duration of
@@ -148,6 +166,68 @@ module Ai
       end
 
       private
+
+      # Rewrites every secret-keyed value in `text` to MASK, keeping the key and
+      # its separator. Scanning resumes after each masked value, so a key nested
+      # inside one is consumed with it.
+      def mask_keyed_values(text)
+        keys = (key_patterns + TEXT_EXTRA_KEYS).map { |pattern| ::Regexp.escape(pattern) }.join("|")
+        key = /(?:#{keys})[\w.-]*["']?\s*(?:=>|[:=])\s*/i
+        out = +""
+        pos = 0
+        while (match = key.match(text, pos))
+          out << text[pos...match.end(0)] << MASK
+          pos = value_end(text, match.end(0))
+        end
+        out << text[pos..]
+      end
+
+      # Index just past the value that starts at `start`; text.length when it
+      # cannot be bounded (fail closed).
+      def value_end(text, start)
+        first = text[start]
+        return quoted_end(text, start) if first == '"' || first == "'"
+        return bracket_end(text, start) if BRACKET_PAIRS.key?(first)
+
+        stops = [ text.index(/[\r\n]/, start), text.index(VALUE_DELIMITER, start) ].compact
+        stops.min || text.length
+      end
+
+      # Just past the closing quote of the string opening at `start`;
+      # text.length when there is none.
+      def quoted_end(text, start)
+        quote = text[start]
+        i = start + 1
+        while i < text.length
+          case text[i]
+          when "\\" then i += 1
+          when quote then return i + 1
+          end
+          i += 1
+        end
+        text.length
+      end
+
+      # Just past the bracket matching the one at `start`. Quoted strings inside
+      # are skipped whole, so a bracket in a string does not count.
+      def bracket_end(text, start)
+        stack = []
+        i = start
+        while i < text.length
+          char = text[i]
+          if char == '"' || char == "'"
+            i = quoted_end(text, i)
+            next
+          elsif BRACKET_PAIRS.key?(char)
+            stack << BRACKET_PAIRS[char]
+          elsif BRACKET_PAIRS.value?(char)
+            return text.length unless stack.pop == char
+            return i + 1 if stack.empty?
+          end
+          i += 1
+        end
+        text.length
+      end
 
       # Lazy inside a batch: a block that filters nothing costs no lookup.
       def parameter_filter

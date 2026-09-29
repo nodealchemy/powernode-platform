@@ -134,7 +134,7 @@ module Ai
       declare_action "escalate", mutating: true, returns: "the escalation's id, title, severity and who it went to", see_also: { "report_issue" => "a platform problem that does not block your task" }
       declare_action "list_agent_goals", mutating: false, limit: 10, returns: "id, title, type, priority, status and progress per goal"
       declare_action "list_deferred_operations", mutating: false, limit: 100, returns: "count and operations, newest first; 25 unless limit is set"
-      declare_action "get_approval_request", mutating: false, returns: "status, decision, decided_by, decided_at, expires_at, expired, requires_human_session, call_origin, action_category, description, the redacted request_data, and the linked deferred operation's status, error_message and redacted params", refuses: "neither or both ids are given, or no request of yours has that id", see_also: { "list_deferred_operations" => "finding a request by status or agent" }
+      declare_action "get_approval_request", mutating: false, returns: "status, decision, decided_by, decided_at, expires_at, expired, requires_human_session, call_origin, action_category, description, the redacted request_data, and the linked deferred operation's status, error_message and redacted params", refuses: "neither or both ids are given, or the id names no request in your account (an instance principal: none recorded as parked by that instance)", see_also: { "list_deferred_operations" => "finding a request by status or agent" }
       declare_action "list_intervention_policies", mutating: false, limit: 100, returns: "count and policies, highest priority first"
       declare_action "propose_feature", mutating: true, returns: "id, title and status of the proposal", see_also: { "create_proposal" => "a proposal of another type" }
       declare_action "reject_deferred_operation", mutating: true, destructive: true
@@ -354,7 +354,7 @@ module Ai
             }
           },
           "get_approval_request" => {
-            description: "Look up one approval request by its own id or by its deferred operation's id: its status, the decision and who made it, when it expires and whether it already has, whether only a person may decide it, the door it came through, and the linked operation's status and error. The follow-up to a pending envelope. Params and errors are redacted. Pass exactly one id.",
+            description: "Look up one approval request by its own id or by its deferred operation's id: its status, the decision and who made it, when it expires and whether it already has, whether only a person may decide it, the door it came through, and the linked operation's status and error. The follow-up to a pending envelope. Params and errors are redacted. Pass exactly one id. An id that matches nothing you may see answers not found; an instance principal sees only the requests recorded as parked by that instance.",
             parameters: {
               approval_request_id: { type: "string", required: false, description: "ApprovalRequest UUID (give this or deferred_operation_id, not both)" },
               deferred_operation_id: { type: "string", required: false, description: "DeferredOperation UUID (give this or approval_request_id, not both)" }
@@ -1064,10 +1064,12 @@ module Ai
       # an expired-but-pending row is REPORTED as expired, never expired here
       # (Ai::ApprovalRequest#check_expiration! is the writer and runs elsewhere).
       def get_approval_request(params)
-        ids = [ params[:approval_request_id], params[:deferred_operation_id] ].select(&:present?)
+        # Coerced to a string: an array here would run as an IN query.
+        ids = { approval_request_id: params[:approval_request_id].to_s,
+                deferred_operation_id: params[:deferred_operation_id].to_s }.select { |_, id| id.present? }
         return error_result("Give exactly one of approval_request_id or deferred_operation_id") unless ids.size == 1
 
-        request, operation = find_approval_request_and_operation(params)
+        request, operation = find_approval_request_and_operation(ids)
         return error_result(APPROVAL_REQUEST_NOT_FOUND) unless request || operation
         return error_result(APPROVAL_REQUEST_NOT_FOUND) unless originated_by_caller?(operation)
 
@@ -1076,12 +1078,12 @@ module Ai
 
       # [request, operation], account-scoped at every hop. A malformed id is a
       # miss rather than a driver error, so it answers like any other miss.
-      def find_approval_request_and_operation(params)
-        if params[:deferred_operation_id].present?
-          operation = account.ai_deferred_operations.find_by(id: params[:deferred_operation_id])
+      def find_approval_request_and_operation(ids)
+        if ids.key?(:deferred_operation_id)
+          operation = account.ai_deferred_operations.find_by(id: ids[:deferred_operation_id])
           request = operation&.approval_request_id && approval_request_in_account(operation.approval_request_id)
         else
-          request = approval_request_in_account(params[:approval_request_id])
+          request = approval_request_in_account(ids[:approval_request_id])
           operation = request && deferred_operation_of(request)
         end
         [ request, operation ]
@@ -1101,14 +1103,17 @@ module Ai
         operation || account.ai_deferred_operations.find_by(approval_request_id: request.id)
       end
 
-      # An instance principal reads only what it parked itself. The originator
-      # is the principal block BaseTool#deferred_tool_call_context minted from
-      # the parking tool's OWN state and packed into the operation's params
-      # (Ai::Executors::DeferredToolCall.pack) — never from caller input. A
-      # request with no such record (a person's, an agent's, or one parked by a
-      # path that packs no principal), and a restricted principal that carries
-      # no node instance, are not this caller's: fail closed. Every other
-      # principal keeps the account-wide read the REST queue gives ai.agents.read.
+      # An instance principal reads only requests RECORDED as its own. The
+      # record is the principal block BaseTool#deferred_tool_call_context
+      # minted from the parking tool's OWN state and packed into the
+      # operation's params (Ai::Executors::DeferredToolCall.pack) — never from
+      # caller input. Anything that block does not name this instance fails
+      # closed: another instance's request, a person's or agent's, a restricted
+      # principal with no node instance, and a request parked through a
+      # tool-specific gate whose executor records no principal at all — that
+      # one may genuinely have been this instance's, but nothing on the row
+      # says so, so it is answered as not-found too. Every other principal
+      # keeps the account-wide read the REST queue gives ai.agents.read.
       def originated_by_caller?(operation)
         return true unless instance_authorized?
         return false unless node_instance && operation
@@ -1135,7 +1140,7 @@ module Ai
           decided_at: decision&.created_at&.iso8601,
           completed_at: request&.completed_at&.iso8601,
           expires_at: expires_at&.iso8601,
-          expired: request.present? && request.pending? && expires_at.present? && expires_at <= Time.current,
+          expired: request.present? && request.pending? && expires_at.present? && expires_at < Time.current,
           requires_human_session: request ? request.requires_human_session? : false,
           call_origin: data["call_origin"] || operation&.params&.dig("principal", "origin"),
           action_category: data["action_category"] || operation&.action_category,

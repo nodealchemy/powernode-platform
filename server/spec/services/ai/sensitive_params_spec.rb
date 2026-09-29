@@ -115,13 +115,19 @@ RSpec.describe Ai::SensitiveParams do
   end
 
   describe '.filter_text' do
+    # Fake values, built at runtime from parts so no secret scanner reads this
+    # file as carrying a credential.
+    let(:s1) { %w[not a real one].join('-') }
+    let(:s2) { %w[not a real two].join('-') }
+    let(:s3) { %w[not a real three].join('-') }
+
     it 'masks the value after a secret-named key in each spelling, keeping the surrounding text' do
-      text = %(RuntimeError: bad {"acceptance_token"=>"PLAIN-1"} password=PLAIN-2, api_key: PLAIN-3 ) +
-             %({"signing_key":"PLAIN-4"} Authorization: Bearer PLAIN-5 tail)
+      text = %(RuntimeError: bad {"acceptance_token"=>"#{s1}"} password=#{s2}, api_key: #{s3}\n) +
+             %({"signing_key":"#{s1}"} Authorization: Bearer #{s2}\ntail)
 
       filtered = described_class.filter_text(text)
 
-      expect(filtered).not_to match(/PLAIN-\d/)
+      expect(filtered).not_to include(s1, s2, s3)
       expect(filtered).to start_with('RuntimeError: bad')
       expect(filtered).to end_with('tail')
     end
@@ -133,6 +139,81 @@ RSpec.describe Ai::SensitiveParams do
 
     it 'truncates to TEXT_LIMIT' do
       expect(described_class.filter_text('x' * 5_000).length).to eq(described_class::TEXT_LIMIT)
+    end
+
+    it 'masks every element of a bracketed list, not only the first' do
+      filtered = described_class.filter_text(%({"api_keys"=>["#{s1}","#{s2}"], "after"=>"kept"}))
+
+      expect(filtered).not_to include(s1, s2)
+      expect(filtered).to include('"after"=>"kept"')
+    end
+
+    it 'masks through the matching bracket of a nested value' do
+      filtered = described_class.filter_text(%("credential"=>{"user"=>"a","value"=>"#{s1}"}, "next"=>"kept"))
+
+      expect(filtered).not_to include(s1)
+      expect(filtered).to include('"next"=>"kept"')
+    end
+
+    it 'does not stop at a bracket that is inside a quoted string' do
+      filtered = described_class.filter_text(%(secret: {"a"=>"]#{s1}", "b"=>"#{s2}"} tail))
+
+      expect(filtered).not_to include(s1, s2)
+      expect(filtered).to end_with('tail')
+    end
+
+    it 'masks a quoted value through an escaped quote' do
+      filtered = described_class.filter_text(%(password="#{s1}\\"#{s2}" after))
+
+      expect(filtered).not_to include(s1, s2)
+      expect(filtered).to end_with(' after')
+    end
+
+    it 'masks an unquoted value that contains spaces to the end of the line' do
+      filtered = described_class.filter_text("password=#{s1} #{s2}\nnext line")
+
+      expect(filtered).not_to include(s1, s2)
+      expect(filtered).to end_with("\nnext line")
+    end
+
+    it 'stops an unquoted value at the next key-looking delimiter' do
+      filtered = described_class.filter_text("password=#{s1}, user=bob; token=#{s2}&page=2")
+
+      expect(filtered).not_to include(s1, s2)
+      expect(filtered).to include(', user=bob;')
+      expect(filtered).to end_with('&page=2')
+    end
+
+    it 'masks Basic and Bearer credentials in an Authorization header' do
+      basic  = described_class.filter_text("Authorization: Basic #{s1}")
+      bearer = described_class.filter_text(%("authorization"=>"Bearer #{s2}"))
+
+      expect(basic).not_to include(s1)
+      expect(bearer).not_to include(s2)
+    end
+
+    it 'masks the userinfo of a URL' do
+      filtered = described_class.filter_text("connect failed for postgres://admin:#{s1}@db.example/app")
+
+      expect(filtered).not_to include(s1, 'admin')
+      expect(filtered).to include('@db.example/app')
+    end
+
+    it 'fails closed when the bracket is never closed' do
+      filtered = described_class.filter_text(%(boom token: {"a"=>"#{s1}", "b"=>["#{s2}"))
+
+      expect(filtered).not_to include(s1, s2)
+      expect(filtered).to start_with('boom token: ')
+    end
+
+    it 'fails closed when the quote is never closed' do
+      filtered = described_class.filter_text(%(password="#{s1} #{s2}))
+
+      expect(filtered).not_to include(s1, s2)
+    end
+
+    it 'fails closed when a bracket is closed by the wrong kind' do
+      expect(described_class.filter_text(%(api_key: [#{s1}} #{s2}))).not_to include(s1, s2)
     end
   end
 

@@ -118,9 +118,25 @@ RSpec.describe "agent_autonomy get_approval_request" do
         .to include(status: "failed", error_message: "RuntimeError: it broke")
     end
 
+    it "does not report a request as expired at the exact instant it expires, as Ai::ApprovalRequest#expired? does not" do
+      freeze_time do
+        approval_request.update_columns(expires_at: Time.current)
+
+        expect(approval_request.reload.expired?).to be(false)
+        expect(run({ "approval_request_id" => approval_request.id })[:expired]).to be(false)
+      end
+    end
+
     it "writes nothing" do
-      expect { run({ "approval_request_id" => approval_request.id }) }
-        .not_to change { [ ::Ai::ApprovalRequest.maximum(:updated_at), ::Ai::DeferredOperation.maximum(:updated_at) ] }
+      approval_request.decisions.create!(approver: decider, step_number: 0, decision: "approved", origin: "rest_session")
+      tables = [ ::Ai::ApprovalRequest, ::Ai::ApprovalDecision, ::Ai::DeferredOperation, ::AuditLog ]
+      snapshot = -> { tables.map { |model| [ model.count, model.maximum(:updated_at) || model.maximum(:created_at) ] } }
+      before = snapshot.call
+
+      run({ "approval_request_id" => approval_request.id })
+      run({ "deferred_operation_id" => deferred.id })
+
+      expect(snapshot.call).to eq(before)
     end
   end
 
@@ -143,6 +159,14 @@ RSpec.describe "agent_autonomy get_approval_request" do
       result = run({ "approval_request_id" => SecureRandom.uuid })
 
       expect(result).to eq(success: false, error: "Approval request not found")
+    end
+
+    it "coerces an array id to a string rather than running it as an IN query" do
+      by_request = run({ "approval_request_id" => [ approval_request.id, SecureRandom.uuid ] })
+      by_op      = run({ "deferred_operation_id" => [ deferred.id ] })
+
+      expect(by_request).to eq(success: false, error: "Approval request not found")
+      expect(by_op).to eq(success: false, error: "Approval request not found")
     end
 
     it "answers a malformed id with the same not-found, not a driver error" do
@@ -254,6 +278,46 @@ RSpec.describe "agent_autonomy get_approval_request" do
 
     it "does not narrow a user principal, who reads through the same surface as the REST queue" do
       expect(run({ "approval_request_id" => others_op.approval_request.id })[:success]).to be(true)
+    end
+  end
+
+  # The examples above hand-build the principal block. This one parks through a
+  # REAL gated action, so a change to BaseTool#deferred_tool_call_context,
+  # DeferredToolCall.pack or #principal_shape_descriptor that stops recording the
+  # instance breaks the scoping here rather than passing unseen.
+  describe "instance principal scoping, parked through a real gated action" do
+    let(:provider) { create(:ai_provider, account: account) }
+    let(:target)   { create(:ai_agent, account: account, name: "Ops Worker", provider: provider, creator: reader) }
+
+    before do
+      allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original
+      allow(Shared::FeatureGateService).to receive(:capability_present?).with(:governance).and_return(true)
+    end
+
+    def park_as_instance(node_instance)
+      ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+        "platform.set_delegation_policy",
+        params: { "agent_id" => target.id, "max_depth" => 2 },
+        account: account, user: nil, instance_authorized: true, node_instance: node_instance,
+        origin: "mcp_instance"
+      )
+    end
+
+    it "lets the parking instance read its own request and refuses a different instance" do
+      parked = park_as_instance(own_instance)
+      expect(parked[:success]).to be(true), parked.inspect
+      request_id = parked.dig(:data, :approval_request_id)
+      operation_id = parked.dig(:data, :deferred_operation_id)
+      expect(request_id).to be_present
+
+      own = run_as_instance({ "approval_request_id" => request_id }, node_instance: own_instance)
+      expect(own).to include(success: true, approval_request_id: request_id, deferred_operation_id: operation_id,
+                             call_origin: "mcp_instance", action_category: "ai.delegation_policy.update")
+      expect(run_as_instance({ "deferred_operation_id" => operation_id }, node_instance: own_instance)[:success]).to be(true)
+
+      foreign = { success: false, error: "Approval request not found" }
+      expect(run_as_instance({ "approval_request_id" => request_id }, node_instance: other_instance)).to eq(foreign)
+      expect(run_as_instance({ "deferred_operation_id" => operation_id }, node_instance: other_instance)).to eq(foreign)
     end
   end
 
