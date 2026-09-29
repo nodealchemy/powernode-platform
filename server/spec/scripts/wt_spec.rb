@@ -58,6 +58,9 @@ RSpec.describe "scripts/wt.sh" do
     %w[wt.sh prepare-worktree.sh].each { |f| FileUtils.cp(File.join(repo_scripts, f), File.join(@main, "scripts", f)) }
     FileUtils.cp(File.join(repo_scripts, "lib/landing-common.sh"), File.join(@main, "scripts/lib/landing-common.sh"))
     File.write(File.join(@main, "server/.keep"), "")
+    FileUtils.mkdir_p(File.join(@main, "server/config"))
+    File.write(File.join(@main, "server/config/database.yml"),
+               "default: &default\n  password: <%= ENV.fetch(\"POWERNODE_DATABASE_PASSWORD\") { \"fixture_dev_default\" } %>\n")
     FileUtils.mkdir_p(File.join(@main, "worker"))
     File.write(File.join(@main, "worker/.keep"), "")
     File.write(File.join(@main, ".gitignore"), "/scripts/local/\n/extensions/private/\n.env.*\n.bundle/\nGemfile.private.lock\n/server/vendor/bundle\n")
@@ -159,6 +162,19 @@ RSpec.describe "scripts/wt.sh" do
     expect(File.exist?(File.join(@wts, "imp-c2"))).to be false
     expect(sh!("git", "-C", @main, "branch", "--list", "imp-c2")).to eq("")
     expect(ledger.size).to eq(1)
+  end
+
+  it "refuses when an extension already has a branch of that name, and never deletes it" do
+    ext_main = File.join(@main, "extensions/widgets")
+    sh!("git", "-C", ext_main, "branch", "imp-n1")
+    sha = sh!("git", "-C", ext_main, "rev-parse", "imp-n1")
+    _out, err, code = wt("create", "imp-n1", "--no-db")
+
+    expect(code).not_to eq(0)
+    expect(err).to match(/already exists in extensions\/widgets/)
+    expect(sh!("git", "-C", ext_main, "rev-parse", "imp-n1")).to eq(sha)
+    expect(File.exist?(File.join(@wts, "imp-n1"))).to be false
+    expect(ledger).to be_empty
   end
 
   it "cleans up completely when creation fails late: worktree, both branches and the lane" do
@@ -329,16 +345,37 @@ RSpec.describe "scripts/wt.sh" do
       expect(sh!("git", "-C", File.join(@main, "extensions/widgets"), "cat-file", "-t", ext_sha)).to eq("commit")
     end
 
-    it "drops the lane database by name with dropdb --if-exists, with DATABASE_URL removed" do
+    def fake_dropdb
       bin = File.join(@dir, "bin")
       FileUtils.mkdir_p(bin)
-      File.write(File.join(bin, "dropdb"), "#!/usr/bin/env bash\necho \"$* url=[${DATABASE_URL:-}]\" >> #{@drops}\n")
+      File.write(File.join(bin, "dropdb"), "#!/usr/bin/env bash\necho \"$* host=$PGHOST user=$PGUSER port=${PGPORT:-} pw=$PGPASSWORD url=[${DATABASE_URL:-}]\" >> #{@drops}\n")
       File.chmod(0o755, File.join(bin, "dropdb"))
-      _out, err, code = wt("remove", path, env: { "WT_DROPDB_CMD" => "", "PATH" => "#{bin}:#{ENV.fetch('PATH')}",
-                                                  "DATABASE_URL" => "postgres://shared/powernode_test" })
+      { "WT_DROPDB_CMD" => "", "PATH" => "#{bin}:#{ENV.fetch('PATH')}", "DATABASE_URL" => "postgres://shared/powernode_test",
+        "PGHOST" => nil, "PGUSER" => nil, "PGPASSWORD" => nil, "PGPORT" => nil, "POWERNODE_DATABASE_PASSWORD" => nil,
+        "DATABASE_HOST" => nil, "DATABASE_USER" => nil, "DATABASE_PORT" => nil }
+    end
+
+    it "drops the lane database by name with dropdb --if-exists over the application's own connection, DATABASE_URL removed" do
+      _out, err, code = wt("remove", path, env: fake_dropdb)
 
       expect(code).to eq(0), err
-      expect(File.read(@drops).strip).to eq("--if-exists powernode_test_imp_e1 url=[]")
+      # host localhost, user powernode, and the development default that database.yml itself declares
+      expect(File.read(@drops).strip).to eq("--if-exists powernode_test_imp_e1 host=localhost user=powernode port= pw=fixture_dev_default url=[]")
+    end
+
+    it "takes the password from POWERNODE_DATABASE_PASSWORD, and lets PGHOST, PGUSER, PGPORT and PGPASSWORD override everything" do
+      env = fake_dropdb.merge("POWERNODE_DATABASE_PASSWORD" => "from-env")
+      _out, err, code = wt("remove", path, env: env)
+      expect(code).to eq(0), err
+      expect(File.read(@drops)).to include("pw=from-env ")
+
+      other = create("imp-e4")
+      File.delete(@drops)
+      env = fake_dropdb.merge("POWERNODE_DATABASE_PASSWORD" => "from-env", "PGHOST" => "db.example.test", "PGUSER" => "other",
+                              "PGPORT" => "6543", "PGPASSWORD" => "explicit")
+      _out, err, code = wt("remove", other["path"], env: env)
+      expect(code).to eq(0), err
+      expect(File.read(@drops).strip).to eq("--if-exists powernode_test_imp_e4 host=db.example.test user=other port=6543 pw=explicit url=[]")
     end
 
     it "does not drop a database another worktree uses, or one that is protected, and removes nothing" do

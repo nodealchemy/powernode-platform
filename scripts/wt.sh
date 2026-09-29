@@ -39,7 +39,9 @@
 #
 # Environment: WT_ROOT (default ~/worktrees), WT_LANE_LEDGER, WT_MAX_LANE (default 5, matches
 # prepare-worktree.sh), WT_DROPDB_CMD (command that drops the lane database; receives TEST_DB_NAME and
-# TEST_ENV_NUMBER; default: `dropdb --if-exists` with the ambient PG* settings), WT_PROTECTED_DBS
+# TEST_ENV_NUMBER; default: `dropdb --if-exists` over the application's own connection: PGHOST/PGUSER/PGPORT/
+# PGPASSWORD, else DATABASE_HOST/DATABASE_USER, POWERNODE_DATABASE_PASSWORD, else localhost / powernode / the
+# development default in database.yml), WT_PROTECTED_DBS
 # (space-separated database names never to drop). Deployment facts are not needed.
 
 set -euo pipefail
@@ -189,6 +191,12 @@ cmd_create() {
   [ ! -e "$path" ] || lc_die "path already exists: $path"
   [[ "$path" = /* ]] || path="$PWD/$path"
   git -C "$MAIN" show-ref --verify --quiet "refs/heads/$key" && lc_die "a branch named '$key' already exists in the core repository"
+  # The same for every public extension: create never touches (and its failure cleanup never deletes) a branch it did not make.
+  local sub
+  for sub in "${SUBPATHS[@]}"; do
+    [ -e "$MAIN/$sub/.git" ] || continue
+    ! git -C "$MAIN/$sub" show-ref --verify --quiet "refs/heads/$key" || lc_die "a branch named '$key' already exists in $sub; land or delete it (it may hold work), or pick another key"
+  done
 
   local lane
   lane="$(with_ledger_lock reserve_lane "$path" "$key")" || lc_die "no free redis lane; remove a finished worktree first (scripts/wt.sh audit)"
@@ -196,13 +204,14 @@ cmd_create() {
   # ANY failed create (an error, or one of the explicit lc_die exits, which an ERR trap would miss)
   # releases its lane and leaves no half-made worktree or <key> branch behind.
   # (Globals, not locals: an EXIT trap runs after the function's locals are gone.)
-  CREATE_OK=0; CREATE_PATH="$path"; CREATE_KEY="$key"
+  CREATE_OK=0; CREATE_PATH="$path"; CREATE_KEY="$key"; CREATED_EXT_BRANCHES=()
   cleanup_failed_create() {
     [ "$CREATE_OK" -eq 1 ] && return 0
     with_ledger_lock release_lane "$CREATE_PATH" || true
     if [ -d "$CREATE_PATH" ]; then "$SELF_DIR/prepare-worktree.sh" "$CREATE_PATH" --remove >/dev/null 2>&1 || true; fi
     git -C "$MAIN" branch -q -D "$CREATE_KEY" 2>/dev/null || true
-    local p; for p in "${SUBPATHS[@]}"; do git -C "$MAIN/$p" branch -q -D "$CREATE_KEY" 2>/dev/null || true; done
+    # Only the extension branches THIS run created (the pre-check guarantees the core one is ours too).
+    local p; for p in "${CREATED_EXT_BRANCHES[@]}"; do git -C "$MAIN/$p" branch -q -D "$CREATE_KEY" 2>/dev/null || true; done
   }
   trap cleanup_failed_create EXIT
 
@@ -231,7 +240,7 @@ cmd_create() {
   local ext
   while IFS= read -r ext; do
     [ -n "$ext" ] || continue
-    git -C "$ext" switch --quiet -c "$key" && lc_info "  branch $key in ${ext#"$path"/}"
+    git -C "$ext" switch --quiet -c "$key" && { CREATED_EXT_BRANCHES+=("${ext#"$path"/}"); lc_info "  branch $key in ${ext#"$path"/}"; }
   done < <(ext_dirs "$path")
 
   if [ "$want_db" -eq 1 ]; then
@@ -247,9 +256,19 @@ cmd_create() {
 
 # ---- remove ----------------------------------------------------------------------------------------
 # The lane database is dropped by NAME, never by asking Rails what it would drop (a DATABASE_URL in the
-# environment or a .env would redirect that). Connection settings are the ambient PG* environment.
+# environment or a .env would redirect that). The connection is the one the application uses: host and user
+# from PGHOST / PGUSER, else DATABASE_HOST / DATABASE_USER, else localhost / powernode; the password from
+# PGPASSWORD, else POWERNODE_DATABASE_PASSWORD, else the development default database.yml itself declares
+# (read from it, so no password is written into this script). It goes through the environment, never argv.
 drop_lane_database() { # db-name
-  env -u DATABASE_URL dropdb --if-exists "$1" >&2
+  local pw="${PGPASSWORD:-${POWERNODE_DATABASE_PASSWORD:-}}"
+  if [ -z "$pw" ] && [ -f "$MAIN/server/config/database.yml" ]; then
+    pw="$(sed -n 's/.*POWERNODE_DATABASE_PASSWORD") *{ *"\([^"]*\)" *}.*/\1/p' "$MAIN/server/config/database.yml" | head -n 1)"
+  fi
+  local -a envv=("PGHOST=${PGHOST:-${DATABASE_HOST:-localhost}}" "PGUSER=${PGUSER:-${DATABASE_USER:-powernode}}")
+  [ -z "${PGPORT:-${DATABASE_PORT:-}}" ] || envv+=("PGPORT=${PGPORT:-$DATABASE_PORT}")
+  [ -z "$pw" ] || envv+=("PGPASSWORD=$pw")
+  env -u DATABASE_URL "${envv[@]}" dropdb --if-exists "$1" >&2
 }
 
 # Refuse unless <name> is an isolated lane database that nobody else uses.
