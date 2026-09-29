@@ -459,15 +459,13 @@ module Ai
       end
 
       # A refused park is recorded, once per (principal, reason) a minute so a
-      # looping session cannot bloat the log. Names the principal, the reason
+      # looping session cannot bloat the log (failing open when the cache is
+      # unavailable: Ai::Approvals::MachinePark.audit_once?). Names the principal, the reason
       # code and the key ONLY when it is a registered one, never a value or
       # caller-supplied text; a lost row costs visibility only, so it is logged,
       # not raised.
-      REFUSAL_AUDIT_COLLAPSE = 1.minute
-
       def audit_park_refusal(params, code)
-        return unless Rails.cache.write("site_setting:park_refusal_audit:#{node_instance&.id}:#{code}", 1,
-                                        expires_in: REFUSAL_AUDIT_COLLAPSE, unless_exist: true)
+        return unless ::Ai::Approvals::MachinePark.audit_once?("site_setting:park_refusal_audit:#{node_instance&.id}:#{code}")
 
         registered = key_spec(params) ? params[:key].to_s : "unregistered"
         AuditLog.log_action(

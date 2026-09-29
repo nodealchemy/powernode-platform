@@ -28,6 +28,9 @@ module Ai
       RATE_LIMIT_SETTING = "ai_machine_park_rate_limit_per_hour"
       DEFAULT_RATE_LIMIT = 10
       WINDOW = 1.hour
+      # One audit row per (principal, category, outcome) in this span, so a
+      # looping session cannot bloat the log.
+      AUDIT_COLLAPSE = 1.minute
 
       Deduped = Struct.new(:request)
       RateLimited = Struct.new(:limit)
@@ -63,6 +66,18 @@ module Ai
 
             yield
           end
+        end
+
+        # True when a refusal/dedupe/limit row for `key` should be written: the
+        # first in AUDIT_COLLAPSE. It FAILS OPEN: if the cache cannot answer (the
+        # write fails or raises and the key is not there to be seen), the row is
+        # written rather than suppressed, so a cache outage loses no audit row.
+        def audit_once?(key)
+          return true if ::Rails.cache.write(key, 1, expires_in: AUDIT_COLLAPSE, unless_exist: true)
+
+          !::Rails.cache.exist?(key)
+        rescue StandardError
+          true
         end
 
         def rate_limit
@@ -104,6 +119,8 @@ module Ai
         # gets: this is the trail, and losing a row costs visibility only.
         # Names the principal and the door, never a value.
         def audit(action, resource, account, principal_id, action_category, session_label, **extra)
+          return unless audit_once?("machine_park:audit:#{principal_id}:#{action_category}:#{action}")
+
           ::AuditLog.log_action(
             action: action, resource: resource, account: account, source: "api",
             metadata: {

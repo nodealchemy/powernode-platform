@@ -19,11 +19,18 @@ module Ai
       "ai"
     end
 
-    # A request an instance parked for a person's decision opens the approvals
-    # queue on that request, expanded, where the card showing exactly what it
-    # asks for is.
+    # A request an instance parked, or any that carries a change card, opens the
+    # approvals queue on that request, expanded, where the card showing exactly
+    # what it asks for is.
     def self.action_url(request)
-      request.machine_requested? ? "#{APPROVAL_QUEUE_URL}?request=#{request.id}" : "/app/notifications"
+      queue_link?(request) ? "#{APPROVAL_QUEUE_URL}?request=#{request.id}" : "/app/notifications"
+    end
+
+    # The queue is the one surface that shows a change card, and approving such a
+    # request needs it (Ai::AutonomyApprovalActions), so the link goes there
+    # whoever parked the request, a person or an instance.
+    def self.queue_link?(request)
+      request.machine_requested? || !::Ai::Approvals::ChangeCard.for(request, viewer: nil).nil?
     end
 
     def self.severity(request)

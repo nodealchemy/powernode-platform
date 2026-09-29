@@ -435,6 +435,69 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
     end
   end
 
+  describe "the notification for a request a PERSON parked" do
+    it "also opens the queue on the request, because approving a change-card request needs the card" do
+      tool = described_class.new(account: account, user: operator)
+      tool.call_origin = "mcp_oauth"
+      request = parked_request(tool.execute(params: { action: "site_setting_set_protected", key: protected_key,
+                                                      value: "armed" }))
+      expect(request.machine_requested?).to be(false)
+
+      note = Notification.where(user: operator).order(:created_at).last
+
+      expect(note.action_url).to eq("/app/ai/control/approvals/queue?request=#{request.id}")
+    end
+
+    it "leaves a request with no change card on the notifications page" do
+      stub_const("SpecPlainExecutor", Class.new { def self.execute(_params, deferred_operation:) = { success: true } })
+      gate = Ai::AutonomyGate.evaluate(action_category: "spec.plain", executor_class: "SpecPlainExecutor",
+                                       params: {}, account: account, requested_by: operator)
+
+      note = Notification.where(user: operator).order(:created_at).last
+
+      expect(gate.approval_request.machine_requested?).to be(false)
+      expect(note.action_url).to eq("/app/notifications")
+    end
+  end
+
+  describe "audit rows for refusals, dedupes and limits" do
+    it "collapses repeated dedupes to one row" do
+      parked_request(park)
+      3.times { park }
+
+      expect(AuditLog.where(action: "ai.approvals.machine_park_deduped").count).to eq(1)
+    end
+
+    it "fails OPEN when the cache cannot answer: every refusal and dedupe is written" do
+      allow(Rails.cache).to receive(:write).and_return(false)
+      allow(Rails.cache).to receive(:exist?).and_return(false)
+      parked_request(park)
+      2.times { park }
+      ::Mcp::Principal.tool_grant_resolver = ->(_instance) { [] }
+      2.times { park }
+
+      expect(AuditLog.where(action: "ai.approvals.machine_park_deduped").count).to eq(2)
+      expect(AuditLog.where(action: "ai.approvals.machine_park_refused").count).to eq(2)
+    end
+
+    it "fails OPEN when the cache raises" do
+      allow(Rails.cache).to receive(:write).and_raise(StandardError, "cache down")
+      ::Mcp::Principal.tool_grant_resolver = ->(_instance) { [] }
+
+      2.times { park }
+
+      expect(AuditLog.where(action: "ai.approvals.machine_park_refused").count).to eq(2)
+    end
+
+    it "still suppresses a repeat when the cache answers that the key is there" do
+      ::Mcp::Principal.tool_grant_resolver = ->(_instance) { [] }
+
+      3.times { park }
+
+      expect(AuditLog.where(action: "ai.approvals.machine_park_refused").count).to eq(1)
+    end
+  end
+
   describe "the approval card" do
     it "shows the tool, key, new value and (to an admin.access holder) the current value" do
       SiteSetting.set(protected_key, "old-value")
