@@ -22,7 +22,8 @@ module Ai
     #                      Ai::Approvals::HumanSessionPolicy also asks for a
     #                      person's session by default; an account lifts that
     #                      for develop only with a dev.merge policy row whose
-    #                      conditions carry requires_human_session: false.
+    #                      conditions carry requires_human_session: false (a
+    #                      "*" row carrying it does too).
     #   release/*, master  requires_human_session, flagged on the call. It
     #                      parks for a person's own session and runs as that
     #                      person; no policy row lifts the flag.
@@ -34,6 +35,10 @@ module Ai
     # metadata). It reports back to Api::V1::Internal::Ai::DevMergesController,
     # which writes the audit row. A push that reached only some remotes is
     # FAILED.
+    #
+    # The target branch must already exist on every remote: the worker fetches
+    # it to plan the fast-forward and refuses when it cannot, so this verb
+    # never creates a branch (a new release/* is cut some other way first).
     #
     # Running the verification gate is the caller's job, not this verb's. The
     # caller attests to its results in `gate_attestation`, and they are carried
@@ -111,18 +116,25 @@ module Ai
           ACTION => {
             description: "Land a reviewed dev-loop increment on develop, release/* or master. PARKS under " \
                          "dev.merge and does nothing until approved by a person in their own session: develop " \
-                         "requires a human session by default, and an account can relax develop ONLY with a " \
-                         "dev.merge intervention policy row whose conditions are " \
-                         "{requires_human_session: false}; release/* and master always require one, and the merge " \
-                         "then runs as the person who approved it. On approval the worker checks that source_ref still resolves to " \
-                         "expected_source_sha and refuses if it moved. It fast-forwards target_branch only and " \
-                         "never forces: each remote's head is re-read immediately before its push, and a remote " \
-                         "that moved to a non-ancestor is refused. It pushes to the repository and to every " \
-                         "mirror configured on it, and reports each remote; a push that reached only some remotes " \
-                         "is recorded as failed. With pointer_bump it also moves ONE gitlink (submodule_path) in " \
+                         "requires a human session by default, and an account can relax develop (never release/* " \
+                         "or master) with a dev.merge intervention policy row whose conditions are " \
+                         "{requires_human_session: false}; a \"*\" intervention policy row with the same condition " \
+                         "also relaxes develop. release/* and master always require one, and the merge then runs " \
+                         "as the person who approved it. target_branch must already exist on every remote; this " \
+                         "verb never creates a branch. On approval the worker checks that source_ref still " \
+                         "resolves to expected_source_sha and refuses if it moved. It fast-forwards target_branch " \
+                         "only and never forces: each remote's head is re-read immediately before its push and " \
+                         "the push is leased on it, so a remote that moved is refused. Before any push it checks " \
+                         "every commit each remote would receive (from that remote's own tip) and refuses the " \
+                         "whole merge if one carries AI attribution or names a private extension; so a commit " \
+                         "like that already on origin but not yet on a lagging mirror blocks every merge to that " \
+                         "mirror until the history is cleaned. It pushes to the repository and to every mirror " \
+                         "configured on it, and reports each remote; a push that reached only some remotes is " \
+                         "recorded as failed. With pointer_bump it also moves ONE gitlink (submodule_path) in " \
                          "parent_repository to the merged SHA, commits with a generated message, and pushes that " \
                          "the same way. A message that would carry AI attribution or name a private extension is " \
-                         "refused, never rewritten. The caller runs the verification gate and attests to it in gate_attestation.",
+                         "refused, never rewritten. The caller runs the verification gate and attests to it in " \
+                         "gate_attestation.",
             parameters: {
               repository: { type: "string", required: true,
                             description: "Devops git repository id or full_name (owner/name) in this account" },

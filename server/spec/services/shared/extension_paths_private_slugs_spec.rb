@@ -23,6 +23,14 @@ RSpec.describe Shared::ExtensionPaths, ".private_slugs" do
     expect(described_class.private_slugs).to eq(%w[alpha zz-beta])
   end
 
+  it "reports whether extensions/private exists at all" do
+    expect(described_class.private_root_present?).to be(false)
+
+    FileUtils.mkdir_p(@root.join("private"))
+
+    expect(described_class.private_root_present?).to be(true)
+  end
+
   it "is empty in core mode, when there is no private directory" do
     FileUtils.mkdir_p(@root.join("public-one"))
 

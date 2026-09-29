@@ -52,6 +52,12 @@ RSpec.describe Ai::Tools::DevMergeTool do
       expect(description).to include("{requires_human_session: false}")
       expect(description).to include("release/* and master always require one")
     end
+
+    it "says a \"*\" row relaxes develop too, that branches are never created, and what blocks a lagging mirror" do
+      expect(description).to include('a "*" intervention policy row with the same condition also relaxes develop')
+      expect(description).to include("target_branch must already exist on every remote; this verb never creates a branch")
+      expect(description).to include("blocks every merge to that mirror until the history is cleaned")
+    end
   end
 
   # The worker re-checks the allowlist before any git runs, with the SAME
@@ -145,6 +151,15 @@ RSpec.describe Ai::Tools::DevMergeTool do
       expect(Ai::ApprovalRequest.count).to eq(0)
     end
     it("a repository outside the account") { expect_refused(merge(repository: create(:git_repository).full_name), /not a repository/) }
+
+    it "a host that knows only the registry's private engines and has no declaration (N1)" do
+      SiteSetting.find_by(key: Ai::DevMerge::ForbiddenNames::SETTING_KEY).destroy!
+      allow(Shared::ExtensionPaths).to receive_messages(private_root_present?: false, private_slugs: [])
+      allow(Powernode::ExtensionRegistry).to receive(:all).and_return("zz-loaded" => { private: true })
+      allow(Powernode::ExtensionRegistry).to receive(:slugs).and_return(%w[zz-loaded])
+
+      expect_refused(merge, /cannot tell which private extensions exist/)
+    end
 
     it "a host that cannot tell which private extensions exist" do
       allow(Ai::DevMerge::ForbiddenNames).to receive(:resolve).and_return(indeterminate)

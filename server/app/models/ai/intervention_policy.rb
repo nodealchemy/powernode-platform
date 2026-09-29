@@ -91,8 +91,9 @@ module Ai
     # require_approval, and the replay refuses to dispatch without an approved
     # request, so an auto_approve row cannot skip the park. The verb is
     # declared destructive, so a develop merge also needs a person's session
-    # unless a row's conditions carry requires_human_session: false; a
-    # release/* or master target needs one whatever a row says.
+    # unless a dev.merge row's conditions carry requires_human_session: false
+    # (a "*" row carrying it relaxes develop too: HumanSessionPolicy reads
+    # both); a release/* or master target needs one whatever a row says.
     STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback

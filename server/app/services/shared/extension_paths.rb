@@ -51,6 +51,14 @@ module Shared
       private_root.children.select(&:directory?).map { |dir| dir.basename.to_s }.sort
     end
 
+    # Does extensions/private/ exist here at all? On a checkout that has it,
+    # #private_slugs is the complete list the core-purity gate works from; on
+    # a host without it (a deployed module, a public clone) an empty list is
+    # no evidence that none exist.
+    def private_root_present?
+      EXTENSIONS_ROOT.join(PRIVATE_DIRNAME).directory?
+    end
+
     # Directory for a given slug, searched flat-first then private.
     # Returns a Pathname or nil if no such extension directory exists.
     def dir_for(slug)

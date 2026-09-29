@@ -23,12 +23,18 @@ module Ai
     #      config/initializers/dev_merge_settings.rb), so shrinking it — which
     #      disarms the refusal — is a person's decision in their own session.
     #
-    # FAIL CLOSED. An empty union is a determinate "none" only when
+    # FAIL CLOSED. The union is a determinate answer only when this host can
+    # know it is COMPLETE:
+    #   * the operator declared the list, even as [];
     #   * the platform is in core mode (no extension registered at all:
-    #     Shared::FeatureGateService.core_mode?), or
-    #   * the operator declared the list, even as [].
-    # Otherwise this host cannot tell "no private extensions exist" from "they
-    # exist but are not installed here", and the merge is refused with #reason.
+    #     Shared::FeatureGateService.core_mode?); or
+    #   * extensions/private/ exists on disk (a checkout that carries the
+    #     private extensions, the core-purity gate's own source).
+    # A registry-only list is NOT enough (review N1): a loaded private engine
+    # proves that some private extension is installed here, never that it is
+    # the only one. Otherwise this host cannot tell "these are all of them"
+    # from "others exist but are not installed here", and the merge is refused
+    # with #reason.
     #
     # The names are never logged or audited; #reason never contains one.
     class ForbiddenNames
@@ -45,7 +51,7 @@ module Ai
         declared = declared_names
         names = (::Shared::ExtensionPaths.private_slugs + registered_private + Array(declared)).map(&:to_s).uniq.sort
 
-        if names.any? || !declared.nil? || ::Shared::FeatureGateService.core_mode?
+        if !declared.nil? || ::Shared::FeatureGateService.core_mode? || ::Shared::ExtensionPaths.private_root_present?
           return Result.new(names: names, determinate: true)
         end
 
@@ -75,7 +81,8 @@ module Ai
       end
 
       def self.indeterminate_reason
-        "this host cannot tell which private extensions exist (none is installed here and none was declared), " \
+        "this host cannot tell which private extensions exist (it has no extensions/private/ directory and " \
+          "none was declared), " \
           "so it cannot refuse their names; refusing to publish. Declare them in the protected site setting " \
           "#{SETTING_KEY} (a JSON list; [] declares that none exist)"
       end

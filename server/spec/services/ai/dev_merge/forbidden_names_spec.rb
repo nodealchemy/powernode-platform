@@ -9,6 +9,7 @@ RSpec.describe Ai::DevMerge::ForbiddenNames do
 
   before do
     allow(Shared::ExtensionPaths).to receive(:private_slugs).and_return([])
+    allow(Shared::ExtensionPaths).to receive(:private_root_present?).and_return(false)
     allow(Powernode::ExtensionRegistry).to receive(:all).and_return(registry)
     allow(Powernode::ExtensionRegistry).to receive(:slugs) { registry.keys }
   end
@@ -17,13 +18,35 @@ RSpec.describe Ai::DevMerge::ForbiddenNames do
     SiteSetting.set(described_class::SETTING_KEY, value, setting_type: "json")
   end
 
-  it "names a private extension the registry has loaded even when extensions/private/ is empty" do
+  # N1: a registry-only list proves only that SOME private extension is
+  # loaded here, never that it is the whole set, so without a declaration or
+  # the on-disk directory it is not an answer.
+  it "is INDETERMINATE for a registry-only list: one private engine loaded, no declaration, no directory" do
     registry.merge!("zz-loaded" => { private: true }, "public-one" => { private: false })
 
     result = described_class.resolve
 
-    expect(result.names).to eq(%w[zz-loaded])
+    expect(result).not_to be_determinate
+    expect(result.reason).to include(described_class::SETTING_KEY)
+    expect(result.reason).not_to include("zz-loaded")
+  end
+
+  it "still carries the registry's names once the list is determinate" do
+    registry["zz-loaded"] = { private: true }
+    declare([])
+
+    expect(described_class.resolve.names).to eq(%w[zz-loaded])
+  end
+
+  it "is determinate when extensions/private/ exists on disk, even with nothing declared" do
+    allow(Shared::ExtensionPaths).to receive(:private_root_present?).and_return(true)
+    allow(Shared::ExtensionPaths).to receive(:private_slugs).and_return(%w[zz-disk])
+    registry["public-one"] = { private: false }
+
+    result = described_class.resolve
+
     expect(result).to be_determinate
+    expect(result.names).to eq(%w[zz-disk])
   end
 
   it "unions the on-disk directories, the registry and the operator's declaration" do
@@ -74,6 +97,7 @@ RSpec.describe Ai::DevMerge::ForbiddenNames do
   it "never puts a name in its reason" do
     registry["public-one"] = { private: false }
     allow(Shared::ExtensionPaths).to receive(:private_slugs).and_return([])
+    allow(Shared::ExtensionPaths).to receive(:private_root_present?).and_return(false)
 
     expect(described_class.resolve.reason).not_to include("public-one")
   end
