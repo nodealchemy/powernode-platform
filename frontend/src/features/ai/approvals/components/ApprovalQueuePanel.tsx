@@ -11,7 +11,7 @@ import { useApproveAction, useRejectAction } from '../api/approvalsApi';
 import { useLiveApprovalQueue } from '../hooks/useLiveApprovalQueue';
 import { useApprovalRequestDetail } from '../hooks/useApprovalRequestDetail';
 import { ApprovalChainSteps, ApprovalStepSummary } from './ApprovalChainSteps';
-import type { ApprovalRequest } from '../types/approval';
+import type { ApprovalChangeCard, ApprovalRequest } from '../types/approval';
 
 // The approval queue (C3b part 2). Approvals keep their own surface by the
 // lead's C4 ruling; this panel gains what it never had: the chain, step by
@@ -50,6 +50,35 @@ const formatDate = (dateStr?: string): string => {
 // header until this).
 const approvalTitle = (request: ApprovalRequest): string =>
   request.action_type || request.action_category || request.description || request.source_type || 'Approval request';
+
+// A value as the card shows it: text, escaped by React, never interpolated into
+// the request's free-text description.
+const displayValue = (value: unknown): string =>
+  typeof value === 'string' ? value : JSON.stringify(value);
+
+const ChangeCard: React.FC<{ card: ApprovalChangeCard }> = ({ card }) => (
+  <div data-change-card className="rounded border border-theme bg-theme-surface p-3 space-y-2">
+    <p className="text-xs text-theme-tertiary">Exactly what you are approving</p>
+    <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-sm">
+      <dt className="text-theme-tertiary">Tool</dt>
+      <dd className="text-theme-primary font-medium">{card.tool}</dd>
+      <dt className="text-theme-tertiary">Action</dt>
+      <dd className="text-theme-primary font-medium">{card.action}</dd>
+      <dt className="text-theme-tertiary">Setting</dt>
+      <dd className="text-theme-primary font-medium break-all">{card.key}</dd>
+      <dt className="text-theme-tertiary">New value</dt>
+      <dd data-change-new-value className="text-theme-primary font-mono break-all">{displayValue(card.new_value)}</dd>
+      <dt className="text-theme-tertiary">Current value</dt>
+      <dd data-change-current-value className="text-theme-primary font-mono break-all">
+        {card.current_value_set === false
+          ? 'Not set'
+          : 'current_value' in card
+            ? displayValue(card.current_value)
+            : 'Not shown to you (needs admin access)'}
+      </dd>
+    </dl>
+  </div>
+);
 
 const ApprovalCard: React.FC<{
   request: ApprovalRequest;
@@ -98,6 +127,7 @@ const ApprovalCard: React.FC<{
     );
   };
 
+  const changeCard = request.change_card ?? null;
   const isPending = request.status === 'pending';
   // The hourly sweep (`check_expiration!`) is what actually flips a timed-out
   // row off "pending" — until it runs, an expired row still reads pending here
@@ -271,6 +301,8 @@ const ApprovalCard: React.FC<{
               </pre>
             </div>
           )}
+
+          {changeCard && <ChangeCard card={changeCard} />}
 
           {viewerRefused && (
             <p className="text-xs text-theme-tertiary">

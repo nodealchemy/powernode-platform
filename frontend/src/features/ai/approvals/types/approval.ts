@@ -4,6 +4,21 @@ import type {
   ApprovalStepStatus,
 } from './approvalChainTypes';
 
+/**
+ * The exact change a parked tool call asks for, built server-side from the
+ * request's redacted request_data. `current_value` is present only for a viewer
+ * who could read the setting on the operator API; absent means "not shown to
+ * you", and `current_value_set: false` means the setting is unset.
+ */
+export interface ApprovalChangeCard {
+  tool: string;
+  action: string;
+  key: string;
+  new_value: unknown;
+  current_value?: unknown;
+  current_value_set?: boolean;
+}
+
 export interface ApprovalRequest {
   id: string;
   request_id: string;
@@ -38,6 +53,8 @@ export interface ApprovalRequest {
    * campaign lifecycle). On the list AND the detail read.
    */
   requires_human_session?: boolean;
+  /** What exactly is being approved, for a tool call that offers a card. */
+  change_card?: ApprovalChangeCard | null;
   // Detail read only (GET /ai/autonomy/approvals/:id). There is no
   // `approval_chain_id` on either read: the chain's id arrives inside
   // `approval_chain`.
