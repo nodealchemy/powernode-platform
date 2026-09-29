@@ -64,9 +64,10 @@ RSpec.describe Devops::IncrementMergeService do
     sha
   end
 
+  let(:increment_subject) { 'governed in-place peer key rotation' }
   let!(:increment_sha) do
     sh!('git', 'checkout', '--quiet', '-b', 'feature/increment', dir: @sub_work)
-    sha = commit!(@sub_work, 'b.txt', 'governed in-place peer key rotation')
+    sha = commit!(@sub_work, 'b.txt', increment_subject)
     sh!('git', 'push', '--quiet', sub_primary, 'feature/increment', dir: @sub_work)
     sha
   end
@@ -227,13 +228,118 @@ RSpec.describe Devops::IncrementMergeService do
     end
   end
 
-  it 'strips an AI attribution line out of the generated message' do
-    payload['pointer_bump'] = pointer_bump.merge('summary' => 'Co-Authored-By: Some Model <x@example.invalid>')
+  # REJECT, never rewrite: text that would put attribution or a private name
+  # into a published message refuses the pointer bump; nothing is scrubbed out
+  # of it and committed anyway.
+  describe 'a generated message that may not be published' do
+    def expect_pointer_refused(report, reason)
+      expect(report).to include('status' => 'failed', 'stage' => 'pointer_bump')
+      expect(report['error']).to match(reason)
+      expect(tip(parent_primary)).to eq(parent_base)
+      expect(tip(parent_mirror)).to eq(parent_base)
+    end
 
-    report = service.call
+    it 'refuses a caller summary carrying an AI attribution line' do
+      payload['pointer_bump'] = pointer_bump.merge('summary' => 'Co-Authored-By: Some Model <x@example.invalid>')
 
-    expect(report['status']).to eq('succeeded'), report['error'].to_s
-    expect(message_of(parent_primary)).to eq("chore(demo): bump extension pointer to #{increment_sha[0, 8]}")
+      expect_pointer_refused(service.call, /AI attribution/)
+    end
+
+    context 'when the submodule commit subject is itself an attribution line' do
+      let(:increment_subject) { 'Generated with some tool' }
+
+      it('refuses rather than dropping it') { expect_pointer_refused(service.call, /AI attribution/) }
+    end
+
+    context 'when the submodule commit subject names a private extension' do
+      let(:increment_subject) { 'wire the zzhidden seam' }
+
+      it 'refuses, and does not echo the name' do
+        report = service.call
+
+        expect_pointer_refused(report, /private extension/)
+        expect(report['error']).not_to match(/zzhidden/i)
+      end
+    end
+  end
+
+  describe 'target_branch allowlist, re-checked in the worker before any git' do
+    %w[feature/x main release release/..x].each do |target|
+      it "refuses #{target.inspect}" do
+        payload['target_branch'] = target
+        allow(Devops::GitCli).to receive(:new).and_call_original
+
+        report = service.call
+
+        expect(report).to include('status' => 'failed', 'stage' => 'validate')
+        expect(report['error']).to match(/target_branch/)
+        expect(Devops::GitCli).not_to have_received(:new)
+        expect(tip(sub_primary)).to eq(base_sha)
+      end
+    end
+
+    it 'accepts release/<version>' do
+      sh!('git', 'push', '--quiet', sub_primary, 'develop:release/0.3.0', dir: @sub_work)
+      sh!('git', 'push', '--quiet', sub_mirror, 'develop:release/0.3.0', dir: @sub_work)
+      payload['target_branch'] = 'release/0.3.0'
+      payload.delete('pointer_bump')
+
+      expect(service.call['status']).to eq('succeeded')
+      expect(tip(sub_mirror, 'release/0.3.0')).to eq(increment_sha)
+    end
+  end
+
+  # The plan-time check can go stale: a remote can move between the fetch that
+  # planned the push and the push itself. Each push re-reads that remote's
+  # head first and refuses the remote if it is no longer an ancestor.
+  describe 'push-time fast-forward check, per remote' do
+    # Advance `repo`'s develop the moment the service asks for its head at
+    # push time (ls-remote), i.e. after the plan-time fetch already passed.
+    def advance_at_push_time(repo, file:)
+      advanced = nil
+      allow(Devops::GitCli).to receive(:new).and_wrap_original do |original, **kwargs|
+        cli = original.call(**kwargs)
+        allow(cli).to receive(:run).and_wrap_original do |run, *args, **opts|
+          if args.first == 'ls-remote' && args.include?(repo) && advanced.nil?
+            author("race-#{file}", pushes_to: []) do |work|
+              sh!('git', 'fetch', '--quiet', repo, 'develop', dir: work)
+              sh!('git', 'checkout', '--quiet', '-B', 'develop', 'FETCH_HEAD', dir: work)
+              advanced = commit!(work, file, 'someone else landed meanwhile')
+              sh!('git', 'push', '--quiet', repo, 'develop', dir: work)
+            end
+          end
+          run.call(*args, **opts)
+        end
+        cli
+      end
+      -> { advanced }
+    end
+
+    it 'refuses the remote that moved, pushes the one that did not, and fails the merge' do
+      advanced = advance_at_push_time(sub_mirror, file: 'race.txt')
+
+      report = service.call
+
+      expect(report).to include('status' => 'failed', 'stage' => 'push')
+      expect(report['remotes'].map { |r| [ r['repository_id'], r['status'] ] })
+        .to eq([ %w[sub-primary pushed], %w[sub-mirror refused] ])
+      expect(report['remotes'].last['error']).to match(/moved/)
+      expect(tip(sub_primary)).to eq(increment_sha)
+      expect(tip(sub_mirror)).to eq(advanced.call)
+      expect(tip(parent_primary)).to eq(parent_base)
+    end
+
+    it 'does the same for the pointer-bump push to the parent remotes' do
+      advanced = advance_at_push_time(parent_mirror, file: 'parent-race.txt')
+
+      report = service.call
+
+      expect(report).to include('status' => 'failed', 'stage' => 'pointer_push')
+      expect(report['pointer_remotes'].map { |r| [ r['repository_id'], r['status'] ] })
+        .to eq([ %w[parent-primary pushed], %w[parent-mirror refused] ])
+      expect(tip(parent_primary)).to eq(report['pointer_commit_sha'])
+      expect(tip(parent_mirror)).to eq(advanced.call)
+    end
   end
 end
 
@@ -261,10 +367,22 @@ RSpec.describe Devops::GitCli do
 end
 
 RSpec.describe Devops::CommitMessageHygiene do
-  it 'drops the parenthetical when the summary was only an attribution line' do
+  it 'builds the parent repository\'s pointer-bump shape' do
     expect(described_class.pointer_bump_message(scope: 'demo', short_sha: 'abcd1234',
-                                                summary: 'Generated with a tool', forbidden_names: []))
-      .to eq('chore(demo): bump extension pointer to abcd1234')
+                                                summary: 'a subject', forbidden_names: []))
+      .to eq('chore(demo): bump extension pointer to abcd1234 (a subject)')
+  end
+
+  [ 'Generated with a tool', 'Co-Authored-By: X <x@example.invalid>', 'Assisted-by: GPT-5' ].each do |summary|
+    it "refuses, never strips, #{summary.inspect}" do
+      expect do
+        described_class.pointer_bump_message(scope: 'demo', short_sha: 'abcd1234', summary: summary, forbidden_names: [])
+      end.to raise_error(described_class::Refused, /AI attribution/)
+    end
+  end
+
+  it 'offers no stripping helper at all' do
+    expect(described_class).not_to respond_to(:strip_attribution)
   end
 
   it 'refuses a private name in the scope itself' do

@@ -3,17 +3,17 @@
 module Devops
   # The two rules a commit message written by the dev-merge job must satisfy
   # (Git::DevMergeIncrementJob). Commit messages are published through a
-  # public mirror, so a message is as public as the diff.
+  # public mirror, so a message is as public as the diff. Both are REFUSALS,
+  # never rewrites: there is no safe edit of a message that would have
+  # published either, so the operation stops and says why.
   #
-  #   * No AI attribution. A "Co-Authored-By:" or "Generated with" line, or a
-  #     trailer whose value names a model or an AI tool, is STRIPPED from
-  #     generated text. (The server REFUSES such text when a caller supplies
-  #     it: Ai::DevMerge::CommitMessagePolicy.)
+  #   * No AI attribution: a "Co-Authored-By:" or "Generated with" line, or a
+  #     trailer whose value names a model or an AI tool. The server refuses
+  #     the same in caller text (Ai::DevMerge::CommitMessagePolicy); this
+  #     side also covers text the job takes from the submodule's own commit.
   #   * No private extension name. The names arrive in the job payload,
   #     derived on the server from extensions/private/* by the same rule the
-  #     core-purity gate uses. A generated message that names one is refused,
-  #     never rewritten: there is no safe paraphrase of a name that must not
-  #     appear.
+  #     core-purity gate uses.
   module CommitMessageHygiene
     ATTRIBUTION_LINE = /^\s*(co-authored-by\s*:|generated\s+(with|by)\b)/i
     TRAILER = /^\s*[A-Za-z][A-Za-z0-9-]*\s*:\s*(?<value>.+)$/
@@ -26,22 +26,21 @@ module Devops
     # "chore(<scope>): bump extension pointer to <short> (<summary>)", the
     # shape the parent repository's pointer bumps already use. `summary` is
     # the caller's (already vetted by the server) or the submodule commit's
-    # subject; attribution is stripped from it, and an empty summary drops the
-    # parenthetical.
+    # subject. It is checked as its own line as well as inside the message,
+    # so an attribution trailer cannot hide inside the parenthetical.
     def pointer_bump_message(scope:, short_sha:, summary:, forbidden_names:)
-      cleaned = strip_attribution(summary.to_s.lines.first.to_s).strip
-      message = "chore(#{scope}): bump extension pointer to #{short_sha}"
-      message += " (#{cleaned})" unless cleaned.empty?
-      message = strip_attribution(message).strip
+      summary = summary.to_s.strip
+      raise Refused, "the summary for the generated message is more than one line" if summary.include?("\n")
 
-      raise Refused, "the generated message names a private extension" if names_private?(message, forbidden_names)
-      raise Refused, "the generated message is empty" if message.empty?
+      message = "chore(#{scope}): bump extension pointer to #{short_sha}"
+      message += " (#{summary})" unless summary.empty?
+
+      if attribution_line?(summary) || message.lines.any? { |line| attribution_line?(line) }
+        raise Refused, "the generated message would carry an AI attribution line"
+      end
+      raise Refused, "the generated message would name a private extension" if names_private?(message, forbidden_names)
 
       message
-    end
-
-    def strip_attribution(text)
-      text.to_s.lines.reject { |line| attribution_line?(line) }.join
     end
 
     def attribution_line?(line)

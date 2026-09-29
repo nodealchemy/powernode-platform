@@ -53,6 +53,10 @@ module Ai
       # or ".lock".
       REF = %r{\A(?!.*\.\.)(?!.*//)(?!.*@\{)(?!.*\.lock\z)[A-Za-z0-9][A-Za-z0-9._/-]*(?<![/.])\z}
       RELEASE_BRANCH = %r{\Arelease/[A-Za-z0-9][A-Za-z0-9._-]*\z}
+      # Every target a merge may land on. The worker re-checks the SAME literal
+      # (Devops::IncrementMergeService::TARGET_BRANCH) before any git runs;
+      # dev_merge_tool_spec pins the two equal.
+      TARGET_BRANCH = %r{\A(?:develop|master|release/[A-Za-z0-9][A-Za-z0-9._-]*)\z}
       SUBMODULE_PATH = %r{\A(?!.*(?:\A|/)\.{1,2}(?:/|\z))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\z}
       SUMMARY_MAX = 200
 
@@ -86,15 +90,19 @@ module Ai
         {
           ACTION => {
             description: "Land a reviewed dev-loop increment on develop, release/* or master. PARKS under " \
-                         "dev.merge and does nothing until approved: develop needs an approved request, and " \
-                         "release/* and master need a person to approve in their own session (the merge then " \
-                         "runs as that person). On approval the worker checks that source_ref still resolves to " \
+                         "dev.merge and does nothing until approved by a person in their own session: develop " \
+                         "requires a human session by default, and an account can relax develop ONLY with a " \
+                         "dev.merge intervention policy row whose conditions are " \
+                         "{requires_human_session: false}; release/* and master always require one, and the merge " \
+                         "then runs as the person who approved it. On approval the worker checks that source_ref still resolves to " \
                          "expected_source_sha and refuses if it moved. It fast-forwards target_branch only and " \
-                         "never forces, so a non-fast-forward is refused. It pushes to the repository and to every " \
+                         "never forces: each remote's head is re-read immediately before its push, and a remote " \
+                         "that moved to a non-ancestor is refused. It pushes to the repository and to every " \
                          "mirror configured on it, and reports each remote; a push that reached only some remotes " \
                          "is recorded as failed. With pointer_bump it also moves ONE gitlink (submodule_path) in " \
                          "parent_repository to the merged SHA, commits with a generated message, and pushes that " \
-                         "the same way. The caller runs the verification gate and attests to it in gate_attestation.",
+                         "the same way. A message that would carry AI attribution or name a private extension is " \
+                         "refused, never rewritten. The caller runs the verification gate and attests to it in gate_attestation.",
             parameters: {
               repository: { type: "string", required: true,
                             description: "Devops git repository id or full_name (owner/name) in this account" },
@@ -192,7 +200,7 @@ module Ai
       end
 
       def allowed_target?(target)
-        target == "develop" || self.class.protected_target?(target)
+        target.match?(TARGET_BRANCH)
       end
 
       def build_pointer_bump(raw)

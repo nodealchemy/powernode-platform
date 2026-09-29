@@ -37,6 +37,26 @@ RSpec.describe Ai::Tools::DevMergeTool do
     Ai::DeferredOperation.find(parked[:data][:deferred_operation_id])
   end
 
+  describe "the advertised contract" do
+    let(:description) { described_class.action_definitions["dev_merge_increment"][:description] }
+
+    it "says develop needs a person's session by default, how an account relaxes it, and that release/master always do" do
+      expect(description).to include("develop requires a human session by default")
+      expect(description).to include("{requires_human_session: false}")
+      expect(description).to include("release/* and master always require one")
+    end
+  end
+
+  # The worker re-checks the allowlist before any git runs, with the SAME
+  # literal. A drift between the two would let one side accept a target the
+  # other was written to refuse.
+  it "uses the same target-branch literal as the worker" do
+    worker_source = Rails.root.join("..", "worker", "app", "services", "devops", "increment_merge_service.rb").read
+    literal = worker_source[/TARGET_BRANCH = %r\{(.+)\}$/, 1]
+
+    expect(literal).to eq(described_class::TARGET_BRANCH.source)
+  end
+
   describe "parking" do
     it "parks a develop merge for approval and enqueues nothing" do
       parked = merge
@@ -86,7 +106,9 @@ RSpec.describe Ai::Tools::DevMergeTool do
     end
 
     it("a short SHA") { expect_refused(merge(expected_source_sha: "abc123"), /40-character/) }
-    it("a target outside develop/master/release") { expect_refused(merge(target_branch: "feature/x"), /target_branch/) }
+    %w[feature/x main release release/..x release/-x].each do |target|
+      it("the target #{target.inspect}") { expect_refused(merge(target_branch: target), /target_branch/) }
+    end
     it("a ref that reads as an option") { expect_refused(merge(source_ref: "--upload-pack=x"), /source_ref/) }
     it("an attestation that is not an object") { expect_refused(merge(gate_attestation: "trust me"), /gate_attestation/) }
 
@@ -213,12 +235,15 @@ RSpec.describe Ai::Tools::DevMergeTool do
       expect(WorkerJobService).to have_received(:enqueue_job).once
     end
 
-    it "cannot lift it for master: the call's own flag wins" do
-      parked = merge(target_branch: "master")
+    %w[master release/0.3.0].each do |target|
+      it "cannot lift it for #{target}: the call's own flag wins" do
+        parked = merge(target_branch: target)
 
-      expect(parked[:data]).to include(requires_human_session: true)
-      expect(approve(parked, as: other, origin: Ai::Tools::CallOrigin::MCP_OAUTH)).to be(false)
-      expect(WorkerJobService).not_to have_received(:enqueue_job)
+        expect(parked[:data]).to include(requires_human_session: true)
+        expect(Ai::ApprovalRequest.find(parked[:data][:approval_request_id]).requires_human_session?).to be(true)
+        expect(approve(parked, as: other, origin: Ai::Tools::CallOrigin::MCP_OAUTH)).to be(false)
+        expect(WorkerJobService).not_to have_received(:enqueue_job)
+      end
     end
   end
 
