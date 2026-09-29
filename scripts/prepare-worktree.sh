@@ -293,6 +293,13 @@ while [ "$wt_cand" -le "$WT_REDIS_MAX_LANE" ]; do
   esac
   wt_cand=$((wt_cand + 1))
 done
+# scripts/wt.sh allocates the lane from its flock-protected ledger (which also knows lanes this scan
+# cannot see) and hands it down here; a forced lane replaces the scan's choice.
+if [ -n "${WT_FORCE_LANE:-}" ]; then
+  case "$WT_FORCE_LANE" in *[!0-9]*) die "WT_FORCE_LANE must be a lane number, got: $WT_FORCE_LANE" ;; esac
+  [ "$WT_FORCE_LANE" -ge 1 ] && [ "$WT_FORCE_LANE" -le "$WT_REDIS_MAX_LANE" ] || die "WT_FORCE_LANE must be 1-$WT_REDIS_MAX_LANE, got: $WT_FORCE_LANE"
+  WT_LANE="$WT_FORCE_LANE"
+fi
 
 if [ -e "$ENV_TEST_LOCAL" ]; then
   skip "server/.env.test.local (already present)"
