@@ -123,6 +123,12 @@ RSpec.describe "MCP action declaration completeness" do
   #   system_cordon_instance        IMP-0467eee9fc57  system.instance_cordon
   #   system_uncordon_instance      IMP-0467eee9fc57  system.instance_cordon
   #   system_gitops_register_repository SWEEP-2026-09-03 system.gitops_register_repository
+  #   system_inspect_node           IMP-52762a704a3d  system.task.probe.node_inspect
+  #                                 (the read-only node inspection verb; the SAME
+  #                                 category the REST task-creation gate reads,
+  #                                 auto_approve by default so it runs inline;
+  #                                 mutating because it inserts a Task, which
+  #                                 keeps it off a read-only agent's allowlist)
   #   system_replace_instance       IMP-4e49eb79c5e0  system.instance_replace
   #   system_reap_instance          IMP-4e49eb79c5e0  system.instance_reap
   #   system_set_default_disk_image_publication
@@ -187,6 +193,7 @@ RSpec.describe "MCP action declaration completeness" do
     system_gitops_apply_proposal
     system_cordon_instance
     system_uncordon_instance
+    system_inspect_node
     system_gitops_register_repository
     set_delegation_policy
     system_set_default_disk_image_publication
