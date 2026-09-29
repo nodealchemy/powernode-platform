@@ -2,13 +2,6 @@
 
 require 'rails_helper'
 
-# Fix constant resolution: Api::V1::Internal::DataManagement module (from the namespaced
-# controllers directory) shadows the top-level DataManagement module. Define the expected
-# constant so the controller can resolve DataManagement::ExportRequest correctly.
-unless defined?(Api::V1::Internal::DataManagement::ExportRequest)
-  Api::V1::Internal::DataManagement::ExportRequest = ::DataManagement::ExportRequest
-end
-
 RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }

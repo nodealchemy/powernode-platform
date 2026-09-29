@@ -2,13 +2,6 @@
 
 require 'rails_helper'
 
-# Fix constant resolution: Api::V1::Internal::DataManagement module (from the namespaced
-# controllers directory) shadows the top-level DataManagement module. Define the expected
-# constants so the controller can resolve DataManagement::* correctly within its namespace.
-unless defined?(Api::V1::Internal::DataManagement::DeletionRequest)
-  Api::V1::Internal::DataManagement::DeletionRequest = ::DataManagement::DeletionRequest
-end
-
 RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
