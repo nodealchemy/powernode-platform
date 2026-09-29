@@ -966,7 +966,9 @@ module Compliance
         case result
         when :removed
           log_info 'Removed a data export archive from the worker host'
-        when :failed, :outside_export_dir
+        when :missing
+          nil
+        else
           log_warn "A data export archive was left on the worker host (#{result})"
         end
       end

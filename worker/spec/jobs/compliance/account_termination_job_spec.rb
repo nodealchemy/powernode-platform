@@ -690,17 +690,20 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
       # Compliance::DataExportJob and the server deletes only its own
       # filesystem, so the worker removes what the server reports it deleted.
       context 'when the server reports the archive paths of the export rows it deleted' do
-        let(:archive_path) { File.join(Compliance::DataExportJob.export_dir, "export_#{SecureRandom.hex(4)}.json") }
+        # A private, owner-only directory standing in for the worker's export
+        # directory, so the trust check on it holds and no shared tmp is used.
+        let(:export_root) { Dir.mktmpdir('powernode-exports').tap { |d| File.chmod(0o700, d) } }
+        let(:archive_path) { File.join(export_root, "export_#{SecureRandom.hex(4)}.json") }
 
         before do
-          FileUtils.mkdir_p(Compliance::DataExportJob.export_dir)
+          allow(Compliance::DataExportJob).to receive(:export_dir).and_return(export_root)
           File.write(archive_path, '{}')
           allow(api_client).to receive(:delete)
             .with("/api/v1/internal/accounts/#{account_id}/data_export_requests", anything)
             .and_return('success' => true, 'data' => { 'count' => 1, 'deferred' => 0, 'file_paths' => [ archive_path ] })
         end
 
-        after { FileUtils.rm_f(archive_path) }
+        after { FileUtils.rm_rf(export_root) }
 
         it 'removes the archive from the worker host' do
           job.execute
@@ -709,8 +712,7 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
         end
 
         it 'does not fail the termination when the archive cannot be removed' do
-          allow(File).to receive(:delete).and_call_original
-          allow(File).to receive(:delete).with(File.expand_path(archive_path)).and_raise(Errno::EACCES)
+          allow(File).to receive(:delete).and_raise(Errno::EACCES)
           expect(job).to receive(:log_warn).with(/left on the worker host \(failed\)/)
           expect(api_client).to receive(:patch)
             .with("/api/v1/internal/account_terminations/#{termination_id}", hash_including(status: 'completed'))

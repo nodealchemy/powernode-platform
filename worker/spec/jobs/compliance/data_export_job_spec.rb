@@ -337,10 +337,11 @@ RSpec.describe Compliance::DataExportJob, type: :job do
     # host's tmp directory. A run that fails after writing it leaves it on no
     # row, so nothing but the job itself will ever remove it.
     context 'when the run fails after the archive was written' do
-      let(:archive_path) { File.join(described_class.export_dir, "export_#{SecureRandom.hex(4)}.json") }
+      let(:export_root) { Dir.mktmpdir('powernode-exports').tap { |d| File.chmod(0o700, d) } }
+      let(:archive_path) { File.join(export_root, "export_#{SecureRandom.hex(4)}.json") }
 
       before do
-        FileUtils.mkdir_p(described_class.export_dir)
+        allow(described_class).to receive(:export_dir).and_return(export_root)
         File.write(archive_path, '{}')
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_export_requests/#{export_request_id}")
@@ -353,7 +354,7 @@ RSpec.describe Compliance::DataExportJob, type: :job do
           .and_return('success' => false, 'error' => 'refused')
       end
 
-      after { FileUtils.rm_f(archive_path) }
+      after { FileUtils.rm_rf(export_root) }
 
       it 'removes the orphaned archive and still marks the request failed' do
         expect(api_client).to receive(:patch)
@@ -366,12 +367,16 @@ RSpec.describe Compliance::DataExportJob, type: :job do
     end
 
     describe '.discard_archive' do
-      let(:dir) { described_class.export_dir }
+      let(:dir) { Dir.mktmpdir('powernode-exports').tap { |d| File.chmod(0o700, d) } }
       let(:path) { File.join(dir, "export_#{SecureRandom.hex(4)}.json") }
+      let(:elsewhere) { Dir.mktmpdir('not-the-exports') }
 
-      before { FileUtils.mkdir_p(dir) }
+      before { allow(described_class).to receive(:export_dir).and_return(dir) }
 
-      after { FileUtils.rm_f(path) }
+      after do
+        FileUtils.rm_rf(dir)
+        FileUtils.rm_rf(elsewhere)
+      end
 
       it 'removes an archive inside the export directory' do
         File.write(path, '{}')
@@ -380,21 +385,29 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         expect(File.exist?(path)).to be false
       end
 
-      it 'answers :missing for a blank path or an archive that is already gone' do
+      it 'removes an archive in a real subdirectory of the export directory' do
+        FileUtils.mkdir_p(File.join(dir, 'sub'))
+        nested = File.join(dir, 'sub', 'a.json')
+        File.write(nested, '{}')
+
+        expect(described_class.discard_archive(nested)).to eq(:removed)
+      end
+
+      it 'answers :missing for a blank path, an archive that is already gone, or an export directory that does not exist' do
         expect(described_class.discard_archive(nil)).to eq(:missing)
         expect(described_class.discard_archive('')).to eq(:missing)
+        expect(described_class.discard_archive(path)).to eq(:missing)
+        allow(described_class).to receive(:export_dir).and_return(File.join(dir, 'absent'))
         expect(described_class.discard_archive(path)).to eq(:missing)
       end
 
       it 'never touches a path outside the export directory, including a traversal out of it' do
-        outside = Tempfile.new('not-an-export')
-        outside.close
+        outside = File.join(elsewhere, 'victim.json')
+        File.write(outside, '{}')
 
-        expect(described_class.discard_archive(outside.path)).to eq(:outside_export_dir)
-        expect(described_class.discard_archive(File.join(dir, '..', File.basename(outside.path)))).to eq(:outside_export_dir)
-        expect(File.exist?(outside.path)).to be true
-      ensure
-        outside&.unlink
+        expect(described_class.discard_archive(outside)).to eq(:outside_export_dir)
+        expect(described_class.discard_archive(File.join(dir, '..', File.basename(elsewhere), 'victim.json'))).to eq(:outside_export_dir)
+        expect(File.exist?(outside)).to be true
       end
 
       it 'does not treat a sibling directory sharing the prefix as inside' do
@@ -409,12 +422,88 @@ RSpec.describe Compliance::DataExportJob, type: :job do
         FileUtils.rm_rf(sibling)
       end
 
+      # expand_path does not resolve a symlink: a linked subdirectory inside the
+      # export directory would otherwise carry the delete anywhere on the host.
+      it 'refuses a path that goes through a symlinked subdirectory pointing outside' do
+        victim = File.join(elsewhere, 'victim.json')
+        File.write(victim, '{}')
+        File.symlink(elsewhere, File.join(dir, 'sub'))
+
+        expect(described_class.discard_archive(File.join(dir, 'sub', 'victim.json'))).to eq(:outside_export_dir)
+        expect(File.exist?(victim)).to be true
+      end
+
+      it 'refuses an archive that is itself a symlink, and leaves both the link and its target' do
+        victim = File.join(elsewhere, 'victim.json')
+        File.write(victim, '{}')
+        File.symlink(victim, path)
+
+        expect(described_class.discard_archive(path)).to eq(:symlink)
+        expect(File.exist?(victim)).to be true
+        expect(File.symlink?(path)).to be true
+      end
+
+      it 'deletes nothing when the export directory is itself a symlink' do
+        real = Dir.mktmpdir('real-exports').tap { |d| File.chmod(0o700, d) }
+        link = File.join(elsewhere, 'exports-link')
+        File.symlink(real, link)
+        file = File.join(real, 'a.json')
+        File.write(file, '{}')
+        allow(described_class).to receive(:export_dir).and_return(link)
+
+        expect(described_class.discard_archive(File.join(link, 'a.json'))).to eq(:unsafe_export_dir)
+        expect(File.exist?(file)).to be true
+      ensure
+        FileUtils.rm_rf(real)
+      end
+
+      # A shared tmp lets another local user pre-create the directory, or leave
+      # it writable, and the worker may be root.
+      it 'deletes nothing when the export directory is owned by another uid' do
+        File.write(path, '{}')
+        allow(Process).to receive(:euid).and_return(File.stat(dir).uid + 1)
+
+        expect(described_class.discard_archive(path)).to eq(:unsafe_export_dir)
+        expect(File.exist?(path)).to be true
+      end
+
+      [ 0o770, 0o707, 0o777, 0o720 ].each do |mode|
+        it "deletes nothing when the export directory mode is #{format('%04o', mode)} (group or other writable)" do
+          File.write(path, '{}')
+          File.chmod(mode, dir)
+
+          expect(described_class.discard_archive(path)).to eq(:unsafe_export_dir)
+          expect(File.exist?(path)).to be true
+        end
+      end
+
+      it 'accepts an owner-only directory with a group/other read bit' do
+        File.write(path, '{}')
+        File.chmod(0o750, dir)
+
+        expect(described_class.discard_archive(path)).to eq(:removed)
+      end
+
       it 'answers :failed rather than raising when the file cannot be removed' do
         File.write(path, '{}')
-        allow(File).to receive(:delete).and_call_original
-        allow(File).to receive(:delete).with(File.expand_path(path)).and_raise(Errno::EACCES)
+        allow(File).to receive(:delete).and_raise(Errno::EACCES)
 
         expect(described_class.discard_archive(path)).to eq(:failed)
+      end
+    end
+
+    describe '.export_dir creation' do
+      it 'writes archives into a directory created owner-only' do
+        root = File.join(Dir.mktmpdir('exports-parent'), 'powernode_exports')
+        allow(described_class).to receive(:export_dir).and_return(root)
+        job = described_class.new
+
+        job.send(:write_export_file, { 'user_id' => 'u1', 'format' => 'json' }, { a: 1 })
+
+        expect(File.stat(root).mode & 0o077).to eq(0)
+        expect(described_class.trusted_export_dir?(root)).to be true
+      ensure
+        FileUtils.rm_rf(File.dirname(root))
       end
     end
 

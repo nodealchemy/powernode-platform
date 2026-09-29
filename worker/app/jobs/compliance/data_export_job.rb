@@ -15,21 +15,53 @@ module Compliance
       File.join(Dir.tmpdir, EXPORT_DIR_NAME)
     end
 
-    # Removes an archive this job wrote. Only a path inside .export_dir is ever
-    # touched (the path arrives from the server's row, so it is not trusted to
-    # name a file this job owns). Returns :removed, :missing, :outside_export_dir
-    # or :failed; never raises, so a cleanup problem cannot fail the caller.
+    # Removes an archive this job wrote. The path arrives from the server's
+    # row, so it is not trusted to name a file this job owns, and the worker may
+    # run as root, so containment is decided on REAL paths: expand_path does not
+    # resolve a symlink, and a linked subdirectory (or a squatted export
+    # directory in the shared tmp) would otherwise point the delete anywhere.
+    #
+    #   - the export directory must be a real directory owned by this process's
+    #     uid with no group/other write bit, else nothing is deleted;
+    #   - the archive's parent, resolved, must be the export directory or inside
+    #     it (compared with a trailing separator, so a sibling sharing the
+    #     prefix is outside);
+    #   - the archive itself must be a regular file, never a symlink.
+    #
+    # Returns :removed, :missing, :outside_export_dir, :symlink,
+    # :unsafe_export_dir or :failed; never raises, so a cleanup problem cannot
+    # fail the caller.
     def self.discard_archive(path)
       return :missing if path.blank?
 
-      expanded = File.expand_path(path.to_s)
-      return :outside_export_dir unless expanded.start_with?("#{File.expand_path(export_dir)}#{File::SEPARATOR}")
-      return :missing unless File.exist?(expanded)
+      root = export_dir
+      return :missing unless File.exist?(root)
+      return :unsafe_export_dir unless trusted_export_dir?(root)
 
-      File.delete(expanded)
+      expanded = File.expand_path(path.to_s)
+      real_parent = File.realpath(File.dirname(expanded))
+      real_root = File.realpath(root)
+      return :outside_export_dir unless "#{real_parent}#{File::SEPARATOR}".start_with?("#{real_root}#{File::SEPARATOR}")
+
+      target = File.join(real_parent, File.basename(expanded))
+      stat = File.lstat(target)
+      return :symlink if stat.symlink?
+      return :outside_export_dir unless stat.file?
+
+      File.delete(target)
       :removed
+    rescue Errno::ENOENT
+      :missing
     rescue SystemCallError
       :failed
+    end
+
+    # A real (not linked) directory this process owns that nobody else can
+    # write into: the only kind of directory a delete driven by a path from
+    # elsewhere is safe inside, and one nobody else can have planted links in.
+    def self.trusted_export_dir?(dir)
+      stat = File.lstat(dir)
+      stat.directory? && stat.uid == Process.euid && (stat.mode & 0o022).zero?
     end
 
     # IMP-0310a1351dab BLOCKER: this job could never finish before this fix.
@@ -217,7 +249,10 @@ module Compliance
 
     def write_export_file(export_request, data)
       export_dir = self.class.export_dir
-      FileUtils.mkdir_p(export_dir)
+      # 0700: the archive is the subject's full personal-data export, and
+      # .discard_archive only ever deletes inside a directory nobody else
+      # can write into.
+      FileUtils.mkdir_p(export_dir, mode: 0o700)
 
       timestamp = Time.current.strftime('%Y%m%d_%H%M%S')
       user_id = export_request['user_id']
