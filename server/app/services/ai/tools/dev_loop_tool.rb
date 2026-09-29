@@ -78,7 +78,8 @@ module Ai
                                            "none, credits nothing: that is the intended negative signal, not an " \
                                            "error." },
             git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
-            commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
+            commit_sha: { type: "string", required: false,
+                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose sha did not land is recorded landed:false, downgraded to attested and warned about (never refused)" },
             files_changed: { type: "array", required: false, description: "Paths touched by this task" },
             agent_id: { type: "string", required: false, description: "Platform agent to delegate a task to" },
             await: { type: "boolean", required: false, description: "Block until the delegated agent finishes" },
@@ -168,7 +169,8 @@ module Ai
                                              "signal for a learning nobody ever finds worth citing. Only " \
                                              "meaningful on a passed + verified outcome; ignored otherwise." },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
-              commit_sha: { type: "string", required: false, description: "Commit SHA for the passed task" },
+              commit_sha: { type: "string", required: false,
+                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose sha did not land is recorded landed:false, downgraded to attested and warned about (never refused)" },
               files_changed: { type: "array", required: false, description: "Paths touched by this task" },
               agent_execution_id: { type: "string", required: false,
                                     description: "The Ai::AgentExecution that did this work (a Claude Code " \
@@ -835,6 +837,7 @@ module Ai
         # response's `verification` field says which happened.
         verification = nil
         evidence_source = nil
+        landing = nil
         if outcome == "passed"
           # IMP-b103e873ee6d: a PRESENT evidence block that can't be used as
           # declared (unrecognized framework, or a stray-closing-tag-truncated
@@ -871,6 +874,12 @@ module Ai
               "the final green runs, or report outcome=failed/blocked instead."
             )
           end
+
+          # IMP-6d060f65ccae — did the reported commit LAND? Recorded, never
+          # refused: an unlanded pass is downgraded to attested (so it neither
+          # counts as checks_passed nor auto-applies its offer) and warned about.
+          landing = landing_verdict(loop_record, params[:commit_sha])
+          verification = :attested if landing.landed == false && verification == :verified
         end
 
         iteration = nil
@@ -927,7 +936,7 @@ module Ai
             next
           end
 
-          iteration = prepare_iteration(loop_record, task, params)
+          iteration = prepare_iteration(loop_record, task, params, landing: landing)
           record_outcome(loop_record, task, iteration, outcome, summary, params,
                          verification: verification, evidence_source: evidence_source)
         end
@@ -991,6 +1000,9 @@ module Ai
         # caller (an unverified pass silently skipping auto-apply otherwise
         # looks identical to a verified one).
         response[:verification] = verification.to_s if verification
+        # IMP-6d060f65ccae: whether the reported commit landed, and why not.
+        response[:landed] = landing.landed unless landing.nil? || landing.landed.nil?
+        response[:warning] = landing.warning if landing&.warning
         # WHICH path decided, and whether the offer actually closed. Without
         # these, a :verified pass from INFERRED evidence is byte-identical to a
         # declared one — the executor sees "verified", the offer silently stays
@@ -1033,16 +1045,35 @@ module Ai
       # (no worker git diff needed). Returns the violation result hash, or nil when
       # clean. Delegates to the shared ScopeGuardrail.violation_for seam — the same
       # entry point the platform executor and land paths use.
+      # IMP-6d060f65ccae. LandingCheck never raises, but this call sits on the
+      # completion path, so a bug in it is contained here too: an unverifiable
+      # landing records as not landed rather than failing a completion.
+      def landing_verdict(loop_record, commit_sha)
+        ::Ai::DevLoop::LandingCheck.call(account: account, loop_record: loop_record, commit_sha: commit_sha)
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] landing check failed for loop #{loop_record.id}: #{e.class}: #{e.message}")
+        ::Ai::DevLoop::LandingCheck::Result.new(
+          landed: false, via: "unverified",
+          warning: "the landing of #{commit_sha.to_s[0, 40]} could not be verified — recorded as not landed"
+        )
+      end
+
       def scope_guardrail_violation(loop_record, files_changed)
         ::Ai::CodeFactory::ScopeGuardrail.violation_for(files_changed, loop_record: loop_record)
       end
 
-      def prepare_iteration(loop_record, task, params)
+      def prepare_iteration(loop_record, task, params, landing: nil)
         iteration = loop_record.create_iteration(task: task)
         iteration.update!(ralph_task: task) if iteration.ralph_task_id != task.id
 
         check_results = params[:check_results].is_a?(Hash) ? params[:check_results] : {}
         check_results = check_results.merge("files_changed" => params[:files_changed]) if params[:files_changed].present?
+        # Queryable landing record (IMP-6d060f65ccae). `landed` is present only
+        # when there was something to check; `landing` always says how it was decided.
+        if landing
+          check_results = check_results.merge("landing" => { "via" => landing.via, "warning" => landing.warning }.compact)
+          check_results = check_results.merge("landed" => landing.landed) unless landing.landed.nil?
+        end
 
         iteration.start!
         iteration.update!(check_results: check_results, git_branch: params[:git_branch])

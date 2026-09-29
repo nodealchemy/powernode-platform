@@ -160,6 +160,12 @@ RSpec.describe Ai::Tools::DevLoopTool do
   end
 
   describe "dev_complete_task with claim_if_pending (atomic claim-and-close)" do
+    # The sha is made up; whether it LANDED is dev_loop_tool_landing_spec's subject.
+    before do
+      allow(Ai::DevLoop::LandingCheck).to receive(:call)
+        .and_return(Ai::DevLoop::LandingCheck::Result.new(landed: true, via: "dev_merge_audit"))
+    end
+
     def complete(extra = {})
       tool.execute(params: {
         action: "dev_complete_task", loop_id: ralph_loop.name, task_key: "IMP-target",

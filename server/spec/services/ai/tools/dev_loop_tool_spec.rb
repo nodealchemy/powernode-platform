@@ -668,6 +668,9 @@ RSpec.describe Ai::Tools::DevLoopTool do
     end
 
     it "records a passed outcome with iteration evidence and learning" do
+      # The sha is made up; whether it LANDED is dev_loop_tool_landing_spec's subject.
+      allow(Ai::DevLoop::LandingCheck).to receive(:call)
+        .and_return(Ai::DevLoop::LandingCheck::Result.new(landed: true, via: "dev_merge_audit"))
       result = tool.execute(params: {
         action: "dev_complete_task",
         loop_id: ralph_loop.id,
