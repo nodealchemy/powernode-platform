@@ -34,6 +34,10 @@ module Ai
   class SensitiveParams
     MASK = "[FILTERED]"
 
+    # Longest free text `filter_text` returns. An exception message is the
+    # caller's to bound: a driver error can quote a whole failing row.
+    TEXT_LIMIT = 500
+
     # Names for secret material, not for anything merely private. Matched as
     # substrings, so "token" covers acceptance_token and
     # acceptance_token_plaintext alike.
@@ -97,6 +101,29 @@ module Ai
         return value unless value.is_a?(Hash)
 
         parameter_filter.filter(value)
+      end
+
+      # The free-text counterpart of `filter`, for a column that holds raw
+      # exception text ("Class: message") rather than a hash: an executor's
+      # error can quote the very params `filter` exists to mask, as
+      # `{"acceptance_token"=>"..."}`, `password=...` or a Bearer header. Masks
+      # the value that follows any secret-named key, in the `key=value`,
+      # `key: value`, `"key"=>"value"` and `"key":"value"` spellings, plus a
+      # Bearer credential, then truncates to TEXT_LIMIT.
+      #
+      # Best-effort by construction: prose cannot be judged by a key, so a
+      # secret quoted with no key beside it survives. The allowlist is
+      # deliberately NOT consulted (a key it vouches for masks here), and
+      # truncation is the bound on what an unkeyed quote can carry. nil
+      # passes through.
+      def filter_text(text)
+        return text if text.nil?
+
+        keys = key_patterns.map { |pattern| ::Regexp.escape(pattern) }.join("|")
+        keyed = /([\w.-]*(?:#{keys})[\w.-]*["']?\s*(?:=>|[:=])\s*)("[^"]*"|'[^']*'|[^\s,;)}\]]+)/i
+        text.to_s.gsub(keyed) { "#{::Regexp.last_match(1)}#{MASK}" }
+            .gsub(/\b(Bearer\s+)\S+/i) { "#{::Regexp.last_match(1)}#{MASK}" }
+            .truncate(TEXT_LIMIT)
       end
 
       # Resolve the pattern set and compile the matcher ONCE for the duration of

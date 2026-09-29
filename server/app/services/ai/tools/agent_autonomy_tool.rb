@@ -95,7 +95,10 @@ module Ai
 
         # list_deferred_operations stays at the floor on purpose: its twin is
         # GET /api/v1/ai/autonomy/approvals, which validate_permissions gates on
-        # ai.agents.read. agent_introspect likewise.
+        # ai.agents.read. agent_introspect likewise, and so does
+        # get_approval_request (twin: GET /api/v1/ai/autonomy/approvals/:id, the
+        # same validate_permissions) — a caller who can read the queue can read
+        # one row of it, so the lookup discloses to no wider an audience.
       }.freeze
 
       # Advertisement is deliberately NOT narrowed by the floor. BaseTool's
@@ -131,6 +134,7 @@ module Ai
       declare_action "escalate", mutating: true, returns: "the escalation's id, title, severity and who it went to", see_also: { "report_issue" => "a platform problem that does not block your task" }
       declare_action "list_agent_goals", mutating: false, limit: 10, returns: "id, title, type, priority, status and progress per goal"
       declare_action "list_deferred_operations", mutating: false, limit: 100, returns: "count and operations, newest first; 25 unless limit is set"
+      declare_action "get_approval_request", mutating: false, returns: "status, decision, decided_by, decided_at, expires_at, expired, requires_human_session, call_origin, action_category, description, the redacted request_data, and the linked deferred operation's status, error_message and redacted params", refuses: "neither or both ids are given, or no request of yours has that id", see_also: { "list_deferred_operations" => "finding a request by status or agent" }
       declare_action "list_intervention_policies", mutating: false, limit: 100, returns: "count and policies, highest priority first"
       declare_action "propose_feature", mutating: true, returns: "id, title and status of the proposal", see_also: { "create_proposal" => "a proposal of another type" }
       declare_action "reject_deferred_operation", mutating: true, destructive: true
@@ -349,6 +353,13 @@ module Ai
               limit: { type: "integer", required: false, description: "Max results (default 25, max 100)" }
             }
           },
+          "get_approval_request" => {
+            description: "Look up one approval request by its own id or by its deferred operation's id: its status, the decision and who made it, when it expires and whether it already has, whether only a person may decide it, the door it came through, and the linked operation's status and error. The follow-up to a pending envelope. Params and errors are redacted. Pass exactly one id.",
+            parameters: {
+              approval_request_id: { type: "string", required: false, description: "ApprovalRequest UUID (give this or deferred_operation_id, not both)" },
+              deferred_operation_id: { type: "string", required: false, description: "DeferredOperation UUID (give this or approval_request_id, not both)" }
+            }
+          },
           "approve_deferred_operation" => {
             description: "Approve a pending deferred operation via the approval workflow. Triggers the underlying ApprovalRequest's approve path which will execute the action when the final step approves.",
             parameters: {
@@ -424,6 +435,7 @@ module Ai
         when "update_intervention_policy" then update_intervention_policy(params)
         when "delete_intervention_policy" then delete_intervention_policy(params)
         when "list_deferred_operations" then list_deferred_operations(params)
+        when "get_approval_request" then get_approval_request(params)
         when "approve_deferred_operation" then approve_deferred_operation(params)
         when "reject_deferred_operation" then reject_deferred_operation(params)
         when "describe_delegation" then describe_delegation(params)
@@ -1038,6 +1050,104 @@ module Ai
               executor_class: o.executor_class, description: o.description,
               approval_request_id: o.approval_request_id, source_type: o.source_type,
               created_at: o.created_at.iso8601, executed_at: o.executed_at&.iso8601 }
+          }
+        }
+      end
+
+      # The one literal every miss answers with: an unknown id, another
+      # account's, and (for an instance principal) another principal's request
+      # are the same reply, so the verb is no existence oracle. Rails'
+      # RecordNotFound text is never used: it echoes the model and the id.
+      APPROVAL_REQUEST_NOT_FOUND = "Approval request not found"
+
+      # GET /api/v1/ai/autonomy/approvals/:id, for a tool caller. A pure read:
+      # an expired-but-pending row is REPORTED as expired, never expired here
+      # (Ai::ApprovalRequest#check_expiration! is the writer and runs elsewhere).
+      def get_approval_request(params)
+        ids = [ params[:approval_request_id], params[:deferred_operation_id] ].select(&:present?)
+        return error_result("Give exactly one of approval_request_id or deferred_operation_id") unless ids.size == 1
+
+        request, operation = find_approval_request_and_operation(params)
+        return error_result(APPROVAL_REQUEST_NOT_FOUND) unless request || operation
+        return error_result(APPROVAL_REQUEST_NOT_FOUND) unless originated_by_caller?(operation)
+
+        ::Ai::SensitiveParams.batch { approval_request_lookup_payload(request, operation) }
+      end
+
+      # [request, operation], account-scoped at every hop. A malformed id is a
+      # miss rather than a driver error, so it answers like any other miss.
+      def find_approval_request_and_operation(params)
+        if params[:deferred_operation_id].present?
+          operation = account.ai_deferred_operations.find_by(id: params[:deferred_operation_id])
+          request = operation&.approval_request_id && approval_request_in_account(operation.approval_request_id)
+        else
+          request = approval_request_in_account(params[:approval_request_id])
+          operation = request && deferred_operation_of(request)
+        end
+        [ request, operation ]
+      rescue ActiveRecord::StatementInvalid, ActiveModel::RangeError
+        [ nil, nil ]
+      end
+
+      def approval_request_in_account(id)
+        ::Ai::ApprovalRequest.where(account_id: account.id).find_by(id: id)
+      end
+
+      # The operation a request was parked for: its source pointer first (what
+      # the REST detail follows), else the operation that names it.
+      def deferred_operation_of(request)
+        operation = request.source_type == "Ai::DeferredOperation" &&
+                    account.ai_deferred_operations.find_by(id: request.source_id)
+        operation || account.ai_deferred_operations.find_by(approval_request_id: request.id)
+      end
+
+      # An instance principal reads only what it parked itself. The originator
+      # is the principal block BaseTool#deferred_tool_call_context minted from
+      # the parking tool's OWN state and packed into the operation's params
+      # (Ai::Executors::DeferredToolCall.pack) — never from caller input. A
+      # request with no such record (a person's, an agent's, or one parked by a
+      # path that packs no principal), and a restricted principal that carries
+      # no node instance, are not this caller's: fail closed. Every other
+      # principal keeps the account-wide read the REST queue gives ai.agents.read.
+      def originated_by_caller?(operation)
+        return true unless instance_authorized?
+        return false unless node_instance && operation
+
+        principal = operation.params.is_a?(Hash) ? operation.params["principal"] : nil
+        principal.is_a?(Hash) && principal["kind"] == "instance" &&
+          principal["node_instance_id"].to_s == node_instance.id.to_s
+      end
+
+      def approval_request_lookup_payload(request, operation)
+        decision = request&.decisions&.includes(:approver)&.order(:created_at, :id)&.last
+        data = request&.request_data.is_a?(Hash) ? request.request_data : {}
+        expires_at = request&.expires_at
+
+        {
+          success: true,
+          approval_request_id: request&.id,
+          deferred_operation_id: operation&.id,
+          status: request&.status,
+          # The last recorded decision. A timeout resolves a request with no
+          # decision row, so a rejected request may carry none.
+          decision: decision&.decision,
+          decided_by: decision && { id: decision.approver_id, name: decision.approver&.full_name },
+          decided_at: decision&.created_at&.iso8601,
+          completed_at: request&.completed_at&.iso8601,
+          expires_at: expires_at&.iso8601,
+          expired: request.present? && request.pending? && expires_at.present? && expires_at <= Time.current,
+          requires_human_session: request ? request.requires_human_session? : false,
+          call_origin: data["call_origin"] || operation&.params&.dig("principal", "origin"),
+          action_category: data["action_category"] || operation&.action_category,
+          description: request&.description.presence || operation&.description,
+          execution_status: request&.execution_status,
+          execution_error: ::Ai::SensitiveParams.filter_text(request&.execution_error),
+          request_data: ::Ai::SensitiveParams.filter(data),
+          deferred_operation: operation && {
+            id: operation.id, status: operation.status,
+            error_message: ::Ai::SensitiveParams.filter_text(operation.error_message),
+            executed_at: operation.executed_at&.iso8601,
+            params: ::Ai::SensitiveParams.filter(operation.params)
           }
         }
       end

@@ -114,6 +114,28 @@ RSpec.describe Ai::SensitiveParams do
     end
   end
 
+  describe '.filter_text' do
+    it 'masks the value after a secret-named key in each spelling, keeping the surrounding text' do
+      text = %(RuntimeError: bad {"acceptance_token"=>"PLAIN-1"} password=PLAIN-2, api_key: PLAIN-3 ) +
+             %({"signing_key":"PLAIN-4"} Authorization: Bearer PLAIN-5 tail)
+
+      filtered = described_class.filter_text(text)
+
+      expect(filtered).not_to match(/PLAIN-\d/)
+      expect(filtered).to start_with('RuntimeError: bad')
+      expect(filtered).to end_with('tail')
+    end
+
+    it 'leaves text that names no secret alone, and passes nil through' do
+      expect(described_class.filter_text('ActiveRecord::RecordNotFound: no row')).to eq('ActiveRecord::RecordNotFound: no row')
+      expect(described_class.filter_text(nil)).to be_nil
+    end
+
+    it 'truncates to TEXT_LIMIT' do
+      expect(described_class.filter_text('x' * 5_000).length).to eq(described_class::TEXT_LIMIT)
+    end
+  end
+
   describe '.key_patterns' do
     it 'extends the defaults with the configured setting rather than replacing them' do
       SiteSetting.create!(

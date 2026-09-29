@@ -695,6 +695,7 @@ module Ai
         "update_intervention_policy" => "Ai::Tools::AgentAutonomyTool",
         "delete_intervention_policy" => "Ai::Tools::AgentAutonomyTool",
         "list_deferred_operations" => "Ai::Tools::AgentAutonomyTool",
+        "get_approval_request" => "Ai::Tools::AgentAutonomyTool",
         "approve_deferred_operation" => "Ai::Tools::AgentAutonomyTool",
         "reject_deferred_operation" => "Ai::Tools::AgentAutonomyTool",
         # Delegation authority (HIER-P0): an agent reads its own delegation policy
