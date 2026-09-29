@@ -646,6 +646,11 @@ Rails.application.routes.draw do
             post :decay_fields
           end
 
+          # dev_merge_increment outcome (worker → server)
+          resources :dev_merges, only: [] do
+            member { post :report }
+          end
+
           # Campaign auto-land (worker ↔ server)
           resources :campaign_lands, only: [ :show ] do
             collection { post :process_queue }
