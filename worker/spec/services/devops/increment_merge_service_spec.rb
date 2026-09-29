@@ -297,7 +297,48 @@ RSpec.describe Devops::IncrementMergeService do
       report = service.call
 
       expect_nothing_pushed(report)
-      expect(report['error']).to match(/control character/).and include(offending[0, 12])
+      # Names the byte as text (backslash, x, 1, e) and the commit, never the message.
+      expect(report['error']).to include('control byte \\x1e', offending[0, 12])
+      expect(report['error']).not_to include('record separator')
+    end
+
+    it 'refuses a \\x7f in a landed commit message' do
+      offending = increment_with("feat: a change#{127.chr}\n")
+
+      report = service.call
+
+      expect_nothing_pushed(report)
+      expect(report['error']).to include('control byte \\x7f', offending[0, 12])
+    end
+
+    # git cannot take a NUL from an environment variable, so the commit is
+    # written as a raw object, the way a hostile history would arrive.
+    it 'refuses a \\x00 in an author name, without echoing the identity' do
+      tree = sh!('git', 'rev-parse', "#{base_sha}^{tree}", dir: @sub_work)
+      body = "tree #{tree}\nparent #{base_sha}\n" \
+             "author Some#{0.chr}Body <body@example.invalid> 1700000000 +0000\n" \
+             "committer Spec <spec@example.invalid> 1700000000 +0000\n\nplain change\n"
+      offending = sh!('git', 'hash-object', '-t', 'commit', '-w', '--literally', '--stdin', dir: @sub_work, stdin: body)
+      sh!('git', 'push', '--quiet', '--force', sub_primary, "#{offending}:refs/heads/feature/increment", dir: @sub_work)
+      payload['expected_source_sha'] = offending
+      allow(git_ops).to receive(:get_branch).and_return({ commit: { sha: offending } })
+
+      report = service.call
+
+      expect_nothing_pushed(report)
+      expect(report['error']).to include('control byte \\x00', offending[0, 12])
+      expect(report['error']).not_to include('body@example.invalid')
+    end
+
+    it 'still lets tab, LF and CR through' do
+      tip_sha = increment_with("feat:\ta change\r\n\nwith a body line\n")
+      payload.delete('pointer_bump')
+
+      report = service.call
+
+      expect(report['status']).to eq('succeeded'), report['error'].to_s
+      expect(tip(sub_primary)).not_to eq(base_sha)
+      expect(tip_sha).to be_a(String)
     end
 
     it 'is not blinded by a separator placed to hide an attribution line behind it' do
@@ -639,6 +680,20 @@ RSpec.describe Devops::CommitMessageHygiene do
         described_class.pointer_bump_message(scope: 'demo', short_sha: 'abcd1234', summary: summary, forbidden_names: [])
       end.to raise_error(described_class::Refused, /AI attribution/)
     end
+  end
+
+  it 'names the first control byte as \\xNN, and allows tab, LF and CR' do
+    expect(described_class.control_byte("a#{30.chr}b")).to eq('\\x1e')
+    expect(described_class.control_byte("a#{0.chr}")).to eq('\\x00')
+    expect(described_class.control_byte("a#{127.chr}")).to eq('\\x7f')
+    expect(described_class.control_byte("a\tb\r\nc")).to be_nil
+  end
+
+  it 'refuses a generated message whose summary carries a control byte, naming the byte only' do
+    expect do
+      described_class.pointer_bump_message(scope: 'demo', short_sha: 'abcd1234', summary: "sub#{27.chr}ject",
+                                           forbidden_names: [])
+    end.to raise_error(described_class::Refused, /control byte \\x1b/) { |e| expect(e.message).not_to include('sub') }
   end
 
   it 'offers no stripping helper at all' do

@@ -33,6 +33,23 @@ RSpec.describe Ai::DevMerge::CommitMessagePolicy do
     end
   end
 
+  # Reject, never strip. The bytes are built with .chr, never with a \u
+  # escape (which is decoded in transit before it reaches the file).
+  describe "control bytes" do
+    { 30 => "\\x1e", 0 => "\\x00", 127 => "\\x7f", 27 => "\\x1b" }.each do |code, named|
+      it "refuses #{named}, naming the byte and never echoing the text" do
+        reason = violation("fix the thing#{code.chr}quietly")
+
+        expect(reason).to eq("it contains the control byte #{named}")
+        expect(reason).not_to include("quietly")
+      end
+    end
+
+    it "lets tab, LF and CR through" do
+      expect(violation("a\tb\r\nc")).to be_nil
+    end
+  end
+
   describe "private extension names" do
     it "refuses the slug as a word, in any case" do
       expect(violation("wire ZZHIDDEN into the seam")).to match(/private extension/)

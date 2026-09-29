@@ -69,10 +69,6 @@ module Devops
     SHA = %r{\A\h{40}\z}
     SUBMODULE_PATH = %r{\A(?!-)(?!.*(?:\A|/)\.{1,2}(?:/|\z))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\z}
     REMOTE_OK = %w[pushed up_to_date].freeze
-    # Any control character but tab, newline and carriage return. A commit
-    # carrying one is refused outright: it has no place in a published
-    # message, and it is the input that could confuse a parser.
-    CONTROL_CHARACTER = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/
 
     def initialize(payload:, remote_resolver:, git_ops_factory:, workdir: nil, logger: nil,
                    git_timeout: GitCli::DEFAULT_TIMEOUT, allowed_protocols: GitCli::DEFAULT_PROTOCOLS)
@@ -359,9 +355,10 @@ module Devops
     end
 
     def publication_problem(message, identity)
-      if [ message, *identity ].any? { |text| text.match?(CONTROL_CHARACTER) }
-        return "contains a control character"
-      end
+      # A control byte in the message or an identity refuses the commit,
+      # named as \xNN; the text itself is never echoed.
+      byte = [ message, *identity ].lazy.filter_map { |text| CommitMessageHygiene.control_byte(text) }.first
+      return "contains the control byte #{byte}" if byte
 
       message = message.dup.force_encoding(Encoding::UTF_8).scrub
       identity = identity.map { |text| text.dup.force_encoding(Encoding::UTF_8).scrub }

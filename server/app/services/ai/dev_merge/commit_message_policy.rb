@@ -15,6 +15,8 @@ module Ai
     #     extension registry, and the operator's declaration). A private
     #     extension is absent from public clones, so naming one in a published
     #     message leaks it.
+    #   * a C0 control byte (\x00-\x08, \x0b, \x0c, \x0e-\x1f) or \x7f; tab,
+    #     LF and CR stay allowed. Named as \xNN, never echoed.
     #
     # The worker applies the same two rules to the message it GENERATES
     # (Devops::CommitMessageHygiene), with the names this class derives handed
@@ -24,6 +26,7 @@ module Ai
     class CommitMessagePolicy
       ATTRIBUTION_LINE = /^\s*(co-authored-by\s*:|generated\s+(with|by)\b)/i
       TRAILER = /^\s*[A-Za-z][A-Za-z0-9-]*\s*:\s*(?<value>.+)$/
+      CONTROL_BYTE = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/n
       MODEL_WORDS = /\b(claude|anthropic|openai|chatgpt|gpt-?\d\w*|gemini|grok|codex|copilot|llama|mistral|fable|opus|sonnet|haiku)\b/i
 
       def self.violation(text, forbidden_names: ::Ai::DevMerge::ForbiddenNames.resolve.names)
@@ -39,6 +42,8 @@ module Ai
       # caller, and echoing the name would be the leak the rule exists to stop.
       def violation(text)
         body = text.to_s
+        control = body.b[CONTROL_BYTE]
+        return format("it contains the control byte \\x%02x", control.ord) if control
         return "it carries an AI attribution line" if body.each_line.any? { |line| attribution_line?(line) }
         return "it names a private extension" if names_private_extension?(body)
 
