@@ -9,7 +9,13 @@
 #
 #   --core-sha <sha>       REQUIRED. The reviewed core commit to land on the target branch (for an
 #                          extension-only change pass the current remote target tip).
-#   --ext-path <path>      The extension submodule the commit belongs to (or LAND_EXT_PATH).
+#   --ext-path <path>      The extension the commit belongs to (or LAND_EXT_PATH). A public one must be a
+#                          submodule listed in .gitmodules; one under extensions/private/ is pushed to its own
+#                          remote and NEVER gets a core gitlink or a core commit naming it.
+#   --base-sha <sha>       The core target tip BEFORE this landing, the base of the build range. Recorded
+#                          automatically on the first run (scripts/local/land-state/<task_key>.json), so a
+#                          re-run after a parked approval builds the same range; needed only when the
+#                          commits were merged by someone else and no earlier run recorded it.
 #   --ext-sha <sha>        The reviewed extension commit. It is pushed first and the core gitlink is
 #                          then bumped to it (a generated pointer commit) unless <core-sha> already
 #                          carries it.
@@ -46,7 +52,8 @@
 #   submodule path; default: the only public submodule in .gitmodules, if there is exactly one),
 #   LAND_SOURCE_REPO (owner/repo the build diff is taken against; default derived
 #   from the core remote), LAND_PROMOTE_ENVS (default "staging ops"), LAND_POLL_INTERVAL,
-#   LAND_POLL_TIMEOUT, LAND_CORE_REPOSITORY / LAND_EXT_REPOSITORY (platform repository ids or full names,
+#   LAND_POLL_TIMEOUT, LAND_VERIFY_TIMEOUT / LAND_VERIFY_INTERVAL (the hub check is polled until green),
+#   LAND_STATE_DIR (default <main>/scripts/local/land-state), LAND_CORE_REPOSITORY / LAND_EXT_REPOSITORY (platform repository ids or full names,
 #   mcp merge mode only).
 #
 # STATUS OF THE WIRE FORMAT: the JSON-RPC calls follow scripts/mcp-smoke-test.sh (POST tools/call with a
@@ -60,11 +67,11 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/landing-common.sh
 . "$SELF_DIR/lib/landing-common.sh"
 
-case "${1:-}" in -h|--help|"") sed -n '2,52p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
+case "${1:-}" in -h|--help|"") sed -n '2,/^set -euo/{/^set -euo/!p}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
 
 TASK_KEY="$1"; shift
 CORE_SHA=""; EXT_SHA=""; MODULES=""; MERGE_VIA="git"; LOOP=""; COMPLETE=0
-SKIP_VERIFY=0; SKIP_CATALOG=0; NO_FETCH=0; DRY=0; EXT_PATH_ARG=""
+SKIP_VERIFY=0; SKIP_CATALOG=0; NO_FETCH=0; DRY=0; EXT_PATH_ARG=""; BASE_SHA_ARG=""
 CORE_REF=""; EXT_REF=""; ATTEST=""; EVIDENCE=""
 declare -A MODULE_ID_OVERRIDE=()
 usage_die() { LC_DIE_CODE=2 lc_die "$*"; }
@@ -73,6 +80,7 @@ while [ $# -gt 0 ]; do
     --core-sha) CORE_SHA="${2:-}"; shift 2 ;;
     --ext-sha) EXT_SHA="${2:-}"; shift 2 ;;
     --ext-path) EXT_PATH_ARG="${2:-}"; shift 2 ;;
+    --base-sha) BASE_SHA_ARG="${2:-}"; shift 2 ;;
     --modules) MODULES="${2:-}"; shift 2 ;;
     --module-id) [[ "${2:-}" == *=* ]] || usage_die "--module-id needs slug=uuid"; MODULE_ID_OVERRIDE["${2%%=*}"]="${2#*=}"; shift 2 ;;
     --merge-via) MERGE_VIA="${2:-}"; shift 2 ;;
@@ -111,6 +119,18 @@ if [ -z "$EXT_PATH" ] && [ -n "$EXT_SHA" ]; then
   EXT_PATH="${_subs[0]}"
 fi
 EXT_DIR="$REPO_ROOT/${EXT_PATH:-.}"
+PRIVATE_EXT=0
+if [ -n "$EXT_SHA" ]; then
+  [[ "$EXT_PATH" =~ ^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ && "$EXT_PATH" != *..* ]] || usage_die "--ext-path is not a plain repository-relative path"
+  if [[ "$EXT_PATH" == extensions/private/* ]]; then
+    PRIVATE_EXT=1
+  else
+    git -C "$REPO_ROOT" config -f "$REPO_ROOT/.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}' | command grep -qxF -- "$EXT_PATH" ||
+      usage_die "$EXT_PATH is not a submodule listed in .gitmodules, so core has no gitlink to bump for it"
+  fi
+fi
+STATE_DIR="${LAND_STATE_DIR:-$MAIN_ROOT/scripts/local/land-state}"
+VERIFY_TIMEOUT="${LAND_VERIFY_TIMEOUT:-900}"; VERIFY_INTERVAL="${LAND_VERIFY_INTERVAL:-20}"
 PREFIX="${LAND_MCP_TOOL_PREFIX-platform.}"
 TOKEN_ENV="${LAND_MCP_TOKEN_ENV:-POWERNODE_MCP_TOKEN}"
 PROMOTE_ENVS="${LAND_PROMOTE_ENVS:-staging ops}"
@@ -222,28 +242,52 @@ if [ -n "$EXT_FULL" ]; then
 fi
 
 # ---- 2. merge ---------------------------------------------------------------------------------------
-BUILD_BASE="$CORE_TIP"
 FINAL_CORE="$CORE_FULL"; POINTER_COMMIT=""
 gitlink_at() { gitc ls-tree "$1" "$EXT_PATH" 2>/dev/null | awk '{print $3}'; }
 
 make_pointer_commit() {
-  local parent="$1" idx tree scope short
-  idx="$(mktemp -u)"
-  GIT_INDEX_FILE="$idx" git -C "$REPO_ROOT" read-tree "$parent"
-  GIT_INDEX_FILE="$idx" git -C "$REPO_ROOT" update-index --cacheinfo "160000,$EXT_FULL,$EXT_PATH"
-  tree="$(GIT_INDEX_FILE="$idx" git -C "$REPO_ROOT" write-tree)"
-  rm -f "$idx"
+  local parent="$1" dir idx tree scope short commit
+  dir="$(mktemp -d)" || return 1; idx="$dir/index"
+  GIT_INDEX_FILE="$idx" git -C "$REPO_ROOT" read-tree "$parent" || { rm -rf "$dir"; return 1; }
+  GIT_INDEX_FILE="$idx" git -C "$REPO_ROOT" update-index --cacheinfo "160000,$EXT_FULL,$EXT_PATH" || { rm -rf "$dir"; return 1; }
+  tree="$(GIT_INDEX_FILE="$idx" git -C "$REPO_ROOT" write-tree)" || { rm -rf "$dir"; return 1; }
+  rm -rf "$dir"
   scope="$(basename "$EXT_PATH")"; short="${EXT_FULL:0:12}"
-  git -C "$REPO_ROOT" commit-tree "$tree" -p "$parent" -m "chore($scope): bump extension pointer to $short"
+  commit="$(git -C "$REPO_ROOT" commit-tree "$tree" -p "$parent" -m "chore($scope): bump extension pointer to $short")" || return 1
+  # The commit must really move the gitlink; a no-op "bump" is never pushed.
+  [ "$(git -C "$REPO_ROOT" ls-tree "$commit" "$EXT_PATH" | awk '{print $3}')" = "$EXT_FULL" ] || return 1
+  printf '%s\n' "$commit"
 }
 
 need_pointer=0
-if [ -n "$EXT_FULL" ] && [ "$(gitlink_at "$CORE_FULL")" != "$EXT_FULL" ]; then need_pointer=1; fi
+# A private extension is not a core gitlink: no pointer commit, ever.
+if [ -n "$EXT_FULL" ] && [ "$PRIVATE_EXT" -eq 0 ] && [ "$(gitlink_at "$CORE_FULL")" != "$EXT_FULL" ]; then need_pointer=1; fi
 
 core_on_target=0; gitc merge-base --is-ancestor "$CORE_FULL" "$CORE_TIP" && core_on_target=1
 ext_on_target=1; [ -z "$EXT_FULL" ] || { ext_on_target=0; gite merge-base --is-ancestor "$EXT_FULL" "$EXT_TIP" && ext_on_target=1; }
 pointer_on_target=1
 if [ "$need_pointer" -eq 1 ]; then [ "$(gitlink_at "$CORE_TIP")" = "$EXT_FULL" ] || pointer_on_target=0; fi
+
+# The build range's base is the target tip BEFORE this landing. It must not move with the target, or a
+# re-run (after a parked approval, a failed build, or --merge-via none) would build an empty range. Order:
+# --base-sha, the state a first run recorded for this task and core commit, else the tip we are about to move.
+STATE_FILE="$STATE_DIR/$TASK_KEY.json"
+BUILD_BASE=""
+if [ -n "$BASE_SHA_ARG" ]; then
+  BUILD_BASE="$(resolve "$REPO_ROOT" "$BASE_SHA_ARG")" || usage_die "--base-sha $BASE_SHA_ARG is not a commit in this repository"
+elif [ -f "$STATE_FILE" ] && [ "$(jq -r .core_sha "$STATE_FILE" 2>/dev/null)" = "$CORE_FULL" ]; then
+  BUILD_BASE="$(jq -r .base_sha "$STATE_FILE")"
+elif [ "$core_on_target" -eq 0 ]; then
+  BUILD_BASE="$CORE_TIP"
+elif [ "$pointer_on_target" -eq 0 ]; then
+  BUILD_BASE="$CORE_TIP"   # the pointer commit we are about to add is the whole range
+fi
+record_state() {
+  [ "$DRY" -eq 0 ] && [ -n "$BUILD_BASE" ] && [ ! -f "$STATE_FILE" ] || return 0
+  mkdir -p "$STATE_DIR"
+  jq -n --arg b "$BUILD_BASE" --arg c "$CORE_FULL" --arg e "$EXT_FULL" '{base_sha:$b, core_sha:$c, ext_sha:$e}' >"$STATE_FILE"
+}
+record_state
 
 # Waits until the remote target contains <sha>; used after an mcp merge dispatch.
 wait_for_target() { # repo remote sha label
@@ -276,7 +320,9 @@ case "$MERGE_VIA" in
       fi
       if [ "$pointer_on_target" -eq 0 ]; then
         parent="$CORE_FULL"; [ "$core_on_target" -eq 1 ] && parent="$CORE_TIP"
-        POINTER_COMMIT="$(make_pointer_commit "$parent")"
+        POINTER_COMMIT="$(make_pointer_commit "$parent")" || LC_DIE_CODE=1 lc_die "could not build the pointer-bump commit; core and the extension are already pushed"
+        # A generated commit is published like any other: scan it before it leaves this machine.
+        scan_range "$REPO_ROOT" "generated pointer commit" "$parent" "$POINTER_COMMIT"
         gitc push --quiet "$CORE_REMOTE" "$POINTER_COMMIT:refs/heads/$TARGET" || LC_DIE_CODE=1 lc_die "the pointer bump push was refused; core and the extension are already pushed"
         lc_info "  pointer bump ${POINTER_COMMIT:0:12} pushed"
       fi
@@ -327,37 +373,9 @@ if [ -z "$SOURCE_REPO" ]; then
 fi
 [ -n "$SOURCE_REPO" ] || LC_DIE_CODE=2 lc_die "cannot derive the core source repository; set LAND_SOURCE_REPO"
 
-IFS=',' read -r -a SLUGS <<<"$MODULES"
-slugs_json="$(printf '%s\n' "${SLUGS[@]}" | jq -R . | jq -sc .)"
-BATCH_ID=""; BATCH_STATUS="not_run"; DISPATCHED_AT="$(date +%s)"
-step 4 "build batch $BUILD_BASE..$FINAL_CORE for: $MODULES"
-if [ "$DRY" -eq 1 ]; then
-  would "dispatch_module_build_batch base=${BUILD_BASE:0:12} head=${FINAL_CORE:0:12} source_repo=$SOURCE_REPO modules=$MODULES expand_dependents=false"
-  would "poll get_module_build_batch until finished (every ${POLL_INTERVAL}s, at most ${POLL_TIMEOUT}s)"
-else
-  out="$(mcp_must system_dispatch_module_build_batch "$(jq -cn --arg b "$BUILD_BASE" --arg h "$FINAL_CORE" --arg r "$SOURCE_REPO" --argjson m "$slugs_json" \
-    '{base_sha:$b, head_sha:$h, source_repo:$r, module_slugs:$m, expand_dependents:false, trigger:"manual"}')")"
-  BATCH_ID="$(printf '%s' "$out" | jq -r '.module_build_batch.id // empty')"
-  [ -n "$BATCH_ID" ] || LC_DIE_CODE=1 lc_die "the dispatch answered without a batch id"
-  lc_info "  batch $BATCH_ID"
-  poll_started=$SECONDS
-  while :; do
-    polled_at=$SECONDS
-    out="$(mcp_must system_get_module_build_batch "$(jq -cn --arg id "$BATCH_ID" '{batch_id:$id, wait_seconds:30}')")"
-    BATCH_STATUS="$(printf '%s' "$out" | jq -r '.module_build_batch.status')"
-    case "$BATCH_STATUS" in
-      complete) break ;;
-      partial|failed|cancelled)
-        LC_DIE_CODE=1 lc_die "build batch $BATCH_ID ended $BATCH_STATUS: $(printf '%s' "$out" | jq -r '[.module_build_batch.modules[]? | select(.state != "succeeded") | "\(.module)=\(.state)"] | join(", ")'); nothing was promoted" ;;
-    esac
-    [ $((SECONDS - poll_started)) -lt "$POLL_TIMEOUT" ] || LC_DIE_CODE=1 lc_die "build batch $BATCH_ID still $BATCH_STATUS after ${POLL_TIMEOUT}s; nothing was promoted"
-    # The verb long-polls; only pace ourselves when it answered at once.
-    if [ $((SECONDS - polled_at)) -lt 5 ]; then sleep "$POLL_INTERVAL"; fi
-  done
-  lc_info "  batch complete"
-fi
-
-# ---- 4. promote ------------------------------------------------------------------------------------
+[ -n "$BUILD_BASE" ] || LC_DIE_CODE=1 lc_die "the build range's base is unknown (the commits are already on $TARGET and no earlier run recorded the tip before them); pass --base-sha <the $TARGET tip before this landing>"
+[ "$BUILD_BASE" != "$FINAL_CORE" ] || LC_DIE_CODE=1 lc_die "the build range ${BUILD_BASE:0:12}..${FINAL_CORE:0:12} is empty; nothing would be built. Pass --base-sha <the $TARGET tip before this landing>"
+# Module ids, and each module's newest version number, so the promotion can pin the version THIS batch built.
 declare -A MODULE_ID=()
 resolve_module_ids() {
   local slug cursor="" page out
@@ -377,18 +395,77 @@ resolve_module_ids() {
   done
 }
 
+newest_version() { # module-id -> "<version_number>\t<version_id>" of the highest version_number, or "0\t"
+  local out
+  out="$(mcp_must system_list_module_versions "$(jq -cn --arg m "$1" '{module_id:$m, limit:20}')")"
+  printf '%s' "$out" | jq -r '[.versions[]? | {n: (.version_number // 0), id: .id}] | sort_by(.n) | (last // {n:0, id:""}) | "\(.n)\t\(.id)"'
+}
+declare -A VERSION_BEFORE=() VERSION_PIN=() SKIP_PROMOTE=()
+
+IFS=',' read -r -a SLUGS <<<"$MODULES"
+slugs_json="$(printf '%s\n' "${SLUGS[@]}" | jq -R . | jq -sc .)"
+BATCH_ID=""; BATCH_STATUS="not_run"; DISPATCHED_AT="$(date +%s)"
+step 4 "build batch $BUILD_BASE..$FINAL_CORE for: $MODULES"
+if [ "$DRY" -eq 1 ]; then
+  would "dispatch_module_build_batch base=${BUILD_BASE:0:12} head=${FINAL_CORE:0:12} source_repo=$SOURCE_REPO modules=$MODULES expand_dependents=false"
+  would "poll get_module_build_batch until finished (every ${POLL_INTERVAL}s, at most ${POLL_TIMEOUT}s)"
+else
+  resolve_module_ids
+  for slug in "${SLUGS[@]}"; do
+    nv="$(newest_version "${MODULE_ID[$slug]}")"
+    VERSION_BEFORE[$slug]="${nv%%$'\t'*}"
+  done
+  out="$(mcp_must system_dispatch_module_build_batch "$(jq -cn --arg b "$BUILD_BASE" --arg h "$FINAL_CORE" --arg r "$SOURCE_REPO" --argjson m "$slugs_json" \
+    '{base_sha:$b, head_sha:$h, source_repo:$r, module_slugs:$m, expand_dependents:false, trigger:"manual"}')")"
+  BATCH_ID="$(printf '%s' "$out" | jq -r '.module_build_batch.id // empty')"
+  [ -n "$BATCH_ID" ] || LC_DIE_CODE=1 lc_die "the dispatch answered without a batch id"
+  lc_info "  batch $BATCH_ID"
+  poll_started=$SECONDS
+  while :; do
+    polled_at=$SECONDS
+    out="$(mcp_must system_get_module_build_batch "$(jq -cn --arg id "$BATCH_ID" '{batch_id:$id, wait_seconds:30}')")"
+    BATCH_STATUS="$(printf '%s' "$out" | jq -r '.module_build_batch.status')"
+    LAST_BATCH="$out"
+    case "$BATCH_STATUS" in
+      complete) break ;;
+      partial|failed|cancelled)
+        LC_DIE_CODE=1 lc_die "build batch $BATCH_ID ended $BATCH_STATUS: $(printf '%s' "$out" | jq -r '[.module_build_batch.modules[]? | select(.state != "succeeded") | "\(.module)=\(.state)"] | join(", ")'); nothing was promoted" ;;
+    esac
+    [ $((SECONDS - poll_started)) -lt "$POLL_TIMEOUT" ] || LC_DIE_CODE=1 lc_die "build batch $BATCH_ID still $BATCH_STATUS after ${POLL_TIMEOUT}s; nothing was promoted"
+    # The verb long-polls; only pace ourselves when it answered at once.
+    if [ $((SECONDS - polled_at)) -lt 5 ]; then sleep "$POLL_INTERVAL"; fi
+  done
+  lc_info "  batch complete"
+  # Every requested module must have built (a `complete` batch can still carry a module that was not planned),
+  # and what is promoted is the exact version the batch published, never "whatever the rung below serves".
+  for slug in "${SLUGS[@]}"; do
+    entry="$(printf '%s' "$LAST_BATCH" | jq -c --arg s "$slug" '[.module_build_batch.modules[]? | select(.module == $s)] | first // empty')"
+    [ -n "$entry" ] || LC_DIE_CODE=1 lc_die "module '$slug' is not in the build batch (the planner did not select it); nothing was promoted"
+    [ "$(printf '%s' "$entry" | jq -r .state)" = "succeeded" ] || LC_DIE_CODE=1 lc_die "module '$slug' did not build (state $(printf '%s' "$entry" | jq -r .state)); nothing was promoted"
+    if [ -n "$(printf '%s' "$entry" | jq -r '.outcome // empty')" ]; then
+      SKIP_PROMOTE[$slug]="build was a no-op ($(printf '%s' "$entry" | jq -r .outcome)); no new version"
+      continue
+    fi
+    after="$(newest_version "${MODULE_ID[$slug]}")"
+    [ "$(printf '%s' "$after" | cut -f1)" -gt "${VERSION_BEFORE[$slug]}" ] ||
+      LC_DIE_CODE=1 lc_die "module '$slug' built but no version newer than #${VERSION_BEFORE[$slug]} exists; nothing was promoted"
+    VERSION_PIN[$slug]="$(printf '%s' "$after" | cut -f2)"
+    lc_info "  $slug built version #$(printf '%s' "$after" | cut -f1) (${VERSION_PIN[$slug]})"
+  done
+fi
+
 step 5 "promote ($PROMOTE_ENVS)"
 PROMOTED="[]"
 if [ "$DRY" -eq 1 ]; then
-  would "resolve module ids for: $MODULES"
+  would "resolve module ids for: $MODULES, and pin the version each build published"
   for env in $PROMOTE_ENVS; do would "promote_module_version into '$env' for each module, in order"; done
 else
-  resolve_module_ids
   for env in $PROMOTE_ENVS; do
     for slug in "${SLUGS[@]}"; do
-      out="$(mcp_must system_promote_module_version "$(jq -cn --arg e "$env" --arg m "${MODULE_ID[$slug]}" '{environment:$e, module_id:$m}')")"
+      [ -z "${SKIP_PROMOTE[$slug]:-}" ] || { lc_info "  $slug not promoted into $env: ${SKIP_PROMOTE[$slug]}"; continue; }
+      out="$(mcp_must system_promote_module_version "$(jq -cn --arg e "$env" --arg m "${MODULE_ID[$slug]}" --arg v "${VERSION_PIN[$slug]}" '{environment:$e, module_id:$m, version_id:$v}')")"
       lc_info "  $slug -> $env $(printf '%s' "$out" | jq -r '.promotion_criteria_warning // "ok"' | head -c 200)"
-      PROMOTED="$(printf '%s' "$PROMOTED" | jq -c --arg e "$env" --arg s "$slug" '. + [{environment:$e, module:$s}]')"
+      PROMOTED="$(printf '%s' "$PROMOTED" | jq -c --arg e "$env" --arg s "$slug" --arg v "${VERSION_PIN[$slug]}" '. + [{environment:$e, module:$s, version_id:$v}]')"
     done
   done
 fi
@@ -399,12 +476,25 @@ step 6 "verify the hub"
 if [ "$SKIP_VERIFY" -eq 1 ]; then
   lc_info "  skipped (--skip-verify)"
 elif [ "$DRY" -eq 1 ]; then
-  would "verify-hub-deploy.sh ${FINAL_CORE:0:12}${EXT_FULL:+ ${EXT_FULL:0:12}} --since <dispatch time>"
+  would "poll verify-hub-deploy.sh ${FINAL_CORE:0:12}${EXT_FULL:+ ${EXT_FULL:0:12}} --since <dispatch time> until green (at most ${VERIFY_TIMEOUT}s)"
 else
-  vout=""; vrc=0
-  vout="$("${LAND_VERIFY_SCRIPT:-$SELF_DIR/verify-hub-deploy.sh}" "$FINAL_CORE" ${EXT_FULL:+"$EXT_FULL"} --since "$DISPATCHED_AT")" || vrc=$?
-  VERIFY="$(printf '%s' "$vout" | jq -c . 2>/dev/null || echo '{}')"
-  [ "$vrc" -eq 0 ] || { printf '%s\n' "$VERIFY" >&2; LC_DIE_CODE=1 lc_die "hub verification failed (verify-hub-deploy.sh exit $vrc); the task must not be completed"; }
+  # Promotion is asynchronous (nodes converge on their next reconcile, and rails answers 502 for ~30s after
+  # a restart), so a single snapshot taken now would usually fail. Poll until green or the deadline; exit 2
+  # (configuration) stops at once, 1 (a check failed) and 3 (hub not reachable) are retried.
+  verify_started=$SECONDS; attempts=0
+  while :; do
+    vout=""; vrc=0; attempts=$((attempts + 1))
+    vout="$("${LAND_VERIFY_SCRIPT:-$SELF_DIR/verify-hub-deploy.sh}" "$FINAL_CORE" ${EXT_FULL:+"$EXT_FULL"} --since "$DISPATCHED_AT" 2>/dev/null)" || vrc=$?
+    [ "$vrc" -ne 0 ] || break
+    [ "$vrc" -ne 2 ] || LC_DIE_CODE=2 lc_die "hub verification is misconfigured (verify-hub-deploy.sh exit 2)"
+    if [ $((SECONDS - verify_started)) -ge "$VERIFY_TIMEOUT" ]; then
+      printf '%s\n' "$vout" | head -c 1500 >&2
+      LC_DIE_CODE=1 lc_die "hub verification still failing after $attempts attempt(s) over ${VERIFY_TIMEOUT}s (last exit $vrc); the task must not be completed"
+    fi
+    lc_info "  verification attempt $attempts not green yet (exit $vrc); retrying in ${VERIFY_INTERVAL}s"
+    sleep "$VERIFY_INTERVAL"
+  done
+  VERIFY="$(printf '%s' "$vout" | jq -c --argjson n "$attempts" '. + {attempts:$n}' 2>/dev/null || echo '{}')"
 fi
 
 # ---- 6. evidence -----------------------------------------------------------------------------------
