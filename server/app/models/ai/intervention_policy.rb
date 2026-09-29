@@ -84,6 +84,15 @@ module Ai
     # dev.task_requeue: Ai::Tools::DevLoopTool dev_requeue_task returns a blocked
     # (typically review-parked) task to the queue. Human-only, so it parks under
     # this category whatever a row says, and a row can only block it.
+    # dev.merge (returned, now WITH a gate): Ai::Tools::DevMergeTool
+    # dev_merge_increment fast-forwards a reviewed increment onto a target
+    # branch (and may bump a parent's submodule pointer), pushed to every
+    # configured remote. No seed writes a row: unmatched it resolves to
+    # require_approval, and the replay refuses to dispatch without an approved
+    # request, so an auto_approve row cannot skip the park. The verb is
+    # declared destructive, so a develop merge also needs a person's session
+    # unless a row's conditions carry requires_human_session: false; a
+    # release/* or master target needs one whatever a row says.
     STATIC_CATEGORIES = (%w[
       approval proposal escalation status_update issue_alert
       feedback
@@ -93,6 +102,7 @@ module Ai
       ralph.repository_write ralph.repository_delete
       campaign.resume
       dev.task_requeue
+      dev.merge
       ai.intervention_policy.write
       ai.environment.write
       platform.site_setting.write platform.site_setting.protected_write

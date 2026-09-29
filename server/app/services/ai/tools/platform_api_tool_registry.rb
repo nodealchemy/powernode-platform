@@ -482,6 +482,9 @@ module Ai
         "dev_list_tasks" => "Ai::Tools::DevLoopTool",
         "dev_update_task" => "Ai::Tools::DevLoopTool",
         "dev_requeue_task" => "Ai::Tools::DevLoopTool",
+        # IMP-e82f619dde7a — land a reviewed increment (gated under dev.merge; the
+        # approved replay hands the merge to the worker)
+        "dev_merge_increment" => "Ai::Tools::DevMergeTool",
         "delegate_ralph_task" => "Ai::Tools::DevLoopTool",
         # Autonomous Improvement Campaigns: a durable wrapper that drives the dev-improve loop
         "campaign_propose" => "Ai::Tools::CampaignTool",

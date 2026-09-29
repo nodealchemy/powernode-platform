@@ -33,6 +33,7 @@ module Devops
 
     # Constants
     BRANCH_FILTER_TYPES = %w[none exact wildcard regex].freeze
+    PUSH_MIRRORS_KEY = "push_mirror_repository_ids"
 
     # Validations
     validates :external_id, presence: true
@@ -144,6 +145,16 @@ module Devops
     def requires_review_for_path?(file_path)
       review_paths = metadata&.dig("review_required_paths") || []
       review_paths.any? { |pattern| File.fnmatch(pattern, file_path, File::FNM_PATHNAME) }
+    end
+
+    # Ids of the repositories a governed push to this one must ALSO reach (the
+    # mirrors of this remote, e.g. a public mirror of a self-hosted origin).
+    # Operator configuration in metadata, beside protected_branches above. Read
+    # by dev_merge_increment (Ai::Tools::DevMergeTool), which pushes to this
+    # repository and every mirror named here and reports a push that reached
+    # only some of them as failed.
+    def push_mirror_repository_ids
+      Array(metadata&.dig(PUSH_MIRRORS_KEY)).map(&:to_s).reject(&:blank?).uniq - [ id.to_s ]
     end
 
     def clone_url_for_devops

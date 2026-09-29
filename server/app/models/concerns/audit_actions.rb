@@ -547,6 +547,17 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # DEV MERGE ACTIONS — dev_merge_increment (Ai::Tools::DevMergeTool). One row
+  # when an approved merge is handed to the worker, and one when the worker
+  # reports back: repository, refs, SHAs, the result per remote, and the gate
+  # attestation the caller supplied. A push that reached only some remotes is
+  # recorded as failed.
+  # =============================================================================
+  DEV_MERGE_ACTIONS = %w[
+    dev_merge.dispatched dev_merge.succeeded dev_merge.failed
+  ].freeze
+
+  # =============================================================================
   # PLATFORM ALERT CHANNEL ACTIONS (component status plane, E8) — every set,
   # replace and clear of an alert-channel credential, and every change to the
   # plain alert settings. The row names the KEY and the actor, never the value.
@@ -622,6 +633,7 @@ module AuditActions
     DOCKER_ACTIONS,
     WORKER_ACTIONS,
     DEPLOY_ACTIONS,
+    DEV_MERGE_ACTIONS,
     MCP_ACTIONS,
     INVITATION_ACTIONS,
     SITE_SETTING_ACTIONS,

@@ -243,6 +243,14 @@ module Mcp
       # *system_restart_unit* is anchored on its full verb name. Exactly one
       # registry key matches (principal_deny_overlay_spec pins it).
       #
+      # *dev_merge* (IMP-e82f619dde7a) — dev_merge_increment fast-forwards a
+      # reviewed increment onto develop, release/* or master and pushes it to
+      # every configured remote, optionally bumping a parent's submodule
+      # pointer, gated on dev.merge. An mTLS node cert that could invoke it
+      # could land code on the platform's own branches. No broader pattern
+      # matches it; exactly one registry key does (principal_deny_overlay_spec
+      # pins it).
+      #
       # NOTE for anyone editing this array: every entry below is a %w[]
       # WORD, not a line — a "#" comment INSIDE the %w[...] literal is not a
       # comment at all, it becomes a literal array element (the historical
@@ -278,6 +286,7 @@ module Mcp
         *system_restart_unit*
         *unit_dropin*
         *system_sdwan_rotate_peer_key*
+        *dev_merge*
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every

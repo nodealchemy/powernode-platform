@@ -90,6 +90,11 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
   # that is an operator-tunable policy, not a bound on who may ask, which is
   # what an overlay pattern is for. Collateral checked below against the
   # whole registry: the pattern matches exactly this one action.
+  #
+  # dev_merge_increment (IMP-e82f619dde7a): lands a reviewed increment on
+  # develop, release/* or master and pushes it to every configured remote. An
+  # instance that could invoke it could land code on the platform's own
+  # branches, so the anchored *dev_merge* pattern denies it whatever the grant.
   DESTRUCTIVE = %w[
     platform.approve_deferred_operation
     platform.reject_deferred_operation
@@ -112,6 +117,7 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     platform.system_instance_release_hold
     platform.system_replace_instance
     platform.system_sdwan_rotate_peer_key
+    platform.dev_merge_increment
   ].freeze
 
   # system_instance_hold_status / system_module_publish_target /
@@ -218,8 +224,13 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # is ever narrowed, the same belt-and-braces *system_restart_unit* takes
     # for a verb an instance must never aim at a peer. Collateral pinned
     # below: exactly one registry key.
+    # 29 since IMP-e82f619dde7a added *dev_merge* — the governed merge of a
+    # reviewed increment onto develop / release/* / master, pushed to every
+    # configured remote (gated under dev.merge). An mTLS node cert that could
+    # invoke it could land code on the platform's own branches. No broader
+    # pattern matches it. Collateral pinned below: exactly one registry key.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(28)
+      expect(patterns.size).to eq(29)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -311,6 +322,16 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
       end
 
       expect(denied).to eq(%w[system_sdwan_rotate_peer_key])
+    end
+
+    it "denies exactly dev_merge_increment with the *dev_merge* pattern" do
+      expect(patterns).to include("*dev_merge*")
+
+      denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        ::File.fnmatch("*dev_merge*", name, ::File::FNM_EXTGLOB)
+      end
+
+      expect(denied).to eq(%w[dev_merge_increment])
     end
 
     it "denies exactly system_apply_unit_dropin with the *unit_dropin* pattern" do
