@@ -69,8 +69,10 @@ module Devops
     SHA = %r{\A\h{40}\z}
     SUBMODULE_PATH = %r{\A(?!-)(?!.*(?:\A|/)\.{1,2}(?:/|\z))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\z}
     REMOTE_OK = %w[pushed up_to_date].freeze
-    # `git log` record for the hygiene scan: SHA, author, committer, message.
-    LOG_FORMAT = "%H%x00%an%x00%ae%x00%cn%x00%ce%x00%B%x1e"
+    # Any control character but tab, newline and carriage return. A commit
+    # carrying one is refused outright: it has no place in a published
+    # message, and it is the input that could confuse a parser.
+    CONTROL_CHARACTER = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/
 
     def initialize(payload:, remote_resolver:, git_ops_factory:, workdir: nil, logger: nil,
                    git_timeout: GitCli::DEFAULT_TIMEOUT, allowed_protocols: GitCli::DEFAULT_PROTOCOLS)
@@ -322,14 +324,21 @@ module Devops
     # Per remote, because a remote that is further behind publishes more
     # commits. Names the offending commit and the remote, never the matched
     # name.
+    #
+    # BYTE-SAFE. The commits come from rev-list (one 40-hex SHA per line) and
+    # each is read raw with cat-file, so nothing a commit contains can shift a
+    # field boundary. (An earlier cut split a single `git log` stream on
+    # \x1e/\x00, and a message containing \x1e split one commit into two
+    # records, hiding whatever followed the byte.)
     def check_published_ranges!(plans, sha)
       plans.each do |remote, plan, tip|
         next unless plan == :push
 
-        log = git!("log", "--format=#{LOG_FORMAT}", "--end-of-options", "#{tip}..#{sha}", "--").stdout
-        log.split("\x1e").map(&:strip).reject(&:empty?).each do |record|
-          commit, *identity, message = record.split("\x00", 6)
-          reason = publication_problem(message.to_s, identity)
+        commits = git!("rev-list", "--end-of-options", "#{tip}..#{sha}", "--").stdout.split("\n")
+        commits.each do |commit|
+          raise Refusal.new("commit_hygiene", "rev-list returned #{commit.inspect}") unless commit.match?(SHA)
+
+          reason = publication_problem(*commit_text(commit))
           next if reason.nil?
 
           raise Refusal.new("commit_hygiene", "commit #{commit[0, 12]} bound for #{remote[:full_name]} #{reason}; " \
@@ -338,7 +347,24 @@ module Devops
       end
     end
 
+    # [message, [author, committer]] from the raw commit object: headers up to
+    # the first blank line, the message after it.
+    def commit_text(commit)
+      raw = git!("cat-file", "commit", commit).stdout.b
+      headers, message = raw.split("\n\n", 2)
+      identity = headers.to_s.split("\n").filter_map do |line|
+        line.sub(/\A(?:author|committer) /n, "") if line.match?(/\A(?:author|committer) /n)
+      end
+      [ message.to_s, identity ]
+    end
+
     def publication_problem(message, identity)
+      if [ message, *identity ].any? { |text| text.match?(CONTROL_CHARACTER) }
+        return "contains a control character"
+      end
+
+      message = message.dup.force_encoding(Encoding::UTF_8).scrub
+      identity = identity.map { |text| text.dup.force_encoding(Encoding::UTF_8).scrub }
       if message.lines.any? { |line| CommitMessageHygiene.attribution_line?(line) } ||
          identity.any? { |value| value.to_s.match?(CommitMessageHygiene::MODEL_WORDS) }
         return "carries AI attribution"

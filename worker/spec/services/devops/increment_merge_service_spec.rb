@@ -288,6 +288,24 @@ RSpec.describe Devops::IncrementMergeService do
       expect(report['error']).not_to match(/zzhidden/i)
     end
 
+    # A control byte in a commit could desync a separator-framed log parse,
+    # so the scan parses byte-safely AND refuses any control character other
+    # than tab, newline and carriage return, whatever follows it.
+    it 'refuses the whole merge, with zero pushes, when a landed commit message contains a record separator' do
+      offending = increment_with("feat: a change\x1e with a record separator\n")
+
+      report = service.call
+
+      expect_nothing_pushed(report)
+      expect(report['error']).to match(/control character/).and include(offending[0, 12])
+    end
+
+    it 'is not blinded by a separator placed to hide an attribution line behind it' do
+      increment_with("feat: a change\n\x1e\nCo-Authored-By: Some Model <noreply@example.invalid>\n")
+
+      expect_nothing_pushed(service.call)
+    end
+
     it 'refuses when an AI tool is the commit author' do
       sh!('git', 'checkout', '--quiet', '-B', 'feature/increment', base_sha, dir: @sub_work)
       File.write(File.join(@sub_work, 'q.txt'), "q\n")
