@@ -79,7 +79,7 @@ module Ai
                                            "error." },
             git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
             commit_sha: { type: "string", required: false,
-                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose sha did not land is recorded landed:false, downgraded to attested and warned about (never refused)" },
+                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose full sha the git host answered for and does not have is recorded landed:false, downgraded to attested and warned about; an unresolvable repository, an unreachable host or an abbreviated sha records landed:\"unverified\" and only warns (never refused). It proves the sha is on develop, not that it is this task's commit" },
             files_changed: { type: "array", required: false, description: "Paths touched by this task" },
             agent_id: { type: "string", required: false, description: "Platform agent to delegate a task to" },
             await: { type: "boolean", required: false, description: "Block until the delegated agent finishes" },
@@ -170,7 +170,7 @@ module Ai
                                              "meaningful on a passed + verified outcome; ignored otherwise." },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
               commit_sha: { type: "string", required: false,
-                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose sha did not land is recorded landed:false, downgraded to attested and warned about (never refused)" },
+                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose full sha the git host answered for and does not have is recorded landed:false, downgraded to attested and warned about; an unresolvable repository, an unreachable host or an abbreviated sha records landed:\"unverified\" and only warns (never refused). It proves the sha is on develop, not that it is this task's commit" },
               files_changed: { type: "array", required: false, description: "Paths touched by this task" },
               agent_execution_id: { type: "string", required: false,
                                     description: "The Ai::AgentExecution that did this work (a Claude Code " \
@@ -876,8 +876,10 @@ module Ai
           end
 
           # IMP-6d060f65ccae — did the reported commit LAND? Recorded, never
-          # refused: an unlanded pass is downgraded to attested (so it neither
-          # counts as checks_passed nor auto-applies its offer) and warned about.
+          # refused: a pass whose sha the host ANSWERED for and does not have (landed
+          # false) is downgraded to attested — it neither counts as checks_passed nor
+          # auto-applies its offer. "unverified" (no repository, host down, abbreviated sha)
+          # keeps today's verdict and only warns: nothing is known against the pass.
           landing = landing_verdict(loop_record, params[:commit_sha])
           verification = :attested if landing.landed == false && verification == :verified
         end
@@ -1045,21 +1047,21 @@ module Ai
       # (no worker git diff needed). Returns the violation result hash, or nil when
       # clean. Delegates to the shared ScopeGuardrail.violation_for seam — the same
       # entry point the platform executor and land paths use.
+      def scope_guardrail_violation(loop_record, files_changed)
+        ::Ai::CodeFactory::ScopeGuardrail.violation_for(files_changed, loop_record: loop_record)
+      end
+
       # IMP-6d060f65ccae. LandingCheck never raises, but this call sits on the
       # completion path, so a bug in it is contained here too: an unverifiable
-      # landing records as not landed rather than failing a completion.
+      # landing records as unverified rather than failing a completion.
       def landing_verdict(loop_record, commit_sha)
         ::Ai::DevLoop::LandingCheck.call(account: account, loop_record: loop_record, commit_sha: commit_sha)
       rescue StandardError => e
         Rails.logger.warn("[DevLoopTool] landing check failed for loop #{loop_record.id}: #{e.class}: #{e.message}")
         ::Ai::DevLoop::LandingCheck::Result.new(
-          landed: false, via: "unverified",
-          warning: "the landing of #{commit_sha.to_s[0, 40]} could not be verified — recorded as not landed"
+          landed: ::Ai::DevLoop::LandingCheck::UNVERIFIED, via: "check_error",
+          warning: "the landing of #{commit_sha.to_s[0, 40]} could not be verified — recorded as unverified, not as unlanded"
         )
-      end
-
-      def scope_guardrail_violation(loop_record, files_changed)
-        ::Ai::CodeFactory::ScopeGuardrail.violation_for(files_changed, loop_record: loop_record)
       end
 
       def prepare_iteration(loop_record, task, params, landing: nil)
@@ -1068,10 +1070,12 @@ module Ai
 
         check_results = params[:check_results].is_a?(Hash) ? params[:check_results] : {}
         check_results = check_results.merge("files_changed" => params[:files_changed]) if params[:files_changed].present?
-        # Queryable landing record (IMP-6d060f65ccae). `landed` is present only
-        # when there was something to check; `landing` always says how it was decided.
+        # Queryable landing record (IMP-6d060f65ccae). `landed` is true, false or "unverified"
+        # and is absent only when there was nothing to check; `landing_check` says how.
+        # The server's own key is `landing_check`: `landing` belongs to the caller (land.sh
+        # reports its batch, promotions and hub verification there) and must survive.
         if landing
-          check_results = check_results.merge("landing" => { "via" => landing.via, "warning" => landing.warning }.compact)
+          check_results = check_results.merge("landing_check" => { "via" => landing.via, "warning" => landing.warning }.compact)
           check_results = check_results.merge("landed" => landing.landed) unless landing.landed.nil?
         end
 

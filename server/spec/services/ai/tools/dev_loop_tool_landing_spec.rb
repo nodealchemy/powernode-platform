@@ -49,11 +49,11 @@ RSpec.describe Ai::Tools::DevLoopTool, "landing guard" do
       expect(iteration.checks_passed).to be true
       expect(iteration.git_commit_sha).to eq(sha)
       expect(iteration.check_results).to include("landed" => true)
-      expect(iteration.check_results["landing"]).to include("via" => "dev_merge_audit")
+      expect(iteration.check_results["landing_check"]).to include("via" => "dev_merge_audit")
     end
   end
 
-  context "when the sha is not landed" do
+  context "when the git host answered and the sha is not landed" do
     before do
       allow(Ai::DevLoop::LandingCheck).to receive(:call)
         .and_return(Ai::DevLoop::LandingCheck::Result.new(landed: false, via: "git_host",
@@ -90,18 +90,46 @@ RSpec.describe Ai::Tools::DevLoopTool, "landing guard" do
     end
   end
 
+  context "when the landing could not be verified" do
+    it "keeps today's verdict and records landed: unverified with a warning" do
+      allow(Ai::DevLoop::LandingCheck).to receive(:call)
+        .and_return(Ai::DevLoop::LandingCheck::Result.new(landed: "unverified", via: "no_repository",
+                                                          warning: "no repository resolves — recorded as unverified"))
+      result = complete(commit_sha: sha)
+
+      expect(result[:success]).to be true
+      expect(result[:verification]).to eq("verified")
+      expect(result[:landed]).to eq("unverified")
+      expect(result[:warning]).to match(/unverified/)
+      expect(iteration.checks_passed).to be true
+      expect(iteration.check_results).to include("landed" => "unverified")
+    end
+  end
+
   context "when the landing check itself raises" do
-    it "never fails the completion" do
+    it "never fails the completion and does not downgrade it" do
       allow(Ai::DevLoop::LandingCheck).to receive(:call).and_raise(StandardError, "boom")
 
       result = complete(commit_sha: sha)
 
       expect(result[:success]).to be true
       expect(result[:task_status]).to eq("passed")
-      expect(result[:landed]).to be false
-      expect(result[:verification]).to eq("attested")
+      expect(result[:landed]).to eq("unverified")
+      expect(result[:verification]).to eq("verified")
       expect(result[:warning]).to match(/could not be verified/)
     end
+  end
+
+  it "keeps the caller's own check_results.landing beside the server's landing_check" do
+    allow(Ai::DevLoop::LandingCheck).to receive(:call)
+      .and_return(Ai::DevLoop::LandingCheck::Result.new(landed: true, via: "git_host"))
+    mine = { "landed_core_sha" => sha, "batch_id" => "b-1", "promoted" => [ { "environment" => "staging" } ] }
+
+    complete(commit_sha: sha, check_results: green.merge("landing" => mine))
+
+    expect(iteration.check_results["landing"]).to eq(mine)
+    expect(iteration.check_results["landing_check"]).to include("via" => "git_host")
+    expect(iteration.check_results["landed"]).to be true
   end
 
   context "without a commit_sha" do
@@ -116,9 +144,11 @@ RSpec.describe Ai::Tools::DevLoopTool, "landing guard" do
     end
   end
 
-  it "is recorded end to end against a real dev_merge.succeeded audit row" do
+  it "is recorded end to end against a real dev_merge.succeeded audit row for the loop's repository" do
+    repo = create(:git_repository, account: account, full_name: "owner/platform", owner: "owner", name: "platform")
+    ralph_loop.update!(repository_url: "https://git.example.test/#{repo.full_name}.git")
     create(:audit_log, account: account, action: "dev_merge.succeeded", resource_type: "Ai::DeferredOperation",
-                       metadata: { "outcome" => { "merged_sha" => sha } })
+                       metadata: { "repository" => repo.full_name, "outcome" => { "merged_sha" => sha } })
 
     result = complete(commit_sha: sha)
 
