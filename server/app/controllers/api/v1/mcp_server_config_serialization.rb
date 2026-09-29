@@ -34,6 +34,10 @@ module Api
     # (e.g. the worker-facing internal API, which legitimately returns the
     # raw config — see Api::V1::Internal::McpServersController#serialize_server
     # — to a completely different, worker-only trust tier).
+    # authz-ok: a serializer concern, not a routable controller — it defines no
+    # action and is reachable only through McpServersController, whose
+    # require_read_permission / require_write_permission before_actions gate
+    # every action that calls serialize_mcp_server_config.
     module McpServerConfigSerialization
       extend ActiveSupport::Concern
 
