@@ -75,7 +75,7 @@ RSpec.describe "scripts/verify-hub-deploy.sh" do
 
   it "accepts an abbreviated sha" do
     install_hub
-    out, _err, code = run_script(core_sha[0, 9])
+    out, _err, code = run_script(core_sha[0, 12])
 
     expect(code).to eq(0)
     expect(JSON.parse(out)).to include("core_present" => true, "ext_present" => nil)
@@ -164,7 +164,7 @@ RSpec.describe "scripts/verify-hub-deploy.sh" do
     install_hub
     _out, err, code = run_script(core_sha, env: { "HUB_EXEC_CMD" => "false" })
 
-    expect(code).to eq(2)
+    expect(code).to eq(3)
     expect(err).to match(/nothing was verified/)
   end
 
@@ -175,6 +175,40 @@ RSpec.describe "scripts/verify-hub-deploy.sh" do
 
     expect(code).to eq(0)
     expect(JSON.parse(out)).to include("ok" => true)
+  end
+
+  it "refuses a short sha before any call (a prefix that short matches too much)" do
+    install_hub
+    _out, err, code = run_script("a1b2c3d")
+
+    expect(code).to eq(2)
+    expect(err).to match(/12-40 hex/)
+  end
+
+  it "never treats the hub's short, garbled or multi-line output as a match" do
+    install_hub
+    [ "a1b2", "fatal: not a repository", "v1.2-deadbeef00", "#{'0' * 40}\n#{core_sha}" ].each do |garbled|
+      out, err, code = run_script(core_sha, env: { "HUB_CORE_SHA_CMD" => "printf '%s\\n' #{garbled.inspect}" })
+
+      expect(code).to eq(1), "#{garbled.inspect} passed: #{out} #{err}"
+      expect(JSON.parse(out)).to include("core_present" => false)
+    end
+  end
+
+  it "accepts a deployed sha that is only a 12-character tag of the wanted one" do
+    install_hub
+    out, err, code = run_script(core_sha, env: { "HUB_CORE_SHA_CMD" => "echo #{core_sha[0, 12]}" })
+
+    expect(code).to eq(0), err
+    expect(JSON.parse(out)).to include("core_present" => true)
+  end
+
+  it "reads a unit that never started (empty ActiveEnterTimestamp) as not restarted" do
+    install_hub(enter: "")
+    out, _err, code = run_script(core_sha)
+
+    expect(code).to eq(1)
+    expect(JSON.parse(out)).to include("rails_active_enter" => 0, "rails_restarted_after_boot" => false)
   end
 
   it "rejects a malformed sha before any call" do

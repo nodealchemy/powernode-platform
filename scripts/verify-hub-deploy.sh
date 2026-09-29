@@ -26,7 +26,10 @@
 #                       once left the hub unable to start rails)
 #   core_present / ext_present   the deployed sha matches (prefix compare either way)
 #   no_failed_units     no failed powernode-* systemd unit
-# Exit: 0 all green, 1 a check failed, 2 configuration / transport problem.
+# Exit: 0 all green, 1 a check failed, 2 configuration / usage problem, 3 the hub could not be asked
+# (transport failure, timeout, unparseable answer: nothing was verified, retrying is sensible).
+# A sha must be 12-40 hex characters, and the hub's answer is only its first token of that shape.
+# HUB_EXEC_CMD and HUB_*_SHA_CMD run verbatim: they are trusted operator configuration.
 #
 # Access and deployment facts come from local configuration, never from this file
 # (see scripts/lib/landing-common.sh and scripts/landing.env.example):
@@ -50,7 +53,7 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/landing-common.sh
 . "$SELF_DIR/lib/landing-common.sh"
 
-case "${1:-}" in -h|--help|"") sed -n '2,44p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
+case "${1:-}" in -h|--help|"") sed -n '2,/^set -euo/{/^set -euo/!p}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
 
 CORE_SHA=""; EXT_SHA=""; SINCE=""
 while [ $# -gt 0 ]; do
@@ -60,8 +63,8 @@ while [ $# -gt 0 ]; do
     *) if [ -z "$CORE_SHA" ]; then CORE_SHA="$1"; elif [ -z "$EXT_SHA" ]; then EXT_SHA="$1"; else LC_DIE_CODE=2 lc_die "unexpected argument: $1"; fi; shift ;;
   esac
 done
-lc_valid_sha "$CORE_SHA" || LC_DIE_CODE=2 lc_die "core_sha must be 7-40 hex characters"
-[ -z "$EXT_SHA" ] || lc_valid_sha "$EXT_SHA" || LC_DIE_CODE=2 lc_die "ext_sha must be 7-40 hex characters"
+[[ "$CORE_SHA" =~ ^[0-9a-fA-F]{12,40}$ ]] || LC_DIE_CODE=2 lc_die "core_sha must be 12-40 hex characters (a shorter one would match too much)"
+[ -z "$EXT_SHA" ] || [[ "$EXT_SHA" =~ ^[0-9a-fA-F]{12,40}$ ]] || LC_DIE_CODE=2 lc_die "ext_sha must be 12-40 hex characters"
 CORE_SHA="${CORE_SHA,,}"; EXT_SHA="${EXT_SHA,,}"
 
 lc_load_config "$(lc_repo_root)"
@@ -86,12 +89,12 @@ unit=\$(printf '%s' "\$unit" | tr -cd 'A-Za-z0-9_.@-')
 active=false
 [ -n "\$unit" ] && [ "\$(systemctl is-active "\$unit" 2>/dev/null)" = active ] && active=true
 enter_ts=\$(systemctl show -p ActiveEnterTimestamp --value "\$unit" 2>/dev/null)
-enter=\$(date -d "\$enter_ts" +%s 2>/dev/null); enter=\${enter:-0}
+enter=0; [ -n "\$enter_ts" ] && enter=\$(date -d "\$enter_ts" +%s 2>/dev/null); enter=\${enter:-0}
 boot=\$(date -d "\$(uptime -s 2>/dev/null)" +%s 2>/dev/null); boot=\${boot:-0}
 up=\$(curl -s -o /dev/null -m 10 -w '%{http_code}' $(printf '%q' "${HUB_UP_URL:-http://127.0.0.1:3000/up}") 2>/dev/null); up=\${up:-0}
 passwd=\$(wc -l < $(printf '%q' "${HUB_PASSWD_FILE:-/etc/passwd}") 2>/dev/null | tr -d ' '); passwd=\${passwd:-0}
-core_out=\$( ( ${HUB_CORE_SHA_CMD} ) 2>/dev/null | head -c 200 | tr -cd '0-9a-fA-F' | tr 'A-F' 'a-f')
-ext_out=\$( ( ${HUB_EXT_SHA_CMD:-true} ) 2>/dev/null | head -c 200 | tr -cd '0-9a-fA-F' | tr 'A-F' 'a-f')
+core_out=\$( ( ${HUB_CORE_SHA_CMD} ) 2>/dev/null | head -n 1 | awk '{print \$1}' | tr 'A-F' 'a-f' | grep -E '^[0-9a-f]{12,40}\$')
+ext_out=\$( ( ${HUB_EXT_SHA_CMD:-true} ) 2>/dev/null | head -n 1 | awk '{print \$1}' | tr 'A-F' 'a-f' | grep -E '^[0-9a-f]{12,40}\$')
 failed=\$(systemctl list-units 'powernode-*' --state=failed --no-legend --plain 2>/dev/null | awk '{print \$1}' | tr -cd 'A-Za-z0-9_.@\n-' | head -n 20)
 fj=""
 for u in \$failed; do fj="\${fj:+\$fj,}\"\$u\""; done
@@ -103,7 +106,7 @@ REMOTE
 raw="$(mktemp)"; trap 'rm -f "$raw"' EXIT
 # shellcheck disable=SC2086
 if ! build_remote | timeout "${HUB_EXEC_TIMEOUT:-90}" bash -c "$HUB_EXEC_CMD" >"$raw" 2>/dev/null; then
-  LC_DIE_CODE=2 lc_die "the hub call failed (transport error or timeout); nothing was verified"
+  LC_DIE_CODE=3 lc_die "the hub call failed (transport error or timeout); nothing was verified"
 fi
 
 case "${HUB_EXEC_UNWRAP:-}" in
@@ -112,13 +115,16 @@ case "${HUB_EXEC_UNWRAP:-}" in
   *) LC_DIE_CODE=2 lc_die "unknown HUB_EXEC_UNWRAP: $HUB_EXEC_UNWRAP" ;;
 esac
 line="$(printf '%s\n' "$payload" | command grep -E '^\{"rails_unit"' | tail -n 1 || true)"
-[ -n "$line" ] && printf '%s' "$line" | jq -e . >/dev/null 2>&1 || LC_DIE_CODE=2 lc_die "the hub returned no parseable result; nothing was verified"
+[ -n "$line" ] && printf '%s' "$line" | jq -e . >/dev/null 2>&1 || LC_DIE_CODE=3 lc_die "the hub returned no parseable result; nothing was verified"
 
 result="$(printf '%s' "$line" | jq -c \
   --arg core "$CORE_SHA" --arg ext "$EXT_SHA" --arg since "$SINCE_EPOCH" \
   --argjson min "${HUB_PASSWD_MIN_LINES:-10}" '
-  def matches($want; $have): ($want | length) > 0 and ($have | length) > 0 and
-    (($have | startswith($want)) or ($want | startswith($have)));
+  # Both sides are full or >= 12-character hex; the shorter must prefix the longer. The hub side is
+  # already filtered to that shape, so garbled or short output is "" and matches nothing.
+  def matches($want; $have): ($want | length) >= 12 and ($have | length) >= 12 and
+    ((($have | length) >= ($want | length) and ($have | startswith($want))) or
+     (($want | length) > ($have | length) and ($want | startswith($have))));
   . as $r
   | ($r.rails_active_enter > $r.host_boot and $r.rails_active_enter > 0
      and (($since == "") or ($r.rails_active_enter >= ($since | tonumber)))) as $restarted
