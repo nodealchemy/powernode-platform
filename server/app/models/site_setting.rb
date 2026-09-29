@@ -33,7 +33,10 @@ class SiteSetting < ApplicationRecord
   #
   # `ai.improvement_discovery` joined with D1's review fixes: its tier and
   # offer caps are operator configuration, not anything a public page needs.
-  PRIVATE_KEY_PREFIXES = %w[platform.status. ai.improvement_discovery].freeze
+  #
+  # `dev_merge.` joined with IMP-e82f619dde7a: it holds the names of private
+  # extensions, which must never reach a public page.
+  PRIVATE_KEY_PREFIXES = %w[platform.status. ai.improvement_discovery dev_merge.].freeze
   before_validation :keep_private_namespace_private
 
   # Scopes

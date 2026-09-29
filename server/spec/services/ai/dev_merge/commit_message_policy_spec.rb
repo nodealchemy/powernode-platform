@@ -54,8 +54,9 @@ RSpec.describe Ai::DevMerge::CommitMessagePolicy do
       expect(violation("zzhidden")).not_to include("zzhidden")
     end
 
-    it "derives the names from extensions/private/* by default" do
-      allow(Shared::ExtensionPaths).to receive(:private_slugs).and_return(%w[zzderived])
+    it "takes the names from Ai::DevMerge::ForbiddenNames by default" do
+      allow(Ai::DevMerge::ForbiddenNames).to receive(:resolve)
+        .and_return(Ai::DevMerge::ForbiddenNames::Result.new(names: %w[zzderived], determinate: true))
 
       expect(described_class.violation("touch zzderived")).to match(/private extension/)
       expect(described_class.violation("touch nothing private")).to be_nil

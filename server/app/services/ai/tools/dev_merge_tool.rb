@@ -47,7 +47,9 @@ module Ai
       JOB_CLASS = "Git::DevMergeIncrementJob"
       JOB_QUEUE = "services"
 
-      SHA = /\A\h{40}\z/
+      # The worker repeats SHA, REF, TARGET_BRANCH and SUBMODULE_PATH literally
+      # (Devops::IncrementMergeService); dev_merge_tool_spec pins each pair.
+      SHA = %r{\A\h{40}\z}
       # A branch name git accepts that also cannot be read as an option: no
       # leading "-", no "..", "//", "@{", whitespace, and no trailing "/", "."
       # or ".lock".
@@ -57,7 +59,7 @@ module Ai
       # (Devops::IncrementMergeService::TARGET_BRANCH) before any git runs;
       # dev_merge_tool_spec pins the two equal.
       TARGET_BRANCH = %r{\A(?:develop|master|release/[A-Za-z0-9][A-Za-z0-9._-]*)\z}
-      SUBMODULE_PATH = %r{\A(?!.*(?:\A|/)\.{1,2}(?:/|\z))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\z}
+      SUBMODULE_PATH = %r{\A(?!-)(?!.*(?:\A|/)\.{1,2}(?:/|\z))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\z}
       SUMMARY_MAX = 200
 
       # A committer for the pointer-bump commit when the replay runs as no
@@ -73,7 +75,11 @@ module Ai
                                "expected_source_sha is not a full 40-character SHA",
                                "the repository or a configured mirror is not active in this account",
                                "a pointer_bump summary carries AI attribution or names a private extension",
-                               "gate_attestation is missing"
+                               "gate_attestation is missing",
+                               "a remote's clone URL is not https with a host and no userinfo",
+                               "this host cannot tell which private extensions exist (declare them in the " \
+                               "protected site setting dev_merge.private_extension_names; [] declares none)",
+                               "on the approved replay, the remote set differs from the one pinned at park"
                              ]
 
       def self.definition
@@ -132,11 +138,22 @@ module Ai
       # replay: an approval made hours ago does not re-validate a repository
       # that has since been archived or a mirror that has since been removed.
       Plan = Struct.new(:repository, :remotes, :source_ref, :target_branch, :expected_source_sha,
-                        :pointer_bump, :gate_attestation, keyword_init: true) do
+                        :pointer_bump, :gate_attestation, :forbidden_names, keyword_init: true) do
         def protected_target?
           DevMergeTool.protected_target?(target_branch)
         end
+
+        # The exact remotes this plan pushes to, ids and names (never a URL or
+        # a credential): pinned into the parked call and shown to the approver.
+        def pinned_remotes
+          pin = ->(repos) { repos.map { |r| { "id" => r.id.to_s, "full_name" => r.full_name } } }
+          { "repository" => pin.call(remotes), "parent" => pointer_bump && pin.call(pointer_bump[:remotes]) }.compact
+        end
       end
+
+      # Written by the tool into the parked call; never taken from a caller
+      # (#park overwrites whatever a caller put there).
+      PINNED_KEY = "_pinned_remotes"
 
       def self.protected_target?(branch)
         branch == "master" || branch.to_s.match?(RELEASE_BRANCH)
@@ -149,7 +166,7 @@ module Ai
         plan, refusal = build_plan(params)
         return error_result(refusal) if refusal
 
-        return dispatch(plan) if approved_replay?
+        return dispatch(plan, params) if approved_replay?
 
         park(plan, params)
       end
@@ -185,25 +202,28 @@ module Ai
           return [ nil, "gate_attestation is required: attest to the verification gate you ran" ]
         end
 
+        names = ::Ai::DevMerge::ForbiddenNames.resolve
+        return [ nil, names.reason ] unless names.determinate?
+
         repository, remotes, refusal = resolve_repository(p[:repository], label: "repository")
         return [ nil, refusal ] if refusal
 
         pointer_bump = nil
         if p[:pointer_bump].present?
-          pointer_bump, refusal = build_pointer_bump(p[:pointer_bump])
+          pointer_bump, refusal = build_pointer_bump(p[:pointer_bump], forbidden_names: names.names)
           return [ nil, refusal ] if refusal
         end
 
         [ Plan.new(repository: repository, remotes: remotes, source_ref: source_ref, target_branch: target,
                    expected_source_sha: sha, pointer_bump: pointer_bump,
-                   gate_attestation: attestation.deep_stringify_keys), nil ]
+                   gate_attestation: attestation.deep_stringify_keys, forbidden_names: names.names), nil ]
       end
 
       def allowed_target?(target)
         target.match?(TARGET_BRANCH)
       end
 
-      def build_pointer_bump(raw)
+      def build_pointer_bump(raw, forbidden_names:)
         bump = raw.respond_to?(:to_unsafe_h) ? raw.to_unsafe_h : raw
         return [ nil, "pointer_bump must be an object" ] unless bump.is_a?(Hash)
 
@@ -216,7 +236,7 @@ module Ai
           return [ nil, "pointer_bump.summary must be one line" ] if summary.include?("\n") || summary.include?("\r")
           return [ nil, "pointer_bump.summary is over #{SUMMARY_MAX} characters" ] if summary.length > SUMMARY_MAX
 
-          violation = ::Ai::DevMerge::CommitMessagePolicy.violation(summary)
+          violation = ::Ai::DevMerge::CommitMessagePolicy.violation(summary, forbidden_names: forbidden_names)
           return [ nil, "pointer_bump.summary is refused: #{violation}" ] if violation
         end
 
@@ -250,11 +270,29 @@ module Ai
                              "than configured" ]
         end
 
-        [ repository, [ repository, *mirrors.sort_by { |m| mirror_ids.index(m.id.to_s) } ], nil ]
+        remotes = [ repository, *mirrors.sort_by { |m| mirror_ids.index(m.id.to_s) } ]
+        bad_url = remotes.find { |r| !https_clone_url?(r.clone_url) }
+        if bad_url
+          return [ nil, nil, "#{label} remote #{bad_url.full_name} has a clone URL that is not https with a host " \
+                             "and no userinfo; refusing to send a credential to it" ]
+        end
+
+        [ repository, remotes, nil ]
       end
 
       def pushable?(repository)
         repository.is_active && !repository.is_archived
+      end
+
+      # The worker sends the credential as a header on every request git makes
+      # to this URL, so only https with a host and no userinfo is accepted.
+      # The worker applies the same rule (Git::DevMergeIncrementJob), and its
+      # git allows the https transport only.
+      def https_clone_url?(value)
+        uri = URI.parse(value.to_s)
+        uri.is_a?(URI::HTTPS) && uri.host.present? && uri.userinfo.nil?
+      rescue URI::InvalidURIError
+        false
       end
 
       # ---- park --------------------------------------------------------------
@@ -271,7 +309,8 @@ module Ai
           action_category: ACTION_CATEGORY,
           executor_class: EXECUTOR_CLASS,
           params: ::Ai::Executors::DeferredToolCall.pack(
-            tool_class: self.class.name, action: ACTION, tool_params: params,
+            tool_class: self.class.name, action: ACTION,
+            tool_params: params.to_h.deep_stringify_keys.merge(PINNED_KEY => plan.pinned_remotes),
             principal: descriptor, human_only: protected_target
           ),
           account: account,
@@ -312,15 +351,16 @@ module Ai
       # needs exactly these to decide.
       def approval_description(plan)
         text = "#{ACTION}: #{plan.repository.full_name} #{plan.source_ref}@#{plan.expected_source_sha[0, 12]} " \
-               "-> #{plan.target_branch} (#{plan.remotes.size} remote#{'s' unless plan.remotes.size == 1})"
+               "-> #{plan.target_branch}; pushes to #{plan.remotes.map(&:full_name).join(', ')}"
         return text unless plan.pointer_bump
 
-        "#{text}; bump #{plan.pointer_bump[:parent].full_name}:#{plan.pointer_bump[:submodule_path]}"
+        "#{text}; bump #{plan.pointer_bump[:parent].full_name}:#{plan.pointer_bump[:submodule_path]} " \
+          "on #{plan.pointer_bump[:remotes].map(&:full_name).join(', ')}"
       end
 
       # ---- approved replay ---------------------------------------------------
 
-      def dispatch(plan)
+      def dispatch(plan, params)
         operation = @replaying_operation
         request = operation.try(:approval_request)
         unless request.respond_to?(:approved?) && request.approved?
@@ -332,7 +372,18 @@ module Ai
                               "their own session; nothing was merged.")
         end
 
+        # What was approved is what runs: the remotes resolved now must be the
+        # remotes pinned when the call parked.
+        pinned = params.to_h.deep_stringify_keys[PINNED_KEY]
+        unless pinned == plan.pinned_remotes
+          return error_result("#{ACTION}: the remote set changed since approval was asked for; nothing was " \
+                              "merged. Park it again so the new remotes are approved.")
+        end
+
         payload = job_payload(plan, operation)
+        # Written BEFORE the enqueue: this row is also the dispatch marker the
+        # worker's report is checked against (Api::V1::Internal::Ai::
+        # DevMergesController), so it exists before the worker can report.
         audit!("dev_merge.dispatched", operation, dispatch_metadata(plan, payload))
 
         response = ::WorkerJobService.enqueue_job(JOB_CLASS, args: [ payload ], queue: JOB_QUEUE)
@@ -362,10 +413,10 @@ module Ai
           "expected_source_sha" => plan.expected_source_sha,
           "remotes" => plan.remotes.map { |r| remote_descriptor(r) },
           "committer" => committer,
-          # Private-extension names, derived exactly as the core-purity gate
-          # derives them, so the worker can refuse a GENERATED message that
-          # names one. Never written to an audit row.
-          "forbidden_names" => ::Shared::ExtensionPaths.private_slugs
+          # Private-extension names (Ai::DevMerge::ForbiddenNames), so the
+          # worker can refuse a landed commit or a generated message naming
+          # one. Never written to an audit row.
+          "forbidden_names" => plan.forbidden_names
         }
         return payload unless plan.pointer_bump
 

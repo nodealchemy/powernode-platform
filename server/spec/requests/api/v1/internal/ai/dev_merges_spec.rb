@@ -25,6 +25,15 @@ RSpec.describe "Api::V1::Internal::Ai::DevMerges", type: :request do
       result: { "success" => true, "data" => { "dispatched" => true, "remotes" => remotes } }
     )
   end
+  let(:pointer_remotes) { nil }
+  # The dispatch marker: DevMergeTool writes this row BEFORE it enqueues the
+  # job, so it exists before the worker can report.
+  let!(:dispatched_row) do
+    AuditLog.log_action(action: "dev_merge.dispatched", resource: operation, account: internal_account,
+                        source: "automation", severity: "high", risk_level: "high",
+                        metadata: { "remotes" => remotes,
+                                    "pointer_bump" => pointer_remotes && { "remotes" => pointer_remotes } }.compact)
+  end
 
   def report(id: operation.id, **body)
     post "/api/v1/internal/ai/dev_merges/#{id}/report", params: body.to_json, headers: service_headers
@@ -32,6 +41,57 @@ RSpec.describe "Api::V1::Internal::Ai::DevMerges", type: :request do
 
   def remote(id, status, error: nil)
     { repository_id: id, full_name: id, status: status, error: error }.compact
+  end
+
+  it "accepts a report that arrives before the operation records its own result (the marker is the audit row)" do
+    operation.update!(result: {})
+
+    report(status: "succeeded", merged_sha: sha, remotes: [ remote("repo-primary", "pushed"), remote("repo-mirror", "pushed") ])
+
+    expect(JSON.parse(response.body).dig("data", "outcome")).to eq("succeeded")
+  end
+
+  it "answers 409 for an operation with no dispatch marker" do
+    dispatched_row.delete
+
+    report(status: "succeeded", merged_sha: sha, remotes: [])
+
+    expect(response).to have_http_status(:conflict)
+  end
+
+  it "does not take the worker's word for the merged SHA" do
+    report(status: "succeeded", merged_sha: "c" * 40,
+           remotes: [ remote("repo-primary", "pushed"), remote("repo-mirror", "pushed") ])
+
+    expect(JSON.parse(response.body).dig("data", "outcome")).to eq("failed")
+  end
+
+  context "when a pointer bump was dispatched" do
+    let(:pointer_remotes) { [ { "repository_id" => "repo-parent", "full_name" => "o/parent" } ] }
+
+    it "requires the pointer commit SHA for a success" do
+      report(status: "succeeded", merged_sha: sha, remotes: [ remote("repo-primary", "pushed"), remote("repo-mirror", "pushed") ],
+             pointer_remotes: [ remote("repo-parent", "pushed") ])
+
+      expect(JSON.parse(response.body).dig("data", "outcome")).to eq("failed")
+    end
+
+    it "succeeds with it" do
+      report(status: "succeeded", merged_sha: sha, pointer_commit_sha: "d" * 40,
+             remotes: [ remote("repo-primary", "pushed"), remote("repo-mirror", "pushed") ],
+             pointer_remotes: [ remote("repo-parent", "pushed") ])
+
+      expect(JSON.parse(response.body).dig("data", "outcome")).to eq("succeeded")
+    end
+  end
+
+  it "records once even when the operation's result is overwritten between two reports" do
+    report(status: "succeeded", merged_sha: sha, remotes: [ remote("repo-primary", "pushed"), remote("repo-mirror", "pushed") ])
+    operation.update!(result: { "success" => true, "data" => { "dispatched" => true } })
+    report(status: "failed", remotes: [])
+
+    expect(JSON.parse(response.body).dig("data", "already_recorded")).to be(true)
+    expect(AuditLog.where(resource_id: operation.id, action: %w[dev_merge.succeeded dev_merge.failed]).count).to eq(1)
   end
 
   it "records a merge that reached every dispatched remote as succeeded, with the approved refs and attestation" do
@@ -69,11 +129,12 @@ RSpec.describe "Api::V1::Internal::Ai::DevMerges", type: :request do
   end
 
   it "records once: a repeated report writes no second row" do
-    report(status: "succeeded", remotes: [ remote("repo-primary", "pushed"), remote("repo-mirror", "pushed") ])
+    report(status: "succeeded", merged_sha: sha,
+           remotes: [ remote("repo-primary", "pushed"), remote("repo-mirror", "pushed") ])
     report(status: "failed", remotes: [])
 
     expect(JSON.parse(response.body).dig("data", "already_recorded")).to be(true)
-    expect(AuditLog.where(resource_id: operation.id).count).to eq(1)
+    expect(AuditLog.where(resource_id: operation.id, action: %w[dev_merge.succeeded dev_merge.failed]).count).to eq(1)
     expect(operation.reload.result.dig("merge_outcome", "status")).to eq("succeeded")
   end
 

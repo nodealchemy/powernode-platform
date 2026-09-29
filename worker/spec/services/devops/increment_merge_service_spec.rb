@@ -72,10 +72,17 @@ RSpec.describe Devops::IncrementMergeService do
     sha
   end
 
+  # The parent's .gitmodules maps extensions/demo to the repository being
+  # merged (owner/sub is sub-primary's full_name below).
+  let(:gitmodules_url) { 'https://example.invalid/owner/sub.git' }
+
   # A parent whose develop records the submodule at base_sha.
   let!(:parent_base) do
     author('parent', pushes_to: [ [ parent_primary, 'develop' ], [ parent_mirror, 'develop' ] ]) do |work|
       commit!(work, 'README', 'parent root')
+      File.write(File.join(work, '.gitmodules'),
+                 "[submodule \"extensions/demo\"]\n\tpath = extensions/demo\n\turl = #{gitmodules_url}\n")
+      sh!('git', 'add', '.gitmodules', dir: work)
       sh!('git', 'update-index', '--add', '--cacheinfo', "160000,#{base_sha},extensions/demo", dir: work)
       sh!('git', 'commit', '--quiet', '-m', 'add the submodule pointer', dir: work)
     end
@@ -85,6 +92,10 @@ RSpec.describe Devops::IncrementMergeService do
   let(:paths) do
     { 'sub-primary' => sub_primary, 'sub-mirror' => sub_mirror,
       'parent-primary' => parent_primary, 'parent-mirror' => parent_mirror }
+  end
+  let(:full_names) do
+    { 'sub-primary' => 'owner/sub', 'sub-mirror' => 'mirror-owner/sub',
+      'parent-primary' => 'owner/parent', 'parent-mirror' => 'mirror-owner/parent' }
   end
   let(:api_sha) { increment_sha }
   let(:git_ops) { double('GitOperationsService') }
@@ -104,9 +115,13 @@ RSpec.describe Devops::IncrementMergeService do
   let(:service) do
     described_class.new(
       payload: payload,
-      remote_resolver: ->(id) { { url: paths.fetch(id), full_name: id, auth_header: nil, secrets: [], api_config: {} } },
+      remote_resolver: lambda do |id|
+        { url: paths.fetch(id), full_name: full_names.fetch(id), auth_header: nil, secrets: [], api_config: {} }
+      end,
       git_ops_factory: ->(_config) { git_ops },
-      logger: Logger.new(File::NULL)
+      logger: Logger.new(File::NULL),
+      # The remotes here are local paths; production allows https only.
+      allowed_protocols: %w[file]
     )
   end
 
@@ -228,6 +243,184 @@ RSpec.describe Devops::IncrementMergeService do
     end
   end
 
+  # Every commit the push would PUBLISH is checked, per remote, before a
+  # single push: a mirror that is behind receives more commits than origin.
+  describe 'the landed commit range' do
+    def expect_nothing_pushed(report, stage: 'commit_hygiene')
+      expect(report).to include('status' => 'failed', 'stage' => stage)
+      expect(tip(sub_primary)).to eq(base_sha)
+      expect(tip(sub_mirror)).to eq(base_sha)
+      expect(tip(parent_primary)).to eq(parent_base)
+      expect(tip(parent_mirror)).to eq(parent_base)
+      expect(report['remotes']).to eq([])
+    end
+
+    # Two commits on the increment: an older offending one, then a clean tip.
+    def increment_with(message)
+      sh!('git', 'checkout', '--quiet', '-B', 'feature/increment', base_sha, dir: @sub_work)
+      File.write(File.join(@sub_work, 'o.txt'), "x\n")
+      sh!('git', 'add', 'o.txt', dir: @sub_work)
+      sh!('git', 'commit', '--quiet', '-F', '-', dir: @sub_work, stdin: message)
+      offending = sh!('git', 'rev-parse', 'HEAD', dir: @sub_work)
+      tip_sha = commit!(@sub_work, 'p.txt', 'a clean tip')
+      sh!('git', 'push', '--quiet', '--force', sub_primary, 'feature/increment', dir: @sub_work)
+      payload['expected_source_sha'] = tip_sha
+      allow(git_ops).to receive(:get_branch).and_return({ commit: { sha: tip_sha } })
+      offending
+    end
+
+    it 'refuses the whole merge, with zero pushes, when one landed commit carries an AI co-author trailer' do
+      offending = increment_with("feat: a change\n\nCo-Authored-By: Some Model <noreply@example.invalid>\n")
+
+      report = service.call
+
+      expect_nothing_pushed(report)
+      expect(report['error']).to match(/AI attribution/).and include(offending[0, 12])
+    end
+
+    it 'refuses the whole merge, with zero pushes, when one landed commit names a private extension' do
+      increment_with("feat(zzhidden): wire the seam\n")
+
+      report = service.call
+
+      expect_nothing_pushed(report)
+      expect(report['error']).to match(/private extension/)
+      expect(report['error']).not_to match(/zzhidden/i)
+    end
+
+    it 'refuses when an AI tool is the commit author' do
+      sh!('git', 'checkout', '--quiet', '-B', 'feature/increment', base_sha, dir: @sub_work)
+      File.write(File.join(@sub_work, 'q.txt'), "q\n")
+      sh!('git', 'add', 'q.txt', dir: @sub_work)
+      Open3.capture3(git_env.merge('GIT_AUTHOR_NAME' => 'Claude'), 'git', 'commit', '--quiet', '-m', 'plain',
+                     chdir: @sub_work)
+      tip_sha = sh!('git', 'rev-parse', 'HEAD', dir: @sub_work)
+      sh!('git', 'push', '--quiet', '--force', sub_primary, 'feature/increment', dir: @sub_work)
+      payload['expected_source_sha'] = tip_sha
+      allow(git_ops).to receive(:get_branch).and_return({ commit: { sha: tip_sha } })
+
+      expect_nothing_pushed(service.call)
+    end
+
+    it 'checks each remote against ITS OWN tip: an offending commit only the lagging mirror lacks is caught' do
+      # origin's develop gains an attributed commit the mirror never got; the
+      # increment builds on it, so only the mirror's range contains it.
+      sh!('git', 'checkout', '--quiet', '-B', 'develop', base_sha, dir: @sub_work)
+      File.write(File.join(@sub_work, 'r.txt'), "r\n")
+      sh!('git', 'add', 'r.txt', dir: @sub_work)
+      sh!('git', 'commit', '--quiet', '-m', "chore: tidy\n\nGenerated with some tool", dir: @sub_work)
+      origin_tip = sh!('git', 'rev-parse', 'HEAD', dir: @sub_work)
+      sh!('git', 'push', '--quiet', sub_primary, 'develop', dir: @sub_work)
+      tip_sha = commit!(@sub_work, 's.txt', 'the reviewed increment')
+      sh!('git', 'push', '--quiet', '--force', sub_primary, 'HEAD:refs/heads/feature/increment', dir: @sub_work)
+      payload['expected_source_sha'] = tip_sha
+      allow(git_ops).to receive(:get_branch).and_return({ commit: { sha: tip_sha } })
+
+      report = service.call
+
+      expect(report).to include('status' => 'failed', 'stage' => 'commit_hygiene')
+      expect(report['error']).to include('mirror-owner/sub')
+      expect(tip(sub_primary)).to eq(origin_tip)
+      expect(tip(sub_mirror)).to eq(base_sha)
+    end
+
+    it 'checks the parent range too, before the submodule is pushed anywhere' do
+      author('parent-extra', pushes_to: []) do |work|
+        sh!('git', 'fetch', '--quiet', parent_primary, 'develop', dir: work)
+        sh!('git', 'checkout', '--quiet', '-B', 'develop', 'FETCH_HEAD', dir: work)
+        commit!(work, 'NOTES', 'Refs: drafted by Gemini')
+        sh!('git', 'push', '--quiet', parent_primary, 'develop', dir: work)
+      end
+
+      report = service.call
+
+      expect(report).to include('status' => 'failed', 'stage' => 'commit_hygiene')
+      expect(tip(sub_primary)).to eq(base_sha)
+      expect(tip(sub_mirror)).to eq(base_sha)
+      expect(report['remotes']).to eq([])
+    end
+  end
+
+  describe 'every other failure still yields a report' do
+    it 'turns an unexpected exception into a failed report naming only the error class' do
+      allow(git_ops).to receive(:get_branch).and_raise(RuntimeError, 'body https://user:tok@host/x')
+
+      report = service.call
+
+      expect(report).to include('status' => 'failed', 'stage' => 'verify_source', 'error' => 'RuntimeError')
+    end
+
+    it 'keeps the remotes already pushed when a later push blows up mid-loop' do
+      allow(Devops::GitCli).to receive(:new).and_wrap_original do |original, **kwargs|
+        cli = original.call(**kwargs)
+        allow(cli).to receive(:run).and_wrap_original do |run, *args, **opts|
+          raise Errno::EPIPE if args.first == 'push' && args.include?(sub_mirror)
+
+          run.call(*args, **opts)
+        end
+        cli
+      end
+
+      report = service.call
+
+      expect(report).to include('status' => 'failed', 'stage' => 'push', 'error' => 'Errno::EPIPE')
+      expect(report['remotes']).to eq([ { 'repository_id' => 'sub-primary', 'full_name' => 'owner/sub',
+                                          'status' => 'pushed' } ])
+      expect(tip(sub_primary)).to eq(increment_sha)
+    end
+  end
+
+  describe 'payload re-validation in the worker, before any git' do
+    before { allow(Devops::GitCli).to receive(:new).and_call_original }
+
+    {
+      'a source_ref that reads as an option' => [ 'source_ref', '--upload-pack=x' ],
+      'a short SHA' => [ 'expected_source_sha', 'abc123' ],
+      'a submodule path that climbs out' => [ 'pointer_bump', :climb ],
+      'a submodule path that reads as an option' => [ 'pointer_bump', :dash ]
+    }.each do |label, (key, value)|
+      it "refuses #{label}" do
+        case value
+        when :climb then payload['pointer_bump'] = pointer_bump.merge('submodule_path' => '../x')
+        when :dash then payload['pointer_bump'] = pointer_bump.merge('submodule_path' => '-x')
+        else payload[key] = value
+        end
+
+        report = service.call
+
+        expect(report).to include('status' => 'failed', 'stage' => 'validate')
+        expect(Devops::GitCli).not_to have_received(:new)
+      end
+    end
+
+    it 'refuses a payload with no forbidden_names key (an empty list is fine)' do
+      payload.delete('forbidden_names')
+
+      expect(service.call).to include('status' => 'failed', 'stage' => 'validate')
+      expect(Devops::GitCli).not_to have_received(:new)
+    end
+  end
+
+  describe 'the pointer bump belongs to the repository being merged' do
+    context 'when .gitmodules maps the path to a different repository' do
+      let(:gitmodules_url) { 'https://example.invalid/owner/other.git' }
+
+      it 'refuses before anything is pushed' do
+        report = service.call
+
+        expect(report).to include('status' => 'failed', 'stage' => 'pointer_bump')
+        expect(report['error']).to match(/does not belong/)
+        expect(tip(sub_primary)).to eq(base_sha)
+      end
+    end
+
+    context 'when .gitmodules names a mirror of the merged repository' do
+      let(:gitmodules_url) { 'https://example.invalid/mirror-owner/sub' }
+
+      it('accepts it') { expect(service.call['status']).to eq('succeeded') }
+    end
+  end
+
   # REJECT, never rewrite: text that would put attribution or a private name
   # into a published message refuses the pointer bump; nothing is scrubbed out
   # of it and committed anyway.
@@ -344,6 +537,19 @@ RSpec.describe Devops::IncrementMergeService do
 end
 
 RSpec.describe Devops::GitCli do
+  it 'allows https only by default: a local path is refused by git itself' do
+    Dir.mktmpdir do |dir|
+      other = File.join(dir, 'other.git')
+      Open3.capture3('git', 'init', '--bare', '--quiet', other)
+      repo = File.join(dir, 'scratch.git')
+      Open3.capture3('git', 'init', '--bare', '--quiet', repo)
+
+      expect(described_class.new(git_dir: repo).run('ls-remote', '--', other).success?).to be(false)
+      expect(described_class.new(git_dir: repo, allowed_protocols: %w[file]).run('ls-remote', '--', other).success?)
+        .to be(true)
+    end
+  end
+
   it 'refuses git submodule outright, before anything runs' do
     cli = described_class.new(git_dir: File::NULL)
 

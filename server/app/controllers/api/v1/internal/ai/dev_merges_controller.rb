@@ -9,38 +9,49 @@ module Api
         # audit row that closes the merge: repository, refs, SHAs, the result
         # per remote, and the caller's gate attestation.
         #
-        # The worker's report is NOT taken at its word on the one question that
-        # matters. The server recorded which remotes it dispatched the merge to;
-        # the outcome is succeeded only when the worker says so AND every one of
-        # those remotes is reported pushed or already up to date. A push that
-        # reached only some remotes is failed, whatever the summary says. The
-        # attestation and refs come from the approved operation, never from the
-        # report.
+        # THE DISPATCH MARKER is the dev_merge.dispatched audit row, which the
+        # tool writes BEFORE it enqueues the job. It is not the operation's
+        # `result`: that is written by DeferredOperation#execute_now! only
+        # after the enqueue returns, so a fast worker could report first, and
+        # a failure after the enqueue would leave no result at all. The audit
+        # row exists before the worker can run and is never rewritten. (The
+        # worker also retries its report, so a transient failure here is not
+        # the end of it.)
         #
-        # Recorded once. A second report for the same operation (a retried
-        # request) answers already_recorded and writes nothing.
+        # The worker's report is NOT taken at its word:
+        #   * succeeded needs the worker's own status AND every remote named in
+        #     the marker reported pushed or up_to_date (a partial push is
+        #     failed), the merged SHA equal to the approved expected SHA, and a
+        #     pointer commit SHA whenever a pointer bump was dispatched;
+        #   * refs, SHAs and the attestation in the audit row come from the
+        #     approved operation, never from the report.
+        #
+        # Recorded once, under a row lock on the operation: a second report
+        # answers already_recorded and writes nothing. "Once" is read from the
+        # outcome audit rows, which nothing rewrites, rather than from the
+        # operation's result, which #execute_now! may overwrite.
         class DevMergesController < InternalBaseController
           include Api::V1::Internal::WorkerTenancy
 
           REMOTE_OK = %w[pushed up_to_date].freeze
           ERROR_MAX = 2000
+          OUTCOME_ACTIONS = %w[dev_merge.succeeded dev_merge.failed].freeze
 
           before_action :set_operation
 
           # POST /api/v1/internal/ai/dev_merges/:id/report
           def report
-            dispatched = dispatched_result
-            unless dispatched["dispatched"] == true
-              return render_error("Operation was not dispatched as a merge", status: :conflict)
-            end
+            @operation.with_lock do
+              marker = dispatch_marker
+              return render_error("Operation was not dispatched as a merge", status: :conflict) if marker.nil?
 
-            result = @operation.result.is_a?(Hash) ? @operation.result : {}
-            if result["merge_outcome"].present?
-              return render_success(already_recorded: true, outcome: result.dig("merge_outcome", "status"))
-            end
+              recorded = outcome_rows.order(:created_at).first
+              if recorded
+                return render_success(already_recorded: true, outcome: recorded.action.delete_prefix("dev_merge."))
+              end
 
-            outcome = build_outcome(dispatched)
-            ::ActiveRecord::Base.transaction do
+              outcome = build_outcome(marker.metadata)
+              result = @operation.result.is_a?(Hash) ? @operation.result : {}
               @operation.update!(result: result.merge("merge_outcome" => outcome))
               ::AuditLog.log_action(
                 action: "dev_merge.#{outcome['status']}", resource: @operation, account: @operation.account,
@@ -48,9 +59,8 @@ module Api
                 severity: "high", risk_level: "high",
                 metadata: audit_metadata(outcome)
               )
+              render_success(outcome: outcome["status"])
             end
-
-            render_success(outcome: outcome["status"])
           end
 
           private
@@ -63,27 +73,44 @@ module Api
             render_error("Merge operation not found", status: :not_found)
           end
 
-          # What the approved replay returned when it dispatched: the tool's own
-          # envelope, stored on the operation by #execute_now!.
-          def dispatched_result
-            result = @operation.result.is_a?(Hash) ? @operation.result : {}
-            data = result["data"]
-            data.is_a?(Hash) ? data : {}
+          def audit_scope
+            ::AuditLog.where(resource_type: @operation.class.name, resource_id: @operation.id,
+                             account_id: @operation.account_id)
           end
 
-          def build_outcome(dispatched)
+          def dispatch_marker
+            audit_scope.where(action: "dev_merge.dispatched").order(:created_at).first
+          end
+
+          def outcome_rows
+            audit_scope.where(action: OUTCOME_ACTIONS)
+          end
+
+          def tool_params
+            call = @operation.params.is_a?(Hash) ? @operation.params : {}
+            call["tool_params"].is_a?(Hash) ? call["tool_params"] : {}
+          end
+
+          def build_outcome(marker)
+            marker = marker.is_a?(Hash) ? marker : {}
+            dispatched_pointer = marker.dig("pointer_bump", "remotes")
             remotes = reported_remotes(:remotes)
             pointer_remotes = reported_remotes(:pointer_remotes)
-            merge_ok = all_reached?(dispatched["remotes"], remotes)
-            pointer_ok = dispatched["pointer_remotes"].blank? || all_reached?(dispatched["pointer_remotes"], pointer_remotes)
-            succeeded = params[:status].to_s == "succeeded" && merge_ok && pointer_ok
+            merged_sha = params[:merged_sha].to_s.downcase.presence
+            pointer_sha = params[:pointer_commit_sha].to_s.downcase.presence
+
+            succeeded = params[:status].to_s == "succeeded" &&
+                        all_reached?(marker["remotes"], remotes) &&
+                        merged_sha == tool_params["expected_source_sha"].to_s.downcase &&
+                        (dispatched_pointer.blank? ||
+                          (all_reached?(dispatched_pointer, pointer_remotes) && pointer_sha.to_s.match?(/\A\h{40}\z/)))
 
             {
               "status" => succeeded ? "succeeded" : "failed",
               "worker_status" => params[:status].to_s,
               "stage" => params[:stage].to_s.presence,
-              "merged_sha" => params[:merged_sha].to_s.presence,
-              "pointer_commit_sha" => params[:pointer_commit_sha].to_s.presence,
+              "merged_sha" => merged_sha,
+              "pointer_commit_sha" => pointer_sha,
               "remotes" => remotes,
               "pointer_remotes" => pointer_remotes.presence,
               "error" => params[:error].to_s.presence&.truncate(ERROR_MAX)
@@ -112,8 +139,6 @@ module Api
 
           # Refs, SHAs and the attestation come from the APPROVED operation.
           def audit_metadata(outcome)
-            call = @operation.params.is_a?(Hash) ? @operation.params : {}
-            tool_params = call["tool_params"].is_a?(Hash) ? call["tool_params"] : {}
             bump = tool_params["pointer_bump"].is_a?(Hash) ? tool_params["pointer_bump"] : nil
 
             {

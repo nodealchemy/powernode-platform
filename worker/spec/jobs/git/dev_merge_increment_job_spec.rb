@@ -47,6 +47,45 @@ RSpec.describe Git::DevMergeIncrementJob, type: :job do
       .with('/api/v1/internal/ai/dev_merges/op-1/report', hash_including('status' => 'failed', 'stage' => 'kill_switch'))
   end
 
+  it 'posts a failed report naming only the error class when anything raises' do
+    allow(Devops::IncrementMergeService).to receive(:new).and_raise(KeyError, 'key https://user:tok@host')
+
+    job.execute(payload)
+
+    expect(api_client).to have_received(:post)
+      .with('/api/v1/internal/ai/dev_merges/op-1/report',
+            hash_including('status' => 'failed', 'stage' => 'job', 'error' => 'KeyError'))
+  end
+
+  describe 'the report POST' do
+    before do
+      allow(job).to receive(:sleep)
+      allow(Devops::IncrementMergeService).to receive(:new)
+        .and_return(instance_double(Devops::IncrementMergeService, call: { 'status' => 'succeeded', 'remotes' => [] }))
+    end
+
+    it 'retries with backoff until the server takes it (the server records once)' do
+      calls = 0
+      allow(api_client).to receive(:post) do
+        calls += 1
+        raise BackendApiClient::ApiError.new('not dispatched', 409) if calls < 3
+      end
+
+      job.execute(payload)
+
+      expect(calls).to eq(3)
+      expect(job).to have_received(:sleep).with(2).ordered
+      expect(job).to have_received(:sleep).with(4).ordered
+    end
+
+    it 'gives up after its attempts and raises, so the job lands in the dead set rather than vanishing' do
+      allow(api_client).to receive(:post).and_raise(BackendApiClient::ApiError.new('down', 503))
+
+      expect { job.execute(payload) }.to raise_error(BackendApiClient::ApiError)
+      expect(api_client).to have_received(:post).exactly(described_class::REPORT_ATTEMPTS).times
+    end
+  end
+
   it 'keeps the private-extension names out of its log line' do
     redacted = described_class.redact_args([ payload ])
 
@@ -72,6 +111,24 @@ RSpec.describe Git::DevMergeIncrementJob, type: :job do
       expect(remote[:url]).to eq('https://git.example.invalid/o/r.git')
       expect(remote[:auth_header]).to eq("Authorization: Basic #{Base64.strict_encode64('git:tok-secret')}")
       expect(remote[:secrets]).to include('tok-secret')
+    end
+
+    {
+      'plain http (the token would travel in clear)' => 'http://git.example.invalid/o/r.git',
+      'ssh (the worker host\'s own keys)' => 'ssh://git@git.example.invalid/o/r.git',
+      'scp-style ssh' => 'git@git.example.invalid:o/r.git',
+      'a file URL' => 'file:///srv/r.git',
+      'a local path' => '/srv/r.git',
+      'userinfo in the URL' => 'https://user:pw@git.example.invalid/o/r.git',
+      'an option-shaped value' => '--upload-pack=touch /tmp/x'
+    }.each do |label, url|
+      it "refuses #{label}" do
+        allow(api_client).to receive(:get).with('/api/v1/internal/git/repositories/repo-1').and_return(
+          'data' => { 'full_name' => 'o/r', 'clone_url' => url, 'credential' => { 'id' => 'cred-1' } }
+        )
+
+        expect { job.send(:resolve_remote, 'repo-1') }.to raise_error(ArgumentError, /https/)
+      end
     end
 
     it 'hands the Gitea provider the host base, since it appends /api/v1 itself' do

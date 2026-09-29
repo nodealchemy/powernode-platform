@@ -20,6 +20,13 @@ RSpec.describe Ai::Tools::DevMergeTool do
 
   before do
     allow(WorkerJobService).to receive(:enqueue_job).and_return({ "data" => { "job_id" => "jid-1" } })
+    # This host's private-extension names are declared, so the merge can know
+    # what it must refuse (Ai::DevMerge::ForbiddenNames).
+    SiteSetting.set(Ai::DevMerge::ForbiddenNames::SETTING_KEY, %w[zzhidden], setting_type: "json")
+  end
+
+  def indeterminate
+    Ai::DevMerge::ForbiddenNames::Result.new(names: [], determinate: false, reason: "cannot tell which exist")
   end
 
   def merge(**overrides)
@@ -50,11 +57,13 @@ RSpec.describe Ai::Tools::DevMergeTool do
   # The worker re-checks the allowlist before any git runs, with the SAME
   # literal. A drift between the two would let one side accept a target the
   # other was written to refuse.
-  it "uses the same target-branch literal as the worker" do
-    worker_source = Rails.root.join("..", "worker", "app", "services", "devops", "increment_merge_service.rb").read
-    literal = worker_source[/TARGET_BRANCH = %r\{(.+)\}$/, 1]
+  %w[TARGET_BRANCH REF SHA SUBMODULE_PATH].each do |name|
+    it "uses the same #{name} literal as the worker" do
+      worker_source = Rails.root.join("..", "worker", "app", "services", "devops", "increment_merge_service.rb").read
+      literal = worker_source[/^\s*#{name} = %r\{(.+)\}$/, 1]
 
-    expect(literal).to eq(described_class::TARGET_BRANCH.source)
+      expect(literal).to eq(described_class.const_get(name).source)
+    end
   end
 
   describe "parking" do
@@ -95,6 +104,25 @@ RSpec.describe Ai::Tools::DevMergeTool do
     end
   end
 
+  describe "the remotes a person approves are the remotes that run" do
+    it "pins the resolved remotes into the parked call and names them on the approval card" do
+      parked = merge
+      operation = operation_for(parked)
+
+      expect(operation.params.dig("tool_params", "_pinned_remotes", "repository"))
+        .to eq([ { "id" => repository.id, "full_name" => repository.full_name },
+                 { "id" => mirror.id, "full_name" => mirror.full_name } ])
+      expect(operation.approval_request.description).to include("origin-owner/platform", "mirror-owner/platform")
+    end
+
+    it "writes the pin itself: a caller-supplied pin is overwritten" do
+      parked = merge(_pinned_remotes: { "repository" => [ { "id" => "forged", "full_name" => "x/y" } ] })
+
+      expect(operation_for(parked).params.dig("tool_params", "_pinned_remotes", "repository").map { |r| r["id"] })
+        .to eq([ repository.id, mirror.id ])
+    end
+  end
+
   describe "refused before it parks, so no one is asked to approve a merge that can only fail" do
     before { allow(Shared::ExtensionPaths).to receive(:private_slugs).and_return(%w[zzhidden]) }
 
@@ -117,6 +145,24 @@ RSpec.describe Ai::Tools::DevMergeTool do
       expect(Ai::ApprovalRequest.count).to eq(0)
     end
     it("a repository outside the account") { expect_refused(merge(repository: create(:git_repository).full_name), /not a repository/) }
+
+    it "a host that cannot tell which private extensions exist" do
+      allow(Ai::DevMerge::ForbiddenNames).to receive(:resolve).and_return(indeterminate)
+
+      expect_refused(merge, /cannot tell which exist/)
+    end
+
+    it "a remote whose clone URL is not https" do
+      mirror.update!(clone_url: "http://git.example.invalid/mirror-owner/platform.git")
+
+      expect_refused(merge, /https/)
+    end
+
+    it "a remote whose clone URL carries userinfo" do
+      mirror.update!(clone_url: "https://user:pw@git.example.invalid/mirror-owner/platform.git")
+
+      expect_refused(merge, /https/)
+    end
 
     it "a configured mirror that is no longer active" do
       mirror.update!(is_archived: true)
@@ -177,12 +223,32 @@ RSpec.describe Ai::Tools::DevMergeTool do
       expect(row.metadata.to_json).not_to include("forbidden_names")
     end
 
-    it "hands the worker the private-extension names derived from extensions/private/*, and only there" do
-      allow(Shared::ExtensionPaths).to receive(:private_slugs).and_return(%w[zzhidden])
+    it "hands the worker the names Ai::DevMerge::ForbiddenNames resolves, and only there" do
+      allow(Ai::DevMerge::ForbiddenNames).to receive(:resolve)
+        .and_return(Ai::DevMerge::ForbiddenNames::Result.new(names: %w[zzhidden zz-other], determinate: true))
       approve(merge)
 
       expect(WorkerJobService).to have_received(:enqueue_job)
-        .with(anything, hash_including(args: [ hash_including("forbidden_names" => %w[zzhidden]) ]))
+        .with(anything, hash_including(args: [ hash_including("forbidden_names" => %w[zzhidden zz-other]) ]))
+    end
+
+    it "refuses to dispatch when the names became unknowable after the call parked" do
+      parked = merge
+      allow(Ai::DevMerge::ForbiddenNames).to receive(:resolve).and_return(indeterminate)
+      approve(parked)
+
+      expect(WorkerJobService).not_to have_received(:enqueue_job)
+      expect(operation_for(parked).result["error"]).to match(/cannot tell which exist/)
+    end
+
+    it "refuses to dispatch when the remote set changed after approval was asked for" do
+      parked = merge
+      extra = create(:git_repository, account: account, full_name: "late-owner/platform")
+      repository.update!(metadata: { Devops::GitRepository::PUSH_MIRRORS_KEY => [ mirror.id, extra.id ] })
+      approve(parked)
+
+      expect(WorkerJobService).not_to have_received(:enqueue_job)
+      expect(operation_for(parked).result["error"]).to match(/remote set changed/)
     end
 
     it "refuses to dispatch when the repository was archived after the call parked" do

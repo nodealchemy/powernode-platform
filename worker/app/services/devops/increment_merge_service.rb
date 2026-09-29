@@ -2,6 +2,7 @@
 
 require "tmpdir"
 require "fileutils"
+require "uri"
 require_relative "git_cli"
 require_relative "commit_message_hygiene"
 
@@ -9,28 +10,43 @@ module Devops
   # The worker half of dev_merge_increment (the server half is
   # Ai::Tools::DevMergeTool, which dispatches only an APPROVED merge).
   #
+  #   0. validate        the payload is re-checked here, before any git runs:
+  #                      target_branch, source_ref, expected_source_sha,
+  #                      submodule_path and the presence of forbidden_names,
+  #                      with the SAME literals the server uses (a server spec
+  #                      pins them equal). The worker is a second trust
+  #                      boundary.
   #   1. verify_source   source_ref still resolves to expected_source_sha,
   #                      asked of the provider API (Devops::GitOperationsService)
   #                      and again of the fetched ref. Refused if it moved.
   #   2. fast_forward    every configured remote's target_branch must be the
   #                      expected SHA or an ancestor of it. Checked on EVERY
-  #                      remote before pushing to ANY, so a non-fast-forward on
-  #                      a mirror refuses the whole merge. Never forced.
-  #   3. push            per remote, first re-read that remote's CURRENT
-  #                      head (ls-remote): a remote that moved since the
-  #                      plan so that its head is no longer an ancestor of
-  #                      the SHA is refused. Then <sha>:refs/heads/<target>,
+  #                      remote before pushing to ANY. Never forced.
+  #   3. pointer_bump    optional, and BUILT here, before anything is pushed:
+  #                      in the parent repository, check that .gitmodules maps
+  #                      submodule_path to the repository being merged, then
+  #                      move ONE gitlink through plumbing (read-tree /
+  #                      update-index --cacheinfo / write-tree / commit-tree),
+  #                      verify that path is the only change, and plan the
+  #                      parent remotes the same fast-forward-only way.
+  #   4. commit_hygiene  every commit each push would PUBLISH — per remote,
+  #                      <that remote's tip>..<sha>, parent ranges included —
+  #                      is checked for AI attribution and private-extension
+  #                      names. One hit refuses the whole merge before a
+  #                      single push. Refused, never rewritten.
+  #   5. push            per remote, first re-read that remote's CURRENT head
+  #                      (ls-remote): a remote that moved since the plan to a
+  #                      non-ancestor is refused. Then <sha>:refs/heads/<target>,
   #                      no force. Any remote that did not take it makes the
-  #                      merge FAILED.
-  #   4. pointer_bump    optional: in the parent repository, move ONE gitlink
-  #                      (submodule_path) to the merged SHA through plumbing
-  #                      (read-tree / update-index --cacheinfo / write-tree /
-  #                      commit-tree), verify that path is the only change,
-  #                      then fast-forward and push it to every parent remote
-  #                      the same way. `git submodule` is never run.
+  #                      merge FAILED, and the pointer is then not pushed.
   #
-  # Returns the report the job posts to the server; never raises for a
-  # refusal. `remote_resolver.call(repository_id)` answers
+  # Returns the report the job posts to the server and NEVER raises: a
+  # refusal carries its reason, and any other exception becomes a failed
+  # report naming only the exception class (a message can carry a provider's
+  # response body or a URL). The per-remote entries are recorded as each push
+  # happens, so a crash mid-loop still reports the remotes already pushed.
+  #
+  # `remote_resolver.call(repository_id)` answers
   # { url:, auth_header:, secrets:, api_config:, full_name: }, and
   # `git_ops_factory.call(api_config)` a Devops::GitOperationsService.
   class IncrementMergeService
@@ -44,44 +60,51 @@ module Devops
     end
 
     SHORT_SHA = 8
-    # The targets a merge may land on: develop, master, release/<version>.
-    # The SAME literal as Ai::Tools::DevMergeTool::TARGET_BRANCH on the server
-    # (a server spec pins the two equal). Re-checked here, before any git
-    # runs, because the worker is a second trust boundary: a payload that
-    # reached it by any other route than the server's validation is refused.
+    # The server's literals (Ai::Tools::DevMergeTool), repeated here because
+    # the worker shares no code with the server; dev_merge_tool_spec pins each
+    # pair equal.
     TARGET_BRANCH = %r{\A(?:develop|master|release/[A-Za-z0-9][A-Za-z0-9._-]*)\z}
+    REF = %r{\A(?!.*\.\.)(?!.*//)(?!.*@\{)(?!.*\.lock\z)[A-Za-z0-9][A-Za-z0-9._/-]*(?<![/.])\z}
+    SHA = %r{\A\h{40}\z}
+    SUBMODULE_PATH = %r{\A(?!-)(?!.*(?:\A|/)\.{1,2}(?:/|\z))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\z}
     REMOTE_OK = %w[pushed up_to_date].freeze
+    # `git log` record for the hygiene scan: SHA, author, committer, message.
+    LOG_FORMAT = "%H%x00%an%x00%ae%x00%cn%x00%ce%x00%B%x1e"
 
-    def initialize(payload:, remote_resolver:, git_ops_factory:, workdir: nil, logger: nil, git_timeout: GitCli::DEFAULT_TIMEOUT)
+    def initialize(payload:, remote_resolver:, git_ops_factory:, workdir: nil, logger: nil,
+                   git_timeout: GitCli::DEFAULT_TIMEOUT, allowed_protocols: GitCli::DEFAULT_PROTOCOLS)
       @payload = payload
       @remote_resolver = remote_resolver
       @git_ops_factory = git_ops_factory
       @workdir = workdir
       @logger = logger || Logger.new($stdout)
       @git_timeout = git_timeout
+      @allowed_protocols = allowed_protocols
       @report = { "status" => "failed", "remotes" => [], "pointer_remotes" => [] }
     end
 
     def call
-      unless target.match?(TARGET_BRANCH)
-        raise Refusal.new("validate", "target_branch #{target.inspect} is not develop, master or release/<version>")
-      end
-
+      @stage = "validate"
+      validate_payload!
       with_workspace do |git|
         @git = git
-        merge!
-        bump_pointer! if @payload["pointer_bump"].is_a?(Hash)
+        run!
       end
       @report.merge("status" => "succeeded", "stage" => nil).compact
     rescue Refusal => e
-      @report.merge("status" => "failed", "stage" => e.stage, "error" => e.message).compact
-    rescue GitCli::Refused, GitCli::Timeout => e
-      @report.merge("status" => "failed", "stage" => @stage, "error" => e.message).compact
+      failed(e.stage, e.message)
+    rescue StandardError => e
+      # Class only: a message can hold a provider body or a URL.
+      failed(@stage, e.class.name)
     end
 
     attr_reader :git
 
     private
+
+    def failed(stage, error)
+      @report.merge("status" => "failed", "stage" => stage, "error" => error).compact
+    end
 
     def expected
       @payload["expected_source_sha"].to_s.downcase
@@ -91,11 +114,29 @@ module Devops
       @payload["target_branch"].to_s
     end
 
-    # ---- 1-3: the increment -------------------------------------------------
+    def forbidden_names
+      @payload["forbidden_names"]
+    end
 
-    def merge!
-      remotes = @payload.fetch("remotes").map { |r| resolve(r) }
-      raise Refusal.new("resolve", "no remotes were dispatched") if remotes.empty?
+    def validate_payload!
+      refuse = ->(reason) { raise Refusal.new("validate", reason) }
+      refuse.call("target_branch #{target.inspect} is not develop, master or release/<version>") unless target.match?(TARGET_BRANCH)
+      refuse.call("source_ref is not a valid branch name") unless @payload["source_ref"].to_s.match?(REF)
+      refuse.call("expected_source_sha is not a full 40-character SHA") unless expected.match?(SHA)
+      refuse.call("no forbidden_names were dispatched; refusing to publish unchecked") unless forbidden_names.is_a?(Array)
+      refuse.call("no remotes were dispatched") unless @payload["remotes"].is_a?(Array) && @payload["remotes"].any?
+
+      bump = @payload["pointer_bump"]
+      return if bump.nil?
+
+      refuse.call("pointer_bump is not an object") unless bump.is_a?(Hash)
+      return if bump["submodule_path"].to_s.match?(SUBMODULE_PATH)
+
+      refuse.call("pointer_bump.submodule_path is not a valid relative path")
+    end
+
+    def run!
+      remotes = @payload["remotes"].map { |r| resolve(r) }
 
       @stage = "verify_source"
       verify_source!(remotes.first)
@@ -103,12 +144,30 @@ module Devops
       @stage = "fast_forward"
       plans = fast_forward_plans(remotes, expected, ref_prefix: "merge")
 
+      bump = prepare_pointer_bump!(remotes) if @payload["pointer_bump"].is_a?(Hash)
+
+      @stage = "commit_hygiene"
+      check_published_ranges!(plans, expected)
+      check_published_ranges!(bump[:plans], bump[:commit]) if bump
+
       @stage = "push"
       @report["merged_sha"] = expected
-      @report["remotes"] = push_all(plans, expected)
-      failed = @report["remotes"].reject { |r| REMOTE_OK.include?(r["status"]) }
-      raise Refusal.new("push", "#{failed.size} of #{plans.size} remote(s) did not take the push") if failed.any?
+      push_all(plans, expected, into: "remotes")
+      failed_remotes!("remotes", plans.size, "push", "remote(s) did not take the push")
+      return unless bump
+
+      @stage = "pointer_push"
+      @report["pointer_commit_sha"] = bump[:commit]
+      push_all(bump[:plans], bump[:commit], into: "pointer_remotes")
+      failed_remotes!("pointer_remotes", bump[:plans].size, "pointer_push", "parent remote(s) did not take the pointer bump")
     end
+
+    def failed_remotes!(key, total, stage, what)
+      failed = @report[key].reject { |r| REMOTE_OK.include?(r["status"]) }
+      raise Refusal.new(stage, "#{failed.size} of #{total} #{what}") if failed.any?
+    end
+
+    # ---- 1-2: the increment -------------------------------------------------
 
     def verify_source!(primary)
       source = @payload["source_ref"].to_s
@@ -128,18 +187,18 @@ module Devops
       raise Refusal.new("verify_source", "#{source} moved to #{fetched[0, 12]} while it was being fetched; refusing")
     end
 
-    # For each remote: :up_to_date when its target already IS `sha`, :push
-    # when its target is an ancestor of `sha`. Anything else refuses the whole
-    # operation before a single push.
+    # For each remote, [remote, plan, tip]: :up_to_date when its target
+    # already IS `sha`, :push when its target is an ancestor of `sha`.
+    # Anything else refuses the whole operation before a single push.
     def fast_forward_plans(remotes, sha, ref_prefix:)
       remotes.each_with_index.map do |remote, i|
         local = "refs/dev-merge/#{ref_prefix}-#{i}"
         fetch!(remote, "refs/heads/#{target}", local)
         tip = rev_parse(local)
         if tip == sha
-          [ remote, :up_to_date ]
+          [ remote, :up_to_date, tip ]
         elsif ancestor?(tip, sha)
-          [ remote, :push ]
+          [ remote, :push, tip ]
         else
           raise Refusal.new("fast_forward",
                             "#{target} on #{remote[:full_name]} (#{tip[0, 12]}) is not an ancestor of " \
@@ -148,51 +207,9 @@ module Devops
       end
     end
 
-    # Per remote, never short-circuited: the report must say what EVERY
-    # remote did, because a partial push is the failure this reports.
-    #
-    # The plan was made from a fetch that may now be stale, so each remote's
-    # head is read again immediately before its push, and a remote that has
-    # moved to anything that is not an ancestor of `sha` is REFUSED rather
-    # than pushed. (A head this scratch repository has never seen cannot be
-    # an ancestor of `sha`, whose history it holds, so the ancestry check
-    # answers false for it too.)
-    def push_all(plans, sha)
-      plans.map do |remote, _plan|
-        entry = { "repository_id" => remote[:repository_id], "full_name" => remote[:full_name] }
-        head = remote_head(remote)
-        next entry.merge("status" => "up_to_date") if head == sha
+    # ---- 3: the parent's gitlink ----------------------------------------------
 
-        unless head && ancestor?(head, sha)
-          next entry.merge("status" => "refused",
-                           "error" => "#{target} on #{remote[:full_name]} moved to " \
-                                      "#{head ? head[0, 12] : 'nothing'} since the plan and is not an ancestor " \
-                                      "of #{sha[0, 12]}; refusing a non-fast-forward")
-        end
-
-        result = git.run("push", "--porcelain", remote[:url], "#{sha}:refs/heads/#{target}",
-                         auth_header: remote[:auth_header], secrets: remote[:secrets])
-        if result.success?
-          entry.merge("status" => "pushed")
-        else
-          entry.merge("status" => "failed", "error" => result.stderr.strip[0, 500])
-        end
-      end
-    end
-
-    # The remote's target head right now, or nil when it cannot be read.
-    def remote_head(remote)
-      result = git.run("ls-remote", remote[:url], "refs/heads/#{target}",
-                       auth_header: remote[:auth_header], secrets: remote[:secrets])
-      return nil unless result.success?
-
-      line = result.stdout.split("\n").map(&:split).find { |_sha, ref| ref == "refs/heads/#{target}" }
-      line&.first&.downcase
-    end
-
-    # ---- 4: the parent's gitlink --------------------------------------------
-
-    def bump_pointer!
+    def prepare_pointer_bump!(merged_remotes)
       bump = @payload["pointer_bump"]
       @stage = "pointer_bump"
       path = bump["submodule_path"].to_s
@@ -202,26 +219,57 @@ module Devops
       fetch!(parents.first, "refs/heads/#{target}", "refs/dev-merge/parent")
       parent_tip = rev_parse("refs/dev-merge/parent")
       current = gitlink_at(parent_tip, path)
+      belongs_to_merged_repository!(parent_tip, path, merged_remotes)
 
       commit = current == expected ? parent_tip : pointer_commit(parent_tip, path, bump["summary"])
-      @report["pointer_commit_sha"] = commit
 
       @stage = "pointer_fast_forward"
-      plans = fast_forward_plans(parents, commit, ref_prefix: "parent")
+      { commit: commit, plans: fast_forward_plans(parents, commit, ref_prefix: "parent") }
+    end
 
-      @stage = "pointer_push"
-      @report["pointer_remotes"] = push_all(plans, commit)
-      failed = @report["pointer_remotes"].reject { |r| REMOTE_OK.include?(r["status"]) }
-      return if failed.empty?
+    # .gitmodules at the parent tip must map `path` to the repository being
+    # merged (its primary or one of its mirrors, compared as owner/name).
+    # Otherwise this merge would record repository A's SHA at repository B's
+    # path and publish a broken checkout.
+    def belongs_to_merged_repository!(parent_tip, path, merged_remotes)
+      url = gitmodules_url_for(parent_tip, path)
+      raise Refusal.new("pointer_bump", "#{path} has no .gitmodules entry on #{target}") if url.nil?
 
-      raise Refusal.new("pointer_push", "#{failed.size} of #{plans.size} parent remote(s) did not take the pointer bump")
+      names = merged_remotes.map { |r| r[:full_name].to_s.downcase }
+      return if names.include?(repository_path_of(url))
+
+      raise Refusal.new("pointer_bump", "#{path} does not belong to the repository being merged (.gitmodules maps it " \
+                                        "elsewhere)")
+    end
+
+    def gitmodules_url_for(tree_ish, path)
+      blob = "#{tree_ish}:.gitmodules"
+      listed = git.run("config", "--blob", blob, "--get-regexp", '^submodule\..*\.path$')
+      return nil unless listed.success?
+
+      name = listed.stdout.split("\n").filter_map do |line|
+        key, value = line.split(" ", 2)
+        key[/\Asubmodule\.(.+)\.path\z/, 1] if value.to_s.strip == path
+      end.first
+      return nil if name.nil?
+
+      found = git.run("config", "--blob", blob, "--get", "submodule.#{name}.url")
+      found.success? ? found.stdout.strip : nil
+    end
+
+    # owner/name from an https, ssh or scp-style remote URL.
+    def repository_path_of(url)
+      path = url.match?(%r{\A[a-z][a-z0-9+.-]*://}i) ? URI.parse(url).path.to_s : url.sub(/\A[^:]+:/, "")
+      path.sub(%r{\A/+}, "").sub(/\.git\z/, "").downcase
+    rescue URI::InvalidURIError
+      nil
     end
 
     # The SHA the gitlink at `path` records, refusing when `path` is not a
     # gitlink at all — this job moves an existing submodule pointer, it never
     # creates one or overwrites a file.
     def gitlink_at(tree_ish, path)
-      entry = git!("ls-tree", tree_ish, "--", path).stdout.strip
+      entry = git!("ls-tree", "--end-of-options", tree_ish, "--", path).stdout.strip
       mode, type, sha = entry.split(/\s+/, 4)
       return sha.to_s.downcase if mode == "160000" && type == "commit"
 
@@ -232,17 +280,19 @@ module Devops
       message = CommitMessageHygiene.pointer_bump_message(
         scope: File.basename(path), short_sha: expected[0, SHORT_SHA],
         summary: summary.to_s.strip.empty? ? subject_of(expected) : summary,
-        forbidden_names: @payload["forbidden_names"]
+        forbidden_names: forbidden_names
       )
 
       index = File.join(@workspace, "pointer.index")
       index_env = { "GIT_INDEX_FILE" => index }
-      git!("read-tree", parent_tip, env: index_env)
+      git!("read-tree", "--end-of-options", parent_tip, env: index_env)
       git!("update-index", "--cacheinfo", "160000,#{expected},#{path}", env: index_env)
       tree = git!("write-tree", env: index_env).stdout.strip
-      commit = git!("commit-tree", tree, "-p", parent_tip, "-F", "-", env: identity_env, stdin: message).stdout.strip
+      commit = git!("commit-tree", "-p", parent_tip, "-F", "-", "--end-of-options", tree,
+                    env: identity_env, stdin: message).stdout.strip
 
-      changed = git!("diff-tree", "-r", "--no-commit-id", "--name-only", parent_tip, commit).stdout.split("\n")
+      changed = git!("diff-tree", "-r", "--no-commit-id", "--name-only", "--end-of-options",
+                     parent_tip, commit, "--").stdout.split("\n")
       unless changed == [ path ]
         raise Refusal.new("pointer_bump", "the pointer commit changed #{changed.size} path(s), not only #{path}")
       end
@@ -253,7 +303,7 @@ module Devops
     end
 
     def subject_of(sha)
-      git!("log", "-1", "--format=%s", sha).stdout.strip
+      git!("log", "-1", "--format=%s", "--end-of-options", sha, "--").stdout.strip
     end
 
     def identity_env
@@ -266,7 +316,86 @@ module Devops
         "GIT_COMMITTER_NAME" => name, "GIT_COMMITTER_EMAIL" => email }
     end
 
-    # ---- plumbing -------------------------------------------------------------
+    # ---- 4: what each push would publish -------------------------------------
+
+    # Per remote, because a remote that is further behind publishes more
+    # commits. Names the offending commit and the remote, never the matched
+    # name.
+    def check_published_ranges!(plans, sha)
+      plans.each do |remote, plan, tip|
+        next unless plan == :push
+
+        log = git!("log", "--format=#{LOG_FORMAT}", "--end-of-options", "#{tip}..#{sha}", "--").stdout
+        log.split("\x1e").map(&:strip).reject(&:empty?).each do |record|
+          commit, *identity, message = record.split("\x00", 6)
+          reason = publication_problem(message.to_s, identity)
+          next if reason.nil?
+
+          raise Refusal.new("commit_hygiene", "commit #{commit[0, 12]} bound for #{remote[:full_name]} #{reason}; " \
+                                              "refusing the whole merge")
+        end
+      end
+    end
+
+    def publication_problem(message, identity)
+      if message.lines.any? { |line| CommitMessageHygiene.attribution_line?(line) } ||
+         identity.any? { |value| value.to_s.match?(CommitMessageHygiene::MODEL_WORDS) }
+        return "carries AI attribution"
+      end
+      return "names a private extension" if CommitMessageHygiene.names_private?([ message, *identity ].join("\n"),
+                                                                                 forbidden_names)
+
+      nil
+    end
+
+    # ---- 5: push ---------------------------------------------------------------
+
+    # Per remote, never short-circuited: the report must say what EVERY
+    # remote did, because a partial push is the failure this reports. Each
+    # entry is recorded as soon as its remote is done.
+    #
+    # The plan was made from a fetch that may now be stale, so each remote's
+    # head is read again immediately before its push, and a remote that has
+    # moved to anything that is not an ancestor of `sha` is REFUSED rather
+    # than pushed. (A head this scratch repository has never seen cannot be
+    # an ancestor of `sha`, whose history it holds, so the ancestry check
+    # answers false for it too.)
+    def push_all(plans, sha, into:)
+      plans.each do |remote, _plan, _tip|
+        @report[into] << push_one(remote, sha)
+      end
+    end
+
+    def push_one(remote, sha)
+      entry = { "repository_id" => remote[:repository_id], "full_name" => remote[:full_name] }
+      head = remote_head(remote)
+      return entry.merge("status" => "up_to_date") if head == sha
+
+      unless head && ancestor?(head, sha)
+        return entry.merge("status" => "refused",
+                           "error" => "#{target} on #{remote[:full_name]} moved to " \
+                                      "#{head ? head[0, 12] : 'nothing'} since the plan and is not an ancestor " \
+                                      "of #{sha[0, 12]}; refusing a non-fast-forward")
+      end
+
+      result = git.run("push", "--porcelain", "--", remote[:url], "#{sha}:refs/heads/#{target}",
+                       auth_header: remote[:auth_header], secrets: remote[:secrets])
+      return entry.merge("status" => "pushed") if result.success?
+
+      entry.merge("status" => "failed", "error" => result.stderr.strip[0, 500])
+    end
+
+    # The remote's target head right now, or nil when it cannot be read.
+    def remote_head(remote)
+      result = git.run("ls-remote", "--", remote[:url], "refs/heads/#{target}",
+                       auth_header: remote[:auth_header], secrets: remote[:secrets])
+      return nil unless result.success?
+
+      line = result.stdout.split("\n").map(&:split).find { |_sha, ref| ref == "refs/heads/#{target}" }
+      line&.first&.downcase
+    end
+
+    # ---- plumbing ---------------------------------------------------------------
 
     def resolve(descriptor)
       remote = @remote_resolver.call(descriptor["repository_id"])
@@ -279,7 +408,7 @@ module Devops
     end
 
     def fetch!(remote, ref, local)
-      result = git.run("fetch", "--no-tags", "--quiet", remote[:url], "#{ref}:#{local}",
+      result = git.run("fetch", "--no-tags", "--quiet", "--", remote[:url], "#{ref}:#{local}",
                        auth_header: remote[:auth_header], secrets: remote[:secrets])
       return if result.success?
 
@@ -287,11 +416,11 @@ module Devops
     end
 
     def rev_parse(ref)
-      git!("rev-parse", "--verify", "#{ref}^{commit}").stdout.strip.downcase
+      git!("rev-parse", "--verify", "--end-of-options", "#{ref}^{commit}").stdout.strip.downcase
     end
 
     def ancestor?(ancestor, descendant)
-      git.run("merge-base", "--is-ancestor", ancestor, descendant).success?
+      git.run("merge-base", "--is-ancestor", "--end-of-options", ancestor, descendant).success?
     end
 
     def git!(*args, env: {}, stdin: nil)
@@ -305,7 +434,7 @@ module Devops
       base = @workdir || Dir.mktmpdir("dev-merge")
       @workspace = base
       repo = File.join(base, "repo.git")
-      cli = GitCli.new(git_dir: repo, timeout: @git_timeout)
+      cli = GitCli.new(git_dir: repo, timeout: @git_timeout, allowed_protocols: @allowed_protocols)
       init = Open3.capture3(GitCli::BASE_ENV, "git", "init", "--bare", "--quiet", repo)
       raise Refusal.new("workspace", "could not create a workspace") unless init.last.success?
 

@@ -11,6 +11,10 @@ module Devops
   #     helper, no prompt), so what runs is what this file says;
   #   * credentials travel as an http.extraHeader through GIT_CONFIG_* env,
   #     never in a URL or argv, and every secret is scrubbed from output;
+  #   * transports are an allowlist, https by default (protocol.allow=never
+  #     plus protocol.<name>.allow=always), and redirects are not followed,
+  #     so the header cannot be sent in clear, to a redirect target, to a
+  #     local path, or over the host's own SSH keys;
   #   * `git submodule` is REFUSED outright. `git submodule sync` rewrites a
   #     submodule's remote from .gitmodules and drops a private upstream, and
   #     nothing this job does needs any submodule command: a pointer bump
@@ -27,6 +31,7 @@ module Devops
 
     FORBIDDEN_SUBCOMMANDS = %w[submodule].freeze
     DEFAULT_TIMEOUT = 300
+    DEFAULT_PROTOCOLS = %w[https].freeze
 
     BASE_ENV = {
       "GIT_TERMINAL_PROMPT" => "0",
@@ -38,9 +43,10 @@ module Devops
 
     attr_reader :git_dir, :commands
 
-    def initialize(git_dir:, timeout: DEFAULT_TIMEOUT)
+    def initialize(git_dir:, timeout: DEFAULT_TIMEOUT, allowed_protocols: DEFAULT_PROTOCOLS)
       @git_dir = git_dir
       @timeout = timeout
+      @allowed_protocols = Array(allowed_protocols).map(&:to_s)
       @commands = []
     end
 
@@ -51,7 +57,7 @@ module Devops
       refuse_forbidden!(args)
       @commands << args
 
-      full_env = BASE_ENV.merge(env).merge(auth_env(auth_header))
+      full_env = BASE_ENV.merge(env).merge(config_env(auth_header))
       stdout, stderr, status = capture(full_env, [ "git", "--git-dir", git_dir, *args ], stdin)
       scrub = Array(secrets).compact.map(&:to_s).reject(&:empty?)
       scrub << auth_header.to_s unless auth_header.to_s.empty?
@@ -65,20 +71,29 @@ module Devops
       raise Refused, "git #{hit} is never run by the dev-merge job" if hit
     end
 
-    def auth_env(header)
-      return {} if header.to_s.empty?
+    # One GIT_CONFIG_COUNT block carrying the transport policy and, when
+    # given, the auth header.
+    def config_env(header)
+      pairs = [ %w[protocol.allow never], %w[http.followRedirects false] ]
+      pairs += @allowed_protocols.map { |name| [ "protocol.#{name}.allow", "always" ] }
+      pairs << [ "http.extraHeader", header ] unless header.to_s.empty?
 
-      { "GIT_CONFIG_COUNT" => "1", "GIT_CONFIG_KEY_0" => "http.extraHeader", "GIT_CONFIG_VALUE_0" => header }
+      pairs.each_with_index.with_object({ "GIT_CONFIG_COUNT" => pairs.size.to_s }) do |((key, value), i), env|
+        env["GIT_CONFIG_KEY_#{i}"] = key
+        env["GIT_CONFIG_VALUE_#{i}"] = value
+      end
     end
 
     def capture(env, argv, stdin)
-      Open3.popen3(env, *argv) do |i, o, e, wait|
+      # Its own process group, so a timeout also kills git's transport helper
+      # (git-remote-https), which inherited the auth header in its env.
+      Open3.popen3(env, *argv, pgroup: true) do |i, o, e, wait|
         i.write(stdin) if stdin
         i.close
         out_reader = Thread.new { o.read }
         err_reader = Thread.new { e.read }
         unless wait.join(@timeout)
-          Process.kill("KILL", wait.pid)
+          Process.kill("KILL", -wait.pid)
           raise Timeout, "git #{argv[3]} timed out after #{@timeout}s"
         end
         [ out_reader.value.to_s, err_reader.value.to_s, wait.value ]

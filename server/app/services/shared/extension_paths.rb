@@ -39,8 +39,11 @@ module Shared
     # hook (.claude/hooks/core-purity-check.sh) and the scan mirror
     # (scripts/pattern-validation.sh) use, so a caller that must never NAME a
     # private extension refuses exactly the names those gates refuse. Nothing
-    # here is hardcoded. With no private extensions (core mode, a public clone)
-    # the list is empty, and there is nothing to leak.
+    # here is hardcoded. An EMPTY list does not mean none exist: a deployed
+    # control plane runs from a module composed without this directory. A
+    # caller that must refuse the names reads Ai::DevMerge::ForbiddenNames,
+    # which unions this with the registry and an operator declaration and
+    # fails closed when it cannot tell.
     def private_slugs
       private_root = EXTENSIONS_ROOT.join(PRIVATE_DIRNAME)
       return [] unless private_root.directory?
