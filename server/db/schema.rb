@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_28_020000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_29_092723) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -9665,6 +9665,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_28_020000) do
     t.uuid "provider_region_id"
     t.string "public_ip_address"
     t.jsonb "running_module_digests", default: {}, null: false
+    t.jsonb "ssh_host_keys"
     t.string "status", default: "pending", null: false
     t.datetime "updated_at", null: false
     t.string "variety", default: "cloud", null: false
