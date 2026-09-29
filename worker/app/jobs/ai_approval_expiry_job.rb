@@ -5,6 +5,10 @@
 # (deferred operations, campaign lands, gateway gates) silently never timed out.
 # The server honours each chain's timeout_action (approve/reject/escalate/expire)
 # and cascades on_approval_decision to the source.
+#
+# The same server sweep also settles approved requests whose post-commit
+# dispatch never started (IMP-0213523480d1): failed by default, re-dispatched
+# only for an operator-allowlisted idempotent category.
 class AiApprovalExpiryJob < BaseJob
   sidekiq_options queue: :maintenance, retry: 1
 
@@ -15,6 +19,12 @@ class AiApprovalExpiryJob < BaseJob
       data = response["data"] || {}
       expired = data["expired_count"] || 0
       log_info "[AiApprovalExpiryJob] Expired #{expired} overdue approval requests" if expired > 0
+      stranded_failed = data["stranded_failed_count"] || 0
+      stranded_redispatched = data["stranded_redispatched_count"] || 0
+      if stranded_failed > 0 || stranded_redispatched > 0
+        log_warn "[AiApprovalExpiryJob] Settled stranded approval dispatches: " \
+                 "#{stranded_failed} failed, #{stranded_redispatched} re-dispatched"
+      end
       data
     else
       log_warn "[AiApprovalExpiryJob] API returned error: #{response['error']}"
