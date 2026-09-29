@@ -109,7 +109,8 @@ const ApprovalCard: React.FC<{
     // approving drops the row out of the pending queue, so this card unmounts
     // moments later and would take an unrecoverable secret with it.
     approveMutation.mutate(
-      { id: request.id, onRevealedResult: onRevealed },
+      // Only reachable from the expanded card, where the change card is shown.
+      { id: request.id, changeCardShown: hasChangeCard, onRevealedResult: onRevealed },
       {
         onSuccess: () => setOwnDecisions((count) => count + 1),
         onError: (error) => showNotification(`Approval failed: ${refusalReason(error)}`, 'error'),
@@ -128,6 +129,7 @@ const ApprovalCard: React.FC<{
   };
 
   const changeCard = request.change_card ?? null;
+  const hasChangeCard = changeCard !== null;
   const isPending = request.status === 'pending';
   // The hourly sweep (`check_expiration!`) is what actually flips a timed-out
   // row off "pending" — until it runs, an expired row still reads pending here
@@ -316,7 +318,9 @@ const ApprovalCard: React.FC<{
       )}
 
       {/* Quick approve/reject also available without expanding */}
-      {showDecisionButtons && !isExpanded && (
+      {/* A request that carries a change card is decided only from the expanded
+          card, so the exact change is in view: nothing else shows it. */}
+      {showDecisionButtons && !isExpanded && !hasChangeCard && (
         <div className="flex gap-2 px-4 pb-4">{decisionButtons}</div>
       )}
     </div>

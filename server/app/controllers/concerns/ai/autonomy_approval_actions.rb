@@ -35,6 +35,8 @@ module Ai
       request = ::Ai::ApprovalRequest.where(account_id: current_account.id).find(params[:id])
       refusal = human_session_refusal(request, "approve")
       return render_error(refusal, status: :forbidden) if refusal
+      card_refusal = change_card_refusal(request)
+      return render_error(card_refusal, status: :unprocessable_content, code: "change_card_not_shown") if card_refusal
 
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
@@ -76,6 +78,21 @@ module Ai
 
     # #human_session_refusal is HumanSession's. This is now the sole REST
     # decision door — the governance door's equivalent was deleted in fc-12.
+
+    # APPROVING a request that carries a change card (the exact tool, setting and
+    # values it asks for) is done from a surface that shows that card, and says
+    # so with `change_card_shown` (the approvals queue sends it from the expanded
+    # card). Any other surface is refused, pointed at the queue. Rejecting asks
+    # nothing: it changes nothing. This is an attestation by the client, a guard
+    # against deciding blind by accident or from a surface that cannot show the
+    # card; the decider is still a person in their own session either way.
+    def change_card_refusal(approval)
+      return nil if ::ActiveModel::Type::Boolean.new.cast(params[:change_card_shown]) == true
+      return nil unless ::Ai::Approvals::ChangeCard.for(approval, viewer: current_user)
+
+      "This request changes a setting, so approve it from the approvals queue " \
+        "(/app/ai/control/approvals/queue), where the exact change is shown."
+    end
 
     def require_approval_permission
       return if current_worker

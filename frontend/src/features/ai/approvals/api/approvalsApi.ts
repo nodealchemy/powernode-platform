@@ -94,16 +94,24 @@ export function useApproveAction() {
     mutationFn: async ({
       id,
       comments,
+      changeCardShown,
       onRevealedResult,
     }: {
       id: string;
       comments?: string;
+      // True when the decision is made from a card that shows the request's
+      // change card (its exact tool, setting and values). The server refuses to
+      // approve a request that carries one without it.
+      changeCardShown?: boolean;
       // REQUIRED, not optional: an approve that forgets to take the slot is
       // exactly the bug this fixes, and a required parameter makes the compiler
       // the guard rather than a convention.
       onRevealedResult: (values: Record<string, unknown>) => void;
     }) => {
-      const response = await apiClient.post(`/ai/autonomy/approvals/${id}/approve`, { comments });
+      const response = await apiClient.post(`/ai/autonomy/approvals/${id}/approve`, {
+        comments,
+        ...(changeCardShown ? { change_card_shown: true } : {}),
+      });
       return (takeRevealedResult(response.data?.data ?? {}, onRevealedResult) ?? {}) as unknown as ApprovalRequest;
     },
     onSuccess: () => {

@@ -13,7 +13,8 @@ RSpec.describe "Machine-requested protected changes: who decides", type: :reques
   let(:key_a) { "zz_machine_decide_key_a" }
 
   before do
-    Ai::Tools::SiteSettingTool.register_key(key_a, setting_type: "string", description: "decision spec", protected: true)
+    Ai::Tools::SiteSettingTool.register_key(key_a, setting_type: "string", description: "decision spec", protected: true,
+                                                    machine_parkable: true)
     ::Mcp::Principal.instance_resolver = ->(cn) { cn == node_instance.id ? node_instance : nil }
     ::Mcp::Principal.tool_grant_resolver = ->(_instance) { [ "platform.site_setting_set_protected" ] }
   end
@@ -30,8 +31,9 @@ RSpec.describe "Machine-requested protected changes: who decides", type: :reques
     Ai::ApprovalRequest.find(result[:data][:approval_request_id])
   end
 
-  def decide(verb, request, user: operator)
-    post "/api/v1/ai/autonomy/approvals/#{request.id}/#{verb}", params: {}.to_json, headers: auth_headers_for(user)
+  def decide(verb, request, user: operator, card_shown: true)
+    body = card_shown ? { change_card_shown: true } : {}
+    post "/api/v1/ai/autonomy/approvals/#{request.id}/#{verb}", params: body.to_json, headers: auth_headers_for(user)
   end
 
   def impersonation_headers_for(user)
@@ -53,6 +55,39 @@ RSpec.describe "Machine-requested protected changes: who decides", type: :reques
     expect(request.decisions.last).to have_attributes(approver_id: operator.id, origin: "rest_session")
     expect(SiteSetting.get(key_a)).to eq("armed")
     expect(AuditLog.where(action: "update_site_setting").last.user_id).to eq(operator.id)
+  end
+
+  it "refuses to approve without the card having been shown, and points at the queue" do
+    request = park_as_instance!(key_a)
+
+    decide("approve", request, card_shown: false)
+
+    expect(response).to have_http_status(:unprocessable_content)
+    expect(json_response["code"]).to eq("change_card_not_shown")
+    expect(json_response["error"]).to include("/app/ai/control/approvals/queue")
+    expect(request.reload).to be_pending
+    expect(SiteSetting.find_by(key: key_a)).to be_nil
+  end
+
+  it "rejects without the card having been shown: a rejection changes nothing" do
+    request = park_as_instance!(key_a)
+
+    decide("reject", request, card_shown: false)
+
+    expect(response).to have_http_status(:ok)
+    expect(request.reload).to be_rejected
+  end
+
+  it "asks nothing extra of a request that carries no change card" do
+    stub_const("SpecCardlessExecutor", Class.new do
+      def self.execute(_params, deferred_operation:) = { success: true }
+    end)
+    gate = Ai::AutonomyGate.evaluate(action_category: "spec.cardless", executor_class: "SpecCardlessExecutor",
+                                     params: {}, account: account, requested_by: operator)
+
+    decide("approve", gate.approval_request, card_shown: false)
+
+    expect(response).to have_http_status(:ok)
   end
 
   it "is rejected from a person's own session, and writes nothing" do

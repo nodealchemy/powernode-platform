@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderWithProviders } from '@/test-utils';
@@ -129,5 +129,44 @@ describe('ApprovalQueuePanel change card', () => {
 
     expect(await screen.findByText('Approval chain')).toBeInTheDocument();
     expect(document.querySelector('[data-change-card]')).toBeNull();
+  });
+
+  it('offers no Approve or Reject on the collapsed row of a request with a change card', async () => {
+    renderPanel();
+
+    await screen.findByText('platform.site_setting.protected_write');
+
+    expect(screen.queryByRole('button', { name: /^Approve$/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Reject$/ })).toBeNull();
+  });
+
+  it('decides from the expanded card and says the card was shown', async () => {
+    mockPost.mockResolvedValue({ data: { data: { id: 'req-s', status: 'approved' } } });
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(await screen.findByText('platform.site_setting.protected_write'));
+    await screen.findByText('Exactly what you are approving');
+    await user.click(screen.getByRole('button', { name: /^Approve$/ }));
+
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith('/ai/autonomy/approvals/req-s/approve', {
+        comments: undefined,
+        change_card_shown: true,
+      })
+    );
+  });
+
+  it('keeps the quick buttons on a row with no card, and sends no card flag', async () => {
+    mockPost.mockResolvedValue({ data: { data: { id: 'req-s', status: 'approved' } } });
+    serve({ ...CARD_ROW, change_card: null });
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(await screen.findByRole('button', { name: /^Approve$/ }));
+
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith('/ai/autonomy/approvals/req-s/approve', { comments: undefined })
+    );
   });
 });
