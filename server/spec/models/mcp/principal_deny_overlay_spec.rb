@@ -111,6 +111,7 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     platform.system_instance_hold
     platform.system_instance_release_hold
     platform.system_replace_instance
+    platform.system_sdwan_rotate_peer_key
   ].freeze
 
   # system_instance_hold_status / system_module_publish_target /
@@ -210,8 +211,15 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # (capabilities, writable paths, limits) and so must never be aimed at a
     # peer by an instance principal. Collateral pinned below: exactly one
     # registry key.
+    # 28 since IMP-2e7816b5ee95 added *system_sdwan_rotate_peer_key* — the
+    # governed in-place WireGuard key rotation (gated under
+    # sdwan.peer_key_rotate). The broad *rotate* pattern already matches it
+    # today; the anchored entry is there so the verb stays denied if *rotate*
+    # is ever narrowed, the same belt-and-braces *system_restart_unit* takes
+    # for a verb an instance must never aim at a peer. Collateral pinned
+    # below: exactly one registry key.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(27)
+      expect(patterns.size).to eq(28)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -293,6 +301,16 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
       end
 
       expect(denied).to eq(%w[system_restart_unit])
+    end
+
+    it "denies exactly system_sdwan_rotate_peer_key with the *system_sdwan_rotate_peer_key* pattern" do
+      expect(patterns).to include("*system_sdwan_rotate_peer_key*")
+
+      denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        ::File.fnmatch("*system_sdwan_rotate_peer_key*", name, ::File::FNM_EXTGLOB)
+      end
+
+      expect(denied).to eq(%w[system_sdwan_rotate_peer_key])
     end
 
     it "denies exactly system_apply_unit_dropin with the *unit_dropin* pattern" do

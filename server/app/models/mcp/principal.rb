@@ -234,6 +234,15 @@ module Mcp
       # Anchored on the verb's distinctive stem; exactly one registry key
       # matches (principal_deny_overlay_spec pins it).
       #
+      # *system_sdwan_rotate_peer_key* (IMP-2e7816b5ee95) — revokes an SDWAN
+      # peer's active WireGuard key and generates a new one in place, gated on
+      # sdwan.peer_key_rotate. An mTLS node cert that could invoke it could drop
+      # ANY peer's tunnel, and on a hub strand every issued user-device config.
+      # *rotate* above already matches it; this anchored entry keeps the verb
+      # denied if that broad pattern is ever narrowed, the way
+      # *system_restart_unit* is anchored on its full verb name. Exactly one
+      # registry key matches (principal_deny_overlay_spec pins it).
+      #
       # NOTE for anyone editing this array: every entry below is a %w[]
       # WORD, not a line — a "#" comment INSIDE the %w[...] literal is not a
       # comment at all, it becomes a literal array element (the historical
@@ -268,6 +277,7 @@ module Mcp
         *system_out_of_band_exec*
         *system_restart_unit*
         *unit_dropin*
+        *system_sdwan_rotate_peer_key*
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every

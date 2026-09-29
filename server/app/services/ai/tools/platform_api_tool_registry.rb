@@ -285,6 +285,13 @@ module Ai
         "system_sdwan_attach_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_update_peer"     => "Ai::Tools::SdwanTool",
         "system_sdwan_detach_peer"     => "Ai::Tools::SdwanTool",
+        # IMP-2e7816b5ee95 — the governed in-place WireGuard key rotation.
+        # Approval-gated (declare_action, sdwan.peer_key_rotate) and denied
+        # outright to every instance principal
+        # (Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS'
+        # *system_sdwan_rotate_peer_key* entry); without this row the
+        # declaration is inert, like system_restart_unit's would be.
+        "system_sdwan_rotate_peer_key" => "Ai::Tools::SdwanTool",
         "system_sdwan_get_topology"    => "Ai::Tools::SdwanTool",
         # Slice 2: firewall
         "system_sdwan_list_firewall_rules"  => "Ai::Tools::SdwanTool",

@@ -142,6 +142,11 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 (human-only like system_out_of_band_exec, seeded
   #                                 require_approval; replays through the generic
   #                                 executor so the unit and directive checks re-run)
+  #   system_sdwan_rotate_peer_key  IMP-2e7816b5ee95  sdwan.peer_key_rotate
+  #                                 (declared require_approval on the SDWAN
+  #                                 operator set and its SDWAN Manager twin;
+  #                                 replays through the generic executor so the
+  #                                 peer and reason checks re-run)
   #   system_replace_instance       IMP-4e49eb79c5e0  system.instance_replace
   #   system_reap_instance          IMP-4e49eb79c5e0  system.instance_reap
   #   system_set_default_disk_image_publication
@@ -210,6 +215,7 @@ RSpec.describe "MCP action declaration completeness" do
     system_out_of_band_exec
     system_restart_unit
     system_apply_unit_dropin
+    system_sdwan_rotate_peer_key
     system_gitops_register_repository
     set_delegation_policy
     system_set_default_disk_image_publication
