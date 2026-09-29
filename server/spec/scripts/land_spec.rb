@@ -141,7 +141,7 @@ RSpec.describe "scripts/land.sh" do
     full_env = {
       "POWERNODE_LOCAL_CONFIG" => "none", "LAND_REPO_ROOT" => @work,
       "LAND_MCP_URL" => "http://127.0.0.1:#{@port}/", "POWERNODE_MCP_TOKEN" => token,
-      "LAND_EXT_PATH" => "extensions/widgets",
+      "LAND_EXT_PATH" => "extensions/widgets", "LAND_PROMOTE_ENVS" => "staging ops",
       "LAND_POLL_INTERVAL" => "0", "LAND_POLL_TIMEOUT" => "20",
       "LAND_VERIFY_INTERVAL" => "0", "LAND_VERIFY_TIMEOUT" => "0",
       "GIT_AUTHOR_NAME" => "T", "GIT_AUTHOR_EMAIL" => "t@example.invalid",
@@ -287,6 +287,34 @@ RSpec.describe "scripts/land.sh" do
     expect(code).to eq(1)
     expect(err).to match(/build range .* is empty/)
     expect(calls).to be_empty
+  end
+
+  it "skips an environment whose pin already serves the built version, logs it, and records it as already current" do
+    happy_mock
+    mock_cfg = JSON.parse(File.read(@cfg))
+    mock_cfg["system_list_module_versions"][2] = { success: true, versions: [ { id: "vh-2", version_number: 2, pinned_in: [ "staging" ] }, { id: "vh-1", version_number: 1 } ] }
+    File.write(@cfg, JSON.generate(mock_cfg))
+    out, err, code = run_land(*base_args)
+
+    expect(code).to eq(0), err
+    promotes = calls.select { |c| c["tool"].end_with?("promote_module_version") }.map { |c| c["args"].values_at("environment", "module_id") }
+    expect(promotes).to eq([ %w[staging id-ext], %w[ops id-hub], %w[ops id-ext] ])
+    expect(err).to match(/hub-backend already current in staging/)
+    promoted = JSON.parse(out).dig("check_results", "landing", "promoted")
+    expect(promoted).to include(a_hash_including("environment" => "staging", "module" => "hub-backend", "status" => "already_current"))
+    expect(promoted).to include(a_hash_including("environment" => "ops", "module" => "hub-backend", "status" => "promoted"))
+  end
+
+  it "takes the promotion environments from configuration or --promote-envs, with no default" do
+    happy_mock
+    _out, err, code = run_land(*base_args, env: { "LAND_PROMOTE_ENVS" => "" })
+    expect(code).to eq(2)
+    expect(err).to match(/no promotion environments configured/)
+    expect(calls).to be_empty
+
+    _out, err, code = run_land(*base_args, "--promote-envs", "canary", env: { "LAND_PROMOTE_ENVS" => "" })
+    expect(code).to eq(0), err
+    expect(calls.select { |c| c["tool"].end_with?("promote_module_version") }.map { |c| c["args"]["environment"] }.uniq).to eq(%w[canary])
   end
 
   it "pins the exact version each build published when promoting" do

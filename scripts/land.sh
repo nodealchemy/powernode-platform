@@ -12,6 +12,9 @@
 #   --ext-path <path>      The extension the commit belongs to (or LAND_EXT_PATH). A public one must be a
 #                          submodule listed in .gitmodules; one under extensions/private/ is pushed to its own
 #                          remote and NEVER gets a core gitlink or a core commit naming it.
+#   --promote-envs "a b"   Environments to promote into, in order (or LAND_PROMOTE_ENVS; required). Pinned
+#                          environments only: one that follows publishes refuses a promotion. An environment
+#                          whose pin already serves the built version is skipped and logged as already current.
 #   --base-sha <sha>       The core target tip BEFORE this landing, the base of the build range. Recorded
 #                          automatically on the first run (scripts/local/land-state/<task_key>.json), so a
 #                          re-run after a parked approval builds the same range; needed only when the
@@ -51,7 +54,7 @@
 #   LAND_EXT_REMOTE (default origin), LAND_TARGET_BRANCH (default develop), LAND_EXT_PATH (the extension
 #   submodule path; default: the only public submodule in .gitmodules, if there is exactly one),
 #   LAND_SOURCE_REPO (owner/repo the build diff is taken against; default derived
-#   from the core remote), LAND_PROMOTE_ENVS (default "staging ops"), LAND_POLL_INTERVAL,
+#   from the core remote), LAND_PROMOTE_ENVS (required, no default: the pinned environments to promote into, in order), LAND_POLL_INTERVAL,
 #   LAND_POLL_TIMEOUT, LAND_VERIFY_TIMEOUT / LAND_VERIFY_INTERVAL (the hub check is polled until green),
 #   LAND_STATE_DIR (default <main>/scripts/local/land-state), LAND_CORE_REPOSITORY / LAND_EXT_REPOSITORY (platform repository ids or full names,
 #   mcp merge mode only).
@@ -71,7 +74,7 @@ case "${1:-}" in -h|--help|"") sed -n '2,/^set -euo/{/^set -euo/!p}' "$0" | sed 
 
 TASK_KEY="$1"; shift
 CORE_SHA=""; EXT_SHA=""; MODULES=""; MERGE_VIA="git"; LOOP=""; COMPLETE=0
-SKIP_VERIFY=0; SKIP_CATALOG=0; NO_FETCH=0; DRY=0; EXT_PATH_ARG=""; BASE_SHA_ARG=""
+SKIP_VERIFY=0; SKIP_CATALOG=0; NO_FETCH=0; DRY=0; EXT_PATH_ARG=""; BASE_SHA_ARG=""; PROMOTE_ENVS_ARG=""
 CORE_REF=""; EXT_REF=""; ATTEST=""; EVIDENCE=""
 declare -A MODULE_ID_OVERRIDE=()
 usage_die() { LC_DIE_CODE=2 lc_die "$*"; }
@@ -81,6 +84,7 @@ while [ $# -gt 0 ]; do
     --ext-sha) EXT_SHA="${2:-}"; shift 2 ;;
     --ext-path) EXT_PATH_ARG="${2:-}"; shift 2 ;;
     --base-sha) BASE_SHA_ARG="${2:-}"; shift 2 ;;
+    --promote-envs) PROMOTE_ENVS_ARG="${2:-}"; shift 2 ;;
     --modules) MODULES="${2:-}"; shift 2 ;;
     --module-id) [[ "${2:-}" == *=* ]] || usage_die "--module-id needs slug=uuid"; MODULE_ID_OVERRIDE["${2%%=*}"]="${2#*=}"; shift 2 ;;
     --merge-via) MERGE_VIA="${2:-}"; shift 2 ;;
@@ -133,7 +137,11 @@ STATE_DIR="${LAND_STATE_DIR:-$MAIN_ROOT/scripts/local/land-state}"
 VERIFY_TIMEOUT="${LAND_VERIFY_TIMEOUT:-900}"; VERIFY_INTERVAL="${LAND_VERIFY_INTERVAL:-20}"
 PREFIX="${LAND_MCP_TOOL_PREFIX-platform.}"
 TOKEN_ENV="${LAND_MCP_TOKEN_ENV:-POWERNODE_MCP_TOKEN}"
-PROMOTE_ENVS="${LAND_PROMOTE_ENVS:-staging ops}"
+# Which environments to promote into, in order, is deployment configuration: an environment that follows
+# publishes automatically refuses a promotion, and which ones do is not knowable here. No default.
+PROMOTE_ENVS="${PROMOTE_ENVS_ARG:-${LAND_PROMOTE_ENVS:-}}"
+[ -n "$PROMOTE_ENVS" ] || LC_DIE_CODE=2 lc_die "no promotion environments configured: set LAND_PROMOTE_ENVS (space-separated, in order; pinned environments only) or pass --promote-envs"
+[[ "$PROMOTE_ENVS" =~ ^[A-Za-z0-9._-]+([[:space:]]+[A-Za-z0-9._-]+)*$ ]] || LC_DIE_CODE=2 lc_die "LAND_PROMOTE_ENVS must be space-separated environment slugs"
 POLL_INTERVAL="${LAND_POLL_INTERVAL:-20}"; POLL_TIMEOUT="${LAND_POLL_TIMEOUT:-2400}"
 
 [[ "$TOKEN_ENV" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || usage_die "LAND_MCP_TOKEN_ENV must be a variable name"
@@ -395,12 +403,12 @@ resolve_module_ids() {
   done
 }
 
-newest_version() { # module-id -> "<version_number>\t<version_id>" of the highest version_number, or "0\t"
+newest_version() { # module-id -> "<version_number>\t<version_id>\t<pinned_in as JSON>" of the highest version_number, or "0\t\t[]"
   local out
   out="$(mcp_must system_list_module_versions "$(jq -cn --arg m "$1" '{module_id:$m, limit:20}')")"
-  printf '%s' "$out" | jq -r '[.versions[]? | {n: (.version_number // 0), id: .id}] | sort_by(.n) | (last // {n:0, id:""}) | "\(.n)\t\(.id)"'
+  printf '%s' "$out" | jq -r '[.versions[]? | {n: (.version_number // 0), id: .id, pinned: ((.pinned_in // []) | tojson)}] | sort_by(.n) | (last // {n:0, id:"", pinned:"[]"}) | "\(.n)\t\(.id)\t\(.pinned)"'
 }
-declare -A VERSION_BEFORE=() VERSION_PIN=() SKIP_PROMOTE=()
+declare -A VERSION_BEFORE=() VERSION_PIN=() VERSION_PINNED_IN=() SKIP_PROMOTE=()
 
 IFS=',' read -r -a SLUGS <<<"$MODULES"
 slugs_json="$(printf '%s\n' "${SLUGS[@]}" | jq -R . | jq -sc .)"
@@ -450,6 +458,7 @@ else
     [ "$(printf '%s' "$after" | cut -f1)" -gt "${VERSION_BEFORE[$slug]}" ] ||
       LC_DIE_CODE=1 lc_die "module '$slug' built but no version newer than #${VERSION_BEFORE[$slug]} exists; nothing was promoted"
     VERSION_PIN[$slug]="$(printf '%s' "$after" | cut -f2)"
+    VERSION_PINNED_IN[$slug]="$(printf '%s' "$after" | cut -f3)"
     lc_info "  $slug built version #$(printf '%s' "$after" | cut -f1) (${VERSION_PIN[$slug]})"
   done
 fi
@@ -463,9 +472,14 @@ else
   for env in $PROMOTE_ENVS; do
     for slug in "${SLUGS[@]}"; do
       [ -z "${SKIP_PROMOTE[$slug]:-}" ] || { lc_info "  $slug not promoted into $env: ${SKIP_PROMOTE[$slug]}"; continue; }
+      if printf '%s' "${VERSION_PINNED_IN[$slug]:-[]}" | jq -e --arg e "$env" 'index($e) != null' >/dev/null 2>&1; then
+        lc_info "  $slug already current in $env (its pin serves ${VERSION_PIN[$slug]}); not promoted again"
+        PROMOTED="$(printf '%s' "$PROMOTED" | jq -c --arg e "$env" --arg s "$slug" --arg v "${VERSION_PIN[$slug]}" '. + [{environment:$e, module:$s, version_id:$v, status:"already_current"}]')"
+        continue
+      fi
       out="$(mcp_must system_promote_module_version "$(jq -cn --arg e "$env" --arg m "${MODULE_ID[$slug]}" --arg v "${VERSION_PIN[$slug]}" '{environment:$e, module_id:$m, version_id:$v}')")"
       lc_info "  $slug -> $env $(printf '%s' "$out" | jq -r '.promotion_criteria_warning // "ok"' | head -c 200)"
-      PROMOTED="$(printf '%s' "$PROMOTED" | jq -c --arg e "$env" --arg s "$slug" --arg v "${VERSION_PIN[$slug]}" '. + [{environment:$e, module:$s, version_id:$v}]')"
+      PROMOTED="$(printf '%s' "$PROMOTED" | jq -c --arg e "$env" --arg s "$slug" --arg v "${VERSION_PIN[$slug]}" '. + [{environment:$e, module:$s, version_id:$v, status:"promoted"}]')"
     done
   done
 fi
