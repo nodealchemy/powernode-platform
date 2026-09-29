@@ -502,6 +502,9 @@ extensions/private
 # deployment-<slug>); git never sees it. Convention:
 # docs/contributing/conventions/deployment-knowledge.md
 /docs/operations/local/
+# Deployment-local landing configuration and the worktree lane ledger (scripts/landing.env.example
+# is the tracked, placeholder-only template). Never commit anything under here.
+/scripts/local/
 # Private-mode bundle lock (declares private-extension PATH gems — never commit; see server/Gemfile.private)
 /server/Gemfile.private.lock
 # The private-mode Gemfile itself IS committed (tiny; just flips the discovery
