@@ -495,6 +495,8 @@ module Ai
         "list_component_status" => "Ai::Tools::PlatformStatusTool",
         "get_component_status" => "Ai::Tools::PlatformStatusTool",
         "get_component_impact" => "Ai::Tools::PlatformStatusTool",
+        # Migration state per migration path (IMP-d421e10d4677) — read-only.
+        "migration_status" => "Ai::Tools::PlatformStatusTool",
         # Component status plane (campaign 01a08c9b, increment A6) — the
         # investigation. `platform_investigate` is the one WRITE: it records the
         # evidence around a failure and enqueues the ranking. The two `get_*`

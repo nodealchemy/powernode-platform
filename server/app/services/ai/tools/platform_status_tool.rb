@@ -12,9 +12,15 @@ module Ai
     # whether something is down, and the agent would be the one that is wrong
     # in the incident review.
     #
+    # A fourth read, `migration_status`, is not a component row: it reports which
+    # migrations Rails knows about against schema_migrations
+    # (Platform::MigrationStatus). It lives here because it answers the same
+    # operator question — is the platform healthy — under the same
+    # `platform.status.read` floor, rather than in a tool of its own.
+    #
     # ── READ-ONLY, AND DECLARED SO ──────────────────────────────────────────
     #
-    # All three actions are `declare_action ..., mutating: false`. Nothing here
+    # All four actions are `declare_action ..., mutating: false`. Nothing here
     # writes: the sweep is the one producer (design §4.3) and reaches the rows
     # through the mTLS worker route. Actuation lives behind
     # Platform::RemediationRouter (A5) and behind each row's own `actions`
@@ -44,7 +50,8 @@ module Ai
       ACTION_PERMISSIONS = {
         "list_component_status" => "platform.status.read",
         "get_component_status" => "platform.status.read",
-        "get_component_impact" => "platform.status.read"
+        "get_component_impact" => "platform.status.read",
+        "migration_status" => "platform.status.read"
       }.freeze
 
       declare_action "list_component_status", mutating: false
@@ -53,6 +60,11 @@ module Ai
                                                       "or the component is not visible to this account",
                                              see_also: { "get_component_impact" => "dependents and ranked root-cause candidates" }
       declare_action "get_component_impact", mutating: false
+      declare_action "migration_status", mutating: false,
+                                         returns: "database (highest applied version, versions recorded with no file on disk), " \
+                                                  "schema (its version header and whether it is ahead of the database) and, per " \
+                                                  "migration path, the last applied version and the pending versions with their " \
+                                                  "file names; a pending version older than the highest applied one is flagged buried"
 
       VERDICT_DESCRIPTION = "One of ok | held | progressing | not_measured | degraded | down. " \
                             "`held` is operator intent (cordoned, paused, drained), not a failure. " \
@@ -120,6 +132,17 @@ module Ai
               depth: { type: "integer", required: false,
                        description: "How many dependency hops to walk (default 4, max 4). Cycle-safe." }
             }
+          },
+          "migration_status" => {
+            description: "Migration state per migration path, from the paths Rails itself resolved. " \
+                         "Reports pending versions (file on disk, missing from schema_migrations), the " \
+                         "last applied version, versions recorded in the database with no file on disk, " \
+                         "and whether the schema file's version header is ahead of the database's " \
+                         "highest applied version. A pending version OLDER than the highest applied one " \
+                         "is `buried`: it will not run on a forward migrate. Version numbers and file " \
+                         "basenames only; paths are relative to the app root. Each list is capped at 50 " \
+                         "entries, with its full count and a truncated flag. Read-only.",
+            parameters: {}
           }
         }
       end
@@ -132,6 +155,7 @@ module Ai
         when "list_component_status" then list_component_status(params)
         when "get_component_status"  then get_component_status(params)
         when "get_component_impact" then get_component_impact(params)
+        when "migration_status"      then success_result(::Platform::MigrationStatus.current)
         else error_result("Unknown action: #{action}")
         end
       end

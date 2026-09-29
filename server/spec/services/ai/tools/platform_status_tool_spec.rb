@@ -28,7 +28,7 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
   # A METHOD, not a constant: a constant assigned inside an RSpec block lands
   # on Object and can be clobbered by a same-named constant in another spec
   # file — an order-dependent flake waiting to happen.
-  def advertised_actions = %w[list_component_status get_component_status get_component_impact]
+  def advertised_actions = %w[list_component_status get_component_status get_component_impact migration_status]
 
   describe "declarations and annotations" do
     it "declares every action it advertises, all read-only" do
@@ -122,7 +122,8 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       [
         { action: "list_component_status" },
         { action: "get_component_status", id: row.id },
-        { action: "get_component_impact", id: row.id }
+        { action: "get_component_impact", id: row.id },
+        { action: "migration_status" }
       ].each do |params|
         result = stranger.execute(params: params)
         expect(result[:success]).to be(false), "#{params[:action]} was allowed without the permission"
@@ -135,10 +136,57 @@ RSpec.describe Ai::Tools::PlatformStatusTool do
       [
         { action: "list_component_status" },
         { action: "get_component_status", id: row.id },
-        { action: "get_component_impact", id: row.id }
+        { action: "get_component_impact", id: row.id },
+        { action: "migration_status" }
       ].each do |params|
         expect(tool.execute(params: params)[:success]).to be(true), "#{params[:action]} was refused for a holder"
       end
+    end
+  end
+
+  # IMP-d421e10d4677 — migration state, per migration path. Platform-wide, so it
+  # rides the status read permission rather than an account scope.
+  describe "migration_status" do
+    it "is declared read-only and advertises the read-only hint" do
+      expect(described_class.declared_action("migration_status")[:mutating]).to be(false)
+
+      catalog = ::Mcp::ToolCatalog.new(protocol_version: ::Mcp::ProtocolService::ALL_SUPPORTED_VERSIONS.max)
+      entry = catalog.list_entries.find { |t| t["name"] == "platform.migration_status" }
+
+      expect(entry).not_to be_nil
+      expect(entry["annotations"]).to include("readOnlyHint" => true)
+    end
+
+    it "returns the per-path report from Platform::MigrationStatus" do
+      report = { database: { highest_applied_version: "1" }, schema: {}, paths: [] }
+      allow(::Platform::MigrationStatus).to receive(:current).and_return(report)
+
+      result = call("migration_status")
+
+      expect(result[:success]).to be(true)
+      expect(result[:data]).to eq(report)
+    end
+
+    it "reads the live connection when nothing is stubbed" do
+      result = call("migration_status")
+
+      expect(result[:success]).to be(true)
+      expect(result.dig(:data, :paths)).not_to be_empty
+    end
+
+    it "serves an instance principal, which has no user" do
+      result = ::Ai::Tools::McpPlatformToolRegistrar.execute_tool(
+        "platform.migration_status",
+        params: {}, account: account, user: nil, instance_authorized: true
+      )
+
+      expect(result[:success]).to be(true)
+    end
+
+    it "refuses a user holding no permission" do
+      stranger = described_class.new(account: account, user: create(:user, account: account, permissions: []))
+
+      expect(stranger.execute(params: { action: "migration_status" })[:success]).to be(false)
     end
   end
 
