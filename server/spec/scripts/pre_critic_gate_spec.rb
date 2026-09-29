@@ -58,7 +58,7 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
                  File.join(@repo, "worker/app/services/devops/commit_message_hygiene.rb"))
     FileUtils.mkdir_p(File.join(@repo, "extensions/private/hidden-ext"))
     File.write(File.join(@repo, "extensions/private/hidden-ext/.keep"), "")
-    File.write(File.join(@repo, ".gitignore"), "/extensions/private/\n")
+    File.write(File.join(@repo, ".gitignore"), "/extensions/private/\n.claude/hooks/deployment-identifiers.local.txt\n")
 
     ok = "#!/usr/bin/env bash\nexit 0\n"
     write("scripts/check-mcp-catalog-fresh.sh", "#!/usr/bin/env bash\n[ -z \"${FAKE_CATALOG_FAIL:-}\" ] || { echo 'catalog is stale'; exit 1; }\n", mode: 0o755)
@@ -68,14 +68,27 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
     write(".claude/hooks/core-purity-check.sh", <<~SH, mode: 0o755)
       #!/usr/bin/env bash
       f=$(jq -r .tool_input.file_path)
+      grep -q HOOK_CRASH "$f" && exit 1
       grep -q FORBIDDEN_EXT "$f" && { echo "names an extension"; exit 2; }
       exit 0
     SH
+    # like the real scan, it only finds anything when it was handed an identifier list that exists
     write("scripts/checks/deployment-identifier-check.sh", <<~SH, mode: 0o755)
       #!/usr/bin/env bash
+      [ -f "${DEPLOYMENT_ID_LIST:-}" ] || exit 0
       [ "$1" = "--file" ] && grep -q DEPLOY_LOCAL_FACT "$2" && echo "$2:1:DEPLOY_LOCAL_FACT"
       exit 0
     SH
+    write(".claude/hooks/deployment-identifiers.local.txt", "DEPLOY_LOCAL_FACT\n")
+
+    # a nested extension checkout, recorded in core as a gitlink by the base commit
+    @ext = File.join(@repo, "extensions/widgets")
+    FileUtils.mkdir_p(@ext)
+    sh!("git", "init", "-q", "-b", "develop", @ext)
+    File.write(File.join(@ext, "w.rb"), "# frozen_string_literal: true\n")
+    sh!("git", "add", "-A", chdir: @ext)
+    sh!("git", "commit", "-q", "-m", "ext base", chdir: @ext)
+    @ext_base = sh!("git", "rev-parse", "HEAD", chdir: @ext)
 
     write("server/app/models/thing.rb", "# frozen_string_literal: true\nclass Thing\nend\n")
     write("frontend/src/a.ts", "export const a = 1\n")
@@ -104,10 +117,11 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
     JSON.generate(files: [ { path: file, offenses: lines.map { |l| { cop_name: "Style/X", message: "bad thing", location: { line: l } } } } ])
   end
 
-  def gate(*args, env: {}, path: nil)
+  def gate(*args, env: {}, path: nil, script_root: nil)
     full = { "PATH" => path || "#{@stubs}:/usr/local/bin:/usr/bin:/bin:#{File.dirname(RbConfig.ruby)}",
              "FAKE_RUBOCOP_JSON" => File.join(@dir, "clean.json"), "POWERNODE_LOCAL_CONFIG" => "none" }.merge(env)
-    out, err, st = Open3.capture3(full, File.join(@repo, "scripts/pre-critic-gate.sh"), *args, chdir: @repo)
+    root = script_root || @repo
+    out, err, st = Open3.capture3(full, File.join(root, "scripts/pre-critic-gate.sh"), *args, chdir: root)
     [ out, err, st.exitstatus ]
   end
 
@@ -123,7 +137,8 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
     expect(code).to eq(0), err
     expect(JSON.parse(out)).to include("ok" => true, "failed" => 0)
     expect(statuses(out)).to eq("rubocop" => "skip", "tsc" => "skip", "catalog" => "skip", "purity" => "pass",
-                                "messages" => "pass", "leak-guards" => "pass", "gitleaks" => "pass")
+                                "messages" => "pass", "leak-guards" => "pass", "gitleaks" => "pass",
+                                "ext-messages" => "skip", "ext-purity" => "skip", "ext-gitleaks" => "skip")
   end
 
   it "prints a compact human summary ending in the verdict" do
@@ -198,6 +213,102 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
     expect(purity["summary"]).to eq("2 finding(s) in 2 touched file(s)")
     expect(purity["detail"]).to include("core-purity: server/app/models/thing.rb", "deployment identifier: docs/readme.md")
     expect(out).not_to include("DEPLOY_LOCAL_FACT")
+  end
+
+  describe "the deployment-identifier scan" do
+    def worktree_of(head)
+      wt = File.join(@dir, "wt")
+      sh!("git", "worktree", "add", "-q", "--detach", wt, head)
+      wt
+    end
+
+    it "reads the gitignored identifier list from the main checkout when run in a worktree" do
+      write("docs/readme.md", "DEPLOY_LOCAL_FACT\n")
+      head = commit_all("bad content")
+      wt = worktree_of(head)
+      expect(File.exist?(File.join(wt, ".claude/hooks/deployment-identifiers.local.txt"))).to be false
+
+      out, _err, code = gate("#{@base}..#{head}", "--json", script_root: wt)
+
+      expect(code).to eq(1)
+      purity = JSON.parse(out)["checks"].find { |c| c["name"] == "purity" }
+      expect(purity["detail"]).to include("deployment identifier: docs/readme.md")
+    end
+
+    it "FAILS, rather than passing vacuously, when no list exists anywhere" do
+      write("docs/readme.md", "fine\n")
+      head = commit_all("docs")
+      File.delete(File.join(@repo, ".claude/hooks/deployment-identifiers.local.txt"))
+      out, _err, code = gate("#{@base}..#{head}", "--json")
+
+      expect(code).to eq(1)
+      purity = JSON.parse(out)["checks"].find { |c| c["name"] == "purity" }
+      expect(purity["detail"]).to include("identifiers were NOT scanned")
+
+      out, _err, code = gate("#{@base}..#{head}", "--json", env: { "GATE_ALLOW_NO_IDENTIFIER_LIST" => "1" })
+      expect(code).to eq(0)
+      expect(statuses(out)["purity"]).to eq("pass")
+    end
+
+    it "fails when the core-purity hook is missing or crashes" do
+      write("server/app/models/thing.rb", "# frozen_string_literal: true\n# HOOK_CRASH\nclass Thing; end\n")
+      head = commit_all("crashing content")
+      out, _err, code = gate("#{@base}..#{head}", "--json")
+      expect(code).to eq(1)
+      expect(JSON.parse(out)["checks"].find { |c| c["name"] == "purity" }["detail"]).to include("hook errored (exit 1)")
+
+      FileUtils.rm(File.join(@repo, ".claude/hooks/core-purity-check.sh"))
+      out, _err, code = gate("#{@base}..#{head}", "--json", "--no-head-check")
+      expect(code).to eq(1)
+      expect(JSON.parse(out)["checks"].find { |c| c["name"] == "purity" }["detail"]).to include("hook is missing")
+    end
+  end
+
+  describe "an extension pointer bump" do
+    def bump(msg: "ext change", file: "x.rb", body: "# frozen_string_literal: true\n")
+      File.write(File.join(@ext, file), body)
+      sh!("git", "add", "-A", chdir: @ext)
+      sh!("git", "commit", "-q", "-m", msg, chdir: @ext)
+      commit_all("bump extension pointer")
+    end
+
+    it "gates the commits behind the bump: clean passes all three ext checks" do
+      head = bump
+      out, err, code = gate("#{@base}..#{head}", "--json")
+
+      expect(code).to eq(0), err
+      expect(statuses(out)).to include("ext-messages" => "pass", "ext-purity" => "pass", "ext-gitleaks" => "pass")
+      expect(File.read(File.join(@dir, "gitleaks.args"))).to include("--source=#{@ext}", "#{@ext_base}..")
+    end
+
+    it "fails ext-messages on attribution in an extension commit that the core range never shows" do
+      head = bump(msg: "ext change\n\nCo-Authored-By: Some Model <noreply@example.invalid>")
+      out, _err, code = gate("#{@base}..#{head}", "--json")
+
+      expect(code).to eq(1)
+      checks = JSON.parse(out)["checks"].to_h { |c| [ c["name"], c ] }
+      expect(checks["messages"]["status"]).to eq("pass")
+      expect(checks["ext-messages"]["status"]).to eq("fail")
+      expect(checks["ext-messages"]["detail"]).to include("extensions/widgets", "ai_attribution")
+    end
+
+    it "fails ext-purity for a touched extension file, ext-gitleaks on a finding" do
+      head = bump(file: "bad.rb", body: "# FORBIDDEN_EXT\n")
+      out, _err, code = gate("#{@base}..#{head}", "--json", env: { "FAKE_LEAK" => "1" })
+
+      expect(code).to eq(1)
+      expect(statuses(out)).to include("ext-purity" => "fail", "ext-gitleaks" => "fail")
+    end
+
+    it "fails when the bumped commits are not in the extension checkout" do
+      head = bump
+      FileUtils.rm_rf(File.join(@ext, ".git"))
+      sh!("git", "init", "-q", "-b", "develop", @ext)
+      out, _err, code = gate("#{@base}..#{head}", "--json", "--no-head-check")
+
+      expect(code).to eq(1)
+      expect(JSON.parse(out)["checks"].find { |c| c["name"] == "ext-messages" }["detail"]).to include("not in the checkout")
+    end
   end
 
   it "fails a commit that carries AI attribution or names a private extension, without echoing the text" do

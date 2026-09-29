@@ -14,6 +14,13 @@
 #               (lib/commit-range-scan.rb; private names derived from extensions/private/*)
 #   leak-guards check-skill-executor-error-leak.sh and check-tool-not-found-leak.sh
 #   gitleaks    `gitleaks detect` over the range's commits, matches redacted
+#   ext-*       when the range bumps an extension gitlink: messages, purity and gitleaks over the commits
+#               behind the bump, read from the extension checkout (ext-messages, ext-purity, ext-gitleaks).
+#               RuboCop on extension Ruby files is not part of the gate.
+#
+# The deployment-identifier list is gitignored, so it is looked up in the worktree and then the main checkout;
+# with none the purity checks FAIL (GATE_ALLOW_NO_IDENTIFIER_LIST=1 accepts that knowingly). A missing purity
+# hook or scanner fails too, and so does a hook that errors.
 #
 # Usage:  scripts/pre-critic-gate.sh <base>..<head> [--json] [--all] [--skip a,b] [--only a,b]
 #                                                  [--no-head-check]
@@ -28,7 +35,7 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/landing-common.sh
 . "$SELF_DIR/lib/landing-common.sh"
 
-case "${1:-}" in -h|--help|"") sed -n '2,29p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
+case "${1:-}" in -h|--help|"") sed -n '2,/^set -uo/{/^set -uo/!p}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
 
 RANGE="$1"; shift
 JSON=0; ALL=0; SKIP=","; ONLY=""; HEAD_CHECK=1
@@ -118,25 +125,99 @@ check_catalog() {
 }
 
 # ---- purity ----------------------------------------------------------------------------------------
-check_purity() {
-  local out="$TMP/purity.out" f n=0 hits=0 rc
-  : >"$out"
-  local hook="$ROOT/.claude/hooks/core-purity-check.sh" idscan="$ROOT/scripts/checks/deployment-identifier-check.sh"
-  for f in "${TOUCHED[@]}"; do
-    [ -f "$ROOT/$f" ] || continue
-    n=$((n + 1))
-    if [ -x "$hook" ] || [ -f "$hook" ]; then
-      rc=0; jq -cn --arg p "$ROOT/$f" '{tool_input:{file_path:$p}}' | CLAUDE_PROJECT_DIR="$ROOT" bash "$hook" >"$TMP/hook.out" 2>&1 || rc=$?
-      if [ "$rc" -eq 2 ]; then hits=$((hits + 1)); echo "core-purity: $f" >>"$out"; fi
+# The deployment-identifier list is gitignored, so a worktree has none: it is read from the main checkout.
+# No list anywhere is a FAILURE (the scan would otherwise pass vacuously); GATE_ALLOW_NO_IDENTIFIER_LIST=1
+# accepts that knowingly (a public clone that has no deployment to protect).
+ID_LIST=""
+for _c in "${DEPLOYMENT_ID_LIST:-}" "$ROOT/.claude/hooks/deployment-identifiers.local.txt" "$MAIN_ROOT/.claude/hooks/deployment-identifiers.local.txt"; do
+  [ -n "$_c" ] && [ -f "$_c" ] && { ID_LIST="$_c"; break; }
+done
+
+# scan_paths <out-file> <abs-path>...  ->  PURITY_N / PURITY_HITS / PURITY_PROBLEMS
+scan_paths() {
+  local out="$1"; shift
+  local f rc rel hook="$ROOT/.claude/hooks/core-purity-check.sh" idscan="$ROOT/scripts/checks/deployment-identifier-check.sh"
+  PURITY_N=0; PURITY_HITS=0; PURITY_PROBLEMS=""
+  [ -f "$hook" ] || PURITY_PROBLEMS="the core-purity hook is missing ($hook);"
+  [ -f "$idscan" ] || PURITY_PROBLEMS="$PURITY_PROBLEMS the deployment-identifier scan is missing;"
+  if [ -z "$ID_LIST" ] && [ "${GATE_ALLOW_NO_IDENTIFIER_LIST:-0}" != 1 ]; then
+    PURITY_PROBLEMS="$PURITY_PROBLEMS no deployment-identifier list found (worktree or main checkout), so identifiers were NOT scanned;"
+  fi
+  for f in "$@"; do
+    [ -f "$f" ] || continue
+    PURITY_N=$((PURITY_N + 1)); rel="${f#"$ROOT"/}"
+    if [ -f "$hook" ]; then
+      rc=0; jq -cn --arg p "$f" '{tool_input:{file_path:$p}}' | CLAUDE_PROJECT_DIR="$ROOT" bash "$hook" >"$TMP/hook.out" 2>&1 || rc=$?
+      case "$rc" in
+        0) ;;
+        2) PURITY_HITS=$((PURITY_HITS + 1)); echo "core-purity: $rel" >>"$out" ;;
+        *) PURITY_HITS=$((PURITY_HITS + 1)); echo "core-purity hook errored (exit $rc): $rel" >>"$out" ;;
+      esac
     fi
-    if [ -f "$idscan" ]; then
-      rc=0; DEPLOYMENT_ID_ROOT="$ROOT" bash "$idscan" --file "$ROOT/$f" >"$TMP/id.out" 2>&1 || rc=$?
+    if [ -f "$idscan" ] && { [ -n "$ID_LIST" ] || [ "${GATE_ALLOW_NO_IDENTIFIER_LIST:-0}" = 1 ]; }; then
+      rc=0; env DEPLOYMENT_ID_ROOT="$ROOT" DEPLOYMENT_ID_LIST="${ID_LIST:-/nonexistent}" bash "$idscan" --file "$f" >"$TMP/id.out" 2>&1 || rc=$?
       # Only the file name is reported: the matched text is the deployment-local fact being protected.
-      if [ "$rc" -ne 0 ] || [ -s "$TMP/id.out" ]; then hits=$((hits + 1)); echo "deployment identifier: $f" >>"$out"; fi
+      if [ "$rc" -ne 0 ] || [ -s "$TMP/id.out" ]; then PURITY_HITS=$((PURITY_HITS + 1)); echo "deployment identifier: $rel" >>"$out"; fi
     fi
   done
-  if [ "$hits" -gt 0 ]; then record purity fail "$out" "$hits finding(s) in $n touched file(s)"
-  else record purity pass "" "$n touched file(s) clean"; fi
+}
+
+purity_record() { # name out label
+  local name="$1" out="$2"
+  [ -z "$PURITY_PROBLEMS" ] || echo "$PURITY_PROBLEMS" >>"$out"
+  if [ "$PURITY_HITS" -gt 0 ] || [ -n "$PURITY_PROBLEMS" ]; then
+    record "$name" fail "$out" "$PURITY_HITS finding(s) in $PURITY_N touched file(s)${PURITY_PROBLEMS:+; the check could not run fully}"
+  else record "$name" pass "" "$PURITY_N touched file(s) clean"; fi
+}
+
+check_purity() {
+  local out="$TMP/purity.out" abs=() f
+  : >"$out"
+  for f in "${TOUCHED[@]}"; do abs+=("$ROOT/$f"); done
+  scan_paths "$out" "${abs[@]}"
+  purity_record purity "$out"
+}
+
+# ---- extension ranges ------------------------------------------------------------------------------
+# A core range carries an extension change only as a gitlink bump, so the commits behind it are read from the
+# extension checkout: messages, purity and gitleaks. (RuboCop on extension Ruby files is NOT run here.)
+mapfile -t EXT_BUMPS < <(git -C "$ROOT" diff --raw --no-abbrev "$BASE_SHA..$HEAD_SHA" | awk -F'[ \t]' '$1 == ":160000" && $2 == "160000" && $5 == "M" {print $6 "\t" $3 "\t" $4}' | cut -c1-400)
+ext_each() { # callback name: called as cb <path> <old> <new> <dir>; sets EXT_FAIL / EXT_N
+  local cb="$1" line path old new
+  for line in "${EXT_BUMPS[@]}"; do
+    IFS=$'\t' read -r path old new <<<"$line"
+    EXT_N=$((EXT_N + 1))
+    if [ ! -e "$ROOT/$path/.git" ] || ! git -C "$ROOT/$path" cat-file -e "$old^{commit}" 2>/dev/null || ! git -C "$ROOT/$path" cat-file -e "$new^{commit}" 2>/dev/null; then
+      EXT_FAIL=$((EXT_FAIL + 1)); echo "$path: the bumped commits are not in the checkout, so the range cannot be read" >>"$TMP/ext.out"; continue
+    fi
+    "$cb" "$path" "$old" "$new" "$ROOT/$path"
+  done
+}
+ext_msgs_cb() {
+  local rc=0 o="$TMP/ext-msg.json"
+  ruby "$SELF_DIR/lib/commit-range-scan.rb" "$4" "$2..$3" --forbidden-from "$MAIN_ROOT/extensions/private" >"$o" 2>>"$TMP/ext.out" || rc=$?
+  if [ "$rc" -ne 0 ]; then EXT_FAIL=$((EXT_FAIL + 1)); if [ "$rc" -eq 1 ]; then jq -r --arg p "$1" '.problems[] | "\($p) \(.commit[0:12]) \(.rule)"' "$o" >>"$TMP/ext.out"; else echo "$1: the scan could not run" >>"$TMP/ext.out"; fi; fi
+}
+ext_gitleaks_cb() {
+  local rc=0 cfg=()
+  [ ! -f "$ROOT/.gitleaks.toml" ] || cfg=(--config="$ROOT/.gitleaks.toml")
+  gitleaks detect --source="$4" "${cfg[@]}" --log-opts="$2..$3" --redact --no-banner >"$TMP/ext-gl.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { EXT_FAIL=$((EXT_FAIL + 1)); echo "$1: gitleaks reported findings (matches redacted)" >>"$TMP/ext.out"; }
+}
+ext_purity_cb() {
+  local files=() f
+  while IFS= read -r -d '' f; do files+=("$4/$f"); done < <(git -C "$4" diff -z --name-only --diff-filter=ACMR "$2..$3")
+  scan_paths "$TMP/ext.out" "${files[@]}"
+  EXT_FAIL=$((EXT_FAIL + PURITY_HITS)); EXT_FILES=$((EXT_FILES + PURITY_N))
+  [ -z "$PURITY_PROBLEMS" ] || { EXT_FAIL=$((EXT_FAIL + 1)); echo "$PURITY_PROBLEMS" >>"$TMP/ext.out"; }
+}
+check_ext() { # name callback
+  local name="$1" cb="$2"
+  if [ "${#EXT_BUMPS[@]}" -eq 0 ]; then record "$name" skip "" "range bumps no extension pointer"; return; fi
+  : >"$TMP/ext.out"; EXT_FAIL=0; EXT_N=0; EXT_FILES=0
+  ext_each "$cb"
+  if [ "$EXT_FAIL" -gt 0 ]; then record "$name" fail "$TMP/ext.out" "$EXT_FAIL problem(s) across $EXT_N bumped extension(s)"
+  else record "$name" pass "" "$EXT_N bumped extension range(s) clean"; fi
 }
 
 # ---- messages --------------------------------------------------------------------------------------
@@ -171,11 +252,12 @@ check_gitleaks() {
   else record gitleaks fail "$out" "gitleaks reported findings (matches redacted)"; fi
 }
 
-for name in rubocop tsc catalog purity messages leak-guards gitleaks; do
+for name in rubocop tsc catalog purity messages leak-guards gitleaks ext-messages ext-purity ext-gitleaks; do
   wanted "$name" || { record "$name" skip "" "not selected"; continue; }
   case "$name" in
     rubocop) check_rubocop ;; tsc) check_tsc ;; catalog) check_catalog ;; purity) check_purity ;;
     messages) check_messages ;; leak-guards) check_leak_guards ;; gitleaks) check_gitleaks ;;
+    ext-messages) check_ext ext-messages ext_msgs_cb ;; ext-purity) check_ext ext-purity ext_purity_cb ;; ext-gitleaks) check_ext ext-gitleaks ext_gitleaks_cb ;;
   esac
 done
 
