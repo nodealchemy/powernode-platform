@@ -41,7 +41,7 @@ module Ai
     # How much of a text `filter_text` will scan. The output is cut to
     # TEXT_LIMIT, so nothing past this can be emitted, and an exception column
     # is unbounded. Everything emitted was scanned; the cut is marked with an
-    # ellipsis.
+    # ellipsis, after dropping the token the cut runs through.
     TEXT_SCAN_WINDOW = 32 * 1024
 
     # Key names `filter_text` masks beyond key_patterns: a header, not a hash
@@ -150,7 +150,7 @@ module Ai
 
         text = text.to_s
         cut = text.length > TEXT_SCAN_WINDOW
-        text = text[0, TEXT_SCAN_WINDOW] if cut
+        text = drop_cut_token(text[0, TEXT_SCAN_WINDOW]) if cut
 
         masked = mask_keyed_values(text.gsub(URL_USERINFO) { "#{::Regexp.last_match(1)}#{MASK}@" })
         masked = masked.gsub(BEARER) { "#{::Regexp.last_match(1)}#{MASK}" }
@@ -180,6 +180,17 @@ module Ai
       end
 
       private
+
+      # Everything after the last whitespace of a window cut off mid-text. The
+      # token the cut runs through has lost whatever gave it away (a URL its
+      # `@`, a value its closing quote), so the masking rules cannot recognise
+      # its head, and masking an earlier value shrinks the text enough to pull
+      # that head into the output. No whitespace at all leaves nothing: the whole
+      # window is one unbounded token.
+      def drop_cut_token(window)
+        boundary = window.rindex(/\s/)
+        boundary ? window[0..boundary] : ""
+      end
 
       # Rewrites every secret-keyed value in `text` to MASK, keeping the key and
       # its separator. Scanning resumes after each masked value, so a key nested

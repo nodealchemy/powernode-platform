@@ -141,6 +141,46 @@ RSpec.describe Ai::SensitiveParams do
       expect(described_class.filter_text('x' * 5_000).length).to eq(described_class::TEXT_LIMIT)
     end
 
+    # The quoted value masks down to a few characters, which pulls the URL after
+    # it into the 500-character output; `cut_at` says how many characters of the
+    # password sit inside the scan window (all of them, or only the head).
+    def text_cut_inside_url(password, cut_at:)
+      opening = 'token="'
+      joiner = '" postgres://svc:'
+      filler = described_class::TEXT_SCAN_WINDOW - opening.length - joiner.length - cut_at
+      "#{opening}#{'a' * filler}#{joiner}#{password}@db.example/app"
+    end
+
+    it 'drops the token the window cuts through, so a URL whose @ falls outside is not half-emitted' do
+      password = %w[Not A Real Pw].join
+
+      [ password.length, 4 ].each do |cut_at|
+        filtered = described_class.filter_text(text_cut_inside_url(password, cut_at: cut_at))
+
+        expect(filtered).not_to include(password[0, 4], 'svc')
+        expect(filtered).to end_with('...')
+      end
+    end
+
+    it 'keeps what precedes the cut token when there is whitespace to cut at' do
+      text = "boom happened here #{'a' * described_class::TEXT_SCAN_WINDOW}"
+
+      expect(described_class.filter_text(text)).to eq('boom happened here ...')
+    end
+
+    it 'emits only the marker when the window holds no whitespace at all' do
+      expect(described_class.filter_text('a' * (described_class::TEXT_SCAN_WINDOW + 10))).to eq('...')
+    end
+
+    it 'does not emit the head of a Bearer credential that straddles the window' do
+      secret = %w[Not A Real Bearer Value].join
+      lead = 'Authorization: Bearer '
+      filler = ('. ' * ((described_class::TEXT_SCAN_WINDOW - lead.length - 5) / 2))
+      text = "#{filler} #{lead}#{secret}"
+
+      expect(described_class.filter_text(text)).not_to include(secret[0, 5])
+    end
+
     it 'stays linear on a large text and never emits an unscanned tail' do
       timed = lambda do |text|
         started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
