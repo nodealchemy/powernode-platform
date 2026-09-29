@@ -6,9 +6,12 @@ module Ai
     # asks for. A person decides it in their own session, so the only thing a
     # runaway or injected instance session can do here is fill that person's
     # queue. This bounds that: at most one pending request per (principal,
-    # action category, dedupe key), and a per-principal count of parks in a
+    # action category, dedupe key), and a count of parks per (principal, action category) in a
     # window. Both are answered from the approval rows themselves, so there is
     # no second ledger to drift from them.
+    #
+    # OPT-IN: Ai::Tools::BaseTool applies it only to a tool that names a
+    # #park_dedupe_key, so no other human-only verb an instance parks changes.
     #
     # The check and the park are one critical section. A transaction-scoped
     # advisory lock, keyed on the principal, serialises concurrent parks from
@@ -52,7 +55,7 @@ module Ai
             end
 
             limit = rate_limit
-            if recent_count(account, principal_id) >= limit
+            if recent_count(account, principal_id, action_category) >= limit
               audit(AUDIT_RATE_LIMITED, account, account, principal_id, action_category, session_label,
                     limit: limit)
               next RateLimited.new(limit)
@@ -91,8 +94,10 @@ module Ai
             .order(:created_at).first
         end
 
-        def recent_count(account, principal_id)
-          scope(account, principal_id).where(created_at: WINDOW.ago..).count
+        # Per (principal, action category): one tool's parks never spend another's budget.
+        def recent_count(account, principal_id, action_category)
+          scope(account, principal_id).where("request_data->>'action_category' = ?", action_category.to_s)
+                                      .where(created_at: WINDOW.ago..).count
         end
 
         # A refusal is recorded, never allowed to break the answer the caller

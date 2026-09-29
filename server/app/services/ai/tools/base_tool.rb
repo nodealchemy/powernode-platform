@@ -960,8 +960,10 @@ module Ai
       end
 
       # What makes two parks "the same request" from one machine principal (the
-      # tool's own notion: a setting key, say), or nil for no dedupe. Compared
-      # case-insensitively by Ai::Approvals::MachinePark.
+      # tool's own notion: a setting key, say), or nil. A non-nil key is also the
+      # tool's OPT-IN to Ai::Approvals::MachinePark (dedupe and a per-principal,
+      # per-category rate limit); nil leaves the park exactly as it was. Compared
+      # case-insensitively.
       def park_dedupe_key(_params)
         nil
       end
@@ -1285,13 +1287,16 @@ module Ai
 
       # Parks a human-only call. An instance's park goes through
       # Ai::Approvals::MachinePark (one pending request per principal, tool and
-      # key, and a per-principal rate limit); every other caller parks exactly
-      # as before.
+      # key, and a per-principal rate limit) when the tool opts in with a
+      # #park_dedupe_key; every other caller and tool parks exactly as before.
       def park_human_only(declaration, params)
         parker = -> { run_through_autonomy_gate(declaration, params, requires_human_session: true) }
+        # OPT-IN: only a tool that names a dedupe key for the call gets the guard.
+        # Every other human-only verb an instance parks (campaign_resume,
+        # dev_requeue_task, the policy verbs...) parks exactly as it always did.
         # A restricted principal with no node instance (a federation partner) has
         # no identity to key the guard on and parks as before, "unattributed".
-        return parker.call unless instance_authorized? && node_instance
+        return parker.call unless instance_authorized? && node_instance && park_dedupe_key(params).present?
 
         outcome = ::Ai::Approvals::MachinePark.guard(
           account: account, principal_id: node_instance.id, action_category: declaration[:action_category],

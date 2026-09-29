@@ -17,7 +17,9 @@ Rails.application.config.to_prepare do
     description: "JSON list of the private extension slugs that exist in this deployment but are not " \
                  "installed here; dev_merge_increment refuses to publish a commit naming one. [] declares " \
                  "that none exist. Unset on a host that cannot see them makes the merge refuse.",
-    protected: true
+    protected: true,
+    # An instance (the dev loop) may ASK for a change; only a person decides it.
+    machine_parkable: true
   )
   SiteSetting.register_value_check(Ai::DevMerge::ForbiddenNames::SETTING_KEY) do |value|
     Ai::DevMerge::ForbiddenNames.declaration_problem(value)

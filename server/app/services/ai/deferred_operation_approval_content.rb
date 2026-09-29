@@ -20,9 +20,10 @@ module Ai
     end
 
     # A request an instance parked for a person's decision opens the approvals
-    # queue itself, where the card and the second-factor prompt are.
+    # queue on that request, expanded, where the card showing exactly what it
+    # asks for is.
     def self.action_url(request)
-      request.machine_requested? ? APPROVAL_QUEUE_URL : "/app/notifications"
+      request.machine_requested? ? "#{APPROVAL_QUEUE_URL}?request=#{request.id}" : "/app/notifications"
     end
 
     def self.severity(request)

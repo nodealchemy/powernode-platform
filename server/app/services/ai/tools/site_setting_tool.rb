@@ -103,11 +103,17 @@ module Ai
         # disagreeing about a key's type is a defect, and the last writer
         # winning would make it depend on load order.
         #
+        # `machine_parkable: true` lets an INSTANCE principal REQUEST a write of a
+        # protected key (park it for a person to decide). It is an explicit,
+        # per-key opt-in: a protected key is person-initiated only unless its
+        # owner names it here, and it changes who may ASK, never who may decide
+        # or run. It is meaningful only with `protected: true`.
+        #
         # `protected: true` routes every write of the key through
         # site_setting_set_protected (human-only). Protection is part of the
         # shape: an owner that registers the key unprotected conflicts with one
         # that protects it, rather than quietly relaxing it.
-        def register_key(key, setting_type:, description:, protected: false)
+        def register_key(key, setting_type:, description:, protected: false, machine_parkable: false)
           key = key.to_s
           unless VALID_SETTING_TYPES.include?(setting_type.to_s)
             raise ArgumentError,
@@ -116,7 +122,7 @@ module Ai
           end
 
           spec = { setting_type: setting_type.to_s, description: description.to_s,
-                   protected: protected == true }.freeze
+                   protected: protected == true, machine_parkable: machine_parkable == true }.freeze
           existing = operator_configurable_keys[key]
           if existing && existing != spec
             raise ArgumentError,
@@ -219,8 +225,9 @@ module Ai
                          "#{protected_keys}. Always parks for a person to confirm in their own session " \
                          "(no policy can proceed it) and runs as that person, who must hold admin.access. " \
                          "An instance (node) principal may REQUEST it only when its grant names this " \
-                         "tool exactly; it can never decide or run it, a person does, in their own " \
-                         "session. Refused outright for an in-process caller. " \
+                         "tool exactly (a glob does not qualify) and the key is registered " \
+                         "machine-parkable; it can never decide or run it, a person does, in their " \
+                         "own session. Refused outright for an in-process caller. " \
                          "Audit rows name the key and the actor, never the value; the value travels with " \
                          "the parked request so the confirming person sees it.",
             parameters: {
@@ -390,15 +397,24 @@ module Ai
             "not something a reconciler may do on its own behalf."
           ) ]
         end
+        unless instance_authorized?
+          return [ "not_instance", park_denied("it is not an authenticated instance principal") ]
+        end
         if node_instance.nil?
           return [ "no_node_instance", park_denied("it carries no node instance to attribute the request to") ]
         end
         unless park_grant_cleared?(params)
-          return [ "grant_not_cleared", park_denied("its grant does not cover site_setting_set_protected") ]
+          return [ "grant_not_cleared", park_denied("its grant does not name site_setting_set_protected") ]
         end
 
         key_refusal = write_key_error(params)
         return [ "key_refused", key_refusal ] if key_refusal
+        unless key_spec(params)[:machine_parkable]
+          return [ "key_not_machine_parkable", error_result(
+            "#{params[:key].to_s.inspect} is a protected setting that only a person may initiate a change to; " \
+            "an instance principal may request only the keys registered machine_parkable."
+          ) ]
+        end
 
         value_refusal = value_error(params)
         value_refusal ? [ "value_refused", value_refusal ] : nil
@@ -407,15 +423,21 @@ module Ai
       def park_denied(reason)
         error_result(
           "site_setting_set_protected cannot be requested by this instance principal: #{reason}. " \
-          "An operator grants the tool by exact name (platform.site_setting_set_protected)."
+          "An operator grants the tool by exact name (platform.site_setting_set_protected); a glob does not qualify."
         )
       end
 
+      # The grant must NAME the tool: the literal name is among the principal's
+      # granted patterns. A glob (`platform.*`, `platform.site_setting*`) that
+      # merely covers it does not qualify, so a broad grant an instance already
+      # holds for other work never becomes a licence to ask for protected changes.
+      # may_invoke? is asked as well, so the destroy-shaped deny overlay still holds.
       def park_grant_cleared?(params)
         principal = ::Mcp::Principal.for_instance_cn(node_instance.id)
         return false if principal.nil? || principal.account&.id != account&.id
 
-        principal.may_invoke?("platform.#{granted_tool_name_for(routed_action_name(params))}")
+        name = "platform.#{granted_tool_name_for(routed_action_name(params))}"
+        principal.granted_tool_patterns.include?(name) && principal.may_invoke?(name)
       end
 
       # The key's registered value check, and the presence rule SiteSetting
@@ -436,13 +458,22 @@ module Ai
         reason.present? ? error_result("#{key.inspect} refuses that value: #{reason}") : nil
       end
 
-      # A refused park is recorded. Names the principal and the key, never the
-      # value; a lost row costs visibility only, so it is logged, not raised.
+      # A refused park is recorded, once per (principal, reason) a minute so a
+      # looping session cannot bloat the log. Names the principal, the reason
+      # code and the key ONLY when it is a registered one, never a value or
+      # caller-supplied text; a lost row costs visibility only, so it is logged,
+      # not raised.
+      REFUSAL_AUDIT_COLLAPSE = 1.minute
+
       def audit_park_refusal(params, code)
+        return unless Rails.cache.write("site_setting:park_refusal_audit:#{node_instance&.id}:#{code}", 1,
+                                        expires_in: REFUSAL_AUDIT_COLLAPSE, unless_exist: true)
+
+        registered = key_spec(params) ? params[:key].to_s : "unregistered"
         AuditLog.log_action(
           action: "ai.approvals.machine_park_refused", resource: account, account: account, source: "api",
           metadata: { requester_kind: "instance", node_instance_id: node_instance&.id.to_s.presence,
-                      tool_action: routed_action_name(params), setting_key: params[:key].to_s,
+                      tool_action: routed_action_name(params), setting_key: registered,
                       session_label: session_label, reason: code }.compact
         )
       rescue StandardError => e

@@ -19,20 +19,25 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
 
   before do
     described_class.register_key(protected_key, setting_type: "string", description: "machine park spec key",
-                                                protected: true)
+                                                protected: true, machine_parkable: true)
+    Rails.cache.clear
     ::Mcp::Principal.instance_resolver = ->(cn) { cn == node_instance.id ? node_instance : nil }
     ::Mcp::Principal.tool_grant_resolver = ->(_instance) { granted }
   end
 
   after { ::Mcp::Principal.reset! }
 
-  def instance_tool(label: nil)
-    tool = described_class.new(account: account)
+  def instance_tool(label: nil, internal: false)
+    tool = described_class.new(account: account, internal: internal)
     tool.instance_authorized = true
     tool.node_instance = node_instance
     tool.call_origin = "mcp_instance"
     tool.session_label = label if label
     tool
+  end
+
+  def last_refusal_reason
+    AuditLog.where(action: "ai.approvals.machine_park_refused").order(:created_at).last&.metadata&.fetch("reason", nil)
   end
 
   def park(key: protected_key, value: "armed", tool: instance_tool)
@@ -94,12 +99,42 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
         .to include("reason" => "grant_not_cleared", "node_instance_id" => node_instance.id)
     end
 
+    it "refuses a glob grant that merely covers the tool: the grant must name it" do
+      [ "platform.*", "platform.site_setting_*", "platform.site_setting_set*", "platform.site_setting_{get,set_protected}" ]
+        .each do |pattern|
+        Rails.cache.clear
+        ::Mcp::Principal.tool_grant_resolver = ->(_instance) { [ pattern ] }
+
+        result = park
+
+        expect(result[:success]).to be(false), "#{pattern} parked: #{result.inspect}"
+        expect(last_refusal_reason).to eq("grant_not_cleared")
+      end
+      expect(Ai::ApprovalRequest.count).to eq(0)
+    end
+
+    it "parks when the exact name is granted alongside a broad glob" do
+      ::Mcp::Principal.tool_grant_resolver = ->(_instance) { [ "platform.*", "platform.site_setting_set_protected" ] }
+
+      expect(parked_request(park)).to be_pending
+    end
+
     it "refuses an instance carrying no node instance" do
       tool = described_class.new(account: account)
       tool.instance_authorized = true
 
       expect(park(tool: tool)[:success]).to be(false)
       expect(Ai::ApprovalRequest.count).to eq(0)
+      expect(last_refusal_reason).to eq("no_node_instance")
+    end
+
+    it "refuses a tool carrying a node instance but not authorized as an instance" do
+      tool = described_class.new(account: account)
+      tool.node_instance = node_instance
+
+      expect(park(tool: tool)[:success]).to be(false)
+      expect(Ai::ApprovalRequest.count).to eq(0)
+      expect(last_refusal_reason).to eq("not_instance")
     end
 
     it "refuses an in-process internal caller, instance or not" do
@@ -110,12 +145,68 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
       expect(Ai::ApprovalRequest.count).to eq(0)
     end
 
+    it "refuses an internal caller that is also an authenticated instance, by reason code" do
+      tool = instance_tool(internal: true)
+
+      expect(park(tool: tool)[:success]).to be(false)
+      expect(Ai::ApprovalRequest.count).to eq(0)
+      expect(last_refusal_reason).to eq("internal_caller")
+    end
+
     it "still refuses an unregistered key and an ordinary key, so the park cannot launder a plain write" do
       described_class.register_key("zz_machine_park_plain", setting_type: "string", description: "plain")
 
       expect(park(key: "zz_not_registered")[:success]).to be(false)
+      expect(last_refusal_reason).to eq("key_refused")
+      Rails.cache.clear
       expect(park(key: "zz_machine_park_plain")[:success]).to be(false)
+      expect(last_refusal_reason).to eq("key_refused")
       expect(Ai::ApprovalRequest.count).to eq(0)
+    end
+
+    it "refuses a protected key its owner did not register machine-parkable, so it stays person-initiated" do
+      described_class.register_key("zz_person_only_protected", setting_type: "string", description: "person only",
+                                                               protected: true)
+
+      result = park(key: "zz_person_only_protected")
+
+      expect(result[:success]).to be(false)
+      expect(result[:error]).to include("only a person may initiate")
+      expect(last_refusal_reason).to eq("key_not_machine_parkable")
+      expect(Ai::ApprovalRequest.count).to eq(0)
+    end
+
+    it "leaves the human-session category list and the self-hosting node id person-initiated only" do
+      person_only = [ Ai::Approvals::HumanSessionPolicy::SETTING_KEY, "self_hosting_node_id" ]
+        .select { |key| described_class.operator_configurable_keys.key?(key) }
+      expect(person_only).to include(Ai::Approvals::HumanSessionPolicy::SETTING_KEY)
+
+      person_only.each do |key|
+        Rails.cache.clear
+        result = park(key: key, value: "[]")
+
+        expect(result[:success]).to be(false), "#{key} parked: #{result.inspect}"
+        expect(last_refusal_reason).to eq("key_not_machine_parkable")
+      end
+      expect(Ai::ApprovalRequest.count).to eq(0)
+    end
+
+    it "registers exactly the dev-merge names and the ssh host-key switch as machine-parkable, of the real keys" do
+      parkable = described_class.operator_configurable_keys.select { |name, spec| spec[:machine_parkable] && !name.start_with?("zz_") }.keys
+
+      expect(parkable - [ "dev_merge.private_extension_names", "system.ssh.require_host_key" ]).to be_empty
+      expect(parkable).to include("dev_merge.private_extension_names")
+    end
+
+    it "records neither caller text nor an unregistered key's name in the refusal audit, and collapses repeats" do
+      long_key = "zz_#{'k' * 5_000}"
+
+      3.times { park(key: long_key) }
+
+      rows = AuditLog.where(action: "ai.approvals.machine_park_refused")
+      expect(rows.count).to eq(1)
+      expect(rows.first.metadata).to include("setting_key" => "unregistered", "reason" => "key_refused")
+      expect(rows.first.metadata.to_json.length).to be < 1_000
     end
 
     it "refuses a value its registered check rejects, before it can park" do
@@ -256,10 +347,12 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
     it "refuses a park over the per-principal limit and audits it" do
       SiteSetting.set(Ai::Approvals::MachinePark::RATE_LIMIT_SETTING, 2, setting_type: "integer")
       2.times do |i|
-        described_class.register_key("#{protected_key}_#{i}", setting_type: "string", description: "k", protected: true)
+        described_class.register_key("#{protected_key}_#{i}", setting_type: "string", description: "k", protected: true,
+                                                                   machine_parkable: true)
         parked_request(park(key: "#{protected_key}_#{i}"))
       end
-      described_class.register_key("#{protected_key}_over", setting_type: "string", description: "k", protected: true)
+      described_class.register_key("#{protected_key}_over", setting_type: "string", description: "k", protected: true,
+                                                                  machine_parkable: true)
 
       result = park(key: "#{protected_key}_over")
 
@@ -276,13 +369,68 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
     end
   end
 
+  describe "other human-only verbs an instance parks are untouched" do
+    let(:other_tool_class) do
+      klass = Class.new(::Ai::Tools::BaseTool) do
+        def self.definition
+          { name: "spec_other_human_tool", description: "human-only probe",
+            parameters: { action: { type: "string", required: false } } }
+        end
+
+        declare_action "spec_other_human_write", mutating: true, human_only: true,
+                                                 action_category: "spec.other.human",
+                                                 executor_class: "Ai::Executors::DeferredToolCall",
+                                                 gate_context: :deferred_tool_call_context,
+                                                 on_proceed: :deferred_tool_call_result
+        define_method(:call) { |_params| success_result(ran: true) }
+      end
+      klass.const_set(:REQUIRED_PERMISSION, nil)
+      stub_const("SpecOtherHumanTool", klass)
+    end
+
+    before do
+      Ai::InterventionPolicy.register_category!("spec.other.human")
+      ::Mcp::Principal.tool_grant_resolver = lambda { |_instance|
+        [ "platform.spec_other_human_write", "platform.site_setting_set_protected" ]
+      }
+    end
+
+    it "takes no lock, dedupe or limit: the same instance parks it past the limit, twice over" do
+      SiteSetting.set(Ai::Approvals::MachinePark::RATE_LIMIT_SETTING, 2, setting_type: "integer")
+      allow(Ai::Approvals::MachinePark).to receive(:guard).and_call_original
+
+      requests = Array.new(4) do
+        tool = other_tool_class.new(account: account)
+        tool.instance_authorized = true
+        tool.node_instance = node_instance
+        tool.call_origin = "mcp_instance"
+        parked_request(tool.execute(params: { action: "spec_other_human_write" }))
+      end
+
+      expect(requests.map(&:id).uniq.size).to eq(4)
+      expect(Ai::Approvals::MachinePark).not_to have_received(:guard)
+      expect(AuditLog.where(action: %w[ai.approvals.machine_park_deduped ai.approvals.machine_park_rate_limited])).to be_empty
+    end
+
+    it "does not spend the protected-setting budget: the limit counts per action category" do
+      SiteSetting.set(Ai::Approvals::MachinePark::RATE_LIMIT_SETTING, 1, setting_type: "integer")
+      tool = other_tool_class.new(account: account)
+      tool.instance_authorized = true
+      tool.node_instance = node_instance
+      tool.call_origin = "mcp_instance"
+      parked_request(tool.execute(params: { action: "spec_other_human_write" }))
+
+      expect(parked_request(park)).to be_pending
+    end
+  end
+
   describe "the notification" do
     it "opens the approvals queue for a request an instance parked, and carries no value" do
       request = parked_request(park(value: "s3cret-looking-value"))
 
       note = Notification.where(user: operator).order(:created_at).last
 
-      expect(note.action_url).to eq("/app/ai/control/approvals/queue")
+      expect(note.action_url).to eq("/app/ai/control/approvals/queue?request=#{request.id}")
       expect([ note.title, note.message, request.description ].join(" ")).not_to include("s3cret-looking-value")
     end
   end
