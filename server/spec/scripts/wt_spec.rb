@@ -57,8 +57,12 @@ RSpec.describe "scripts/wt.sh" do
     FileUtils.mkdir_p([ File.join(@main, "scripts/lib"), File.join(@main, "server") ])
     %w[wt.sh prepare-worktree.sh].each { |f| FileUtils.cp(File.join(repo_scripts, f), File.join(@main, "scripts", f)) }
     FileUtils.cp(File.join(repo_scripts, "lib/landing-common.sh"), File.join(@main, "scripts/lib/landing-common.sh"))
-    File.write(File.join(@main, ".gitignore"), "/scripts/local/\n")
     File.write(File.join(@main, "server/.keep"), "")
+    FileUtils.mkdir_p(File.join(@main, "worker"))
+    File.write(File.join(@main, "worker/.keep"), "")
+    File.write(File.join(@main, ".gitignore"), "/scripts/local/\n/extensions/private/\n.env.*\n.bundle/\nGemfile.private.lock\n/server/vendor/bundle\n")
+    FileUtils.mkdir_p(File.join(@main, "extensions/private/thing"))
+    File.write(File.join(@main, "extensions/private/thing/a.rb"), "puts 1\n")
     sh!("git", "add", ".", chdir: @main)
     sh!("git", "commit", "-q", "-m", "core base", chdir: @main)
     sh!("git", "submodule", "add", "-q", @ext_origin, "extensions/widgets", chdir: @main)
@@ -157,6 +161,17 @@ RSpec.describe "scripts/wt.sh" do
     expect(ledger.size).to eq(1)
   end
 
+  it "cleans up completely when creation fails late: worktree, both branches and the lane" do
+    # the fixture's worktrees carry no prepare-extension-test-db.sh, so preparing the database fails
+    _out, _err, code = wt("create", "imp-d2")
+
+    expect(code).not_to eq(0)
+    expect(File.exist?(File.join(@wts, "imp-d2"))).to be false
+    expect(sh!("git", "-C", @main, "branch", "--list", "imp-d2")).to eq("")
+    expect(sh!("git", "-C", File.join(@main, "extensions/widgets"), "branch", "--list", "imp-d2")).to eq("")
+    expect(ledger).to be_empty
+  end
+
   it "releases the lane and removes the half-made worktree when creation fails" do
     _out, err, code = wt("create", "imp-d1", "--no-db", "--base", "no-such-branch")
 
@@ -251,6 +266,103 @@ RSpec.describe "scripts/wt.sh" do
         Process.kill("TERM", pid)
         Process.wait(pid)
       end
+    end
+
+
+    it "refuses uncommitted changes and untracked files in core, and --discard-dirty overrides" do
+      File.write(File.join(path, "server/.keep"), "edited\n")
+      File.write(File.join(path, "new_spec.rb"), "x\n")
+      _out, err, code = wt("remove", path)
+
+      expect(code).to eq(1)
+      expect(err).to match(/UNCOMMITTED: core: 2 path\(s\)/)
+      expect(err).to match(/uncommitted or untracked work/)
+      expect(File.directory?(path)).to be true
+      expect(File.exist?(@drops)).to be false
+
+      _out, err, code = wt("remove", path, "--discard-dirty")
+      expect(code).to eq(0), err
+      expect(err).to match(/--discard-dirty: discarding/)
+      expect(File.exist?(path)).to be false
+    end
+
+    it "refuses uncommitted work in a nested extension worktree" do
+      File.write(File.join(path, "extensions/widgets/e0.txt"), "edited\n")
+      _out, err, code = wt("remove", path)
+
+      expect(code).to eq(1)
+      expect(err).to match(/UNCOMMITTED:.* extensions\/widgets: 1 path/)
+      expect(File.directory?(path)).to be true
+    end
+
+    it "refuses when a private-extension copy differs from the main checkout's" do
+      File.write(File.join(path, "extensions/private/thing/a.rb"), "puts 2\n")
+      _out, err, code = wt("remove", path)
+
+      expect(code).to eq(1)
+      expect(err).to match(/private copies differ from main: extensions\/private\/thing/)
+      expect(File.directory?(path)).to be true
+    end
+
+    it "does not mistake the generated worker/vendor/bundle link for work" do
+      FileUtils.mkdir_p(File.join(@main, "worker/vendor/bundle"))
+      other = create("imp-e2")
+      expect(File.symlink?(File.join(other["path"], "worker/vendor/bundle"))).to be true
+      expect(sh!("git", "-C", other["path"], "status", "--porcelain")).to include("worker/vendor/")
+
+      _out, err, code = wt("remove", other["path"])
+      expect(code).to eq(0), err
+    end
+
+    it "with --strand-ok pins a detached extension HEAD and the core head under refs/keep before removing" do
+      ext = File.join(path, "extensions/widgets")
+      sh!("git", "-C", ext, "checkout", "-q", "--detach")
+      ext_sha = commit_file(ext, "det.txt", "commit on a detached head")
+      core_sha = commit_file(path, "keep2.txt", "core work")
+      _out, err, code = wt("remove", path, "--strand-ok")
+
+      expect(code).to eq(0), err
+      expect(File.exist?(path)).to be false
+      keep = sh!("git", "-C", File.join(@main, "extensions/widgets"), "for-each-ref", "--format=%(objectname) %(refname)", "refs/keep/")
+      expect(keep).to match(%r{\A#{ext_sha} refs/keep/imp-e1/\d{8}T\d{6}\z})
+      expect(sh!("git", "-C", @main, "for-each-ref", "--format=%(objectname)", "refs/keep/")).to eq(core_sha)
+      expect(sh!("git", "-C", File.join(@main, "extensions/widgets"), "cat-file", "-t", ext_sha)).to eq("commit")
+    end
+
+    it "drops the lane database by name with dropdb --if-exists, with DATABASE_URL removed" do
+      bin = File.join(@dir, "bin")
+      FileUtils.mkdir_p(bin)
+      File.write(File.join(bin, "dropdb"), "#!/usr/bin/env bash\necho \"$* url=[${DATABASE_URL:-}]\" >> #{@drops}\n")
+      File.chmod(0o755, File.join(bin, "dropdb"))
+      _out, err, code = wt("remove", path, env: { "WT_DROPDB_CMD" => "", "PATH" => "#{bin}:#{ENV.fetch('PATH')}",
+                                                  "DATABASE_URL" => "postgres://shared/powernode_test" })
+
+      expect(code).to eq(0), err
+      expect(File.read(@drops).strip).to eq("--if-exists powernode_test_imp_e1 url=[]")
+    end
+
+    it "does not drop a database another worktree uses, or one that is protected, and removes nothing" do
+      other = create("imp-e3")
+      File.write(File.join(other["path"], "server/.env.test.local"), "TEST_ENV_NUMBER=_imp_e1\nTEST_REDIS_LANE=2\n")
+      _out, err, code = wt("remove", path)
+      expect(code).to eq(1)
+      expect(err).to match(/uses the same test database/)
+      expect(File.directory?(path)).to be true
+      expect(File.exist?(@drops)).to be false
+
+      File.write(File.join(other["path"], "server/.env.test.local"), "TEST_ENV_NUMBER=_imp_e3\nTEST_REDIS_LANE=2\n")
+      _out, err, code = wt("remove", path, env: { "WT_PROTECTED_DBS" => "powernode_test_imp_e1" })
+      expect(code).to eq(1)
+      expect(err).to match(/WT_PROTECTED_DBS/)
+      expect(File.directory?(path)).to be true
+    end
+
+    it "treats a git cherry that fails as unknown (stranded), never as clean" do
+      sh!("git", "-C", @main, "update-ref", "-d", "refs/remotes/origin/develop")
+      _out, err, code = wt("remove", path, "--no-fetch")
+
+      expect(code).to eq(1)
+      expect(err).to match(/STRANDED: core: \? commit/)
     end
 
     it "refuses the main checkout and paths that are not worktrees" do

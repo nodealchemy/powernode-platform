@@ -9,7 +9,7 @@
 #
 # Usage:
 #   scripts/wt.sh create <key> [--base <ref>] [--path <dir>] [--no-db] [--no-fetch]
-#   scripts/wt.sh remove <path> [--strand-ok] [--busy-ok] [--no-fetch]
+#   scripts/wt.sh remove <path> [--strand-ok] [--discard-dirty] [--busy-ok] [--no-fetch]
 #   scripts/wt.sh audit [--json] [--no-liveness] [--no-fetch]
 #
 # create <key>     worktree at <WT_ROOT>/<key> (default ~/worktrees/<key>) on a new branch <key>, off
@@ -19,9 +19,13 @@
 #                  branch <key> switched to in every public extension worktree.
 # remove <path>    REFUSES while any commit is not on origin/develop at PATCH level (git cherry) in the
 #                  worktree or in any nested extension worktree, and while another process has its working
-#                  directory inside it (--busy-ok; the caller's own process chain is ignored).
-#                  --strand-ok removes anyway and KEEPS the branches, so the commits stay reachable. Otherwise:
-#                  drop the lane's test database, remove the worktrees, release the lane, delete the
+#                  directory inside it (--busy-ok; the caller's own process chain is ignored), and while
+#                  there is uncommitted or untracked work in core, a nested extension worktree, or a files-only
+#                  copy under extensions/private/ that differs from main (--discard-dirty).
+#                  --strand-ok removes anyway, pins each head under refs/keep/<worktree>/<time> (a detached
+#                  extension HEAD has no branch) and KEEPS the branches. Otherwise: drop the lane's test
+#                  database (`dropdb --if-exists powernode_test<suffix>`, refused unless the name is an isolated
+#                  lane name that no other worktree uses), remove the worktrees, release the lane, delete the
 #                  now-merged branches.
 # audit            per worktree: branch, lane, ledger state, liveness (processes whose cwd is inside it), and
 #                  the ahead-count of core and each extension against origin/develop.
@@ -35,7 +39,8 @@
 #
 # Environment: WT_ROOT (default ~/worktrees), WT_LANE_LEDGER, WT_MAX_LANE (default 5, matches
 # prepare-worktree.sh), WT_DROPDB_CMD (command that drops the lane database; receives TEST_DB_NAME and
-# TEST_ENV_NUMBER; default: `rails db:drop` in the worktree, RAILS_ENV=test). Deployment facts are not needed.
+# TEST_ENV_NUMBER; default: `dropdb --if-exists` with the ambient PG* settings), WT_PROTECTED_DBS
+# (space-separated database names never to drop). Deployment facts are not needed.
 
 set -euo pipefail
 
@@ -43,7 +48,7 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/landing-common.sh
 . "$SELF_DIR/lib/landing-common.sh"
 
-case "${1:-}" in -h|--help|"") sed -n '2,38p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
+case "${1:-}" in -h|--help|"") sed -n '2,/^set -euo/{/^set -euo/!p}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
 
 MAIN="$(lc_main_root "$SELF_DIR")" || lc_die "not inside a git repository"
 [ -d "$MAIN/extensions" ] || lc_die "main checkout not found at: $MAIN"
@@ -110,9 +115,35 @@ ledger_show() { [ -f "$LEDGER" ] && awk -F'\t' '{printf "  lane %s  %s\n", $1, $
 # Commits on <repo>'s HEAD that are not on origin/<base> at patch level (git cherry marks them "+").
 # Prints the count, or "?" when origin/<base> is unknown there.
 ahead_count() {
-  local repo="$1"
+  local repo="$1" out
   git -C "$repo" rev-parse --verify --quiet "refs/remotes/origin/$BASE_BRANCH" >/dev/null || { echo "?"; return 0; }
-  git -C "$repo" cherry "origin/$BASE_BRANCH" HEAD 2>/dev/null | command grep -c '^+' || true
+  # A cherry that FAILS (unborn HEAD, missing objects) must not read as "0 ahead".
+  out="$(git -C "$repo" cherry "origin/$BASE_BRANCH" HEAD 2>/dev/null)" || { echo "?"; return 0; }
+  printf '%s\n' "$out" | command grep -c '^+' || true
+}
+
+# Uncommitted or untracked work in <repo> (a worktree or a nested extension worktree): the porcelain
+# status lines, ignoring gitignored files and gitlinks. wt.sh's own generated worker/vendor/bundle
+# symlink dir is not work.
+dirty_lines() {
+  local repo="$1" lines
+  lines="$(git -C "$repo" status --porcelain --untracked-files=normal --ignore-submodules=all 2>/dev/null)" || { echo "?? (git status failed)"; return 0; }
+  if [ -d "$repo/worker/vendor" ] && [ -z "$(find "$repo/worker/vendor" -mindepth 1 -maxdepth 1 ! -name bundle 2>/dev/null)" ]; then
+    lines="$(printf '%s\n' "$lines" | command grep -vxF '?? worker/vendor/' || true)"
+  fi
+  printf '%s\n' "$lines" | command grep -v '^$' || true
+}
+# The files-only copies under extensions/private/* that differ from the main checkout's.
+private_copy_diffs() {
+  local wt="$1" d n
+  [ -d "$wt/extensions/private" ] || return 0
+  for d in "$wt"/extensions/private/*/; do
+    [ -d "$d" ] || continue
+    n="$(basename "$d")"
+    [ -d "$MAIN/extensions/private/$n" ] || continue
+    diff -rq --exclude=.git --exclude=tmp --exclude=log --exclude=node_modules "$MAIN/extensions/private/$n" "${d%/}" >/dev/null 2>&1 || printf 'extensions/private/%s\n' "$n"
+  done
+  return 0
 }
 ext_dirs() { # worktree path -> nested extension checkouts present in it
   local p
@@ -162,12 +193,18 @@ cmd_create() {
   local lane
   lane="$(with_ledger_lock reserve_lane "$path" "$key")" || lc_die "no free redis lane; remove a finished worktree first (scripts/wt.sh audit)"
   lc_info "lane $lane reserved for $path"
-  # A failed create releases its lane and leaves no half-made worktree behind.
+  # ANY failed create (an error, or one of the explicit lc_die exits, which an ERR trap would miss)
+  # releases its lane and leaves no half-made worktree or <key> branch behind.
+  # (Globals, not locals: an EXIT trap runs after the function's locals are gone.)
+  CREATE_OK=0; CREATE_PATH="$path"; CREATE_KEY="$key"
   cleanup_failed_create() {
-    with_ledger_lock release_lane "$path" || true
-    if [ -d "$path" ]; then "$SELF_DIR/prepare-worktree.sh" "$path" --remove >/dev/null 2>&1 || true; fi
+    [ "$CREATE_OK" -eq 1 ] && return 0
+    with_ledger_lock release_lane "$CREATE_PATH" || true
+    if [ -d "$CREATE_PATH" ]; then "$SELF_DIR/prepare-worktree.sh" "$CREATE_PATH" --remove >/dev/null 2>&1 || true; fi
+    git -C "$MAIN" branch -q -D "$CREATE_KEY" 2>/dev/null || true
+    local p; for p in "${SUBPATHS[@]}"; do git -C "$MAIN/$p" branch -q -D "$CREATE_KEY" 2>/dev/null || true; done
   }
-  trap cleanup_failed_create ERR
+  trap cleanup_failed_create EXIT
 
   lc_info "creating the worktree off origin/$base"
   WT_FORCE_LANE="$lane" "$SELF_DIR/prepare-worktree.sh" "$path" --create "$base" >&2
@@ -203,30 +240,38 @@ cmd_create() {
   else
     lc_info "test database NOT prepared (--no-db): run (cd $path && scripts/prepare-extension-test-db.sh)"
   fi
-  trap - ERR
+  CREATE_OK=1
   jq -cn --arg path "$path" --arg branch "$key" --argjson lane "$lane" --arg db "powernode_test$suffix" \
     '{path:$path, branch:$branch, redis_lane:$lane, test_database:$db}'
 }
 
 # ---- remove ----------------------------------------------------------------------------------------
-default_dropdb() { # path
-  local wt="$1" server="$1/server"
-  [ -f "$server/config/database.yml" ] || { lc_info "  no database.yml in $server"; return 1; }
-  command grep -q "powernode_test<%= ENV\['TEST_ENV_NUMBER'\] %>" "$server/config/database.yml" ||
-    { lc_info "  database.yml does not derive the test database from TEST_ENV_NUMBER; not dropping"; return 1; }
-  (
-    cd "$server"
-    [ ! -f Gemfile.private ] || export BUNDLE_GEMFILE="$server/Gemfile.private"
-    RAILS_ENV=test TEST_ENV_NUMBER="$TEST_ENV_NUMBER" bundle exec rails db:drop
-  ) >&2
+# The lane database is dropped by NAME, never by asking Rails what it would drop (a DATABASE_URL in the
+# environment or a .env would redirect that). Connection settings are the ambient PG* environment.
+drop_lane_database() { # db-name
+  env -u DATABASE_URL dropdb --if-exists "$1" >&2
+}
+
+# Refuse unless <name> is an isolated lane database that nobody else uses.
+lane_database_guard() { # path suffix
+  local path="$1" suffix="$2" name="powernode_test$2" wt other
+  [[ "$name" =~ ^powernode_test_[a-z0-9_]+$ ]] || { lc_info "  $name is not an isolated lane database name"; return 1; }
+  for wt in $(live_worktrees); do
+    [ "$wt" != "$path" ] || continue
+    other="$(sed -n 's/^TEST_ENV_NUMBER=//p' "$wt/server/.env.test.local" 2>/dev/null | head -1 || true)"
+    if [ "$other" = "$suffix" ]; then lc_info "  worktree $wt uses the same test database ($name)"; return 1; fi
+  done
+  case " ${WT_PROTECTED_DBS:-} " in *" $name "*) lc_info "  $name is listed in WT_PROTECTED_DBS"; return 1 ;; esac
+  return 0
 }
 
 cmd_remove() {
   local target="${1:-}"; shift || true
-  local strand_ok=0 busy_ok=0
+  local strand_ok=0 busy_ok=0 discard_dirty=0
   while [ $# -gt 0 ]; do
     case "$1" in
       --strand-ok) strand_ok=1; shift ;;
+      --discard-dirty) discard_dirty=1; shift ;;
       --busy-ok) busy_ok=1; shift ;;
       --no-fetch) NO_FETCH=1; shift ;;
       *) LC_DIE_CODE=2 lc_die "unknown option: $1" ;;
@@ -248,9 +293,23 @@ cmd_remove() {
   done < <(ext_dirs "$path")
   if [ "$stranded" -eq 1 ] && [ "$strand_ok" -eq 0 ]; then
     lc_info "STRANDED:$report"
-    LC_DIE_CODE=1 lc_die "refusing to remove $path: it holds work that is nowhere else. Land it, or pass --strand-ok to remove the worktree and keep its branches."
+    LC_DIE_CODE=1 lc_die "refusing to remove $path: it holds commits that are nowhere else. Land them first (scripts/land.sh)."
   fi
-  [ "$stranded" -eq 0 ] || lc_info "--strand-ok: removing anyway;$report the branches are KEPT so the commits stay reachable"
+  [ "$stranded" -eq 0 ] || lc_info "--strand-ok: removing anyway;$report each head is kept under refs/keep/ and the branches are KEPT"
+
+  # 1b. Uncommitted or untracked work (core, every nested extension worktree, the private copies).
+  local dirty="" d
+  d="$(dirty_lines "$path")"; [ -z "$d" ] || dirty="$dirty core: $(printf '%s\n' "$d" | wc -l | tr -d ' ') path(s) (e.g. $(printf '%s\n' "$d" | head -n 3 | sed 's/^...//' | tr '\n' ' '));"
+  while IFS= read -r dir; do
+    [ -n "$dir" ] || continue
+    d="$(dirty_lines "$dir")"; [ -z "$d" ] || dirty="$dirty ${dir#"$path"/}: $(printf '%s\n' "$d" | wc -l | tr -d ' ') path(s);"
+  done < <(ext_dirs "$path")
+  d="$(private_copy_diffs "$path" | tr '\n' ' ')"; [ -z "$d" ] || dirty="$dirty private copies differ from main: $d;"
+  if [ -n "$dirty" ] && [ "$discard_dirty" -eq 0 ]; then
+    lc_info "UNCOMMITTED:$dirty"
+    LC_DIE_CODE=1 lc_die "refusing to remove $path: it holds uncommitted or untracked work that a removal would delete. Commit or move it first."
+  fi
+  [ -z "$dirty" ] || lc_info "--discard-dirty: discarding uncommitted work;$dirty"
 
   # 2. Live processes.
   if [ "$busy_ok" -eq 0 ]; then
@@ -269,15 +328,29 @@ cmd_remove() {
   # 4. The lane's test database.
   local suffix; suffix="$(sed -n 's/^TEST_ENV_NUMBER=//p' "$path/server/.env.test.local" 2>/dev/null | head -1)"
   if [ -n "$suffix" ] && [[ "$suffix" =~ ^_[a-z0-9_]+$ ]]; then
+    lane_database_guard "$path" "$suffix" || LC_DIE_CODE=1 lc_die "not dropping powernode_test$suffix; nothing was removed"
     lc_info "dropping the lane database powernode_test$suffix"
     if [ -n "${WT_DROPDB_CMD:-}" ]; then
       TEST_DB_NAME="powernode_test$suffix" TEST_ENV_NUMBER="$suffix" bash -c "$WT_DROPDB_CMD" >&2 ||
         LC_DIE_CODE=1 lc_die "dropping powernode_test$suffix failed; nothing was removed"
     else
-      TEST_ENV_NUMBER="$suffix" default_dropdb "$path" || LC_DIE_CODE=1 lc_die "dropping powernode_test$suffix failed; nothing was removed (set WT_DROPDB_CMD to drop it another way)"
+      drop_lane_database "powernode_test$suffix" || LC_DIE_CODE=1 lc_die "dropping powernode_test$suffix failed; nothing was removed (set WT_DROPDB_CMD to drop it another way)"
     fi
   else
     lc_info "no isolated test database recorded for this worktree (TEST_ENV_NUMBER absent or unusual); not dropping anything"
+  fi
+
+  # 4b. --strand-ok: pin every head under refs/keep/ first. A detached extension HEAD has no branch, and
+  # its commits are unreachable the moment the worktree (and its reflog) goes.
+  if [ "$stranded" -eq 1 ]; then
+    local stamp; stamp="$(date +%Y%m%dT%H%M%S)"
+    git -C "$MAIN" update-ref "refs/keep/$(basename "$path")/$stamp" "$(git -C "$path" rev-parse HEAD)"
+    lc_info "  kept core head under refs/keep/$(basename "$path")/$stamp"
+    while IFS= read -r dir; do
+      [ -n "$dir" ] || continue
+      git -C "$MAIN/${dir#"$path"/}" update-ref "refs/keep/$(basename "$path")/$stamp" "$(git -C "$dir" rev-parse HEAD)"
+      lc_info "  kept ${dir#"$path"/} head under refs/keep/$(basename "$path")/$stamp"
+    done < <(ext_dirs "$path")
   fi
 
   # 5. Remove, release, delete merged branches.
