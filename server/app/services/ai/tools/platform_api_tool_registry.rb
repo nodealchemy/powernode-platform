@@ -183,6 +183,8 @@ module Ai
         "system_get_silent_instances" => "Ai::Tools::SystemFleetTool",
         # IMP-054397261461 — read-only rollout long-poll; wait_seconds rides on get_task / get_module_build_batch.
         "system_wait_for" => "Ai::Tools::SystemFleetTool",
+        # IMP-52762a704a3d — read-only node inspection (fixed collectors); an instance principal may inspect only itself.
+        "system_inspect_node" => "Ai::Tools::SystemFleetTool",
         # IMP-ca485128072e (APO-2e) — operator-tunable fleet sensor thresholds.
         "system_get_sensor_config" => "Ai::Tools::SystemFleetTool",
         "system_update_sensor_config" => "Ai::Tools::SystemFleetTool",
