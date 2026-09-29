@@ -117,11 +117,12 @@ module Api
           # (deferred-ops, campaign lands) silently never timed out.
           #
           # The same sweep settles approved requests whose post-commit dispatch
-          # was owed and never started (IMP-0213523480d1) — one mechanism, not a
-          # second cron. Its counts ride the same response.
+          # was owed and never started, and signals ones whose dispatch started
+          # and never finished (IMP-0213523480d1) — one mechanism, not a second
+          # cron. Its counts ride the same response.
           def expire_overdue_approval_requests
             expired_count = 0
-            stranded = { failed: 0, redispatched: 0 }
+            stranded = { failed: 0, redispatched: 0, errored: 0, interrupted: 0 }
 
             Account.active.find_each do |account|
               service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: account)
@@ -134,7 +135,9 @@ module Api
 
             render_success(expired_count: expired_count,
                            stranded_failed_count: stranded[:failed],
-                           stranded_redispatched_count: stranded[:redispatched])
+                           stranded_redispatched_count: stranded[:redispatched],
+                           stranded_errored_count: stranded[:errored],
+                           interrupted_dispatch_count: stranded[:interrupted])
           end
 
           # POST /api/v1/internal/ai/observations/cleanup
@@ -190,9 +193,9 @@ module Api
           # other for the same account.
           def reconcile_stranded_dispatches(account, totals)
             counts = ::Ai::Approvals::StrandedDispatchReconciler.new(account: account).call
-            totals[:failed] += counts[:failed].to_i
-            totals[:redispatched] += counts[:redispatched].to_i
+            totals.each_key { |key| totals[key] += counts[key].to_i }
           rescue StandardError => e
+            totals[:errored] += 1
             Rails.logger.error "[StrandedDispatchReconciler] Failed for account #{account.id}: #{e.message}"
           end
 

@@ -23,10 +23,12 @@ RSpec.describe "Api::V1::Internal::Ai::Autonomy approval-request sweep", type: :
       expect(data["expired_count"]).to eq(0)
       expect(data["stranded_failed_count"]).to eq(0)
       expect(data["stranded_redispatched_count"]).to eq(0)
+      expect(data["stranded_errored_count"]).to eq(0)
+      expect(data["interrupted_dispatch_count"]).to eq(0)
     end
 
     it "runs the stranded-dispatch reconciler for each account and sums its counts" do
-      reconciler = instance_double(Ai::Approvals::StrandedDispatchReconciler, call: { failed: 2, redispatched: 1 })
+      reconciler = instance_double(Ai::Approvals::StrandedDispatchReconciler, call: { failed: 2, redispatched: 1, errored: 3, interrupted: 4 })
       allow(Ai::Approvals::StrandedDispatchReconciler).to receive(:new).and_return(reconciler)
 
       post "/api/v1/internal/ai/approval_requests/expire_overdue", headers: worker_headers
@@ -35,6 +37,8 @@ RSpec.describe "Api::V1::Internal::Ai::Autonomy approval-request sweep", type: :
       data = JSON.parse(response.body)["data"]
       expect(data["stranded_failed_count"]).to be >= 2
       expect(data["stranded_redispatched_count"]).to be >= 1
+      expect(data["stranded_errored_count"]).to be >= 3
+      expect(data["interrupted_dispatch_count"]).to be >= 4
     end
   end
 end

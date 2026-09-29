@@ -26,6 +26,12 @@ module Ai
       SETTING_KEY = "ai_approvals_human_session_categories"
       CONDITION_KEY = "requires_human_session"
 
+      # Destructive, by name (a parked tool call's own declaration is read too).
+      # Its own constant so Ai::Approvals::StrandedDispatchReconciler refuses to
+      # re-run exactly what this refuses to let a tool door approve — one list,
+      # so the two cannot drift — and applies it whatever the site list says.
+      DESTRUCTIVE_CATEGORY_PATTERNS = %w[*delete* *destroy* *terminate* *reap* *decommission* *revoke*].freeze
+
       DEFAULT_CATEGORY_PATTERNS = [
         # campaign lifecycle
         "campaign.*", "campaign_land",
@@ -33,8 +39,7 @@ module Ai
         "project.cost_control", "project.scale_horizontal",
         "system.instance_pool_create", "system.instance_pool_ceiling_raise",
         "system.runtime_docker_provision",
-        # destructive, by name (a parked tool call's own declaration is read too)
-        "*delete*", "*destroy*", "*terminate*", "*reap*", "*decommission*", "*revoke*"
+        *DESTRUCTIVE_CATEGORY_PATTERNS
       ].freeze
 
       # The refusal both REST writers of intervention-policy rows give for #mark_lifting_write?.
@@ -46,8 +51,8 @@ module Ai
         new(request).required?
       end
 
-      def self.destructive_tool_call?(request)
-        new(request).destructive_tool_call?
+      def self.required_ignoring_account_mark?(request)
+        new(request).required_ignoring_account_mark?
       end
 
       # Could this write to ONE intervention-policy row lift the mark #account_mark reads
@@ -77,20 +82,15 @@ module Ai
         protected_environment? || destructive_tool_call? || category_listed?
       end
 
-      # Public for Ai::Approvals::StrandedDispatchReconciler, which must refuse
-      # to re-run a destructive call whatever the account's mark says (the mark
-      # decides who may APPROVE it, not whether it is safe to run twice).
-      #
-      # Bounded to the chokepoint's own hierarchy, as Ai::Executors::DeferredToolCall
-      # bounds its replay: a name off a JSONB column is looked up, never called.
-      def destructive_tool_call?
-        params = @data[:params]
-        return false unless params.is_a?(Hash)
-
-        klass = params[:tool_class].to_s.safe_constantize
-        return false unless klass.is_a?(Class) && klass < ::Ai::Tools::BaseTool
-
-        klass.declared_action(params[:action].to_s)&.dig(:destructive) == true
+      # #required? without the account's own mark (IMP-0213523480d1): every
+      # reason the REQUEST itself carries for needing a person. The mark decides
+      # who may APPROVE a request, not whether it is safe to run a second time,
+      # so Ai::Approvals::StrandedDispatchReconciler reads this and a mark of
+      # false cannot lift a protected plane, a destructive call, or a listed
+      # category out of its never-re-dispatch set.
+      def required_ignoring_account_mark?
+        @data[:requires_human_session] == true ||
+          protected_environment? || destructive_tool_call? || category_listed?
       end
 
       private
@@ -112,6 +112,18 @@ module Ai
       def protected_environment?
         environment = @data[:environment]
         environment.is_a?(Hash) && environment[:is_protected] == true
+      end
+
+      # Bounded to the chokepoint's own hierarchy, as Ai::Executors::DeferredToolCall
+      # bounds its replay: a name off a JSONB column is looked up, never called.
+      def destructive_tool_call?
+        params = @data[:params]
+        return false unless params.is_a?(Hash)
+
+        klass = params[:tool_class].to_s.safe_constantize
+        return false unless klass.is_a?(Class) && klass < ::Ai::Tools::BaseTool
+
+        klass.declared_action(params[:action].to_s)&.dig(:destructive) == true
       end
 
       def category_listed?

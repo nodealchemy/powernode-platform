@@ -327,10 +327,11 @@ module AuditActions
   # =============================================================================
   # AI APPROVAL DISPATCH ACTIONS
   # =============================================================================
-  # Ai::Approvals::StrandedDispatchReconciler's two settlements of an approved
-  # request whose post-commit dispatch never started (IMP-0213523480d1).
+  # Ai::Approvals::StrandedDispatchReconciler (IMP-0213523480d1): the two
+  # settlements of an approved request whose post-commit dispatch never
+  # started, and the signal for one whose dispatch started and never finished.
   AI_APPROVAL_DISPATCH_ACTIONS = %w[
-    ai.approvals.dispatch_abandoned ai.approvals.dispatch_redispatched
+    ai.approvals.dispatch_abandoned ai.approvals.dispatch_redispatched ai.approvals.dispatch_interrupted
   ].freeze
 
   # =============================================================================
