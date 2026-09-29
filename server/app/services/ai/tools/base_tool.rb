@@ -652,6 +652,14 @@ module Ai
           @declared_actions ||= {}
         end
 
+        # The structured block a parked call of this tool's shows on its approval
+        # card (Ai::Approvals::ChangeCard), or nil for none. `tool_params` is the
+        # request's REDACTED copy. Override where the exact change is worth
+        # showing; the default shows nothing.
+        def approval_change_card(action:, tool_params:, viewer:)
+          nil
+        end
+
         # Is this name actual MCP registry surface? The allowlist that bounds
         # undeclared-execution telemetry cardinality (see the private
         # UNDECLARED-EXECUTION TELEMETRY block) — a caller-supplied
@@ -767,6 +775,12 @@ module Ai
       # reading "no agent" as "a person".
       attr_writer :call_origin
 
+      # An opaque, one-way label of the MCP session the call arrived on
+      # (Mcp-Session-Id), recorded on a parked request's principal descriptor so
+      # an operator can tell two sessions of one instance apart. INFORMATIONAL
+      # ONLY: nothing reads it to authorize, and it is never a credential.
+      attr_writer :session_label
+
       def execute(params:)
         # FIRST, before every other check (HIER-P2I): a GLOBAL canonical agent
         # is refused as a principal whatever it asked for. Ahead of the deny
@@ -844,7 +858,10 @@ module Ai
         # An approved replay that is not that person's refuses instead of
         # parking a second time.
         if declaration[:human_only]
-          refusal = authorization_error(params)
+          # The PARK hook applies only to a call that is about to park. An
+          # approved replay is re-authorised by the run-time ladder exactly as
+          # before, so nothing a tool admits for parking reaches the body.
+          refusal = approved_replay? ? authorization_error(params) : park_authorization_error(params)
           return refusal if refusal
           return call(params) if human_confirmed_replay?
           if approved_replay?
@@ -852,7 +869,7 @@ module Ai
                                 "in their own session.")
           end
 
-          return run_through_autonomy_gate(declaration, params, requires_human_session: true)
+          return park_human_only(declaration, params)
         end
 
         return call(params) unless gated_action?(declaration)
@@ -928,6 +945,24 @@ module Ai
       # add, because a single-action tool's permission is enforced by
       # .permitted? / the MCP layer before construction.
       def authorization_error(_params)
+        nil
+      end
+
+      # The authorization a HUMAN-ONLY call meets before it PARKS, and nowhere
+      # else. Parking runs nothing: the call only waits for a person, who
+      # decides it in their own session and replays it AS themself, so a tool
+      # may admit a caller to the queue that its run-time #authorization_error
+      # would never let run. Default: the run-time check, so no tool's behaviour
+      # changes until it overrides this. The run-time check still guards #call
+      # and the replay, whatever this admits.
+      def park_authorization_error(params)
+        authorization_error(params)
+      end
+
+      # What makes two parks "the same request" from one machine principal (the
+      # tool's own notion: a setting key, say), or nil for no dedupe. Compared
+      # case-insensitively by Ai::Approvals::MachinePark.
+      def park_dedupe_key(_params)
         nil
       end
 
@@ -1011,7 +1046,10 @@ module Ai
             action: action,
             tool_params: params,
             principal: descriptor,
-            human_only: human_only
+            human_only: human_only,
+            # Minted here from this tool's own state, like the principal, and
+            # only for a human-only call an instance parks. Never from params.
+            dedupe_key: human_only && instance_authorized? ? park_dedupe_key(params) : nil
           ),
           description: deferred_tool_call_description(params)
         }
@@ -1078,6 +1116,7 @@ module Ai
           if node_instance
             return { "kind" => "instance", "node_instance_id" => node_instance.id,
                      "granted_tool_name" => granted_tool_name_for(action) }
+                   .merge(session_label.present? ? { "session_label" => session_label } : {})
           end
 
           { "kind" => "unattributed", "detail" => "restricted principal with no node instance" }
@@ -1241,6 +1280,41 @@ module Ai
           )
         else
           error_result(gate.error || "Action #{declaration[:action_category]} is blocked by policy")
+        end
+      end
+
+      # Parks a human-only call. An instance's park goes through
+      # Ai::Approvals::MachinePark (one pending request per principal, tool and
+      # key, and a per-principal rate limit); every other caller parks exactly
+      # as before.
+      def park_human_only(declaration, params)
+        parker = -> { run_through_autonomy_gate(declaration, params, requires_human_session: true) }
+        # A restricted principal with no node instance (a federation partner) has
+        # no identity to key the guard on and parks as before, "unattributed".
+        return parker.call unless instance_authorized? && node_instance
+
+        outcome = ::Ai::Approvals::MachinePark.guard(
+          account: account, principal_id: node_instance.id, action_category: declaration[:action_category],
+          dedupe_key: park_dedupe_key(params), session_label: session_label, &parker
+        )
+        case outcome
+        when ::Ai::Approvals::MachinePark::Deduped
+          request = outcome.request
+          success_result(
+            self.class.pending_payload(
+              action_category: declaration[:action_category],
+              deferred_operation: ::Ai::DeferredOperation.find_by(id: request.source_id),
+              approval_request: request,
+              message: "An equivalent request from this principal is already pending a person's decision. " \
+                       "No new request was parked; the pending one may carry a different value.",
+              requires_human_session: true
+            ).merge(deduplicated: true)
+          )
+        when ::Ai::Approvals::MachinePark::RateLimited
+          error_result("Too many human-only requests from this principal (limit #{outcome.limit} per hour); " \
+                       "wait for the pending ones to be decided.")
+        else
+          outcome
         end
       end
 
@@ -1413,7 +1487,7 @@ module Ai
 
       private
 
-      attr_reader :account, :agent, :user, :node_instance, :call_origin
+      attr_reader :account, :agent, :user, :node_instance, :call_origin, :session_label
 
       # === LIST PAGINATION — the call side of the contract above ===
 

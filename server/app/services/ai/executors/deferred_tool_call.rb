@@ -84,14 +84,19 @@ module Ai
         # exactly one author.
         # `human_only` marks a call that replays as the person who confirms it
         # rather than as `principal`, which is then only the record of who asked.
-        def pack(tool_class:, action:, tool_params:, principal:, human_only: false)
+        #
+        # `dedupe_key` is what Ai::Approvals::MachinePark keys "already pending" on.
+        # Written only when set, so every other packed call keeps its shape.
+        def pack(tool_class:, action:, tool_params:, principal:, human_only: false, dedupe_key: nil)
           packed = {
             "tool_class" => tool_class.to_s,
             "action" => action.to_s,
             "tool_params" => normalize(tool_params),
             "principal" => normalize(principal)
           }
-          human_only ? packed.merge("human_only" => true) : packed
+          packed = packed.merge("human_only" => true) if human_only
+          packed = packed.merge("dedupe_key" => dedupe_key.to_s) if dedupe_key.present?
+          packed
         end
 
         def execute(params, deferred_operation:)

@@ -9,6 +9,8 @@ module Ai
   #
   # All methods are class-level — providers are stateless.
   class DeferredOperationApprovalContent
+    APPROVAL_QUEUE_URL = "/app/ai/control/approvals/queue"
+
     def self.notification_type
       "autonomy_approval_required"
     end
@@ -17,8 +19,10 @@ module Ai
       "ai"
     end
 
-    def self.action_url(_request)
-      "/app/notifications"
+    # A request an instance parked for a person's decision opens the approvals
+    # queue itself, where the card and the second-factor prompt are.
+    def self.action_url(request)
+      request.machine_requested? ? APPROVAL_QUEUE_URL : "/app/notifications"
     end
 
     def self.severity(request)

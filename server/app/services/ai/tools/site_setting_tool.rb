@@ -218,7 +218,9 @@ module Ai
             description: "Request a write of one PROTECTED global platform setting. Protected keys: " \
                          "#{protected_keys}. Always parks for a person to confirm in their own session " \
                          "(no policy can proceed it) and runs as that person, who must hold admin.access. " \
-                         "Refused outright for an instance (node) principal or an in-process caller. " \
+                         "An instance (node) principal may REQUEST it only when its grant names this " \
+                         "tool exactly; it can never decide or run it, a person does, in their own " \
+                         "session. Refused outright for an in-process caller. " \
                          "Audit rows name the key and the actor, never the value; the value travels with " \
                          "the parked request so the confirming person sees it.",
             parameters: {
@@ -284,6 +286,59 @@ module Ai
         read_key_error(params) || write_key_error(params)
       end
 
+      # What a call meets before it PARKS (BaseTool#park_authorization_error;
+      # only the human-only verb parks). It differs from #authorization_error in
+      # ONE respect: an INSTANCE principal whose grant cleared this exact tool
+      # name is admitted, so an operator's Claude Code session can REQUEST a
+      # protected change. Parking runs nothing and writes nothing: the request
+      # waits for a person, who decides it in their own REST session, and the
+      # write then runs AS that person.
+      #
+      # Everything else is held. An in-process internal caller is refused as
+      # ever. The key must be a registered PROTECTED key and the value must pass
+      # its check, so no operator is asked to approve a change that could only
+      # fail on replay. And #authorization_error is untouched: it still refuses
+      # every instance principal, and it is what #call re-runs on the replay, so
+      # an instance can park a request and can never reach the write, not by
+      # replaying it and not by approving it (no tool door is a person's consent).
+      #
+      # NO `instance_authorized?` was added to #authorization_error, and none may
+      # be: that would let an instance run the write, not only ask for it.
+      def park_authorization_error(params)
+        return authorization_error(params) unless instance_authorized? || node_instance_principal?
+        return authorization_error(params) unless routed_action_name(params) == "site_setting_set_protected"
+
+        code, refusal = park_refusal(params)
+        audit_park_refusal(params, code) if refusal
+        refusal
+      end
+
+      def park_dedupe_key(params)
+        key = params[:key].to_s
+        key.present? ? "site_setting:#{key.downcase}" : nil
+      end
+
+      # The approval card for a parked protected-setting request: the exact tool,
+      # the key and the NEW value (both from the request's redacted request_data,
+      # passed in by the caller), and the CURRENT value, read now, and only for a
+      # viewer who could read it on the operator REST API (GET /api/v1/site_settings).
+      # nil for anything else. Never rendered into a free-text description.
+      def self.approval_change_card(action:, tool_params:, viewer:)
+        return nil unless action.to_s == "site_setting_set_protected" && tool_params.is_a?(Hash)
+
+        key = tool_params.with_indifferent_access[:key].to_s
+        return nil unless operator_configurable_keys.dig(key, :protected)
+
+        card = { tool: "site_setting", action: action.to_s, key: key,
+                 new_value: tool_params.with_indifferent_access[:value] }
+        readable = viewer.respond_to?(:has_permission?) &&
+                   GRANTING_PERMISSIONS.any? { |permission| viewer.has_permission?(permission) == true }
+        return card unless readable
+
+        row = SiteSetting.find_by(key: key)
+        card.merge(current_value: row&.value, current_value_set: !row.nil?)
+      end
+
       protected
 
       def call(params)
@@ -319,6 +374,79 @@ module Ai
       # not depend on a controller's parameter-passing staying paired.
       def node_instance_principal?
         !@node_instance.nil?
+      end
+
+      # Why an instance may not PARK this call, as [reason_code, envelope], or
+      # nil when it may. The grant is re-asked here against the name the first hop
+      # was gated on, exactly as the replay re-asks it
+      # (Ai::Executors::DeferredToolCall), and the value is checked against the
+      # key's own registered check. The code, never the envelope, is audited: an
+      # envelope can echo a value.
+      def park_refusal(params)
+        if internal?
+          return [ "internal_caller", error_result(
+            "site_setting_* is denied to in-process internal callers. These keys govern the " \
+            "control plane's own authority over itself; changing one is an operator decision, " \
+            "not something a reconciler may do on its own behalf."
+          ) ]
+        end
+        if node_instance.nil?
+          return [ "no_node_instance", park_denied("it carries no node instance to attribute the request to") ]
+        end
+        unless park_grant_cleared?(params)
+          return [ "grant_not_cleared", park_denied("its grant does not cover site_setting_set_protected") ]
+        end
+
+        key_refusal = write_key_error(params)
+        return [ "key_refused", key_refusal ] if key_refusal
+
+        value_refusal = value_error(params)
+        value_refusal ? [ "value_refused", value_refusal ] : nil
+      end
+
+      def park_denied(reason)
+        error_result(
+          "site_setting_set_protected cannot be requested by this instance principal: #{reason}. " \
+          "An operator grants the tool by exact name (platform.site_setting_set_protected)."
+        )
+      end
+
+      def park_grant_cleared?(params)
+        principal = ::Mcp::Principal.for_instance_cn(node_instance.id)
+        return false if principal.nil? || principal.account&.id != account&.id
+
+        principal.may_invoke?("platform.#{granted_tool_name_for(routed_action_name(params))}")
+      end
+
+      # The key's registered value check, and the presence rule SiteSetting
+      # applies, run against the value as it will be stored. Not `valid?` on a
+      # built row: that would also run the uniqueness check against the row this
+      # write is meant to replace.
+      def value_error(params)
+        key = params[:key].to_s
+        spec = key_spec(params)
+        value = params[:value]
+        stored = spec[:setting_type] == "json" && !value.is_a?(String) ? value.to_json : value.to_s
+
+        if stored.blank? && spec[:setting_type] != "boolean" && !SiteSetting::BLANK_ALLOWED_KEYS.include?(key)
+          return error_result("#{key.inspect} needs a value.")
+        end
+
+        reason = SiteSetting.value_checks[key]&.call(stored)
+        reason.present? ? error_result("#{key.inspect} refuses that value: #{reason}") : nil
+      end
+
+      # A refused park is recorded. Names the principal and the key, never the
+      # value; a lost row costs visibility only, so it is logged, not raised.
+      def audit_park_refusal(params, code)
+        AuditLog.log_action(
+          action: "ai.approvals.machine_park_refused", resource: account, account: account, source: "api",
+          metadata: { requester_kind: "instance", node_instance_id: node_instance&.id.to_s.presence,
+                      tool_action: routed_action_name(params), setting_key: params[:key].to_s,
+                      session_label: session_label, reason: code }.compact
+        )
+      rescue StandardError => e
+        Rails.logger.error("[SiteSettingTool] park refusal audit row failed: #{e.class}: #{e.message}")
       end
 
       def key_spec(params)

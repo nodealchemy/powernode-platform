@@ -334,6 +334,12 @@ module AuditActions
     ai.approvals.dispatch_abandoned ai.approvals.dispatch_redispatched ai.approvals.dispatch_interrupted
   ].freeze
 
+  # A human-only request an INSTANCE principal asks for (act-on-behalf):
+  # Ai::Approvals::MachinePark and the tool's park hook refuse, dedupe or rate-limit it.
+  AI_APPROVAL_MACHINE_REQUEST_ACTIONS = %w[
+    ai.approvals.machine_park_refused ai.approvals.machine_park_deduped ai.approvals.machine_park_rate_limited
+  ].freeze
+
   # =============================================================================
   # AI AGENT TEAM ACTIONS — renamed from the underscore-namespace form
   # (ai_agent_team.<verb>) to the dot convention (IMP-85fb47438be6, operator
@@ -627,6 +633,7 @@ module AuditActions
     AI_ROI_ACTIONS,
     AI_IMPROVEMENT_ACTIONS,
     AI_APPROVAL_DISPATCH_ACTIONS,
+    AI_APPROVAL_MACHINE_REQUEST_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
     DEVOPS_ACTIONS,
     SWARM_ACTIONS,

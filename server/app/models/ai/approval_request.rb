@@ -120,6 +120,21 @@ module Ai
       ::Ai::Approvals::HumanSessionPolicy.required?(self)
     end
 
+    # A human-only request an INSTANCE principal parked. The principal is written
+    # by Ai::Executors::DeferredToolCall.pack from the tool's own constructor
+    # state (never from a caller's params). It decides nothing: the request is
+    # decided as any human-only one is, by a person in their own session. It only
+    # lets the notification and the card say a machine asked.
+    def machine_requested?
+      data = request_data.is_a?(Hash) ? request_data.with_indifferent_access : {}
+      params = data[:params]
+      # The stored mark first: it is free, and #requires_human_session? reads the
+      # account's policy rows, which every other request need not pay for.
+      return false unless params.is_a?(Hash) && params.dig(:principal, :kind) == "instance"
+
+      requires_human_session?
+    end
+
     # Came through a TOOL door (MCP identity plan D1, guard a): the gate marked
     # the door it parked from (request_data call_origin), or a row written
     # before that mark names the agent that asked for it.

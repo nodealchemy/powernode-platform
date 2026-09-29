@@ -618,6 +618,15 @@ module Api
           result
         end
 
+        # One-way and truncated: enough to tell two sessions apart, useless as
+        # a credential. nil when the request names no session.
+        def mcp_session_label
+          session_id = request.headers["Mcp-Session-Id"]
+          return nil if session_id.blank?
+
+          ::Digest::SHA256.hexdigest("mcp-session-label:#{session_id}")[0, 16]
+        end
+
         def handle_tools_call(params)
           tool_name = params["name"]
           arguments = params["arguments"] || {}
@@ -662,7 +671,11 @@ module Api
                 # The door, from the principal the auth concern built, BEFORE and
                 # regardless of mcp_client_agent, which is nil whenever the
                 # account has no active provider (MCP identity plan R3).
-                origin: current_mcp_principal&.call_origin
+                origin: current_mcp_principal&.call_origin,
+                # An opaque digest of the Mcp-Session-Id, recorded on a parked
+                # request so an operator can tell sessions apart. Informational
+                # only: nothing reads it to authorize.
+                session_label: mcp_session_label
               )
             rescue ArgumentError => e
               if e.message.start_with?("Unknown platform tool")

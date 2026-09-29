@@ -14,7 +14,7 @@ require "rails_helper"
 # Ai::ApprovalRequestSerialization::CORE_KEYS defines (execution_status,
 # execution_error, requires_human_session, and so on) — a field added there is
 # covered here without editing this spec. The autonomy-only additions
-# (agent_*/action_* denormalisations, requested_by_id, total_steps,
+# (agent_*/action_* denormalisations, requested_by_id, total_steps, change_card,
 # current_step_can_approve, and the detail-only approval_chain / step_statuses
 # / decisions / deferred_operation) are hand-listed, because they are this
 # surface's own and nothing derives them.
@@ -28,7 +28,7 @@ RSpec.describe "Autonomy approvals — serialized key set", type: :request do
   # This surface's own additions on top of the shared core — present on both
   # the list row and the detail payload.
   let(:autonomy_additions) do
-    %w[agent_id agent_name action_type action_category requested_by_id total_steps current_step_can_approve]
+    %w[agent_id agent_name action_type action_category requested_by_id total_steps current_step_can_approve change_card]
   end
 
   # Present on the detail payload only.

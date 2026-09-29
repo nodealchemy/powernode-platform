@@ -240,7 +240,7 @@ module Ai
         # Optional so specs need not name one; spec/lint/registrar_origin_spec.rb
         # holds every production call site to it.
         def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, mcp_agent: nil, instance_authorized: false,
-                         node_instance: nil, origin: nil)
+                         node_instance: nil, origin: nil, session_label: nil)
           tool_name = tool_id.delete_prefix("#{TOOL_ID_PREFIX}.")
           tool_class = find_tool_class(tool_name)
           raise ArgumentError, "Unknown platform tool: #{tool_name}" unless tool_class
@@ -310,7 +310,8 @@ module Ai
 
           build_and_execute(tool_class, execution_params, account: account, user: user, mcp_agent: mcp_agent,
                                                           instance_authorized: instance_authorized,
-                                                          node_instance: node_instance, origin: origin)
+                                                          node_instance: node_instance, origin: origin,
+                                                          session_label: session_label)
         end
 
         # THE GUARDED RUNNER a local tool shares with a registry call (D2 review
@@ -362,7 +363,7 @@ module Ai
         end
 
         def build_and_execute(tool_class, execution_params, account:, user:, mcp_agent:, instance_authorized:,
-                              node_instance:, origin: nil)
+                              node_instance:, origin: nil, session_label: nil)
           tool_instance = tool_class.new(account: account, user: user, agent: mcp_agent)
           # The door the call came through (MCP identity plan R3). Set from the
           # caller's `origin:`, never inferred from mcp_agent: an OAuth MCP call
@@ -383,6 +384,9 @@ module Ai
           # handed instances every per-action permission. Guarded so the
           # user/agent paths stay byte-for-byte unchanged. (IMP-9030413bc292)
           tool_instance.instance_authorized = true if instance_authorized
+          # Informational only (an opaque digest of the MCP session id); never
+          # read to authorize. Guarded like the writers above.
+          tool_instance.session_label = session_label if session_label
           tool_instance.execute(params: execution_params)
         end
 

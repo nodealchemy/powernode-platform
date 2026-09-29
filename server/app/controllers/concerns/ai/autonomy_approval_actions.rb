@@ -125,7 +125,10 @@ module Ai
         # client offers Approve/Reject only when this is true, and until it was
         # listed the quick row followed the permission alone, so a holder of
         # ai.autonomy.approve who is not on the current step drew a 422.
-        current_step_can_approve: current_user.present? && request.can_approve?(current_user)
+        current_step_can_approve: current_user.present? && request.can_approve?(current_user),
+        # The exact change a parked tool call asks for, from the redacted
+        # request_data (nil when the tool offers none).
+        change_card: ::Ai::Approvals::ChangeCard.for(request, viewer: current_user)
       )
       return base unless detailed
 
