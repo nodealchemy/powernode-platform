@@ -413,7 +413,7 @@ cmd_audit() {
     {
       printf 'PATH\tBRANCH\tLANE\tLEDGER\tLIVENESS\tAHEAD\n'
       jq -r '.[] | [.path, .branch, (.lane // "-"), .in_ledger, .liveness, ("core " + .core_ahead + (if (.ext_ahead|length) > 0 then " | " + ([.ext_ahead|to_entries[]|"\(.key|split("/")|last) \(.value)"]|join(", ")) else "" end))] | @tsv' <<<"$rows"
-    } | column -t -s "$(printf '\t')"
+    } | column -t -c 2000 -s "$(printf '\t')"
     [ -z "${dups// /}" ] || printf 'WARNING: redis lane(s) %sheld by more than one worktree (their suites flush each other)\n' "$dups"
     printf 'AHEAD counts commits not on origin/%s at patch level; "?" = that ref is unknown there. A worktree ahead of %s is one `remove` will refuse.\n' "$BASE_BRANCH" "$BASE_BRANCH"
   fi
