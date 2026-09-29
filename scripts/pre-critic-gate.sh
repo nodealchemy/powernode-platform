@@ -14,8 +14,9 @@
 #               (lib/commit-range-scan.rb; private names derived from extensions/private/*)
 #   leak-guards check-skill-executor-error-leak.sh and check-tool-not-found-leak.sh
 #   gitleaks    `gitleaks detect` over the range's commits, matches redacted
-#   ext-*       when the range bumps an extension gitlink: messages, purity and gitleaks over the commits
-#               behind the bump, read from the extension checkout (ext-messages, ext-purity, ext-gitleaks).
+#   ext-*       messages, purity and gitleaks (ext-messages, ext-purity, ext-gitleaks) over the extension commits:
+#               those behind a gitlink bump in the range, and, for a nested extension checkout with no bump, its
+#               origin/develop..HEAD (the executor's work, before land.sh bumps the pointer).
 #               RuboCop on extension Ruby files is not part of the gate.
 #
 # The deployment-identifier list is gitignored, so it is looked up in the worktree and then the main checkout;
@@ -23,9 +24,10 @@
 # hook or scanner fails too, and so does a hook that errors.
 #
 # Usage:  scripts/pre-critic-gate.sh <base>..<head> [--json] [--all] [--skip a,b] [--only a,b]
-#                                                  [--no-head-check]
-# The working tree must be at <head> (the tools read files, not commits); pass --no-head-check to
-# accept a dirty or different tree knowingly. Output is a compact summary meant to be pasted into a
+#                                                  [--no-head-check] [--allow-dirty]
+# The working tree must be at <head> (the tools read files, not commits; --no-head-check accepts a different
+# one) and free of uncommitted tracked changes in core and each extension checkout (--allow-dirty accepts them).
+# Output is a compact summary meant to be pasted into a
 # critic brief: one line per check, the first lines of any failure, and the verdict. Exit 0 all
 # green, 1 something failed, 2 usage / environment.
 
@@ -38,7 +40,7 @@ SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 case "${1:-}" in -h|--help|"") sed -n '2,/^set -uo/{/^set -uo/!p}' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;; esac
 
 RANGE="$1"; shift
-JSON=0; ALL=0; SKIP=","; ONLY=""; HEAD_CHECK=1
+JSON=0; ALL=0; SKIP=","; ONLY=""; HEAD_CHECK=1; ALLOW_DIRTY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --json) JSON=1; shift ;;
@@ -46,6 +48,7 @@ while [ $# -gt 0 ]; do
     --skip) SKIP=",${2:-},"; shift 2 ;;
     --only) ONLY=",${2:-},"; shift 2 ;;
     --no-head-check) HEAD_CHECK=0; shift ;;
+    --allow-dirty) ALLOW_DIRTY=1; shift ;;
     *) LC_DIE_CODE=2 lc_die "unknown option: $1" ;;
   esac
 done
@@ -59,6 +62,18 @@ HEAD_SHA="$(git -C "$ROOT" rev-parse --verify --quiet "$HEAD^{commit}")" || LC_D
 BASE_SHA="$(git -C "$ROOT" rev-parse "$BASE^{commit}")"
 if [ "$HEAD_CHECK" -eq 1 ] && [ "$(git -C "$ROOT" rev-parse HEAD)" != "$HEAD_SHA" ]; then
   LC_DIE_CODE=2 lc_die "the working tree is at $(git -C "$ROOT" rev-parse --short HEAD), not $HEAD: check it out (the tools read files), or pass --no-head-check"
+fi
+
+# The tools read files, not commits: uncommitted tracked changes in core or a nested extension checkout would be
+# linted and scanned INSTEAD of the commit under review.
+if [ "$ALLOW_DIRTY" -eq 0 ]; then
+  _dirty=""
+  if [ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no --ignore-submodules=all 2>/dev/null)" ]; then _dirty=" core"; fi
+  while IFS= read -r _p; do
+    [ -e "$ROOT/$_p/.git" ] || continue
+    [ -z "$(git -C "$ROOT/$_p" status --porcelain --untracked-files=no 2>/dev/null)" ] || _dirty="$_dirty $_p"
+  done < <(git -C "$ROOT" config -f "$ROOT/.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
+  [ -z "$_dirty" ] || LC_DIE_CODE=2 lc_die "uncommitted tracked changes in:$_dirty. The gate would check them instead of the commit; commit or stash them, or pass --allow-dirty knowingly"
 fi
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
@@ -180,15 +195,27 @@ check_purity() {
 
 # ---- extension ranges ------------------------------------------------------------------------------
 # A core range carries an extension change only as a gitlink bump, so the commits behind it are read from the
-# extension checkout: messages, purity and gitleaks. (RuboCop on extension Ruby files is NOT run here.)
+# extension checkout: messages, purity and gitleaks. Where core has no bump yet, each nested extension checkout's
+# origin/develop..HEAD is gated instead. (RuboCop on extension Ruby files is NOT run here.)
 mapfile -t EXT_BUMPS < <(git -C "$ROOT" diff --raw --no-abbrev "$BASE_SHA..$HEAD_SHA" | awk -F'[ \t]' '$1 == ":160000" && $2 == "160000" && $5 == "M" {print $6 "\t" $3 "\t" $4}' | cut -c1-400)
+# Nested extension checkouts whose HEAD is ahead of origin/develop: the executor's not-yet-landed extension work,
+# which core does not point at yet (the usual state when this gate runs, before land.sh bumps the pointer).
+while IFS= read -r _p; do
+  [ -e "$ROOT/$_p/.git" ] || continue
+  [[ "$_p" != extensions/private/* ]] || continue
+  printf '%s\n' "${EXT_BUMPS[@]}" | cut -f1 | command grep -qxF -- "$_p" && continue
+  _tip="$(git -C "$ROOT/$_p" rev-parse --verify --quiet "refs/remotes/origin/develop^{commit}" || true)"
+  _head="$(git -C "$ROOT/$_p" rev-parse --verify --quiet "HEAD^{commit}" || true)"
+  if [ -z "$_tip" ] || [ -z "$_head" ]; then EXT_BUMPS+=("$_p"$'\t\t'); continue; fi   # unreadable: fails in ext_each
+  [ "$(git -C "$ROOT/$_p" rev-list --count "$_tip..$_head" 2>/dev/null || echo 0)" -gt 0 ] && EXT_BUMPS+=("$_p"$'\t'"$_tip"$'\t'"$_head")
+done < <(git -C "$ROOT" config -f "$ROOT/.gitmodules" --get-regexp '^submodule\..*\.path$' 2>/dev/null | awk '{print $2}')
 ext_each() { # callback name: called as cb <path> <old> <new> <dir>; sets EXT_FAIL / EXT_N
   local cb="$1" line path old new
   for line in "${EXT_BUMPS[@]}"; do
     IFS=$'\t' read -r path old new <<<"$line"
     EXT_N=$((EXT_N + 1))
     if [ ! -e "$ROOT/$path/.git" ] || ! git -C "$ROOT/$path" cat-file -e "$old^{commit}" 2>/dev/null || ! git -C "$ROOT/$path" cat-file -e "$new^{commit}" 2>/dev/null; then
-      EXT_FAIL=$((EXT_FAIL + 1)); echo "$path: the bumped commits are not in the checkout, so the range cannot be read" >>"$TMP/ext.out"; continue
+      EXT_FAIL=$((EXT_FAIL + 1)); echo "$path: the range's commits are not readable in the checkout (bumped commits missing, or no origin/develop), so it cannot be gated" >>"$TMP/ext.out"; continue
     fi
     "$cb" "$path" "$old" "$new" "$ROOT/$path"
   done
@@ -213,7 +240,7 @@ ext_purity_cb() {
 }
 check_ext() { # name callback
   local name="$1" cb="$2"
-  if [ "${#EXT_BUMPS[@]}" -eq 0 ]; then record "$name" skip "" "range bumps no extension pointer"; return; fi
+  if [ "${#EXT_BUMPS[@]}" -eq 0 ]; then record "$name" skip "" "no extension pointer bump and no extension checkout ahead of origin/develop"; return; fi
   : >"$TMP/ext.out"; EXT_FAIL=0; EXT_N=0; EXT_FILES=0
   ext_each "$cb"
   if [ "$EXT_FAIL" -gt 0 ]; then record "$name" fail "$TMP/ext.out" "$EXT_FAIL problem(s) across $EXT_N bumped extension(s)"

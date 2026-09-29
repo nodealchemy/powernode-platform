@@ -258,7 +258,7 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
       expect(JSON.parse(out)["checks"].find { |c| c["name"] == "purity" }["detail"]).to include("hook errored (exit 1)")
 
       FileUtils.rm(File.join(@repo, ".claude/hooks/core-purity-check.sh"))
-      out, _err, code = gate("#{@base}..#{head}", "--json", "--no-head-check")
+      out, _err, code = gate("#{@base}..#{head}", "--json", "--no-head-check", "--allow-dirty")
       expect(code).to eq(1)
       expect(JSON.parse(out)["checks"].find { |c| c["name"] == "purity" }["detail"]).to include("hook is missing")
     end
@@ -304,10 +304,10 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
       head = bump
       FileUtils.rm_rf(File.join(@ext, ".git"))
       sh!("git", "init", "-q", "-b", "develop", @ext)
-      out, _err, code = gate("#{@base}..#{head}", "--json", "--no-head-check")
+      out, _err, code = gate("#{@base}..#{head}", "--json", "--no-head-check", "--allow-dirty")
 
       expect(code).to eq(1)
-      expect(JSON.parse(out)["checks"].find { |c| c["name"] == "ext-messages" }["detail"]).to include("not in the checkout")
+      expect(JSON.parse(out)["checks"].find { |c| c["name"] == "ext-messages" }["detail"]).to include("not readable in the checkout")
     end
   end
 
@@ -387,6 +387,86 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
 
     _out, _err, code = gate("#{@base}..#{head}", "--no-head-check")
     expect(code).to eq(0)
+  end
+
+  describe "a dirty tree" do
+    it "is refused (uncommitted tracked change in core), unless --allow-dirty" do
+      write("docs/readme.md", "committed\n")
+      head = commit_all("docs")
+      File.write(File.join(@repo, "docs/readme.md"), "edited but not committed\n")
+
+      _out, err, code = gate("#{@base}..#{head}")
+      expect(code).to eq(2)
+      expect(err).to match(/uncommitted tracked changes in: core/)
+
+      _out, _err, code = gate("#{@base}..#{head}", "--allow-dirty")
+      expect(code).to eq(0)
+    end
+
+    it "is refused for an uncommitted tracked change inside a nested extension checkout" do
+      write(".gitmodules", "[submodule \"widgets\"]\n\tpath = extensions/widgets\n\turl = ../widgets.git\n")
+      head = commit_all("declare the submodule")
+      File.write(File.join(@ext, "w.rb"), "# edited\n")
+
+      _out, err, code = gate("#{@base}..#{head}")
+      expect(code).to eq(2)
+      expect(err).to match(/uncommitted tracked changes in: extensions\/widgets/)
+    end
+
+    it "does not count untracked files (generated worktree files) as dirt" do
+      write("docs/readme.md", "x\n")
+      head = commit_all("docs")
+      File.write(File.join(@repo, "scratch.txt"), "untracked\n")
+
+      expect(gate("#{@base}..#{head}")[2]).to eq(0)
+    end
+  end
+
+  describe "an extension checkout ahead of origin/develop with no pointer bump in the range" do
+    before do
+      write(".gitmodules", "[submodule \"widgets\"]\n\tpath = extensions/widgets\n\turl = ../widgets.git\n")
+      # the extension's origin/develop is its base commit
+      sh!("git", "update-ref", "refs/remotes/origin/develop", @ext_base, chdir: @ext)
+    end
+
+    def ext_commit(msg: "executor work", file: "y.rb", body: "# frozen_string_literal: true\n")
+      File.write(File.join(@ext, file), body)
+      sh!("git", "add", "-A", chdir: @ext)
+      sh!("git", "commit", "-q", "-m", msg, chdir: @ext)
+    end
+
+    it "gates origin/develop..HEAD of the extension, so the pre-critic gate does not skip it" do
+      write("docs/readme.md", "docs only\n")
+      head = commit_all("docs only, core does not point at the extension")
+      ext_commit(msg: "executor work\n\nCo-Authored-By: Some Model <noreply@example.invalid>")
+      expect(sh!("git", "diff", "--raw", "#{@base}..#{head}")).not_to include("160000")
+      out, _err, code = gate("#{@base}..#{head}", "--json")
+
+      expect(code).to eq(1)
+      expect(statuses(out)["ext-messages"]).to eq("fail")
+    end
+
+    it "passes clean extension work and skips when the extension is not ahead" do
+      write("docs/readme.md", "docs only\n")
+      head = commit_all("docs")
+      out, = gate("#{@base}..#{head}", "--json")
+      expect(statuses(out)).to include("ext-messages" => "skip", "ext-purity" => "skip", "ext-gitleaks" => "skip")
+
+      ext_commit
+      out, err, code = gate("#{@base}..#{head}", "--json", "--allow-dirty")
+      expect(code).to eq(0), err
+      expect(statuses(out)).to include("ext-messages" => "pass", "ext-purity" => "pass", "ext-gitleaks" => "pass")
+    end
+
+    it "fails closed when the extension has no origin/develop to compare against" do
+      write("docs/readme.md", "docs only\n")
+      head = commit_all("docs")
+      sh!("git", "update-ref", "-d", "refs/remotes/origin/develop", chdir: @ext)
+      out, _err, code = gate("#{@base}..#{head}", "--json")
+
+      expect(code).to eq(1)
+      expect(JSON.parse(out)["checks"].find { |c| c["name"] == "ext-messages" }["detail"]).to include("not readable in the checkout")
+    end
   end
 
   it "rejects a range that is not base..head" do
