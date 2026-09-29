@@ -87,6 +87,12 @@ module Ai
         # the DR lane's would be: BaseTool#execute is only reached because
         # this map routes the action name onto the serving class.
         "system_out_of_band_exec" => "Ai::Tools::SystemFleetTool",
+        # IMP-88e82d59b7f2 — the governed unit-restart verb. Approval-gated
+        # (declare_action, system.task.restart) and denied outright to every
+        # instance principal (Mcp::Principal::DESTRUCTIVE_TOOL_PATTERNS'
+        # *system_restart_unit* entry); without this row the declaration is
+        # inert for the same reason as the rows above.
+        "system_restart_unit" => "Ai::Tools::SystemFleetTool",
         # IMP-b2f80e6d1c65 — operator ops hold (2026-07-27 incident response):
         # had ACTION_PERMISSIONS + dispatch but no registry key, so it was
         # reachable only by smuggling the action into another tool's name.

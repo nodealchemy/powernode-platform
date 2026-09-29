@@ -200,8 +200,13 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # principal — the same reasoning *replace_instance* and *reap_* already
     # apply to other node-lifecycle primitives, just for arbitrary code
     # execution instead. Collateral pinned below: exactly one registry key.
+    # 26 since IMP-88e82d59b7f2 added *system_restart_unit* — the governed
+    # unit-restart verb (gated under system.task.restart), a disruptive
+    # lifecycle act in the class of *_stop_instance / *_reboot_instance that an
+    # instance principal must never aim at a peer. Collateral pinned below:
+    # exactly one registry key.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(25)
+      expect(patterns.size).to eq(26)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -273,6 +278,16 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
       end
 
       expect(denied).to eq(%w[system_out_of_band_exec])
+    end
+
+    it "denies exactly system_restart_unit with the *system_restart_unit* pattern" do
+      expect(patterns).to include("*system_restart_unit*")
+
+      denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        ::File.fnmatch("*system_restart_unit*", name, ::File::FNM_EXTGLOB)
+      end
+
+      expect(denied).to eq(%w[system_restart_unit])
     end
   end
 

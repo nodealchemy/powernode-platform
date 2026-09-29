@@ -218,6 +218,14 @@ module Mcp
       # `*exec*`, which would sweep in unrelated verbs) — narrow on purpose,
       # the same discipline *replace_instance* above documents.
       #
+      # *system_restart_unit* (IMP-88e82d59b7f2) — restart of one composed
+      # systemd unit on a fleet node, gated on system.task.restart. A
+      # disruptive lifecycle act in the same class as *_stop_instance and
+      # *_reboot_instance above: an mTLS node cert that could invoke it could
+      # bounce a service on ANY node the control plane manages, including a
+      # peer. Substring-anchored on the full verb name, like
+      # *system_out_of_band_exec*, so nothing else in the registry can match.
+      #
       # NOTE for anyone editing this array: every entry below is a %w[]
       # WORD, not a line — a "#" comment INSIDE the %w[...] literal is not a
       # comment at all, it becomes a literal array element (the historical
@@ -250,6 +258,7 @@ module Mcp
         archive_by_predicate
         retire_by_predicate
         *system_out_of_band_exec*
+        *system_restart_unit*
       ].freeze
 
       # True when the tool is destroy-shaped and therefore off-limits to every

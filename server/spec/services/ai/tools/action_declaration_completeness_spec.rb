@@ -134,6 +134,10 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 auto_approve by default so it runs inline;
   #                                 mutating because it inserts a Task, which
   #                                 keeps it off a read-only agent's allowlist)
+  #   system_restart_unit           IMP-88e82d59b7f2  system.task.restart
+  #                                 (the SAME category TasksController#create reads,
+  #                                 seeded require_approval; replays through the
+  #                                 generic executor so the unit checks re-run)
   #   system_replace_instance       IMP-4e49eb79c5e0  system.instance_replace
   #   system_reap_instance          IMP-4e49eb79c5e0  system.instance_reap
   #   system_set_default_disk_image_publication
@@ -200,6 +204,7 @@ RSpec.describe "MCP action declaration completeness" do
     system_uncordon_instance
     system_inspect_node
     system_out_of_band_exec
+    system_restart_unit
     system_gitops_register_repository
     set_delegation_policy
     system_set_default_disk_image_publication
