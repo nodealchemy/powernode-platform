@@ -40,8 +40,10 @@
 #   --skip-verify          Do not run verify-hub-deploy.sh (recorded as skipped in the evidence).
 #   --skip-catalog-check   Do not run check-mcp-catalog-fresh.sh first.
 #   --no-fetch             Do not fetch the remotes' target branches first.
-#   --dry-run              Do every READ-ONLY step (config, scans, fast-forward checks) and print the
-#                          steps that would mutate; push nothing, call no MCP verb.
+#   --dry-run              Do every READ-ONLY step (config, scans, fast-forward checks, and a `git fetch`) and
+#                          print the steps that would mutate. INERT otherwise: no push, commit or ref/state/
+#                          base-file write, no MCP call (so no token file either), no catalog check (it
+#                          rewrites the catalog temporarily), no lock.
 #
 # Steps stop at the FIRST failure with a message naming it. Exit: 0 done, 1 a step failed, 2 usage or
 # configuration, 3 parked for approval (merge or promotion; approve, then re-run).
@@ -163,14 +165,22 @@ step() { lc_info "step $1: $2"; }
 would() { lc_info "  (dry-run) would: $*"; }
 
 # ---- MCP over HTTP ---------------------------------------------------------------------------------
-HDR_FILE="$(mktemp)"; chmod 600 "$HDR_FILE"
-trap 'rm -f "$HDR_FILE"' EXIT
-printf 'Authorization: Bearer %s\n' "${!TOKEN_ENV}" >"$HDR_FILE"   # header file: keeps the token out of argv
+# The header file keeps the token out of argv. It is created on the FIRST call (never in --dry-run, which
+# calls nothing), so a dry run writes no token to disk.
+HDR_FILE=""
+trap '[ -z "$HDR_FILE" ] || rm -f "$HDR_FILE"' EXIT
+ensure_header() {
+  [ -z "$HDR_FILE" ] || return 0
+  HDR_FILE="$(mktemp)"; chmod 600 "$HDR_FILE"
+  printf 'Authorization: Bearer %s\n' "${!TOKEN_ENV}" >"$HDR_FILE"
+}
 
 # mcp_call <tool> <args-json>  -> the tool's result JSON on stdout.
 # rc 0 ok; 1 the call failed or the tool said success:false; 3 the tool parked for approval.
 mcp_call() {
   local tool="$1" args="$2" payload resp body
+  [ "$DRY" -eq 0 ] || { lc_info "BUG: an MCP call ($tool) was attempted under --dry-run"; return 1; }
+  ensure_header
   payload="$(jq -cn --arg t "${PREFIX}${tool}" --argjson a "$args" \
     '{jsonrpc:"2.0", id:1, method:"tools/call", params:{name:$t, arguments:$a}}')"
   resp="$(curl -sS -m 180 -X POST "$LAND_MCP_URL" -H 'Content-Type: application/json' \
@@ -218,7 +228,12 @@ CORE_TIP="$(resolve "$REPO_ROOT" "refs/remotes/$CORE_REMOTE/$TARGET")" || LC_DIE
 EXT_TIP=""
 [ -z "$EXT_FULL" ] || EXT_TIP="$(resolve "$EXT_DIR" "refs/remotes/$EXT_REMOTE/$TARGET")" || LC_DIE_CODE=1 lc_die "no $EXT_REMOTE/$TARGET ref in $EXT_PATH"
 
-if [ "$SKIP_CATALOG" -eq 0 ]; then
+if [ "$SKIP_CATALOG" -eq 1 ]; then
+  :
+elif [ "$DRY" -eq 1 ]; then
+  # That check regenerates the catalog file in place (and boots Rails) before restoring it: not inert.
+  would "check the MCP tool catalog is fresh (scripts/check-mcp-catalog-fresh.sh rewrites the file temporarily)"
+else
   step 1 "the MCP tool catalog is fresh"
   "$SELF_DIR/check-mcp-catalog-fresh.sh" >&2 || LC_DIE_CODE=1 lc_die "the MCP tool catalog is stale; regenerate and commit it before landing"
 fi

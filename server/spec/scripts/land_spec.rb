@@ -154,6 +154,62 @@ RSpec.describe "scripts/land.sh" do
   let(:base_args) { [ "--core-sha", @core_sha, "--ext-sha", @ext_sha, "--modules", "hub-backend,module-ext",
                      "--skip-verify", "--skip-catalog-check" ] }
 
+  describe "--dry-run is inert" do
+    # Runs a COPY of the scripts so a stub catalog check can prove it was never invoked, with an empty TMPDIR to
+    # prove no token file was written. Everything mutable is snapshotted before and after.
+    let(:copy) { File.join(@dir, "lscripts") }
+    let(:tmpdir) { File.join(@dir, "tmp") }
+
+    before do
+      FileUtils.mkdir_p([ File.join(copy, "lib"), tmpdir, File.join(@dir, "worker/app/services/devops") ])
+      FileUtils.cp(script, File.join(copy, "land.sh"))
+      Dir[File.join(File.dirname(script), "lib/*")].each { |f| FileUtils.cp(f, File.join(copy, "lib")) }
+      FileUtils.cp(File.expand_path("../../../worker/app/services/devops/commit_message_hygiene.rb", __dir__),
+                   File.join(@dir, "worker/app/services/devops/commit_message_hygiene.rb"))
+      File.write(File.join(copy, "check-mcp-catalog-fresh.sh"), "#!/usr/bin/env bash\ntouch #{@dir}/catalog-was-run\n")
+      File.chmod(0o755, File.join(copy, "check-mcp-catalog-fresh.sh"))
+    end
+
+    def snapshot
+      repos = { work: @work, ext: @ext, core_remote: File.join(@dir, "core.git"), ext_remote: File.join(@dir, "ext.git") }
+      repos.transform_values do |r|
+        git_dir = File.exist?(File.join(r, ".git")) ? File.join(r, ".git") : r
+        {
+          refs: sh!("git", "--git-dir", git_dir, "for-each-ref", "--format=%(objectname) %(refname)").lines.reject { |l| l.include?("refs/remotes/") },
+          loose: sh!("git", "--git-dir", git_dir, "count-objects").split.first,
+          status: File.exist?(File.join(r, ".git")) ? sh!("git", "-C", r, "status", "--porcelain", "--ignored") : nil
+        }
+      end
+    end
+
+    [ %w[git], %w[mcp], %w[none] ].each do |(mode)|
+      it "changes nothing (--merge-via #{mode}, --complete, no --skip-catalog-check)" do
+        happy_mock
+        args = [ "--core-sha", @core_sha, "--ext-sha", @ext_sha, "--modules", "hub-backend,module-ext", "--skip-verify",
+                 "--merge-via", mode, "--complete", "--loop", "loop-1", "--evidence", '{"framework":"rspec","passed":1,"failed":0}',
+                 "--core-source-ref", "feat-core", "--ext-source-ref", "feat-ext", "--attest", '{"passed":1}', "--dry-run" ]
+        before = snapshot
+        full_env = { "POWERNODE_LOCAL_CONFIG" => "none", "LAND_REPO_ROOT" => @work, "LAND_MCP_URL" => "http://127.0.0.1:#{@port}/",
+                     "POWERNODE_MCP_TOKEN" => token, "LAND_EXT_PATH" => "extensions/widgets", "LAND_PROMOTE_ENVS" => "staging ops",
+                     "LAND_CORE_REPOSITORY" => "owner/core", "LAND_EXT_REPOSITORY" => "owner/ext", "TMPDIR" => tmpdir,
+                     "GIT_AUTHOR_NAME" => "T", "GIT_AUTHOR_EMAIL" => "t@example.invalid",
+                     "GIT_COMMITTER_NAME" => "T", "GIT_COMMITTER_EMAIL" => "t@example.invalid" }
+        out, err, st = Open3.capture3(full_env, File.join(copy, "land.sh"), "IMP-x1", *args)
+
+        expect(err).to include("(dry-run) would: check the MCP tool catalog")
+        expect(err).not_to match(/BUG: an MCP call/)
+        expect(snapshot).to eq(before)
+        expect(calls).to be_empty
+        expect(File.exist?(File.join(@dir, "catalog-was-run"))).to be false
+        expect(File.exist?(File.join(@work, "scripts/local/land-state"))).to be false
+        expect(Dir.children(tmpdir)).to eq([]), "left files in TMPDIR: #{Dir.children(tmpdir)}"
+        expect(out).not_to include(token)
+        expect(err).not_to include(token)
+        expect(st.exitstatus).to eq(0), err unless mode == "none" # "none" correctly refuses: nothing is on the target yet
+      end
+    end
+  end
+
   it "--dry-run does the read-only checks, pushes nothing and calls nothing" do
     happy_mock
     out, err, code = run_land(*base_args, "--dry-run")
