@@ -34,6 +34,20 @@ module Shared
       flat + nested
     end
 
+    # Slugs of the private extensions present on disk: the directory names
+    # under extensions/private/. This is the same derivation the core-purity
+    # hook (.claude/hooks/core-purity-check.sh) and the scan mirror
+    # (scripts/pattern-validation.sh) use, so a caller that must never NAME a
+    # private extension refuses exactly the names those gates refuse. Nothing
+    # here is hardcoded. With no private extensions (core mode, a public clone)
+    # the list is empty, and there is nothing to leak.
+    def private_slugs
+      private_root = EXTENSIONS_ROOT.join(PRIVATE_DIRNAME)
+      return [] unless private_root.directory?
+
+      private_root.children.select(&:directory?).map { |dir| dir.basename.to_s }.sort
+    end
+
     # Directory for a given slug, searched flat-first then private.
     # Returns a Pathname or nil if no such extension directory exists.
     def dir_for(slug)
