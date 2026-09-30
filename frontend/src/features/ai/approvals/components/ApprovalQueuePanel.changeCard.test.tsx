@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderWithProviders } from '@/test-utils';
@@ -29,6 +29,7 @@ jest.mock('@/shared/hooks/useWebSocket', () => {
   return { useWebSocket: () => socket };
 });
 jest.mock('@/shared/hooks/usePolling', () => ({ usePolling: jest.fn() }));
+import { usePolling } from '@/shared/hooks/usePolling';
 // Mocked so a refused decision's notice can be asserted.
 const mockShowNotification = jest.fn();
 jest.mock('@/shared/hooks/useNotification', () => ({
@@ -215,6 +216,96 @@ describe('ApprovalQueuePanel change card', () => {
       expect(mockPost).toHaveBeenCalledWith('/ai/autonomy/approvals/req-s/approve', { comments: undefined })
     );
   });
+  // Fix round (critic B F1/F4): "the card shown" is the card the person
+  // REVIEWED. It is pinned when opened; a refetch that brings a different card
+  // is not swapped in silently — a notice says so and Approve is held until
+  // the person reviews the updated change, after which the NEW digest is sent.
+  describe('the pinned card', () => {
+    const DIGEST_A = 'v1:' + 'ab'.repeat(32);
+    const DIGEST_B = 'v1:' + 'cd'.repeat(32);
+    const CHANGED_ROW = {
+      ...CARD_ROW,
+      change_card: { ...CARD_ROW.change_card, current_value: '["campaign.*","spend.*","deploy.*"]', digest: DIGEST_B },
+    };
+
+    // The queue's poll callback, as the panel registered it: calling it is a refetch.
+    const refetchQueue = async () => {
+      const calls = (usePolling as jest.Mock).mock.calls;
+      const refresh = calls[calls.length - 1][0] as () => void;
+      await act(async () => {
+        refresh();
+      });
+    };
+
+    const openCard = async () => {
+      const user = userEvent.setup();
+      renderPanel();
+      await user.click(await screen.findByText('platform.site_setting.protected_write'));
+      await screen.findByText('Exactly what you are approving');
+      return user;
+    };
+
+    it('sends the pinned digest when a refetch brings the same card', async () => {
+      mockPost.mockResolvedValue({ data: { data: { id: 'req-s', status: 'approved' } } });
+      const user = await openCard();
+
+      await refetchQueue();
+      await user.click(screen.getByRole('button', { name: /^Approve$/ }));
+
+      await waitFor(() =>
+        expect(mockPost).toHaveBeenCalledWith('/ai/autonomy/approvals/req-s/approve', {
+          comments: undefined,
+          change_card_shown: true,
+          change_card_digest: DIGEST_A,
+        })
+      );
+    });
+
+    it('keeps showing the reviewed card, says it changed, and holds Approve until the update is reviewed; then sends the new digest', async () => {
+      mockPost.mockResolvedValue({ data: { data: { id: 'req-s', status: 'approved' } } });
+      const user = await openCard();
+
+      serve(CHANGED_ROW);
+      await refetchQueue();
+
+      expect(await screen.findByText(/changed since you opened it/)).toBeInTheDocument();
+      // The values on screen are still the ones the person reviewed.
+      expect(document.querySelector('[data-change-current-value]')).toHaveTextContent('["campaign.*","spend.*"]');
+      expect(screen.getByRole('button', { name: /^Approve$/ })).toBeDisabled();
+
+      await user.click(screen.getByRole('button', { name: /Review the updated change/ }));
+
+      expect(screen.queryByText(/changed since you opened it/)).toBeNull();
+      expect(document.querySelector('[data-change-current-value]')).toHaveTextContent('deploy.*');
+      expect(screen.getByRole('button', { name: /^Approve$/ })).toBeEnabled();
+      await user.click(screen.getByRole('button', { name: /^Approve$/ }));
+
+      await waitFor(() =>
+        expect(mockPost).toHaveBeenCalledWith('/ai/autonomy/approvals/req-s/approve', {
+          comments: undefined,
+          change_card_shown: true,
+          change_card_digest: DIGEST_B,
+        })
+      );
+      expect(mockPost).toHaveBeenCalledTimes(1);
+    });
+
+    it('refetches the queue on a stale refusal, so the changed card is shown at once', async () => {
+      mockPost.mockRejectedValue({
+        response: { status: 422, data: { error: 'The request changed since you viewed it.', code: 'change_card_stale' } },
+      });
+      const user = await openCard();
+      const readsBefore = mockGet.mock.calls.length;
+
+      serve(CHANGED_ROW);
+      await user.click(screen.getByRole('button', { name: /^Approve$/ }));
+
+      expect(await screen.findByText(/changed since you opened it/)).toBeInTheDocument();
+      expect(mockGet.mock.calls.length).toBeGreaterThan(readsBefore);
+      expect(screen.getByRole('button', { name: /^Approve$/ })).toBeDisabled();
+    });
+  });
+
   describe('presented values', () => {
     const ID_A = '11111111-1111-4111-8111-111111111111';
     const ID_B = '22222222-2222-4222-8222-222222222222';

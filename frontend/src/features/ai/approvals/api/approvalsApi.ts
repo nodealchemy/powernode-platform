@@ -122,6 +122,15 @@ export function useApproveAction() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: APPROVAL_KEYS.approvals() });
     },
+    // A stale refusal means the card on screen no longer matches the setting:
+    // refetch at once so the changed card is shown, instead of re-sending the
+    // same stale digest until the next poll.
+    onError: (error: unknown) => {
+      const code = (error as { response?: { data?: { code?: unknown } } } | null)?.response?.data?.code;
+      if (code === 'change_card_stale') {
+        queryClient.invalidateQueries({ queryKey: APPROVAL_KEYS.approvals() });
+      }
+    },
   });
 }
 

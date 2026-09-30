@@ -169,9 +169,10 @@ const ApprovalCard: React.FC<{
     // moments later and would take an unrecoverable secret with it.
     approveMutation.mutate(
       // Only reachable from the expanded card, where the change card is shown.
-      // The digest is the server's, echoed: it binds the decision to the values
-      // this card showed.
-      { id: request.id, changeCardShown: hasChangeCard, changeCardDigest: changeCard?.digest, onRevealedResult: onRevealed },
+      // The digest is the server's, echoed, and it is the digest of the card
+      // the person REVIEWED (the pinned one): it binds the decision to the
+      // values this card showed them.
+      { id: request.id, changeCardShown: hasChangeCard, changeCardDigest: reviewedCard?.digest, onRevealedResult: onRevealed },
       {
         onSuccess: () => setOwnDecisions((count) => count + 1),
         onError: (error) => showNotification(`Approval failed: ${refusalReason(error)}`, 'error'),
@@ -191,6 +192,23 @@ const ApprovalCard: React.FC<{
 
   const changeCard = request.change_card ?? null;
   const hasChangeCard = changeCard !== null;
+  // THE CARD THE PERSON REVIEWED. Pinned when the card is opened; a refetch
+  // (poll, push, a stale refusal's refetch) that brings a different card is
+  // never swapped in silently: the reviewed values stay on screen, a notice
+  // says the request changed, and Approve is held until the person reviews
+  // the updated change, which re-pins it. The digest sent is the pinned
+  // card's, so the server refuses whatever the person did not review.
+  const [pinnedCard, setPinnedCard] = useState<ApprovalChangeCard | null>(null);
+  useEffect(() => {
+    if (!isExpanded) {
+      setPinnedCard(null);
+      return;
+    }
+    if (pinnedCard === null && changeCard !== null) setPinnedCard(changeCard);
+  }, [isExpanded, changeCard, pinnedCard]);
+  const reviewedCard = pinnedCard ?? changeCard;
+  const cardChangedSinceOpened =
+    isExpanded && pinnedCard !== null && changeCard !== null && (changeCard.digest ?? null) !== (pinnedCard.digest ?? null);
   const isPending = request.status === 'pending';
   // The hourly sweep (`check_expiration!`) is what actually flips a timed-out
   // row off "pending" — until it runs, an expired row still reads pending here
@@ -214,7 +232,7 @@ const ApprovalCard: React.FC<{
     <>
       <button
         onClick={handleApprove}
-        disabled={approveMutation.isPending}
+        disabled={approveMutation.isPending || cardChangedSinceOpened}
         className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md bg-theme-success-bg text-white hover:opacity-90 disabled:opacity-50"
       >
         <CheckCircle className="h-3.5 w-3.5" />
@@ -365,7 +383,23 @@ const ApprovalCard: React.FC<{
             </div>
           )}
 
-          {changeCard && <ChangeCard card={changeCard} />}
+          {reviewedCard && <ChangeCard card={reviewedCard} />}
+
+          {cardChangedSinceOpened && (
+            <div data-change-card-changed className="rounded border border-theme-warning-fg/40 bg-theme-warning-bg/10 p-3 space-y-2">
+              <p className="text-xs text-theme-warning-fg">
+                This request changed since you opened it: the setting's current value is no longer what the card
+                above showed. Review the updated change before deciding.
+              </p>
+              <button
+                type="button"
+                onClick={() => setPinnedCard(changeCard)}
+                className="px-3 py-1.5 text-xs font-medium rounded-md border border-theme text-theme-primary hover:bg-theme-background/50"
+              >
+                Review the updated change
+              </button>
+            </div>
+          )}
 
           {viewerRefused && (
             <p className="text-xs text-theme-tertiary">
