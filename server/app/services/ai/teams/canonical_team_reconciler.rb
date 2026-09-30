@@ -157,9 +157,11 @@ module Ai
         raise ArgumentError, "#{SEAM} needs the account the team is materialised in" unless account
         raise ArgumentError, "#{SEAM} needs a template" unless template
         raise ArgumentError, "#{SEAM}: #{template.slug.inspect} is not a canonical template" unless template.canonical?
+        # IMP-156eb1a7bdbc — names the project the caller passed, never either
+        # account: an exception message is not an audience boundary
+        # (Ai::Projects::TeamProvisioner records it as the project's reason).
         if project && project.account_id != account.id
-          raise ArgumentError, "#{SEAM}: project #{project.id} belongs to account #{project.account_id}, " \
-                               "not #{account.id}"
+          raise ArgumentError, "#{SEAM}: project #{project.id} does not belong to the account it is materialised in"
         end
 
         @account = account
