@@ -1104,22 +1104,22 @@ module Ai
       end
 
       # An instance principal reads only requests RECORDED as its own. The
-      # record is the principal block BaseTool#deferred_tool_call_context
-      # minted from the parking tool's OWN state and packed into the
-      # operation's params (Ai::Executors::DeferredToolCall.pack) — never from
-      # caller input. Anything that block does not name this instance fails
-      # closed: another instance's request, a person's or agent's, a restricted
-      # principal with no node instance, and a request parked through a
-      # tool-specific gate whose executor records no principal at all — that
-      # one may genuinely have been this instance's, but nothing on the row
-      # says so, so it is answered as not-found too. Every other principal
-      # keeps the account-wide read the REST queue gives ai.agents.read.
+      # record is the principal block Ai::Approvals::ParkPrincipal mints from
+      # the parking tool's OWN state and stamps onto the operation's params on
+      # EVERY park path (IMP-a33f7a833313: the generic replay packing, every
+      # tool-specific gate context, the hand-placed tool gates and the skill
+      # executors' own gate) — never from caller input. Anything that block
+      # does not name this instance fails closed: another instance's request,
+      # a person's or agent's, a restricted principal with no node instance,
+      # and a row written before the stamp existed, which records no principal
+      # and is answered as not-found too. Every other principal keeps the
+      # account-wide read the REST queue gives ai.agents.read.
       def originated_by_caller?(operation)
         return true unless instance_authorized?
         return false unless node_instance && operation
 
-        principal = operation.params.is_a?(Hash) ? operation.params["principal"] : nil
-        principal.is_a?(Hash) && principal["kind"] == "instance" &&
+        principal = ::Ai::Approvals::ParkPrincipal.recorded(operation.params)
+        principal.present? && principal["kind"] == "instance" &&
           principal["node_instance_id"].to_s == node_instance.id.to_s
       end
 

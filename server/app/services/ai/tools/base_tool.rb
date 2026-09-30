@@ -826,6 +826,11 @@ module Ai
         enforce_guardrails!
 
         action_name = routed_action_name(params)
+        # Remembered for the park stamp (#park_principal_stamp): a hand-placed
+        # gate inside an action body (SdwanTool#gated_result) has no params in
+        # hand, and the granted name recorded on an instance's park must be
+        # the action this call was routed to.
+        @routed_action_name = action_name
         declaration = self.class.declared_action(action_name)
 
         # UNDECLARED PATH — FAILS CLOSED (APO-1e, IMP-31e7c3dbeb2a). An action
@@ -1106,31 +1111,36 @@ module Ai
         success_result(replayed: true)
       end
 
-      # WHO is calling, in the shape Ai::Executors::DeferredToolCall rebuilds.
+      # WHO is calling, in the shape Ai::Executors::DeferredToolCall rebuilds
+      # and AgentAutonomyTool#originated_by_caller? reads: the principal's
+      # shape plus the door the call came through (MCP identity plan #6),
+      # attribution on the parked approval and on its replay.
       #
       # Minted from this tool's OWN constructor state, never from params, so a
-      # caller cannot describe itself. Order matters: an instance principal
-      # carries no User, and a nil user is NOT evidence of an in-process caller
-      # (IMP-9030413bc292) — `internal:` has to have been passed explicitly.
-      #
-      # Anything else is recorded as "unattributed"; #deferred_tool_call_context
-      # refuses to park such a call at all. That arm is reachable: a FEDERATION
-      # principal arrives here `instance_authorized` with no node instance,
-      # because the controller passes `restricted?` rather than `instance?`.
-      #
-      # `internal` rides ALONGSIDE the kind rather than as a kind of its own,
-      # because the two are orthogonal at depth: a skill executor nests every
-      # tool with `internal: internal_caller?` while still forwarding the
-      # caller's user/agent, so a nested hop is routinely BOTH `agent` and
-      # internal. Recording only the kind would rebuild a strictly WEAKER tool
-      # on replay, and a tool enforcing per-action permissions with
-      # `return true if internal?` would then refuse the action an operator had
-      # just approved — the approval silently becoming a no-op.
-      # The principal's shape below, plus the door the call came through
-      # (MCP identity plan #6): attribution on the parked approval and on its
-      # replay. nil for an unmarked call.
+      # caller cannot describe itself. The shape itself is authored ONCE, in
+      # Ai::Approvals::ParkPrincipal, which a skill executor's own gate reaches
+      # without a tool in hand; the reasoning about its kinds lives there.
+      # Anything unattributed is what #deferred_tool_call_context refuses to
+      # park at all.
       def caller_principal_descriptor(action = nil)
-        principal_shape_descriptor(action).merge("origin" => call_origin)
+        ::Ai::Approvals::ParkPrincipal.descriptor(
+          user: user, agent: agent, internal: internal?,
+          instance_authorized: instance_authorized?, node_instance: node_instance,
+          call_origin: call_origin, action: action, session_label: session_label
+        )
+      end
+
+      # THE stamp every park's executor params go through
+      # (IMP-a33f7a833313): #run_through_autonomy_gate applies it to whatever a
+      # gate_context returned — the generic replay packing and every
+      # tool-specific context alike — and the hand-placed gates inside an
+      # action body (SdwanTool#gated_result, DockerProvisioningTool#gated) call
+      # it themselves. `action` defaults to the action #execute routed this
+      # call to, which is the granted name an instance's block records.
+      # Overwrites, never fills: a `principal` the params already carry is a
+      # caller's claim, not the caller.
+      def park_principal_stamp(executor_params, action = @routed_action_name)
+        ::Ai::Approvals::ParkPrincipal.stamp(executor_params, caller_principal_descriptor(action))
       end
 
       # A MACHINE's call (MCP identity plan #5): a tool door marked it, or it
@@ -1142,41 +1152,19 @@ module Ai
         ::Ai::Tools::CallOrigin.machine?(call_origin) || agent.present? || instance_authorized?
       end
 
+      # The shape without the door — see Ai::Approvals::ParkPrincipal.shape.
       def principal_shape_descriptor(action = nil)
-        if instance_authorized?
-          if node_instance
-            return { "kind" => "instance", "node_instance_id" => node_instance.id,
-                     "granted_tool_name" => granted_tool_name_for(action) }
-                   .merge(session_label.present? ? { "session_label" => session_label } : {})
-          end
-
-          { "kind" => "unattributed", "detail" => "restricted principal with no node instance" }
-        elsif user
-          { "kind" => "user", "user_id" => user.id, "agent_id" => agent&.id, "internal" => internal? }
-        elsif agent
-          { "kind" => "agent", "agent_id" => agent.id, "internal" => internal? }
-        elsif internal?
-          { "kind" => "internal" }
-        else
-          { "kind" => "unattributed", "detail" => "no user, agent or explicit internal flag" }
-        end
+        ::Ai::Approvals::ParkPrincipal.shape(
+          user: user, agent: agent, internal: internal?,
+          instance_authorized: instance_authorized?, node_instance: node_instance,
+          action: action, session_label: session_label
+        )
       end
 
-      # WHICH NAME the instance grant was actually checked against on the first
-      # hop. StreamableHttpController asks `may_invoke?("platform.<tool_name>")`
-      # — the advertised REGISTRY KEY — and McpPlatformToolRegistrar#
-      # enforce_action_scope! then pins the action to
-      # `ACTION_ALIASES.fetch(tool_name, tool_name)`, i.e. the alias TARGET. For
-      # the 25 aliased keys the routed action is therefore NOT the granted name:
-      # a call granted as "platform.code_upsert_node" runs as "upsert_node", and
-      # re-asking `may_invoke?("platform.upsert_node")` on replay matches no
-      # realistic glob and would refuse every approved replay of an aliased
-      # mutating action. Inverting the table (values are unique) recovers the
-      # name the grant was read against; an unaliased action is its own name.
+      # The name an instance grant was checked against for `action` — see
+      # Ai::Approvals::ParkPrincipal.granted_tool_name_for.
       def granted_tool_name_for(action)
-        return nil if action.blank?
-
-        ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.key(action.to_s) || action.to_s
+        ::Ai::Approvals::ParkPrincipal.granted_tool_name_for(action)
       end
 
       # See .gated_declaration?.
@@ -1272,7 +1260,11 @@ module Ai
         gate = ::Ai::AutonomyGate.evaluate(
           action_category: declaration[:action_category],
           executor_class: declaration[:executor_class],
-          params: context[:executor_params] || {},
+          # The ONE place every declared gate's park records who asked
+          # (IMP-a33f7a833313): the generic context already packed the same
+          # block, a tool-specific context recorded none, and either way the
+          # row carries the tool's own descriptor, not the context's.
+          params: park_principal_stamp(context[:executor_params], routed_action_name(params)),
           account: account,
           agent: agent,
           requested_by: user,

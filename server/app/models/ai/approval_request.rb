@@ -125,8 +125,8 @@ module Ai
     end
 
     # A human-only request an INSTANCE principal parked. The principal is written
-    # by Ai::Executors::DeferredToolCall.pack from the tool's own constructor
-    # state (never from a caller's params). It decides nothing: the request is
+    # by Ai::Approvals::ParkPrincipal from the parker's own state (never from a
+    # caller's params) on every park path. It decides nothing: the request is
     # decided as any human-only one is, by a person in their own session. It only
     # lets the notification and the card say a machine asked.
     def machine_requested?

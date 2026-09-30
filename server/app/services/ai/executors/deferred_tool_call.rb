@@ -37,7 +37,12 @@ module Ai
     #
     # The caller's params ride under their own key, so nothing a caller supplies
     # can spoof the `principal` block: BaseTool mints that from its OWN
-    # constructor state, never from params.
+    # constructor state, never from params. The same block, from the same
+    # builder (Ai::Approvals::ParkPrincipal), is stamped onto EVERY park's
+    # params — tool-specific gate contexts, the hand-placed tool gates and the
+    # skill executors' own gate included (IMP-a33f7a833313) — so a reader
+    # scoping rows to a principal finds it at one key whichever executor the
+    # row names; only this executor REBUILDS a caller from it.
     #
     # CORE PURITY: `tool_class` is a string resolved through `safe_constantize`
     # and bounded by an ancestry check, so an extension's tool is replayable

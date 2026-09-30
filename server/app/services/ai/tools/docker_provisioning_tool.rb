@@ -268,7 +268,10 @@ module Ai
         result = ::Ai::AutonomyGate.evaluate(
           action_category: action_category,
           executor_class: executor_class,
-          params: executor_params,
+          # Who asked, recorded the way every other park records it
+          # (IMP-a33f7a833313): this gate sits outside
+          # BaseTool#run_through_autonomy_gate, so it stamps for itself.
+          params: park_principal_stamp(executor_params),
           account: account,
           agent: @agent,
           requested_by: @user,
