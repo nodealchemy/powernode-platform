@@ -19,7 +19,7 @@ RSpec.describe JobsController do
 
   let(:jwt_secret) { 'test-jobs-controller-secret' }
   let(:valid_token) { JWT.encode({ 'type' => 'worker', 'sub' => 'system' }, jwt_secret, 'HS256') }
-  let(:server_hash) { { 'command' => 'node', 'args' => ['server.js'], 'env' => {}, 'capabilities' => {} } }
+  let(:server_hash) { { 'command' => 'node', 'args' => [ 'server.js' ], 'env' => {}, 'capabilities' => {}, 'account_id' => 'acct-1' } }
   let(:mcp_request) { { 'jsonrpc' => '2.0', 'id' => 'req-1', 'method' => 'tools/call', 'params' => {} } }
 
   before do
@@ -60,7 +60,7 @@ RSpec.describe JobsController do
 
     it 'returns {result:} with HTTP 200 on a successful execution' do
       allow_any_instance_of(Mcp::McpTransportClient).to receive(:execute_stdio_request) # rubocop:disable RSpec/AnyInstance
-        .with(server_hash.merge('account_id' => 'acct-1'), mcp_request).and_return(success: true, output: { 'ok' => true })
+        .with(server_hash, mcp_request).and_return(success: true, output: { 'ok' => true })
 
       post_stdio({ account_id: 'acct-1', server: server_hash, mcp_request: mcp_request })
 
@@ -84,16 +84,26 @@ RSpec.describe JobsController do
       expect(JSON.parse(last_response.body)).to eq('result' => { 'ok' => true })
     end
 
-    it 'falls back to the request account_id when the server payload carries none' do
-      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
-      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, account_id:, **_kwargs|
-        expect(account_id).to eq('acct-1')
-        [ '{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status ]
+    # No fallback to the caller's account: a payload without the server
+    # owner fails closed, spawning nothing.
+    [ nil, '', '  ' ].each do |blank|
+      it "refuses with 422, spawning nothing, when the server payload's account_id is #{blank.inspect}" do
+        expect(McpSecurityService).not_to receive(:spawn_stdio)
+        expect_any_instance_of(Mcp::McpTransportClient).not_to receive(:execute_stdio_request) # rubocop:disable RSpec/AnyInstance
+
+        post_stdio({ account_id: 'acct-1', server: server_hash.merge('account_id' => blank), mcp_request: mcp_request })
+
+        expect(last_response.status).to eq(422)
+        expect(JSON.parse(last_response.body).to_s).to match(/owner/i)
       end
+    end
 
-      post_stdio({ account_id: 'acct-1', server: server_hash, mcp_request: mcp_request })
+    it 'refuses with 422 when the server payload has no account_id key at all' do
+      expect(McpSecurityService).not_to receive(:spawn_stdio)
 
-      expect(last_response.status).to eq(200)
+      post_stdio({ account_id: 'acct-1', server: server_hash.except('account_id'), mcp_request: mcp_request })
+
+      expect(last_response.status).to eq(422)
     end
 
     it 'refuses with 422, spawning nothing, when the request account and the server owner disagree' do
@@ -146,7 +156,7 @@ RSpec.describe JobsController do
     # ever include a secret value that was in the request body, across
     # every logger call this action can reach.
     it 'never logs the request body or env, even when an unhandled exception occurs' do
-      secret_env = { 'command' => 'node', 'args' => [], 'env' => { 'API_TOKEN' => 'super-secret-value' }, 'capabilities' => {} }
+      secret_env = { 'command' => 'node', 'args' => [], 'env' => { 'API_TOKEN' => 'super-secret-value' }, 'capabilities' => {}, 'account_id' => 'acct-1' }
       allow_any_instance_of(Mcp::McpTransportClient).to receive(:execute_stdio_request).and_raise('boom') # rubocop:disable RSpec/AnyInstance
       logged_messages = []
       allow(PowernodeWorker.application.logger).to receive(:error) { |msg| logged_messages << msg }

@@ -1883,6 +1883,16 @@ RSpec.describe McpSecurityService do
         skip real_sandbox_skip_reason unless real_sandbox_available?
       end
 
+      # Root-run cleanup guard: delete only an assigned, absolute, dot-free
+      # path under a sandbox cache directory. A path left nil or half-built
+      # by an early failure (e.g. "/poison") must never reach File.delete.
+      def delete_fixture_file(path)
+        return unless path.is_a?(String) && path.start_with?('/var/cache/mcp-stdio-')
+        return if path.split('/').include?('..')
+
+        File.delete(path) if File.file?(path)
+      end
+
       # These examples create REAL transient units, dynamic users and
       # /var/cache/{,private/}<identity> directories on the host. Remove
       # exactly the two fixture identities' paths (derived only from the
@@ -1990,9 +2000,7 @@ RSpec.describe McpSecurityService do
           b_thread.raise(Interrupt)
           b_thread.join(10)
         end
-        [ script_a, script_b, marker_b, File.join(dir_b.to_s, 'poison') ].compact.each do |path|
-          File.delete(path) if File.exist?(path)
-        end
+        [ script_a, script_b, marker_b, (File.join(dir_b, 'poison') if dir_b) ].each { |path| delete_fixture_file(path) }
       end
 
       it "an account's own children share that account's cache across spawns (npx/uvx caching still works)" do
@@ -2017,7 +2025,7 @@ RSpec.describe McpSecurityService do
           end
         end
       ensure
-        [ writer, reader, shared_pkg ].compact.each { |path| File.delete(path) if path && File.exist?(path) }
+        [ writer, reader, shared_pkg ].each { |path| delete_fixture_file(path) }
       end
 
       it 'spawns the child under a DIFFERENT (DynamicUser) uid than this process' do

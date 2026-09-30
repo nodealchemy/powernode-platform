@@ -323,8 +323,9 @@ class JobsController
   # it keys the sandbox identity (User=/CacheDirectory=) the child runs
   # under, so one account's child cannot read another's process
   # environment or poison its package cache. The identity is keyed on the
-  # server payload's own account_id (the MCP server's owner) when present;
-  # a request account_id that disagrees with it is refused (422).
+  # server payload's own account_id (the MCP server's owner), which is
+  # required; a missing one, or a request account_id that disagrees with
+  # it, is refused (422).
   #
   # McpSecurityService.validate_stdio_server! (invoked inside
   # #execute_stdio_request below) is the REAL security gate here, not
@@ -359,19 +360,21 @@ class JobsController
     end
 
     # The sandbox identity is keyed on the MCP server's OWNING account
-    # (`server['account_id']`), as on the async path. The request's own
-    # account_id is the caller's: if both are present and differ, some
-    # upstream tenancy scoping has failed, so refuse rather than run one
-    # account's secrets under another's identity.
+    # (`server['account_id']`), as on the async path. It is REQUIRED: a
+    # payload without it is refused (fail closed), never keyed on the
+    # caller instead. The request's own account_id is the caller's: if the
+    # two differ, some upstream tenancy scoping has failed, so refuse
+    # rather than run one account's secrets under another's identity.
     server_account_id = server['account_id']
-    if server_account_id.present? &&
-       server_account_id.to_s.strip.downcase != account_id.to_s.strip.downcase
+    if server_account_id.blank?
+      return error_response(422, 'Missing server account_id (the MCP server owner)')
+    end
+    if server_account_id.to_s.strip.downcase != account_id.to_s.strip.downcase
       return error_response(422, 'account_id does not match the MCP server owner')
     end
-    owner_account_id = server_account_id.presence || account_id
 
     begin
-      result = mcp_transport_client.execute_stdio_request(server.merge('account_id' => owner_account_id), mcp_request)
+      result = mcp_transport_client.execute_stdio_request(server, mcp_request)
 
       if result[:success]
         success_response({ result: result[:output] })

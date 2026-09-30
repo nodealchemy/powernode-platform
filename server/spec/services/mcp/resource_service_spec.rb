@@ -63,6 +63,25 @@ RSpec.describe Mcp::ResourceService do
       expect(result[:uri]).to eq('file:///a.txt')
     end
 
+    # IMP-bd260c0b4c00 — the sandbox identity keys on the MCP server's OWNER,
+    # never the caller: when the caller's account differs from the owner's,
+    # the payload still names the owner (and the worker then refuses the
+    # mismatch), so one account's secrets are never run under another's identity.
+    it "sends the MCP server's OWNING account in the payload even when the caller's account differs" do
+      owner = create(:account)
+      owned_server = create(:mcp_server, account: owner, connection_type: 'stdio', command: 'node', args: [ 'server.js' ], env: {})
+      caller_service = described_class.new(server: owned_server, account: account)
+
+      expect(Mcp::WorkerStdioClient).to receive(:execute) do |account_id:, server:, mcp_request:|
+        expect(account_id).to eq(account.id)                # the caller
+        expect(server['account_id']).to eq(owner.id)        # the owner keys the identity
+        expect(server['account_id']).not_to eq(account_id)
+        { result: {} }
+      end
+
+      caller_service.read_resource('file:///a.txt')
+    end
+
     # IMP-4689ce5a4acb / IMP-abda86fb39be: a stdio deadline expiry is now
     # caught INSIDE the worker's own spawn_stdio and returned here as an
     # ordinary `{error:{message:...}}` Hash (not raised across the HTTP
