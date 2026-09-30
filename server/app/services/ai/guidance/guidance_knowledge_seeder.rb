@@ -24,6 +24,9 @@ module Ai
     class GuidanceKnowledgeSeeder
       EXCLUDE = %w[MANIFEST.md adherence-baseline.md README.md].freeze
       DEPLOYMENT_DIR = %w[docs operations local].freeze
+      # Provenance source_path label for auto-memory entries. Never the real
+      # directory: an absolute path under a home directory is a local fact.
+      MEMORY_DIR_LABEL = "memory"
 
       # Conventions docs whose file was renamed: old slug => new slug. The key is
       # derived from the filename, so without this a rename would seed a SECOND
@@ -52,9 +55,25 @@ module Ai
         )
       end
 
+      # Auto-memory variant: reads frontmatter-bearing memory notes (see
+      # Ai::Guidance::AutoMemoryFile), tags `memory` / `memory-<type>` /
+      # `memory-<slug>`, never refuses on gate #9 (the source is a local,
+      # gitignored directory and the entry is account-scoped — access_level is
+      # "account" here as in every path through #upsert_guidance, never "global").
+      # It reuses #upsert_guidance rather than adding a second upsert. #call seeds
+      # EVERY note it finds; the triage/gating a migration needs lives in
+      # Ai::Guidance::AutoMemoryMigrator, which calls #seed_memory_file per note.
+      def self.for_memory(account:, dir:, repository: "powernode-platform")
+        new(
+          account: account, repository: repository, private_names: [], dir: dir,
+          tag_prefix: "memory", source_dir_label: MEMORY_DIR_LABEL,
+          refuse_private_references: false, renamed: {}, memory: true
+        )
+      end
+
       def initialize(account:, repository: "powernode-platform", dir: nil, private_names: nil,
                      tag_prefix: "guidance", source_dir_label: "docs/contributing/conventions",
-                     refuse_private_references: true, renamed: RENAMED)
+                     refuse_private_references: true, renamed: RENAMED, memory: false)
         @account = account
         @repository = repository
         @dir = Pathname.new(dir || default_dir)
@@ -63,11 +82,13 @@ module Ai
         @source_dir_label = source_dir_label
         @refuse_private_references = refuse_private_references
         @renamed = renamed
+        @memory = memory
       end
 
       def call
         result = Result.new(created: 0, updated: 0, unchanged: 0, refused: 0, renamed: 0)
         return result unless @dir.exist?
+        return call_memory(result) if memory
 
         renamed.each do |old_slug, new_slug|
           result.renamed += 1 if retire_renamed(old_slug, new_slug)
@@ -90,6 +111,27 @@ module Ai
           tally(result, outcome)
         end
         result
+      end
+
+      # Seed ONE parsed auto-memory note (Ai::Guidance::AutoMemoryFile) through the
+      # shared key-anchored upsert. Returns :created / :updated / :unchanged.
+      def seed_memory_file(memory_file)
+        upsert_guidance(
+          key: "#{tag_prefix}:#{memory_file.slug}",
+          slug: memory_file.slug,
+          title: memory_file.title,
+          content: memory_file.content,
+          extra_tags: memory_file.memory_type ? [ "#{tag_prefix}-#{memory_file.memory_type}" ] : [],
+          provenance: {
+            "slug" => memory_file.slug,
+            "memory_type" => memory_file.memory_type,
+            "origin_session_id" => memory_file.origin_session_id,
+            "links" => memory_file.links,
+            "source_path" => "#{source_dir_label}/#{memory_file.filename}"
+          },
+          source_type: "import",
+          content_type: "reference"
+        )
       end
 
       # Idempotently upsert ONE guidance knowledge entry, keyed by
@@ -156,7 +198,14 @@ module Ai
       private
 
       attr_reader :account, :repository, :dir, :private_names, :tag_prefix, :source_dir_label,
-                  :refuse_private_references, :renamed
+                  :refuse_private_references, :renamed, :memory
+
+      def call_memory(result)
+        Ai::Guidance::AutoMemoryFile.load_dir(dir).files.each do |memory_file|
+          tally(result, seed_memory_file(memory_file))
+        end
+        result
+      end
 
       def find_by_key(key)
         Ai::SharedKnowledge.where(account: account).where("provenance->>'guidance_key' = ?", key).first
