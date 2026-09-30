@@ -453,4 +453,18 @@ RSpec.describe User, type: :model do
       end
     end
   end
+
+  describe 'anonymized email placeholder' do
+    it 'builds the placeholder the internal anonymizer writes and recognises it' do
+      address = described_class.anonymized_email_for('abc')
+
+      expect(address).to eq('deleted_abc@anonymized.local')
+      expect(described_class.anonymized_email?(address)).to be true
+    end
+
+    it 'does not recognise a real address, nil or blank' do
+      expect([ 'real@example.com', 'x@anonymized.local.example.com', nil, '' ]
+        .map { |a| described_class.anonymized_email?(a) }).to all(be false)
+    end
+  end
 end

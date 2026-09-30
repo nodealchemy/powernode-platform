@@ -17,7 +17,7 @@ RSpec.describe Account::Termination, 'notification email snapshot', type: :model
   end
 
   def anonymize!(target)
-    target.update_columns(email: "deleted_#{target.id}@anonymized.local")
+    target.update_columns(email: User.anonymized_email_for(target.id))
   end
 
   def raw_column(termination)
@@ -43,6 +43,14 @@ RSpec.describe Account::Termination, 'notification email snapshot', type: :model
 
       expect(raw_column(termination)).to be_present
       expect(raw_column(termination)).not_to include(owner.email)
+    end
+
+    it "does not snapshot the placeholder of an already-anonymized owner" do
+      anonymize!(owner)
+
+      termination = described_class.initiate(account: account, requested_by: nil)
+
+      expect(termination.reload.notification_email).to be_nil
     end
 
     it 'leaves the snapshot nil when the account has no owner' do

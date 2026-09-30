@@ -26,7 +26,7 @@ RSpec.describe 'GDPR completion notification address', type: :request do
   end
 
   def anonymize!(target)
-    target.update_columns(email: "deleted_#{target.id}@anonymized.local")
+    target.update_columns(email: User.anonymized_email_for(target.id))
   end
 
   describe 'data deletion requests' do

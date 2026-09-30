@@ -41,7 +41,11 @@ module NotificationEmailSnapshot
   private
 
   def snapshot_notification_email
-    self.notification_email = notification_email_source.presence
+    address = notification_email_source.presence
+    # An already-anonymized source holds the anonymizer's placeholder, not an
+    # address anyone can be notified at: store nothing, so the completion takes
+    # the warn-and-skip path instead of sending to a dead mailbox.
+    self.notification_email = User.anonymized_email?(address) ? nil : address
   end
 
   def scrub_notification_email

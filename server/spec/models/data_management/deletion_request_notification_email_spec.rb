@@ -20,7 +20,7 @@ RSpec.describe DataManagement::DeletionRequest, 'notification email snapshot', t
   end
 
   def anonymize!(target)
-    target.update_columns(email: "deleted_#{target.id}@anonymized.local")
+    target.update_columns(email: User.anonymized_email_for(target.id))
   end
 
   def raw_column(request)
@@ -49,6 +49,14 @@ RSpec.describe DataManagement::DeletionRequest, 'notification email snapshot', t
 
       expect(raw_column(request)).to be_present
       expect(raw_column(request)).not_to include(user.email)
+    end
+
+    it 'does not snapshot the placeholder of an already-anonymized user' do
+      anonymize!(user)
+
+      request = create(:data_management_deletion_request, account: account, user: user)
+
+      expect(request.reload.notification_email).to be_nil
     end
 
     it 'does not snapshot for a row created already terminal' do

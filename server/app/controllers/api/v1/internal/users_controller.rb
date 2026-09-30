@@ -92,7 +92,7 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
 
     @user.transaction do
       @user.update!(
-        email: "deleted_#{@user.id}@anonymized.local",
+        email: User.anonymized_email_for(@user.id),
         name: "Deleted User",
         status: "inactive",
         password: unusable_random_password,

@@ -2,6 +2,19 @@
 
 # User model with new permission system
 class User < ApplicationRecord
+  # The placeholder the internal anonymizer overwrites `email` with. One owner
+  # for the literal, so readers that must not treat it as a real address (the
+  # GDPR completion-notice snapshot) share the anonymizer's own definition.
+  ANONYMIZED_EMAIL_DOMAIN = "anonymized.local"
+
+  def self.anonymized_email_for(user_id)
+    "deleted_#{user_id}@#{ANONYMIZED_EMAIL_DOMAIN}"
+  end
+
+  def self.anonymized_email?(address)
+    address.to_s.downcase.end_with?("@#{ANONYMIZED_EMAIL_DOMAIN}")
+  end
+
   # PII Encryption - GDPR/SOC2 Compliance
   # Deterministic encryption for email allows querying (find_by email)
   # Non-deterministic encryption for other PII fields (more secure)
