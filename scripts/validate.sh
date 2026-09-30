@@ -573,11 +573,23 @@ if [[ "$SKIP_SECRETS" == "false" ]]; then
       GITLEAKS_CONFIG="--config=$PROJECT_ROOT/.gitleaks.toml"
     fi
 
-    # Scan current working tree (not full history — that's the quarterly audit)
-    if gitleaks detect --source="$PROJECT_ROOT" $GITLEAKS_CONFIG --no-git 2>&1; then
+    # Scan current working tree (not full history — that's the quarterly audit).
+    # --redact: a finding's matched value never reaches the terminal or a log.
+    if gitleaks detect --source="$PROJECT_ROOT" $GITLEAKS_CONFIG --no-git --redact 2>&1; then
       RESULTS+=("${GREEN}PASS${NC} Secret scanning")
     else
       RESULTS+=("${RED}FAIL${NC} Secret scanning (secrets detected!)")
+      OVERALL_EXIT=1
+    fi
+
+    # A clean scan shows the allowlisted files are covered, not that the rules
+    # still fire around them: this red/green test does (IMP-35fee69707e9).
+    # Quiet on success, its per-arm verdicts on failure.
+    if narrowness_out="$(bash "$PROJECT_ROOT/scripts/checks/tests/gitleaks_allowlist_narrowness_test.sh" 2>&1)"; then
+      RESULTS+=("${GREEN}PASS${NC} Secret-scan allowlist narrowness")
+    else
+      echo "$narrowness_out"
+      RESULTS+=("${RED}FAIL${NC} Secret-scan allowlist narrowness (see scripts/checks/tests/gitleaks_allowlist_narrowness_test.sh output above)")
       OVERALL_EXIT=1
     fi
   else
