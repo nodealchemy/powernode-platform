@@ -138,4 +138,109 @@ describe('InterventionPoliciesPanel environments multi-select', () => {
     await waitFor(() => expect(mockPost).toHaveBeenCalled());
     expect(mockPost.mock.calls[0][1].conditions).toEqual({});
   });
+
+  async function openEdit() {
+    renderPanel();
+    fireEvent.click(await screen.findByText('release.promote'));
+    fireEvent.click(await screen.findByText('Edit'));
+  }
+
+  it('while the environments load, the selected slugs are neither flagged stale nor editable', async () => {
+    mockGet.mockImplementation((url: string) => (
+      url === '/ai/intervention_policies/environments' ? new Promise(() => {}) : routeGets(url)
+    ));
+    await openEdit();
+
+    const staging = await screen.findByLabelText('staging');
+    expect(staging).toBeChecked();
+    expect(staging).toBeDisabled();
+    expect(screen.queryByText(/no longer an environment/)).not.toBeInTheDocument();
+    expect(screen.getByText('Loading environments...')).toBeInTheDocument();
+  });
+
+  it('when the environments fetch fails, shows an error, keeps the selection, and saves it unchanged', async () => {
+    mockGet.mockImplementation((url: string) => (
+      url === '/ai/intervention_policies/environments' ? Promise.reject(new Error('boom')) : routeGets(url)
+    ));
+    await openEdit();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load environments');
+    expect(screen.getByLabelText('staging')).toBeDisabled();
+    expect(screen.queryByText(/no longer an environment/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Save Changes'));
+    await waitFor(() => expect(mockPut).toHaveBeenCalled());
+    expect(mockPut.mock.calls[0][1].conditions.environments).toEqual(['staging', 'ops']);
+  });
+
+  it('flags a slug that is no longer an environment once the list has loaded', async () => {
+    mockGet.mockImplementation((url: string) => (
+      url === '/ai/intervention_policies' ? Promise.resolve({
+        data: { success: true, data: { policies: [{ ...existing, conditions: { environments: ['staging', 'gone'] } }], total_count: 1 } },
+      }) : routeGets(url)
+    ));
+    await openEdit();
+
+    expect(await screen.findByLabelText('gone (no longer an environment)')).toBeChecked();
+    expect(screen.getByLabelText('Staging')).toBeChecked();
+  });
+
+  it('requires confirmation before emptying a non-empty selection widens the policy; cancelling keeps it', async () => {
+    await openEdit();
+    fireEvent.click(await screen.findByLabelText('Staging'));
+    fireEvent.click(screen.getByLabelText('Operations'));
+    expect(screen.getByText(/None selected: applies in every environment/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Save Changes'));
+    expect(mockPut).not.toHaveBeenCalled();
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('This policy will apply to ALL environments, including production');
+
+    fireEvent.click(screen.getByText('Keep selection'));
+    expect(mockPut).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Staging')).toBeChecked();
+    expect(screen.getByLabelText('Operations')).toBeChecked();
+  });
+
+  it('saves without the environments key once the widening is confirmed', async () => {
+    await openEdit();
+    fireEvent.click(await screen.findByLabelText('Staging'));
+    fireEvent.click(screen.getByLabelText('Operations'));
+    fireEvent.click(screen.getByText('Save Changes'));
+    fireEvent.click(screen.getByText('Apply to all environments'));
+
+    await waitFor(() => expect(mockPut).toHaveBeenCalled());
+    expect(mockPut.mock.calls[0][1].conditions).toEqual({ trust_tier_minimum: 'trusted' });
+  });
+
+  it('does not ask for confirmation on a row that never had environments', async () => {
+    mockGet.mockImplementation((url: string) => (
+      url === '/ai/intervention_policies' ? Promise.resolve({
+        data: { success: true, data: { policies: [{ ...existing, conditions: {} }], total_count: 1 } },
+      }) : routeGets(url)
+    ));
+    await openEdit();
+    await screen.findByLabelText('Staging');
+    fireEvent.click(screen.getByText('Save Changes'));
+
+    await waitFor(() => expect(mockPut).toHaveBeenCalled());
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
+  it('pre-selects a legacy comma-string value, normalised as the server does', async () => {
+    mockGet.mockImplementation((url: string) => (
+      url === '/ai/intervention_policies' ? Promise.resolve({
+        data: { success: true, data: { policies: [{ ...existing, conditions: { environments: ' staging, ops ,staging' } }], total_count: 1 } },
+      }) : routeGets(url)
+    ));
+    await openEdit();
+
+    expect(await screen.findByLabelText('Staging')).toBeChecked();
+    expect(screen.getByLabelText('Operations')).toBeChecked();
+    expect(screen.getByLabelText('Development')).not.toBeChecked();
+
+    fireEvent.click(screen.getByText('Save Changes'));
+    await waitFor(() => expect(mockPut).toHaveBeenCalled());
+    expect(mockPut.mock.calls[0][1].conditions.environments).toEqual(['staging', 'ops']);
+  });
 });

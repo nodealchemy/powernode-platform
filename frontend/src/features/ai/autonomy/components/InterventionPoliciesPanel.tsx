@@ -49,6 +49,20 @@ interface PolicyFormData {
 // The one condition key the environments selector owns; the generic builder writes strings only.
 const ENVIRONMENTS_KEY = 'environments';
 
+// The server reads a stored comma-string the same way (Ai::InterventionPolicy): split, trim, drop blanks, dedupe.
+function normalizeEnvironments(raw: unknown): string[] {
+  const parts = typeof raw === 'string' ? raw.split(',') : Array.isArray(raw) ? raw : [];
+  const slugs = parts.filter((p): p is string => typeof p === 'string').map(p => p.trim()).filter(Boolean);
+  return Array.from(new Set(slugs));
+}
+
+function withNormalizedEnvironments(data: PolicyFormData): PolicyFormData {
+  if (!(ENVIRONMENTS_KEY in data.conditions)) return data;
+  const { [ENVIRONMENTS_KEY]: raw, ...rest } = data.conditions;
+  const slugs = normalizeEnvironments(raw);
+  return { ...data, conditions: slugs.length > 0 ? { ...rest, [ENVIRONMENTS_KEY]: slugs } : rest };
+}
+
 const emptyPolicyForm: PolicyFormData = {
   scope: 'global', action_category: '', policy: 'require_approval', priority: 50,
   preferred_channels: [], conditions: {},
@@ -62,10 +76,14 @@ const PolicyForm: React.FC<{
   submitting: boolean;
   submitLabel: string;
 }> = ({ initial = emptyPolicyForm, agents, onSubmit, onCancel, submitting, submitLabel }) => {
-  const [form, setForm] = useState<PolicyFormData>(initial);
+  const [form, setForm] = useState<PolicyFormData>(() => withNormalizedEnvironments(initial));
+  // Environments the row named when the form opened: emptying them widens the policy to every environment.
+  const [initialEnvironments] = useState(() => normalizeEnvironments(withNormalizedEnvironments(initial).conditions[ENVIRONMENTS_KEY]));
+  const [confirmingWiden, setConfirmingWiden] = useState(false);
   const [condKey, setCondKey] = useState('');
   const [condVal, setCondVal] = useState('');
-  const { data: environmentOptions } = useInterventionPolicyEnvironments();
+  const { data: environmentOptions, isSuccess: environmentsLoaded, isError: environmentsFailed } = useInterventionPolicyEnvironments();
+  const environmentsStatus = environmentsLoaded ? 'ready' : environmentsFailed ? 'error' : 'loading';
 
   const selectedEnvironments = Array.isArray(form.conditions[ENVIRONMENTS_KEY])
     ? (form.conditions[ENVIRONMENTS_KEY] as string[])
@@ -79,6 +97,18 @@ const PolicyForm: React.FC<{
       else delete next[ENVIRONMENTS_KEY];
       return { ...prev, conditions: next };
     });
+  };
+
+  const widensToAllEnvironments = initialEnvironments.length > 0 && selectedEnvironments.length === 0;
+
+  const handleSubmit = () => {
+    if (widensToAllEnvironments) { setConfirmingWiden(true); return; }
+    onSubmit(form);
+  };
+
+  const cancelWiden = () => {
+    setConfirmingWiden(false);
+    setEnvironments(initialEnvironments);
   };
 
   const addCondition = () => {
@@ -169,6 +199,7 @@ const PolicyForm: React.FC<{
       {/* Environments */}
       <PolicyEnvironmentSelect
         options={environmentOptions ?? []}
+        status={environmentsStatus}
         value={selectedEnvironments}
         onChange={setEnvironments}
       />
@@ -190,16 +221,31 @@ const PolicyForm: React.FC<{
           </div>
         )}
       </div>
-      <div className="flex gap-2">
-        <button
-          onClick={() => onSubmit(form)}
-          disabled={submitting || !form.action_category.trim()}
-          className="btn-theme btn-theme-primary btn-theme-sm"
-        >
-          {submitting ? 'Saving...' : submitLabel}
-        </button>
-        <button onClick={onCancel} className="btn-theme btn-theme-secondary btn-theme-sm">Cancel</button>
-      </div>
+      {confirmingWiden && (
+        <div role="alertdialog" aria-label="Confirm widening to all environments" className="p-3 rounded-md border border-theme bg-theme-surface space-y-2">
+          <p className="text-sm text-theme-warning-fg">
+            This policy will apply to ALL environments, including production. It currently applies only to: {initialEnvironments.join(', ')}.
+          </p>
+          <div className="flex gap-2">
+            <button onClick={() => onSubmit(form)} disabled={submitting} className="btn-theme btn-theme-danger btn-theme-sm">
+              {submitting ? 'Saving...' : 'Apply to all environments'}
+            </button>
+            <button onClick={cancelWiden} className="btn-theme btn-theme-secondary btn-theme-sm">Keep selection</button>
+          </div>
+        </div>
+      )}
+      {!confirmingWiden && (
+        <div className="flex gap-2">
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || !form.action_category.trim()}
+            className="btn-theme btn-theme-primary btn-theme-sm"
+          >
+            {submitting ? 'Saving...' : submitLabel}
+          </button>
+          <button onClick={onCancel} className="btn-theme btn-theme-secondary btn-theme-sm">Cancel</button>
+        </div>
+      )}
     </div>
   );
 };
