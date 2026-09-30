@@ -68,19 +68,42 @@ RSpec.describe JobsController do
       expect(JSON.parse(last_response.body)).to eq('result' => { 'ok' => true })
     end
 
-    # IMP-bd260c0b4c00 — the request's account_id keys the child's sandbox
-    # identity and wins over any account_id smuggled inside `server`.
-    it 'threads the request account_id into spawn_stdio, overriding one inside server' do
+    # IMP-bd260c0b4c00 — the sandbox identity is keyed on the MCP server's
+    # OWNING account, exactly as on the async path. The server payload
+    # carries it; the request's account_id is the caller's.
+    it "keys the spawn on the server payload's owning account" do
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
       expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, account_id:, **_kwargs|
         expect(account_id).to eq('acct-1')
         [ '{"jsonrpc":"2.0","id":"req-1","result":{"ok":true}}', '', success_status ]
       end
 
-      post_stdio({ account_id: 'acct-1', server: server_hash.merge('account_id' => 'someone-else'), mcp_request: mcp_request })
+      post_stdio({ account_id: 'ACCT-1 ', server: server_hash.merge('account_id' => 'acct-1'), mcp_request: mcp_request })
 
       expect(last_response.status).to eq(200)
       expect(JSON.parse(last_response.body)).to eq('result' => { 'ok' => true })
+    end
+
+    it 'falls back to the request account_id when the server payload carries none' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, account_id:, **_kwargs|
+        expect(account_id).to eq('acct-1')
+        [ '{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status ]
+      end
+
+      post_stdio({ account_id: 'acct-1', server: server_hash, mcp_request: mcp_request })
+
+      expect(last_response.status).to eq(200)
+    end
+
+    it 'refuses with 422, spawning nothing, when the request account and the server owner disagree' do
+      expect(McpSecurityService).not_to receive(:spawn_stdio)
+      expect_any_instance_of(Mcp::McpTransportClient).not_to receive(:execute_stdio_request) # rubocop:disable RSpec/AnyInstance
+
+      post_stdio({ account_id: 'acct-1', server: server_hash.merge('account_id' => 'someone-else'), mcp_request: mcp_request })
+
+      expect(last_response.status).to eq(422)
+      expect(JSON.parse(last_response.body).to_s).to match(/account/i)
     end
 
     # IMP-abda86fb39be review — the domain-level failure shape
