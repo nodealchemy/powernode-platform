@@ -30,9 +30,10 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
 
         expect(line).to be_present
         expect(line).to match(/memory-<slug>/)
-        expect(line).to match(/create_knowledge tags \[memory, memory-<type>, memory-<slug>\] access_level account/)
+        expect(line).to match(/create_knowledge key memory:<slug> tags \[memory-<type>\]/)
+        expect(line).to match(/access_level account/)
         expect(line).to match(/never global/i)
-        expect(line).to match(/never a local file/i)
+        expect(line).to match(/never a local memory file/i)
       end
 
       it "#{const_name} includes the never-batch-approve bulk-op guardrail" do
@@ -87,9 +88,10 @@ RSpec.describe "guidance-* cross-executor recall wiring" do
 
       expect(line).to be_present
       expect(line).to match(/memory-<slug>/)
-      expect(line).to match(/create_knowledge tags \[memory, memory-<type>, memory-<slug>\] access_level account/)
+      expect(line).to match(/create_knowledge key memory:<slug> tags \[memory-<type>\]/)
+      expect(line).to match(/access_level account/)
       expect(line).to match(/never global/i)
-      expect(line).to match(/never a local file/i)
+      expect(line).to match(/never a local memory file/i)
     end
 
     it "includes the stop-and-ask rule" do
