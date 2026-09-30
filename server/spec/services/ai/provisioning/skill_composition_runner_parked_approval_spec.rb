@@ -261,6 +261,27 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner, "parked approvals" do
       expect(parked_step.reload.result_summary.to_s).to include("provider refused")
     end
 
+    # IMP-3d275689ca7c fix round: a FAILED operation's error_message is raw
+    # "Class: message" text, and the failed step carries it into
+    # result_summary and the MissionChannel step broadcast. `filter` is
+    # key-based and cannot see inside that string.
+    it "redacts a secret-named value quoted in a failed operation's error_message" do
+      secret = %w[hunter 2].join
+      operation.update_columns(status: "failed",
+                               error_message: "RuntimeError: login failed user=ops; password=#{secret}; attempt=2")
+      broadcasts = []
+      allow(MissionChannel).to receive(:broadcast_mission_event) { |*args, **kwargs| broadcasts << [ args, kwargs ] }
+
+      described_class.resume_parked_step(deferred_operation: operation)
+
+      summary = parked_step.reload.result_summary.to_s
+      expect(parked_step.status).to eq("failed")
+      expect(summary).not_to include(secret)
+      expect(summary).to include("password=#{Ai::SensitiveParams::MASK}; attempt=2")
+      expect(broadcasts).not_to be_empty
+      expect(broadcasts.to_json).not_to include(secret)
+    end
+
     it "records the executor's data, not the envelope around it" do
       operation.update!(status: "completed",
                         result: { "success" => true, "data" => { "instance_id" => "i-7" } })

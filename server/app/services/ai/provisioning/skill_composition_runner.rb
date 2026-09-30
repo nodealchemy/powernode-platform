@@ -1109,7 +1109,11 @@ module Ai
         when "rejected", "expired"
           { success: false, error: "approval #{operation.status} for #{operation.action_category}" }
         when "failed"
-          { success: false, error: operation.error_message.presence || "deferred operation failed" }
+          # Raw "Class: message" text bound for result_summary, the
+          # MissionChannel broadcast and ai_messages; `filter` above is
+          # key-based and cannot see into it (IMP-3d275689ca7c).
+          { success: false,
+            error: ::Ai::SensitiveParams.filter_text(operation.error_message).presence || "deferred operation failed" }
         end
       end
 
