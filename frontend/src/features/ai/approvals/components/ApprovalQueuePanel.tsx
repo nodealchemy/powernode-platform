@@ -11,7 +11,7 @@ import { useApproveAction, useRejectAction } from '../api/approvalsApi';
 import { useLiveApprovalQueue } from '../hooks/useLiveApprovalQueue';
 import { useApprovalRequestDetail } from '../hooks/useApprovalRequestDetail';
 import { ApprovalChainSteps, ApprovalStepSummary } from './ApprovalChainSteps';
-import type { ApprovalChangeCard, ApprovalPresentedRow, ApprovalRequest } from '../types/approval';
+import type { ApprovalChangeCard, ApprovalPresentedValue, ApprovalRequest } from '../types/approval';
 
 // The approval queue (C3b part 2). Approvals keep their own surface by the
 // lead's C4 ruling; this panel gains what it never had: the chain, step by
@@ -56,25 +56,57 @@ const approvalTitle = (request: ApprovalRequest): string =>
 const displayValue = (value: unknown): string =>
   typeof value === 'string' ? value : JSON.stringify(value);
 
-// A presenter's reading of a value: each raw entry with the text its owner gave
-// it. React escapes every field, and the raw entry is always shown first so a
-// tenant-chosen name cannot stand in for which entry is being written.
-const PresentedRows: React.FC<{ rows?: ApprovalPresentedRow[]; dataAttr: string }> = ({ rows, dataAttr }) => {
-  if (!rows || rows.length === 0) return null;
+// Visible labels for a presenter's fields and flags. They live HERE, never in
+// the payload: tenant text only ever fills a value slot. An identifier this map
+// does not know is shown as its own (server-authored) key, humanised.
+const FIELD_LABELS: Record<string, string> = { name: 'Name', owner: 'Owner account' };
+const FLAG_LABELS: Record<string, string> = {
+  unknown: 'Not found (deleted, or not a module id)',
+  other_account: 'Another account',
+};
+const humanise = (identifier: string): string => identifier.replace(/_/g, ' ');
+
+// A presenter's reading of a value: each raw entry, complete and first, then its
+// fields in their own labelled elements and its flags as badges. React escapes
+// every value, and no tenant text can add a row, a label or a badge.
+const PresentedValueList: React.FC<{ value?: ApprovalPresentedValue; dataAttr: string }> = ({ value, dataAttr }) => {
+  if (!value || (value.items.length === 0 && value.omitted === 0)) return null;
   return (
     <div {...{ [dataAttr]: true }} className="mt-1 space-y-1">
       <p className="text-xs text-theme-tertiary">
-        Names below are informational and set by their owners; the ids are what is written.
+        Names are informational and set by their owners; the ids are what is written.
       </p>
       <ul className="space-y-1">
-        {rows.map((row, index) => (
-          <li key={`${row.value}-${index}`} data-presented-row className="text-xs">
-            <span className="font-mono text-theme-primary break-all">{row.value}</span>
-            {row.label ? <span className="text-theme-secondary"> {'\u201C'}{row.label}{'\u201D'}</span> : null}
-            {row.detail ? <span className="text-theme-tertiary"> ({row.detail})</span> : null}
+        {value.items.map((item, index) => (
+          <li key={`${item.raw}-${index}`} data-presented-row className="text-xs space-y-0.5">
+            <div data-presented-raw className="font-mono text-theme-primary break-all">{item.raw}</div>
+            {Object.entries(item.fields).map(([field, text]) =>
+              text ? (
+                <div key={field} className="flex gap-2">
+                  <span className="text-theme-tertiary">{FIELD_LABELS[field] ?? humanise(field)}:</span>
+                  <span data-presented-field={field} className="text-theme-secondary break-all">{text}</span>
+                </div>
+              ) : null
+            )}
+            {item.flags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {item.flags.map((flag) => (
+                  <span
+                    key={flag}
+                    data-presented-flag={flag}
+                    className="rounded px-1.5 py-0.5 bg-theme-warning-bg text-theme-warning-fg"
+                  >
+                    {FLAG_LABELS[flag] ?? humanise(flag)}
+                  </span>
+                ))}
+              </div>
+            )}
           </li>
         ))}
       </ul>
+      {value.omitted > 0 && (
+        <p data-presented-omitted className="text-xs text-theme-tertiary">+{value.omitted} more (raw value only)</p>
+      )}
     </div>
   );
 };
@@ -92,7 +124,7 @@ const ChangeCard: React.FC<{ card: ApprovalChangeCard }> = ({ card }) => (
       <dt className="text-theme-tertiary">New value</dt>
       <dd data-change-new-value className="text-theme-primary font-mono break-all">
         {displayValue(card.new_value)}
-        <PresentedRows rows={card.presented_new_value} dataAttr="data-presented-new-value" />
+        <PresentedValueList value={card.presented_new_value} dataAttr="data-presented-new-value" />
       </dd>
       <dt className="text-theme-tertiary">Current value</dt>
       <dd data-change-current-value className="text-theme-primary font-mono break-all">
@@ -101,7 +133,7 @@ const ChangeCard: React.FC<{ card: ApprovalChangeCard }> = ({ card }) => (
           : 'current_value' in card
             ? displayValue(card.current_value)
             : 'Not shown to you (needs admin access)'}
-        <PresentedRows rows={card.presented_current_value} dataAttr="data-presented-current-value" />
+        <PresentedValueList value={card.presented_current_value} dataAttr="data-presented-current-value" />
       </dd>
     </dl>
   </div>

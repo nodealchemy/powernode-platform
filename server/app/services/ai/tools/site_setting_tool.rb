@@ -55,23 +55,20 @@ module Ai
       # a floor, not a hint: whatever is named here is the real gate on every
       # live MCP call, and the OR-ladder below can only ever widen within it.
       #
-      # An earlier draft named "settings.manage". That string is NOT in
-      # config/permissions.rb (the catalogued admin family is admin.access,
-      # admin.settings.read, admin.settings.update), and
-      # RolePermission#permission_must_exist_in_catalog means no role can hold
-      # an uncatalogued name — so has_permission? was true only through the
-      # system.admin shortcut, and the verb was reachable by system.admin
-      # alone. Strictly NARROWER than the REST twin rather than wider, so it
-      # failed closed, but it did not mirror the twin as this task required.
+      # An earlier draft named "settings.manage" as this floor. It is a real,
+      # catalogued permission (config/permissions.rb, granted to the owner and
+      # admin roles), but it is not the floor: the registrar enforces THIS
+      # constant conjunctively, so a settings.manage holder without admin.access
+      # is refused at the MCP door and cannot complete a protected approval.
       REQUIRED_PERMISSION = "admin.access"
 
       # Api::V1::SiteSettingsController:5 is
       # `require_admin_access("settings.manage")`, and require_admin_access is
       # `require_any_permission("admin.access", *also_allow)`
       # (authentication.rb:320-321). EITHER admits there. admin.access is the
-      # rung that actually grants today; settings.manage is kept so that if it
-      # is ever catalogued, this surface admits it without a second edit —
-      # it cannot widen anything while REQUIRED_PERMISSION gates the door.
+      # rung the MCP door requires; settings.manage (catalogued, held by every
+      # tenant Account Owner) widens only the reads on this surface that do not
+      # pass through that door, such as the approval card's current value.
       GRANTING_PERMISSIONS = %w[admin.access settings.manage].freeze
 
       ACTIONS = %w[site_setting_get site_setting_set site_setting_set_protected].freeze
@@ -344,18 +341,25 @@ module Ai
 
         row = SiteSetting.find_by(key: key)
         card = card.merge(current_value: row&.value, current_value_set: !row.nil?)
-        present_card_values(card, key)
+        present_card_values(card, key, viewer)
       end
 
       # A presenter's rendering of the values, added NEXT TO the raw ones (they
       # stay in the card: the approver must see exactly what gets written). Only
-      # here, past the readable check above: a presentation can carry more than
-      # the raw value does (names and owners behind bare ids), so it goes to no
-      # one who could not already read the setting. Absent when the key has no
-      # presenter or the presenter failed (SiteSetting.present_value never raises).
-      def self.present_card_values(card, key)
-        presented = { presented_new_value: SiteSetting.present_value(key, card[:new_value]) }
-        presented[:presented_current_value] = SiteSetting.present_value(key, card[:current_value]) if card[:current_value_set]
+      # for a holder of REQUIRED_PERMISSION (admin.access), NOT the wider
+      # GRANTING_PERMISSIONS ladder above: a presentation can carry more than the
+      # raw value does (names and owning accounts behind bare ids), settings.manage
+      # is held by every tenant Account Owner, and admin.access is the only
+      # permission that can complete this approval, so narrowing loses nothing.
+      # Absent when the key has no presenter or the presenter failed
+      # (SiteSetting.present_value never raises).
+      def self.present_card_values(card, key, viewer)
+        return card unless viewer.has_permission?(REQUIRED_PERMISSION) == true
+
+        presented = { presented_new_value: SiteSetting.present_value(key, card[:new_value], viewer: viewer) }
+        if card[:current_value_set]
+          presented[:presented_current_value] = SiteSetting.present_value(key, card[:current_value], viewer: viewer)
+        end
         card.merge(presented.compact)
       end
       private_class_method :present_card_values

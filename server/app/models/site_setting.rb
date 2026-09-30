@@ -77,18 +77,28 @@ class SiteSetting < ApplicationRecord
   # A presenter renders a key's raw value for a HUMAN, next to the raw value and
   # never in place of it (the protected-setting approval card, IMP-78bc3b20ee94).
   # Registered by whoever owns the key, an extension included; core names no key.
-  # The block takes the raw stored value and returns a list of hashes, each
-  # `{ value:, label:, detail: }` (value required, the others optional): `value`
-  # is the raw entry it describes, `label` and `detail` are text about it.
   #
-  # Its output is untrusted text (labels come from names a tenant controls), so
-  # #present_value normalises it: strings only, control and format characters
-  # (newlines, bidi overrides) removed, every field bounded. A presenter that
-  # raises, overruns PRESENTER_DEADLINE or returns anything else yields nil, and
-  # the caller shows the raw value alone.
+  # The block takes the raw stored value and the viewer, and returns
+  #   { items: [ { raw:, fields: { name: text }, flags: [ :flag ] } ], omitted: n }
+  # `raw` is the entry an item describes. `fields` are text ABOUT it, keyed by a
+  # fixed identifier (the client owns the visible labels, so no label is ever
+  # tenant text); a field's text is untrusted and stays in its own slot. `flags`
+  # are facts the presenter's own code computed (no longer exists, another
+  # account's), also fixed identifiers: the client turns them into fixed text,
+  # so they never share a slot with tenant text. `omitted` counts entries the
+  # presenter left out (it must bound its own work to PRESENTED_ROW_LIMIT).
+  #
+  # Core runs the block in a transaction that is ALWAYS rolled back, read-only,
+  # under a statement_timeout: the database cancels a slow lookup and a write is
+  # refused. (Never a wall-clock Timeout around the block: interrupting a thread
+  # mid-query can leave a pooled connection broken.) Anything wrong at all, an
+  # exception, a cancelled query, a malformed return, yields nil and the caller
+  # shows the raw value alone. #present_value never raises.
   PRESENTED_FIELD_LIMIT = 160
+  PRESENTED_RAW_LIMIT = 200
   PRESENTED_ROW_LIMIT = 100
-  PRESENTER_DEADLINE = 2.0
+  PRESENTER_STATEMENT_TIMEOUT_MS = 2000
+  PRESENTED_IDENTIFIER = /\A[a-z][a-z0-9_]{0,31}\z/
 
   def self.register_value_presenter(key, &presenter)
     value_presenters[key.to_s] = presenter
@@ -98,38 +108,64 @@ class SiteSetting < ApplicationRecord
     @value_presenters ||= {}
   end
 
-  # Array<{"value","label","detail"}> for `raw`, or nil when the key has no
-  # presenter or its presentation cannot be trusted. Never raises.
-  def self.present_value(key, raw)
+  # { "items" => [ { "raw", "fields", "flags" } ], "omitted" => Integer } for
+  # `raw`, or nil when the key has no presenter or its presentation cannot be
+  # trusted.
+  def self.present_value(key, raw, viewer: nil)
     presenter = value_presenters[key.to_s]
     return nil unless presenter
 
-    rows = ::Timeout.timeout(PRESENTER_DEADLINE) { presenter.call(raw) }
-    return nil unless rows.is_a?(Array) && rows.size <= PRESENTED_ROW_LIMIT
-
-    presented = rows.map { |row| presented_row(row) }
-    presented.any?(&:nil?) ? nil : presented
+    result = nil
+    transaction(requires_new: true) do
+      connection.execute("SET LOCAL statement_timeout = #{PRESENTER_STATEMENT_TIMEOUT_MS.to_i}")
+      connection.execute("SET LOCAL transaction_read_only = on")
+      result = presenter.call(raw, viewer)
+      raise ActiveRecord::Rollback
+    end
+    presented_value(result)
   rescue StandardError => e
     Rails.logger.warn("[SiteSetting] value presenter for #{key} failed: #{e.class}")
     nil
   end
 
-  def self.presented_row(row)
-    return nil unless row.is_a?(Hash)
+  def self.presented_value(result)
+    return nil unless result.is_a?(Hash)
 
-    row = row.with_indifferent_access
-    return nil if row[:value].nil?
+    result = result.with_indifferent_access
+    items = result[:items]
+    omitted = result.fetch(:omitted, 0)
+    return nil unless items.is_a?(Array) && omitted.is_a?(Integer) && omitted >= 0
 
-    { "value" => presented_text(row[:value]), "label" => presented_text(row[:label]),
-      "detail" => presented_text(row[:detail]) }
+    presented = items.first(PRESENTED_ROW_LIMIT).map { |item| presented_item(item) }
+    return nil if presented.any?(&:nil?)
+
+    { "items" => presented, "omitted" => omitted + [ items.size - PRESENTED_ROW_LIMIT, 0 ].max }
   end
-  private_class_method :presented_row
+  private_class_method :presented_value
 
-  def self.presented_text(text)
+  def self.presented_item(item)
+    return nil unless item.is_a?(Hash)
+
+    item = item.with_indifferent_access
+    fields = item.fetch(:fields, {})
+    flags = item.fetch(:flags, [])
+    return nil if item[:raw].nil? || !fields.is_a?(Hash) || !flags.is_a?(Array)
+    return nil unless (fields.keys + flags).all? { |name| name.to_s.match?(PRESENTED_IDENTIFIER) }
+
+    { "raw" => presented_text(item[:raw], PRESENTED_RAW_LIMIT),
+      "fields" => fields.to_h { |name, text| [ name.to_s, presented_text(text, PRESENTED_FIELD_LIMIT) ] },
+      "flags" => flags.map(&:to_s).uniq }
+  end
+  private_class_method :presented_item
+
+  # Every control, format and separator character (newlines, U+2028/2029, bidi
+  # overrides, zero-width, no-break space) becomes a plain space or is dropped;
+  # only an ASCII space survives, so text cannot break its line or its slot.
+  def self.presented_text(text, limit)
     return nil if text.nil?
 
-    clean = text.to_s.gsub(/[\r\n\t]/, " ").gsub(/[\p{Cc}\p{Cf}]/, "").strip
-    clean.length > PRESENTED_FIELD_LIMIT ? "#{clean[0, PRESENTED_FIELD_LIMIT - 1]}…" : clean
+    clean = text.to_s.gsub(/[\p{Cc}\p{Z}]/, " ").gsub(/\p{C}/, "").squeeze(" ").strip
+    clean.length > limit ? "#{clean[0, limit - 1]}…" : clean
   end
   private_class_method :presented_text
 

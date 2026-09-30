@@ -10,15 +10,25 @@ import type {
  * who could read the setting on the operator API; absent means "not shown to
  * you", and `current_value_set: false` means the setting is unset.
  * `presented_*` are a human reading of the same values (names beside ids), sent
- * NEXT TO the raw ones, only to a viewer who can read the setting, and absent
- * when the setting has no presenter or it failed.
+ * NEXT TO the raw ones, only to an admin.access holder, and absent
+ * when the setting has no presenter or it failed. Sent only to admin.access holders.
  */
-export interface ApprovalPresentedRow {
-  /** The raw entry this row describes: the thing that is actually written. */
-  value: string;
-  /** Text about it from its owner (a name a tenant controls): shown, never trusted. */
-  label?: string | null;
-  detail?: string | null;
+/**
+ * One entry of a presented value. `raw` is the entry actually written. `fields`
+ * are tenant-controlled text ABOUT it, keyed by a fixed identifier: the client
+ * supplies the visible label, so no label is ever tenant text. `flags` are facts
+ * the server computed (e.g. `unknown`, `other_account`), shown as fixed text.
+ */
+export interface ApprovalPresentedItem {
+  raw: string;
+  fields: Record<string, string | null>;
+  flags: string[];
+}
+
+export interface ApprovalPresentedValue {
+  items: ApprovalPresentedItem[];
+  /** Entries the presenter did not describe: shown as raw only. */
+  omitted: number;
 }
 
 export interface ApprovalChangeCard {
@@ -28,8 +38,8 @@ export interface ApprovalChangeCard {
   new_value: unknown;
   current_value?: unknown;
   current_value_set?: boolean;
-  presented_new_value?: ApprovalPresentedRow[];
-  presented_current_value?: ApprovalPresentedRow[];
+  presented_new_value?: ApprovalPresentedValue;
+  presented_current_value?: ApprovalPresentedValue;
 }
 
 export interface ApprovalRequest {
