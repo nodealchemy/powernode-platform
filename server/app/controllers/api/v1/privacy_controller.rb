@@ -164,11 +164,12 @@ module Api
       def cancel_deletion
         request = DataManagement::DeletionRequest.find_by!(id: params[:id], user: current_user)
 
-        unless request.can_be_cancelled?
+        # cancel! re-checks the status under the row lock; false means the
+        # request is no longer cancellable (e.g. its erasure has started), so
+        # the data subject is never told it was cancelled (IMP-01dc7cf9d2ef).
+        unless request.cancel!(current_user, params[:reason])
           return render_error("This deletion request cannot be cancelled", status: :unprocessable_content)
         end
-
-        request.cancel!(current_user, params[:reason])
 
         render_success(
           message: "Deletion request cancelled",

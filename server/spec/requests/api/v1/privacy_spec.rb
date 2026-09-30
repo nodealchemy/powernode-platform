@@ -343,25 +343,60 @@ RSpec.describe 'Api::V1::Privacy', type: :request do
     end
     let(:cancel_params) { { reason: 'Changed my mind' } }
 
-    before do
-      # cancel! tries to set cancellation_reason column which doesn't exist in DB.
-      # Stub it to update only valid columns.
-      allow_any_instance_of(DataManagement::DeletionRequest).to receive(:cancel!).and_wrap_original do |method, *args|
-        request = method.receiver
-        request.update!(status: 'cancelled', completed_at: Time.current)
-        true
-      end
+    def cancel_deletion(request)
+      delete "/api/v1/privacy/deletion/#{request.id}", params: cancel_params, headers: headers, as: :json
     end
 
     it 'cancels the deletion request' do
-      delete "/api/v1/privacy/deletion/#{deletion_request.id}",
-             params: cancel_params,
-             headers: headers,
-             as: :json
+      cancel_deletion(deletion_request)
 
       expect_success_response
       data = json_response_data
-      expect(data).to have_key('request')
+      expect(data['request']['status']).to eq('cancelled')
+      expect(deletion_request.reload.status).to eq('cancelled')
+      expect(deletion_request.metadata['cancellation_reason']).to eq('Changed my mind')
+    end
+
+    it 'cancels an approved request still inside its grace period' do
+      approved = create(:data_management_deletion_request, user: user, account: account,
+                                                           status: 'approved', grace_period_ends_at: 10.days.from_now)
+
+      cancel_deletion(approved)
+
+      expect_success_response
+      expect(approved.reload.status).to eq('cancelled')
+    end
+
+    %w[processing completed failed cancelled rejected].each do |status|
+      it "refuses to cancel a #{status} request and leaves it #{status}" do
+        request = create(:data_management_deletion_request, user: user, account: account, status: status)
+
+        cancel_deletion(request)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(request.reload.status).to eq(status)
+      end
+    end
+
+    # IMP-01dc7cf9d2ef — the erasure starts between the controller reading the
+    # row and cancelling it. The row must stay 'processing' and the data
+    # subject must be told the cancel failed, never that it succeeded. The
+    # interleaving is deterministic: the row is moved to 'processing' right
+    # after the controller's own read returns it, so everything downstream
+    # holds a stale 'pending' instance.
+    it 'refuses (422) and leaves the row processing when processing starts after the read' do
+      deletion_request
+      allow(DataManagement::DeletionRequest).to receive(:find_by!).and_wrap_original do |original, *args, **kwargs|
+        original.call(*args, **kwargs).tap do |found|
+          DataManagement::DeletionRequest.where(id: found.id).update_all(status: 'processing')
+        end
+      end
+
+      cancel_deletion(deletion_request)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(response.body).not_to include('Deletion request cancelled')
+      expect(deletion_request.reload.status).to eq('processing')
     end
   end
 

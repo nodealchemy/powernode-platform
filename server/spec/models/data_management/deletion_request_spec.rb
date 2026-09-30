@@ -233,4 +233,113 @@ RSpec.describe DataManagement::DeletionRequest, type: :model do
       expect(request.reload.status).to eq('approved')
     end
   end
+
+  # IMP-01dc7cf9d2ef — cancel!/reject! race with processing. Both used to
+  # check the status on the in-memory instance (reject! not at all) and then
+  # write, so a row that entered 'processing' after it was read could be
+  # overwritten with 'cancelled'/'rejected' while the erasure was running.
+  # They now take the same row lock as #start_processing! and re-check the
+  # status against the freshly locked row. The interleaving is simulated
+  # deterministically with a STALE instance: it is read while the row is
+  # still pending, then the row is moved to 'processing' underneath it.
+  describe '#cancel! / #reject! under the row lock' do
+    let(:processor) { create(:user, account: account) }
+
+    def request_with(status)
+      create(:data_management_deletion_request, account: account, user: user, status: status)
+    end
+
+    def move_underneath(request, status)
+      described_class.where(id: request.id).update_all(status: status)
+    end
+
+    # Creating the row logs 'deletion_requested'; only a close is of interest.
+    let(:close_audit) do
+      hash_including(metadata: hash_including(event_type: a_string_matching(/\Adeletion_(cancelled|rejected)\z/)))
+    end
+
+    before do
+      allow(AuditLog).to receive(:log_compliance_event).and_return(true)
+      allow(Notification).to receive(:create).and_return(Notification.new)
+      allow(NotificationService).to receive(:send_email).and_return(true)
+    end
+
+    it 'cancel! refuses a request that entered processing after it was read, leaving it processing' do
+      stale = request_with('pending')
+      move_underneath(stale, 'processing')
+
+      expect(stale.cancel!(processor, 'changed my mind')).to be false
+      expect(described_class.find(stale.id).status).to eq('processing')
+      expect(AuditLog).not_to have_received(:log_compliance_event).with(close_audit)
+    end
+
+    it 'reject! refuses a request that entered processing after it was read, leaving it processing' do
+      stale = request_with('approved')
+      move_underneath(stale, 'processing')
+
+      expect(stale.reject!(processor, 'not verified')).to be false
+      expect(described_class.find(stale.id).status).to eq('processing')
+      expect(AuditLog).not_to have_received(:log_compliance_event).with(close_audit)
+      expect(Notification).not_to have_received(:create)
+      expect(NotificationService).not_to have_received(:send_email)
+    end
+
+    %w[pending approved].each do |status|
+      it "cancel! moves a #{status} request to cancelled and audits it exactly once" do
+        request = request_with(status)
+
+        expect(request.cancel!(processor, 'changed my mind')).to be true
+        request.reload
+        expect(request.status).to eq('cancelled')
+        expect(request.completed_at).to be_present
+        expect(request.processed_by).to eq(processor)
+        expect(request.metadata['cancellation_reason']).to eq('changed my mind')
+        expect(AuditLog).to have_received(:log_compliance_event)
+          .with(hash_including(metadata: hash_including(event_type: 'deletion_cancelled'))).once
+      end
+
+      it "reject! moves a #{status} request to rejected, audits and notifies exactly once" do
+        request = request_with(status)
+
+        expect(request.reject!(processor, 'not verified')).to be true
+        request.reload
+        expect(request.status).to eq('rejected')
+        expect(request.rejection_reason).to eq('not verified')
+        expect(request.processed_by).to eq(processor)
+        expect(AuditLog).to have_received(:log_compliance_event)
+          .with(hash_including(metadata: hash_including(event_type: 'deletion_rejected'))).once
+        expect(Notification).to have_received(:create).once
+        expect(NotificationService).to have_received(:send_email)
+          .with(hash_including(template: 'data_deletion_rejected')).once
+      end
+    end
+
+    %w[processing completed failed cancelled rejected].each do |status|
+      it "cancel! and reject! refuse a #{status} request and write nothing" do
+        request = request_with(status)
+
+        expect(request.cancel!(processor, 'x')).to be false
+        expect(request.reject!(processor, 'x')).to be false
+        expect(described_class.find(request.id).status).to eq(status)
+        expect(AuditLog).not_to have_received(:log_compliance_event).with(close_audit)
+        expect(Notification).not_to have_received(:create)
+        expect(NotificationService).not_to have_received(:send_email)
+      end
+    end
+
+    it 'rolls the cancellation back when the caller block raises' do
+      request = request_with('pending')
+
+      expect { request.cancel!(processor, 'x') { raise 'audit down' } }.to raise_error('audit down')
+      expect(request.reload.status).to eq('pending')
+    end
+
+    it 'rolls the rejection back, and sends no notice, when the caller block raises' do
+      request = request_with('pending')
+
+      expect { request.reject!(processor, 'x') { raise 'audit down' } }.to raise_error('audit down')
+      expect(request.reload.status).to eq('pending')
+      expect(NotificationService).not_to have_received(:send_email)
+    end
+  end
 end

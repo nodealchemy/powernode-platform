@@ -205,6 +205,68 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
 
         expect(response).to have_http_status(:unprocessable_content)
       end
+
+      def reject(request, **extra)
+        patch "/api/v1/internal/data_deletion_requests/#{request.id}",
+              params: { action_type: 'reject', reason: 'Not verified', rejected_by_id: admin_user.id }.merge(extra),
+              headers: internal_headers,
+              as: :json
+      end
+
+      it 'rejects an approved request, auditing and notifying exactly once' do
+        approved = create_deletion_request.call(status: 'approved', grace_period_ends_at: 10.days.from_now)
+
+        reject(approved)
+
+        expect_success_response
+        approved.reload
+        expect(approved.status).to eq('rejected')
+        expect(approved.processed_by_id).to eq(admin_user.id)
+        expect(AuditLog.where(action: 'data_deletion.reject', resource_id: approved.id).count).to eq(1)
+        expect(NotificationService).to have_received(:send_email)
+          .with(hash_including(template: 'data_deletion_rejected')).once
+      end
+
+      it 'refuses an unknown rejected_by_id and writes nothing' do
+        reject(deletion_request, rejected_by_id: SecureRandom.uuid)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(deletion_request.reload.status).to eq('pending')
+      end
+
+      %w[processing completed failed cancelled rejected].each do |status|
+        it "refuses to reject a #{status} request, with no audit row and no notice" do
+          request = create_deletion_request.call(status: status)
+
+          reject(request)
+
+          expect(response).to have_http_status(:unprocessable_content)
+          expect(request.reload.status).to eq(status)
+          expect(AuditLog.where(action: 'data_deletion.reject', resource_id: request.id)).not_to exist
+          expect(NotificationService).not_to have_received(:send_email)
+        end
+      end
+
+      # IMP-01dc7cf9d2ef — the erasure starts between this controller loading
+      # the row and rejecting it. The row must stay 'processing', the caller
+      # gets 422, and neither the audit row nor the rejection notice is
+      # emitted. Deterministic interleaving: the row is moved to 'processing'
+      # right after set_deletion_request's read returns it.
+      it 'refuses (422) and leaves the row processing when processing starts after the read' do
+        deletion_request
+        allow(DataManagement::DeletionRequest).to receive(:find).and_wrap_original do |original, *args|
+          original.call(*args).tap do |found|
+            DataManagement::DeletionRequest.where(id: found.id).update_all(status: 'processing')
+          end
+        end
+
+        reject(deletion_request)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(deletion_request.reload.status).to eq('processing')
+        expect(AuditLog.where(action: 'data_deletion.reject', resource_id: deletion_request.id)).not_to exist
+        expect(NotificationService).not_to have_received(:send_email)
+      end
     end
 
     # IMP-26adf1c79c7a: the grace period is the data subject's cancellation

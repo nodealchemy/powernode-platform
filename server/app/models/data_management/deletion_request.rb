@@ -189,30 +189,29 @@ module DataManagement
       notify_user_of_approval
     end
 
-    def reject!(processor, reason)
-      update!(
-        status: "rejected",
-        processed_by: processor,
-        rejection_reason: reason,
-        completed_at: Time.current
+    # reject! and cancel! close a request that has not started processing.
+    # Both take the same row lock as #start_processing! and re-check
+    # #can_be_cancelled? against the freshly locked row, so a request that
+    # entered 'processing' after this instance was read is refused (false,
+    # row untouched) instead of being overwritten while its erasure runs
+    # (IMP-01dc7cf9d2ef). The status-change audit row and any caller block
+    # run inside the locked transaction; the rejection notice goes out only
+    # after the transition has committed.
+    def reject!(processor, reason, &in_transaction)
+      rejected = locked_transition!(
+        :can_be_cancelled?, "rejected", :completed_at,
+        { processed_by: processor, rejection_reason: reason }, &in_transaction
       )
-
-      log_status_change("rejected")
-      notify_user_of_rejection
+      notify_user_of_rejection if rejected
+      rejected
     end
 
-    def cancel!(canceller = nil, reason = nil)
-      return false unless can_be_cancelled?
-
-      update!(
-        status: "cancelled",
-        processed_by: canceller,
-        cancellation_reason: reason,
-        completed_at: Time.current
-      )
-
-      log_status_change("cancelled")
-      true
+    # There is no cancellation_reason column: the reason is kept in metadata,
+    # like the other cancellable records here (Ai::A2aTask,
+    # System::Federation::ServiceSubscription).
+    def cancel!(canceller = nil, reason = nil, &in_transaction)
+      attributes = -> { { processed_by: canceller, metadata: (metadata || {}).merge("cancellation_reason" => reason) } }
+      locked_transition!(:can_be_cancelled?, "cancelled", :completed_at, attributes, &in_transaction)
     end
 
     # The ONLY way a request enters 'processing' (the admin run-now and the
@@ -226,18 +225,8 @@ module DataManagement
     # audit) run INSIDE the locked transaction: if one raises, the transition
     # rolls back and the row stays 'approved', instead of committing a
     # 'processing' row nobody recorded (or ever enqueued a job for).
-    def start_processing!
-      with_lock do
-        next false unless can_start_processing?
-
-        update!(
-          status: "processing",
-          processing_started_at: Time.current
-        )
-        log_status_change("processing")
-        yield if block_given?
-        true
-      end
+    def start_processing!(&in_transaction)
+      locked_transition!(:can_start_processing?, "processing", :processing_started_at, &in_transaction)
     end
 
     def complete!(deletion_log:, retention_log: [])
@@ -274,6 +263,8 @@ module DataManagement
       true
     end
 
+    # Also the guard for reject!: only a request that has not started
+    # processing may be cancelled or rejected.
     def can_be_cancelled?
       %w[pending approved].include?(status)
     end
@@ -310,6 +301,24 @@ module DataManagement
     end
 
     private
+
+    # One guarded status transition under the row lock. +guard+ is re-checked
+    # against the freshly locked row; when it does not hold, nothing is
+    # written and the result is false. Otherwise the write, the status-change
+    # audit row and +in_transaction+ commit or roll back together.
+    # +attributes+ may be a lambda: it is then evaluated inside the lock,
+    # after the reload, so it reads the current row (e.g. its metadata).
+    def locked_transition!(guard, new_status, stamp_column, attributes = {}, &in_transaction)
+      with_lock do
+        next false unless public_send(guard)
+
+        attributes = attributes.call if attributes.respond_to?(:call)
+        update!(attributes.merge(status: new_status, stamp_column => Time.current))
+        log_status_change(new_status)
+        in_transaction&.call
+        true
+      end
+    end
 
     def data_types_to_delete_are_deletable
       unsupported = Array(data_types_to_delete) - DELETABLE_DATA_TYPES

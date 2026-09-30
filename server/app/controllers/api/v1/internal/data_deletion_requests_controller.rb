@@ -303,8 +303,14 @@ module Api
           )
         end
 
+        # DeletionRequest#reject! owns the transition: it re-checks the status
+        # under the row lock, so a request whose erasure started after this
+        # controller loaded it is refused with nothing written. The audit row
+        # is written inside that locked transaction; the rejection notice is
+        # sent by reject! only once the transition has committed
+        # (IMP-01dc7cf9d2ef).
         def reject_request
-          unless @deletion_request.pending? || @deletion_request.approved?
+          unless @deletion_request.can_be_cancelled?
             return render_error("Request cannot be rejected", status: :unprocessable_content)
           end
 
@@ -312,24 +318,19 @@ module Api
             return render_error("Rejection reason is required", status: :unprocessable_content)
           end
 
-          @deletion_request.update!(
-            status: "rejected",
-            rejection_reason: params[:reason],
-            completed_at: Time.current,
-            processed_by_id: params[:rejected_by_id]
-          )
-          log_internal_audit("data_deletion.reject", "DeletionRequest", @deletion_request.id,
-                             account_id: @deletion_request.account_id, reason: params[:reason])
+          rejected_by = User.find_by(id: params[:rejected_by_id]) if params[:rejected_by_id].present?
+          if params[:rejected_by_id].present? && rejected_by.nil?
+            return render_error("Invalid rejected_by_id", status: :unprocessable_content)
+          end
 
-          # Send rejection notification
-          NotificationService.send_email(
-            template: "data_deletion_rejected",
-            user_id: @deletion_request.user_id,
-            data: {
-              request_id: @deletion_request.id,
-              reason: params[:reason]
-            }
-          )
+          rejected = @deletion_request.reject!(rejected_by, params[:reason]) do
+            log_internal_audit("data_deletion.reject", "DeletionRequest", @deletion_request.id,
+                               account_id: @deletion_request.account_id, reason: params[:reason])
+          end
+          unless rejected
+            return render_error("Request cannot be rejected (status is now '#{@deletion_request.status}')",
+                                status: :unprocessable_content)
+          end
 
           render_success(
             { data_deletion_request: serialize_request(@deletion_request) },
