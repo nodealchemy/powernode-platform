@@ -119,7 +119,10 @@ class Api::V1::Internal::McpToolExecutionsController < Api::V1::Internal::Intern
       command: server.command,
       args: server.args,
       url: server.url,
-      capabilities: serialize_mcp_server_capabilities(server)
+      capabilities: serialize_mcp_server_capabilities(server),
+      # IMP-bd260c0b4c00 — keys the worker's per-account stdio sandbox
+      # identity (see McpSecurityService.sandbox_identity); not secret.
+      account_id: server.account_id
     }
     nested[:env] = server.env if include_server_config
     nested

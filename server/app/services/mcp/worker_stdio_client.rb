@@ -18,7 +18,7 @@ module Mcp
   # only gate; the worker's copy is the one that actually matters, since
   # it is the one standing between this request and Process.spawn.
   #
-  # account_id is INFORMATIONAL ONLY, not an authorization check: the
+  # account_id is NOT an authorization check: the
   # worker never looks up an McpServer row (no ID crosses this boundary,
   # only the already-resolved raw command/args/env), so it has nothing to
   # verify account_id against. Tenancy is enforced BEFORE this seam, by
@@ -26,9 +26,10 @@ module Mcp
   # it was constructed with (e.g. `current_user.account.mcp_servers.find`
   # in the prompts/resources controllers) — exactly as it was before this
   # class existed, since spawning locally never checked tenancy either.
-  # account_id is passed through purely for worker-side observability
-  # (logging, future per-account rate limiting), matching the same
-  # non-authoritative role it already plays in WorkerEmbeddingClient.
+  # It IS load-bearing for isolation (IMP-bd260c0b4c00): the worker keys
+  # the stdio sandbox identity (User=/CacheDirectory=) on it, so one
+  # account's child cannot read another's process environment or poison
+  # its package cache.
   #
   # RETURN CONTRACT: mirrors exactly what Mcp::PromptService/
   # Mcp::ResourceService#send_stdio_request used to return when it spawned

@@ -45,6 +45,20 @@ RSpec.describe 'Api::V1::Internal::McpToolExecutions', type: :request do
         expect(execution['mcp_tool']['mcp_server']['id']).to eq(mcp_server.id)
       end
 
+      # IMP-bd260c0b4c00 — the worker keys the stdio sandbox identity on the
+      # owning account; without it in the nested server the async tool
+      # execution path would refuse every sandboxed spawn (fail closed).
+      it "includes the server's account_id, which keys the worker's per-account sandbox identity" do
+        get "/api/v1/internal/mcp_tool_executions/#{mcp_tool_execution.id}",
+            headers: internal_headers,
+            as: :json
+
+        expect_success_response
+        nested_server = json_response_data['mcp_tool_execution']['mcp_tool']['mcp_server']
+
+        expect(nested_server['account_id']).to eq(account.id)
+      end
+
       # IMP-427e98cae0be BLOCKER: serialize_nested_server omitted
       # `capabilities` entirely, so McpSecurityService.validate_stdio_server!
       # (called from the worker's stdio tool-execution path) always saw
