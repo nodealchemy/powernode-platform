@@ -19,6 +19,7 @@ module Ai
       # nil for anything that is not a pending parked tool call whose tool offers a card.
       def for(request, viewer:)
         return nil unless request.pending?
+        return nil unless request.request_data.to_h.with_indifferent_access[:executor_class].to_s == ::Ai::Executors::DeferredToolCall.name
 
         params = ::Ai::SensitiveParams.filter(request.request_data.to_h).with_indifferent_access[:params]
         return nil unless params.is_a?(Hash)

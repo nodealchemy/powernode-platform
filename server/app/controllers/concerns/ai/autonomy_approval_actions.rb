@@ -88,10 +88,20 @@ module Ai
     # card; the decider is still a person in their own session either way.
     def change_card_refusal(approval)
       return nil if ::ActiveModel::Type::Boolean.new.cast(params[:change_card_shown]) == true
-      return nil unless ::Ai::Approvals::ChangeCard.for(approval, viewer: current_user)
+      return nil unless ::Ai::Approvals::ChangeCard.for(approval, viewer: change_card_viewer)
 
       "This request changes a setting, so approve it from the approvals queue " \
         "(/app/ai/control/approvals/queue), where the exact change is shown."
+    end
+
+    # The change card's viewer answers has_permission? for THIS session
+    # (Authentication#has_permission?, delegation-aware), not for current_user's
+    # own roles (IMP-08ebabb04b42). nil without a user (a worker): no values.
+    def change_card_viewer
+      return nil unless current_user
+
+      @change_card_viewer ||= ::Ai::Approvals::SessionViewer.new(user: current_user,
+                                                                 permission_check: method(:has_permission?))
     end
 
     def require_approval_permission
@@ -145,7 +155,7 @@ module Ai
         current_step_can_approve: current_user.present? && request.can_approve?(current_user),
         # The exact change a parked tool call asks for, from the redacted
         # request_data (nil when the tool offers none).
-        change_card: ::Ai::Approvals::ChangeCard.for(request, viewer: current_user)
+        change_card: ::Ai::Approvals::ChangeCard.for(request, viewer: change_card_viewer)
       )
       return base unless detailed
 
