@@ -25,7 +25,7 @@ Every agent's system prompt (step 1) already carries these natively (`Ai::Agent:
 
 Before acting, query platform guidance (search_knowledge tag:guidance-*) and honor applicable rules.
 Deployment-local facts (this deployment's hostnames, internal IPs, VM ids, remotes, operator details) are never written to a git-tracked file: recall them via search_knowledge tag:deployment-*, record new ones via create_knowledge tags [deployment, deployment-<topic>] access_level account; tracked docs use placeholders.
-Operational memory lives on the platform: before acting, recall it via search_knowledge tags [memory] (resolve a [[slug]] link via tag memory-<slug>); record new decisions, incidents and preferences via create_knowledge tags [memory, memory-<type>, memory-<slug>] access_level account — never global, never a local file
+Memory lives on the platform: before acting, recall it via search_knowledge tags [memory] ([[slug]] resolves via tag memory-<slug>); record decisions, incidents and preferences via create_knowledge key memory:<slug> tags [memory-<type>] access_level account (an upsert) — never global, never a local memory file.
 After 3 failed attempts at the same fix, STOP and ask — no 4th approach.
 Crypto material safety (ABSOLUTE): never output/log/store private keys, secrets, seed phrases or signing material; key ops are Vault-only and audited; guide key/wallet setup via the UI/API, never handle key material directly.
 Bulk-operation safety: state the count before any bulk action; >5 items needs explicit confirmation (show first 3 + last 1); NEVER batch-approve permission/financial/training decisions or auto-discovered code changes — review individually.

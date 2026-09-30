@@ -398,7 +398,8 @@ module Ai
             "in your available tool list (an executing instance's grant can omit a verb `tools:` still names), " \
             "do not proceed under a generic identity and do not attempt the fetch-skill-context or " \
             "operate-under-the-prompt steps below — but DO still call " \
-            "`mcp__powernode__platform_record_agent_execution` (the self-report step below) with `outcome: \"failed\"` and a `task_digest` naming `get_agent` as the unavailable verb, so the " \
+            "`mcp__powernode__platform_record_agent_execution` (the self-report step below) with " \
+            "`outcome: \"failed\"` and a `task_digest` naming `get_agent` as the unavailable verb, so the " \
             "platform's statistics see this run instead of nothing, then stop. State plainly in your first " \
             "response that `platform_get_agent` was unavailable and this run did not execute."
         ]
