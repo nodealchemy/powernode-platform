@@ -115,8 +115,9 @@ check_rubocop() {
     local json="$TMP/rubocop-$app.json" rrc=0
     (cd "$ROOT/server" && bundle exec rubocop --force-exclusion --format json "${args[@]}" >"$json" 2>"$TMP/rubocop-$app.err") || rrc=$?
     if [ "$rrc" -gt 1 ] || ! jq -e . "$json" >/dev/null 2>&1; then
-      # RuboCop runs but the server config does not load for worker/ files: a skip, not a failure.
-      if [ "$app" = worker ] && (cd "$ROOT/server" && bundle exec rubocop --version) >/dev/null 2>&1; then
+      # RuboCop loads but the server config does not apply to worker/ files: a skip, not a failure. (The probe
+      # is a bare require: every `rubocop` invocation in server/, even --version, loads the config first.)
+      if [ "$app" = worker ] && (cd "$ROOT/server" && bundle exec ruby -e 'require "rubocop"') >/dev/null 2>&1; then
         { echo "worker/: server/'s config could not be applied (exit $rrc):"; head -n 3 "$TMP/rubocop-$app.err"; } >>"$notes"; continue
       fi
       { echo "rubocop could not run in server/ for $app/ (exit $rrc):"; head -n 3 "$TMP/rubocop-$app.err"; } >>"$out"; bad=1; continue

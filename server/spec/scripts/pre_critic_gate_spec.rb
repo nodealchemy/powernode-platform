@@ -102,13 +102,14 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
 
     # stubs on PATH. `bundle exec rubocop ... <files>` answers with $FAKE_RUBOCOP_JSON, but, like bundler, only
     # where the Gemfile has RuboCop; every call is logged as "<cwd> <args>". FAKE_RUBOCOP_CONFIG_ERROR makes
-    # it fail the way RuboCop does on a configuration it cannot load (`--version` loads none, so still works).
+    # it fail the way RuboCop does on a configuration it cannot load, for EVERY invocation (even --version
+    # loads the config); only a bare `bundle exec ruby -e 'require "rubocop"'` loads none.
     # The bundle is the working directory's: BUNDLE_GEMFILE is ignored, since rspec itself runs under one.
     write_stub("bundle", <<~SH)
+      if [ "$1 $2" = "exec ruby" ]; then grep -q rubocop "$PWD/Gemfile" 2>/dev/null; exit $?; fi
       if [ "$1 $2" = "exec rubocop" ]; then
         grep -q rubocop "$PWD/Gemfile" 2>/dev/null || { echo "bundler: command not found: rubocop" >&2; exit 127; }
         echo "$PWD ${*:3}" >> "#{@dir}/rubocop.calls"
-        [ "$3" = "--version" ] && { echo "1.0.0"; exit 0; }
         [ -z "${FAKE_RUBOCOP_CONFIG_ERROR:-}" ] || { echo "Error: configuration for Fake/Cop could not be loaded" >&2; exit 2; }
         cat "$FAKE_RUBOCOP_JSON"; grep -q '"offenses": *\\[ *{' "$FAKE_RUBOCOP_JSON" && exit 1; exit 0
       fi
