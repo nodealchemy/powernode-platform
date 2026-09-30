@@ -375,10 +375,9 @@ module Ai
             "agent (reasoning/standard/light-tier) instead — frontier is the most expensive option and should " \
             "be the exception, not the default."
         when :reasoning
-          "#{routing} REASONING-tier (Opus) delegation surface: spawn when the task needs multi-step reasoning, " \
-            "architectural or design judgment, or cross-file analysis that a standard-tier agent is likely to " \
-            "get wrong. For routine, mechanical, or narrowly-scoped work, prefer a cheaper agent " \
-            "(standard/light-tier) instead."
+          "#{routing} REASONING-tier (Opus): spawn for multi-step reasoning, architectural or design judgment, " \
+            "or cross-file analysis a standard-tier agent would likely get wrong. For routine or narrow work " \
+            "prefer a cheaper agent."
         else
           routing
         end
