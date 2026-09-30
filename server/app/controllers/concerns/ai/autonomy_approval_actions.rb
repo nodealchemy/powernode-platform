@@ -195,7 +195,10 @@ module Ai
         # request_data — a fix applied only at the gate's copy boundary would
         # leave this one serving plaintext.
         params: ::Ai::SensitiveParams.filter(op.params),
-        preview: op.preview, error_message: op.error_message
+        preview: op.preview,
+        # Written by the :fail event as "Class: message", so it can quote
+        # those same params (IMP-3d275689ca7c).
+        error_message: ::Ai::SensitiveParams.filter_text(op.error_message)
       }
     end
   end

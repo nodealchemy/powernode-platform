@@ -72,7 +72,11 @@ module Ai
         # these an approved-but-failed action is indistinguishable from an
         # approved-and-done one on every approvals surface.
         execution_status: request.execution_status,
-        execution_error: request.execution_error,
+        # Raw "Class: message" text that can quote the very params
+        # request_data is filtered for — the same filter the MCP twin
+        # (get_approval_request) applies, so neither door is the weaker one
+        # (IMP-3d275689ca7c).
+        execution_error: ::Ai::SensitiveParams.filter_text(request.execution_error),
         expires_at: request.expires_at,
         completed_at: request.completed_at,
         created_at: request.created_at,
