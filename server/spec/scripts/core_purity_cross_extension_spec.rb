@@ -83,6 +83,17 @@ RSpec.describe "gate #9 cross-extension coverage (IMP-7beedfd810c4)" do
                "Gamma::Registry.call\n")
     write.call("extensions/beta/server/app/services/beta/public_comment.rb",
                "# Gamma::Registry lives in the gamma extension.\nBeta::Registry.call\n")
+    # IMP-bbd6238b1f16: a SPEC COMMENT naming a private extension's source FILES
+    # ("mirrors the <slug>_*_tool_spec.rb shape") — no `::`, no path, no alias, so
+    # the structural patterns passed it, and it shipped to the public mirror.
+    write.call("extensions/beta/server/spec/services/beta/file_ref_spec.rb",
+               "# Mirrors the alpha_*_tool_spec.rb shape.\nRSpec.describe(Beta) {}\n")
+    write.call("extensions/beta/server/app/services/beta/kebab_file_ref.rb",
+               "# Same shape as alpha_two_overseer.rb.\nBeta::Registry.call\n")
+    # Not a file name: a private slug as a snake_case identifier prefix stays out of
+    # this gate's reach on purpose (see the hook's SCOPE note).
+    write.call("extensions/beta/server/app/services/beta/slug_identifier.rb",
+               "KIND = \"alpha_strategy\"\n")
     write.call("extensions/gamma/frontend/src/features/gamma/panel.tsx",
                "export const Panel = () => null;\n")
     write.call("server/app/services/core_leak.rb", "Alpha::Registry.call\n")
@@ -222,6 +233,31 @@ RSpec.describe "gate #9 cross-extension coverage (IMP-7beedfd810c4)" do
       end
     end
 
+    it "blocks an extension SPEC COMMENT naming a private extension's source files (IMP-bbd6238b1f16)" do
+      Dir.mktmpdir do |dir|
+        root = build_tree(dir)
+        code, out = run_hook(root, "extensions/beta/server/spec/services/beta/file_ref_spec.rb")
+        expect(code).to eq(2)
+        expect(out).to include("alpha")
+      end
+    end
+
+    it "derives the snake_case file-name prefix for a kebab-slugged PRIVATE extension" do
+      Dir.mktmpdir do |dir|
+        root = build_tree(dir)
+        code, out = run_hook(root, "extensions/beta/server/app/services/beta/kebab_file_ref.rb")
+        expect(code).to eq(2)
+        expect(out).to include("alpha-two")
+      end
+    end
+
+    it "does not treat a slug-prefixed identifier that is not a file name as a reference" do
+      Dir.mktmpdir do |dir|
+        root = build_tree(dir)
+        expect(run_hook(root, "extensions/beta/server/app/services/beta/slug_identifier.rb").first).to eq(0)
+      end
+    end
+
     it "still blocks a CORE file naming a private extension (no regression)" do
       Dir.mktmpdir do |dir|
         root = build_tree(dir)
@@ -237,10 +273,17 @@ RSpec.describe "gate #9 cross-extension coverage (IMP-7beedfd810c4)" do
         root = build_tree(dir)
         code, out = run_scan(root)
         expect(code).to eq(0)
-        expect(out.strip).to eq("4")
+        expect(out.strip).to eq("7")
 
         listed = run_scan(root, "--list").last
         expect(listed).to include("extensions/beta/server/app/services/beta/private_leak.rb|alpha")
+        expect(listed).to include("extensions/beta/server/spec/services/beta/file_ref_spec.rb|alpha")
+        expect(listed).to include("extensions/beta/server/app/services/beta/kebab_file_ref.rb|alpha-two")
+        # `alpha_two_overseer.rb` also starts with `alpha_`, so the file-name form
+        # attributes it to BOTH slugs when one slug prefixes another. That over-reports
+        # (fails closed); it never lets a reference through.
+        expect(listed).to include("extensions/beta/server/app/services/beta/kebab_file_ref.rb|alpha")
+        expect(listed).not_to include("slug_identifier.rb")
         expect(listed).to include("extensions/beta/server/app/services/beta/public_leak.rb|gamma")
         expect(listed).to include("extensions/beta/server/app/services/beta/kebab_leak.rb|alpha-two")
         # The gitignored-by-the-parent private tree must NOT be silently dropped.
@@ -256,7 +299,10 @@ RSpec.describe "gate #9 cross-extension coverage (IMP-7beedfd810c4)" do
                           baseline_entries: [
                             "extensions/beta/server/app/services/beta/private_leak.rb|alpha",
                             "extensions/beta/server/app/services/beta/kebab_leak.rb|alpha-two",
-                            "extensions/beta/server/app/services/beta/public_leak.rb|gamma"
+                            "extensions/beta/server/app/services/beta/public_leak.rb|gamma",
+                            "extensions/beta/server/spec/services/beta/file_ref_spec.rb|alpha",
+                            "extensions/beta/server/app/services/beta/kebab_file_ref.rb|alpha-two",
+                            "extensions/beta/server/app/services/beta/kebab_file_ref.rb|alpha"
                           ],
                           local_entries: [
                             "extensions/private/alpha/server/app/services/alpha/uses_beta.rb|beta"

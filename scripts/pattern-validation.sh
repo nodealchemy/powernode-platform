@@ -726,8 +726,9 @@ fi
 # Extension-isolation reference guard: model-agnostic mirror of the BLOCKING
 # core-purity-check.sh REFERENCE gate (#9). CORE source (server/app, frontend/src —
 # anything NOT under extensions/) must never reference a PRIVATE extension by name:
-# its Ruby namespace (`<Cap>::`), submodule path (extensions/private/<slug>), or import
-# alias (@ext/<slug>/, @<slug>/). Private-extension slugs are derived DYNAMICALLY from
+# its Ruby namespace (`<Cap>::`), submodule path (extensions/private/<slug>), import
+# alias (@ext/<slug>/, @<slug>/), or source-file name (`<slug>_*.rb`, IMP-bbd6238b1f16).
+# Private-extension slugs are derived DYNAMICALLY from
 # extensions/private/* — none is hardcoded (this script is core, so core-purity applies
 # to it too), mirroring the hook + the schema-leak block above. Core mode (no
 # extensions/private/*) => no-op PASS. Git-ignored files are excluded (mirrors the hook).
@@ -738,7 +739,7 @@ echo -n "Checking: Core source references no private extension (core-purity mirr
 iso_files=""
 for slug in $priv_iso_slugs; do
     cap="${slug^}"
-    iso_pat="(\b${cap}::)|(extensions/private/${slug}\b)|(@ext/${slug}/)|(@${slug}/)"
+    iso_pat="(\b${cap}::)|(extensions/private/${slug}\b)|(@ext/${slug}/)|(@${slug}/)|(\b${slug//-/_}_[A-Za-z0-9_*]*\.(rb|ts|tsx|js|jsx)\b)"
     iso_match=$(grep -rlE "$iso_pat" server/app frontend/src \
         --include='*.rb' --include='*.ts' --include='*.tsx' --include='*.js' --include='*.jsx' \
         2>/dev/null || true)

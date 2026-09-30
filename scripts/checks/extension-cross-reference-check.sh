@@ -155,7 +155,9 @@ candidates() {  # $1 = regex — extension source files matching it
 # --- PRIVATE half: any structural reference counts, comments included. ---------
 for slug in "${priv_slugs[@]}"; do
   ns="$(pascal "$slug")"
-  pat="(\b${ns}::)|(extensions/private/${slug}\b)|(@ext/${slug}/)|(@${slug}/)"
+  # The last alternative is a private extension's SOURCE-FILE name
+  # (`<slug>_*_tool_spec.rb`) — the same form the hook matches (IMP-bbd6238b1f16).
+  pat="(\b${ns}::)|(extensions/private/${slug}\b)|(@ext/${slug}/)|(@${slug}/)|(\b${slug//-/_}_[A-Za-z0-9_*]*\.(rb|ts|tsx|js|jsx)\b)"
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     [ "$(owner_of "$f")" = "$slug" ] && continue

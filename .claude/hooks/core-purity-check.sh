@@ -203,8 +203,15 @@ for name in "${priv_names[@]}"; do
   # mirror's `SupplyChain::` on nothing.
   cap=""; IFS='-' read -ra _pp <<< "$name"
   for _seg in "${_pp[@]}"; do cap+="${_seg^}"; done
-  # Structural references only: namespace ::, submodule path, import alias.
-  pat="(\b${cap}::)|(extensions/private/${name}\b)|(@ext/${name}/)|(@${name}/)"
+  # Structural references only: namespace ::, submodule path, import alias — and
+  # the extension's SOURCE-FILE names (`<slug>_*_tool_spec.rb`), which carry the
+  # slug as their leading snake_case segment. That last form had no `::`, no path
+  # and no alias, so a public extension's spec comment naming a private
+  # extension's files passed here and shipped to the public mirror
+  # (IMP-bbd6238b1f16). It requires a source-file suffix: a bare `<slug>_kind`
+  # identifier is not matched, for the false-positive reason in the header.
+  snake="${name//-/_}"
+  pat="(\b${cap}::)|(extensions/private/${name}\b)|(@ext/${name}/)|(@${name}/)|(\b${snake}_[A-Za-z0-9_*]*\.(rb|ts|tsx|js|jsx)\b)"
   m=$(grep -nE "$pat" "$FILE_PATH" 2>/dev/null)
   if [[ -n "$m" ]]; then
     HITS+="  [private extension: ${name}]"$'\n'"${m}"$'\n'
