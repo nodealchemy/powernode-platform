@@ -153,10 +153,39 @@ module Ai
                   "shape (#{existing.inspect} vs #{spec.inspect}). Two owners disagree; " \
                   "resolve it rather than letting load order decide."
           end
+          # The ordering is part of the conflict rule too: a later call may
+          # neither replace it (a looser one would quietly widen what a machine
+          # may request), drop it, nor add one to a key registered without (that
+          # widens it from "no changed value" to "some"). The SAME ordering — the
+          # same code location, as a re-run initializer produces — is idempotent.
+          if existing && !same_ordering?(machine_park_orderings[key], ordering)
+            raise ArgumentError,
+                  "SiteSetting key #{key.inspect} is already registered with a different machine-park " \
+                  "ordering (#{describe_ordering(machine_park_orderings[key])} vs #{describe_ordering(ordering)}). " \
+                  "Two owners disagree; resolve it rather than letting load order decide."
+          end
 
           operator_configurable_keys[key] = spec
           machine_park_orderings[key] = ordering if ordering
         end
+
+        def same_ordering?(existing, ordering)
+          return existing.nil? if ordering.nil?
+          return false if existing.nil?
+
+          existing == ordering ||
+            (existing.respond_to?(:source_location) && ordering.respond_to?(:source_location) &&
+             !existing.source_location.nil? && existing.source_location == ordering.source_location)
+        end
+        private :same_ordering?
+
+        def describe_ordering(ordering)
+          return "none" if ordering.nil?
+
+          location = ordering.respond_to?(:source_location) ? ordering.source_location : nil
+          location ? location.join(":") : ordering.class.name
+        end
+        private :describe_ordering
 
         # key => the ordering its registrar declared (see #register_key). A
         # machine-parkable key absent here refuses every machine park that
