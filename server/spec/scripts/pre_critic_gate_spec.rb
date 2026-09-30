@@ -287,6 +287,10 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
       expect(rubocop_check(out)["status"]).to eq("skip")
       expect(rubocop_check(out)["summary"]).to include("worker/ not linted")
       expect(rubocop_check(out)["detail"]).to include("configuration for Fake/Cop could not be loaded")
+      expect(JSON.parse(out)).to include("ok" => true, "skipped_with_reason" => 1)
+
+      out, = gate("#{@base}..#{head}", env: { "FAKE_RUBOCOP_CONFIG_ERROR" => "1" })
+      expect(out.strip.lines.last.strip).to eq("RESULT: PASS (1 check(s) skipped with a reason: read them)")
     end
 
     it "SKIPs, rather than passing silently, when the server config leaves a worker file uninspected" do

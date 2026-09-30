@@ -109,7 +109,6 @@ check_rubocop() {
     # worker/ files are named from server/, and --config is explicit: RuboCop otherwise looks for a config
     # above each FILE, finds none for worker/, and lints it with RuboCop's defaults instead.
     if [ "$app" = worker ]; then
-      if [ ! -f "$ROOT/server/.rubocop.yml" ]; then echo "worker/: server/.rubocop.yml does not exist" >>"$notes"; continue; fi
       args=(--config "$ROOT/server/.rubocop.yml"); for f in "${files[@]}"; do args+=("../$f"); done
     fi
     local json="$TMP/rubocop-$app.json" rrc=0
@@ -314,11 +313,14 @@ for name in rubocop tsc catalog purity messages leak-guards gitleaks ext-message
 done
 
 FAILED="$(jq -s '[.[] | select(.status == "fail")] | length' "$TMP/results.jsonl")"
+# A skip that carries a reason (detail) means something touched was NOT checked, unlike "not selected"/"not touched".
+SKIPPED_WHY="$(jq -s '[.[] | select(.status == "skip" and .detail != "")] | length' "$TMP/results.jsonl")"
 if [ "$JSON" -eq 1 ]; then
-  jq -s --arg range "$BASE_SHA..$HEAD_SHA" --argjson failed "$FAILED" '{range:$range, ok:($failed == 0), failed:$failed, checks:.}' "$TMP/results.jsonl"
+  jq -s --arg range "$BASE_SHA..$HEAD_SHA" --argjson failed "$FAILED" --argjson why "$SKIPPED_WHY" '{range:$range, ok:($failed == 0), failed:$failed, skipped_with_reason:$why, checks:.}' "$TMP/results.jsonl"
 else
   printf 'pre-critic gate %s..%s (%d file(s) touched)\n' "${BASE_SHA:0:12}" "${HEAD_SHA:0:12}" "${#TOUCHED[@]}"
   jq -r '"\(.status | ascii_upcase | .[0:4])  \(.name)\t\(.summary)" + (if .detail == "" then "" else "\n" + (.detail | split("\n") | map("      | " + .) | join("\n")) end)' "$TMP/results.jsonl"
-  if [ "$FAILED" -eq 0 ]; then echo "RESULT: PASS"; else echo "RESULT: FAIL ($FAILED check(s))"; fi
+  _why=""; [ "$SKIPPED_WHY" -eq 0 ] || _why=" ($SKIPPED_WHY check(s) skipped with a reason: read them)"
+  if [ "$FAILED" -eq 0 ]; then echo "RESULT: PASS$_why"; else echo "RESULT: FAIL ($FAILED check(s))$_why"; fi
 fi
 [ "$FAILED" -eq 0 ]
