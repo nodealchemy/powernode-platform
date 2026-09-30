@@ -11553,7 +11553,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.datetime "email_verified_at"
     t.integer "failed_login_attempts", default: 0, null: false
     t.datetime "last_login_at"
-    t.string "last_login_ip", limit: 45
+    t.text "last_login_ip"
     t.datetime "locked_until"
     t.string "name", default: "", null: false
     t.text "notification_preferences"

@@ -84,16 +84,8 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
     before do
       user.enable_two_factor!
       user.generate_reset_token!
-      # NOTE last_login_ip is deliberately NOT populated here: `encrypts
-      # :last_login_ip` (user.rb) produces ciphertext that overflows the
-      # column's `limit: 45` for any real IP string, so ANY write of a real
-      # value — not just this spec's — raises PG::StringDataRightTruncation.
-      # Grepping app/ confirms nothing in the app ever writes to this column
-      # (only user_serialization.rb reads it); this is a pre-existing,
-      # separate defect, out of this task's scope. Reported to the driver
-      # rather than fixed here. The assertion below on last_login_ip is
-      # therefore not mutation-proof (it is already nil by default).
       user.update!(
+        last_login_ip: '2001:0db8:85a3:0000:0000:8a2e:0370:7334',
         preferences: { theme: 'dark' },
         # A key with no relation to any EXISTING redaction rule, deliberately:
         # {"email" => true} would pass the "does not archive..." audit-PII
@@ -146,12 +138,6 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
         expect(user.two_factor_enabled_at).to be_nil
         expect(user.backup_codes).to be_nil
         expect(user.two_factor_backup_codes_generated_at).to be_nil
-        # NOT mutation-proof: `encrypts :last_login_ip` (user.rb) produces
-        # ciphertext that overflows the column's `limit: 45` for any real IP
-        # string, so this spec cannot seed a non-nil value to clear in the
-        # first place (see the `before` block above) — pre-existing, out of
-        # this task's scope, flagged separately. This assertion would pass
-        # even with the clearing code deleted.
         expect(user.last_login_ip).to be_nil
         expect(user.preferences).to eq({})
         expect(user.notification_preferences).to eq({})
