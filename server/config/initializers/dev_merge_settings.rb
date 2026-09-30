@@ -19,7 +19,11 @@ Rails.application.config.to_prepare do
                  "that none exist. Unset on a host that cannot see them makes the merge refuse.",
     protected: true,
     # An instance (the dev loop) may ASK for a change; only a person decides it.
-    machine_parkable: true
+    machine_parkable: true,
+    # And it may only ask to TIGHTEN (IMP-1765f6f09458): keep every declared
+    # name, add more. Unset is the strictest state, so the first declaration is
+    # a person's. The ordering is the key's own, declared here, never in the tool.
+    ordering: ->(requested, current) { Ai::DevMerge::ForbiddenNames.tightens?(requested, current) }
   )
   SiteSetting.register_value_check(Ai::DevMerge::ForbiddenNames::SETTING_KEY) do |value|
     Ai::DevMerge::ForbiddenNames.declaration_problem(value)

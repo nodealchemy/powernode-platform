@@ -110,12 +110,38 @@ module Ai
         # site_setting_set_protected (human-only). Protection is part of the
         # shape: an owner that registers the key unprotected conflicts with one
         # that protects it, rather than quietly relaxing it.
-        def register_key(key, setting_type:, description:, protected: false, machine_parkable: false)
+        #
+        # `ordering:` (IMP-1765f6f09458) is how restrictive a value is, declared
+        # by the key's registrar for a machine-parkable key: a callable
+        # `(requested, current) -> true` answering "is the requested value at
+        # least as restrictive as the current one". Both values arrive cast to
+        # the key's setting_type (SiteSetting.cast_stored); `current` is nil
+        # when the setting is unset, and what unset MEANS is the registrar's to
+        # decide (for a guard whose unset state refuses everything, nothing
+        # tightens it). A machine park is accepted only when the ordering
+        # answers exactly true; a machine-parkable key with NO ordering is not
+        # machine-parkable for a changed value at all. It binds MACHINES only: a
+        # person parks whatever the value check admits. Core declares no key's
+        # ordering — the tool does not know what "tighter" means for a key.
+        #
+        # Kept beside the spec, not in it: the spec is frozen data compared for
+        # equality on re-registration, and two evaluations of one initializer
+        # produce two Procs, so an ordering inside it would make every reload
+        # raise as a "different shape".
+        def register_key(key, setting_type:, description:, protected: false, machine_parkable: false, ordering: nil)
           key = key.to_s
           unless VALID_SETTING_TYPES.include?(setting_type.to_s)
             raise ArgumentError,
                   "setting_type #{setting_type.inspect} for #{key.inspect} is not one of " \
                   "#{VALID_SETTING_TYPES.join('/')} — SiteSetting's validation would reject it"
+          end
+          if ordering && machine_parkable != true
+            raise ArgumentError,
+                  "an ordering for #{key.inspect} means nothing without machine_parkable: true — " \
+                  "it binds what a machine may request, and this key admits no machine request"
+          end
+          if ordering && !ordering.respond_to?(:call)
+            raise ArgumentError, "the ordering for #{key.inspect} must be callable as (requested, current)"
           end
 
           spec = { setting_type: setting_type.to_s, description: description.to_s,
@@ -129,6 +155,14 @@ module Ai
           end
 
           operator_configurable_keys[key] = spec
+          machine_park_orderings[key] = ordering if ordering
+        end
+
+        # key => the ordering its registrar declared (see #register_key). A
+        # machine-parkable key absent here refuses every machine park that
+        # changes the value.
+        def machine_park_orderings
+          @machine_park_orderings ||= {}
         end
 
         # True when `key` is registered protected. The REST twin
@@ -223,7 +257,10 @@ module Ai
                          "(no policy can proceed it) and runs as that person, who must hold admin.access. " \
                          "An instance (node) principal may REQUEST it only when its grant names this " \
                          "tool exactly (a glob does not qualify) and the key is registered " \
-                         "machine-parkable; it can never decide or run it, a person does, in their " \
+                         "machine-parkable, and only to TIGHTEN it: the requested value must be at " \
+                         "least as restrictive as the current one under the ordering the key's " \
+                         "owner declared (a loosening, or a key with no declared ordering, is refused " \
+                         "for a changed value). It can never decide or run it, a person does, in their " \
                          "own session. Refused outright for an in-process caller. " \
                          "Audit rows name the key and the actor, never the value; the value travels with " \
                          "the parked request so the confirming person sees it.",
@@ -435,7 +472,84 @@ module Ai
         end
 
         value_refusal = value_error(params)
-        value_refusal ? [ "value_refused", value_refusal ] : nil
+        return [ "value_refused", value_refusal ] if value_refusal
+
+        tightening_refusal(params)
+      end
+
+      # A machine may only TIGHTEN (IMP-1765f6f09458). The requested value and
+      # the current one, both cast to the key's registered type, go to the
+      # ordering the key's registrar declared; anything but exactly `true` refuses.
+      # [reason_code, envelope] or nil. Fails closed on every edge: no ordering
+      # declared (a changed value is refused; the unchanged value is not a
+      # change), a stored row of another type, the ordering raising. The envelope
+      # names the key and never a value: the instance cannot read a protected
+      # key, and the current value must not come back as an error message.
+      def tightening_refusal(params)
+        key = params[:key].to_s
+        spec = key_spec(params)
+        row = SiteSetting.find_by(key: key)
+        if row && row.setting_type != spec[:setting_type]
+          return [ "current_type_mismatch", error_result(
+            "#{key.inspect} is stored as #{row.setting_type} but registered as #{spec[:setting_type]}; " \
+            "an instance principal cannot request a change to it until an operator resolves that."
+          ) ]
+        end
+
+        requested = SiteSetting.cast_stored(stored_form(spec, params[:value]), spec[:setting_type])
+        current = row ? SiteSetting.cast_stored(row.value, spec[:setting_type]) : nil
+
+        ordering = self.class.machine_park_orderings[key]
+        if ordering.nil?
+          return nil if row && requested == current
+
+          return [ "ordering_undeclared", error_result(
+            "#{key.inspect} declares no ordering, so an instance principal may not request a changed " \
+            "value for it: only a person may. Its owner can declare one (register_key ordering:) if a " \
+            "machine should be able to tighten it."
+          ) ]
+        end
+
+        answer =
+          begin
+            ordering.call(requested, current)
+          rescue StandardError => e
+            Rails.logger.error("[SiteSettingTool] ordering for #{key} raised: #{e.class}")
+            return [ "ordering_failed", tightening_denied(key) ]
+          end
+
+        answer == true ? nil : [ "not_tightening", tightening_denied(key) ]
+      end
+
+      def tightening_denied(key)
+        error_result(
+          "#{key.inspect} is a protected setting an instance principal may only tighten: the requested " \
+          "value is not at least as restrictive as the current one. A person may request a loosening, " \
+          "in their own session."
+        )
+      end
+
+      # The value as SiteSetting.set will store it (the form the value check and
+      # the ordering compare).
+      def stored_form(spec, value)
+        spec[:setting_type] == "json" && !value.is_a?(String) ? value.to_json : value.to_s
+      end
+
+      # THE WRITE re-asks the ordering for a MACHINE-requested request
+      # (IMP-1765f6f09458): the park checked it against the value current THEN,
+      # and the decision may come hours later. The digest the approve door
+      # verifies binds the person to the value they saw, but the workflow service
+      # is reachable without that door, and "a machine may only tighten" has to
+      # hold at the write on every door. Only a machine's request: a person's own
+      # loosening is theirs to make. nil when nothing objects.
+      def machine_request_tightening_refusal(params)
+        return nil unless human_confirmed_replay?
+
+        request = @replaying_operation.try(:approval_request)
+        return nil unless request.respond_to?(:machine_requested?) && request.machine_requested?
+
+        _code, refusal = tightening_refusal(params)
+        refusal
       end
 
       def park_denied(reason)
@@ -465,8 +579,7 @@ module Ai
       def value_error(params)
         key = params[:key].to_s
         spec = key_spec(params)
-        value = params[:value]
-        stored = spec[:setting_type] == "json" && !value.is_a?(String) ? value.to_json : value.to_s
+        stored = stored_form(spec, params[:value])
 
         if stored.blank? && spec[:setting_type] != "boolean" && !SiteSetting::BLANK_ALLOWED_KEYS.include?(key)
           return error_result("#{key.inspect} needs a value.")
@@ -612,6 +725,9 @@ module Ai
       def set_setting(params)
         spec = key_spec(params)
         return not_allowlisted_error(params) unless spec
+
+        loosening = machine_request_tightening_refusal(params)
+        return loosening if loosening
 
         key = params[:key].to_s
         previous = SiteSetting.find_by(key: key)

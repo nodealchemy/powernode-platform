@@ -70,6 +70,24 @@ module Ai
         ::Powernode::ExtensionRegistry.all.filter_map { |slug, ext| slug.to_s if ext.is_a?(Hash) && ext[:private] }
       end
 
+      # The machine-park ORDERING (config/initializers/dev_merge_settings.rb,
+      # IMP-1765f6f09458): an instance may only TIGHTEN the declaration. A list
+      # is at least as restrictive as the current one when it keeps every name
+      # the current one declares (more names refused, never fewer). UNSET is the
+      # most restrictive state — the merge refuses to publish at all — so no
+      # list tightens it: the first declaration is a person's. Anything that is
+      # not a slug list, on either side, orders nothing.
+      def self.tightens?(requested, current)
+        return false unless slug_list?(requested) && slug_list?(current)
+
+        (current - requested).empty?
+      end
+
+      def self.slug_list?(value)
+        value.is_a?(Array) && value.all? { |v| v.is_a?(String) && v.match?(SLUG) }
+      end
+      private_class_method :slug_list?
+
       # The SiteSetting value check (config/initializers/dev_merge_settings.rb).
       def self.declaration_problem(value)
         parsed = value.is_a?(String) ? JSON.parse(value) : value

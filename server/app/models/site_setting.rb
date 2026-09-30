@@ -173,15 +173,24 @@ class SiteSetting < ApplicationRecord
     setting = find_by(key: key.to_s)
     return nil unless setting
 
-    case setting.setting_type
+    cast_stored(setting.value, setting.setting_type)
+  end
+
+  # The cast .get applies to a row's stored string, for a caller that holds a
+  # stored string and no row: a value about to be written, compared against the
+  # current one the way .get would read both (the machine-park ordering,
+  # Ai::Tools::SiteSettingTool). Same answers as .get, including {} for
+  # malformed JSON.
+  def self.cast_stored(value, setting_type)
+    case setting_type.to_s
     when "boolean"
-      setting.value.to_s.downcase.in?([ "true", "1", "yes" ])
+      value.to_s.downcase.in?([ "true", "1", "yes" ])
     when "integer"
-      setting.value.to_i
+      value.to_i
     when "json"
-      JSON.parse(setting.value) rescue {}
+      JSON.parse(value) rescue {}
     else
-      setting.value
+      value
     end
   end
 
