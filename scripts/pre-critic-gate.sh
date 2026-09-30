@@ -4,7 +4,10 @@
 #
 # Runs, against the working tree at <head> and the range <base>..<head>:
 #   rubocop     targeted RuboCop on the touched .rb files of server/ and worker/, counting only offenses
-#               on lines the range added or changed (older offenses in a touched file do not fail it)
+#               on lines the range added or changed (older offenses in a touched file do not fail it).
+#               worker/ has no RuboCop of its own, so its files are linted from server/ with server/'s
+#               bundle and config; where that config cannot load or leaves a worker file uninspected, the
+#               check is a SKIP naming the reason (never a failure for that, never a silent pass)
 #   tsc         `tsc --noEmit` in frontend/ when the range touches frontend/
 #   catalog     check-mcp-catalog-fresh.sh, when the range touches anything that can change the MCP tool
 #               catalog (server/app|lib|config, extensions/, the catalog itself); --all forces it
@@ -95,17 +98,36 @@ wanted() { [[ "$SKIP" != *",$1,"* ]] && { [ -z "$ONLY" ] || [[ "$ONLY" == *",$1,
 
 # ---- rubocop ---------------------------------------------------------------------------------------
 check_rubocop() {
-  local app total=0 nfiles=0 out="$TMP/rubocop.out" bad=0
-  : >"$out"
+  local app total=0 nfiles=0 out="$TMP/rubocop.out" bad=0 notes="$TMP/rubocop.skip" root_real
+  : >"$out"; : >"$notes"
+  root_real="$(cd "$ROOT" && pwd -P)"
   for app in server worker; do
     local files=(); mapfile -d '' files < <(touched_matching "^$app/.*\\.rb$")
     [ "${#files[@]}" -gt 0 ] || continue
     nfiles=$((nfiles + ${#files[@]}))
-    local rel=(); local f; for f in "${files[@]}"; do rel+=("${f#"$app"/}"); done
+    local args=() f; for f in "${files[@]}"; do args+=("${f#"$app"/}"); done
+    # worker/ files are named from server/, and --config is explicit: RuboCop otherwise looks for a config
+    # above each FILE, finds none for worker/, and lints it with RuboCop's defaults instead.
+    if [ "$app" = worker ]; then
+      if [ ! -f "$ROOT/server/.rubocop.yml" ]; then echo "worker/: server/.rubocop.yml does not exist" >>"$notes"; continue; fi
+      args=(--config "$ROOT/server/.rubocop.yml"); for f in "${files[@]}"; do args+=("../$f"); done
+    fi
     local json="$TMP/rubocop-$app.json" rrc=0
-    (cd "$ROOT/$app" && bundle exec rubocop --force-exclusion --format json "${rel[@]}" >"$json" 2>"$TMP/rubocop-$app.err") || rrc=$?
+    (cd "$ROOT/server" && bundle exec rubocop --force-exclusion --format json "${args[@]}" >"$json" 2>"$TMP/rubocop-$app.err") || rrc=$?
     if [ "$rrc" -gt 1 ] || ! jq -e . "$json" >/dev/null 2>&1; then
-      { echo "rubocop could not run in $app/ (exit $rrc):"; head -n 3 "$TMP/rubocop-$app.err"; } >>"$out"; bad=1; continue
+      # RuboCop runs but the server config does not load for worker/ files: a skip, not a failure.
+      if [ "$app" = worker ] && (cd "$ROOT/server" && bundle exec rubocop --version) >/dev/null 2>&1; then
+        { echo "worker/: server/'s config could not be applied (exit $rrc):"; head -n 3 "$TMP/rubocop-$app.err"; } >>"$notes"; continue
+      fi
+      { echo "rubocop could not run in server/ for $app/ (exit $rrc):"; head -n 3 "$TMP/rubocop-$app.err"; } >>"$out"; bad=1; continue
+    fi
+    if [ "$app" = worker ]; then
+      # Paths outside server/ come back absolute: make them worker/-relative, as the changed-line filter expects.
+      jq --arg a "$ROOT/worker/" --arg b "$root_real/worker/" \
+        '.files |= map(.path |= (if startswith($a) then .[($a | length):] elif startswith($b) then .[($b | length):] elif startswith("../worker/") then .[10:] else . end))' \
+        "$json" >"$json.rel" && mv "$json.rel" "$json"
+      local unseen; unseen="$(printf '%s\n' "${files[@]#worker/}" | sort -u | comm -23 - <(jq -r '.files[].path' "$json" | sort -u) | wc -l)"
+      [ "$unseen" -eq 0 ] || echo "worker/: $unseen of ${#files[@]} worker/ file(s) not inspected under server/'s config (excluded by it)" >>"$notes"
     fi
     local res rc=0
     res="$(ruby "$SELF_DIR/lib/changed-line-offenses.rb" "$ROOT" "$BASE_SHA" "$HEAD_SHA" --prefix "$app/" <"$json")" || rc=$?
@@ -113,9 +135,11 @@ check_rubocop() {
     total=$((total + $(jq -r .count <<<"$res")))
     jq -r '.offenses[] | "\(.file):\(.line) \(.cop) \(.message)"' <<<"$res" >>"$out"
   done
+  cat "$notes" >>"$out"
   if [ "$nfiles" -eq 0 ]; then record rubocop skip "" "no touched server/ or worker/ Ruby files"
   elif [ "$bad" -eq 1 ]; then record rubocop fail "$out" "$nfiles file(s); rubocop did not run cleanly"
   elif [ "$total" -gt 0 ]; then record rubocop fail "$out" "$nfiles file(s), $total offense(s) on changed lines"
+  elif [ -s "$notes" ]; then record rubocop skip "$out" "$nfiles file(s), 0 offenses on changed lines where linted; worker/ not linted (see detail)"
   else record rubocop pass "" "$nfiles file(s), 0 offenses on changed lines"; fi
 }
 

@@ -91,13 +91,25 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
     @ext_base = sh!("git", "rev-parse", "HEAD", chdir: @ext)
 
     write("server/app/models/thing.rb", "# frozen_string_literal: true\nclass Thing\nend\n")
+    # like the real apps: RuboCop is in server/'s bundle (with its config), and worker/ has neither
+    write("server/Gemfile", "gem \"rubocop-rails-omakase\", require: false\n")
+    write("server/.rubocop.yml", "inherit_gem: { rubocop-rails-omakase: rubocop.yml }\n")
+    write("worker/Gemfile", "gem \"sidekiq\"\n")
+    write("worker/app/jobs/thing_job.rb", "# frozen_string_literal: true\nclass ThingJob\nend\n")
     write("frontend/src/a.ts", "export const a = 1\n")
     write("docs/readme.md", "hello\n")
     @base = commit_all("base")
 
-    # stubs on PATH. `bundle exec rubocop ... <files>` answers with $FAKE_RUBOCOP_JSON.
+    # stubs on PATH. `bundle exec rubocop ... <files>` answers with $FAKE_RUBOCOP_JSON, but, like bundler, only
+    # where the Gemfile has RuboCop; every call is logged as "<cwd> <args>". FAKE_RUBOCOP_CONFIG_ERROR makes
+    # it fail the way RuboCop does on a configuration it cannot load (`--version` loads none, so still works).
+    # The bundle is the working directory's: BUNDLE_GEMFILE is ignored, since rspec itself runs under one.
     write_stub("bundle", <<~SH)
       if [ "$1 $2" = "exec rubocop" ]; then
+        grep -q rubocop "$PWD/Gemfile" 2>/dev/null || { echo "bundler: command not found: rubocop" >&2; exit 127; }
+        echo "$PWD ${*:3}" >> "#{@dir}/rubocop.calls"
+        [ "$3" = "--version" ] && { echo "1.0.0"; exit 0; }
+        [ -z "${FAKE_RUBOCOP_CONFIG_ERROR:-}" ] || { echo "Error: configuration for Fake/Cop could not be loaded" >&2; exit 2; }
         cat "$FAKE_RUBOCOP_JSON"; grep -q '"offenses": *\\[ *{' "$FAKE_RUBOCOP_JSON" && exit 1; exit 0
       fi
       exit 0
@@ -175,6 +187,87 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
 
       expect(code).to eq(0), err
       expect(statuses(out)["rubocop"]).to eq("pass")
+    end
+  end
+
+  # worker/ has no RuboCop of its own: its Ruby is linted by server/'s bundle with server/'s config
+  describe "rubocop on worker/" do
+    let(:worker_file) { "worker/app/jobs/thing_job.rb" }
+    let(:head) do
+      write(worker_file, "# frozen_string_literal: true\nclass ThingJob\n  def x = 1\nend\n")
+      commit_all("touch a worker file")
+    end
+
+    # real RuboCop reports a file outside its working directory by absolute path
+    def worker_json(lines, path: File.join(@repo, worker_file))
+      File.join(@dir, "worker.json").tap { |f| File.write(f, rubocop_json(path, lines)) }
+    end
+
+    def rubocop_check(out)
+      JSON.parse(out)["checks"].find { |c| c["name"] == "rubocop" }
+    end
+
+    it "runs from server/ with server/'s config, and fails on an offense on a changed line" do
+      out, _err, code = gate("#{@base}..#{head}", "--json", env: { "FAKE_RUBOCOP_JSON" => worker_json([ 3 ]) })
+
+      expect(code).to eq(1)
+      expect(rubocop_check(out)).to include("status" => "fail", "summary" => "1 file(s), 1 offense(s) on changed lines")
+      expect(rubocop_check(out)["detail"]).to include("#{worker_file}:3 Style/X")
+      call = File.readlines(File.join(@dir, "rubocop.calls")).last
+      expect(call).to start_with("#{@repo}/server ")
+      expect(call).to include("--config #{@repo}/server/.rubocop.yml", "../#{worker_file}")
+    end
+
+    it "passes when the worker file's offenses are all on unchanged lines" do
+      out, err, code = gate("#{@base}..#{head}", "--json", env: { "FAKE_RUBOCOP_JSON" => worker_json([ 1, 2 ]) })
+
+      expect(code).to eq(0), err
+      expect(rubocop_check(out)).to include("status" => "pass", "summary" => "1 file(s), 0 offenses on changed lines")
+    end
+
+    it "passes a clean worker change" do
+      out, err, code = gate("#{@base}..#{head}", "--json", env: { "FAKE_RUBOCOP_JSON" => worker_json([]) })
+
+      expect(code).to eq(0), err
+      expect(rubocop_check(out)["status"]).to eq("pass")
+    end
+
+    it "SKIPs with the reason, neither failing nor passing, when the server config cannot be applied" do
+      out, err, code = gate("#{@base}..#{head}", "--json", env: { "FAKE_RUBOCOP_CONFIG_ERROR" => "1" })
+
+      expect(code).to eq(0), err
+      expect(rubocop_check(out)["status"]).to eq("skip")
+      expect(rubocop_check(out)["summary"]).to include("worker/ not linted")
+      expect(rubocop_check(out)["detail"]).to include("configuration for Fake/Cop could not be loaded")
+    end
+
+    it "SKIPs, rather than passing silently, when the server config leaves a worker file uninspected" do
+      out, err, code = gate("#{@base}..#{head}", "--json")
+
+      expect(code).to eq(0), err
+      expect(rubocop_check(out)["status"]).to eq("skip")
+      expect(rubocop_check(out)["detail"]).to include("1 of 1 worker/ file(s) not inspected")
+    end
+
+    it "still FAILs when RuboCop itself cannot run in server/" do
+      write("server/Gemfile", "gem \"rails\"\n")
+      h = head
+      out, _err, code = gate("#{@base}..#{h}", "--json", env: { "FAKE_RUBOCOP_CONFIG_ERROR" => "1" })
+
+      expect(code).to eq(1)
+      expect(rubocop_check(out)["status"]).to eq("fail")
+      expect(rubocop_check(out)["detail"]).to include("command not found: rubocop")
+    end
+
+    it "fails on a changed-line offense in server/ even when worker/ is skipped" do
+      write("server/app/models/thing.rb", "# frozen_string_literal: true\nclass Thing\n  def x = 1\nend\n")
+      h = head
+      File.write(File.join(@dir, "both.json"), rubocop_json("app/models/thing.rb", [ 3 ]))
+      out, _err, code = gate("#{@base}..#{h}", "--json", env: { "FAKE_RUBOCOP_JSON" => File.join(@dir, "both.json") })
+
+      expect(code).to eq(1)
+      expect(rubocop_check(out)["status"]).to eq("fail")
+      expect(rubocop_check(out)["detail"]).to include("server/app/models/thing.rb:3 Style/X", "worker/ file(s) not inspected")
     end
   end
 
