@@ -472,9 +472,20 @@ module Ai
         end
 
         value_refusal = value_error(params)
-        return [ "value_refused", value_refusal ] if value_refusal
+        value_refusal ? [ "value_refused", value_refusal ] : nil
+      end
 
-        tightening_refusal(params)
+      # The tightening check runs HERE, inside Ai::Approvals::MachinePark's guard
+      # (BaseTool#guarded_park_refusal), not in #park_refusal above: its answer
+      # depends on the current value, which an instance may not read, so asking
+      # it must cost what a park costs. Under the guard it is deduped against
+      # this principal's pending request for the key (which answers nothing
+      # about the value), it runs only inside the window, and its audit row —
+      # written on EVERY refusal, never collapsed — spends that window.
+      def guarded_park_refusal(params)
+        code, refusal = tightening_refusal(params)
+        audit_park_refusal(params, code, collapse: false) if refusal
+        refusal
       end
 
       # A machine may only TIGHTEN (IMP-1765f6f09458). The requested value and
@@ -595,14 +606,22 @@ module Ai
       # code and the key ONLY when it is a registered one, never a value or
       # caller-supplied text; a lost row costs visibility only, so it is logged,
       # not raised.
-      def audit_park_refusal(params, code)
-        return unless ::Ai::Approvals::MachinePark.audit_once?("site_setting:park_refusal_audit:#{node_instance&.id}:#{code}")
+      #
+      # `collapse: false` for a refusal that is METERED (the tightening check,
+      # #guarded_park_refusal): every one is written, and the row, naming the
+      # action category and the node instance, is what Ai::Approvals::MachinePark
+      # counts against the principal's window.
+      def audit_park_refusal(params, code, collapse: true)
+        if collapse
+          return unless ::Ai::Approvals::MachinePark.audit_once?("site_setting:park_refusal_audit:#{node_instance&.id}:#{code}")
+        end
 
         registered = key_spec(params) ? params[:key].to_s : "unregistered"
         AuditLog.log_action(
-          action: "ai.approvals.machine_park_refused", resource: account, account: account, source: "api",
+          action: ::Ai::Approvals::MachinePark::AUDIT_REFUSED, resource: account, account: account, source: "api",
           metadata: { requester_kind: "instance", node_instance_id: node_instance&.id.to_s.presence,
                       tool_action: routed_action_name(params), setting_key: registered,
+                      action_category: self.class.declared_action(routed_action_name(params))&.dig(:action_category),
                       session_label: session_label, reason: code }.compact
         )
       rescue StandardError => e

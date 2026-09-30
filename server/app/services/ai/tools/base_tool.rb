@@ -993,6 +993,19 @@ module Ai
         authorization_error(params)
       end
 
+      # A refusal a tool wants METERED (IMP-1765f6f09458): run inside
+      # Ai::Approvals::MachinePark's guard, after the dedupe and the window
+      # check, under the principal's lock. For a refusal whose answer depends on
+      # a value the principal may not read (a tightening check against the
+      # current setting), so that asking it repeatedly costs what a park costs.
+      # A tool that audits such a refusal must write the row uncollapsed and
+      # name the action category and the node instance, which is what the
+      # window counts. nil (the default) refuses nothing here; the park proceeds.
+      # Only reached for an instance park the guard applies to.
+      def guarded_park_refusal(_params)
+        nil
+      end
+
       # What makes two parks "the same request" from one machine principal (the
       # tool's own notion: a setting key, say), or nil. A non-nil key is also the
       # tool's OPT-IN to Ai::Approvals::MachinePark (dedupe and a per-principal,
@@ -1321,8 +1334,14 @@ module Ai
 
         outcome = ::Ai::Approvals::MachinePark.guard(
           account: account, principal_id: node_instance.id, action_category: declaration[:action_category],
-          dedupe_key: park_dedupe_key(params), session_label: session_label, &parker
-        )
+          dedupe_key: park_dedupe_key(params), session_label: session_label
+        ) do
+          # INSIDE the guard: a refusal here has already been deduped against a
+          # pending request and has passed the window check, and the row it
+          # audits spends that window (Ai::Approvals::MachinePark#recent_count),
+          # so a tool's value-dependent refusal cannot be probed unmetered.
+          guarded_park_refusal(params) || parker.call
+        end
         case outcome
         when ::Ai::Approvals::MachinePark::Deduped
           request = outcome.request

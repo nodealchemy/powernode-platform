@@ -37,6 +37,9 @@ module Ai
 
       AUDIT_DEDUPED = "ai.approvals.machine_park_deduped"
       AUDIT_RATE_LIMITED = "ai.approvals.machine_park_rate_limited"
+      # Written by the TOOL for a park it refused (Ai::Tools::SiteSettingTool#
+      # audit_park_refusal); counted here when it names this principal and category.
+      AUDIT_REFUSED = "ai.approvals.machine_park_refused"
 
       PRINCIPAL_PATH = "request_data->'params'->'principal'->>'node_instance_id'"
       DEDUPE_PATH = "request_data->'params'->>'dedupe_key'"
@@ -109,10 +112,23 @@ module Ai
             .order(:created_at).first
         end
 
-        # Per (principal, action category): one tool's parks never spend another's budget.
+        # Per (principal, action category): one tool's parks never spend another's
+        # budget. Parks AND metered refusals (IMP-1765f6f09458): a refusal a tool
+        # raises inside the guard (Ai::Tools::BaseTool#guarded_park_refusal) is
+        # audited as AUDIT_REFUSED naming this principal and category, and that
+        # row spends the window exactly as a park does, so a value-dependent
+        # refusal cannot be asked more often than a park could be made.
         def recent_count(account, principal_id, action_category)
-          scope(account, principal_id).where("request_data->>'action_category' = ?", action_category.to_s)
-                                      .where(created_at: WINDOW.ago..).count
+          parks = scope(account, principal_id).where("request_data->>'action_category' = ?", action_category.to_s)
+                                              .where(created_at: WINDOW.ago..).count
+          parks + refused_count(account, principal_id, action_category)
+        end
+
+        def refused_count(account, principal_id, action_category)
+          ::AuditLog.where(account_id: account.id, action: AUDIT_REFUSED)
+                    .where("metadata->>'node_instance_id' = ?", principal_id.to_s)
+                    .where("metadata->>'action_category' = ?", action_category.to_s)
+                    .where(created_at: WINDOW.ago..).count
         end
 
         # A refusal is recorded, never allowed to break the answer the caller
