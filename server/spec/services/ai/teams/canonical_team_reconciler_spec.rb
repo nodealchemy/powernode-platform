@@ -300,4 +300,23 @@ RSpec.describe Ai::Teams::CanonicalTeamReconciler do
       expect(Ai::AgentTeam.canonical).to be_empty
     end
   end
+
+  # IMP-156eb1a7bdbc — the account/project mismatch guard's message named BOTH
+  # accounts (the project's and the one it was asked to materialise in). An
+  # exception message is not an audience boundary: Ai::Projects::TeamProvisioner
+  # records "#{e.class}: #{e.message}" as the project's provisioning reason. The
+  # guard still refuses; it just names only the project the caller passed in.
+  describe "the account/project mismatch guard" do
+    it "refuses without naming either account" do
+      other_account = create(:account)
+      project = create(:ai_project, account: other_account)
+
+      expect { described_class.new(account: account, template: template, project: project) }
+        .to raise_error(ArgumentError) { |e|
+          expect(e.message).not_to include(other_account.id)
+          expect(e.message).not_to include(account.id)
+          expect(e.message).to include(project.id)
+        }
+    end
+  end
 end
