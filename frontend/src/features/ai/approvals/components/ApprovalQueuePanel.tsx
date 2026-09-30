@@ -11,7 +11,7 @@ import { useApproveAction, useRejectAction } from '../api/approvalsApi';
 import { useLiveApprovalQueue } from '../hooks/useLiveApprovalQueue';
 import { useApprovalRequestDetail } from '../hooks/useApprovalRequestDetail';
 import { ApprovalChainSteps, ApprovalStepSummary } from './ApprovalChainSteps';
-import type { ApprovalChangeCard, ApprovalRequest } from '../types/approval';
+import type { ApprovalChangeCard, ApprovalPresentedRow, ApprovalRequest } from '../types/approval';
 
 // The approval queue (C3b part 2). Approvals keep their own surface by the
 // lead's C4 ruling; this panel gains what it never had: the chain, step by
@@ -56,6 +56,29 @@ const approvalTitle = (request: ApprovalRequest): string =>
 const displayValue = (value: unknown): string =>
   typeof value === 'string' ? value : JSON.stringify(value);
 
+// A presenter's reading of a value: each raw entry with the text its owner gave
+// it. React escapes every field, and the raw entry is always shown first so a
+// tenant-chosen name cannot stand in for which entry is being written.
+const PresentedRows: React.FC<{ rows?: ApprovalPresentedRow[]; dataAttr: string }> = ({ rows, dataAttr }) => {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <div {...{ [dataAttr]: true }} className="mt-1 space-y-1">
+      <p className="text-xs text-theme-tertiary">
+        Names below are informational and set by their owners; the ids are what is written.
+      </p>
+      <ul className="space-y-1">
+        {rows.map((row, index) => (
+          <li key={`${row.value}-${index}`} data-presented-row className="text-xs">
+            <span className="font-mono text-theme-primary break-all">{row.value}</span>
+            {row.label ? <span className="text-theme-secondary"> {'\u201C'}{row.label}{'\u201D'}</span> : null}
+            {row.detail ? <span className="text-theme-tertiary"> ({row.detail})</span> : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const ChangeCard: React.FC<{ card: ApprovalChangeCard }> = ({ card }) => (
   <div data-change-card className="rounded border border-theme bg-theme-surface p-3 space-y-2">
     <p className="text-xs text-theme-tertiary">Exactly what you are approving</p>
@@ -67,7 +90,10 @@ const ChangeCard: React.FC<{ card: ApprovalChangeCard }> = ({ card }) => (
       <dt className="text-theme-tertiary">Setting</dt>
       <dd className="text-theme-primary font-medium break-all">{card.key}</dd>
       <dt className="text-theme-tertiary">New value</dt>
-      <dd data-change-new-value className="text-theme-primary font-mono break-all">{displayValue(card.new_value)}</dd>
+      <dd data-change-new-value className="text-theme-primary font-mono break-all">
+        {displayValue(card.new_value)}
+        <PresentedRows rows={card.presented_new_value} dataAttr="data-presented-new-value" />
+      </dd>
       <dt className="text-theme-tertiary">Current value</dt>
       <dd data-change-current-value className="text-theme-primary font-mono break-all">
         {card.current_value_set === false
@@ -75,6 +101,7 @@ const ChangeCard: React.FC<{ card: ApprovalChangeCard }> = ({ card }) => (
           : 'current_value' in card
             ? displayValue(card.current_value)
             : 'Not shown to you (needs admin access)'}
+        <PresentedRows rows={card.presented_current_value} dataAttr="data-presented-current-value" />
       </dd>
     </dl>
   </div>

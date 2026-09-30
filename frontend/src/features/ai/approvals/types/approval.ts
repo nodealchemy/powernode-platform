@@ -9,7 +9,18 @@ import type {
  * request's redacted request_data. `current_value` is present only for a viewer
  * who could read the setting on the operator API; absent means "not shown to
  * you", and `current_value_set: false` means the setting is unset.
+ * `presented_*` are a human reading of the same values (names beside ids), sent
+ * NEXT TO the raw ones, only to a viewer who can read the setting, and absent
+ * when the setting has no presenter or it failed.
  */
+export interface ApprovalPresentedRow {
+  /** The raw entry this row describes: the thing that is actually written. */
+  value: string;
+  /** Text about it from its owner (a name a tenant controls): shown, never trusted. */
+  label?: string | null;
+  detail?: string | null;
+}
+
 export interface ApprovalChangeCard {
   tool: string;
   action: string;
@@ -17,6 +28,8 @@ export interface ApprovalChangeCard {
   new_value: unknown;
   current_value?: unknown;
   current_value_set?: boolean;
+  presented_new_value?: ApprovalPresentedRow[];
+  presented_current_value?: ApprovalPresentedRow[];
 }
 
 export interface ApprovalRequest {

@@ -169,4 +169,77 @@ describe('ApprovalQueuePanel change card', () => {
       expect(mockPost).toHaveBeenCalledWith('/ai/autonomy/approvals/req-s/approve', { comments: undefined })
     );
   });
+  describe('presented values', () => {
+    const PRESENTED = [
+      { value: '11111111-1111-4111-8111-111111111111', label: 'dev-cell-tools', detail: 'owner account: Acme Fleet' },
+      { value: '22222222-2222-4222-8222-222222222222', label: '(unknown)', detail: null },
+    ];
+
+    it('lists each id with its name and owner beside it, and keeps the raw value', async () => {
+      serve({
+        ...CARD_ROW,
+        change_card: { ...CARD_ROW.change_card, new_value: '["11111111-1111-4111-8111-111111111111"]', presented_new_value: PRESENTED },
+      });
+      const user = userEvent.setup();
+      renderPanel();
+
+      await user.click(await screen.findByText('platform.site_setting.protected_write'));
+
+      expect(await screen.findByText('Exactly what you are approving')).toBeInTheDocument();
+      expect(document.querySelector('[data-change-new-value]')).toHaveTextContent('11111111-1111-4111-8111-111111111111');
+      const rows = document.querySelectorAll('[data-presented-new-value] [data-presented-row]');
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toHaveTextContent('11111111-1111-4111-8111-111111111111');
+      expect(rows[0]).toHaveTextContent('dev-cell-tools');
+      expect(rows[0]).toHaveTextContent('owner account: Acme Fleet');
+      expect(rows[1]).toHaveTextContent('22222222-2222-4222-8222-222222222222');
+      expect(rows[1]).toHaveTextContent('(unknown)');
+    });
+
+    it('renders a hostile name as text, never as markup', async () => {
+      serve({
+        ...CARD_ROW,
+        change_card: {
+          ...CARD_ROW.change_card,
+          presented_new_value: [{ value: PRESENTED[0].value, label: '<img src=x onerror=alert(1)>', detail: '<b>boss</b>' }],
+        },
+      });
+      const user = userEvent.setup();
+      renderPanel();
+
+      await user.click(await screen.findByText('platform.site_setting.protected_write'));
+
+      const row = await waitFor(() => {
+        const found = document.querySelector('[data-presented-new-value] [data-presented-row]');
+        expect(found).not.toBeNull();
+        return found as Element;
+      });
+      expect(row).toHaveTextContent('<img src=x onerror=alert(1)>');
+      expect(row.querySelector('img')).toBeNull();
+      expect(row.querySelector('b')).toBeNull();
+      expect(row).toHaveTextContent(PRESENTED[0].value);
+    });
+
+    it('shows no presented list when the card carries none, only the raw value', async () => {
+      const user = userEvent.setup();
+      renderPanel();
+
+      await user.click(await screen.findByText('platform.site_setting.protected_write'));
+
+      expect(await screen.findByText('Exactly what you are approving')).toBeInTheDocument();
+      expect(document.querySelector('[data-presented-new-value]')).toBeNull();
+      expect(document.querySelector('[data-presented-current-value]')).toBeNull();
+    });
+
+    it('lists the current value the same way', async () => {
+      serve({ ...CARD_ROW, change_card: { ...CARD_ROW.change_card, presented_current_value: [PRESENTED[0]] } });
+      const user = userEvent.setup();
+      renderPanel();
+
+      await user.click(await screen.findByText('platform.site_setting.protected_write'));
+
+      await screen.findByText('Exactly what you are approving');
+      expect(document.querySelector('[data-presented-current-value] [data-presented-row]')).toHaveTextContent('dev-cell-tools');
+    });
+  });
 });

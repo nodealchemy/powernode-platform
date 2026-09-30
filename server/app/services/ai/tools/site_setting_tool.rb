@@ -343,8 +343,22 @@ module Ai
         return card unless readable
 
         row = SiteSetting.find_by(key: key)
-        card.merge(current_value: row&.value, current_value_set: !row.nil?)
+        card = card.merge(current_value: row&.value, current_value_set: !row.nil?)
+        present_card_values(card, key)
       end
+
+      # A presenter's rendering of the values, added NEXT TO the raw ones (they
+      # stay in the card: the approver must see exactly what gets written). Only
+      # here, past the readable check above: a presentation can carry more than
+      # the raw value does (names and owners behind bare ids), so it goes to no
+      # one who could not already read the setting. Absent when the key has no
+      # presenter or the presenter failed (SiteSetting.present_value never raises).
+      def self.present_card_values(card, key)
+        presented = { presented_new_value: SiteSetting.present_value(key, card[:new_value]) }
+        presented[:presented_current_value] = SiteSetting.present_value(key, card[:current_value]) if card[:current_value_set]
+        card.merge(presented.compact)
+      end
+      private_class_method :present_card_values
 
       protected
 

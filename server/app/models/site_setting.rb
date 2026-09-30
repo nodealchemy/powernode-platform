@@ -74,6 +74,65 @@ class SiteSetting < ApplicationRecord
     @value_checks ||= {}
   end
 
+  # A presenter renders a key's raw value for a HUMAN, next to the raw value and
+  # never in place of it (the protected-setting approval card, IMP-78bc3b20ee94).
+  # Registered by whoever owns the key, an extension included; core names no key.
+  # The block takes the raw stored value and returns a list of hashes, each
+  # `{ value:, label:, detail: }` (value required, the others optional): `value`
+  # is the raw entry it describes, `label` and `detail` are text about it.
+  #
+  # Its output is untrusted text (labels come from names a tenant controls), so
+  # #present_value normalises it: strings only, control and format characters
+  # (newlines, bidi overrides) removed, every field bounded. A presenter that
+  # raises, overruns PRESENTER_DEADLINE or returns anything else yields nil, and
+  # the caller shows the raw value alone.
+  PRESENTED_FIELD_LIMIT = 160
+  PRESENTED_ROW_LIMIT = 100
+  PRESENTER_DEADLINE = 2.0
+
+  def self.register_value_presenter(key, &presenter)
+    value_presenters[key.to_s] = presenter
+  end
+
+  def self.value_presenters
+    @value_presenters ||= {}
+  end
+
+  # Array<{"value","label","detail"}> for `raw`, or nil when the key has no
+  # presenter or its presentation cannot be trusted. Never raises.
+  def self.present_value(key, raw)
+    presenter = value_presenters[key.to_s]
+    return nil unless presenter
+
+    rows = ::Timeout.timeout(PRESENTER_DEADLINE) { presenter.call(raw) }
+    return nil unless rows.is_a?(Array) && rows.size <= PRESENTED_ROW_LIMIT
+
+    presented = rows.map { |row| presented_row(row) }
+    presented.any?(&:nil?) ? nil : presented
+  rescue StandardError => e
+    Rails.logger.warn("[SiteSetting] value presenter for #{key} failed: #{e.class}")
+    nil
+  end
+
+  def self.presented_row(row)
+    return nil unless row.is_a?(Hash)
+
+    row = row.with_indifferent_access
+    return nil if row[:value].nil?
+
+    { "value" => presented_text(row[:value]), "label" => presented_text(row[:label]),
+      "detail" => presented_text(row[:detail]) }
+  end
+  private_class_method :presented_row
+
+  def self.presented_text(text)
+    return nil if text.nil?
+
+    clean = text.to_s.gsub(/[\r\n\t]/, " ").gsub(/[\p{Cc}\p{Cf}]/, "").strip
+    clean.length > PRESENTED_FIELD_LIMIT ? "#{clean[0, PRESENTED_FIELD_LIMIT - 1]}…" : clean
+  end
+  private_class_method :presented_text
+
   def self.get(key)
     setting = find_by(key: key.to_s)
     return nil unless setting
