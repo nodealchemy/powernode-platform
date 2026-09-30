@@ -79,21 +79,28 @@ module Compliance
         return
       end
 
-      # Check grace period. grace_period_ends_at can be missing — this was
-      # ALWAYS true before the matching server-side fix
-      # (DataDeletionRequestsController#approve_request never set it at all,
-      # S-B) and remains a data-integrity possibility worth guarding even
-      # with that fixed. The bare `Time.zone.parse(nil)` this used to be
-      # raised TypeError straight into the outer rescue, which wrote 'failed'
-      # and re-raised `e` — a Sidekiq retry re-ran this SAME job, hit the
-      # SAME nil value, and crashed again: an unbreakable loop, not a
-      # retryable failure (IMP-b33a3ecca331 third review, S-B). `return` (not
-      # raise) once the terminal write lands, so the job actually terminates.
+      # Check grace period. The grace period is the data subject's cancellation
+      # window (a promise), so this job NEVER starts processing inside it and
+      # never bypasses it — and it writes NOTHING when it declines: not
+      # 'processing', and above all not 'failed'. A request that was never
+      # processed is not failed; 'failed' would drop it out of the privacy
+      # controller's `.active` guard and be shown to the data subject as a
+      # failed erasure (IMP-26adf1c79c7a).
+      #
+      # This check is only a PRE-check. The server is the authority — it
+      # refuses the approved -> processing transition itself (see
+      # #request_processing_start!), so a stale clock or a skipped check here
+      # cannot start an early deletion.
+      #
+      # grace_period_ends_at can be missing (approve_request set none before
+      # IMP-b33a3ecca331 S-B; still a data-integrity possibility). It fails
+      # CLOSED: an unknown end is not an ended grace period. `return` (not
+      # raise), so a Sidekiq retry does not re-crash on the same value; the
+      # error is logged for whoever repairs the row.
       grace_period_ends_at_raw = deletion_request['grace_period_ends_at']
       if grace_period_ends_at_raw.blank?
-        failure_message = "Deletion request #{deletion_request_id} has no grace_period_ends_at set"
-        log_error failure_message
-        patch_deletion_request!(deletion_request_id, { status: 'failed', error_message: failure_message })
+        log_error "Deletion request #{deletion_request_id} has no grace_period_ends_at set; " \
+                  'refusing to process (no status write)'
         return
       end
 
@@ -103,11 +110,9 @@ module Compliance
         return
       end
 
-      # Update status to processing
-      patch_deletion_request!(
-        deletion_request_id,
-        { status: 'processing', processing_started_at: Time.current.iso8601 }
-      )
+      # Update status to processing. For an 'approved' request this is the
+      # server-enforced start; a refusal means processing must not begin.
+      return unless request_processing_start!(deletion_request_id, deletion_request['status'])
 
       begin
         deletion_log = []
@@ -217,6 +222,37 @@ module Compliance
     end
 
     private
+
+    # Server refusals of an approved -> processing start that mean "do not
+    # process", not "something broke": the grace period has not ended (or its
+    # end is unset), or another starter (run-now / a second worker) already
+    # moved the row out of 'approved'. Either way this job exits WITHOUT any
+    # status write.
+    START_REFUSAL_CODES = %w[GRACE_PERIOD_NOT_ENDED INVALID_STATUS_TRANSITION].freeze
+
+    # Requests the (server-enforced) transition to 'processing'. Returns true
+    # when processing may proceed, false when the server refused the start.
+    # Only an 'approved' request is starting; a 'processing' one is a Sidekiq
+    # retry resuming, whose PATCH is processing -> processing. Every other
+    # failure still raises exactly as patch_deletion_request! always did.
+    def request_processing_start!(deletion_request_id, current_status)
+      patch_deletion_request!(
+        deletion_request_id,
+        { status: 'processing', processing_started_at: Time.current.iso8601 }
+      )
+      true
+    rescue BackendApiClient::ApiError => e
+      raise unless current_status == 'approved' && start_refused?(e)
+
+      log_warn "Server refused to start deletion request #{deletion_request_id} (#{e.message}); " \
+               'not processing, no status write'
+      false
+    end
+
+    def start_refused?(error)
+      body = error.response_body
+      error.status == 422 && body.is_a?(Hash) && START_REFUSAL_CODES.include?(body['code'])
+    end
 
     # Persisted status writes must never fail silently. IMP-b33a3ecca331 found
     # that the server-side params contract had been dropping every one of

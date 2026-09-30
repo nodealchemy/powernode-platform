@@ -218,18 +218,12 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
       end
     end
 
-    # S-B (IMP-b33a3ecca331 third review): grace_period_ends_at can be missing
-    # — this was ALWAYS true before the matching server-side fix
-    # (DataDeletionRequestsController#approve_request never set it, S-B) and
-    # remains a data-integrity possibility worth guarding even with that
-    # fixed. Would redden on a revert to the bare `Time.zone.parse(nil)` this
-    # used to be: that raises TypeError, which this example's `not_to raise`
-    # expectation on `execute` would catch as a failure, and the 'approved' ->
-    # 'failed' PATCH this asserts would never have happened (the old crash
-    # path wrote 'failed' too, but via the OUTER rescue — after `raise e`
-    # propagated the TypeError back out of `execute`, so `job.execute` itself
-    # RAISED rather than returning cleanly; the whole point of S-B is that it
-    # no longer does).
+    # IMP-26adf1c79c7a: the grace period is the data subject's cancellation
+    # window, so a blank grace_period_ends_at fails CLOSED — the job neither
+    # crashes on Time.zone.parse(nil) (S-B, IMP-b33a3ecca331) nor writes ANY
+    # status. In particular never 'failed': the request was never processed,
+    # and 'failed' would un-block the user's `.active` guard and be shown to
+    # them as a failed erasure.
     context 'when grace_period_ends_at is missing' do
       let(:broken_request) { deletion_request_data.merge('grace_period_ends_at' => nil) }
 
@@ -237,18 +231,83 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
           .and_return(show_response(broken_request))
-        allow(api_client).to receive(:patch).and_return(show_response(broken_request))
       end
 
-      it 'terminates the request as failed instead of crashing on Time.zone.parse(nil)' do
-        expect(api_client).to receive(:patch)
-          .with(
-            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
-            hash_including(status: 'failed', error_message: /grace_period_ends_at/)
-          )
-          .and_return(show_response(broken_request))
+      it 'exits without ANY status write (no failed, no processing) and does not raise' do
+        expect(api_client).not_to receive(:patch)
+        expect(api_client).not_to receive(:delete)
+        expect(job).to receive(:log_error).with(/no grace_period_ends_at/)
 
         expect { job.execute(deletion_request_id) }.not_to raise_error
+      end
+    end
+
+    # The worker's clock says the grace period ended, but the SERVER (the
+    # authority) refuses the approved -> processing start. The job must exit
+    # with no further write and no erasure call.
+    context 'when the server refuses the approved -> processing start' do
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(deletion_request_data))
+      end
+
+      def refusal(code)
+        BackendApiClient::ApiError.new(
+          'refused', 422, { 'success' => false, 'error' => 'refused', 'code' => code }
+        )
+      end
+
+      %w[GRACE_PERIOD_NOT_ENDED INVALID_STATUS_TRANSITION].each do |code|
+        it "exits after the single refused start and writes nothing else (#{code})" do
+          expect(api_client).to receive(:patch).once
+            .with(
+              "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+              hash_including(status: 'processing')
+            )
+            .and_raise(refusal(code))
+          expect(api_client).not_to receive(:delete)
+          expect(api_client).not_to receive(:post)
+
+          expect { job.execute(deletion_request_id) }.not_to raise_error
+        end
+      end
+
+      it 'never writes failed for the refused request' do
+        allow(api_client).to receive(:patch).and_raise(refusal('GRACE_PERIOD_NOT_ENDED'))
+        expect(api_client).not_to receive(:patch).with(anything, hash_including(status: 'failed'))
+
+        job.execute(deletion_request_id)
+      end
+
+      it 'still raises for a 422 that is not a start refusal' do
+        allow(api_client).to receive(:patch)
+          .and_raise(BackendApiClient::ApiError.new('invalid', 422, { 'code' => 'SOMETHING_ELSE' }))
+
+        expect { job.execute(deletion_request_id) }.to raise_error(BackendApiClient::ApiError)
+      end
+
+      it 'still raises for a server error' do
+        allow(api_client).to receive(:patch).and_raise(BackendApiClient::ApiError.new('boom', 500))
+
+        expect { job.execute(deletion_request_id) }.to raise_error(BackendApiClient::ApiError)
+      end
+    end
+
+    # A refusal only means "do not process" for a request that is STARTING.
+    # A 'processing' request is a retry resuming: a refused
+    # processing -> processing write is a real fault, not a clean exit.
+    context 'when a resuming request gets a refused write' do
+      let(:resuming_request) { deletion_request_data.merge('status' => 'processing') }
+
+      it 'raises instead of silently exiting' do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(resuming_request))
+        allow(api_client).to receive(:patch)
+          .and_raise(BackendApiClient::ApiError.new('refused', 422, { 'code' => 'INVALID_STATUS_TRANSITION' }))
+
+        expect { job.execute(deletion_request_id) }.to raise_error(BackendApiClient::ApiError)
       end
     end
 
