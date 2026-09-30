@@ -124,10 +124,16 @@ module Ai
           parks + refused_count(account, principal_id, action_category)
         end
 
+        # Only rows the tool marked `metered`: a value-dependent refusal. A
+        # refusal for a bad key, an uncovered grant or a non-parkable key is
+        # collapsed, depends on nothing the instance may not know, and must not
+        # spend the window — a retried typo would otherwise lock a legitimate
+        # tightening out for an hour.
         def refused_count(account, principal_id, action_category)
           ::AuditLog.where(account_id: account.id, action: AUDIT_REFUSED)
                     .where("metadata->>'node_instance_id' = ?", principal_id.to_s)
                     .where("metadata->>'action_category' = ?", action_category.to_s)
+                    .where("metadata->>'metered' = 'true'")
                     .where(created_at: WINDOW.ago..).count
         end
 

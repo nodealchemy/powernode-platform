@@ -657,6 +657,11 @@ module Ai
           metadata: { requester_kind: "instance", node_instance_id: node_instance&.id.to_s.presence,
                       tool_action: routed_action_name(params), setting_key: registered,
                       action_category: self.class.declared_action(routed_action_name(params))&.dig(:action_category),
+                      # ONLY the uncollapsed, value-dependent refusal spends the window.
+                      # A collapsed one (bad key, grant, non-parkable key) depends on
+                      # nothing the instance may not already know, and counting it
+                      # would let a retried typo lock every tightening out.
+                      metered: (true unless collapse),
                       session_label: session_label, reason: code }.compact
         )
       rescue StandardError => e
