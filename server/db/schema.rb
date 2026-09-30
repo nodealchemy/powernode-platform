@@ -9210,6 +9210,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.string "name", null: false
     t.string "path_prefix", default: ""
     t.string "repo_url", null: false
+    t.jsonb "ssh_host_keys"
     t.datetime "updated_at", null: false
     t.string "vault_credential_path"
     t.index ["account_id", "name"], name: "index_system_gitops_repositories_on_account_id_and_name", unique: true
