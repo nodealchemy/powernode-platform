@@ -9,8 +9,24 @@
 # skip with a clear message otherwise — never make the suite depend on
 # root to pass.
 module SandboxSpecHelpers
+  # The real-systemd examples create transient units, dynamic users and
+  # /var/cache directories on the host, so they need ALL of: an explicit
+  # opt-in (MCP_SANDBOX_SYSTEMD_SPECS=1), root, systemd actually running as
+  # the init system (a container with only the systemd-run binary would
+  # FAIL, not skip), and systemd-run on PATH.
+  #   sudo -n env "PATH=$PATH" MCP_SANDBOX_SYSTEMD_SPECS=1 bundle exec rspec \
+  #     spec/services/mcp_security_service_spec.rb -e root-gated
+  def real_sandbox_skip_reason
+    return 'set MCP_SANDBOX_SYSTEMD_SPECS=1 to run the real-systemd sandbox examples' unless ENV['MCP_SANDBOX_SYSTEMD_SPECS'] == '1'
+    return 'requires root (uid 0)' unless Process.uid.zero?
+    return 'requires a booted systemd (/run/systemd/system) — not available in this environment' unless File.directory?('/run/systemd/system')
+    return 'requires systemd-run on PATH' if systemd_run_binary_path.nil?
+
+    nil
+  end
+
   def real_sandbox_available?
-    Process.uid.zero? && !systemd_run_binary_path.nil?
+    real_sandbox_skip_reason.nil?
   end
 
   def systemd_run_binary_path

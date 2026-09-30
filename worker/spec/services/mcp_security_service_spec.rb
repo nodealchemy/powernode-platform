@@ -1087,8 +1087,8 @@ RSpec.describe McpSecurityService do
   # itself: everything that can be verified WITHOUT real root/systemd-run
   # (argv construction, the env file, mode resolution, fail-closed) plus
   # a root-gated block of REAL sandboxed spawns, skipped with a clear
-  # message unless #real_sandbox_available? (Process.uid == 0 && a real
-  # systemd-run on PATH).
+  # message unless #real_sandbox_available? (explicit opt-in
+  # MCP_SANDBOX_SYSTEMD_SPECS=1, root, a booted systemd, systemd-run).
   describe '#spawn_stdio sandboxing' do
     describe '.sandbox_mode' do
       it 'defaults to required when unset' do
@@ -1877,9 +1877,25 @@ RSpec.describe McpSecurityService do
     # host-visible path both sides can see.
     describe '#spawn_stdio real sandboxed spawn (root-gated)' do
       let(:sandbox_account_id) { '019f0000-0000-7000-8000-0000000000aa' }
+      let(:sandbox_account_b_id) { '019f0000-0000-7000-8000-0000000000bb' }
 
       before do
-        skip 'requires real root + a real systemd-run on PATH (not available in this run)' unless real_sandbox_available?
+        skip real_sandbox_skip_reason unless real_sandbox_available?
+      end
+
+      # These examples create REAL transient units, dynamic users and
+      # /var/cache/{,private/}<identity> directories on the host. Remove
+      # exactly the two fixture identities' paths (derived only from the
+      # hard-coded fixture ids above) and nothing else — never the shared
+      # /var/cache itself or any other identity's directory.
+      after(:all) do
+        next unless real_sandbox_available?
+
+        [ '019f0000-0000-7000-8000-0000000000aa', '019f0000-0000-7000-8000-0000000000bb' ].each do |fixture|
+          identity = described_class.sandbox_identity(fixture)
+          FileUtils.rm_rf("/var/cache/private/#{identity}")
+          FileUtils.rm_rf("/var/cache/#{identity}")
+        end
       end
 
       # Absolute host path to the SAME directory systemd's
@@ -1907,12 +1923,16 @@ RSpec.describe McpSecurityService do
       # shared User= both succeeded (A read B's token and poisoned the
       # cache B's `npx -y` executes).
       it "isolates one account's child from another account's concurrent child (environ, pids, cache)" do
-        account_b = '019f0000-0000-7000-8000-0000000000bb'
+        b_thread = nil
+        account_b = sandbox_account_b_id
         dir_a = sandbox_probe_dir
         dir_b = "/var/cache/#{described_class.sandbox_identity(account_b)}"
         FileUtils.mkdir_p(dir_b)
+        # A per-run NONCE names the marker, so a file left by an earlier
+        # run can never satisfy "B is running".
+        marker_b = File.join(dir_b, "marker-#{SecureRandom.hex(8)}")
         script_b = File.join(dir_b, "holder-#{SecureRandom.uuid}.py")
-        File.write(script_b, "import os, time\nopen(os.environ['HOME'] + '/marker', 'w').write('b')\ntime.sleep(8)\n")
+        File.write(script_b, "import time\nopen('#{marker_b}', 'w').write('b')\ntime.sleep(8)\n")
         script_a = File.join(dir_a, "attacker-#{SecureRandom.uuid}.py")
         File.write(script_a, <<~PY)
           import os, sys
@@ -1942,14 +1962,15 @@ RSpec.describe McpSecurityService do
             'command' => 'python3', 'args' => [ script_b ], 'env' => { 'TENANT_B_SECRET' => 'tenant-b-token' }
           )
           b_thread = Thread.new do
+            Thread.current.report_on_exception = false
             described_class.spawn_stdio(b_command, b_env, b_args, stdin_data: '', timeout: 30, account_id: account_b)
           end
           # B is provably running (and holding its secret) once it has
           # written its marker into its own cache — a vacuous "nothing
           # leaked" from a B that already exited must not pass.
           deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 10
-          sleep 0.1 until File.exist?(File.join(dir_b, 'marker')) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
-          expect(File.exist?(File.join(dir_b, 'marker'))).to be(true), 'tenant B child never started'
+          sleep 0.1 until File.exist?(marker_b) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+          expect(File.exist?(marker_b)).to be(true), 'tenant B child never started'
 
           a_command, a_env, a_args = described_class.validate_stdio_server!('command' => 'python3', 'args' => [ script_a ])
           stdout, stderr, status = described_class.spawn_stdio(
@@ -1961,15 +1982,28 @@ RSpec.describe McpSecurityService do
           expect(stdout).to include('OTHER_PIDS_VISIBLE=0')
           expect(stdout).to include('CACHE_WRITE: BLOCKED')
           expect(stdout).to include('CACHE_B_LISTABLE: False')
-          b_thread.join(20)
         end
       ensure
-        [ script_a, script_b ].compact.each { |path| File.delete(path) if File.exist?(path) }
+        # B must be gone whatever happened above: let it finish, else make
+        # spawn_stdio's own rescue stop its unit.
+        if b_thread && !b_thread.join(20)
+          b_thread.raise(Interrupt)
+          b_thread.join(10)
+        end
+        [ script_a, script_b, marker_b, File.join(dir_b.to_s, 'poison') ].compact.each do |path|
+          File.delete(path) if File.exist?(path)
+        end
       end
 
       it "an account's own children share that account's cache across spawns (npx/uvx caching still works)" do
+        # A per-run NONCE is what the writer stores and the reader must
+        # return, and any earlier file is deleted first, so a stale
+        # shared-pkg from a previous run can never satisfy this.
+        nonce = SecureRandom.hex(8)
+        shared_pkg = File.join(sandbox_probe_dir, 'shared-pkg')
+        File.delete(shared_pkg) if File.exist?(shared_pkg)
         writer = File.join(sandbox_probe_dir, "writer-#{SecureRandom.uuid}.py")
-        File.write(writer, "import os\nopen(os.environ['HOME'] + '/shared-pkg', 'w').write('cached')\n")
+        File.write(writer, "import os\nopen(os.environ['HOME'] + '/shared-pkg', 'w').write('#{nonce}')\n")
         reader = File.join(sandbox_probe_dir, "reader-#{SecureRandom.uuid}.py")
         File.write(reader, "import os\nprint(open(os.environ['HOME'] + '/shared-pkg').read())\n")
 
@@ -1979,11 +2013,11 @@ RSpec.describe McpSecurityService do
             stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15,
                                                                  account_id: sandbox_account_id)
             expect(status).to be_success, "child #{index} failed: #{stderr}"
-            expect(stdout.strip).to eq('cached') if index == 1
+            expect(stdout.strip).to eq(nonce) if index == 1
           end
         end
       ensure
-        [ writer, reader ].compact.each { |path| File.delete(path) if File.exist?(path) }
+        [ writer, reader, shared_pkg ].compact.each { |path| File.delete(path) if path && File.exist?(path) }
       end
 
       it 'spawns the child under a DIFFERENT (DynamicUser) uid than this process' do
