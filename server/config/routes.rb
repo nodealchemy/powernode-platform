@@ -2783,6 +2783,7 @@ Rails.application.routes.draw do
           collection do
             post :resolve
             get :grouped
+            get :environments
             patch :bulk
           end
         end

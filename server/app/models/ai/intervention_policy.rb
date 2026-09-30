@@ -148,6 +148,13 @@ module Ai
     validates :policy, presence: true, inclusion: { in: POLICIES }
     validates :priority, presence: true, numericality: { only_integer: true }
 
+    # conditions["environments"] is a list of this account's environment slugs.
+    # Both hooks run only when `conditions` is being written, so an unrelated
+    # edit (is_active, priority) is never blocked by a slug that has since been
+    # deleted (IMP-5d3471cd75e4).
+    before_validation :normalize_environment_condition, if: :environment_condition_changing?
+    validate :environment_condition_names_known_environments, if: :environment_condition_changing?
+
     # JSON columns
     attribute :conditions, :json, default: -> { {} }
     attribute :preferred_channels, :json, default: -> { [] }
@@ -242,6 +249,44 @@ module Ai
       return false if environment.nil?
 
       wanted.include?(environment.slug.to_s)
+    end
+
+    def environment_condition_changing?
+      will_save_change_to_conditions? && conditions.is_a?(Hash) && conditions.key?("environments")
+    end
+
+    # A String ("staging, ops" — what the policy panel used to write) becomes a
+    # list; an Array is cleaned the same way. Anything else is left as written
+    # for the validation below to refuse. The normalised list is stored back, so
+    # environment_matches? only ever reads a list of slugs.
+    def normalize_environment_condition
+      raw = conditions["environments"]
+      raw = raw.split(",") if raw.is_a?(String)
+      return unless raw.is_a?(Array) && raw.all?(String)
+
+      self.conditions = conditions.merge("environments" => raw.map(&:strip).reject(&:blank?).uniq)
+    end
+
+    # An empty list is refused rather than dropped: dropping the key would
+    # broaden a row written for a plane to EVERY environment.
+    def environment_condition_names_known_environments
+      slugs = conditions["environments"]
+      unless slugs.is_a?(Array) && slugs.all?(String)
+        errors.add(:conditions, "environments must be a list of environment slugs (a comma-separated string is also accepted)")
+        return
+      end
+      if slugs.empty?
+        errors.add(:conditions, "environments names no environment; remove the environments key to apply the policy to every environment")
+        return
+      end
+      return if account_id.blank?
+
+      known = ::Ai::Environment.where(account_id: account_id).ordered.pluck(:slug)
+      unknown = slugs - known
+      return if unknown.empty?
+
+      errors.add(:conditions, "environments names unknown environment(s): #{unknown.join(', ')}. " \
+                              "Remove or replace them (known: #{known.join(', ')})")
     end
 
     def conditions_met?(agent_record)

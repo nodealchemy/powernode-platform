@@ -81,6 +81,15 @@ module Api
           render_success(data: ::Ai::InterventionPolicies::GroupedView.new(account: current_user.account).as_json)
         end
 
+        # GET /api/v1/ai/intervention_policies/environments
+        # The slugs a policy's conditions["environments"] may name: this
+        # account's environments in ladder order. The panel's multi-select reads
+        # them here; Ai::InterventionPolicy refuses any other slug.
+        def environments
+          rows = ::Ai::Environment.ladder_for(current_user.account)
+          render_success(environments: rows.map { |e| { slug: e.slug, name: e.name, tier: e.tier } })
+        end
+
         # PATCH /api/v1/ai/intervention_policies/bulk
         # body: { updates: [{ action_category, policy, scope?, agent_id?, ... }] }
         def bulk
