@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { getErrorMessage } from '@/shared/utils/apiErrors';
 import {
   useInterventionPolicies,
   useCreateInterventionPolicy,
@@ -14,8 +15,10 @@ import {
   useResolveInterventionPolicy,
   useTrustScores,
   useInvalidateInterventionPolicies,
+  useInterventionPolicyEnvironments,
 } from '../api/autonomyApi';
 import { PolicyDomainSections } from './PolicyDomainSections';
+import { PolicyEnvironmentSelect } from './PolicyEnvironmentSelect';
 import type { InterventionPolicy, InterventionPolicyAction, PolicyResolutionResult } from '../types/autonomy';
 
 function getPolicyColor(policy: InterventionPolicyAction): string {
@@ -39,9 +42,12 @@ interface PolicyFormData {
   policy: InterventionPolicyAction;
   priority: number;
   preferred_channels: string[];
-  conditions: Record<string, string>;
+  conditions: Record<string, string | string[]>;
   agent_id?: string;
 }
+
+// The one condition key the environments selector owns; the generic builder writes strings only.
+const ENVIRONMENTS_KEY = 'environments';
 
 const emptyPolicyForm: PolicyFormData = {
   scope: 'global', action_category: '', policy: 'require_approval', priority: 50,
@@ -59,10 +65,26 @@ const PolicyForm: React.FC<{
   const [form, setForm] = useState<PolicyFormData>(initial);
   const [condKey, setCondKey] = useState('');
   const [condVal, setCondVal] = useState('');
+  const { data: environmentOptions } = useInterventionPolicyEnvironments();
+
+  const selectedEnvironments = Array.isArray(form.conditions[ENVIRONMENTS_KEY])
+    ? (form.conditions[ENVIRONMENTS_KEY] as string[])
+    : [];
+  const otherConditions = Object.entries(form.conditions).filter(([k]) => k !== ENVIRONMENTS_KEY);
+
+  const setEnvironments = (slugs: string[]) => {
+    setForm(prev => {
+      const next = { ...prev.conditions };
+      if (slugs.length > 0) next[ENVIRONMENTS_KEY] = slugs;
+      else delete next[ENVIRONMENTS_KEY];
+      return { ...prev, conditions: next };
+    });
+  };
 
   const addCondition = () => {
-    if (!condKey.trim()) return;
-    setForm(prev => ({ ...prev, conditions: { ...prev.conditions, [condKey]: condVal } }));
+    const key = condKey.trim();
+    if (!key || key === ENVIRONMENTS_KEY) return;
+    setForm(prev => ({ ...prev, conditions: { ...prev.conditions, [key]: condVal } }));
     setCondKey(''); setCondVal('');
   };
 
@@ -144,6 +166,12 @@ const PolicyForm: React.FC<{
           </label>
         ))}
       </div>
+      {/* Environments */}
+      <PolicyEnvironmentSelect
+        options={environmentOptions ?? []}
+        value={selectedEnvironments}
+        onChange={setEnvironments}
+      />
       {/* Conditions builder */}
       <div>
         <span className="text-sm text-theme-tertiary">Conditions:</span>
@@ -152,11 +180,11 @@ const PolicyForm: React.FC<{
           <input type="text" value={condVal} onChange={(e) => setCondVal(e.target.value)} placeholder="Value" className="flex-1 px-2 py-1 text-xs rounded border border-theme bg-theme-surface text-theme-primary" />
           <button onClick={addCondition} className="btn-theme btn-theme-secondary btn-theme-sm text-xs">Add</button>
         </div>
-        {Object.keys(form.conditions).length > 0 && (
+        {otherConditions.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
-            {Object.entries(form.conditions).map(([k, v]) => (
+            {otherConditions.map(([k, v]) => (
               <span key={k} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded bg-theme-surface border border-theme text-theme-secondary">
-                {k}: {v} <button onClick={() => removeCondition(k)} className="text-theme-error-fg">&times;</button>
+                {k}: {Array.isArray(v) ? v.join(', ') : v} <button onClick={() => removeCondition(k)} className="text-theme-error-fg">&times;</button>
               </span>
             ))}
           </div>
@@ -212,8 +240,8 @@ const PolicyCard: React.FC<{
       addNotification({ type: 'success', message: 'Policy updated' });
       onChanged();
       setEditing(false);
-    } catch {
-      addNotification({ type: 'error', message: 'Failed to update policy' });
+    } catch (error) {
+      addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to update policy') });
     }
   };
 
@@ -274,7 +302,7 @@ const PolicyCard: React.FC<{
                 policy: policy.policy,
                 priority: policy.priority,
                 preferred_channels: [...policy.preferred_channels],
-                conditions: { ...(policy.conditions as Record<string, string>) },
+                conditions: { ...(policy.conditions as Record<string, string | string[]>) },
                 agent_id: policy.agent?.id,
               }}
               agents={agents}
@@ -293,7 +321,7 @@ const PolicyCard: React.FC<{
                     {Object.entries(policy.conditions).map(([key, value]) => (
                       <p key={key} className="text-theme-secondary">
                         <span className="font-medium">{key}: </span>
-                        {typeof value === 'string' ? value : JSON.stringify(value)}
+                        {typeof value === 'string' ? value : Array.isArray(value) ? value.join(', ') : JSON.stringify(value)}
                       </p>
                     ))}
                   </div>
@@ -433,8 +461,8 @@ const PolicyList: React.FC<{ onChanged: () => void }> = ({ onChanged }) => {
       addNotification({ type: 'success', message: 'Policy created' });
       onChanged();
       setShowCreate(false);
-    } catch {
-      addNotification({ type: 'error', message: 'Failed to create policy' });
+    } catch (error) {
+      addNotification({ type: 'error', message: getErrorMessage(error, 'Failed to create policy') });
     }
   };
 

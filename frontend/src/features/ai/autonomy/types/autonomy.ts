@@ -286,6 +286,13 @@ export interface InterventionPolicy {
   updated_at: string;
 }
 
+/** An environment a policy's conditions.environments may name (GET /ai/intervention_policies/environments). */
+export interface PolicyEnvironmentOption {
+  slug: string;
+  name: string;
+  tier: number;
+}
+
 // ===== Goal Detail =====
 // ===== Policy Resolution =====
 
