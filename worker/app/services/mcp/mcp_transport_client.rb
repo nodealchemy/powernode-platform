@@ -106,7 +106,8 @@ module Mcp
         stdout, stderr, status = McpSecurityService.spawn_stdio(
           command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network,
                                          egress_allowlist: egress_allowlist,
-                                         mcp_server_id: indifferent_server['id']
+                                         mcp_server_id: indifferent_server['id'],
+                                         account_id: indifferent_server['account_id']
         )
 
         if status.success?

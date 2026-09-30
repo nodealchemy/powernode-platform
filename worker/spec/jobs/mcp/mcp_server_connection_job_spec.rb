@@ -260,6 +260,23 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
             )
         end
 
+        # IMP-bd260c0b4c00 — the owning account keys the per-account sandbox
+        # identity; the server payload's own account_id is what carries it.
+        it "passes the server's account_id through to spawn_stdio" do
+          allow(api_client).to receive(:get)
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge('command' => 'node', 'account_id' => 'acct-42') })
+
+          allow(api_client).to receive(:patch).and_return(success: true)
+          allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
+
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, account_id:, **_kwargs|
+            expect(account_id).to eq('acct-42')
+            [ '{}', '', instance_double(Process::Status, success?: true) ]
+          end
+
+          job.execute(server_id, { 'action' => 'connect' })
+        end
+
         # IMP-bf72723ef161 — same reasoning as allow_network above.
         it "passes egress_allowlist through to spawn_stdio when the server's capabilities carry one" do
           allow(api_client).to receive(:get)

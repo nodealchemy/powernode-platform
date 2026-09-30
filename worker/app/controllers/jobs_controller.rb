@@ -313,15 +313,17 @@ class JobsController
   # Mcp::WorkerStdioClient (IMP-abda86fb39be, MCP isolation Phase 0 T1:
   # the server no longer spawns stdio MCP children itself).
   #
-  # account_id is INFORMATIONAL ONLY, not an authorization check: this
-  # endpoint never looks up an McpServer row (no ID crosses this boundary,
-  # only the already-resolved raw command/args/env in `server`), so there
-  # is nothing to verify it against. Tenancy is enforced upstream, by the
-  # server's own account-scoped lookup of the config being forwarded here
-  # -- exactly as before this endpoint existed, since spawning locally
-  # never checked tenancy either. account_id is passed through purely for
-  # worker-side observability, matching its existing non-authoritative
-  # role in generate_embedding/generate_batch_embeddings above.
+  # account_id is NOT an authorization check: this endpoint never looks up
+  # an McpServer row (no ID crosses this boundary, only the already-
+  # resolved raw command/args/env in `server`), so there is nothing to
+  # verify it against. Tenancy is enforced upstream, by the server's own
+  # account-scoped lookup of the config being forwarded here -- exactly as
+  # before this endpoint existed, since spawning locally never checked
+  # tenancy either. It IS load-bearing for isolation (IMP-bd260c0b4c00):
+  # it keys the sandbox identity (User=/CacheDirectory=) the child runs
+  # under, so one account's child cannot read another's process
+  # environment or poison its package cache. It overrides any account_id
+  # inside `server`.
   #
   # McpSecurityService.validate_stdio_server! (invoked inside
   # #execute_stdio_request below) is the REAL security gate here, not
@@ -356,7 +358,7 @@ class JobsController
     end
 
     begin
-      result = mcp_transport_client.execute_stdio_request(server, mcp_request)
+      result = mcp_transport_client.execute_stdio_request(server.merge('account_id' => account_id), mcp_request)
 
       if result[:success]
         success_response({ result: result[:output] })

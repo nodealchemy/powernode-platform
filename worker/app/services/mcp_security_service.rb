@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'shellwords'
+require 'digest'
 require 'ipaddr'
 require 'resolv'
 require 'socket'
@@ -68,6 +69,14 @@ class McpSecurityService
   # fail-CLOSED availability decision, not evidence the request itself was
   # malicious.
   class SandboxUnavailableError < StandardError; end
+
+  # IMP-bd260c0b4c00 — raised when a sandboxed spawn has no account to key
+  # its sandbox identity on (see .sandbox_identity). Refusing is the only
+  # safe answer: falling back to a shared identity would let one tenant's
+  # child read another's /proc/<pid>/environ and poison its package cache.
+  # A SandboxUnavailableError so every existing caller rescue already
+  # refuses it the same way.
+  class SandboxAccountRequiredError < SandboxUnavailableError; end
 
   # Allowed commands for stdio MCP servers — bare NAMES only (IMP-b6be9d979e13:
   # this used to also list a partial, inconsistent set of hardcoded absolute
@@ -624,27 +633,49 @@ class McpSecurityService
   # non-root under MCP_STDIO_SANDBOX_MODE=required.
   SANDBOX_REQUIRES_ROOT = true
 
-  # A FIXED, shared systemd "dynamic user" NAME (not a real Unix account —
-  # NSS-only, exists only while at least one unit using it is active) —
-  # deliberately the SAME name across every sandboxed stdio spawn, not a
-  # fresh one per invocation. Confirmed empirically why this matters: two
-  # CONCURRENT sandboxed spawns each given a plain `DynamicUser=yes` (no
-  # `User=`) get two DIFFERENT dynamically-allocated UIDs, and the second
-  # one to touch the shared #SANDBOX_CACHE_DIR_NAME then fails with
-  # "Permission denied" — the first invocation's dynamic UID already owns
-  # it. Pinning `User=` to this one name makes systemd hand out the SAME
-  # UID to every invocation using it (verified: two concurrent runs both
-  # `id` as the identical uid/gid), which is exactly how a normal
-  # (non-transient) DynamicUser service already behaves across its own
-  # restarts — this just does it deliberately for our transient units too.
-  SANDBOX_USER_NAME = 'mcp-stdio-sandbox'
-
-  # Name for `-p CacheDirectory=`, which systemd creates as
-  # /var/cache/<name> (owned by #SANDBOX_USER_NAME, isolated from the real
-  # /var/cache via a private bind mount) and is what makes ProtectHome's
-  # otherwise-removed $HOME survive for npx/uvx's own package cache.
-  # #spawn_stdio points `HOME` at this directory when sandboxing.
-  SANDBOX_CACHE_DIR_NAME = 'mcp-stdio-sandbox'
+  # IMP-bd260c0b4c00 — each ACCOUNT gets its own systemd "dynamic user"
+  # NAME (not a real Unix account — NSS-only, exists only while at least
+  # one unit using it is active), used for BOTH `User=` and
+  # `CacheDirectory=` (created as /var/cache/<name>, owned by that user,
+  # isolated from the real /var/cache via a private bind mount, and what
+  # makes ProtectHome's otherwise-removed $HOME survive for npx/uvx's own
+  # package cache; #spawn_stdio points `HOME` at it).
+  #
+  # Why not ONE shared name (this constant's previous shape): verified by
+  # execution on systemd 255 that with one shared User=, concurrent
+  # children of DIFFERENT tenants ran as the same uid — so one tenant's
+  # MCP server read another's concurrent /proc/<pid>/environ (API tokens)
+  # and wrote into the shared npx/uvx cache the other's `npx -y` executes.
+  #
+  # Why a pinned NAME per account rather than a bare per-unit DynamicUser:
+  # two CONCURRENT units each given a plain `DynamicUser=yes` (no `User=`)
+  # get two DIFFERENT dynamically-allocated UIDs, and the second one to
+  # touch a shared CacheDirectory fails with "Permission denied". Pinning
+  # `User=` makes every unit of ONE account share one uid (and so its
+  # cache, which is what keeps npx caching working), while units of
+  # DIFFERENT accounts get different uids (verified: distinct uids, and
+  # the other account's cache directory is not even present in the
+  # unit's mount namespace). ProtectProc=invisible + ProcSubset=pid then
+  # hide other uids' processes entirely (verified: another account's pid
+  # does not exist in /proc), so the environ leak is closed by two
+  # independent layers.
+  #
+  # The name is a truncated SHA-256 of the account id: systemd user names
+  # are limited to 31 characters, so `mcp-stdio-` + 21 hex characters
+  # (84 bits) is the longest that fits. Hashing (rather than truncating
+  # the UUID) matters because a UUIDv7's leading characters are its
+  # timestamp — accounts created together would share a prefix and
+  # collide. 84 bits makes a collision between two accounts negligible
+  # (birthday bound ~2^42 accounts); there is no per-host registry to
+  # detect one because none is needed at that size.
+  #
+  # Cache directories are per account and are NOT garbage-collected here:
+  # each holds only that account's npx/uvx package cache, bounded by what
+  # its own MCP servers install, and is recreated on demand. Reclaiming a
+  # deleted account's directory is an operator action (`rm -rf
+  # /var/cache/private/mcp-stdio-<hash>` on the worker host).
+  SANDBOX_IDENTITY_PREFIX = 'mcp-stdio-'
+  SANDBOX_IDENTITY_HEX_LENGTH = 21
 
   # Resource limits applied to every sandboxed stdio MCP child — ENV-
   # overridable, each with a documented default (see worker/.env.example),
@@ -852,15 +883,15 @@ class McpSecurityService
     # deadline loop above is unchanged, since it only ever cared about
     # pipes and a pid, not what's on the other end of them.
     #   - DynamicUser=yes + ProtectSystem=strict + ProtectHome=yes +
-    #     PrivateTmp=yes + NoNewPrivileges=yes, pinned to the SAME
-    #     symbolic User= every time (#SANDBOX_USER_NAME) — empirically
-    #     required: two CONCURRENT spawns each given a bare
-    #     `DynamicUser=yes` get two DIFFERENT dynamic UIDs, and whichever
-    #     one didn't create #SANDBOX_CACHE_DIR_NAME first gets
-    #     "Permission denied" on it. Pinning User= gives every invocation
-    #     the SAME uid, verified empirically (two concurrent runs `id`
-    #     identically) — the same behavior a normal (non-transient)
-    #     DynamicUser service already gets across its own restarts.
+    #     PrivateTmp=yes + NoNewPrivileges=yes + ProtectProc=invisible +
+    #     ProcSubset=pid, with User= pinned to the ACCOUNT's own identity
+    #     (.sandbox_identity, IMP-bd260c0b4c00): every child of one
+    #     account shares one uid (and so one cache), children of
+    #     different accounts never do, and cannot see each other's
+    #     processes. `account_id:` is REQUIRED when sandboxing — a nil or
+    #     blank one raises SandboxAccountRequiredError, never a shared
+    #     fallback. See SANDBOX_IDENTITY_PREFIX for why a pinned name,
+    #     not a bare per-unit DynamicUser.
     #   - IPAddressDeny=any by DEFAULT — omitted entirely when the
     #     server's capabilities['allow_network'] (`allow_network:` below)
     #     is true, an admin-gated opt-in at the SAME trust tier as
@@ -870,7 +901,7 @@ class McpSecurityService
     #     hostname, but systemd resolves it ONCE at unit start (a
     #     snapshot), which would silently go stale against a CDN-backed
     #     target — deliberately not built.
-    #   - CacheDirectory=#{SANDBOX_CACHE_DIR_NAME} + Environment=HOME=
+    #   - CacheDirectory=<the account's identity> + Environment=HOME=
     #     pointed at it, since ProtectHome removes $HOME entirely
     #     (verified: `/home` and `/root` become mode 0700, unreadable, and
     #     the root filesystem itself goes read-only under
@@ -903,18 +934,25 @@ class McpSecurityService
     #     generated --unit= name>` reaches it.
     #
     # required (default) vs available vs off: see SANDBOX_MODES above.
-    # `allow_network:` and `timeout:` are the only sandbox-relevant
-    # arguments a caller passes in — the unit name, resource limits and
-    # env-file path are generated fresh, internally, every call.
+    # `allow_network:`, `timeout:` and `account_id:` are the only sandbox-
+    # relevant arguments a caller passes in — the unit name, resource
+    # limits and env-file path are generated fresh, internally, every call.
+    # `account_id:` (the owning account of the MCP server, already on the
+    # caller's payload) selects the sandbox identity; it is ignored when
+    # sandboxing is off.
     #
     # @return [Array(String, String, Process::Status)] [stdout, stderr, status]
     # @raise [StdioTimeoutError] if the child doesn't finish within `timeout`
     # @raise [SandboxUnavailableError] if mode is "required" and sandboxing isn't possible
+    # @raise [SandboxAccountRequiredError] if sandboxed and account_id is nil/blank
     def spawn_stdio(command, env, args, stdin_data:, timeout: stdio_timeout_seconds, allow_network: false,
-                     egress_allowlist: [], mcp_server_id: nil)
+                     egress_allowlist: [], mcp_server_id: nil, account_id: nil)
       require 'open3'
 
       sandboxed = sandbox_for_this_call?
+      # Checked BEFORE the env file is written: a missing account must
+      # refuse without leaving a secret on /run or spawning anything.
+      sandbox_identity(account_id) if sandboxed
       unit_name = sandboxed ? "mcp-stdio-#{SecureRandom.uuid}" : nil
       # Only the SERVER-supplied portion goes in the file — this
       # process's own passthrough keys (PATH/HOME/LANG/...) go via
@@ -942,8 +980,8 @@ class McpSecurityService
       begin
         spawn_env, spawn_command, spawn_args =
           if sandboxed
-            sandboxed_spawn_argv(command, args, env: env, unit_name: unit_name, env_file_path: env_file_path,
-                                                timeout: timeout, allow_network: allow_network,
+            sandboxed_spawn_argv(command, args, env: env, account_id: account_id, unit_name: unit_name,
+                                                env_file_path: env_file_path, timeout: timeout, allow_network: allow_network,
                                                 egress_allowlist: egress_allowlist, mcp_server_id: mcp_server_id)
           else
             [ env, command, Array(args) ]
@@ -1033,6 +1071,28 @@ class McpSecurityService
         # any other exception, or a popen3-level Errno::ENOENT/EMFILE).
         cleanup_sandbox_env_file(env_file_path) if env_file_path
       end
+    end
+
+    # IMP-bd260c0b4c00 — the per-account sandbox identity (see
+    # SANDBOX_IDENTITY_PREFIX above): the `User=`/`CacheDirectory=` name
+    # for every sandboxed child of this account. Deterministic, so an
+    # account's concurrent and successive children share one uid and one
+    # cache; case/whitespace-normalized so one account never gets two.
+    # A nil or blank account_id raises — there is deliberately no shared
+    # fallback identity.
+    #
+    # @param account_id [String, nil]
+    # @return [String] e.g. "mcp-stdio-3f9a1c0b7d2e4a5b6c8d1"
+    # @raise [SandboxAccountRequiredError] if account_id is nil or blank
+    def sandbox_identity(account_id)
+      normalized = account_id.to_s.strip.downcase
+      if normalized.empty?
+        raise SandboxAccountRequiredError,
+              'a sandboxed stdio MCP spawn requires an account_id to key its sandbox identity ' \
+              '(refusing to fall back to a shared identity)'
+      end
+
+      "#{SANDBOX_IDENTITY_PREFIX}#{Digest::SHA256.hexdigest(normalized)[0, SANDBOX_IDENTITY_HEX_LENGTH]}"
     end
 
     # Resolves the deadline from config — MCP_STDIO_TIMEOUT_SECONDS if set
@@ -1132,8 +1192,9 @@ class McpSecurityService
     # sent via the EnvironmentFile at env_file_path, written by the
     # caller) because ONLY the split matters for where each half is
     # allowed to go — see #spawn_stdio's own comment for why.
-    def sandboxed_spawn_argv(command, args, env:, unit_name:, env_file_path:, timeout:, allow_network:,
+    def sandboxed_spawn_argv(command, args, env:, account_id:, unit_name:, env_file_path:, timeout:, allow_network:,
                               egress_allowlist: [], mcp_server_id: nil)
+      identity = sandbox_identity(account_id)
       passthrough = env.slice(*STDIO_ENV_PASSTHROUGH_KEYS).except('HOME')
 
       argv = [
@@ -1141,9 +1202,15 @@ class McpSecurityService
         '--pipe', '--wait', '--collect', '--quiet',
         "--unit=#{unit_name}",
         '-p', 'DynamicUser=yes',
-        '-p', "User=#{SANDBOX_USER_NAME}",
+        '-p', "User=#{identity}",
         '-p', 'ProtectSystem=strict',
         '-p', 'ProtectHome=yes',
+        # IMP-bd260c0b4c00 — other uids' processes do not exist in this
+        # unit's /proc at all, so another account's /proc/<pid>/environ
+        # cannot even be opened. Defense in depth behind the per-account
+        # User=.
+        '-p', 'ProtectProc=invisible',
+        '-p', 'ProcSubset=pid',
         '-p', 'PrivateTmp=yes',
         '-p', 'NoNewPrivileges=yes',
         '-p', "RuntimeMaxSec=#{timeout}",
@@ -1157,13 +1224,13 @@ class McpSecurityService
         '-p', "MemoryMax=#{sandbox_memory_max}",
         '-p', "TasksMax=#{sandbox_tasks_max}",
         '-p', "CPUQuota=#{sandbox_cpu_quota}",
-        '-p', "CacheDirectory=#{SANDBOX_CACHE_DIR_NAME}",
+        '-p', "CacheDirectory=#{identity}",
         '-p', "EnvironmentFile=#{env_file_path}"
       ]
       argv += network_policy_argv(allow_network: allow_network, egress_allowlist: egress_allowlist,
                                    mcp_server_id: mcp_server_id)
       passthrough.each { |key, value| argv += [ "--setenv=#{key}=#{value}" ] }
-      argv += [ "--setenv=HOME=/var/cache/#{SANDBOX_CACHE_DIR_NAME}" ]
+      argv += [ "--setenv=HOME=/var/cache/#{identity}" ]
       argv += [ '--', command, *Array(args) ]
 
       # The systemd-run CLIENT's OWN environment is deliberately NOT the

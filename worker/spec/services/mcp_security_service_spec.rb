@@ -1176,22 +1176,24 @@ RSpec.describe McpSecurityService do
 
     describe '#sandboxed_spawn_argv (unit — argv construction, no real spawn)' do
       let(:env_file_path) { described_class.send(:write_sandbox_env_file, {}) }
+      let(:account_id) { '019f0000-0000-7000-8000-00000000000a' }
+      let(:sandbox_identity) { described_class.sandbox_identity(account_id) }
 
       after { described_class.send(:cleanup_sandbox_env_file, env_file_path) }
 
       it 'wraps the command in systemd-run with the expected hardening properties' do
         spawn_env, spawn_command, spawn_args = described_class.send(
           :sandboxed_spawn_argv, 'node', [ 'server.js' ],
-          env: { 'PATH' => '/usr/bin' }, unit_name: 'mcp-stdio-test-unit',
+          env: { 'PATH' => '/usr/bin' }, account_id: account_id, unit_name: 'mcp-stdio-test-unit',
           env_file_path: env_file_path, timeout: 30, allow_network: false
         )
 
         expect(spawn_command).to eq(described_class.send(:systemd_run_path))
         expect(spawn_args).to include(
-          '--unit=mcp-stdio-test-unit', 'DynamicUser=yes', "User=#{described_class::SANDBOX_USER_NAME}",
+          '--unit=mcp-stdio-test-unit', 'DynamicUser=yes', "User=#{sandbox_identity}",
           'ProtectSystem=strict', 'ProtectHome=yes', 'PrivateTmp=yes', 'NoNewPrivileges=yes',
           'RuntimeMaxSec=30', 'IPAddressDeny=any', "EnvironmentFile=#{env_file_path}",
-          "CacheDirectory=#{described_class::SANDBOX_CACHE_DIR_NAME}"
+          "CacheDirectory=#{sandbox_identity}"
         )
         expect(spawn_args.last(3)).to eq([ '--', 'node', 'server.js' ])
         # The systemd-run CLIENT's own env is NOT the sandboxed child's
@@ -1204,7 +1206,7 @@ RSpec.describe McpSecurityService do
         allow(described_class).to receive(:host_own_addresses).and_return([])
 
         _, _, spawn_args = described_class.send(
-          :sandboxed_spawn_argv, 'node', [], env: {}, unit_name: 'u',
+          :sandboxed_spawn_argv, 'node', [], env: {}, account_id: account_id, unit_name: 'u',
           env_file_path: env_file_path, timeout: 30, allow_network: true
         )
         expect(spawn_args).not_to include('IPAddressDeny=any')
@@ -1220,7 +1222,7 @@ RSpec.describe McpSecurityService do
         allow(described_class).to receive(:host_own_addresses).and_return([ '10.0.0.5', '::1' ])
 
         _, _, spawn_args = described_class.send(
-          :sandboxed_spawn_argv, 'node', [], env: {}, unit_name: 'u',
+          :sandboxed_spawn_argv, 'node', [], env: {}, account_id: account_id, unit_name: 'u',
           env_file_path: env_file_path, timeout: 30, allow_network: true
         )
 
@@ -1242,7 +1244,7 @@ RSpec.describe McpSecurityService do
         allow(described_class).to receive(:resolver_stub_addresses).and_return([ '127.0.0.53' ])
 
         _, _, spawn_args = described_class.send(
-          :sandboxed_spawn_argv, 'node', [], env: {}, unit_name: 'u',
+          :sandboxed_spawn_argv, 'node', [], env: {}, account_id: account_id, unit_name: 'u',
           env_file_path: env_file_path, timeout: 30, allow_network: false,
           egress_allowlist: [ '10.0.0.0/8' ]
         )
@@ -1256,7 +1258,7 @@ RSpec.describe McpSecurityService do
 
       it 'still sets PrivateNetwork=yes for the plain full-deny path (no allow_network, no allowlist)' do
         _, _, spawn_args = described_class.send(
-          :sandboxed_spawn_argv, 'node', [], env: {}, unit_name: 'u',
+          :sandboxed_spawn_argv, 'node', [], env: {}, account_id: account_id, unit_name: 'u',
           env_file_path: env_file_path, timeout: 30, allow_network: false
         )
         expect(spawn_args).to include('IPAddressDeny=any', 'PrivateNetwork=yes')
@@ -1267,7 +1269,7 @@ RSpec.describe McpSecurityService do
         _, _, spawn_args = described_class.send(
           :sandboxed_spawn_argv, 'node', [],
           env: { 'PATH' => '/usr/bin', 'API_KEY' => 'super-secret-value' },
-          unit_name: 'u', env_file_path: env_file_path, timeout: 30, allow_network: false
+          account_id: account_id, unit_name: 'u', env_file_path: env_file_path, timeout: 30, allow_network: false
         )
         joined = spawn_args.join(' ')
         expect(joined).not_to include('super-secret-value')
@@ -1277,10 +1279,66 @@ RSpec.describe McpSecurityService do
       it 'overrides HOME to the sandbox cache directory, never a passthrough HOME value' do
         _, _, spawn_args = described_class.send(
           :sandboxed_spawn_argv, 'node', [], env: { 'HOME' => '/home/worker' },
-          unit_name: 'u', env_file_path: env_file_path, timeout: 30, allow_network: false
+          account_id: account_id, unit_name: 'u', env_file_path: env_file_path, timeout: 30, allow_network: false
         )
-        expect(spawn_args).to include("--setenv=HOME=/var/cache/#{described_class::SANDBOX_CACHE_DIR_NAME}")
+        expect(spawn_args).to include("--setenv=HOME=/var/cache/#{sandbox_identity}")
         expect(spawn_args.join(' ')).not_to include('--setenv=HOME=/home/worker')
+      end
+
+      # IMP-bd260c0b4c00 — every account gets its OWN sandbox identity
+      # (User= + CacheDirectory=). Proven by execution on a real
+      # systemd 255 host: under one shared User=, tenant A's child read
+      # tenant B's concurrent /proc/<pid>/environ (API tokens) and wrote
+      # into the npx/uvx cache B's `npx -y` then executes.
+      describe 'per-account sandbox identity (IMP-bd260c0b4c00)' do
+        def argv_for(account)
+          _, _, args = described_class.send(
+            :sandboxed_spawn_argv, 'node', [], env: {}, account_id: account, unit_name: 'u',
+            env_file_path: env_file_path, timeout: 30, allow_network: false
+          )
+          args
+        end
+
+        it 'keys User=, CacheDirectory= and HOME by the account' do
+          expect(argv_for(account_id)).to include(
+            "User=#{sandbox_identity}", "CacheDirectory=#{sandbox_identity}",
+            "--setenv=HOME=/var/cache/#{sandbox_identity}"
+          )
+        end
+
+        it "hides other accounts' processes: ProtectProc=invisible and ProcSubset=pid" do
+          expect(argv_for(account_id)).to include('ProtectProc=invisible', 'ProcSubset=pid')
+        end
+
+        it 'gives two accounts different identities and one account a stable identity' do
+          other = '019f0000-0000-7000-8000-00000000000b'
+          expect(argv_for(other)).not_to include("User=#{sandbox_identity}")
+          expect(described_class.sandbox_identity(other)).not_to eq(sandbox_identity)
+          expect(described_class.sandbox_identity(account_id)).to eq(sandbox_identity)
+        end
+
+        it 'is a valid systemd user name: within 31 characters, [a-z0-9-] only, never the raw account id' do
+          expect(sandbox_identity).to match(/\Amcp-stdio-[0-9a-f]{21}\z/)
+          expect(sandbox_identity.length).to be <= 31
+          expect(sandbox_identity).not_to include(account_id[0, 8])
+        end
+
+        it 'does not key on the UUIDv7 time prefix: accounts created together still differ' do
+          ids = (0..50).map { |i| format('019f0000-0000-7000-8000-%012x', i) }
+          expect(ids.map { |id| described_class.sandbox_identity(id) }.uniq.size).to eq(ids.size)
+        end
+
+        it 'treats case and surrounding whitespace as the same account' do
+          expect(described_class.sandbox_identity(" #{account_id.upcase} ")).to eq(sandbox_identity)
+        end
+
+        it 'FAILS CLOSED for a nil or blank account_id: never the shared identity' do
+          [ nil, '', '   ' ].each do |blank|
+            expect { argv_for(blank) }.to raise_error(described_class::SandboxAccountRequiredError)
+            expect { described_class.sandbox_identity(blank) }
+              .to raise_error(described_class::SandboxAccountRequiredError)
+          end
+        end
       end
     end
 
@@ -1761,11 +1819,42 @@ RSpec.describe McpSecurityService do
         allow(Open3).to receive(:popen3).and_raise(Errno::ENOENT, 'no such file or directory - nonexistent-command')
 
         expect do
-          described_class.spawn_stdio('nonexistent-command', {}, [], stdin_data: '')
+          described_class.spawn_stdio('nonexistent-command', {}, [], stdin_data: '', account_id: 'acct-1')
         end.to raise_error(Errno::ENOENT)
 
         expect(written_path).not_to be_nil
         expect(File.exist?(written_path)).to be false
+      end
+    end
+
+    # IMP-bd260c0b4c00 — a sandboxed spawn with no account identity must
+    # refuse BEFORE anything is written or spawned: never the shared
+    # identity, never an env file left on /run.
+    describe '#spawn_stdio without an account_id (fail closed)' do
+      [ nil, '', '  ' ].each do |blank|
+        it "refuses a sandboxed spawn for account_id=#{blank.inspect} before writing an env file or spawning" do
+          require 'open3'
+          allow(described_class).to receive(:sandbox_for_this_call?).and_return(true)
+          expect(described_class).not_to receive(:write_sandbox_env_file)
+          expect(Open3).not_to receive(:popen3)
+
+          expect do
+            described_class.spawn_stdio('node', { 'API_KEY' => 'x' }, [], stdin_data: '', account_id: blank)
+          end.to raise_error(described_class::SandboxAccountRequiredError)
+        end
+      end
+
+      it 'is a SandboxUnavailableError, so every existing caller rescue already refuses it' do
+        expect(described_class::SandboxAccountRequiredError.ancestors).to include(described_class::SandboxUnavailableError)
+      end
+
+      it 'does not need an account when sandboxing is off (no identity is used)' do
+        expect(described_class).not_to receive(:sandbox_identity)
+        with_sandbox_mode('off') do
+          stdout, _stderr, status = described_class.spawn_stdio('/bin/echo', {}, [ 'ok' ], stdin_data: '')
+          expect(status).to be_success
+          expect(stdout.strip).to eq('ok')
+        end
       end
     end
 
@@ -1780,13 +1869,15 @@ RSpec.describe McpSecurityService do
     # sandboxing, so every probe here is a real SCRIPT FILE, exactly like
     # the pre-existing IMP-4689ce5a4acb real-spawn specs above. That file
     # (and any pidfile a script writes) must live under the SAME
-    # CacheDirectory the sandbox itself uses (SANDBOX_CACHE_DIR_NAME,
+    # CacheDirectory the sandbox itself uses (the account's sandbox_identity,
     # i.e. $HOME inside the sandbox) — verified empirically that
     # PrivateTmp=yes isolates BOTH /tmp AND /var/tmp from a HOST path
     # written there, so a Tempfile under either would be invisible to
     # the sandboxed child; #{CacheDirectory} is the one real, shared,
     # host-visible path both sides can see.
     describe '#spawn_stdio real sandboxed spawn (root-gated)' do
+      let(:sandbox_account_id) { '019f0000-0000-7000-8000-0000000000aa' }
+
       before do
         skip 'requires real root + a real systemd-run on PATH (not available in this run)' unless real_sandbox_available?
       end
@@ -1797,7 +1888,7 @@ RSpec.describe McpSecurityService do
       # child. Created directly (no sandbox involved) so a script can be
       # written there before the spawn.
       def sandbox_probe_dir
-        dir = "/var/cache/#{described_class::SANDBOX_CACHE_DIR_NAME}"
+        dir = "/var/cache/#{described_class.sandbox_identity(sandbox_account_id)}"
         FileUtils.mkdir_p(dir)
         dir
       end
@@ -1808,12 +1899,99 @@ RSpec.describe McpSecurityService do
         path
       end
 
+      # IMP-bd260c0b4c00 — the isolation this identity exists for, proven
+      # against the REAL systemd-run: while tenant B's child is running
+      # (holding a server-supplied secret in its environment and a file in
+      # its cache), tenant A's child can neither see nor read B's
+      # /proc/<pid>/environ, nor reach B's cache directory. On the old
+      # shared User= both succeeded (A read B's token and poisoned the
+      # cache B's `npx -y` executes).
+      it "isolates one account's child from another account's concurrent child (environ, pids, cache)" do
+        account_b = '019f0000-0000-7000-8000-0000000000bb'
+        dir_a = sandbox_probe_dir
+        dir_b = "/var/cache/#{described_class.sandbox_identity(account_b)}"
+        FileUtils.mkdir_p(dir_b)
+        script_b = File.join(dir_b, "holder-#{SecureRandom.uuid}.py")
+        File.write(script_b, "import os, time\nopen(os.environ['HOME'] + '/marker', 'w').write('b')\ntime.sleep(8)\n")
+        script_a = File.join(dir_a, "attacker-#{SecureRandom.uuid}.py")
+        File.write(script_a, <<~PY)
+          import os, sys
+          leaked = 0
+          visible = 0
+          for pid in filter(str.isdigit, os.listdir('/proc')):
+              if pid == str(os.getpid()):
+                  continue
+              visible += 1
+              try:
+                  if b'TENANT_B_SECRET' in open('/proc/%s/environ' % pid, 'rb').read():
+                      leaked += 1
+              except OSError:
+                  pass
+          print('ENVIRON_LEAKED=%d' % leaked)
+          print('OTHER_PIDS_VISIBLE=%d' % visible)
+          try:
+              open('#{dir_b}/poison', 'w').write('x')
+              print('CACHE_WRITE: REACHED')
+          except OSError:
+              print('CACHE_WRITE: BLOCKED')
+          print('CACHE_B_LISTABLE: %s' % os.path.isdir('#{dir_b}'))
+        PY
+
+        with_sandbox_mode('required') do
+          b_command, b_env, b_args = described_class.validate_stdio_server!(
+            'command' => 'python3', 'args' => [ script_b ], 'env' => { 'TENANT_B_SECRET' => 'tenant-b-token' }
+          )
+          b_thread = Thread.new do
+            described_class.spawn_stdio(b_command, b_env, b_args, stdin_data: '', timeout: 30, account_id: account_b)
+          end
+          # B is provably running (and holding its secret) once it has
+          # written its marker into its own cache — a vacuous "nothing
+          # leaked" from a B that already exited must not pass.
+          deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + 10
+          sleep 0.1 until File.exist?(File.join(dir_b, 'marker')) || Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+          expect(File.exist?(File.join(dir_b, 'marker'))).to be(true), 'tenant B child never started'
+
+          a_command, a_env, a_args = described_class.validate_stdio_server!('command' => 'python3', 'args' => [ script_a ])
+          stdout, stderr, status = described_class.spawn_stdio(
+            a_command, a_env, a_args, stdin_data: '', timeout: 15, account_id: sandbox_account_id
+          )
+
+          expect(status).to be_success, "attacker child failed: #{stderr}"
+          expect(stdout).to include('ENVIRON_LEAKED=0')
+          expect(stdout).to include('OTHER_PIDS_VISIBLE=0')
+          expect(stdout).to include('CACHE_WRITE: BLOCKED')
+          expect(stdout).to include('CACHE_B_LISTABLE: False')
+          b_thread.join(20)
+        end
+      ensure
+        [ script_a, script_b ].compact.each { |path| File.delete(path) if File.exist?(path) }
+      end
+
+      it "an account's own children share that account's cache across spawns (npx/uvx caching still works)" do
+        writer = File.join(sandbox_probe_dir, "writer-#{SecureRandom.uuid}.py")
+        File.write(writer, "import os\nopen(os.environ['HOME'] + '/shared-pkg', 'w').write('cached')\n")
+        reader = File.join(sandbox_probe_dir, "reader-#{SecureRandom.uuid}.py")
+        File.write(reader, "import os\nprint(open(os.environ['HOME'] + '/shared-pkg').read())\n")
+
+        with_sandbox_mode('required') do
+          [ writer, reader ].each_with_index do |script, index|
+            command, env, args = described_class.validate_stdio_server!('command' => 'python3', 'args' => [ script ])
+            stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15,
+                                                                 account_id: sandbox_account_id)
+            expect(status).to be_success, "child #{index} failed: #{stderr}"
+            expect(stdout.strip).to eq('cached') if index == 1
+          end
+        end
+      ensure
+        [ writer, reader ].compact.each { |path| File.delete(path) if File.exist?(path) }
+      end
+
       it 'spawns the child under a DIFFERENT (DynamicUser) uid than this process' do
         script_path = write_probe_script('console.log(process.getuid())')
 
         with_sandbox_mode('required') do
           command, env, args = described_class.validate_stdio_server!('command' => 'node', 'args' => [ script_path ])
-          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15)
+          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15, account_id: sandbox_account_id)
 
           expect(status).to be_success, "node child failed: #{stderr}"
           expect(stdout.strip.to_i).not_to eq(Process.uid)
@@ -1889,14 +2067,14 @@ RSpec.describe McpSecurityService do
           # allow_network: false (the default) — full deny, unrelated to
           # this test's OWN address specifically.
           denied_stdout, = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15,
-                                                                             allow_network: false)
+                                                                             account_id: sandbox_account_id, allow_network: false)
           expect(denied_stdout).to include('FULL_DENY: BLOCKED')
 
           # allow_network: true — loopback, this host's OWN address, and
           # the metadata range are denied; a genuinely non-host LAN
           # address and DNS both keep working.
           allowed_stdout, = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15,
-                                                                              allow_network: true)
+                                                                              account_id: sandbox_account_id, allow_network: true)
           expect(allowed_stdout).to include('HOST_OWN_ADDRESS: BLOCKED')
           expect(allowed_stdout).to include('OTHER_LOOPBACK: BLOCKED')
           expect(allowed_stdout).to include('NON_HOST_LAN: REACHED')
@@ -1917,7 +2095,7 @@ RSpec.describe McpSecurityService do
 
         with_sandbox_mode('required') do
           command, env, args = described_class.validate_stdio_server!('command' => 'node', 'args' => [ script_path ])
-          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15)
+          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15, account_id: sandbox_account_id)
 
           expect(status).to be_success, "node child failed: #{stderr}"
           expect(stdout).to include('WROTE')
@@ -1991,7 +2169,7 @@ RSpec.describe McpSecurityService do
         with_sandbox_mode('required') do
           command, env, args = described_class.validate_stdio_server!('command' => 'python3', 'args' => [ script_path ])
           stdout, stderr, status = described_class.spawn_stdio(
-            command, env, args, stdin_data: '', timeout: 15,
+            command, env, args, stdin_data: '', timeout: 15, account_id: sandbox_account_id,
                                  egress_allowlist: [ 'allowed.example.test' ]
           )
 
@@ -2020,7 +2198,7 @@ RSpec.describe McpSecurityService do
           command, env, args = described_class.validate_stdio_server!(
             'command' => 'node', 'args' => [ script_path ], 'env' => { 'MCP_TOKEN' => tricky_value }
           )
-          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15)
+          stdout, stderr, status = described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 15, account_id: sandbox_account_id)
 
           expect(status).to be_success, "node child failed: #{stderr}"
           expect(stdout).to eq(tricky_value)
@@ -2040,7 +2218,7 @@ RSpec.describe McpSecurityService do
           command, env, args = described_class.validate_stdio_server!('command' => 'node', 'args' => [ script_path ])
 
           expect do
-            described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 3)
+            described_class.spawn_stdio(command, env, args, stdin_data: '', timeout: 3, account_id: sandbox_account_id)
           end.to raise_error(described_class::StdioTimeoutError, /exceeded 3s/)
 
           sandboxed_pid = File.read(pidfile_path).to_i

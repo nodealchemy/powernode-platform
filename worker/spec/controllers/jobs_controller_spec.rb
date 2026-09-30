@@ -60,9 +60,24 @@ RSpec.describe JobsController do
 
     it 'returns {result:} with HTTP 200 on a successful execution' do
       allow_any_instance_of(Mcp::McpTransportClient).to receive(:execute_stdio_request) # rubocop:disable RSpec/AnyInstance
-        .with(server_hash, mcp_request).and_return(success: true, output: { 'ok' => true })
+        .with(server_hash.merge('account_id' => 'acct-1'), mcp_request).and_return(success: true, output: { 'ok' => true })
 
       post_stdio({ account_id: 'acct-1', server: server_hash, mcp_request: mcp_request })
+
+      expect(last_response.status).to eq(200)
+      expect(JSON.parse(last_response.body)).to eq('result' => { 'ok' => true })
+    end
+
+    # IMP-bd260c0b4c00 — the request's account_id keys the child's sandbox
+    # identity and wins over any account_id smuggled inside `server`.
+    it 'threads the request account_id into spawn_stdio, overriding one inside server' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, account_id:, **_kwargs|
+        expect(account_id).to eq('acct-1')
+        [ '{"jsonrpc":"2.0","id":"req-1","result":{"ok":true}}', '', success_status ]
+      end
+
+      post_stdio({ account_id: 'acct-1', server: server_hash.merge('account_id' => 'someone-else'), mcp_request: mcp_request })
 
       expect(last_response.status).to eq(200)
       expect(JSON.parse(last_response.body)).to eq('result' => { 'ok' => true })

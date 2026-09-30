@@ -145,7 +145,8 @@ module Mcp
         # IMP-e2cba83ee39f) — never call Open3.capture3 directly here.
         stdout, _stderr, status = McpSecurityService.spawn_stdio(
           command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network,
-                                         egress_allowlist: egress_allowlist, mcp_server_id: server['id']
+                                         egress_allowlist: egress_allowlist, mcp_server_id: server['id'],
+                                         account_id: server['account_id']
         )
 
         # Consider it healthy if we get any valid JSON response

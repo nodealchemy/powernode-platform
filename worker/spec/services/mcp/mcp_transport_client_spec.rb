@@ -429,6 +429,20 @@ RSpec.describe Mcp::McpTransportClient do
       expect(result).to eq(success: true, output: {})
     end
 
+    # IMP-bd260c0b4c00 — the owning account keys the per-account sandbox
+    # identity; this is the only place that reads it off the server hash.
+    it "passes the server's account_id through to spawn_stdio (string or symbol keyed)" do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, account_id:, **_kwargs|
+        expect(account_id).to eq('acct-42')
+        [ '{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status ]
+      end
+
+      result = client.execute_stdio_request(server.merge(account_id: 'acct-42'), mcp_request)
+      expect(result).to eq(success: true, output: {})
+    end
+
     # IMP-bf72723ef161 — same reasoning as allow_network above: this
     # method is the ONLY place that reads
     # server['capabilities']['egress_allowlist'] and threads it through.
