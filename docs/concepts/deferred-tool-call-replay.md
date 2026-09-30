@@ -128,6 +128,25 @@ is filtered — `Ai::AutonomyGate#create_deferred_operation!` passes `request_da
 secret-bearing params should therefore not be gate-wired until those keys are covered by a
 `SensitiveParams` entry, or until the action carries a reference rather than the value.
 
+### The same block on every park
+
+The principal descriptor is not this executor's private wire format. `Ai::Approvals::ParkPrincipal`
+is the one builder that mints it (`.descriptor`, from the parker's own state) and stamps it onto
+executor params (`.stamp`, under the `principal` key, replacing any `principal` the params already
+carry in either key shape), and every park path goes through it:
+
+| Park path | Where the stamp lands |
+|---|---|
+| a declared gate, generic **or** tool-specific `gate_context` | `BaseTool#run_through_autonomy_gate`, on whatever the context returned |
+| a hand-placed `Ai::AutonomyGate.evaluate` inside an action body (`SdwanTool#gated_result`, `DockerProvisioningTool#gated`) | the site calls `BaseTool#park_principal_stamp` itself |
+| a skill executor's own gate (`BaseSkillExecutor#gate_action!`) | stamped from the executor's caller context, instance provenance included; `.execute` strips it before `#perform` |
+
+Only this executor *rebuilds* a caller from the block. Everywhere else it is a record, read by
+`AgentAutonomyTool#get_approval_request` (an instance principal is served only the rows whose block
+names it) and by anything else that scopes parked rows to who asked. A tool-specific park therefore
+records an `unattributed` caller as-is rather than refusing to park: its executor does not need to
+rehydrate anyone. Rows written before the stamp existed carry no block and read as nobody's.
+
 ### Depth
 
 The descriptor is minted from the tool instance's own constructor state, so it is correct
