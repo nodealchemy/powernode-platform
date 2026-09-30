@@ -89,6 +89,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.boolean "feedback_submitted", default: false
     t.datetime "grace_period_ends_at", null: false
     t.jsonb "metadata", default: {}
+    t.text "notification_email"
     t.uuid "processed_by_id"
     t.datetime "processing_started_at"
     t.text "reason"
@@ -5205,6 +5206,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.datetime "grace_period_ends_at"
     t.boolean "grace_period_extended", default: false
     t.jsonb "metadata", default: {}
+    t.text "notification_email"
     t.uuid "processed_by_id"
     t.datetime "processing_started_at"
     t.text "reason"
