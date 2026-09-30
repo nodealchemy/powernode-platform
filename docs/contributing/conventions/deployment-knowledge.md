@@ -21,6 +21,10 @@ Placeholders in tracked docs: `<hub-host>`, `<hub-vmid>`, `<hypervisor>`, an
 `example.test` name, an RFC 5737 address (`192.0.2.x`, `198.51.100.x`, `203.0.113.x`).
 Public brand domains are not deployment identifiers and may appear in tracked docs.
 
+Memories (`memory-*`, contract in [knowledge-lifecycle.md](knowledge-lifecycle.md)) share this
+access model: account-scoped, never `global`. SharedKnowledge `private` is a label, not an ACL:
+search scopes by account only, so anyone who can search the account can read a `private` entry.
+
 ## Writing deployment knowledge
 
 Two equivalent paths; both land in the same store with the same tags.
