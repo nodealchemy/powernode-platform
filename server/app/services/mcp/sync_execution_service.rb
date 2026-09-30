@@ -77,7 +77,11 @@ module Mcp
       "command" => @server.command,
       "args" => @server.args,
       "env" => @server.env,
-      "capabilities" => @server.capabilities
+      "capabilities" => @server.capabilities,
+      # IMP-bd260c0b4c00 — the OWNING account keys the worker's per-account
+      # sandbox identity, same as the async path (never the caller's).
+      # The worker refuses when this and the request's account_id differ.
+      "account_id" => @server.account_id
     }
 
     begin

@@ -29,7 +29,9 @@ module Mcp
   # It IS load-bearing for isolation (IMP-bd260c0b4c00): the worker keys
   # the stdio sandbox identity (User=/CacheDirectory=) on it, so one
   # account's child cannot read another's process environment or poison
-  # its package cache.
+  # its package cache. The call sites also put the MCP server's OWNING
+  # account in `server['account_id']` (the identity key, as on the async
+  # path); the worker refuses a request whose account_id disagrees.
   #
   # RETURN CONTRACT: mirrors exactly what Mcp::PromptService/
   # Mcp::ResourceService#send_stdio_request used to return when it spawned

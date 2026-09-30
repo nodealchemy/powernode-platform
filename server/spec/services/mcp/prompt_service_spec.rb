@@ -49,6 +49,7 @@ RSpec.describe Mcp::PromptService do
       # what comes back.
       expect(Mcp::WorkerStdioClient).to receive(:execute) do |account_id:, server:, mcp_request:|
         expect(account_id).to eq(account.id)
+        expect(server['account_id']).to eq(account.id) # the server's owner keys the sandbox identity
         expect(server['command']).to eq('node')
         expect(server['args']).to eq(['server.js'])
         expect(mcp_request[:method]).to eq('prompts/get')
