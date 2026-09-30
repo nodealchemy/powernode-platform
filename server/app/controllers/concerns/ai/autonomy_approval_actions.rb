@@ -37,6 +37,8 @@ module Ai
       return render_error(refusal, status: :forbidden) if refusal
       card_refusal = change_card_refusal(request)
       return render_error(card_refusal, status: :unprocessable_content, code: "change_card_not_shown") if card_refusal
+      digest_code, digest_refusal = change_card_digest_refusal(request)
+      return render_error(digest_refusal, status: :unprocessable_content, code: digest_code) if digest_refusal
 
       service = ::Ai::Autonomy::ApprovalWorkflowService.new(account: current_account)
 
@@ -88,10 +90,52 @@ module Ai
     # card; the decider is still a person in their own session either way.
     def change_card_refusal(approval)
       return nil if ::ActiveModel::Type::Boolean.new.cast(params[:change_card_shown]) == true
-      return nil unless ::Ai::Approvals::ChangeCard.for(approval, viewer: change_card_viewer)
+      return nil unless decider_change_card(approval)
 
       "This request changes a setting, so approve it from the approvals queue " \
         "(/app/ai/control/approvals/queue), where the exact change is shown."
+    end
+
+    # The attestation above says a card was shown; the DIGEST says WHICH card
+    # (IMP-1765f6f09458): the key, the new value and the current value at
+    # render, as Ai::Approvals::ChangeCard rendered them. Recomputed here for
+    # the decider's own session, now, and compared constant-time; a mismatch
+    # means the setting changed (or was unset) since the person viewed it, and
+    # the decision is refused rather than taken blind. Required wherever the
+    # attestation is — every card-bearing request, a person's own park included:
+    # the only surface that can truthfully attest the card was shown is one that
+    # rendered it, and the rendered card carries the digest. A session not shown
+    # the current value gets no digest and cannot complete the decision from
+    # here; who may decide is otherwise unchanged. Rejecting asks nothing.
+    # [code, message] or nil.
+    def change_card_digest_refusal(approval)
+      card = decider_change_card(approval)
+      return nil unless card
+
+      claimed = params[:change_card_digest]
+      if claimed.blank?
+        return [ "change_card_digest_missing",
+                 "This request changes a setting, so approve it from the approvals queue " \
+                 "(/app/ai/control/approvals/queue), which sends the digest of the card it shows." ]
+      end
+      unless card.key?(:digest)
+        return [ "change_card_not_readable",
+                 "Your session is not shown this setting's current value, so it cannot confirm the change " \
+                 "as shown; a session that can read the setting decides it." ]
+      end
+      return nil if ::Ai::Approvals::ChangeCard.digest_matches?(card, claimed)
+
+      [ "change_card_stale", "The request changed since you viewed it: the setting's current value is no " \
+                             "longer what the card showed. Review the card again before deciding." ]
+    end
+
+    # One render per decision: the attestation, the digest and the response
+    # all read the same card.
+    def decider_change_card(approval)
+      @decider_change_cards ||= {}
+      return @decider_change_cards[approval.id] if @decider_change_cards.key?(approval.id)
+
+      @decider_change_cards[approval.id] = ::Ai::Approvals::ChangeCard.for(approval, viewer: change_card_viewer)
     end
 
     # The change card's viewer answers has_permission? for THIS session
