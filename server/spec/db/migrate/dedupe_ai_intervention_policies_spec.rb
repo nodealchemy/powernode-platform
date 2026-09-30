@@ -155,6 +155,37 @@ RSpec.describe DedupeAiInterventionPolicies do
     expect(lines.join("\n")).not_to include("CONFLICT")
   end
 
+  it "flags a removed row whose is_active, approval chain or channels differ from the survivor, and logs it at WARN" do
+    chain = create(:ai_approval_chain, account: account)
+    removed = policy_row(policy: "require_approval", updated_at: t0)
+    removed.update_columns(approval_chain_id: chain.id, preferred_channels: %w[email].to_json, is_active: true)
+    kept = policy_row(policy: "require_approval", updated_at: t0 + 1.day)
+    kept.update_columns(is_active: false, preferred_channels: %w[notification].to_json)
+    lines = []
+    allow(migration).to receive(:say) { |line| lines << line }
+    allow(Rails.logger).to receive(:warn)
+
+    migration.up
+
+    expect(Ai::InterventionPolicy.sole.id).to eq(kept.id) # the survivor rule is unchanged
+    line = lines.find { |l| l.include?("removed #{removed.id}") }
+    expect(line).to include("PAYLOAD DIFFERS", "is_active: removed true, kept false",
+                            "approval_chain_id: removed #{chain.id.inspect}, kept nil", "preferred_channels")
+    expect(line).not_to include("CONFLICT")
+    expect(Rails.logger).to have_received(:warn).with(/PAYLOAD DIFFERS/)
+  end
+
+  it "does not flag a payload difference when the removed row matches the survivor" do
+    policy_row(policy: "require_approval", updated_at: t0)
+    policy_row(policy: "require_approval", updated_at: t0 + 1.day)
+    lines = []
+    allow(migration).to receive(:say) { |line| lines << line }
+
+    migration.up
+
+    expect(lines.join("\n")).not_to include("PAYLOAD DIFFERS")
+  end
+
   it "NEVER raises: a failing delete logs, leaves every row, and the migration returns" do
     rows = [ policy_row(policy: "require_approval", updated_at: t0), policy_row(policy: "auto_approve", updated_at: t0 + 1.day) ]
     allow(migration).to receive(:delete_rows).and_raise(ActiveRecord::StatementInvalid, "boom")

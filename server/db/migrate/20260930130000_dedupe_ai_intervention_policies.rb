@@ -22,7 +22,12 @@
 # right call for the one CONFLICTING set observed on the live hub
 # (release.promote: auto_approve updated 09-27 against require_approval from
 # 09-05 — the operator's edit is the newer). Every removal that DISAGREES with
-# its survivor on the verb is flagged CONFLICT in the output.
+# its survivor is flagged in the output, and logged at WARN: CONFLICT when the
+# verb differs, PAYLOAD DIFFERS when is_active, approval_chain_id or
+# preferred_channels do (the survivor may be the seeded default while the
+# removed row carried the operator's chain, or the ACTIVE copy may be the one
+# removed). The survivor rule is unchanged; flagging is what lets an operator
+# see and re-apply a loss.
 #
 # THIS MUST NOT RAISE. A raising data migration crash-loops Rails at boot (the
 # 09-28 outage), so the whole body is rescued: a failure logs and leaves every
@@ -42,13 +47,18 @@ class DedupeAiInterventionPolicies < ActiveRecord::Migration[8.1]
   # NULL and {} are the same row (the index migration makes them one value).
   SURPLUS_SQL = <<~SQL
     SELECT id, kept_id, kept_policy, action_category, scope, ai_agent_id, agent_name, user_id,
-           policy, priority, updated_at
+           policy, priority, updated_at, is_active, approval_chain_id, preferred_channels,
+           kept_is_active, kept_approval_chain_id, kept_preferred_channels
       FROM (
         SELECT p.id, p.action_category, p.scope, p.ai_agent_id, p.user_id, p.policy, p.priority, p.updated_at,
+               p.is_active, p.approval_chain_id, p.preferred_channels,
                a.name AS agent_name,
                ROW_NUMBER()     OVER w AS rn,
                FIRST_VALUE(p.id)     OVER w AS kept_id,
-               FIRST_VALUE(p.policy) OVER w AS kept_policy
+               FIRST_VALUE(p.policy) OVER w AS kept_policy,
+               FIRST_VALUE(p.is_active)         OVER w AS kept_is_active,
+               FIRST_VALUE(p.approval_chain_id) OVER w AS kept_approval_chain_id,
+               FIRST_VALUE(p.preferred_channels) OVER w AS kept_preferred_channels
           FROM ai_intervention_policies p
           LEFT JOIN ai_agents a ON a.id = p.ai_agent_id
          WINDOW w AS (
@@ -95,12 +105,26 @@ class DedupeAiInterventionPolicies < ActiveRecord::Migration[8.1]
   end
 
   def report(row)
-    verdict = row["policy"] == row["kept_policy"] ? "same verb" : "CONFLICT, kept #{row['kept_policy']}"
+    differences = differences_from_survivor(row)
     line = "IMP-89c398dcbc15: removed #{row['id']} #{row['action_category']} " \
            "scope=#{row['scope']} agent=#{row['agent_name'] || row['ai_agent_id'] || '-'} " \
            "policy=#{row['policy']} priority=#{row['priority']} updated_at=#{row['updated_at']} " \
-           "(kept #{row['kept_id']}; #{verdict})"
+           "(kept #{row['kept_id']}; #{differences.empty? ? 'same verb and payload' : differences.join('; ')})"
     say line
-    Rails.logger.info("[Migration] #{line}")
+    differences.empty? ? Rails.logger.info("[Migration] #{line}") : Rails.logger.warn("[Migration] #{line}")
+  end
+
+  def differences_from_survivor(row)
+    found = []
+    found << "CONFLICT, kept #{row['kept_policy']}" if row["policy"] != row["kept_policy"]
+    payload = {
+      "is_active" => [ row["is_active"], row["kept_is_active"] ],
+      "approval_chain_id" => [ row["approval_chain_id"], row["kept_approval_chain_id"] ],
+      "preferred_channels" => [ row["preferred_channels"], row["kept_preferred_channels"] ]
+    }.reject { |_, (removed, kept)| removed == kept }
+    unless payload.empty?
+      found << "PAYLOAD DIFFERS " + payload.map { |column, (removed, kept)| "#{column}: removed #{removed.inspect}, kept #{kept.inspect}" }.join(", ")
+    end
+    found
   end
 end

@@ -33,9 +33,19 @@
 # values to the index.
 #
 # NEVER RAISES (the 09-28 boot crash-loop): a failed dedup leaves duplicates, and
-# building a unique index over them would abort. This migration counts them
-# first and SKIPS with a warning; rerun it (`rails db:migrate:redo
-# VERSION=20260930130100`) after they are resolved. Every DDL step is rescued.
+# building a unique index over them would abort. This migration therefore runs
+# the same dedup itself, right before the index (a transient failure of
+# 20260930130000 is healed here), then counts what is left and SKIPS with a
+# warning if any remain. Every step is rescued.
+#
+# A skipped run is STAMPED, so `db:migrate` never retries it. What makes that
+# visible instead of silent: System::SchemaDriftDetector, which the hub's
+# rails-start.sh runs after every db:migrate (schema-drift-check.rb), reads the
+# literal `add_index ... name: "..."` line below in every stamped migration and
+# emits a high-severity System::FleetEvent when the index is absent. Keep that
+# line a single-line literal, and never write a literal remove_index for it
+# (the detector would net the two out). To retry by hand: `rails db:migrate:redo
+# VERSION=20260930130100`.
 #
 # Guarded by index_exists?: server/db/schema.rb already carries the index, so a
 # fresh schema:load followed by migrate must not try to add it again.
@@ -45,6 +55,24 @@ class AddUniqueFullKeyIndexToAiInterventionPolicies < ActiveRecord::Migration[8.
   TABLE   = :ai_intervention_policies
   INDEX   = "idx_ai_intervention_policies_full_key"
   COLUMNS = %i[account_id scope ai_agent_id user_id action_category priority conditions].freeze
+
+  # The dedup of 20260930130000, standing alone (a migration must not depend on
+  # another migration file): keep the greatest updated_at, then the greatest id,
+  # per full key. Run after normalise_conditions, so conditions compare directly.
+  HEAL_SQL = <<~SQL
+    DELETE FROM ai_intervention_policies
+     WHERE id IN (
+       SELECT id FROM (
+         SELECT id, ROW_NUMBER() OVER (
+                  PARTITION BY account_id, scope, ai_agent_id, user_id, action_category, priority, conditions
+                  ORDER BY updated_at DESC, id DESC
+                ) AS rn
+           FROM ai_intervention_policies
+       ) ranked
+        WHERE rn > 1
+     )
+    RETURNING id, action_category, policy, priority
+  SQL
 
   DUPLICATE_SETS_SQL = <<~SQL
     SELECT COUNT(*) FROM (
@@ -58,12 +86,13 @@ class AddUniqueFullKeyIndexToAiInterventionPolicies < ActiveRecord::Migration[8.
     return say("#{INDEX} already exists, skipping") if index_exists?(TABLE, COLUMNS, name: INDEX)
 
     normalise_conditions
+    heal_duplicates
     remaining = connection.select_value(DUPLICATE_SETS_SQL).to_i
     if remaining.positive?
       return warn_skipped("#{remaining} duplicate set(s) remain (run 20260930130000 / resolve them, then redo this migration)")
     end
 
-    add_index TABLE, COLUMNS, unique: true, nulls_not_distinct: true, name: INDEX
+    add_index :ai_intervention_policies, %i[account_id scope ai_agent_id user_id action_category priority conditions], unique: true, nulls_not_distinct: true, name: "idx_ai_intervention_policies_full_key"
     say "IMP-89c398dcbc15: created #{INDEX}"
   rescue StandardError => e
     warn_skipped("#{e.class}: #{e.message.to_s.lines.first.to_s.strip}")
@@ -81,6 +110,18 @@ class AddUniqueFullKeyIndexToAiInterventionPolicies < ActiveRecord::Migration[8.
   def normalise_conditions
     connection.execute("UPDATE #{TABLE} SET conditions = '{}'::jsonb WHERE conditions IS NULL OR conditions = 'null'::jsonb")
     change_column_null TABLE, :conditions, false
+  end
+
+  # Deletes only when duplicates exist, and says exactly what it removed.
+  def heal_duplicates
+    return if connection.select_value(DUPLICATE_SETS_SQL).to_i.zero?
+
+    connection.select_all(HEAL_SQL).each do |row|
+      line = "IMP-89c398dcbc15: removed leftover duplicate #{row['id']} #{row['action_category']} " \
+             "policy=#{row['policy']} priority=#{row['priority']}"
+      say line
+      Rails.logger.warn("[Migration] #{line}")
+    end
   end
 
   def warn_skipped(reason)
