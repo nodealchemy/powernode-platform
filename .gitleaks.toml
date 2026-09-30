@@ -59,38 +59,33 @@ tags = ["database", "credentials", "critical"]
 
 # hub-backend appliance `powernode-rails-exec`: its DATABASE_URL is PASSWORDLESS
 # (postgres://powernode@localhost... -- trust auth on loopback), but the rule's
-# [^:]+ takes "powernode@localhost" as the user and [^@]+ runs across ~40 lines to
-# the shell's "$@" further down. AND-scoped to this rule, this one file and a match
-# that starts with that exact literal and whose FIRST "@" after it is "$@": a
-# password added to the URL changes the prefix, and a credentialed URL inserted
-# below it supplies an earlier "@" that is not "$@" -- both still fail. The path
-# is not anchored to extensions/system/ because the pre-critic gate's ext-gitleaks
-# scan runs with the extension checkout as its source root. (IMP-35fee69707e9;
+# [^:]+ takes "powernode@localhost" as the user, [^@]+ runs ~35 lines on to the
+# shell's "$@", and the match ends at the next "/" (/usr/local/bin/bundle).
+# A match swallows everything it spans, so a credential STARTING inside that
+# span is never matched on its own: the regex therefore pins the whole match,
+# both ends. Its first "@" must be "$@" (a credentialed URL above that line
+# supplies an earlier "@"), and no ":" may follow it before the end (a
+# credentialed URL between "$@" and /usr/local/bin/bundle brings its scheme's
+# ":"). A password added to the URL changes the prefix. Paths name this one
+# file: relative to the core checkout, to the extension checkout (the pre-critic
+# gate's ext-gitleaks source root), or under an absolute checkout root (what
+# validate.sh's absolute --source reports). Pinned by
+# scripts/checks/tests/gitleaks_allowlist_narrowness_test.sh. (IMP-35fee69707e9;
 # replaces the rails-start.sh path entry, whose DATABASE_URL line moved here.)
 [rules.allowlist]
 condition = "AND"
 regexTarget = "match"
-paths = ['''(^|/)modules/powernode-hub-backend/rootfs/usr/local/bin/powernode-rails-exec$''']
-regexes = ['''\Apostgres://powernode@localhost:5432/powernode_production"[^@]*\$@''']
+paths = [
+    '''^(/.+/)?extensions/system/modules/powernode-hub-backend/rootfs/usr/local/bin/powernode-rails-exec$''',
+    '''^modules/powernode-hub-backend/rootfs/usr/local/bin/powernode-rails-exec$''',
+]
+regexes = ['''\Apostgres://powernode@localhost:5432/powernode_production"[^@]*\$@[^:@]*/usr/local/bin/bundle\z''']
 
 [[rules]]
 id = "redis-url"
 description = "Redis Connection URL with Password"
 regex = '''(?i)redis://:[^@]+@[^/]+'''
 tags = ["redis", "credentials"]
-
-# Admin::SystemSettings documents, in comments, the password SHAPES that break
-# URI.parse ("my/pass", "p@ss", "p#w", "p?w", "p w" against host "host"); the
-# shapes are the point, so they are allowlisted rather than reworded. AND-scoped
-# to this rule, this one file and a match that starts with one of those literal
-# examples -- any other credentialed redis URL in the file still fails.
-# Both allowlists are pinned by scripts/checks/tests/gitleaks_allowlist_narrowness_test.sh.
-# (IMP-35fee69707e9)
-[rules.allowlist]
-condition = "AND"
-regexTarget = "match"
-paths = ['''(^|/)server/app/services/admin/system_settings\.rb$''']
-regexes = ['''\Aredis://:(my/pass|p@ss|p#w|p\?w|p w)@host\b''']
 
 [[rules]]
 id = "sendgrid-api-key"

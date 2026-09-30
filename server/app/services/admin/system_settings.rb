@@ -293,9 +293,9 @@ module Admin
       # "anything but / or @" — which meant an UNENCODED "/" inside a
       # password made the whole pattern silently fail to match (the
       # character class stops at the "/", never reaches the "@" that
-      # follows), so a credentialed URL like "redis://:my/pass@host:6379/0"
-      # read as credential-free. URI parsing is authoritative instead of a
-      # hand-maintained pattern.
+      # follows), so a credentialed URL whose userinfo was ":my/pass" (then
+      # "@host:6379/0") read as credential-free. URI parsing is
+      # authoritative instead of a hand-maintained pattern.
       def url_contains_credentials?(url)
         return false if url.blank?
 
@@ -311,8 +311,8 @@ module Admin
       # used to fall through to returning the URL UNCHANGED — failing OPEN.
       # Ruby 3.2's RFC2396 URI.parse raises on a credentialed URL whose
       # userinfo contains an unencoded "/", "@", "#", "?" or a literal space
-      # (e.g. "redis://:my/pass@host", "redis://:p@ss@host",
-      # "redis://:p#w@host", "redis://:p?w@host", "redis://:p w@host") —
+      # (e.g. a redis URL whose userinfo, ahead of "@host", is ":my/pass",
+      # ":p@ss", ":p#w", ":p?w" or ":p w") —
       # every one of those is a shape a REAL password can take, and
       # strip_url_credentials is called UNCONDITIONALLY on every
       # infrastructure_config GET/PUT response (never gated by
