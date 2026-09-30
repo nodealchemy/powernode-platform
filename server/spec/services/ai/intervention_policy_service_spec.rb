@@ -824,4 +824,63 @@ RSpec.describe Ai::InterventionPolicyService do
       expect(service.auto_approve?(action_category: "widget.create", agent: agent, user: user)).to be(true)
     end
   end
+
+  # IMP-89c398dcbc15 — the winner between rows whose specificity_key is EQUAL
+  # used to be whichever one Postgres enumerated first (`max_by` keeps the
+  # first). The unique index makes an exact key collision impossible, so what
+  # remains are rows whose CONDITIONS differ yet both match: same tier, same
+  # priority, different verb. The most restrictive verb must win, in either
+  # insertion order, and then the id.
+  describe "#resolve tie-break at equal specificity (IMP-89c398dcbc15)" do
+    def tie!(verbs)
+      verbs.each_with_index do |verb, i|
+        create_policy!(policy: verb, scope: "agent", ai_agent_id: agent.id, priority: 10,
+                       conditions: { "note" => "row-#{i}" })
+      end
+    end
+
+    it "picks require_approval over auto_approve when the auto_approve row was inserted FIRST" do
+      tie!(%w[auto_approve require_approval])
+
+      expect(service.resolve(action_category: "widget.create", agent: agent)[:policy]).to eq("require_approval")
+    end
+
+    it "picks require_approval over auto_approve when the auto_approve row was inserted LAST" do
+      tie!(%w[require_approval auto_approve])
+
+      expect(service.resolve(action_category: "widget.create", agent: agent)[:policy]).to eq("require_approval")
+    end
+
+    it "ranks notify_and_proceed below require_approval and block above it" do
+      tie!(%w[notify_and_proceed require_approval])
+      expect(service.resolve(action_category: "widget.create", agent: agent)[:policy]).to eq("require_approval")
+
+      create_policy!(policy: "block", scope: "agent", ai_agent_id: agent.id, priority: 10,
+                     conditions: { "note" => "row-block" })
+      expect(service.resolve(action_category: "widget.create", agent: agent)[:policy]).to eq("block")
+    end
+
+    it "breaks a tie between two rows of the SAME verb by id, stably across calls" do
+      tie!(%w[require_approval require_approval])
+      winners = Array.new(3) { service.resolve(action_category: "widget.create", agent: agent)[:record].id }
+
+      expect(winners.uniq.size).to eq(1)
+      expect(winners.first).to eq(Ai::InterventionPolicy.where(ai_agent_id: agent.id).map { |r| r.id.to_s }.max)
+    end
+
+    it "does not let restrictiveness outrank a HIGHER priority: precedence stays lexicographic" do
+      create_policy!(policy: "auto_approve", scope: "agent", ai_agent_id: agent.id, priority: 20,
+                     conditions: { "note" => "high" })
+      create_policy!(policy: "block", scope: "agent", ai_agent_id: agent.id, priority: 10)
+
+      expect(service.resolve(action_category: "widget.create", agent: agent)[:policy]).to eq("auto_approve")
+    end
+
+    it "does not let restrictiveness outrank a MORE SPECIFIC tier" do
+      create_policy!(policy: "auto_approve", scope: "agent", ai_agent_id: agent.id, priority: 0)
+      create_policy!(policy: "block", scope: "global", priority: 50)
+
+      expect(service.resolve(action_category: "widget.create", agent: agent)[:policy]).to eq("auto_approve")
+    end
+  end
 end

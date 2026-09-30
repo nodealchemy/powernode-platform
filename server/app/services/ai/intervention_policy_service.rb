@@ -17,6 +17,8 @@ module Ai
     #   2. ai_agent_id present        —   (elements 1-2 together)
     #   3. action_category is not "*" — a row naming the category beats a wildcard
     #   4. priority                   — operator's tie-break WITHIN a tier
+    #   5. verb restrictiveness, then id — Ai::InterventionPolicy#precedence_key,
+    #      only for rows equal on 1-4: the most restrictive verb wins
     #
     # `priority` ranks rows that are otherwise equal and NOTHING more. It cannot
     # promote a row into a tier above its own at any value, which is the whole
@@ -129,19 +131,17 @@ module Ai
       end
 
       # Most specific wins. `by_specificity` above only orders the QUERY (by
-      # priority); #specificity_key decides the winner.
+      # priority); #precedence_key (#specificity_key plus a tie-break) decides
+      # the winner.
       #
-      # Exactly one case still falls through to the query order: rows whose keys
-      # are IDENTICAL, for which `max_by` keeps the first enumerated. Those rows
-      # necessarily share a priority, `by_specificity` has no secondary key, and
-      # the table carries no unique index — so the winner between two identical
-      # rows with different verbs is whatever Postgres returns first. Pre-existing
-      # and narrowed by IMP-6430e3a8c4a1 rather than introduced: while the key was
-      # additive, ties spanned DIFFERENT shapes (an agent row at priority 0 scored
-      # 7 and tied a global row at priority 5, which `order(priority: :desc)` then
-      # handed to the global row) and now they can only span structurally
-      # identical ones.
-      best = matching.max_by(&:specificity_key)
+      # Rows with an EQUAL specificity_key used to fall through to enumeration
+      # order (`max_by` keeps the first), which Postgres does not define: two
+      # matching rows at the same tier and priority with different verbs
+      # resolved to whichever was returned first. The unique index on the full
+      # key now rules out an exact collision, but rows whose CONDITIONS differ
+      # can both match, so the tie is broken by #precedence_key: the most
+      # restrictive verb wins (fail safe), then the id.
+      best = matching.max_by(&:precedence_key)
 
       # Check severity override: critical always requires_approval unless explicitly auto_approved
       if severity == "critical" && best.policy == "silent"

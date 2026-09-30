@@ -127,19 +127,13 @@ module Ai
         )
         true
       rescue ActiveRecord::RecordNotUnique
-        # INERT TODAY, deliberately kept. `ai_intervention_policies` carries NO
-        # unique index on the floor shape (db/schema.rb lists only the
-        # non-unique account/category, account/scope and account/user/agent
-        # indexes), so a genuine race between two doors — a boot reconcile and
-        # `rake db:seed:engineering_floors` — does NOT raise here: it writes a
-        # SECOND floor row, after which #find_for returns an arbitrary one of
-        # them. Both carry the same verdict, so resolution is unaffected; what
-        # suffers is an operator retuning one copy and not the other. Closing it
-        # properly needs a partial unique index on (account_id,
-        # action_category) WHERE scope = 'global' AND ai_agent_id IS NULL AND
-        # user_id IS NULL, which is a migration and out of this seam's scope.
-        # This clause is what makes the guard correct the moment that index
-        # lands; until then read it as "already there", not as a race guard.
+        # Two doors racing (a boot reconcile and `rake db:seed:engineering_floors`)
+        # both pass #find_for and both insert. The unique index on the full key
+        # (idx_ai_intervention_policies_full_key, IMP-89c398dcbc15) refuses the
+        # second, and the floor is then already there. The index keys on
+        # priority and conditions as well as the shape, so it closes the race
+        # for THIS seam, whose rows all carry PRIORITY and empty conditions;
+        # the model's own validation raises RecordInvalid for a copy it can see.
         false
       end
       private_class_method :ensure_category_for!

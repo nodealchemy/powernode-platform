@@ -147,6 +147,7 @@ module Ai
     validates :action_category, presence: true
     validates :policy, presence: true, inclusion: { in: POLICIES }
     validates :priority, presence: true, numericality: { only_integer: true }
+    validate :full_key_is_unique
 
     # conditions["environments"] is a list of this account's environment slugs.
     # Both hooks run only when `conditions` is being written, so an unrelated
@@ -158,6 +159,10 @@ module Ai
     # JSON columns
     attribute :conditions, :json, default: -> { {} }
     attribute :preferred_channels, :json, default: -> { [] }
+
+    # NULL and {} are one value to every reader, and to the unique index only
+    # once they ARE one value (the column is NOT NULL).
+    before_validation { self.conditions = {} if conditions.nil? }
 
     # Scopes
     scope :active, -> { where(is_active: true) }
@@ -214,7 +219,49 @@ module Ai
       ]
     end
 
+    # #specificity_key extended into a TOTAL order, for the one decision that
+    # must never depend on row enumeration order: the winner among matching rows
+    # whose specificity_key is EQUAL (Ai::InterventionPolicyService#resolve).
+    #
+    #   [4] restrictiveness — the verb's position in POLICIES, which lists them
+    #       laxest first (auto_approve ... block). The MOST RESTRICTIVE wins a
+    #       tie, so an ambiguity fails safe: the operator is asked rather than
+    #       the action waved through. An unknown verb ranks above `block`, for
+    #       the same reason. `silent` sits above require_approval because
+    #       Ai::AutonomyGate refuses it, exactly as it does `block`.
+    #   [5] id              — the last resort, so two rows that agree on verb
+    #       too still resolve the same way on every call and every host.
+    #
+    # The unique index on the full key makes an exact key collision impossible,
+    # so what is left to break are rows whose CONDITIONS differ but both match.
+    # This sits AFTER specificity_key's four elements and can never outrank one:
+    # priority, tier and category still decide first.
+    def precedence_key
+      specificity_key + [ POLICIES.index(policy) || POLICIES.size, id.to_s ]
+    end
+
     private
+
+    # The full identity of a row. Rows that share scope/agent/user/category may
+    # coexist ONLY as conditional tiers, so priority and conditions are part of
+    # the key. is_active is not: an inactive copy still occupies it. Mirrors
+    # idx_ai_intervention_policies_full_key so the API and the UI refuse a
+    # duplicate with a message instead of surfacing the database's.
+    def full_key_is_unique
+      return if account_id.blank? || priority.nil?
+
+      twins = self.class.where(
+        account_id: account_id, scope: scope, ai_agent_id: ai_agent_id, user_id: user_id,
+        action_category: action_category, priority: priority
+      ).where("conditions = ?::jsonb", (conditions.nil? ? {} : conditions).to_json)
+      twins = twins.where.not(id: id) if persisted?
+      existing = twins.pick(:id, :policy)
+      return unless existing
+
+      errors.add(:base, "A policy already exists for this action category with the same scope, agent, user, " \
+                        "priority and conditions (#{existing[1]}, id #{existing[0]}). Edit that policy, or " \
+                        "give this one a different priority or conditions")
+    end
 
     def action_category_matches?(category)
       action_category == "*" || action_category == category
