@@ -2651,7 +2651,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.string "action_category", null: false
     t.uuid "ai_agent_id"
     t.uuid "approval_chain_id"
-    t.jsonb "conditions", default: {}
+    t.jsonb "conditions", default: {}, null: false
     t.datetime "created_at", null: false
     t.boolean "is_active", default: true, null: false
     t.string "policy", null: false
@@ -2661,6 +2661,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.datetime "updated_at", null: false
     t.uuid "user_id"
     t.index ["account_id", "action_category"], name: "idx_on_account_id_action_category_c721963d27"
+    t.index ["account_id", "scope", "ai_agent_id", "user_id", "action_category", "priority", "conditions"], name: "idx_ai_intervention_policies_full_key", unique: true, nulls_not_distinct: true
     t.index ["account_id", "scope"], name: "index_ai_intervention_policies_on_account_id_and_scope"
     t.index ["account_id", "user_id", "ai_agent_id"], name: "idx_on_account_id_user_id_ai_agent_id_665c33bfd7"
     t.index ["account_id"], name: "index_ai_intervention_policies_on_account_id"
