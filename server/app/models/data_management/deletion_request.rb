@@ -210,16 +210,25 @@ module DataManagement
       true
     end
 
+    # The ONLY way a request enters 'processing' (the admin run-now and the
+    # worker's status PATCH both call it). Returns false — leaving the row
+    # untouched — when #can_start_processing? does not hold. The check is
+    # re-run against the freshly locked row, so of any number of concurrent
+    # starters exactly one sees 'approved' and wins; the rest see
+    # 'processing' and get false (IMP-26adf1c79c7a).
     def start_processing!
-      return false unless can_start_processing?
+      started = with_lock do
+        next false unless can_start_processing?
 
-      update!(
-        status: "processing",
-        processing_started_at: Time.current
-      )
+        update!(
+          status: "processing",
+          processing_started_at: Time.current
+        )
+        true
+      end
 
-      log_status_change("processing")
-      true
+      log_status_change("processing") if started
+      started
     end
 
     def complete!(deletion_log:, retention_log: [])
@@ -258,8 +267,11 @@ module DataManagement
       %w[pending approved].include?(status)
     end
 
+    # The grace period is the data subject's cancellation window: processing
+    # may start only once it has verifiably ended. A blank end date fails
+    # CLOSED — an unknown end is not an ended grace period.
     def can_start_processing?
-      status == "approved" && grace_period_ends_at <= Time.current
+      approved? && grace_period_ends_at.present? && grace_period_ends_at <= Time.current
     end
 
     def in_grace_period?

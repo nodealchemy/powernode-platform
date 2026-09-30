@@ -102,4 +102,78 @@ RSpec.describe DataManagement::DeletionRequest, type: :model do
       expect(request.update(status: 'processing')).to be true
     end
   end
+
+  # IMP-26adf1c79c7a — the grace period is the data subject's cancellation
+  # window. The rule lives here, once: a request may start processing only
+  # when it is approved AND its grace period has verifiably ended. A blank end
+  # date fails CLOSED (an absent date is not "already ended").
+  describe '#can_start_processing? / #start_processing!' do
+    def request_with(status:, grace_period_ends_at:)
+      create(:data_management_deletion_request, account: account, user: user,
+                                                status: status, grace_period_ends_at: grace_period_ends_at)
+    end
+
+    it 'is false inside the grace period' do
+      request = request_with(status: 'approved', grace_period_ends_at: 1.day.from_now)
+
+      expect(request.can_start_processing?).to be false
+    end
+
+    it 'is true once the grace period has ended' do
+      request = request_with(status: 'approved', grace_period_ends_at: 1.second.ago)
+
+      expect(request.can_start_processing?).to be true
+    end
+
+    it 'is false (fails closed) on a blank grace_period_ends_at' do
+      request = request_with(status: 'approved', grace_period_ends_at: nil)
+
+      expect(request.can_start_processing?).to be false
+    end
+
+    %w[pending processing completed failed rejected cancelled].each do |status|
+      it "is false for a #{status} request even with an ended grace period" do
+        request = request_with(status: status, grace_period_ends_at: 1.day.ago)
+
+        expect(request.can_start_processing?).to be false
+      end
+    end
+
+    it 'start_processing! moves an eligible request to processing and stamps processing_started_at' do
+      request = request_with(status: 'approved', grace_period_ends_at: 1.day.ago)
+
+      expect(request.start_processing!).to be true
+      expect(request.reload.status).to eq('processing')
+      expect(request.processing_started_at).to be_present
+    end
+
+    it 'start_processing! refuses inside the grace period and leaves the row untouched' do
+      request = request_with(status: 'approved', grace_period_ends_at: 1.day.from_now)
+
+      expect(request.start_processing!).to be false
+      expect(request.reload.status).to eq('approved')
+      expect(request.processing_started_at).to be_nil
+    end
+
+    it 'start_processing! refuses on a blank grace_period_ends_at and leaves the row untouched' do
+      request = request_with(status: 'approved', grace_period_ends_at: nil)
+
+      expect(request.start_processing!).to be false
+      expect(request.reload.status).to eq('approved')
+    end
+
+    # Two starters (run-now + worker, or two run-nows) each hold an instance
+    # that read the row as 'approved'. The second must re-check under the row
+    # lock, see 'processing', and refuse: at most one start.
+    it 'start_processing! starts at most once across two stale instances' do
+      request = request_with(status: 'approved', grace_period_ends_at: 1.day.ago)
+      first = described_class.find(request.id)
+      second = described_class.find(request.id)
+
+      expect(first.start_processing!).to be true
+      expect(second.approved?).to be true
+      expect(second.start_processing!).to be false
+      expect(request.reload.status).to eq('processing')
+    end
+  end
 end

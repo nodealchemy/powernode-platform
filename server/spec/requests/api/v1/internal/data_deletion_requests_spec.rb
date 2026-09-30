@@ -207,16 +207,20 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
       end
     end
 
+    # IMP-26adf1c79c7a: the grace period is the data subject's cancellation
+    # window. A run-now is REFUSED inside it (never bypassed), and a blank
+    # grace_period_ends_at fails closed.
     context 'with action_type: execute' do
       before do
         deletion_request.update!(
           status: 'approved',
-          approved_at: Time.current,
+          approved_at: 31.days.ago,
+          grace_period_ends_at: 1.day.ago,
           processed_by_id: admin_user.id
         )
       end
 
-      it 'starts deletion execution' do
+      it 'starts deletion execution once the grace period has ended' do
         patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
               params: { action_type: 'execute' },
               headers: internal_headers,
@@ -226,11 +230,46 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
 
         deletion_request.reload
         expect(deletion_request.status).to eq('processing')
+        expect(deletion_request.processing_started_at).to be_present
         expect(worker_api_client).to have_received(:queue_job)
           .with('Compliance::DataDeletionJob', [ deletion_request.id ], queue: 'compliance')
         expect(
           AuditLog.exists?(action: 'data_deletion.execute', resource_id: deletion_request.id)
         ).to be true
+      end
+
+      it 'refuses inside the grace period: 422 GRACE_PERIOD_NOT_ENDED, row stays approved, nothing enqueued' do
+        deletion_request.update!(grace_period_ends_at: 5.days.from_now)
+
+        patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+              params: { action_type: 'execute' },
+              headers: internal_headers,
+              as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['code']).to eq('GRACE_PERIOD_NOT_ENDED')
+
+        deletion_request.reload
+        expect(deletion_request.status).to eq('approved')
+        expect(deletion_request.processing_started_at).to be_nil
+        expect(worker_api_client).not_to have_received(:queue_job)
+        expect(
+          AuditLog.exists?(action: 'data_deletion.execute', resource_id: deletion_request.id)
+        ).to be false
+      end
+
+      it 'fails closed on a blank grace_period_ends_at' do
+        deletion_request.update!(grace_period_ends_at: nil)
+
+        patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+              params: { action_type: 'execute' },
+              headers: internal_headers,
+              as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['code']).to eq('GRACE_PERIOD_NOT_ENDED')
+        expect(deletion_request.reload.status).to eq('approved')
+        expect(worker_api_client).not_to have_received(:queue_job)
       end
 
       it 'rejects non-approved request' do
@@ -242,6 +281,22 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
               as: :json
 
         expect(response).to have_http_status(:unprocessable_content)
+      end
+
+      # Two run-nows (or a run-now and a worker start) race on the same row:
+      # the loser must see the winner's 'processing' under the row lock and
+      # neither start nor enqueue a second time.
+      it 'starts and enqueues at most once when the same request is executed twice' do
+        2.times do
+          patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+                params: { action_type: 'execute' },
+                headers: internal_headers,
+                as: :json
+        end
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(worker_api_client).to have_received(:queue_job).once
+        expect(deletion_request.reload.status).to eq('processing')
       end
     end
 
@@ -293,7 +348,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
   # rescued into a 400 the job never checked, so none of these writes ever
   # actually persisted. Sends the exact raw, job-shaped bodies.
   describe 'PATCH /api/v1/internal/data_deletion_requests/:id (raw job-shaped body, no action_type)' do
-    let(:deletion_request) { create_deletion_request.call(status: 'approved') }
+    let(:deletion_request) { create_deletion_request.call(status: 'approved', grace_period_ends_at: 1.day.ago) }
 
     it 'persists a processing-start status transition' do
       patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
@@ -424,7 +479,7 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
     end
 
     it 'allows approved -> processing and writes a data_deletion.status_transition audit row' do
-      deletion_request = create_deletion_request.call(status: 'approved')
+      deletion_request = create_deletion_request.call(status: 'approved', grace_period_ends_at: 1.day.ago)
 
       patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
             params: { status: 'processing', processing_started_at: Time.current.iso8601 },
@@ -452,41 +507,62 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
       expect(deletion_request.status).to eq('processing')
     end
 
-    # S-B (IMP-b33a3ecca331 third review): the job's grace_period_ends_at
-    # nil-guard fires BEFORE the 'processing' write (deliberately, so a
-    # request still legitimately waiting out its grace period is never
-    # marked 'processing') — so it needs to terminally fail an 'approved'
-    # request directly, which the transition map didn't allow before.
-    it 'allows approved -> failed (the grace_period_ends_at nil-guard path)' do
-      deletion_request = create_deletion_request.call(status: 'approved', grace_period_ends_at: nil)
-
-      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
-            params: { status: 'failed', error_message: 'Deletion request has no grace_period_ends_at set' },
-            headers: internal_headers,
-            as: :json
-
-      expect_success_response
-      deletion_request.reload
-      expect(deletion_request.status).to eq('failed')
-    end
-
-    # Fourth review, nit 3: the guard above is conditioned on the actual
-    # data-integrity defect it exists for, not a general approved -> failed
-    # escape hatch — when grace_period_ends_at IS present, this must still be
-    # rejected the same as any other unlisted transition.
-    it 'rejects approved -> failed when grace_period_ends_at is present (not a general escape hatch)' do
+    # IMP-26adf1c79c7a: the grace period is the data subject's cancellation
+    # window, so the SERVER refuses approved -> processing inside it. The
+    # worker (or anything holding a worker token) cannot start early by
+    # skipping its own check. The row stays 'approved' and nothing is written
+    # to it: in particular never 'failed', which would un-block the user's
+    # `.active` request guard and be shown to them as a failed erasure of a
+    # request that never ran.
+    it 'refuses approved -> processing inside the grace period (422 GRACE_PERIOD_NOT_ENDED, row untouched)' do
       deletion_request = create_deletion_request.call(status: 'approved', grace_period_ends_at: 5.days.from_now)
 
       patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
-            params: { status: 'failed', error_message: 'should not be allowed' },
+            params: { status: 'processing', processing_started_at: Time.current.iso8601 },
             headers: internal_headers,
             as: :json
 
       expect(response).to have_http_status(:unprocessable_content)
-      expect(json_response['code']).to eq('INVALID_STATUS_TRANSITION')
+      expect(json_response['code']).to eq('GRACE_PERIOD_NOT_ENDED')
 
       deletion_request.reload
       expect(deletion_request.status).to eq('approved')
+      expect(deletion_request.processing_started_at).to be_nil
+      expect(
+        AuditLog.exists?(action: 'data_deletion.status_transition', resource_id: deletion_request.id)
+      ).to be false
+    end
+
+    it 'refuses approved -> processing on a blank grace_period_ends_at (fails closed)' do
+      deletion_request = create_deletion_request.call(status: 'approved', grace_period_ends_at: nil)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'processing', processing_started_at: Time.current.iso8601 },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response['code']).to eq('GRACE_PERIOD_NOT_ENDED')
+      expect(deletion_request.reload.status).to eq('approved')
+    end
+
+    # The static transition map used to carry a conditional approved -> failed
+    # (the job's grace_period_ends_at nil-guard). The job no longer writes it:
+    # a request that was never processed is not 'failed'. No approved -> failed
+    # exists at all now, whether or not the end date is set.
+    [ nil, 5.days.from_now ].each do |grace_end|
+      it "rejects approved -> failed (grace_period_ends_at: #{grace_end.inspect})" do
+        deletion_request = create_deletion_request.call(status: 'approved', grace_period_ends_at: grace_end)
+
+        patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+              params: { status: 'failed', error_message: 'should not be allowed' },
+              headers: internal_headers,
+              as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['code']).to eq('INVALID_STATUS_TRANSITION')
+        expect(deletion_request.reload.status).to eq('approved')
+      end
     end
   end
 

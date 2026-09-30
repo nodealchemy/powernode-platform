@@ -57,12 +57,16 @@ module Api
         #
         # Mirrors the exact transitions Compliance::DataDeletionJob actually
         # makes (see the job's patch_deletion_request! call sites):
-        # approved -> processing (job starts), processing -> processing (a
-        # Sidekiq retry RESUMING a request left mid-flight — see the job's
-        # 'processing' guard), processing -> completed, processing -> failed.
-        # approved -> failed is NOT in this static map (fourth review, nit 3):
-        # it is conditional, handled by #approved_to_failed_for_missing_grace_period?
-        # below, not a general escape hatch from 'approved'.
+        # processing -> processing (a Sidekiq retry RESUMING a request left
+        # mid-flight — see the job's 'processing' guard), processing ->
+        # completed, processing -> failed.
+        # approved -> processing is deliberately NOT in this static map: it is
+        # the grace-period-protected start, and only
+        # #start_processing_for_worker (DeletionRequest#start_processing!, the
+        # single owner of that rule) may perform it. There is no approved ->
+        # failed either: a request that was never processed is not 'failed'
+        # (that would drop it out of PrivacyController's `.active` guard and
+        # be shown to the data subject as a failed erasure).
         # A status-less PATCH (no `status` key at all) is not itself a
         # transition, but (nit, second review; extended fourth review, nit 3)
         # one carrying progress fields (completed_at/deletion_log/
@@ -77,7 +81,6 @@ module Api
         # genuinely bare write carrying NONE of these keys (nothing left to
         # gate) is still always allowed.
         ALLOWED_WORKER_STATUS_TRANSITIONS = {
-          "approved" => %w[processing],
           "processing" => %w[processing completed failed]
         }.freeze
 
@@ -101,6 +104,10 @@ module Api
         # FROM, not a stale one.
         def worker_status_update
           requested_status = params[:status]
+
+          if requested_status == "processing" && @deletion_request.approved?
+            return start_processing_for_worker
+          end
 
           unless worker_write_guard_passes?(requested_status, @deletion_request.status)
             return render_error(
@@ -144,8 +151,6 @@ module Api
 
         def worker_write_guard_passes?(requested_status, current_status)
           if requested_status.present?
-            return true if approved_to_failed_for_missing_grace_period?(requested_status, current_status)
-
             (ALLOWED_WORKER_STATUS_TRANSITIONS[current_status] || []).include?(requested_status)
           elsif status_adjacent_write?
             current_status == "processing"
@@ -154,21 +159,46 @@ module Api
           end
         end
 
-        # S-B's nil-guard path (third review): Compliance::DataDeletionJob
-        # checks grace_period_ends_at BEFORE ever writing 'processing' —
-        # deliberately, so a request still legitimately waiting out its grace
-        # period is never marked processing — so a request the job finds
-        # broken (missing grace_period_ends_at) is still 'approved' when it
-        # needs to terminally fail it. Fourth review, nit 3: this is NOT a
-        # general approved -> failed escape hatch — conditioned on the exact
-        # data-integrity defect the job's nil-guard exists for. Reads
-        # @deletion_request directly (not a param), so it reflects the
-        # CURRENT stored value both times worker_write_guard_passes? runs:
-        # the not-yet-locked instance on the fail-fast check, and the
-        # freshly-reloaded, locked instance inside the with_lock block above.
-        def approved_to_failed_for_missing_grace_period?(requested_status, current_status)
-          requested_status == "failed" && current_status == "approved" &&
-            @deletion_request.grace_period_ends_at.blank?
+        # The worker's request for approved -> processing. The SERVER is the
+        # authority on the grace period (the data subject's cancellation
+        # window): the worker may pre-check, but a worker — or anything
+        # holding a worker token — that skips its own check is still refused
+        # here. #start_processing! re-checks under the row lock, so this is
+        # also the at-most-once gate against a concurrent run-now or a second
+        # worker. A refusal writes NOTHING to the row.
+        def start_processing_for_worker
+          if @deletion_request.start_processing!
+            log_internal_audit("data_deletion.status_transition", "DeletionRequest", @deletion_request.id,
+                               account_id: @deletion_request.account_id,
+                               from_status: "approved", to_status: "processing")
+            render_success({ data_deletion_request: serialize_request(@deletion_request) })
+          else
+            render_start_refused
+          end
+        end
+
+        # Why #start_processing! returned false, read off the CURRENT row: still
+        # 'approved' means the grace period has not ended (or its end is
+        # unset); anything else means another starter won the race.
+        def render_start_refused
+          @deletion_request.reload
+
+          if @deletion_request.approved?
+            render_error(grace_refusal_message, status: :unprocessable_content, code: "GRACE_PERIOD_NOT_ENDED")
+          else
+            render_error(
+              "Invalid status transition from '#{@deletion_request.status}' to 'processing' " \
+              "(lost a concurrent update race)",
+              status: :unprocessable_content, code: "INVALID_STATUS_TRANSITION"
+            )
+          end
+        end
+
+        def grace_refusal_message
+          ends_at = @deletion_request.grace_period_ends_at
+          return "Deletion request has no grace_period_ends_at; refusing to start processing" if ends_at.blank?
+
+          "Grace period has not ended (ends at #{ends_at.iso8601}); refusing to start processing"
         end
 
         def status_adjacent_write?
@@ -307,10 +337,10 @@ module Api
             return render_error("Request must be approved before execution", status: :unprocessable_content)
           end
 
-          @deletion_request.update!(
-            status: "processing",
-            processing_started_at: Time.current
-          )
+          # Run-now is REFUSED inside the grace period, never bypassed
+          # (IMP-26adf1c79c7a); nothing is enqueued and the row stays approved.
+          return render_start_refused unless @deletion_request.start_processing!
+
           log_internal_audit("data_deletion.execute", "DeletionRequest", @deletion_request.id,
                              account_id: @deletion_request.account_id)
 
