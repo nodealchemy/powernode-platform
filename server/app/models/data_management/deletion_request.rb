@@ -216,19 +216,23 @@ module DataManagement
     # re-run against the freshly locked row, so of any number of concurrent
     # starters exactly one sees 'approved' and wins; the rest see
     # 'processing' and get false (IMP-26adf1c79c7a).
+    #
+    # The status-change audit row and any caller block (the controller's own
+    # audit) run INSIDE the locked transaction: if one raises, the transition
+    # rolls back and the row stays 'approved', instead of committing a
+    # 'processing' row nobody recorded (or ever enqueued a job for).
     def start_processing!
-      started = with_lock do
+      with_lock do
         next false unless can_start_processing?
 
         update!(
           status: "processing",
           processing_started_at: Time.current
         )
+        log_status_change("processing")
+        yield if block_given?
         true
       end
-
-      log_status_change("processing") if started
-      started
     end
 
     def complete!(deletion_log:, retention_log: [])
@@ -252,7 +256,7 @@ module DataManagement
     end
 
     def extend_grace_period!(days = 14)
-      return false unless in_grace_period?
+      return false unless in_grace_period? && grace_period_ends_at.present?
 
       update!(
         grace_period_ends_at: grace_period_ends_at + days.days,
@@ -271,21 +275,29 @@ module DataManagement
     # may start only once it has verifiably ended. A blank end date fails
     # CLOSED — an unknown end is not an ended grace period.
     def can_start_processing?
-      approved? && grace_period_ends_at.present? && grace_period_ends_at <= Time.current
+      approved? && grace_period_ended?
     end
 
+    def grace_period_ended?
+      grace_period_ends_at.present? && grace_period_ends_at <= Time.current
+    end
+
+    # An approved request whose grace period has not (verifiably) ended.
+    # Agrees with #can_start_processing?: a blank end date is NOT an ended
+    # grace period, so such a row is still "in grace" (waiting), never a
+    # crash; it just has no end to report.
     def in_grace_period?
-      status == "approved" && grace_period_ends_at > Time.current
+      approved? && !grace_period_ended?
     end
 
     def grace_period_remaining
-      return nil unless in_grace_period?
+      return nil unless in_grace_period? && grace_period_ends_at.present?
 
       (grace_period_ends_at - Time.current).to_i
     end
 
     def days_until_deletion
-      return nil unless in_grace_period?
+      return nil unless in_grace_period? && grace_period_ends_at.present?
 
       ((grace_period_ends_at - Time.current) / 1.day).ceil
     end

@@ -167,10 +167,13 @@ module Api
         # also the at-most-once gate against a concurrent run-now or a second
         # worker. A refusal writes NOTHING to the row.
         def start_processing_for_worker
-          if @deletion_request.start_processing!
+          started = @deletion_request.start_processing! do
             log_internal_audit("data_deletion.status_transition", "DeletionRequest", @deletion_request.id,
                                account_id: @deletion_request.account_id,
                                from_status: "approved", to_status: "processing")
+          end
+
+          if started
             render_success({ data_deletion_request: serialize_request(@deletion_request) })
           else
             render_start_refused
@@ -212,9 +215,11 @@ module Api
         # is the worker job that processes DataManagement::DeletionRequest records.
         def queue_worker_deletion_job(deletion_request_id)
           WorkerApiClient.new.queue_job("Compliance::DataDeletionJob", [ deletion_request_id ], queue: "compliance")
+          true
         rescue WorkerApiClient::ApiError => e
           Rails.logger.error "[DataDeletionRequests] Failed to queue Compliance::DataDeletionJob " \
                              "for #{deletion_request_id}: #{e.message}"
+          false
         end
 
         def set_deletion_request
@@ -339,13 +344,27 @@ module Api
 
           # Run-now is REFUSED inside the grace period, never bypassed
           # (IMP-26adf1c79c7a); nothing is enqueued and the row stays approved.
-          return render_start_refused unless @deletion_request.start_processing!
+          # The audit row is written inside the start's locked transaction, so
+          # a failed audit rolls the start back; the enqueue stays AFTER the
+          # commit.
+          started = @deletion_request.start_processing! do
+            log_internal_audit("data_deletion.execute", "DeletionRequest", @deletion_request.id,
+                               account_id: @deletion_request.account_id)
+          end
+          return render_start_refused unless started
 
-          log_internal_audit("data_deletion.execute", "DeletionRequest", @deletion_request.id,
-                             account_id: @deletion_request.account_id)
-
-          # Execute deletion in background through the worker HTTP API seam
-          queue_worker_deletion_job(@deletion_request.id)
+          # Execute deletion in background through the worker HTTP API seam.
+          # The row is already 'processing' (committed), so a failed enqueue
+          # is reported to the caller as an error, never a success envelope —
+          # there is deliberately no recovery state here.
+          unless queue_worker_deletion_job(@deletion_request.id)
+            Rails.logger.error "[DataDeletionRequests] Deletion request #{@deletion_request.id} is " \
+                               "'processing' but its worker job could NOT be queued; it will not run until re-enqueued"
+            return render_error(
+              "Deletion started but the worker job could not be queued",
+              status: :bad_gateway, code: "WORKER_ENQUEUE_FAILED"
+            )
+          end
 
           render_success(
             { data_deletion_request: serialize_request(@deletion_request) },

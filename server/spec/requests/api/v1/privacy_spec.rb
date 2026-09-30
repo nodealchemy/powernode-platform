@@ -305,6 +305,27 @@ RSpec.describe 'Api::V1::Privacy', type: :request do
       end
     end
 
+    # IMP-26adf1c79c7a: an approved request with no grace_period_ends_at now
+    # stays approved (fails closed) instead of being failed, so the status page
+    # must render it — it used to raise on the nil comparison (500).
+    context 'with an approved request that has no grace_period_ends_at' do
+      before do
+        create(:data_management_deletion_request, user: user, account: account,
+                                                  status: 'approved', grace_period_ends_at: nil)
+      end
+
+      it 'returns 200 with an honest waiting state and no invented countdown' do
+        get '/api/v1/privacy/deletion', headers: headers, as: :json
+
+        expect(response).to have_http_status(:ok)
+        request = json_response_data['request']
+        expect(request['status']).to eq('approved')
+        expect(request['in_grace_period']).to be true
+        expect(request['grace_period_ends_at']).to be_nil
+        expect(request['days_until_deletion']).to be_nil
+      end
+    end
+
     context 'without deletion request' do
       it 'returns null request' do
         get '/api/v1/privacy/deletion', headers: headers, as: :json

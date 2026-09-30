@@ -300,6 +300,59 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
       end
     end
 
+    # The start's audit row commits or rolls back WITH the transition: a
+    # failed audit must not leave a committed 'processing' row that no job
+    # was ever enqueued for.
+    context 'when the run-now audit write fails' do
+      before do
+        deletion_request.update!(
+          status: 'approved', approved_at: 31.days.ago, grace_period_ends_at: 1.day.ago,
+          processed_by_id: admin_user.id
+        )
+        allow(AuditActions).to receive(:all_actions)
+          .and_return(AuditActions.all_actions - [ 'data_deletion.execute' ])
+      end
+
+      it 'rolls the start back: row stays approved, nothing enqueued' do
+        patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+              params: { action_type: 'execute' },
+              headers: internal_headers,
+              as: :json
+
+        expect(response).not_to have_http_status(:ok)
+        deletion_request.reload
+        expect(deletion_request.status).to eq('approved')
+        expect(deletion_request.processing_started_at).to be_nil
+        expect(worker_api_client).not_to have_received(:queue_job)
+      end
+    end
+
+    context 'when the worker job cannot be queued after the start committed' do
+      before do
+        deletion_request.update!(
+          status: 'approved', approved_at: 31.days.ago, grace_period_ends_at: 1.day.ago,
+          processed_by_id: admin_user.id
+        )
+        allow(worker_api_client).to receive(:queue_job)
+          .and_raise(WorkerApiClient::ApiError.new('worker down'))
+      end
+
+      it 'returns an error (not a success envelope), logs loudly, and invents no recovery state' do
+        allow(Rails.logger).to receive(:error)
+
+        patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+              params: { action_type: 'execute' },
+              headers: internal_headers,
+              as: :json
+
+        expect(response).to have_http_status(:bad_gateway)
+        expect(json_response['success']).to be false
+        expect(json_response['code']).to eq('WORKER_ENQUEUE_FAILED')
+        expect(deletion_request.reload.status).to eq('processing')
+        expect(Rails.logger).to have_received(:error).with(/could NOT be queued/)
+      end
+    end
+
     context 'with action_type: complete' do
       before do
         deletion_request.update!(
@@ -544,6 +597,22 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
       expect(response).to have_http_status(:unprocessable_content)
       expect(json_response['code']).to eq('GRACE_PERIOD_NOT_ENDED')
       expect(deletion_request.reload.status).to eq('approved')
+    end
+
+    it 'rolls a worker start back when its audit write fails: row stays approved' do
+      deletion_request = create_deletion_request.call(status: 'approved', grace_period_ends_at: 1.day.ago)
+      allow(AuditActions).to receive(:all_actions)
+        .and_return(AuditActions.all_actions - [ 'data_deletion.status_transition' ])
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: { status: 'processing', processing_started_at: Time.current.iso8601 },
+            headers: internal_headers,
+            as: :json
+
+      expect(response).not_to have_http_status(:ok)
+      deletion_request.reload
+      expect(deletion_request.status).to eq('approved')
+      expect(deletion_request.processing_started_at).to be_nil
     end
 
     # The static transition map used to carry a conditional approved -> failed

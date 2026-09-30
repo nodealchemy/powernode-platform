@@ -176,4 +176,61 @@ RSpec.describe DataManagement::DeletionRequest, type: :model do
       expect(request.reload.status).to eq('processing')
     end
   end
+
+  # IMP-26adf1c79c7a — a blank grace_period_ends_at must not crash the
+  # readers (the privacy status page serializes them): it agrees with
+  # #can_start_processing?'s fail-closed rule, so the row is still "in grace"
+  # (waiting), just with no end/countdown to report.
+  describe 'blank grace_period_ends_at readers' do
+    let(:blank) do
+      create(:data_management_deletion_request, account: account, user: user,
+                                                status: 'approved', grace_period_ends_at: nil)
+    end
+
+    it 'in_grace_period? does not raise and is true (a blank end is not an ended grace period)' do
+      expect(blank.in_grace_period?).to be true
+      expect(blank.can_start_processing?).to be false
+    end
+
+    it 'has no countdown to report' do
+      expect(blank.days_until_deletion).to be_nil
+      expect(blank.grace_period_remaining).to be_nil
+    end
+
+    it 'cannot be extended (there is no end to extend)' do
+      expect(blank.extend_grace_period!).to be false
+    end
+
+    it 'in_grace_period? is false once the grace period has ended, true before, false when not approved' do
+      ended = create(:data_management_deletion_request, account: account, user: user,
+                                                        status: 'approved', grace_period_ends_at: 1.day.ago)
+      waiting = create(:data_management_deletion_request, account: account, user: user,
+                                                          status: 'approved', grace_period_ends_at: 1.day.from_now)
+      pending = create(:data_management_deletion_request, account: account, user: user,
+                                                          status: 'pending', grace_period_ends_at: nil)
+
+      expect([ ended.in_grace_period?, waiting.in_grace_period?, pending.in_grace_period? ])
+        .to eq([ false, true, false ])
+    end
+  end
+
+  describe '#start_processing! audit atomicity' do
+    it 'rolls the transition back when the audit write raises' do
+      request = create(:data_management_deletion_request, account: account, user: user,
+                                                          status: 'approved', grace_period_ends_at: 1.day.ago)
+      allow(AuditLog).to receive(:log_compliance_event).and_raise(ActiveRecord::RecordInvalid)
+
+      expect { request.start_processing! }.to raise_error(ActiveRecord::RecordInvalid)
+      expect(request.reload.status).to eq('approved')
+      expect(request.processing_started_at).to be_nil
+    end
+
+    it 'rolls the transition back when the caller block raises' do
+      request = create(:data_management_deletion_request, account: account, user: user,
+                                                          status: 'approved', grace_period_ends_at: 1.day.ago)
+
+      expect { request.start_processing! { raise 'audit down' } }.to raise_error('audit down')
+      expect(request.reload.status).to eq('approved')
+    end
+  end
 end
