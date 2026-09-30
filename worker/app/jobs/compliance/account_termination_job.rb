@@ -752,6 +752,12 @@ module Compliance
         # back to consistency.
         terminate_account!(account_id)
 
+        # The completion notice goes to the address snapshotted at request time
+        # (the owner is anonymized by now). The server scrubs it in the write
+        # below, so it is read first and held only in this local
+        # (IMP-b719328ddeb9).
+        notification_address = fetch_notification_address(termination_id)
+
         # Complete termination
         patch_termination!(
           termination_id,
@@ -765,7 +771,7 @@ module Compliance
         log_info "Account #{account_id} termination complete"
 
         # Send final notification
-        send_completion_notification(termination)
+        send_completion_notification(termination, notification_address)
       rescue => e
         log_error "Account termination failed: #{e.message}"
 
@@ -1042,12 +1048,29 @@ module Compliance
       )
     end
 
-    def send_completion_notification(termination)
+    # Best-effort: the termination has already erased the account's data, so a
+    # failed read here can only cost the notice. It must never fail or revert
+    # the termination, and the address itself is never logged.
+    def fetch_notification_address(termination_id)
+      response = api_client.get("/api/v1/internal/account_terminations/#{termination_id}")
+      response['success'] ? response.dig('data', 'notification_email').presence : nil
+    rescue => e
+      log_warn "Could not read the notification address for termination #{termination_id}: #{e.message}"
+      nil
+    end
+
+    def send_completion_notification(termination, address)
+      if address.blank?
+        log_warn "Termination #{termination['id']} has no notification address on file; " \
+                 'skipping the completion notification'
+        return
+      end
+
       api_client.post(
         '/api/v1/internal/notifications/send',
         {
           type: 'account_termination_complete',
-          email: termination['owner_email'], # Captured before termination
+          email: address,
           data: {
             termination_id: termination['id'],
             completed_at: Time.current.iso8601

@@ -37,7 +37,6 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
       'id' => termination_id,
       'account_id' => account_id,
       'status' => 'grace_period',
-      'owner_email' => 'owner@example.com',
       'grace_period_ends_at' => 1.day.ago.iso8601,
       'termination_log' => [ seeded_reminder_entry ]
     }
@@ -72,6 +71,14 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
       allow(job).to receive(:log_info)
       allow(job).to receive(:log_error)
       allow(job).to receive(:log_warn)
+
+      # The completion notice address is read from the internal SHOW, never the
+      # list (IMP-b719328ddeb9): the owner is already anonymized by the time the
+      # termination completes, so the address is the snapshot taken at request time.
+      allow(api_client).to receive(:get)
+        .with("/api/v1/internal/account_terminations/#{termination_id}")
+        .and_return('success' => true, 'data' => { 'id' => termination_id,
+                                                   'notification_email' => 'snapshot@example.com' })
     end
 
     context 'when processing ready terminations' do
@@ -227,6 +234,83 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
           )
 
         job.execute
+      end
+
+      it 'addresses the completion notification to the snapshot read from the show endpoint' do
+        expect(api_client).to receive(:post)
+          .with(
+            '/api/v1/internal/notifications/send',
+            hash_including(type: 'account_termination_complete', email: 'snapshot@example.com')
+          )
+
+        job.execute
+      end
+
+      it 'reads the snapshot before the completing write, which scrubs it server-side' do
+        order = []
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/account_terminations/#{termination_id}") do
+          order << :read_snapshot
+          { 'success' => true, 'data' => { 'notification_email' => 'snapshot@example.com' } }
+        end
+        allow(api_client).to receive(:patch) do |path, payload|
+          order << :complete if path.end_with?(termination_id) && payload[:status] == 'completed'
+          { 'success' => true, 'data' => termination_data }
+        end
+
+        job.execute
+
+        expect(order).to eq(%i[read_snapshot complete])
+      end
+
+      it 'never writes the snapshotted address to the log' do
+        job.execute
+
+        %i[log_info log_error log_warn].each do |logger|
+          expect(job).not_to have_received(logger).with(/snapshot@example\.com/)
+        end
+      end
+
+      context 'when the snapshot is absent (a legacy row)' do
+        before do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/account_terminations/#{termination_id}")
+            .and_return('success' => true, 'data' => { 'id' => termination_id, 'notification_email' => nil })
+        end
+
+        it 'sends nothing to a nil address, warns, and still completes the termination' do
+          expect(api_client).not_to receive(:post)
+            .with('/api/v1/internal/notifications/send', hash_including(type: 'account_termination_complete'))
+          expect(api_client).to receive(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", hash_including(status: 'completed'))
+            .and_return('success' => true, 'data' => termination_data)
+
+          result = job.execute
+
+          expect(result[:errors]).to be_empty
+          expect(job).to have_received(:log_warn).with(/no notification address/i)
+        end
+      end
+
+      context 'when reading the snapshot fails' do
+        before do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/account_terminations/#{termination_id}")
+            .and_raise(StandardError, 'read timeout')
+        end
+
+        it 'warns and still completes the termination rather than failing it' do
+          expect(api_client).not_to receive(:post)
+            .with('/api/v1/internal/notifications/send', hash_including(type: 'account_termination_complete'))
+          expect(api_client).to receive(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", hash_including(status: 'completed'))
+            .and_return('success' => true, 'data' => termination_data)
+
+          result = job.execute
+
+          expect(result[:errors]).to be_empty
+          expect(job).to have_received(:log_warn).with(/no notification address/i)
+        end
       end
 
       it 'returns results summary' do
@@ -1360,6 +1444,9 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
           allow(api_client).to receive(:get)
             .with("/api/v1/internal/accounts/#{other_account_id}/users")
             .and_return('success' => true, 'data' => users_data)
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/account_terminations/#{other_termination_id}")
+            .and_return('success' => true, 'data' => { 'id' => other_termination_id })
         end
 
         it 'does not raise, and quarantines the unparseable row without resuming it' do

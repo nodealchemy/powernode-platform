@@ -500,12 +500,24 @@ module Compliance
     end
 
     def notify_user_deletion_complete(deletion_request)
-      # Send to a backup email or skip if user is fully anonymized
+      # The user's own email is erased by this very job, so the notice goes to
+      # the address the server snapshotted at request time and returned on the
+      # show read at the top of #execute (IMP-b719328ddeb9). The server scrubs
+      # it when the request completes; this copy is the only one left, and is
+      # never logged. A row with none (legacy) is warned about, not failed: the
+      # erasure has already happened and completed.
+      address = deletion_request['notification_email']
+      if address.blank?
+        log_warn "Deletion request #{deletion_request['id']} has no notification address on file; " \
+                 'skipping the completion notification'
+        return
+      end
+
       api_client.post(
         '/api/v1/internal/notifications/send',
         {
           type: 'data_deletion_complete',
-          email: deletion_request['user_email'], # Captured before anonymization
+          email: address,
           data: {
             deletion_id: deletion_request['id'],
             completed_at: Time.current.iso8601

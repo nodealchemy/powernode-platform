@@ -22,7 +22,9 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
       'account_id' => account_id,
       'status' => 'approved',
       'deletion_type' => 'full',
-      'user_email' => 'user@example.com',
+      # The internal show carries the address snapshotted at request time
+      # (IMP-b719328ddeb9); the user's own email is erased by this very job.
+      'notification_email' => 'snapshot@example.com',
       'grace_period_ends_at' => 1.day.ago.iso8601,
       'data_types_to_retain' => []
     }
@@ -141,6 +143,58 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
           )
 
         job.execute(deletion_request_id)
+      end
+
+      # IMP-b719328ddeb9: this used to read deletion_request['user_email'], a
+      # key the server never serialized, so the notice went out with email: nil.
+      it 'addresses the completion notification to the snapshotted address' do
+        expect(api_client).to receive(:post)
+          .with(
+            '/api/v1/internal/notifications/send',
+            hash_including(type: 'data_deletion_complete', email: 'snapshot@example.com')
+          )
+
+        job.execute(deletion_request_id)
+      end
+
+      it 'never writes the snapshotted address to the log' do
+        job.execute(deletion_request_id)
+
+        %i[log_info log_error log_warn].each do |logger|
+          expect(job).not_to have_received(logger).with(/snapshot@example\.com/)
+        end
+      end
+
+      context 'when the request carries no snapshot (a legacy row)' do
+        let(:deletion_request_data) { super().except('notification_email') }
+
+        it 'sends nothing to a nil address, warns, and still completes the request' do
+          expect(api_client).not_to receive(:post)
+            .with('/api/v1/internal/notifications/send', anything)
+          expect(api_client).to receive(:patch)
+            .with(
+              "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+              hash_including(status: 'completed')
+            )
+            .and_return(show_response(deletion_request_data))
+
+          job.execute(deletion_request_id)
+
+          expect(job).to have_received(:log_warn).with(/no notification address/i)
+        end
+      end
+
+      context 'when the snapshot is blank' do
+        let(:deletion_request_data) { super().merge('notification_email' => '') }
+
+        it 'does not send to a blank address' do
+          expect(api_client).not_to receive(:post)
+            .with('/api/v1/internal/notifications/send', anything)
+
+          job.execute(deletion_request_id)
+
+          expect(job).to have_received(:log_warn).with(/no notification address/i)
+        end
       end
     end
 
