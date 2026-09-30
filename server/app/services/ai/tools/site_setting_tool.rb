@@ -621,6 +621,12 @@ module Ai
         spec = key_spec(params)
         stored = stored_form(spec, params[:value])
 
+        # A machine's boolean is a LITERAL. SiteSetting.cast_stored reads anything
+        # but true/1/yes as false, so "" or "garbage" would pass the ordering as
+        # false and land as junk in a boolean row.
+        if spec[:setting_type] == "boolean" && !%w[true false].include?(stored)
+          return error_result("#{key.inspect} is a boolean: an instance principal must request literally true or false.")
+        end
         if stored.blank? && spec[:setting_type] != "boolean" && !SiteSetting::BLANK_ALLOWED_KEYS.include?(key)
           return error_result("#{key.inspect} needs a value.")
         end
