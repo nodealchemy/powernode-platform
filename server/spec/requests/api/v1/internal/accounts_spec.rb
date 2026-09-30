@@ -365,16 +365,36 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
       end
 
       it 'removes the PII export file from disk' do
-        real_file = Tempfile.new('export-cleanup-test')
-        real_file.write('exported data')
-        real_file.close
-        export_request.update_column(:file_path, real_file.path)
+        exports_base = Dir.mktmpdir('export-cleanup-test')
+        allow(DataManagement::ExportRequest).to receive(:exports_base).and_return(exports_base)
+        path = File.join(exports_base, 'export.json')
+        File.write(path, 'exported data')
+        export_request.update_column(:file_path, path)
 
         delete_own_export_requests(export_request.id)
 
-        expect(File.exist?(real_file.path)).to be false
+        expect(File.exist?(path)).to be false
       ensure
-        real_file&.unlink
+        FileUtils.rm_rf(exports_base) if exports_base
+      end
+
+      # IMP-bdd811725d38: file_path is written by a worker principal, so the
+      # sweep removes nothing whose real path is outside the exports base.
+      it 'removes no file outside the exports base, and still deletes the row' do
+        exports_base = Dir.mktmpdir('export-cleanup-base')
+        allow(DataManagement::ExportRequest).to receive(:exports_base).and_return(exports_base)
+        outside = Tempfile.new('export-cleanup-outside')
+        outside.close
+        export_request.update_column(:file_path, outside.path)
+
+        delete_own_export_requests(export_request.id)
+
+        expect_success_response
+        expect(File.exist?(outside.path)).to be true
+        expect(DataManagement::ExportRequest.exists?(export_request.id)).to be false
+      ensure
+        outside&.unlink
+        FileUtils.rm_rf(exports_base) if exports_base
       end
 
       # The archive lives on the WORKER host, which this action cannot reach:
@@ -402,19 +422,20 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
       # A file this process cannot remove (another uid on a shared tmp, say)
       # must not turn the termination's sweep into a permanent 500.
       it 'still deletes the row and answers 200 when the archive cannot be removed' do
-        real_file = Tempfile.new('export-eacces-test')
-        real_file.close
-        export_request.update_column(:file_path, real_file.path)
-        allow(File).to receive(:delete).and_call_original
-        allow(File).to receive(:delete).with(real_file.path).and_raise(Errno::EACCES)
+        exports_base = Dir.mktmpdir('export-eacces-test')
+        allow(DataManagement::ExportRequest).to receive(:exports_base).and_return(exports_base)
+        path = File.join(exports_base, 'export.json')
+        File.write(path, 'exported data')
+        export_request.update_column(:file_path, path)
+        allow(FileUtils).to receive(:rm_f)
 
         expect { delete_own_export_requests(export_request.id) }.not_to raise_error
 
         expect_success_response
         expect(DataManagement::ExportRequest.exists?(export_request.id)).to be false
-        expect(json_response_data['file_paths']).to eq([ real_file.path ])
+        expect(json_response_data['file_paths']).to eq([ path ])
       ensure
-        real_file&.unlink
+        FileUtils.rm_rf(exports_base) if exports_base
       end
 
       context 'and the export has not yet been delivered (still pending)' do

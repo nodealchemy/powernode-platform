@@ -90,33 +90,23 @@ module Api
           return render_error("Export is not available for download", status: :gone)
         end
 
-        # Security: Validate file path is within allowed exports directory
-        exports_base = Rails.root.join("tmp", "data_exports").to_s
-        expanded_path = File.expand_path(export_request.file_path)
-        unless expanded_path.start_with?(exports_base)
-          Rails.logger.error "Attempted access to file outside exports directory: #{export_request.file_path}"
+        # IMP-bdd811725d38: file_path is written by a worker principal. Only
+        # the real path of a regular file inside the exports base is served
+        # (DataManagement::ExportRequest#contained_file_path), and it is that
+        # resolved path, never the column, that reaches send_file.
+        # IMP-0310a1351dab review round 3, item 2: this runs BEFORE
+        # record_download!, so a refused download is never recorded as
+        # delivered for the GDPR deletion gate.
+        real_path = export_request.contained_file_path
+        unless real_path
+          Rails.logger.error "Refused download of export #{export_request.id}: not a regular file inside the exports directory"
           return render_error("Invalid export file path", status: :forbidden)
-        end
-
-        # IMP-0310a1351dab review round 3, item 2: record_download! (which
-        # DataManagement::ExportRequest#delivered_for_deletion? reads via
-        # downloaded_at) used to fire BEFORE the path-containment check
-        # above — a request that ultimately 403'd here still marked the
-        # export "delivered". `downloadable?`'s own file_exists? check
-        # covers the common case (file genuinely absent), but it checks the
-        # RAW file_path, not the containment-validated one; this repeats the
-        # existence check on the validated path so a served download and a
-        # recorded download can never diverge. Only a request that actually
-        # reaches send_file below may ever record one.
-        unless File.exist?(expanded_path)
-          Rails.logger.error "Export file missing on disk: #{export_request.file_path}"
-          return render_error("Export file is not available", status: :not_found)
         end
 
         export_request.record_download!
 
         send_file(
-          export_request.file_path,
+          real_path,
           filename: "powernode_data_export.#{export_request.format}",
           type: content_type_for(export_request.format)
         )

@@ -112,6 +112,11 @@ module DataManagement
       communications
     ].freeze
 
+    # The one directory an export archive may be served or removed from.
+    def self.exports_base
+      Rails.root.join("tmp", "data_exports").to_s
+    end
+
     # Status query methods
     def pending?
       status == "pending"
@@ -193,18 +198,54 @@ module DataManagement
       file_path.present? && File.exist?(file_path)
     end
 
+    # IMP-bdd811725d38: file_path is written by a worker principal, so it
+    # names nothing this process should trust. The ONE containment predicate
+    # for serving or removing an archive: the REAL path (symlinks resolved)
+    # of a regular file strictly inside the exports base, itself resolved
+    # the same way, compared with a trailing separator so a sibling sharing
+    # the base's prefix is outside. Returns that real path, or nil (a
+    # missing file is not contained).
+    def contained_file_path
+      return if file_path.blank?
+
+      base = File.realpath(self.class.exports_base)
+      real = File.realpath(file_path)
+      real if real.start_with?("#{base}#{File::SEPARATOR}") && File.file?(real)
+    rescue SystemCallError, ArgumentError
+      nil
+    end
+
+    # Removes the archive only when it is contained and named directly, not
+    # through a symlink; a directory, a symlink or an uncontained path is left
+    # alone and logged by row id (never the path). Returns :removed, :missing,
+    # :refused or :failed, and never raises.
+    def remove_contained_file
+      return :missing if file_path.blank? || !(File.exist?(file_path) || File.symlink?(file_path))
+
+      real = contained_file_path
+      if real.nil? || File.symlink?(file_path)
+        Rails.logger.warn("[DataManagement::ExportRequest] refused to remove the archive of export #{id}: " \
+                          "not a regular file inside the exports directory")
+        return :refused
+      end
+
+      FileUtils.rm_f(real)
+      return :removed unless File.exist?(real)
+
+      Rails.logger.warn("[DataManagement::ExportRequest] could not remove the archive of export #{id}")
+      :failed
+    end
+
     # Best effort: the path may belong to another host or another uid, and a
     # file this process cannot remove must not fail the request that asked
     # (an account termination's sweep has no path back). The row keeps its
-    # path when the delete fails.
+    # path when nothing was removed.
     def cleanup_file!
-      return unless file_path.present? && File.exist?(file_path)
-
-      File.delete(file_path)
-      update!(file_path: nil)
-    rescue SystemCallError => e
-      Rails.logger.warn("[DataManagement::ExportRequest] could not remove the archive of export #{id}: #{e.class}")
-      false
+      case remove_contained_file
+      when :removed then update!(file_path: nil)
+      when :missing then nil
+      else false
+      end
     end
 
     def regenerate_download_token!

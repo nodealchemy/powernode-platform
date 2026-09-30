@@ -212,14 +212,8 @@ module Api
             return render_error("Export is not completed", status: :unprocessable_content)
           end
 
-          # Delete the exported file
-          if @export_request.file_path.present?
-            begin
-              FileUtils.rm_rf(@export_request.file_path)
-            rescue StandardError => e
-              Rails.logger.warn "Failed to delete export file: #{e.message}"
-            end
-          end
+          # Removes only a contained regular file; the row expires regardless.
+          @export_request.remove_contained_file
 
           @export_request.update!(
             status: "expired",

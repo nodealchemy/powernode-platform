@@ -214,6 +214,85 @@ RSpec.describe 'Api::V1::Privacy', type: :request do
         expect(export_request.reload.downloaded_at).to be_nil
       end
     end
+
+    # IMP-bdd811725d38: containment is decided on the REAL path (symlinks
+    # resolved) strictly inside the exports base, compared with a trailing
+    # separator, and the path served is that resolved one, never the column.
+    context 'with path containment against a temporary exports base' do
+      let(:tmp_root) { Dir.mktmpdir('export-download') }
+      let(:base) { File.join(tmp_root, 'data_exports') }
+      let(:export_request) do
+        create(:data_management_export_request,
+               user: user,
+               account: account,
+               status: 'completed',
+               file_path: file_path,
+               download_token: 'test-token',
+               download_token_expires_at: 7.days.from_now)
+      end
+
+      before do
+        FileUtils.mkdir_p(base)
+        allow(DataManagement::ExportRequest).to receive(:exports_base).and_return(base)
+      end
+
+      after { FileUtils.rm_rf(tmp_root) }
+
+      def download
+        get "/api/v1/privacy/exports/#{export_request.id}/download?token=test-token", headers: headers
+      end
+
+      context 'when the file sits in a sibling directory sharing the base prefix' do
+        let(:file_path) do
+          FileUtils.mkdir_p("#{base}_evil")
+          File.join("#{base}_evil", 'export.json').tap { |path| File.write(path, '{"sibling": true}') }
+        end
+
+        it 'refuses with forbidden and records no download' do
+          download
+
+          expect(response).to have_http_status(:forbidden)
+          expect(export_request.reload.downloaded_at).to be_nil
+        end
+      end
+
+      context 'when a symlink inside the base points outside it' do
+        let(:file_path) do
+          outside = File.join(tmp_root, 'outside.json')
+          File.write(outside, '{"outside": true}')
+          File.join(base, 'link.json').tap { |path| File.symlink(outside, path) }
+        end
+
+        it 'refuses with forbidden and records no download' do
+          download
+
+          expect(response).to have_http_status(:forbidden)
+          expect(export_request.reload.downloaded_at).to be_nil
+        end
+      end
+
+      context 'when the file is a regular file inside the base, named through a linked directory' do
+        let(:real_path) { File.join(base, 'real', 'export.json') }
+        let(:file_path) do
+          FileUtils.mkdir_p(File.dirname(real_path))
+          File.write(real_path, '{"test": "data"}')
+          File.symlink(File.join(base, 'real'), File.join(base, 'linked'))
+          File.join(base, 'linked', 'export.json')
+        end
+
+        it 'serves the resolved path and records the download' do
+          export_request
+          expect_any_instance_of(Api::V1::PrivacyController)
+            .to receive(:send_file).with(File.realpath(real_path), anything).and_call_original
+
+          download
+
+          expect(response).to have_http_status(:ok)
+          expect(response.body).to eq('{"test": "data"}')
+          expect(export_request.reload.downloaded_at).to be_present
+        end
+      end
+    end
   end
 
   describe 'POST /api/v1/privacy/deletion' do

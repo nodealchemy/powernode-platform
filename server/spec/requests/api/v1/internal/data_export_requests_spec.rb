@@ -333,6 +333,101 @@ RSpec.describe 'Api::V1::Internal::DataExportRequests', type: :request do
       end
     end
 
+    # IMP-bdd811725d38: file_path is written by a worker principal, so expire
+    # removes only a regular file whose real path is inside the exports base,
+    # never a directory, never through a symlink, and expires the row anyway.
+    context 'with action_type: expire against a temporary exports base' do
+      let(:tmp_root) { Dir.mktmpdir('export-expire') }
+      let(:base) { File.join(tmp_root, 'data_exports') }
+
+      before do
+        FileUtils.mkdir_p(base)
+        allow(DataManagement::ExportRequest).to receive(:exports_base).and_return(base)
+        export_request.update!(status: 'completed', completed_at: Time.current, file_path: target)
+      end
+
+      after { FileUtils.rm_rf(tmp_root) }
+
+      def expire_and_expect_expired
+        patch "/api/v1/internal/data_export_requests/#{export_request.id}",
+              params: { action_type: 'expire' },
+              headers: internal_headers,
+              as: :json
+
+        expect_success_response
+        expect(export_request.reload.status).to eq('expired')
+      end
+
+      context 'when the path is outside the base' do
+        let(:target) do
+          File.join(tmp_root, 'victim').tap do |dir|
+            FileUtils.mkdir_p(dir)
+            File.write(File.join(dir, 'keep.txt'), 'keep')
+          end
+        end
+
+        it 'deletes nothing, logs the row id without the path, and still expires the row' do
+          allow(Rails.logger).to receive(:warn)
+
+          expire_and_expect_expired
+
+          expect(File.exist?(File.join(target, 'keep.txt'))).to be true
+          expect(Rails.logger).to have_received(:warn).with(a_string_including(export_request.id.to_s))
+          expect(Rails.logger).not_to have_received(:warn).with(a_string_including(target))
+        end
+      end
+
+      context 'when the path is a sibling directory sharing the base prefix' do
+        let(:target) do
+          FileUtils.mkdir_p("#{base}_evil")
+          File.join("#{base}_evil", 'export.json').tap { |path| File.write(path, 'keep') }
+        end
+
+        it 'deletes nothing and still expires the row' do
+          expire_and_expect_expired
+
+          expect(File.exist?(target)).to be true
+        end
+      end
+
+      context 'when the path is a directory inside the base' do
+        let(:target) do
+          File.join(base, 'nested').tap do |dir|
+            FileUtils.mkdir_p(dir)
+            File.write(File.join(dir, 'inner.json'), 'keep')
+          end
+        end
+
+        it 'deletes nothing and still expires the row' do
+          expire_and_expect_expired
+
+          expect(File.exist?(File.join(target, 'inner.json'))).to be true
+        end
+      end
+
+      context 'when the path is a symlink inside the base pointing outside it' do
+        let(:outside) { File.join(tmp_root, 'outside.json').tap { |path| File.write(path, 'keep') } }
+        let(:target) { File.join(base, 'link.json').tap { |path| File.symlink(outside, path) } }
+
+        it 'removes neither the link nor its target and still expires the row' do
+          expire_and_expect_expired
+
+          expect(File.symlink?(target)).to be true
+          expect(File.exist?(outside)).to be true
+        end
+      end
+
+      context 'when the path is a regular file inside the base' do
+        let(:target) { File.join(base, 'export.json').tap { |path| File.write(path, 'exported data') } }
+
+        it 'removes the file and expires the row' do
+          expire_and_expect_expired
+
+          expect(File.exist?(target)).to be false
+        end
+      end
+    end
+
     # IMP-0310a1351dab review round 2, item 6 (operator ruling 2026-09-24):
     # Compliance::AccountTerminationJob resets a failed export through this
     # action rather than deleting/ignoring it — retried, bounded generation,
