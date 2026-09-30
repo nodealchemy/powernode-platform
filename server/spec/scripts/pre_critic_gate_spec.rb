@@ -126,8 +126,8 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
     File.chmod(0o755, path)
   end
 
-  def rubocop_json(file, lines)
-    JSON.generate(files: [ { path: file, offenses: lines.map { |l| { cop_name: "Style/X", message: "bad thing", location: { line: l } } } } ])
+  def rubocop_json(file, lines, cop: "Style/X", severity: "convention")
+    JSON.generate(files: [ { path: file, offenses: lines.map { |l| { cop_name: cop, severity: severity, message: "bad thing", location: { line: l } } } } ])
   end
 
   def gate(*args, env: {}, path: nil, script_root: nil)
@@ -189,6 +189,17 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
       expect(code).to eq(0), err
       expect(statuses(out)["rubocop"]).to eq("pass")
     end
+
+    # RuboCop reports a parse failure where the parser gave up (usually EOF), not on the line that broke it
+    it "fails on a syntax error reported on an unchanged line" do
+      File.write(File.join(@dir, "syntax.json"), rubocop_json("app/models/thing.rb", [ 1 ], cop: "Lint/Syntax", severity: "fatal"))
+      out, _err, code = gate("#{@base}..#{head}", "--json", env: { "FAKE_RUBOCOP_JSON" => File.join(@dir, "syntax.json") })
+
+      expect(code).to eq(1)
+      rubocop = JSON.parse(out)["checks"].find { |c| c["name"] == "rubocop" }
+      expect(rubocop).to include("status" => "fail", "summary" => "1 file(s), 1 offense(s) on changed lines")
+      expect(rubocop["detail"]).to include("server/app/models/thing.rb:1 Lint/Syntax")
+    end
   end
 
   # worker/ has no RuboCop of its own: its Ruby is linted by server/'s bundle with server/'s config
@@ -231,6 +242,42 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
 
       expect(code).to eq(0), err
       expect(rubocop_check(out)["status"]).to eq("pass")
+    end
+
+    it "fails on a syntax error in a worker file reported on an unchanged line" do
+      out, _err, code = gate("#{@base}..#{head}", "--json",
+                             env: { "FAKE_RUBOCOP_JSON" => File.join(@dir, "worker.json").tap { |f| File.write(f, rubocop_json(File.join(@repo, worker_file), [ 4 ], cop: "Lint/Syntax", severity: "fatal")) } })
+
+      expect(code).to eq(1)
+      expect(rubocop_check(out)["status"]).to eq("fail")
+      expect(rubocop_check(out)["detail"]).to include("#{worker_file}:4 Lint/Syntax")
+    end
+
+    describe "a moved worker file" do
+      let(:moved) { "worker/app/jobs/moved_job.rb" }
+
+      def move(add_line: false)
+        sh!("git", "mv", worker_file, moved)
+        write(moved, "# frozen_string_literal: true\nclass ThingJob\n  def x = 1\nend\n") if add_line
+        commit_all("move a worker file")
+      end
+
+      it "passes a pure rename whose file already had offenses" do
+        h = move
+        out, err, code = gate("#{@base}..#{h}", "--json", env: { "FAKE_RUBOCOP_JSON" => worker_json([ 1, 2, 3 ], path: File.join(@repo, moved)) })
+
+        expect(code).to eq(0), err
+        expect(rubocop_check(out)).to include("status" => "pass", "summary" => "1 file(s), 0 offenses on changed lines")
+      end
+
+      it "fails a rename that also adds an offense, on the added line only" do
+        h = move(add_line: true)
+        out, _err, code = gate("#{@base}..#{h}", "--json", env: { "FAKE_RUBOCOP_JSON" => worker_json([ 1, 2, 3, 4 ], path: File.join(@repo, moved)) })
+
+        expect(code).to eq(1)
+        expect(rubocop_check(out)).to include("status" => "fail", "summary" => "1 file(s), 1 offense(s) on changed lines")
+        expect(rubocop_check(out)["detail"]).to include("#{moved}:3 Style/X")
+      end
     end
 
     it "SKIPs with the reason, neither failing nor passing, when the server config cannot be applied" do
@@ -613,6 +660,19 @@ RSpec.describe "scripts/lib/changed-line-offenses.rb" do
     expect(code).to eq(1)
     expect(result["offenses"].map { |o| o["line"] }).to eq([ 3, 6 ])
     expect(result["offenses"].first).to include("file" => "server/app/a.rb", "cop" => "C/x")
+  end
+
+  it "does not mistake an added line that begins with \"++ \" for a file header" do
+    lines = File.readlines(File.join(@repo, "server/app/a.rb"))
+    lines.insert(1, "++ looks like a header\n")
+    lines[-1] = "changed-last\n"
+    File.write(File.join(@repo, "server/app/a.rb"), lines.join)
+    git!(@repo, "commit", "-qam", "plus-plus line")
+    json = JSON.generate(files: [ { path: "app/a.rb", offenses: [ { cop_name: "C/x", message: "m", location: { line: lines.size } } ] } ])
+    out, _err, st = Open3.capture3(script, @repo, @head, git!(@repo, "rev-parse", "HEAD"), "--prefix", "server/", stdin_data: json)
+
+    expect(st.exitstatus).to eq(1)
+    expect(JSON.parse(out)["offenses"].map { |o| o["line"] }).to eq([ lines.size ])
   end
 
   it "exits 0 with a zero count when nothing sits on a changed line" do
