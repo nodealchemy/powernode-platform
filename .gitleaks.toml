@@ -57,11 +57,40 @@ description = "Database Connection URL"
 regex = '''(?i)(postgres|mysql|mongodb)://[^:]+:[^@]+@[^/]+/[^\s'"]+'''
 tags = ["database", "credentials", "critical"]
 
+# hub-backend appliance `powernode-rails-exec`: its DATABASE_URL is PASSWORDLESS
+# (postgres://powernode@localhost... -- trust auth on loopback), but the rule's
+# [^:]+ takes "powernode@localhost" as the user and [^@]+ runs across ~40 lines to
+# the shell's "$@" further down. AND-scoped to this rule, this one file and a match
+# that starts with that exact literal and whose FIRST "@" after it is "$@": a
+# password added to the URL changes the prefix, and a credentialed URL inserted
+# below it supplies an earlier "@" that is not "$@" -- both still fail. The path
+# is not anchored to extensions/system/ because the pre-critic gate's ext-gitleaks
+# scan runs with the extension checkout as its source root. (IMP-35fee69707e9;
+# replaces the rails-start.sh path entry, whose DATABASE_URL line moved here.)
+[rules.allowlist]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)modules/powernode-hub-backend/rootfs/usr/local/bin/powernode-rails-exec$''']
+regexes = ['''\Apostgres://powernode@localhost:5432/powernode_production"[^@]*\$@''']
+
 [[rules]]
 id = "redis-url"
 description = "Redis Connection URL with Password"
 regex = '''(?i)redis://:[^@]+@[^/]+'''
 tags = ["redis", "credentials"]
+
+# Admin::SystemSettings documents, in comments, the password SHAPES that break
+# URI.parse ("my/pass", "p@ss", "p#w", "p?w", "p w" against host "host"); the
+# shapes are the point, so they are allowlisted rather than reworded. AND-scoped
+# to this rule, this one file and a match that starts with one of those literal
+# examples -- any other credentialed redis URL in the file still fails.
+# Both allowlists are pinned by scripts/checks/tests/gitleaks_allowlist_narrowness_test.sh.
+# (IMP-35fee69707e9)
+[rules.allowlist]
+condition = "AND"
+regexTarget = "match"
+paths = ['''(^|/)server/app/services/admin/system_settings\.rb$''']
+regexes = ['''\Aredis://:(my/pass|p@ss|p#w|p\?w|p w)@host\b''']
 
 [[rules]]
 id = "sendgrid-api-key"
@@ -147,14 +176,6 @@ paths = [
     # restructure from the parent repo; entries below cover known false
     # positives, not blanket-disabling extensions/).
     '''extensions/system/agent/cmd/powernode-agent/internal/cli/commit_cmd\.go$''',
-    # hub-backend appliance boot script: the database-url rule greedily matches from
-    # the PASSWORDLESS loopback DATABASE_URL (postgres://powernode@localhost — no
-    # password; postgres runs trust-auth on 127.0.0.1 and the role is created WITH
-    # LOGIN SUPERUSER + no password) across newlines to the '@' in the admin email a
-    # few lines below. No literal secret exists in this file — secret_key_base, AR
-    # encryption keys, JWT_SECRET_KEY and the admin password are all openssl-generated
-    # at first boot into a runtime conf, never stored in the script. (IMP-22e47fc38156)
-    '''extensions/system/modules/powernode-hub-backend/rootfs/usr/local/bin/rails-start\.sh$''',
     # dev-cell SSH key generator: the private-key rule matches two format
     # STRINGS — a doc comment quoting "-----BEGIN OPENSSH PRIVATE KEY-----"
     # and wrap_pem() which wraps RUNTIME-generated base64 in PEM delimiters.
