@@ -9562,6 +9562,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.index ["rpm_name"], name: "index_system_node_architectures_on_rpm_name", where: "(rpm_name IS NOT NULL)"
   end
 
+  create_table "system_node_assignment_clearances", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.datetime "issued_at", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "node_id", null: false
+    t.uuid "node_module_id", null: false
+    t.string "reason", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_system_node_assignment_clearances_on_account_id"
+    t.index ["expires_at"], name: "index_system_node_assignment_clearances_on_expires_at"
+    t.index ["node_id", "node_module_id"], name: "index_node_assignment_clearances_on_node_and_module", unique: true
+    t.index ["node_id"], name: "index_system_node_assignment_clearances_on_node_id"
+    t.index ["node_module_id"], name: "index_system_node_assignment_clearances_on_node_module_id"
+  end
+
   create_table "system_node_certificates", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id"
     t.datetime "created_at", null: false
@@ -12535,6 +12552,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
   add_foreign_key "system_node_architectures", "file_objects", column: "image_file_object_id"
   add_foreign_key "system_node_architectures", "file_objects", column: "kernel_file_object_id"
   add_foreign_key "system_node_architectures", "file_objects", column: "ramdisk_file_object_id"
+  add_foreign_key "system_node_assignment_clearances", "accounts"
+  add_foreign_key "system_node_assignment_clearances", "system_nodes", column: "node_id", on_delete: :cascade
   add_foreign_key "system_node_certificates", "accounts", on_delete: :cascade
   add_foreign_key "system_node_certificates", "system_node_instances", column: "node_instance_id"
   add_foreign_key "system_node_instance_peers", "accounts"
