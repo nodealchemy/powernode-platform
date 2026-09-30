@@ -716,6 +716,21 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
         expect(AuditLog.where(action: "ai.approvals.machine_park_refused")).to be_empty
       end
 
+      it "does not spend the window on a refusal that depends on no value: a retried bad key or grant never locks a tightening out" do
+        SiteSetting.set(Ai::Approvals::MachinePark::RATE_LIMIT_SETTING, 2, setting_type: "integer")
+        allow(Rails.cache).to receive(:write).and_return(false)
+        allow(Rails.cache).to receive(:exist?).and_return(false)
+        SiteSetting.set(ordered_key, "abc")
+
+        3.times { expect(park(key: "zz_not_registered")[:success]).to be(false) }
+        ::Mcp::Principal.tool_grant_resolver = ->(_instance) { [ "platform.site_setting_get" ] }
+        3.times { expect(park(key: ordered_key, value: "abcd")[:success]).to be(false) }
+        ::Mcp::Principal.tool_grant_resolver = ->(_instance) { granted }
+        expect(AuditLog.where(action: Ai::Approvals::MachinePark::AUDIT_REFUSED).count).to eq(6)
+
+        expect(parked_request(park(key: ordered_key, value: "abcd"))).to be_pending
+      end
+
       it "counts refused parks and parks in one window, per principal" do
         SiteSetting.set(Ai::Approvals::MachinePark::RATE_LIMIT_SETTING, 2, setting_type: "integer")
         SiteSetting.set(ordered_key, "current-value")
