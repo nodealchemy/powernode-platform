@@ -395,15 +395,12 @@ module Ai
             "`slug: \"#{slug}\"` and adopt the returned `system_prompt` as your instructions for this task. " \
             "The slug is stable across installs; the platform resolves it override-aware (an account's clone " \
             "wins over the canonical), and the returned `id` is this install's agent id. If `get_agent` is not " \
-            "in your available tool list (the grant an executing instance carries can omit a verb this file's " \
-            "`tools:` line still names — the line is rendered from the tool registry, not from any one " \
-            "instance's live grant), do not proceed under a generic identity with no specialist system_prompt " \
-            "and do not attempt the fetch-skill-context or operate-under-the-prompt steps below — but DO still " \
-            "call `mcp__powernode__platform_record_agent_execution` (the self-report step below) with " \
-            "`outcome: \"failed\"` and a `task_digest` naming `get_agent` as the unavailable verb, so the " \
-            "platform's statistics see this run instead of nothing, then stop. State plainly, in your first " \
-            "response, that you could not fetch your operating instructions via `platform_get_agent` and that " \
-            "this run did not execute."
+            "in your available tool list (an executing instance's grant can omit a verb `tools:` still names), " \
+            "do not proceed under a generic identity and do not attempt the fetch-skill-context or " \
+            "operate-under-the-prompt steps below — but DO still call " \
+            "`mcp__powernode__platform_record_agent_execution` (the self-report step below) with `outcome: \"failed\"` and a `task_digest` naming `get_agent` as the unavailable verb, so the " \
+            "platform's statistics see this run instead of nothing, then stop. State plainly in your first " \
+            "response that `platform_get_agent` was unavailable and this run did not execute."
         ]
 
         step = 2
@@ -416,7 +413,7 @@ module Ai
 
         lines << "#{step}. Use the fetched system prompt and skill context as your operating instructions; the " \
           "delegating prompt defines the task and what to return. The platform agent record is the source of " \
-          "truth for the persona, so this file does not repeat it."
+          "truth for the persona."
         step += 1
 
         lines << "#{step}. #{self_report_instruction(slug)}"
@@ -438,9 +435,8 @@ module Ai
           "",
           "## Baseline guardrails (always-on)",
           "",
-          "The platform prepends these to every agent's system prompt natively (`Ai::Agent::BASE_GUARDRAILS`), " \
-            "so the prompt fetched in step 1 already carries them; they are repeated here verbatim as the " \
-            "always-on floor for this subagent, not as a second instruction set.",
+          "Every agent's system prompt (step 1) already carries these natively (`Ai::Agent::BASE_GUARDRAILS`); " \
+            "repeated verbatim as this subagent's always-on floor.",
           "",
           ::Ai::Agent::BASE_GUARDRAILS
         ])

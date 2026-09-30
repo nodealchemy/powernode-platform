@@ -19,4 +19,4 @@
 # infrastructure-generalist.md; the roster is 29 files). The skeletons were stale when
 # measured; lower both values after the next regeneration.
 max_tools_per_agent=122
-max_roster_bytes=200255
+max_roster_bytes=200039
