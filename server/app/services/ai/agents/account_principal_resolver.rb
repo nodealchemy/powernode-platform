@@ -72,6 +72,22 @@ module Ai
 
       # Trust-score columns that are a per-agent HISTORY rather than a
       # standing, and so start fresh on the clone.
+      # A row already on the CLONE with the same full key as the canonical row it
+      # is compared to (ai_intervention_policies is the outer table). Bound with
+      # :clone_id.
+      CLONE_TWIN_SQL = <<~SQL.squish.freeze
+        EXISTS (
+          SELECT 1 FROM ai_intervention_policies twin
+           WHERE twin.account_id = ai_intervention_policies.account_id
+             AND twin.scope = ai_intervention_policies.scope
+             AND twin.ai_agent_id = :clone_id
+             AND twin.user_id IS NOT DISTINCT FROM ai_intervention_policies.user_id
+             AND twin.action_category = ai_intervention_policies.action_category
+             AND twin.priority = ai_intervention_policies.priority
+             AND twin.conditions = ai_intervention_policies.conditions
+        )
+      SQL
+
       TRUST_SCORE_HISTORY = %w[id agent_id account_id created_at updated_at
                                evaluation_history evaluation_count last_evaluated_at].freeze
 
@@ -365,18 +381,36 @@ module Ai
       # with no user_id filter — so a `scope: "agent"` row with a user_id set is
       # a verb the gate would grant, and leaving it on a principal that can
       # never execute strands it. Every row the gate would read travels.
+      #
+      # COLLISION-AWARE (IMP-89c398dcbc15). `update_all` skips the model's
+      # uniqueness validation, so a canonical row whose FULL key (scope, user,
+      # category, priority, conditions) already exists on the clone would hit
+      # idx_ai_intervention_policies_full_key and raise out of every resolution.
+      # The engineering seed wrote exactly those copies: it looked its rows up on
+      # the canonical, never found the ones this move had already carried to the
+      # clone, and wrote them again. The clone's row is authoritative (it may be
+      # the operator's edit), so the canonical copy is DROPPED and only the rest
+      # move, in one transaction; the dropped ids go in the audit row.
       def rehome_intervention_policies!(clone, canonical)
         rows = ::Ai::InterventionPolicy.where(account_id: account.id, ai_agent_id: canonical.id, scope: "agent")
-        ids = rows.pluck(:id)
+        return unless rows.exists?
+
+        ids = dropped = nil
+        ::Ai::InterventionPolicy.transaction do
+          ids = rows.pluck(:id)
+          dropped = rows.where(CLONE_TWIN_SQL, clone_id: clone.id).pluck(:id)
+          ::Ai::InterventionPolicy.where(id: dropped).delete_all if dropped.any?
+          rows.update_all(ai_agent_id: clone.id, updated_at: Time.current)
+        end
         return if ids.empty?
 
-        rows.update_all(ai_agent_id: clone.id, updated_at: Time.current)
         audit!(
           resource: clone, event: "intervention_policies.rehomed",
           old_values: { "ai_agent_id" => canonical.id },
           new_values: { "ai_agent_id" => clone.id },
           details: { "canonical_id" => canonical.id, "canonical_slug" => canonical.slug,
-                     "policy_ids" => ids, "count" => ids.size }
+                     "policy_ids" => ids - dropped, "count" => ids.size - dropped.size,
+                     "dropped_duplicate_policy_ids" => dropped }
         )
       end
 

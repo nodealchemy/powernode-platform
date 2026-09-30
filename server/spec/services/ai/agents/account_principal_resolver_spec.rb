@@ -262,6 +262,71 @@ RSpec.describe Ai::Agents::AccountPrincipalResolver do
       expect { described_class.acting(canonical, account: account) }.not_to change(Ai::Agent, :count)
     end
 
+    # IMP-89c398dcbc15. The move is `update_all`, which no model validation
+    # sees, so with the unique index a canonical row whose full key already
+    # exists on the clone raised RecordNotUnique out of every resolution. The
+    # clone's row is authoritative (it may be the operator's edit): the
+    # canonical copy is dropped, and only the rest move.
+    describe "a canonical row whose full key already exists on the clone (IMP-89c398dcbc15)" do
+      let(:tier_conditions) { { "trust_tier_minimum" => "trusted" } }
+
+      it "drops the canonical copy, keeps the clone's operator-edited verb, and does not raise" do
+        edited = policy_on(foreign_clone, "spec.hier.p2i.rehome.collide", policy: "auto_approve", priority: 10)
+        copy   = policy_on(canonical, "spec.hier.p2i.rehome.collide", policy: "require_approval", priority: 10)
+
+        acting = nil
+        expect { acting = described_class.acting(canonical, account: account) }.not_to raise_error
+
+        expect(acting.id).to eq(foreign_clone.id)
+        expect(Ai::InterventionPolicy.where(id: copy.id)).not_to exist
+        expect(edited.reload.policy).to eq("auto_approve")
+        expect(Ai::InterventionPolicy.where(account: account, action_category: "spec.hier.p2i.rehome.collide").count).to eq(1)
+      end
+
+      it "still moves the rows the clone lacks, including a tier at a different priority" do
+        policy_on(foreign_clone, "spec.hier.p2i.rehome.tier", policy: "require_approval", priority: 10)
+        dropped = policy_on(canonical, "spec.hier.p2i.rehome.tier", policy: "require_approval", priority: 10)
+        moved   = policy_on(canonical, "spec.hier.p2i.rehome.tier", policy: "auto_approve", priority: 20,
+                                                                     conditions: tier_conditions)
+
+        described_class.acting(canonical, account: account)
+
+        expect(Ai::InterventionPolicy.where(id: dropped.id)).not_to exist
+        expect(moved.reload.ai_agent_id).to eq(foreign_clone.id)
+        expect(Ai::InterventionPolicy.where(ai_agent_id: foreign_clone.id,
+                                            action_category: "spec.hier.p2i.rehome.tier").pluck(:priority))
+          .to contain_exactly(10, 20)
+      end
+
+      it "does not treat a row differing only by user_id or conditions as a collision" do
+        policy_on(foreign_clone, "spec.hier.p2i.rehome.near", priority: 10)
+        by_user = policy_on(canonical, "spec.hier.p2i.rehome.near", priority: 10, user_id: user.id)
+        by_cond = policy_on(canonical, "spec.hier.p2i.rehome.near", priority: 10, conditions: tier_conditions)
+
+        described_class.acting(canonical, account: account)
+
+        expect(by_user.reload.ai_agent_id).to eq(foreign_clone.id)
+        expect(by_cond.reload.ai_agent_id).to eq(foreign_clone.id)
+      end
+
+      it "names the dropped ids in the audit row, and does not delete another account's row on the same key" do
+        other = create(:account)
+        Ai::InterventionPolicy.register_category!("spec.hier.p2i.rehome.audit")
+        theirs = Ai::InterventionPolicy.create!(
+          account: other, ai_agent_id: canonical.id, action_category: "spec.hier.p2i.rehome.audit",
+          scope: "agent", policy: "auto_approve", priority: 10, is_active: true
+        )
+        policy_on(foreign_clone, "spec.hier.p2i.rehome.audit", priority: 10)
+        copy = policy_on(canonical, "spec.hier.p2i.rehome.audit", priority: 10)
+
+        described_class.acting(canonical, account: account)
+
+        expect(theirs.reload.ai_agent_id).to eq(canonical.id)
+        audit = AuditLog.where(account: account).order(:created_at).last
+        expect(audit.metadata["dropped_duplicate_policy_ids"]).to eq([ copy.id ])
+      end
+    end
+
     it "runs for .for(canonical_slug:) too" do
       row = policy_on(canonical, "spec.hier.p2i.rehome.by-slug")
 
