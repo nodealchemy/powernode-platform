@@ -346,7 +346,7 @@ module Ai
           },
           # === Deferred operations (approval queue) ===
           "list_deferred_operations" => {
-            description: "List deferred operations (queued autonomous actions awaiting approval or completion).",
+            description: "List deferred operations (queued autonomous actions awaiting approval or completion), newest first. An instance principal sees only the operations recorded as parked by that instance.",
             parameters: {
               status: { type: "string", required: false, description: "pending | approved | rejected | completed | failed" },
               agent_id: { type: "string", required: false, description: "Filter by agent" },
@@ -1037,8 +1037,11 @@ module Ai
 
       # === Deferred operations (approval queue) ===
 
+      # An instance principal lists only the operations recorded as its own
+      # (#caller_originated, the same filter get_approval_request applies),
+      # filtered in SQL before the limit so `count` is the filtered page.
       def list_deferred_operations(params)
-        scope = account.ai_deferred_operations
+        scope = caller_originated(account.ai_deferred_operations)
         scope = scope.where(status: params[:status]) if params[:status].present?
         scope = scope.where(ai_agent_id: params[:agent_id]) if params[:agent_id].present?
         limit = (params[:limit] || 25).to_i.clamp(1, 100)
@@ -1113,14 +1116,25 @@ module Ai
       # a person's or agent's, a restricted principal with no node instance,
       # and a row written before the stamp existed, which records no principal
       # and is answered as not-found too. Every other principal keeps the
-      # account-wide read the REST queue gives ai.agents.read.
+      # account-wide read the REST queue gives ai.agents.read. The predicate is
+      # #caller_originated's, asked of this one row, so the single read and
+      # list_deferred_operations cannot disagree.
       def originated_by_caller?(operation)
         return true unless instance_authorized?
-        return false unless node_instance && operation
+        return false unless operation
 
-        principal = ::Ai::Approvals::ParkPrincipal.recorded(operation.params)
-        principal.present? && principal["kind"] == "instance" &&
-          principal["node_instance_id"].to_s == node_instance.id.to_s
+        caller_originated(account.ai_deferred_operations.where(id: operation.id)).exists?
+      end
+
+      # `scope` narrowed to the deferred operations this caller may see: all of
+      # them for every principal but an instance; for an instance, only the
+      # rows Ai::Approvals::ParkPrincipal.parked_by_instance says it parked;
+      # none for a restricted principal with no node instance.
+      def caller_originated(scope)
+        return scope unless instance_authorized?
+        return scope.none unless node_instance
+
+        ::Ai::Approvals::ParkPrincipal.parked_by_instance(scope, node_instance.id)
       end
 
       def approval_request_lookup_payload(request, operation)

@@ -17,8 +17,9 @@ module Ai
     # for DeferredToolCall), a tool-specific gate_context, a hand-placed
     # Ai::AutonomyGate.evaluate in a tool (SdwanTool#gated_result,
     # DockerProvisioningTool#gated) or a skill executor's own gate — so a reader
-    # scoping rows to a principal (get_approval_request today,
-    # list_deferred_operations next) finds it at ONE key on every row.
+    # scoping rows to a principal (get_approval_request and
+    # list_deferred_operations, through .parked_by_instance) finds it at ONE
+    # key on every row.
     #
     # `internal` rides ALONGSIDE the kind rather than as a kind of its own,
     # because the two are orthogonal at depth: a skill executor nests every
@@ -101,13 +102,22 @@ module Ai
         base.reject { |key, _| key.to_s == KEY }.merge(KEY => descriptor)
       end
 
-      # The block a stored row carries, or nil — read the way every reader
-      # should, off the operation's params.
-      def recorded(params)
-        return nil unless params.is_a?(::Hash)
-
-        block = params[KEY] || params[KEY.to_sym]
-        block.is_a?(::Hash) ? block : nil
+      # THE "recorded as parked by this instance" predicate, as a relation
+      # filter over Ai::DeferredOperation rows (IMP-510a142014cc). The single
+      # read (AgentAutonomyTool#originated_by_caller?) and the list
+      # (list_deferred_operations) both go through it, so the two can never
+      # disagree about which rows an instance may see; and it runs in SQL, so a
+      # list's limit and count describe the filtered set. A row matches only
+      # when its block is an object naming kind "instance" and this node
+      # instance's id: another instance's block, a person's or agent's, an
+      # unattributed one, a non-object block (->> yields NULL) and a row with
+      # no block at all never do. The JSONB column holds string keys only, so
+      # KEY is the one spelling to look under.
+      def parked_by_instance(relation, node_instance_id)
+        column = "#{relation.klass.quoted_table_name}.params"
+        relation.where("#{column} -> :key ->> 'kind' = 'instance' AND " \
+                       "#{column} -> :key ->> 'node_instance_id' = :node_instance_id",
+                       key: KEY, node_instance_id: node_instance_id.to_s)
       end
     end
   end
