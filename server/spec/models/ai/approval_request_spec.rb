@@ -365,6 +365,28 @@ RSpec.describe Ai::ApprovalRequest, type: :model do
       end
     end
 
+    # IMP-3d275689ca7c — the event is a third copy of the same exception text,
+    # read by platform.recent_events / activity_monitor at the ai.agents.read
+    # floor, so it carries the same redaction as the approval reads.
+    context 'when the executor raises with a secret-named param in its message' do
+      it 'records the event with the value masked' do
+        secret = %w[hunter 2].join
+        stub_const('LeakingPerformer', Class.new do
+          define_singleton_method(:execute) do |_params, deferred_operation:|
+            raise "login failed user=ops; password=#{secret}; attempt=2"
+          end
+        end)
+        req = request_for(gated_operation('LeakingPerformer'))
+
+        req.record_decision!(approver: user, decision: 'approved')
+
+        event = Ai::ExecutionEvent.find_by(source_type: 'Ai::ApprovalRequest', source_id: req.id)
+        expect(event.error_class).to eq('RuntimeError')
+        expect(event.error_message)
+          .to eq("login failed user=ops; password=#{Ai::SensitiveParams::MASK}; attempt=2")
+      end
+    end
+
     context 'when the executor succeeds (positive twin)' do
       it 'behaves exactly as before and declares success with no failure event' do
         op = gated_operation('SucceedingPerformer')

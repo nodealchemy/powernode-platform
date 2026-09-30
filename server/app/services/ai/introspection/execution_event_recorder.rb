@@ -4,7 +4,10 @@ module Ai
   module Introspection
     class ExecutionEventRecorder
       class << self
-        def record(source:, event_type:, status:, metadata: {}, cost_usd: nil, duration_ms: nil, error: nil)
+        # error_message, when given, is stored in place of the exception's own
+        # message: a caller whose error text can quote secrets passes it redacted.
+        def record(source:, event_type:, status:, metadata: {}, cost_usd: nil, duration_ms: nil, error: nil,
+                   error_message: nil)
           account_id = resolve_account_id(source)
           return unless account_id
 
@@ -21,7 +24,7 @@ module Ai
 
           if error
             attrs[:error_class] = error.is_a?(Exception) ? error.class.name : error.to_s
-            attrs[:error_message] = error.is_a?(Exception) ? error.message : nil
+            attrs[:error_message] = error_message || (error.is_a?(Exception) ? error.message : nil)
           end
 
           Ai::ExecutionEvent.create!(attrs)

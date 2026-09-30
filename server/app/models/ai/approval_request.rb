@@ -685,6 +685,9 @@ module Ai
         event_type: "approval_execution",
         status: status,
         error: error,
+        # Read at the ai.agents.read floor (platform.recent_events,
+        # activity_monitor), like execution_error itself (IMP-3d275689ca7c).
+        error_message: ::Ai::SensitiveParams.filter_text(error.message),
         metadata: {
           operation_source_type: source_type,
           operation_source_id: source_id,

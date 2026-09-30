@@ -58,6 +58,20 @@ RSpec.describe Ai::Introspection::ExecutionEventRecorder, type: :service do
       expect(event.error_message).to eq("Something went wrong")
     end
 
+    it "records a caller-supplied error_message in place of the exception's own" do
+      described_class.record(
+        source: agent,
+        event_type: "execution_failed",
+        status: "failure",
+        error: RuntimeError.new("raw text"),
+        error_message: "redacted text"
+      )
+
+      event = Ai::ExecutionEvent.last
+      expect(event.error_class).to eq("RuntimeError")
+      expect(event.error_message).to eq("redacted text")
+    end
+
     it "records error information from a string" do
       described_class.record(
         source: agent,
