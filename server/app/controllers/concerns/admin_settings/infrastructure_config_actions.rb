@@ -11,9 +11,9 @@ module AdminSettings
       # Get connection status (uses the REAL config, not the masked one below)
       connection_status = AdminSetting.test_redis_connection(config)
 
-      # fc-38 review round 3 item #4: a redis://:pw@host URL leaks the
-      # password just as plainly as returning the password field itself
-      # would — strip its userinfo the same way mask_secret_field blanks
+      # fc-38 review round 3 item #4: a redis URL with a password in its
+      # userinfo leaks the password just as plainly as returning the
+      # password field itself would — strip its userinfo the same way mask_secret_field blanks
       # "password" (host/port/path aren't secret, so this masks in place
       # rather than blanking the whole field).
       render_success(
@@ -53,8 +53,8 @@ module AdminSettings
       redis_params.delete("password") if clear_password || unchanged_secret_value?(redis_params["password"])
 
       # fc-38 review round 3 item #4: a submitted URL that embeds
-      # credentials (redis://:pw@host) is rejected outright rather than
-      # silently accepted — it would otherwise leak the password back out
+      # credentials (a password in its userinfo) is rejected outright
+      # rather than silently accepted — it would otherwise leak the password back out
       # through every GET (until masked) and through the persisted blob.
       # The password field is the one supported way to set a credential.
       if ::Admin::SystemSettings.url_contains_credentials?(redis_params["url"])

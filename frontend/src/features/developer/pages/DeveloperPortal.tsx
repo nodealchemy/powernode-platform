@@ -128,7 +128,7 @@ const ApiKeyDocs: React.FC = () => {
         </p>
         <pre className="bg-theme-surface p-4 rounded-lg overflow-x-auto text-sm">
           <code className="text-theme-primary">{`curl https://api.example.com/v1/subscriptions \\
-  -H "X-API-Key: pk_live_..."`}</code>
+  -H "X-API-Key: YOUR_API_KEY"`}</code>
         </pre>
       </Card>
 
