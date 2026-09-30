@@ -57,6 +57,48 @@ RSpec.describe Ai::Engineering::ReleaseDispatchFloorSeeder do
       expect(all_floor_rows.count).to eq(3)
     end
 
+    # IMP-89c398dcbc15. Two doors (a boot reconcile and the rake task) can both
+    # pass find_for before either inserts. The full-key validation then sees the
+    # other door's committed row (RecordInvalid) or, past it, the unique index
+    # does (RecordNotUnique). Both mean "the floor is already there".
+    context "when another door wins the race between find_for and create!" do
+      let(:category) { "release.build_dispatch" }
+
+      def lose_the_race!(error)
+        winner = Ai::InterventionPolicy.create!(
+          account: account, action_category: category, policy: "auto_approve", scope: "global",
+          priority: 0, is_active: true, conditions: {}
+        )
+        calls = 0
+        allow(described_class).to receive(:find_for).and_wrap_original do |original, acct, cat|
+          next original.call(acct, cat) unless cat == category
+
+          (calls += 1) == 1 ? nil : winner
+        end
+        allow(Ai::InterventionPolicy).to receive(:create!).and_call_original
+        allow(Ai::InterventionPolicy).to receive(:create!).with(hash_including(action_category: category)).and_raise(error)
+      end
+
+      it "treats the validation's RecordInvalid as the floor already being there" do
+        lose_the_race!(ActiveRecord::RecordInvalid.new(Ai::InterventionPolicy.new))
+
+        expect { described_class.ensure_for!(account) }.not_to raise_error
+        expect(floor_rows(account, category).count).to eq(1)
+      end
+
+      it "treats the index's RecordNotUnique as the floor already being there" do
+        lose_the_race!(ActiveRecord::RecordNotUnique.new("duplicate key"))
+
+        expect { described_class.ensure_for!(account) }.not_to raise_error
+      end
+    end
+
+    it "re-raises a RecordInvalid when the floor is STILL absent (invalid for some other reason)" do
+      allow(Ai::InterventionPolicy).to receive(:create!).and_raise(ActiveRecord::RecordInvalid.new(Ai::InterventionPolicy.new))
+
+      expect { described_class.ensure_for!(account) }.to raise_error(ActiveRecord::RecordInvalid)
+    end
+
     it "fills only the category that is MISSING on an install that has the older single floor" do
       described_class.ensure_for!(account)
       floor_rows(account, "dev.skill_refine").sole.destroy!

@@ -130,10 +130,15 @@ module Ai
         # Two doors racing (a boot reconcile and `rake db:seed:engineering_floors`)
         # both pass #find_for and both insert. The unique index on the full key
         # (idx_ai_intervention_policies_full_key, IMP-89c398dcbc15) refuses the
-        # second, and the floor is then already there. The index keys on
-        # priority and conditions as well as the shape, so it closes the race
-        # for THIS seam, whose rows all carry PRIORITY and empty conditions;
-        # the model's own validation raises RecordInvalid for a copy it can see.
+        # second, and the floor is then already there.
+        false
+      rescue ActiveRecord::RecordInvalid
+        # The same race one step earlier: the model's full-key validation sees the
+        # other door's committed row before the index is asked. It is the race
+        # only when the floor IS now there; a floor that is still absent means the
+        # row was invalid for some other reason, and that must surface.
+        raise unless find_for(account, category)
+
         false
       end
       private_class_method :ensure_category_for!
