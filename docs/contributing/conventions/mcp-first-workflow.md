@@ -10,7 +10,7 @@ The Powernode MCP server (`platform.*` tools) is the **primary knowledge source*
 2. `platform.learning_metrics` — active learnings, recent contributions
 3. If stale_count > 0 or conflicts, note for resolution
 4. `platform.code_index_status` `repository_id: "powernode-platform"` — index freshness
-5. `platform.search_knowledge` `tags:["memory"]` — recall memories (decisions, incidents, preferences); a `[[slug]]` link resolves via tag `memory-<slug>`. Contract: [knowledge-lifecycle.md](knowledge-lifecycle.md)
+5. `platform.search_knowledge` `tags:["memory"]` on the production connector — recall memories (decisions, incidents, preferences); a `[[slug]]` link resolves via tag `memory-<slug>`. Contract: [knowledge-lifecycle.md](knowledge-lifecycle.md)
 
 ## Before every code change
 

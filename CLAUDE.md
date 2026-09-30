@@ -29,23 +29,23 @@ Agent → Conversations, Tasks, Goals, ApprovalRequests
 
 ## Where guidance lives
 
-Route by **enforceability**: git keeps only what a hook, spec or gate can check (lint, layout, imports, this core); the situational (runbooks, empirics, deployment facts, incidents, procedures) lives in platform knowledge via MCP. Then by **trigger shape**:
+Route by **enforceability**: git keeps only what a hook, spec or gate can check (lint, layout, imports, this core); the situational (runbooks, empirics, deploy facts, incidents, procedures) lives in platform knowledge. Then by **trigger shape**:
 
 | Rule shape | Home | Surfaces / enforces via |
 |---|---|---|
 | Always + high-stakes + not checkable | **this file (core)** | always loaded |
 | Mechanically checkable | **`.claude/hooks/*.sh`** + `scripts/pattern-validation.sh` | edit-time hook / adherence scan |
-| Reusable pattern / procedure | **[conventions/](docs/contributing/conventions/)** + platform knowledge | MCP-first queries + SessionStart digest |
+| Reusable pattern / procedure | platform `guidance-*`, git seed `docs/contributing/conventions/` | MCP-first queries + SessionStart digest |
 | Subsystem-scoped | **nested `server//frontend//worker/ CLAUDE.md`** | loads when editing that tree |
-| Decision / incident / preference | **platform knowledge**, tag `memory-*` | `search_knowledge tag:memory-*` (Claude digest cache: pending) |
+| Decision / incident / preference | **platform knowledge**, tag `memory` | harness MEMORY.md until migrated; `search_knowledge tags:["memory"]` (no Claude digest yet: query it) |
 | Crypto / private-extension logic | **extension only** (never core) | `core-purity-check.sh` (blocking) |
 
 ## Memory & Knowledge
 
-- **Memory** lives in platform knowledge. Recall `search_knowledge tags:["memory"]` (`[[slug]]` → tag `memory-<slug>`); record `create_knowledge key memory:<slug> tags:["memory-<type>"] access_level account` (upsert) — never global, never a local memory file. Verify file/flag refs before acting.
+- **Memory** is moving to platform knowledge. Until the migration is applied, MEMORY.md (harness-loaded) stays the recall source: consult/fix it there. Record NEW memories on the production connector, never a local memory file: `create_knowledge key memory:<slug> tags:["memory-<type>"] access_level account`, never global; recall `search_knowledge tags:["memory"]`, `[[slug]]` → tag `memory-<slug>`. It reflects what was true when written: verify file/flag refs.
 - **MCP-first** is mandatory for non-trivial work: query `platform.query_learnings` / `search_knowledge` / `code_semantic_search` before changing code (full protocol: [conventions/mcp-first-workflow.md](docs/contributing/conventions/mcp-first-workflow.md)). Contribute back after (`create_learning` / `create_knowledge`).
 - **Improvement loop**: dev-improve is drained by Claude Code (`/dev-loop`, `dev_next_task` / `dev_complete_task`) **or** by the Platform Developer canonical agent — the `platform_agent` driver `campaign_delegate` resolves to when no agent is named — under the same loop guardrails; one driver per campaign loop at a time. Which to hand a task to: [use-powernode-from-claude.md](docs/guides/use-powernode-from-claude.md#handing-a-task-to-the-platform-developer-vs-claude-code); the Engineering hierarchy: [platform-engineering-agents.md](docs/concepts/platform-engineering-agents.md).
-- Migrated convention rules are tagged `guidance-*` in platform knowledge. Their SessionStart digest is **Claude-only**; the loop guardrails (`dev_next_task`) and `Ai::Agent` `BASE_GUARDRAILS` tell every other executor to query `search_knowledge tag:guidance-*` before implementing. Query the **production** connector (`mcp__powernode__*`): a sandbox/dev connector (e.g. `mcp__powernode-local__*`) can be unseeded: `success:true`, `count:0` there is an empty-store signal, not evidence the guidance doesn't exist.
+- The `guidance-*` SessionStart digest is **Claude-only**; the loop guardrails (`dev_next_task`) and `BASE_GUARDRAILS` tell other executors to query `search_knowledge tag:guidance-*` first. Use the **production** connector (`mcp__powernode__*`): a sandbox one (`mcp__powernode-local__*`) may be unseeded, so `count:0` there is an empty store.
 
 ---
 
@@ -154,9 +154,9 @@ It is real on installer-provisioned hosts (`powernode-installer.sh` installs
 have no `@` template (`systemctl list-unit-files 'powernode*'` shows none). On a
 module-composed node, treat those references as stale.
 
-After a Rails restart `/up` 502s while it boots, **up to ~3 min** when boot runs pending
-migrations (MCP is dead too). Confirm with `systemctl show -p NRestarts <discovered
-unit>` + `systemctl is-active`; a 502 in that window is not a failed deploy.
+After a Rails restart `/up` 502s while it boots (~30s normally), **up to ~3 min** if boot runs pending
+migrations (MCP dead too). Confirm with `systemctl show -p NRestarts <discovered
+unit>` + `is-active`; a 502 in that window is not a failed deploy.
 
 ---
 

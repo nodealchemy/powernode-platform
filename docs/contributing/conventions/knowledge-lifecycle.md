@@ -27,7 +27,7 @@ The platform runs automated maintenance (see `worker/config/sidekiq.yml`); Claud
 | Found two conflicting learnings | `resolve_contradiction` |
 | Read useful / outdated shared knowledge | `rate_knowledge` (4-5 / 1-2 + corrected `create_knowledge`) |
 | Encountering a bug | `query_learnings` first — reinforce if found, fix + `create_learning` if not |
-| Memories (decision, incident, preference) | `create_knowledge` key `memory:<slug>` tags `["memory-<type>"]` (`<type>`: feedback, project, reference or user; the key adds `memory` + `memory-<slug>`), `access_level: "account"` (an upsert) — never `global`, never a local memory file. Recall: `search_knowledge tags:["memory"]` |
+| Memories (decision, incident, preference) | On the production connector: `create_knowledge` key `memory:<slug>` tags `["memory-<type>"]` (`<type>`: feedback, project, reference or user; the key adds `memory` + `memory-<slug>`), `access_level: "account"` (an upsert) — never `global`, never a local memory file. Recall: `search_knowledge tags:["memory"]` |
 
 **Skip** for trivial fixes (typos, renames, formatting), speculative/unverified analysis, or knowledge that already exists.
 
