@@ -11277,6 +11277,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.jsonb "metadata", default: {}, null: false
     t.datetime "migrated_to_vault_at"
     t.uuid "node_instance_id", null: false
+    t.datetime "rotating_since"
     t.string "status", default: "issued", null: false
     t.uuid "storage_assignment_id", null: false
     t.datetime "updated_at", null: false
