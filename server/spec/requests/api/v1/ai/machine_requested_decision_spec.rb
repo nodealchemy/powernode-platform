@@ -14,7 +14,7 @@ RSpec.describe "Machine-requested protected changes: who decides", type: :reques
 
   before do
     Ai::Tools::SiteSettingTool.register_key(key_a, setting_type: "string", description: "decision spec", protected: true,
-                                                    machine_parkable: true)
+                                                    machine_parkable: true, ordering: ->(_requested, _current) { true })
     ::Mcp::Principal.instance_resolver = ->(cn) { cn == node_instance.id ? node_instance : nil }
     ::Mcp::Principal.tool_grant_resolver = ->(_instance) { [ "platform.site_setting_set_protected" ] }
   end
@@ -31,10 +31,22 @@ RSpec.describe "Machine-requested protected changes: who decides", type: :reques
     Ai::ApprovalRequest.find(result[:data][:approval_request_id])
   end
 
-  def decide(verb, request, user: operator, card_shown: true)
+  # `digest: :rendered` echoes the digest of the card this user is shown NOW, as
+  # the queue does; an explicit string sends that; nil sends none.
+  def decide(verb, request, user: operator, card_shown: true, digest: :rendered)
     body = card_shown ? { change_card_shown: true } : {}
+    digest = rendered_digest(request, user: user) if digest == :rendered && card_shown
+    body[:change_card_digest] = digest unless digest.nil? || digest == :rendered
     post "/api/v1/ai/autonomy/approvals/#{request.id}/#{verb}", params: body.to_json, headers: auth_headers_for(user)
   end
+
+  def rendered_card(request, user: operator)
+    get "/api/v1/ai/autonomy/approvals", headers: auth_headers_for(user)
+    expect(response).to have_http_status(:ok), response.body
+    json_response["data"].find { |r| r["id"] == request.id }&.fetch("change_card")
+  end
+
+  def rendered_digest(request, user: operator) = rendered_card(request, user: user)&.fetch("digest", nil)
 
   def impersonation_headers_for(user)
     admin = create(:user, :admin, account: account)
@@ -130,5 +142,126 @@ RSpec.describe "Machine-requested protected changes: who decides", type: :reques
     expect(row["change_card"]).to include("tool" => "site_setting", "key" => key_a,
                                           "new_value" => "new-value", "current_value" => "old-value")
     expect(row["description"]).not_to include("new-value")
+  end
+
+  # IMP-1765f6f09458 — the approval binds to a DIGEST of the card the person was
+  # shown (key, new value, current value at render). The server recomputes it
+  # for the decider's own session at decide time and refuses on a mismatch, so
+  # a change to the setting between viewing and approving is never approved
+  # blind. The client echoes the digest the server rendered; it never computes
+  # one. It is required wherever the card attestation is (every card-bearing
+  # request), so a person-parked request is bound the same way.
+  describe "the digest of the card shown" do
+    it "is rendered on the list and the detail, only to a viewer shown the current value" do
+      SiteSetting.set(key_a, "old-value")
+      request = park_as_instance!(key_a, value: "new-value")
+
+      list_digest = rendered_digest(request)
+      get "/api/v1/ai/autonomy/approvals/#{request.id}", headers: auth_headers_for(operator)
+      expect(list_digest).to match(/\Av1:[0-9a-f]{64}\z/)
+      expect(json_response.dig("data", "change_card", "digest")).to eq(list_digest)
+
+      reader = user_with_permissions("ai.agents.read", "ai.autonomy.approve", account: account)
+      card = rendered_card(request, user: reader)
+      expect(card).to include("key" => key_a)
+      expect(card).not_to have_key("current_value")
+      expect(card).not_to have_key("digest")
+    end
+
+    it "refuses an approve that carries the attestation but no digest, and points at the queue" do
+      request = park_as_instance!(key_a)
+
+      decide("approve", request, digest: nil)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response["code"]).to eq("change_card_digest_missing")
+      expect(json_response["error"]).to include("/app/ai/control/approvals/queue")
+      expect(request.reload).to be_pending
+      expect(SiteSetting.find_by(key: key_a)).to be_nil
+    end
+
+    it "refuses when the setting changed since the card was viewed, leaving the request pending" do
+      SiteSetting.set(key_a, "old-value")
+      request = park_as_instance!(key_a, value: "new-value")
+      stale = rendered_digest(request)
+      SiteSetting.set(key_a, "changed-underneath")
+
+      decide("approve", request, digest: stale)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response["code"]).to eq("change_card_stale")
+      expect(json_response["error"]).to include("changed since you viewed it")
+      expect(request.reload).to be_pending
+      expect(SiteSetting.get(key_a)).to eq("changed-underneath")
+
+      # Viewed again, it approves.
+      decide("approve", request)
+      expect(response).to have_http_status(:ok), response.body
+      expect(SiteSetting.get(key_a)).to eq("new-value")
+    end
+
+    it "refuses when the setting was unset after the card was viewed" do
+      SiteSetting.set(key_a, "old-value")
+      request = park_as_instance!(key_a, value: "new-value")
+      stale = rendered_digest(request)
+      SiteSetting.where(key: key_a).delete_all
+
+      decide("approve", request, digest: stale)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response["code"]).to eq("change_card_stale")
+      expect(request.reload).to be_pending
+    end
+
+    it "treats a garbled digest as a mismatch, never as an error" do
+      request = park_as_instance!(key_a)
+
+      [ "not-a-digest", "", [ "v1:abc" ], { "v1" => "abc" } ].each do |garbled|
+        post "/api/v1/ai/autonomy/approvals/#{request.id}/approve",
+             params: { change_card_shown: true, change_card_digest: garbled }.to_json, headers: auth_headers_for(operator)
+        expect(response).to have_http_status(:unprocessable_content), "#{garbled.inspect}: #{response.body}"
+        expect(json_response["code"]).to eq(garbled == "" ? "change_card_digest_missing" : "change_card_stale")
+      end
+      expect(request.reload).to be_pending
+    end
+
+    it "refuses a decider whose own session is not shown the current value, leaving the request pending" do
+      SiteSetting.set(key_a, "old-value")
+      request = park_as_instance!(key_a, value: "new-value")
+      operator_digest = rendered_digest(request)
+      reader = user_with_permissions("ai.agents.read", "ai.autonomy.approve", account: account)
+
+      decide("approve", request, user: reader, digest: operator_digest)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response["code"]).to eq("change_card_not_readable")
+      expect(request.reload).to be_pending
+      expect(SiteSetting.get(key_a)).to eq("old-value")
+    end
+
+    it "asks nothing of a reject: rejecting changes nothing" do
+      request = park_as_instance!(key_a)
+
+      decide("reject", request, card_shown: false, digest: nil)
+
+      expect(response).to have_http_status(:ok)
+      expect(request.reload).to be_rejected
+    end
+
+    it "binds a PERSON-parked request the same way: no digest refuses, the rendered one approves" do
+      tool = Ai::Tools::SiteSettingTool.new(account: account, user: operator)
+      tool.call_origin = "mcp_oauth"
+      result = tool.execute(params: { action: "site_setting_set_protected", key: key_a, value: "armed" })
+      request = Ai::ApprovalRequest.find(result[:data][:approval_request_id])
+      expect(request.machine_requested?).to be(false)
+
+      decide("approve", request, digest: nil)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response["code"]).to eq("change_card_digest_missing")
+
+      decide("approve", request)
+      expect(response).to have_http_status(:ok), response.body
+      expect(SiteSetting.get(key_a)).to eq("armed")
+    end
   end
 end

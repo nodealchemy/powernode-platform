@@ -17,9 +17,14 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
   let(:protected_key) { "zz_machine_park_protected_key" }
   let(:session_id) { "mcp-session-under-test" }
 
+  # A machine may only TIGHTEN (IMP-1765f6f09458): the fixture key declares an
+  # ordering that accepts everything, so the examples about grants, dedupe and
+  # limits stay about those. The ordering itself is the subject of its own block.
+  let(:accept_all) { ->(_requested, _current) { true } }
+
   before do
     described_class.register_key(protected_key, setting_type: "string", description: "machine park spec key",
-                                                protected: true, machine_parkable: true)
+                                                protected: true, machine_parkable: true, ordering: accept_all)
     Rails.cache.clear
     ::Mcp::Principal.instance_resolver = ->(cn) { cn == node_instance.id ? node_instance : nil }
     ::Mcp::Principal.tool_grant_resolver = ->(_instance) { granted }
@@ -348,11 +353,11 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
       SiteSetting.set(Ai::Approvals::MachinePark::RATE_LIMIT_SETTING, 2, setting_type: "integer")
       2.times do |i|
         described_class.register_key("#{protected_key}_#{i}", setting_type: "string", description: "k", protected: true,
-                                                                   machine_parkable: true)
+                                                                   machine_parkable: true, ordering: accept_all)
         parked_request(park(key: "#{protected_key}_#{i}"))
       end
       described_class.register_key("#{protected_key}_over", setting_type: "string", description: "k", protected: true,
-                                                                  machine_parkable: true)
+                                                                  machine_parkable: true, ordering: accept_all)
 
       result = park(key: "#{protected_key}_over")
 
@@ -518,6 +523,205 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
 
       expect(card).to include(key: protected_key, new_value: "new-value")
       expect(card).not_to have_key(:current_value)
+    end
+  end
+
+  # IMP-1765f6f09458 — a machine park may only TIGHTEN. The key's registrar
+  # declares an ordering (how restrictive a value is); the park is accepted only
+  # when the requested value is at least as restrictive as the current one, and
+  # a key with no ordering is not machine-parkable for a changed value at all.
+  # Core hard-codes no key's ordering: it is the registrar's declaration.
+  describe "the ordering: a machine may only tighten" do
+    # "Longer is stricter" — a deterministic test ordering over strings. nil is
+    # the unset current value, and the registrar decides what that means.
+    let(:longer_is_stricter) { ->(requested, current) { current.nil? || requested.to_s.length >= current.to_s.length } }
+    let(:ordered_key) { "zz_machine_park_ordered_key" }
+    let(:unordered_key) { "zz_machine_park_unordered_key" }
+
+    before do
+      described_class.register_key(ordered_key, setting_type: "string", description: "ordered", protected: true,
+                                                machine_parkable: true, ordering: longer_is_stricter)
+      described_class.register_key(unordered_key, setting_type: "string", description: "unordered", protected: true,
+                                                  machine_parkable: true)
+    end
+
+    it "parks a value at least as restrictive as the current one, and writes nothing" do
+      SiteSetting.set(ordered_key, "abc")
+
+      stricter = parked_request(park(key: ordered_key, value: "abcd"))
+      expect(stricter).to be_pending
+      workflow.reject(request: stricter, approver: operator, origin: Ai::ApprovalDecision::REST_SESSION)
+
+      # Equal restrictiveness is "at least as restrictive".
+      expect(parked_request(park(key: ordered_key, value: "xyz"))).to be_pending
+      expect(SiteSetting.get(ordered_key)).to eq("abc")
+    end
+
+    it "refuses a value less restrictive than the current one, by reason code, naming neither value" do
+      SiteSetting.set(ordered_key, "current-value")
+
+      result = park(key: ordered_key, value: "new")
+
+      expect(result[:success]).to be(false)
+      expect(result[:error]).to include("only tighten")
+      expect(result[:error]).not_to include("current-value")
+      expect(Ai::ApprovalRequest.count).to eq(0)
+      expect(last_refusal_reason).to eq("not_tightening")
+      expect(AuditLog.where(action: "ai.approvals.machine_park_refused").last.metadata.to_json).not_to include("current-value")
+    end
+
+    it "hands the ordering the values cast to the key's type, and nil for an unset current value" do
+      seen = nil
+      described_class.register_key("zz_machine_park_typed", setting_type: "integer", description: "typed", protected: true,
+                                                            machine_parkable: true,
+                                                            ordering: ->(r, c) { seen = [ r, c ]; true })
+
+      parked_request(park(key: "zz_machine_park_typed", value: "7"))
+      expect(seen).to eq([ 7, nil ])
+
+      SiteSetting.set("zz_machine_park_typed", "3", setting_type: "integer")
+      Rails.cache.clear
+      parked_request(park(key: "zz_machine_park_typed", value: "9"))
+      expect(seen).to eq([ 9, 3 ])
+    end
+
+    it "refuses a changed value for a key registered machine-parkable without an ordering" do
+      SiteSetting.set(unordered_key, "old")
+
+      result = park(key: unordered_key, value: "new")
+
+      expect(result[:success]).to be(false)
+      expect(result[:error]).to include("no ordering")
+      expect(Ai::ApprovalRequest.count).to eq(0)
+      expect(last_refusal_reason).to eq("ordering_undeclared")
+    end
+
+    it "refuses any value for such a key while it is unset: unset and a value differ" do
+      expect(park(key: unordered_key, value: "new")[:success]).to be(false)
+      expect(last_refusal_reason).to eq("ordering_undeclared")
+      expect(Ai::ApprovalRequest.count).to eq(0)
+    end
+
+    it "still parks the unchanged value for such a key: re-asserting what is set tightens nothing" do
+      SiteSetting.set(unordered_key, "same")
+
+      expect(parked_request(park(key: unordered_key, value: "same"))).to be_pending
+    end
+
+    it "refuses when the stored row is of a different type than the registration" do
+      SiteSetting.set(ordered_key, "1", setting_type: "integer")
+
+      expect(park(key: ordered_key, value: "22")[:success]).to be(false)
+      expect(last_refusal_reason).to eq("current_type_mismatch")
+      expect(Ai::ApprovalRequest.count).to eq(0)
+    end
+
+    it "refuses when the ordering raises or answers anything but true" do
+      described_class.register_key("zz_machine_park_raises", setting_type: "string", description: "raises", protected: true,
+                                                             machine_parkable: true, ordering: ->(_r, _c) { raise "boom" })
+      described_class.register_key("zz_machine_park_truthy", setting_type: "string", description: "truthy", protected: true,
+                                                             machine_parkable: true, ordering: ->(_r, _c) { "yes" })
+
+      expect(park(key: "zz_machine_park_raises", value: "x")[:success]).to be(false)
+      expect(last_refusal_reason).to eq("ordering_failed")
+      Rails.cache.clear
+      expect(park(key: "zz_machine_park_truthy", value: "x")[:success]).to be(false)
+      expect(last_refusal_reason).to eq("not_tightening")
+      expect(Ai::ApprovalRequest.count).to eq(0)
+    end
+
+    it "does not bind a PERSON: a person parks a loosening of the same key" do
+      SiteSetting.set(ordered_key, "current-value")
+      tool = described_class.new(account: account, user: operator)
+      tool.call_origin = "mcp_oauth"
+
+      request = parked_request(tool.execute(params: { action: "site_setting_set_protected", key: ordered_key,
+                                                      value: "new" }))
+
+      expect(request.machine_requested?).to be(false)
+    end
+
+    it "re-checks at the write: a machine request that became a loosening before the decision never lands" do
+      request = parked_request(park(key: ordered_key, value: "abcd"))
+      SiteSetting.set(ordered_key, "a-much-longer-current-value")
+
+      workflow.approve(request: request, approver: operator, origin: Ai::ApprovalDecision::REST_SESSION)
+
+      expect(SiteSetting.get(ordered_key)).to eq("a-much-longer-current-value")
+      # A refused replay is a RESULT, never a raise (Ai::Executors::DeferredToolCall):
+      # the operation completes and records why, where the approvals surface reads.
+      operation = Ai::DeferredOperation.find(request.source_id)
+      expect(operation.status).to eq("completed")
+      expect(operation.result).to include("success" => false)
+      expect(operation.result["error"]).to include("only tighten")
+    end
+
+    it "does not re-check a person's own request at the write" do
+      SiteSetting.set(ordered_key, "abcdef")
+      tool = described_class.new(account: account, user: operator)
+      tool.call_origin = "mcp_oauth"
+      request = parked_request(tool.execute(params: { action: "site_setting_set_protected", key: ordered_key,
+                                                      value: "ab" }))
+
+      workflow.approve(request: request, approver: operator, origin: Ai::ApprovalDecision::REST_SESSION)
+
+      expect(SiteSetting.get(ordered_key)).to eq("ab")
+    end
+
+    it "refuses to register an ordering for a key that is not machine-parkable" do
+      expect do
+        described_class.register_key("zz_machine_park_misdeclared", setting_type: "string", description: "x",
+                                                                    protected: true, ordering: accept_all)
+      end.to raise_error(ArgumentError, /machine_parkable/)
+      expect(described_class.operator_configurable_keys).not_to have_key("zz_machine_park_misdeclared")
+    end
+
+    it "re-registers idempotently with an ordering: a reloaded initializer does not raise" do
+      expect do
+        2.times do
+          described_class.register_key(ordered_key, setting_type: "string", description: "ordered", protected: true,
+                                                    machine_parkable: true, ordering: longer_is_stricter)
+        end
+      end.not_to raise_error
+    end
+
+    it "declares an ordering for every real machine-parkable key" do
+      parkable = described_class.operator_configurable_keys.select { |name, spec| spec[:machine_parkable] && !name.start_with?("zz_") }.keys
+
+      expect(parkable).to include("dev_merge.private_extension_names")
+      parkable.each do |key|
+        expect(described_class.machine_park_orderings[key]).to respond_to(:call), "#{key} declares no ordering"
+      end
+    end
+
+    describe "the dev-merge names list (core's own registration)" do
+      let(:key) { Ai::DevMerge::ForbiddenNames::SETTING_KEY }
+
+      it "parks a superset of the declared names" do
+        SiteSetting.set(key, %w[alpha].to_json, setting_type: "json")
+
+        expect(parked_request(park(key: key, value: %w[alpha beta].to_json))).to be_pending
+      end
+
+      it "refuses a subset, the empty list and a list that drops a name" do
+        SiteSetting.set(key, %w[alpha beta].to_json, setting_type: "json")
+
+        [ %w[alpha], [], %w[beta gamma] ].each do |names|
+          Rails.cache.clear
+          expect(park(key: key, value: names.to_json)[:success]).to be(false), names.inspect
+          expect(last_refusal_reason).to eq("not_tightening")
+        end
+        expect(Ai::ApprovalRequest.count).to eq(0)
+      end
+
+      it "refuses every declaration while the list is UNSET: unset refuses every publish, so any list loosens it" do
+        [ [], %w[alpha] ].each do |names|
+          Rails.cache.clear
+          expect(park(key: key, value: names.to_json)[:success]).to be(false), names.inspect
+          expect(last_refusal_reason).to eq("not_tightening")
+        end
+        expect(Ai::ApprovalRequest.count).to eq(0)
+      end
     end
   end
 end

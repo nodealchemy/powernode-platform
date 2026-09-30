@@ -344,4 +344,27 @@ RSpec.describe SiteSetting, type: :model do
       expect(SiteSetting.get('config')).to eq({ 'theme' => 'dark', 'notifications' => true })
     end
   end
+
+  # IMP-1765f6f09458 — the cast .get applies to a row's stored string, exposed so
+  # a caller holding a stored string (a value about to be written, a row of a
+  # possibly different type) can compare typed values the way .get would read them.
+  describe ".cast_stored" do
+    it "casts as .get does, per setting type" do
+      expect(described_class.cast_stored("true", "boolean")).to be(true)
+      expect(described_class.cast_stored("1", "boolean")).to be(true)
+      expect(described_class.cast_stored("false", "boolean")).to be(false)
+      expect(described_class.cast_stored("nope", "boolean")).to be(false)
+      expect(described_class.cast_stored("42", "integer")).to eq(42)
+      expect(described_class.cast_stored('["a","b"]', "json")).to eq(%w[a b])
+      expect(described_class.cast_stored("not json", "json")).to eq({})
+      expect(described_class.cast_stored("plain", "string")).to eq("plain")
+      expect(described_class.cast_stored("plain", "text")).to eq("plain")
+    end
+
+    it "is what .get reads through" do
+      described_class.set("zz_cast_stored_probe", "7", setting_type: "integer")
+
+      expect(described_class.get("zz_cast_stored_probe")).to eq(7)
+    end
+  end
 end

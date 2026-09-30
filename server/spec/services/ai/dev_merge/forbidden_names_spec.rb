@@ -101,4 +101,34 @@ RSpec.describe Ai::DevMerge::ForbiddenNames do
 
     expect(described_class.resolve.reason).not_to include("public-one")
   end
+
+  # IMP-1765f6f09458 — the ordering the protected declaration registers for a
+  # MACHINE park: a list is at least as restrictive as the current one when it
+  # keeps every declared name. Unset is the most restrictive state (the merge
+  # refuses to publish at all), so nothing tightens from it by machine.
+  describe ".tightens?" do
+    it "accepts a superset and the same list" do
+      expect(described_class.tightens?(%w[alpha beta], %w[alpha])).to be(true)
+      expect(described_class.tightens?(%w[beta alpha], %w[alpha beta])).to be(true)
+      expect(described_class.tightens?([], [])).to be(true)
+    end
+
+    it "refuses a list that drops a declared name" do
+      expect(described_class.tightens?(%w[alpha], %w[alpha beta])).to be(false)
+      expect(described_class.tightens?([], %w[alpha])).to be(false)
+      expect(described_class.tightens?(%w[gamma], %w[alpha])).to be(false)
+    end
+
+    it "refuses every list while the declaration is unset" do
+      expect(described_class.tightens?([], nil)).to be(false)
+      expect(described_class.tightens?(%w[alpha], nil)).to be(false)
+    end
+
+    it "refuses anything that is not a slug list on either side" do
+      expect(described_class.tightens?("alpha", %w[alpha])).to be(false)
+      expect(described_class.tightens?(%w[alpha], {})).to be(false)
+      expect(described_class.tightens?([ "Not A Slug" ], [])).to be(false)
+      expect(described_class.tightens?(%w[alpha], [ 1 ])).to be(false)
+    end
+  end
 end
