@@ -231,10 +231,17 @@ RSpec.describe "Machine-requested protected changes: who decides", type: :reques
       operator_digest = rendered_digest(request)
       reader = user_with_permissions("ai.agents.read", "ai.autonomy.approve", account: account)
 
-      decide("approve", request, user: reader, digest: operator_digest)
-
+      # The real client path: the queue shows the reader a card without a digest and sends none.
+      decide("approve", request, user: reader, digest: nil)
       expect(response).to have_http_status(:unprocessable_content)
       expect(json_response["code"]).to eq("change_card_not_readable")
+      expect(json_response["error"]).not_to include("/app/ai/control/approvals/queue")
+
+      # A borrowed digest is refused the same way, before any comparison.
+      decide("approve", request, user: reader, digest: operator_digest)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response["code"]).to eq("change_card_not_readable")
+
       expect(request.reload).to be_pending
       expect(SiteSetting.get(key_a)).to eq("old-value")
     end

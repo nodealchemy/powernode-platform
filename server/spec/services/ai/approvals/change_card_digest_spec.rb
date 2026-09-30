@@ -30,8 +30,11 @@ RSpec.describe Ai::Approvals::ChangeCard, "the digest" do
   def card(viewer = operator) = described_class.for(request, viewer: viewer)
 
   it "is a versioned sha256, the same for two renders of an unchanged setting" do
-    expect(card[:digest]).to match(/\Av1:[0-9a-f]{64}\z/)
-    expect(card[:digest]).to eq(card[:digest])
+    first_render = card
+    second_render = card
+
+    expect(first_render[:digest]).to match(/\Av1:[0-9a-f]{64}\z/)
+    expect(second_render[:digest]).to eq(first_render[:digest])
   end
 
   it "is the digest of exactly (tool, action, key, new value, current value set, current value)" do

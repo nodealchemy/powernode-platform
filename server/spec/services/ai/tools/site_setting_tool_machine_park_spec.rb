@@ -576,9 +576,12 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
                                                             machine_parkable: true,
                                                             ordering: ->(r, c) { seen = [ r, c ]; true })
 
-      parked_request(park(key: "zz_machine_park_typed", value: "7"))
+      first = parked_request(park(key: "zz_machine_park_typed", value: "7"))
       expect(seen).to eq([ 7, nil ])
 
+      # Decided first: the ordering runs inside the guard, AFTER the dedupe, so
+      # a second park while the first is pending never reaches it.
+      workflow.reject(request: first, approver: operator, origin: Ai::ApprovalDecision::REST_SESSION)
       SiteSetting.set("zz_machine_park_typed", "3", setting_type: "integer")
       Rails.cache.clear
       parked_request(park(key: "zz_machine_park_typed", value: "9"))
@@ -666,6 +669,112 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
       workflow.approve(request: request, approver: operator, origin: Ai::ApprovalDecision::REST_SESSION)
 
       expect(SiteSetting.get(ordered_key)).to eq("ab")
+    end
+
+    # Fix round (critic A F1): a refused tightening is METERED like a park. It
+    # runs inside the MachinePark guard, so it is deduped against a pending
+    # request, spends the per-principal window, and is audited on every call
+    # (never collapsed) — an instance cannot probe a value it may not read.
+    describe "a refused tightening is metered" do
+      it "spends the window: repeated loosening probes hit the limit, and so does a later tightening" do
+        SiteSetting.set(Ai::Approvals::MachinePark::RATE_LIMIT_SETTING, 2, setting_type: "integer")
+        SiteSetting.set(ordered_key, "current-value")
+
+        2.times do
+          expect(park(key: ordered_key, value: "new")[:success]).to be(false)
+          expect(last_refusal_reason).to eq("not_tightening")
+        end
+        probe = park(key: ordered_key, value: "new")
+        expect(probe[:success]).to be(false)
+        expect(probe[:error]).to include("limit 2")
+
+        tightening = park(key: ordered_key, value: "a-much-longer-tightening-value")
+        expect(tightening[:success]).to be(false)
+        expect(tightening[:error]).to include("limit 2")
+        expect(Ai::ApprovalRequest.count).to eq(0)
+        expect(AuditLog.where(action: "ai.approvals.machine_park_refused").where("metadata->>'reason' = 'not_tightening'").count).to eq(2)
+        expect(AuditLog.where(action: "ai.approvals.machine_park_rate_limited").count).to eq(1)
+      end
+
+      it "audits every refused tightening, never collapsing them" do
+        SiteSetting.set(ordered_key, "current-value")
+
+        3.times { park(key: ordered_key, value: "new") }
+
+        expect(AuditLog.where(action: "ai.approvals.machine_park_refused").where("metadata->>'reason' = 'not_tightening'").count).to eq(3)
+        expect(AuditLog.where(action: "ai.approvals.machine_park_refused").last.metadata)
+          .to include("action_category" => described_class::PROTECTED_WRITE_CATEGORY, "node_instance_id" => node_instance.id)
+      end
+
+      it "dedupes a probe against this principal's pending request for the key, answering nothing about the value" do
+        pending = parked_request(park(key: ordered_key, value: "abcd"))
+        SiteSetting.set(ordered_key, "a-much-longer-current-value")
+
+        probe = park(key: ordered_key, value: "new")
+
+        expect(probe[:data]).to include(deduplicated: true, approval_request_id: pending.id)
+        expect(AuditLog.where(action: "ai.approvals.machine_park_refused")).to be_empty
+      end
+
+      it "counts refused parks and parks in one window, per principal" do
+        SiteSetting.set(Ai::Approvals::MachinePark::RATE_LIMIT_SETTING, 2, setting_type: "integer")
+        SiteSetting.set(ordered_key, "current-value")
+        expect(park(key: ordered_key, value: "new")[:success]).to be(false)
+        parked_request(park(key: ordered_key, value: "a-much-longer-tightening-value"))
+
+        expect(park(key: unordered_key, value: "x")[:error]).to include("limit 2")
+
+        other = double("NodeInstance", id: "cc11dd22-0000-4000-8000-000000000009", account: account)
+        ::Mcp::Principal.instance_resolver = ->(cn) { [ node_instance, other ].find { |n| n.id == cn } }
+        tool = described_class.new(account: account)
+        tool.instance_authorized = true
+        tool.node_instance = other
+        tool.call_origin = "mcp_instance"
+        expect(parked_request(park(key: ordered_key, value: "a-much-longer-tightening-value", tool: tool))).to be_pending
+      end
+    end
+
+    # Fix round (critic A F3): a machine's boolean is a literal.
+    it "refuses a boolean value that is not literally true or false, before it can park" do
+      described_class.register_key("zz_machine_park_bool", setting_type: "boolean", description: "bool", protected: true,
+                                                           machine_parkable: true, ordering: accept_all)
+
+      [ "", "garbage", "1", "yes", "TRUE", " true" ].each do |value|
+        Rails.cache.clear
+        result = park(key: "zz_machine_park_bool", value: value)
+        expect(result[:success]).to be(false), "#{value.inspect} parked"
+        expect(result[:error]).to include("true or false")
+        expect(last_refusal_reason).to eq("value_refused")
+      end
+      expect(Ai::ApprovalRequest.count).to eq(0)
+
+      expect(parked_request(park(key: "zz_machine_park_bool", value: "true"))).to be_pending
+      Rails.cache.clear
+      expect(park(key: "zz_machine_park_bool", value: "false")[:data]).to include(deduplicated: true)
+    end
+
+    # Fix round (critic B F3): the ordering is part of the registration's
+    # conflict rule — it can be neither replaced nor dropped by a later call.
+    it "refuses a re-registration that replaces the ordering with a different one" do
+      expect do
+        described_class.register_key(ordered_key, setting_type: "string", description: "ordered", protected: true,
+                                                  machine_parkable: true, ordering: accept_all)
+      end.to raise_error(ArgumentError, /ordering/)
+      expect(described_class.machine_park_orderings[ordered_key]).to eq(longer_is_stricter).or satisfy { |o| o.source_location == longer_is_stricter.source_location }
+    end
+
+    it "refuses a re-registration that drops the ordering, and one that adds an ordering later" do
+      expect do
+        described_class.register_key(ordered_key, setting_type: "string", description: "ordered", protected: true,
+                                                  machine_parkable: true)
+      end.to raise_error(ArgumentError, /ordering/)
+      expect(described_class.machine_park_orderings[ordered_key]).to respond_to(:call)
+
+      expect do
+        described_class.register_key(unordered_key, setting_type: "string", description: "unordered", protected: true,
+                                                    machine_parkable: true, ordering: accept_all)
+      end.to raise_error(ArgumentError, /ordering/)
+      expect(described_class.machine_park_orderings).not_to have_key(unordered_key)
     end
 
     it "refuses to register an ordering for a key that is not machine-parkable" do
