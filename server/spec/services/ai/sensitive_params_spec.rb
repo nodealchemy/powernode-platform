@@ -255,6 +255,19 @@ RSpec.describe Ai::SensitiveParams do
       expect(filtered).to end_with('&page=2')
     end
 
+    # IMP-3d275689ca7c fix round: an exception message can carry invalid UTF-8
+    # (JSON::ParserError quoting a binary body), and a regexp over it raises.
+    it 'scrubs invalid UTF-8 rather than raising, and still masks' do
+      text = (+"parse failed \xFF\xFE password=#{s1}; attempt=2").force_encoding(Encoding::UTF_8)
+      expect(text.valid_encoding?).to be(false)
+
+      filtered = described_class.filter_text(text)
+
+      expect(filtered).to be_valid_encoding
+      expect(filtered).not_to include(s1)
+      expect(filtered).to end_with("password=#{described_class::MASK}; attempt=2")
+    end
+
     it 'masks Basic and Bearer credentials in an Authorization header' do
       basic  = described_class.filter_text("Authorization: Basic #{s1}")
       bearer = described_class.filter_text(%("authorization"=>"Bearer #{s2}"))

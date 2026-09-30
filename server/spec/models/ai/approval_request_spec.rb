@@ -387,6 +387,55 @@ RSpec.describe Ai::ApprovalRequest, type: :model do
       end
     end
 
+    # IMP-3d275689ca7c fix round: the event's redaction runs inside the
+    # never-raise rescue arm of the dispatch, so nothing it does may skip the
+    # dispatch_finished_at stamp or leave the event unrecorded.
+    context 'when the redaction of the failure event cannot run cleanly' do
+      let(:secret) { %w[hunter 2].join }
+
+      # A source that raises straight out of on_approval_decision, so the
+      # exception reaches declare_execution_failure! as raised. Through a
+      # DeferredOperation an invalid-UTF-8 message never gets this far: the
+      # operation's own fail! write is refused by Postgres first, and it is
+      # that error, valid UTF-8, which arrives here.
+      def raise_with(message)
+        stub_const('RaisingApprovalSource', Class.new do
+          define_singleton_method(:find_by) { |**| new }
+          define_method(:on_approval_decision) { |_request| raise message }
+        end)
+        req = chain.create_request!(source_type: 'RaisingApprovalSource', source_id: SecureRandom.uuid,
+                                    description: 'd')
+        # The execution_error column write is Postgres-refused for invalid
+        # UTF-8 and rescued in place; under a transactional example that
+        # refusal would poison the enclosing transaction, so it is skipped
+        # here. It is not what these examples are about.
+        allow(req).to receive(:declare_execution_outcome!)
+        req.record_decision!(approver: user, decision: 'approved')
+        [ req.reload, Ai::ExecutionEvent.find_by(source_type: 'Ai::ApprovalRequest', source_id: req.id) ]
+      end
+
+      it 'records a message carrying invalid UTF-8, redacted, and still stamps the dispatch' do
+        message = (+"parse failed \xFF\xFE password=#{secret}; attempt=2").force_encoding(Encoding::UTF_8)
+
+        req, event = raise_with(message)
+
+        expect(req.dispatch_finished_at).to be_present
+        expect(event).to be_present
+        expect(event.error_message).not_to include(secret)
+        expect(event.error_message).to end_with("password=#{Ai::SensitiveParams::MASK}; attempt=2")
+      end
+
+      it 'fails closed to a placeholder, never the raw message, when the redaction raises' do
+        allow(Ai::SensitiveParams).to receive(:filter_text).and_raise(ArgumentError, 'redaction broke')
+
+        req, event = raise_with("login failed password=#{secret}")
+
+        expect(req.dispatch_finished_at).to be_present
+        expect(event).to be_present
+        expect(event.error_message).to eq(described_class::EVENT_REDACTION_FAILED)
+      end
+    end
+
     context 'when the executor succeeds (positive twin)' do
       it 'behaves exactly as before and declares success with no failure event' do
         op = gated_operation('SucceedingPerformer')

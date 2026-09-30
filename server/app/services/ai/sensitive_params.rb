@@ -139,7 +139,8 @@ module Ai
       # card; a leak is not. The URL userinfo of `scheme://user:pw@host` and a
       # bare Bearer credential are masked wherever they appear. Only the first
       # TEXT_SCAN_WINDOW characters are scanned, and the result is truncated to
-      # TEXT_LIMIT; nil passes through.
+      # TEXT_LIMIT; nil passes through, and invalid UTF-8 is replaced rather
+      # than raised on.
       #
       # Still best-effort: prose cannot be judged by a key, so a secret quoted
       # with no key beside it survives, and truncation is the only bound on it.
@@ -148,7 +149,10 @@ module Ai
       def filter_text(text)
         return text if text.nil?
 
-        text = text.to_s
+        # Valid UTF-8 before any regexp touches it: an exception message can
+        # carry invalid bytes (a parser quoting a binary body), and a regexp
+        # over those raises rather than masking.
+        text = text.to_s.encode(::Encoding::UTF_8, invalid: :replace, undef: :replace).scrub
         cut = text.length > TEXT_SCAN_WINDOW
         text = drop_cut_token(text[0, TEXT_SCAN_WINDOW]) if cut
 

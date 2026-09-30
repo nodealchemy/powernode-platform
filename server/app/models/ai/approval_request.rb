@@ -41,6 +41,10 @@ module Ai
     DISPATCH_EXECUTED = :executed
     DISPATCH_NOOP = :noop
 
+    # What the approval_execution event records when redacting the exception
+    # text fails: never the raw message (IMP-3d275689ca7c).
+    EVENT_REDACTION_FAILED = "[redaction failed]"
+
     # The declared cause of a request whose post-commit dispatch was owed and
     # never started (IMP-0213523480d1): the process died between the approval's
     # commit and the dispatch, so the source never heard of the decision.
@@ -687,13 +691,22 @@ module Ai
         error: error,
         # Read at the ai.agents.read floor (platform.recent_events,
         # activity_monitor), like execution_error itself (IMP-3d275689ca7c).
-        error_message: ::Ai::SensitiveParams.filter_text(error.message),
+        error_message: redacted_event_message(error),
         metadata: {
           operation_source_type: source_type,
           operation_source_id: source_id,
           action_category: request_data&.dig("action_category")
         }.merge(extra).compact
       )
+    end
+
+    # Evaluated as an argument, outside the recorder's own rescue, and inside
+    # rescue arms that must not raise (a raise here skips the
+    # dispatch_finished_at stamp). Fails closed.
+    def redacted_event_message(error)
+      ::Ai::SensitiveParams.filter_text(error.message)
+    rescue StandardError
+      EVENT_REDACTION_FAILED
     end
 
     def fan_out_step_notifications
