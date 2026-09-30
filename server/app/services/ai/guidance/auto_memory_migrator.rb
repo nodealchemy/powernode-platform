@@ -9,7 +9,10 @@ module Ai
     #
     # Every note is triaged into four sets, and the report names ONLY slugs and
     # sets — never the text that matched (a report that echoed the match would be
-    # the leak the triage exists to prevent):
+    # the leak the triage exists to prevent). Sets (a)-(c) match the FILENAME as
+    # well as the content, since the slug is written to the DB (guidance key, tag,
+    # provenance path, graph node). A skipped note whose slug itself matched is
+    # reported under an opaque reference (`note#<sha256 prefix>`), never its slug.
     #
     #   identifiers    (a) content matching the deployment-identifiers list
     #   sensitive      (b) break-glass / security-gap content (SENSITIVE_PATTERNS)
@@ -31,6 +34,11 @@ module Ai
     #       is a recall-quality note, not a disclosure, so it is reported only.
     # A note in several sets is skipped if ANY skipping rule fires.
     #
+    # APPLY also refuses when the private-extension name list is empty (set (c)
+    # would evaluate nothing) unless require_private_list is false, mirroring the
+    # identifiers list. A failure part-way through APPLY writes a partial manifest
+    # of what was already written, then re-raises.
+    #
     # APPLY never deletes or archives: a note that was applied earlier and is
     # skipped now leaves its earlier entry in place.
     class AutoMemoryMigrator
@@ -42,6 +50,7 @@ module Ai
       EMBEDDING_LIMIT = 8000
       DEFAULT_IDENTIFIERS_PATH = %w[.claude hooks deployment-identifiers.local.txt].freeze
       MANIFEST_DIR = %w[docs operations local].freeze
+      OPAQUE_REF_LENGTH = 8
       MANIFEST_FILE = "memory-migration-manifest.json"
       DRY_RUN_MANIFEST_FILE = "memory-migration-manifest.dry-run.json"
 
@@ -54,21 +63,26 @@ module Ai
         "unauthenticated" => /unauthenticated|unauthorized[\s_-]access/i,
         "bypass" => /(?:auth(?:entication|orization)?|permission|guard|gate|policy)[\s_-]?bypass|bypass(?:es|ed)?\s+(?:the\s+)?(?:auth|permission|guard|gate|policy)/i,
         "exploit" => /\bexploit(?:s|ed|able)?\b/i,
-        "credential_material" => /\b(?:private[\s_-]?key|secret[\s_-]?key|api[\s_-]?key|bearer\s+token|password|passphrase|seed\s+phrase)\b/i,
+        "credential_material" => /\b(?:private[\s_-]?key|secret[\s_-]?key|api[\s_-]?key|bearer\s+token|password|passphrase|seed\s+phrase|mnemonic)\b/i,
+        "secrets" => /secret/i,
+        "credentials" => /credential/i,
+        "token" => /\b\w+[_-]token\b|\b(?:access|auth|refresh|vault|api|session)\s+token\b|\btoken\s*[:=]/i,
         "cve" => /\bCVE-\d{4}-\d{4,}\b/i,
         "privilege_escalation" => /privilege[\s_-]?escalation|self[\s_-]?regrant/i
       }.freeze
 
-      Entry = Struct.new(:slug, :sets, :action, :knowledge_id, keyword_init: true) do
+      # `slug` is the real slug; `ref` is what reports and the manifest show (the
+      # slug, or an opaque reference when a skipped note's slug itself matched).
+      Entry = Struct.new(:slug, :ref, :sets, :action, :knowledge_id, keyword_init: true) do
         def skipped?
           action == :skipped
         end
       end
 
-      Report = Struct.new(:mode, :entries, :without_frontmatter, :edges_created, :edges_existing,
-                          :identifier_patterns, :manifest_path, keyword_init: true) do
+      Report = Struct.new(:mode, :entries, :without_frontmatter, :symlinks_skipped, :edges_created, :edges_existing,
+                          :identifier_patterns, :private_name_count, :manifest_path, keyword_init: true) do
         def by_set(set)
-          entries.select { |e| e.sets.include?(set) }.map(&:slug)
+          entries.select { |e| e.sets.include?(set) }.map(&:ref)
         end
 
         def counts
@@ -77,12 +91,16 @@ module Ai
 
         # Slugs and set names only — never the matched text.
         def lines
-          out = [ "[ai:migrate_auto_memory] mode=#{mode} notes=#{entries.size} without_frontmatter=#{without_frontmatter.size}" ]
-          out << "  identifier patterns loaded: #{identifier_patterns}#{' (set (a) NOT evaluated)' if identifier_patterns.zero?}"
+          out = [ "[ai:migrate_auto_memory] mode=#{mode} notes=#{entries.size} without_frontmatter=#{without_frontmatter.size} " \
+                  "symlinks_skipped=#{symlinks_skipped}" ]
+          out << "  identifier patterns loaded: #{identifier_patterns}#{' (set (a) check disabled)' if identifier_patterns.zero?}"
+          out << "  private-extension names loaded: #{private_name_count}#{' (set (c) check disabled)' if private_name_count.zero?}"
           { identifiers: "(a) identifiers", sensitive: "(b) sensitive", private_names: "(c) private names",
             oversize: "(d) oversize" }.each do |set, label|
-            slugs = by_set(set)
-            out << "  #{label}: #{slugs.size}#{" -> #{slugs.join(', ')}" if slugs.any?}"
+            refs = by_set(set)
+            disabled = (set == :identifiers && identifier_patterns.zero?) || (set == :private_names && private_name_count.zero?)
+            line = disabled ? "check disabled" : "#{refs.size}#{" -> #{refs.join(', ')}" if refs.any?}"
+            out << "  #{label}: #{line}"
           end
           out << "  #{counts.sort.map { |a, n| "#{a}=#{n}" }.join(' ')}"
           out << "  edges created=#{edges_created} existing=#{edges_existing}" if mode == :apply
@@ -92,7 +110,8 @@ module Ai
       end
 
       def initialize(dir:, account: nil, apply: false, include_sensitive: false, identifiers_path: nil,
-                     require_identifiers: true, private_names: nil, manifest_dir: nil, graph_service: nil)
+                     require_identifiers: true, require_private_list: true, private_names: nil, manifest_dir: nil,
+                     graph_service: nil)
         raise Error, "APPLY requires an account" if apply && account.nil?
 
         @dir = Pathname.new(dir)
@@ -101,6 +120,7 @@ module Ai
         @include_sensitive = include_sensitive
         @identifier_patterns = load_identifier_patterns(identifiers_path)
         @require_identifiers = require_identifiers
+        @require_private_list = require_private_list
         @private_patterns = (private_names || derive_private_names).map { |n| /\b#{Regexp.escape(n)}\b/i }
         @manifest_dir = Pathname.new(manifest_dir || Rails.root.parent.join(*MANIFEST_DIR))
         @graph_service = graph_service
@@ -108,21 +128,27 @@ module Ai
 
       def call
         raise Error, "#{@dir} is not a directory" unless @dir.directory?
-        if @apply && @identifier_patterns.empty? && @require_identifiers
-          raise Error, "APPLY refused: the deployment-identifiers list is missing or empty, so set (a) cannot be " \
-                       "evaluated (set ALLOW_NO_IDENTIFIERS=1 if this deployment has none)"
-        end
 
+        refuse_blind_apply!
         loaded = AutoMemoryFile.load_dir(@dir)
-        entries = loaded.files.map { |file| [ file, plan(file) ] }
-        applied = @apply ? apply_entries(entries) : []
-        edges = @apply ? link_entries(entries.select { |_f, e| applied.include?(e.slug) }) : { created: 0, existing: 0 }
-
+        pairs = loaded.files.map { |file| [ file, plan(file) ] }
         report = Report.new(
-          mode: @apply ? :apply : :dry_run, entries: entries.map(&:last), without_frontmatter: loaded.without_frontmatter,
-          edges_created: edges[:created], edges_existing: edges[:existing],
-          identifier_patterns: @identifier_patterns.size
+          mode: @apply ? :apply : :dry_run, entries: pairs.map(&:last), without_frontmatter: loaded.without_frontmatter,
+          symlinks_skipped: loaded.symlinks.size, edges_created: 0, edges_existing: 0,
+          identifier_patterns: @identifier_patterns.size, private_name_count: @private_patterns.size
         )
+        begin
+          if @apply
+            applied = apply_entries(pairs)
+            edges = link_entries(pairs.select { |_f, e| applied.include?(e.slug) })
+            report.edges_created = edges[:created]
+            report.edges_existing = edges[:existing]
+          end
+        rescue StandardError => e
+          # Record what was already written (idempotent to re-run) and re-raise.
+          write_manifest(report, partial: e.class.name)
+          raise
+        end
         report.manifest_path = write_manifest(report).to_s
         report
       end
@@ -131,13 +157,41 @@ module Ai
 
       attr_reader :account, :dir
 
+      # Sets (a)-(c) look at the filename AND the content; the slug is persisted.
       def plan(file)
-        sets = []
-        sets << :identifiers if @identifier_patterns.any? { |re| file.raw.match?(re) }
-        sets << :sensitive if SENSITIVE_PATTERNS.values.any? { |re| file.raw.match?(re) }
-        sets << :private_names if @private_patterns.any? { |re| file.raw.match?(re) }
+        text = "#{file.filename}\n#{file.raw}"
+        sets = matching_sets(text)
         sets << :oversize if file.content.length > EMBEDDING_LIMIT
-        Entry.new(slug: file.slug, sets: sets, action: skip?(sets) ? :skipped : :planned)
+        action = skip?(sets) ? :skipped : :planned
+        slug_flagged = matching_sets(file.filename).any?
+        ref = action == :skipped && slug_flagged ? opaque_ref(file.filename) : file.slug
+        Entry.new(slug: file.slug, ref: ref, sets: sets.sort_by { |s| SETS.index(s) }, action: action)
+      end
+
+      def matching_sets(text)
+        sets = []
+        sets << :identifiers if @identifier_patterns.any? { |re| text.match?(re) }
+        sets << :sensitive if SENSITIVE_PATTERNS.values.any? { |re| text.match?(re) }
+        sets << :private_names if @private_patterns.any? { |re| text.match?(re) }
+        sets
+      end
+
+      def opaque_ref(filename)
+        "note##{Digest::SHA256.hexdigest(filename)[0, OPAQUE_REF_LENGTH]}"
+      end
+
+      # APPLY with a blind guard is refused: absence of a list must not read as "clean".
+      def refuse_blind_apply!
+        return unless @apply
+
+        if @identifier_patterns.empty? && @require_identifiers
+          raise Error, "APPLY refused: the deployment-identifiers list is missing or empty, so set (a) cannot be " \
+                       "evaluated (set ALLOW_NO_IDENTIFIERS=1 if this deployment has none)"
+        end
+        return unless @private_patterns.empty? && @require_private_list
+
+        raise Error, "APPLY refused: no private-extension names could be derived (extensions/private missing, unreadable " \
+                     "or empty), so set (c) cannot be evaluated (set ALLOW_NO_PRIVATE_LIST=1 if this deployment has none)"
       end
 
       def skip?(sets)
@@ -204,14 +258,15 @@ module Ai
 
       # Dry run and apply write DIFFERENT files, so a dry run can never clobber
       # the manifest an apply produced. A dry-run entry is `planned` with no id.
-      def write_manifest(report)
+      def write_manifest(report, partial: nil)
         FileUtils.mkdir_p(@manifest_dir)
         path = @manifest_dir.join(@apply ? MANIFEST_FILE : DRY_RUN_MANIFEST_FILE)
         entries = report.entries.to_h do |e|
-          [ e.slug, { "status" => e.action.to_s, "knowledge_id" => e.knowledge_id, "sets" => e.sets.map(&:to_s) } ]
+          [ e.ref, { "status" => e.action.to_s, "knowledge_id" => e.knowledge_id, "sets" => e.sets.map(&:to_s) } ]
         end
         payload = { "mode" => report.mode.to_s, "generated_at" => Time.current.iso8601,
                     "account_id" => (account&.id if @apply), "entries" => entries }
+        payload.merge!("partial" => true, "error_class" => partial) if partial
         File.write(path, JSON.pretty_generate(payload))
         path
       end
@@ -224,10 +279,17 @@ module Ai
         return [] unless path.file?
 
         path.readlines(chomp: true).map(&:strip).reject { |l| l.empty? || l.start_with?("#") }.map do |line|
-          Regexp.new(line, Regexp::IGNORECASE)
+          Regexp.new(translate_grep_anchors(line), Regexp::IGNORECASE)
         rescue RegexpError
           Regexp.new(Regexp.escape(line), Regexp::IGNORECASE)
         end
+      end
+
+      # GNU grep word anchors (\< \> and [[:<:]] [[:>:]]) compile in Ruby without
+      # error but mean literal < and >, so such a line would silently never match.
+      # Translate them to \b; the escape-pair scan leaves an escaped backslash alone.
+      def translate_grep_anchors(line)
+        line.gsub(/\[\[:[<>]:\]\]/, "\\b").gsub(/\\(.)/m) { Regexp.last_match(1).match?(/[<>]/) ? "\\b" : Regexp.last_match(0) }
       end
 
       def derive_private_names

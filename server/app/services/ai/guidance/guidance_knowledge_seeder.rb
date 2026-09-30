@@ -61,8 +61,9 @@ module Ai
       # gitignored directory and the entry is account-scoped — access_level is
       # "account" here as in every path through #upsert_guidance, never "global").
       # It reuses #upsert_guidance rather than adding a second upsert. #call seeds
-      # EVERY note it finds; the triage/gating a migration needs lives in
-      # Ai::Guidance::AutoMemoryMigrator, which calls #seed_memory_file per note.
+      # A memory-mode seeder has NO bulk #call (it raises): the triage/gating a
+      # migration needs lives in Ai::Guidance::AutoMemoryMigrator, which is the
+      # only caller of the per-note primitive #seed_memory_file.
       def self.for_memory(account:, dir:, repository: "powernode-platform")
         new(
           account: account, repository: repository, private_names: [], dir: dir,
@@ -86,9 +87,10 @@ module Ai
       end
 
       def call
+        raise ArgumentError, "a for_memory seeder has no bulk #call; use Ai::Guidance::AutoMemoryMigrator" if memory
+
         result = Result.new(created: 0, updated: 0, unchanged: 0, refused: 0, renamed: 0)
         return result unless @dir.exist?
-        return call_memory(result) if memory
 
         renamed.each do |old_slug, new_slug|
           result.renamed += 1 if retire_renamed(old_slug, new_slug)
@@ -199,13 +201,6 @@ module Ai
 
       attr_reader :account, :repository, :dir, :private_names, :tag_prefix, :source_dir_label,
                   :refuse_private_references, :renamed, :memory
-
-      def call_memory(result)
-        Ai::Guidance::AutoMemoryFile.load_dir(dir).files.each do |memory_file|
-          tally(result, seed_memory_file(memory_file))
-        end
-        result
-      end
 
       def find_by_key(key)
         Ai::SharedKnowledge.where(account: account).where("provenance->>'guidance_key' = ?", key).first

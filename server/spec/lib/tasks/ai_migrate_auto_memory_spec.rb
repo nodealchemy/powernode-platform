@@ -11,7 +11,7 @@ RSpec.describe "ai:migrate_auto_memory" do
   include_context "auto memory fixtures"
 
   let!(:account) { create(:account) }
-  let(:env_keys) { %w[APPLY ACCOUNT_ID INCLUDE_SENSITIVE IDENTIFIERS_FILE MANIFEST_DIR ALLOW_NO_IDENTIFIERS] }
+  let(:env_keys) { %w[APPLY ACCOUNT_ID INCLUDE_SENSITIVE IDENTIFIERS_FILE MANIFEST_DIR ALLOW_NO_IDENTIFIERS ALLOW_NO_PRIVATE_LIST] }
 
   # Runs the task with the given env; returns [stdout, aborted?].
   def run_task(*args, env: {})
@@ -19,6 +19,8 @@ RSpec.describe "ai:migrate_auto_memory" do
     env_keys.each { |k| ENV.delete(k) }
     ENV["IDENTIFIERS_FILE"] = identifiers_file
     ENV["MANIFEST_DIR"] = manifest_dir
+    # Deterministic wherever extensions/private is absent; overridable per example.
+    ENV["ALLOW_NO_PRIVATE_LIST"] = "1"
     env.each { |k, v| ENV[k] = v }
     previous_application = Rake.application
     Rake.application = Rake::Application.new
@@ -94,5 +96,18 @@ RSpec.describe "ai:migrate_auto_memory" do
     run_task(memory_dir, env: { "APPLY" => "1", "ACCOUNT_ID" => account.id, "ALLOW_NO_IDENTIFIERS" => "1" })
     # Set (a) cannot fire with no list, so ident-note applies; (b) is still gated.
     expect(Ai::SharedKnowledge.where(account: account).pluck(:title)).to contain_exactly("plain-note", "ident-note")
+  end
+
+  it "aborts an APPLY with no derivable private-extension names, unless ALLOW_NO_PRIVATE_LIST=1" do
+    allow(Dir).to receive(:glob).and_call_original
+    allow(Dir).to receive(:glob).with(Rails.root.parent.join("extensions", "private", "*")).and_return([])
+
+    _out, aborted = run_task(memory_dir, env: { "APPLY" => "1", "ACCOUNT_ID" => account.id, "ALLOW_NO_PRIVATE_LIST" => "0" })
+    expect(aborted).to be(true)
+    expect(Ai::SharedKnowledge.count).to eq(0)
+
+    out, aborted = run_task(memory_dir, env: { "APPLY" => "1", "ACCOUNT_ID" => account.id })
+    expect(aborted).to be(false)
+    expect(out).to include("(c) private names: check disabled")
   end
 end

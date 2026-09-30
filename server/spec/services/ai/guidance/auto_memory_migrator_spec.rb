@@ -47,10 +47,15 @@ RSpec.describe Ai::Guidance::AutoMemoryMigrator do
       samples = {
         "break_glass" => "break glass account", "security_gap" => "a security gap", "unauthenticated" => "unauthenticated port",
         "bypass" => "an auth bypass", "exploit" => "an exploit path", "credential_material" => "the api key",
-        "cve" => "CVE-2026-12345", "privilege_escalation" => "self-regrant path"
+        "cve" => "CVE-2026-12345", "privilege_escalation" => "self-regrant path",
+        "secrets" => "rotate the secrets", "credentials" => "credential handling", "token" => "the vault token"
       }
       expect(described_class::SENSITIVE_PATTERNS.keys).to match_array(samples.keys)
       samples.each { |label, text| expect(text).to match(described_class::SENSITIVE_PATTERNS.fetch(label)) }
+      # each alternative of the token / mnemonic / password entries
+      [ "deploy-token", "token: abc", "access token", "a seed phrase", "the mnemonic", "the password" ].each do |text|
+        expect(text).to match(Regexp.union(described_class::SENSITIVE_PATTERNS.values))
+      end
       expect("A harmless note about rendering.").not_to match(Regexp.union(described_class::SENSITIVE_PATTERNS.values))
     end
 
@@ -271,6 +276,131 @@ RSpec.describe Ai::Guidance::AutoMemoryMigrator do
       migrator(apply: true, graph_service: graph).call
 
       expect(graph).to have_received(:create_edge).with(hash_including(relation_type: "related_to")).once
+    end
+  end
+
+  describe "slug / filename triage (M1)" do
+    # name and description are innocuous: ONLY the filename can match.
+    def write_named_only(slug)
+      write_memory(slug, name: "Innocuous", description: "Plain description")
+    end
+
+    it "skips a note whose FILENAME alone matches identifiers, private names or a sensitive pattern" do
+      write_named_only("host-#{identifier_marker}-notes")
+      write_named_only("#{private_marker}-internals")
+      write_named_only("breakglass-runbook")
+
+      report = migrator(apply: true, include_sensitive: false).call
+      by = entries(report)
+
+      expect(by.values.select { |e| (e.sets - %i[oversize]).any? }.map(&:action).uniq).to eq(%i[skipped])
+      expect(report.by_set(:identifiers)).to include(a_string_matching(/\Anote#\h{8}\z/))
+      expect(Ai::SharedKnowledge.where(account: account).pluck(:title)).not_to include(
+        a_string_including(identifier_marker), a_string_including(private_marker), a_string_including("breakglass")
+      )
+    end
+
+    it "sends a filename-only sensitive match through the INCLUDE_SENSITIVE gate" do
+      write_named_only("breakglass-runbook")
+
+      expect(entries(migrator(apply: true).call).values.find { |e| e.sets == %i[sensitive] && e.ref.start_with?("note#") }.action)
+        .to eq(:skipped)
+      report = migrator(apply: true, include_sensitive: true).call
+      expect(entry_for("breakglass-runbook")).to be_present
+      expect(entries(report).fetch("breakglass-runbook").action).to eq(:created)
+    end
+
+    it "never echoes a matching slug in the report lines or the manifest; the reference is stable" do
+      write_named_only("host-#{identifier_marker}-notes")
+
+      first = migrator.call
+      second = migrator.call
+      surfaces = first.lines.join("\n") + File.read(first.manifest_path)
+
+      expect(surfaces).not_to include(identifier_marker)
+      expect(first.by_set(:identifiers)).to include(second.by_set(:identifiers).find { |r| r.start_with?("note#") })
+      expect(JSON.parse(File.read(first.manifest_path))["entries"].keys).to include(*first.by_set(:identifiers))
+    end
+
+    it "keeps the real slug for a clean note" do
+      expect(entries(migrator.call).fetch("plain-note").ref).to eq("plain-note")
+    end
+  end
+
+  describe "private-name list fails closed (M2)" do
+    it "refuses APPLY when no private names can be derived, unless explicitly allowed" do
+      allow(Dir).to receive(:glob).and_call_original
+      allow(Dir).to receive(:glob).with(Rails.root.parent.join("extensions", "private", "*")).and_return([])
+      blind = described_class.new(dir: memory_dir, account: account, apply: true, identifiers_path: identifiers_file,
+                                  manifest_dir: manifest_dir)
+
+      expect { blind.call }.to raise_error(described_class::Error, /no private-extension names could be derived/)
+      expect(Ai::SharedKnowledge.where(account: account).count).to eq(0)
+
+      allowed = described_class.new(dir: memory_dir, account: account, apply: true, identifiers_path: identifiers_file,
+                                    manifest_dir: manifest_dir, require_private_list: false)
+      expect(allowed.call.mode).to eq(:apply)
+    end
+
+    it "says the check is disabled, never 0, when the list is empty (dry run)" do
+      report = migrator(private_names: []).call
+
+      expect(report.lines.join("\n")).to include("(c) private names: check disabled", "private-extension names loaded: 0")
+      expect(report.lines).not_to include(a_string_matching(/\(c\) private names: 0/))
+    end
+
+    it "says the identifiers check is disabled when the list is empty" do
+      File.write(identifiers_file, "# nothing\n")
+
+      expect(migrator.call.lines.join("\n")).to include("(a) identifiers: check disabled")
+    end
+  end
+
+  describe "grep word anchors in the identifiers list (M3)" do
+    it "translates \\< and \\> to word boundaries so the line still matches" do
+      File.write(identifiers_file, "\\<ZQWORD-[0-9]+\\>\n[[:<:]]ZQOTHER[[:>:]]\n")
+      write_memory("anchored", body: "see zqword-77 now")
+      write_memory("bracketed", body: "the zqother thing")
+      write_memory("embedded", body: "xzqword-77y is not a word")
+
+      report = migrator.call
+
+      expect(report.by_set(:identifiers)).to contain_exactly("anchored", "bracketed")
+    end
+
+    it "leaves an escaped backslash before < alone" do
+      File.write(identifiers_file, "ZQ\\\\<Y\n")
+      write_memory("escaped", body: "ZQ\\<Y")
+
+      expect(migrator.call.by_set(:identifiers)).to eq(%w[escaped])
+    end
+  end
+
+  describe "symlinks" do
+    it "does not apply a symlinked note and counts it in the report" do
+      write_memory("outside", dir: scratch_dir)
+      File.symlink(File.join(scratch_dir, "outside.md"), File.join(memory_dir, "linked.md"))
+
+      report = migrator(apply: true).call
+
+      expect(report.symlinks_skipped).to eq(1)
+      expect(report.lines.first).to include("symlinks_skipped=1")
+      expect(entry_for("linked")).to be_nil
+    end
+  end
+
+  describe "a failure mid-APPLY" do
+    it "writes a partial manifest of what was already written, then re-raises" do
+      write_memory("src-a", body: "Related: [[plain-note]].")
+      graph = Ai::KnowledgeGraph::GraphService.new(account)
+      allow(graph).to receive(:create_edge).and_raise(Ai::KnowledgeGraph::GraphServiceError, "boom")
+
+      expect { migrator(apply: true, graph_service: graph).call }.to raise_error(Ai::KnowledgeGraph::GraphServiceError)
+
+      manifest = JSON.parse(File.read(File.join(manifest_dir, described_class::MANIFEST_FILE)))
+      expect(manifest).to include("partial" => true, "error_class" => "Ai::KnowledgeGraph::GraphServiceError")
+      expect(manifest["entries"]["plain-note"]).to include("status" => "created", "knowledge_id" => entry_for("plain-note").id)
+      expect(manifest["entries"]["ident-note"]["status"]).to eq("skipped")
     end
   end
 end

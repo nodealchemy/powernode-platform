@@ -8,24 +8,32 @@ module Ai
     #
     # .load_dir is deliberately NON-recursive: MEMORY.md (the index) and every
     # subdirectory (archive/, apo-sprint-staging/, dated archive-* folders) are
-    # out of scope, and a note without frontmatter cannot be keyed or typed, so
-    # it is reported by slug and left alone.
+    # out of scope, symlinks are never followed (a link could reach an archived
+    # or out-of-directory file), and a note without frontmatter cannot be keyed
+    # or typed, so it is reported by slug and left alone.
     class AutoMemoryFile
       INDEX_FILE = "MEMORY.md"
       FRONTMATTER = /\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\z)(.*)\z/m
       LINK = /\[\[([^\]|#\n]+?)(?:[|#][^\]\n]*)?\]\]/
 
-      Loaded = Struct.new(:files, :without_frontmatter, keyword_init: true)
+      Loaded = Struct.new(:files, :without_frontmatter, :symlinks, keyword_init: true)
 
       attr_reader :slug, :filename, :raw, :name, :description, :body, :memory_type, :origin_session_id
 
       def self.load_dir(dir)
-        loaded = Loaded.new(files: [], without_frontmatter: [])
+        loaded = Loaded.new(files: [], without_frontmatter: [], symlinks: [])
         dir = Pathname.new(dir)
         return loaded unless dir.directory?
 
-        Dir.glob(dir.join("*.md")).sort.each do |path|
-          next if File.basename(path) == INDEX_FILE
+        # base: keeps glob metacharacters in the directory path itself inert.
+        Dir.glob("*.md", base: dir.to_s).sort.each do |name|
+          next if name == INDEX_FILE
+
+          path = dir.join(name).to_s
+          if File.symlink?(path)
+            loaded.symlinks << name
+            next
+          end
           next unless File.file?(path)
 
           parsed = parse(path)
@@ -44,11 +52,12 @@ module Ai
         match = FRONTMATTER.match(raw)
         return nil unless match
 
-        front = YAML.safe_load(match[1], permitted_classes: [], aliases: false)
+        # Date/Time are plain data: an unquoted `created: 2026-09-30` must not drop the note.
+        front = YAML.safe_load(match[1], permitted_classes: [ Date, Time ], aliases: false)
         return nil unless front.is_a?(Hash)
 
         new(path: path, raw: raw, front: front, body: match[2])
-      rescue Psych::Exception
+      rescue Psych::Exception, ArgumentError # ArgumentError: not valid UTF-8
         nil
       end
 

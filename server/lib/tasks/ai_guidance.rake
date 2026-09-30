@@ -29,7 +29,7 @@ namespace :ai do
   desc "Migrate auto-memory notes into account-scoped platform knowledge as memory:<slug>. " \
        "DRY-RUN by default (plans + triage report, writes nothing to the database). " \
        "APPLY=1 ACCOUNT_ID=<id> writes; INCLUDE_SENSITIVE=1 also applies the break-glass/security-gap set (b); " \
-       "sets (a) identifiers and (c) private names are never applied. Env: IDENTIFIERS_FILE, MANIFEST_DIR, ALLOW_NO_IDENTIFIERS"
+       "sets (a) identifiers and (c) private names are never applied. Env: IDENTIFIERS_FILE, MANIFEST_DIR, ALLOW_NO_IDENTIFIERS, ALLOW_NO_PRIVATE_LIST"
   task :migrate_auto_memory, [ :dir ] => :environment do |_t, args|
     dir = args[:dir].presence
     abort "[ai:migrate_auto_memory] usage: rake 'ai:migrate_auto_memory[<memory dir>]' (dir is required)" unless dir
@@ -48,6 +48,7 @@ namespace :ai do
         include_sensitive: flag.call("INCLUDE_SENSITIVE"),
         identifiers_path: ENV["IDENTIFIERS_FILE"].presence,
         require_identifiers: !flag.call("ALLOW_NO_IDENTIFIERS"),
+        require_private_list: !flag.call("ALLOW_NO_PRIVATE_LIST"),
         manifest_dir: ENV["MANIFEST_DIR"].presence
       ).call
     rescue Ai::Guidance::AutoMemoryMigrator::Error => e
