@@ -436,6 +436,63 @@ RSpec.describe "ai_engineering_agents_seed" do
     expect(counts.call).to eq(before)
   end
 
+  # IMP-89c398dcbc15. The seed is create-only for a row's verb: the operator
+  # flipped the live release.promote row to auto_approve, and a re-seed writing
+  # require_approval back over it would silently undo the decision.
+  describe "policy rows and operator edits (IMP-89c398dcbc15)" do
+    let(:full_key) { %i[account_id scope ai_agent_id user_id action_category priority conditions] }
+
+    it "run twice leaves no duplicate on the full key" do
+      seed_all!
+      load_seed!("ai_engineering_agents_seed.rb")
+
+      dupes = Ai::InterventionPolicy.group(*full_key).having("COUNT(*) > 1").count
+      expect(dupes).to be_empty
+    end
+
+    it "does not overwrite an operator-edited verb, activation or channels on a re-seed" do
+      seed_all!
+      release = canonical("release-manager")
+      row = policy_rows(release, "release.promote").sole
+      row.update!(policy: "auto_approve", is_active: false, preferred_channels: %w[email])
+
+      load_seed!("ai_engineering_agents_seed.rb")
+
+      row.reload
+      expect(row.policy).to eq("auto_approve")
+      expect(row.is_active).to be(false)
+      expect(row.preferred_channels).to eq(%w[email])
+      expect(policy_rows(release, "release.promote").count).to eq(1)
+    end
+
+    it "keeps both halves of the trust-tier pair on a re-seed, and does not flip the tier row" do
+      seed_all!
+      developer = canonical("platform-developer")
+      tier = policy_rows(developer, "dev.prompt_refine").find_by!(priority: 20)
+      tier.update!(policy: "require_approval")
+
+      load_seed!("ai_engineering_agents_seed.rb")
+
+      expect(tier.reload.policy).to eq("require_approval")
+      expect(policy_rows(developer, "dev.prompt_refine").pluck(:priority)).to contain_exactly(10, 20)
+    end
+
+    it "writes a missing row with the seeded verb, chain and conditions" do
+      seed_all!
+      developer = canonical("platform-developer")
+      policy_rows(developer, "dev.prompt_refine").delete_all
+
+      load_seed!("ai_engineering_agents_seed.rb")
+
+      tier = policy_rows(developer, "dev.prompt_refine").find_by!(priority: 20)
+      base = policy_rows(developer, "dev.prompt_refine").find_by!(priority: 10)
+      expect(tier.policy).to eq("auto_approve")
+      expect(tier.conditions).to eq("trust_tier_minimum" => "trusted")
+      expect(base.policy).to eq("require_approval")
+      expect(base.approval_chain).to be_present
+    end
+  end
+
   # IMP-6cda93db7f31: a canonical row needs no account (creator and provider
   # are optional on a global row), so before setup the four canonicals ARE
   # written; only the account-keyed rows (trust score, approval chain, policy

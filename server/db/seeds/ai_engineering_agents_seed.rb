@@ -460,21 +460,31 @@ ENGINEERING_POLICY_PRIORITY         = 10
 ENGINEERING_POLICY_CHANNELS         = %w[notification].freeze
 ENGINEERING_REFINE_CONDITIONS       = { "trust_tier_minimum" => "trusted" }.freeze
 
-# Idempotent upsert of one agent-scoped policy row, keyed on priority so a
-# refine PAIR (two verbs, one category) stays two rows. Returns true when a row
-# was created or changed.
+# Idempotent, CREATE-ONLY write of one agent-scoped policy row, keyed on the
+# row's FULL identity (IMP-89c398dcbc15): account, scope, agent, user, category,
+# priority AND conditions, the columns behind idx_ai_intervention_policies_full_key.
+# Priority and conditions keep a refine PAIR (two verbs, one category) two rows,
+# and keying on them is what lets the seed find the row it wrote whatever an
+# operator did to the rest of it.
+#
+# An EXISTING row is left exactly as it is. The verb, activation, channels and
+# chain are the operator's once the row exists: the live release.promote row was
+# flipped to auto_approve on purpose, and assigning `policy` here on every
+# re-seed would write require_approval straight back over that decision. A row
+# an operator deleted is written again (absence is the only thing this seeds).
+# Returns true when a row was created.
 engineering_upsert_policy = lambda do |agent:, category:, verb:, priority:, conditions:, chain: nil|
   policy = Ai::InterventionPolicy.find_or_initialize_by(
-    account: engineering_admin_account, scope: "agent", ai_agent_id: agent.id,
-    action_category: category, priority: priority
+    account: engineering_admin_account, scope: "agent", ai_agent_id: agent.id, user_id: nil,
+    action_category: category, priority: priority, conditions: conditions
   )
+  next false unless policy.new_record?
+
   policy.assign_attributes(
-    policy: verb, is_active: true, conditions: conditions,
-    preferred_channels: ENGINEERING_POLICY_CHANNELS, approval_chain: chain
+    policy: verb, is_active: true, preferred_channels: ENGINEERING_POLICY_CHANNELS, approval_chain: chain
   )
-  changed = policy.new_record? || policy.changed?
-  policy.save! if changed
-  changed
+  policy.save!
+  true
 end
 
 engineering_agents_written = 0

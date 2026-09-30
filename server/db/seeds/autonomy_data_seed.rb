@@ -438,25 +438,33 @@ INTERVENTION_POLICIES = [
 
 policies_created = 0
 
+# Create-only, keyed on the row's full identity (IMP-89c398dcbc15): the verb,
+# activation and channels of an existing row belong to the operator and a
+# re-seed must not write the seeded values back over an edit. Priority and
+# conditions are part of the key so an operator's conditional row for the same
+# category is never mistaken for this one.
 INTERVENTION_POLICIES.each do |pd|
   policy = Ai::InterventionPolicy.find_or_initialize_by(
     account: admin_account,
     scope: "global",
     action_category: pd[:action_category],
     user_id: nil,
-    ai_agent_id: nil
+    ai_agent_id: nil,
+    priority: pd[:priority],
+    conditions: {}
   )
+  next unless policy.new_record?
+
   policy.assign_attributes(
     policy: pd[:policy],
     preferred_channels: pd[:channels],
-    priority: pd[:priority],
     is_active: true
   )
   policy.save!
   policies_created += 1
 end
 
-Rails.logger.info "[AutonomySeed] Created/updated #{policies_created} intervention policies"
+Rails.logger.info "[AutonomySeed] Created #{policies_created} intervention policies"
 
 # ---------------------------------------------------------------------------
 # Summary
