@@ -163,9 +163,8 @@ RSpec.describe Ai::Learning::CompoundLearningService, "recall fallback", type: :
   # F3 (review) — the empty-semantic fallback is a RECALL-surface rule only.
   #
   # build_compound_context and top_relevant_learnings are not read-only: both
-  # call record_injection! on every row they surface, and
-  # boost_injected_learnings_on_success later credits those injections
-  # positively. keyword_search ORs the first five words of >=3 characters, so
+  # call record_injection! on every row they surface, and a cited injection is
+  # later credited positively (credit_injections!). keyword_search ORs the first five words of >=3 characters, so
   # on a prose task description it is a low-precision matcher; letting it fire
   # whenever the semantic branch merely matched nothing would pour loosely
   # matched rows into injection_count/effectiveness — the very signal

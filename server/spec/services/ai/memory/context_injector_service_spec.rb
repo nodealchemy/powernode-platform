@@ -111,9 +111,8 @@ RSpec.describe Ai::Memory::ContextInjectorService, type: :service do
     # IMP-01daa42e33de — previously #inject_compound_learnings returned only
     # [text, chars] and build_compound_context's learning_ids were dropped
     # right here, which is why the completing execution had nothing to
-    # persist for exact-id credit attribution (see
-    # Ai::Learning::CompoundLearningService#boost_injected_learnings_on_success
-    # and Ai::McpAgentExecutor::ContextAndFormatting#persist_context_metrics).
+    # persist as its exact-id injection record (see
+    # Ai::McpAgentExecutor::ContextAndFormatting#persist_context_metrics).
     context 'compound learning id threading' do
       it 'surfaces the injected learning ids build_compound_context returned, not just the rendered text' do
         compound_service = instance_double(Ai::Learning::CompoundLearningService)

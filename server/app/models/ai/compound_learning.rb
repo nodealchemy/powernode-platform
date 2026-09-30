@@ -185,7 +185,7 @@ module Ai
 
     # Neutral injection recorded at recall time (context injection). Counts the
     # injection immediately; the outcome resolves later — positively via
-    # record_positive_outcome! when the consuming execution succeeds, or stays
+    # record_positive_outcome! when the consumer CITES it, or stays
     # unresolved (which correctly depresses effectiveness for learnings that get
     # injected but never credited).
     def record_injection!

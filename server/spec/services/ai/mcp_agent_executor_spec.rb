@@ -306,9 +306,9 @@ RSpec.describe Ai::McpAgentExecutor, type: :service do
     # IMP-01daa42e33de — the injected learning ids build_compound_context
     # returned (threaded through Ai::Memory::ContextInjectorService's
     # build_context as :compound_learning_ids, see that spec/service) are
-    # persisted onto THIS execution's row, durably, so
-    # Ai::Learning::CompoundLearningService#boost_injected_learnings_on_success
-    # can credit by exact id at completion instead of a time-window guess.
+    # persisted onto THIS execution's row, durably, as the exact-id record of
+    # what it was handed (nothing credits from it without a citation,
+    # IMP-24e98a33a768).
     it 'persists the injected compound learning ids onto the execution record' do
       real_execution = create(:ai_agent_execution, account: account, agent: agent)
       injector = instance_double(Ai::Memory::ContextInjectorService)

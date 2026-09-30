@@ -63,15 +63,15 @@ module Ai
       # Injection (evaluation 2026-09-18 §1.1 / design D3.2). The recall floor
       # above is deliberately loose — a caller reading results can discount a
       # weak match. Injection has no such backstop: every surfaced row is
-      # counted (record_injection!) and later credited (credit_injections! /
-      # boost_injected_learnings_on_success) — on the dev-loop path ONLY when
-      # the executor actually cites it (IMP-8673c0533e24: DevLoopTool#
+      # counted (record_injection!) and later credited (credit_injections!) —
+      # ONLY when the executor actually cites it (IMP-8673c0533e24: DevLoopTool#
       # credit_injected_learnings! intersects task.metadata.injected_learning
       # _ids against learnings_used before crediting; an uncited injection
-      # stays neutral). This is still exactly the feedback loop that let a
-      # handful of heavily-credited, weakly-similar rows dominate every task
-      # regardless of relevance, for whichever caller credits without asking
-      # for a citation. Injection therefore needs a tighter floor than
+      # stays neutral). The agent-execution path has no citation channel, so it
+      # credits nothing (IMP-24e98a33a768). Crediting without a citation is
+      # exactly the feedback loop that let a handful of heavily-credited,
+      # weakly-similar rows dominate every task regardless of relevance.
+      # Injection therefore needs a tighter floor than
       # recall. Overridable via
       # Account#settings["ai_learning_injection_similarity_threshold"], same
       # convention as the recall threshold above.
@@ -196,12 +196,9 @@ module Ai
           stored_count += 1 if stored
         end
 
-        # 5. Boost confidence for previously injected learnings on successful outcome
-        boost_injected_learnings_on_success(execution) if successful
-
         Rails.logger.info("[CompoundLearning] Extracted #{stored_count} learnings from execution #{execution.id}")
 
-        # 6. Trigger experience replay capture for successful high-quality executions
+        # 5. Trigger experience replay capture for successful high-quality executions
         if successful && execution_quality_sufficient?(execution)
           begin
             WorkerJobService.enqueue_ai_experience_replay_capture(execution.id)
@@ -278,8 +275,8 @@ module Ai
           used_chars += line.length + 1
           learning_ids << learning.id
           learning.record_access!
-          # Recall-driven crediting: record a neutral injection now; the outcome
-          # resolves via boost_injected_learnings_on_success (positive) or stays
+          # Recall-driven crediting: record a neutral injection now; it resolves
+          # positively only through a citation (credit_injections!) or stays
           # unresolved. Without this, injection_count/effectiveness never move on
           # the recall path and effectiveness metrics starve.
           learning.record_injection!
@@ -970,12 +967,13 @@ module Ai
         { outcome: :invalid, errors: e.record.errors.full_messages.presence || [ e.message ] }
       end
 
-      # Resolve neutral injections positively by EXACT id — the dev-loop drain
-      # path analog of boost_injected_learnings_on_success (private, below),
-      # which infers membership from a time window on the agent-execution path.
-      # The drain path knows precisely which learnings its claim injected
-      # (task metadata), so no window heuristics. Public: called across the
-      # service boundary by Ai::Tools::DevLoopTool#complete_task.
+      # Resolve neutral injections positively by EXACT id. The caller owns the
+      # citation check (cited AND injected); this only credits. The dev-loop
+      # drain path knows precisely which learnings its claim injected (task
+      # metadata) and which the executor cited. Public: called across the
+      # service boundary by Ai::Tools::DevLoopTool#complete_task. The
+      # agent-execution success path deliberately does NOT call it — it has no
+      # citation channel (IMP-24e98a33a768).
       # MCP recall surface (query_learnings): the same embedding-first
       # retrieval as context injection, but NOT the same rank or floor
       # (evaluation 2026-09-18 §1.1 / D3.2) — recall keeps the looser 0.5
@@ -1081,63 +1079,6 @@ module Ai
         scope.order(column => direction)
       end
 
-      # IMP-01daa42e33de — was a time-window membership guess
-      # (`last_injected_at >= execution.created_at`, account-wide, no link to
-      # THIS execution). On a busy account, two concurrent executions each
-      # injected with different learnings would cross-credit each other's
-      # rows the instant either succeeded — the window has no idea which
-      # injection belongs to which execution. Now delegates to
-      # #injected_learning_ids_for(execution) + the same exact-id
-      # #credit_injections! the dev-loop drain path already uses (built as
-      # the shared seam here, not forked) — see that method for where the
-      # ids come from on the agent-execution path. No ids recorded -> no
-      # credit; this never falls back to the window it replaces.
-      def boost_injected_learnings_on_success(execution)
-        learning_ids = injected_learning_ids_for(execution)
-        if learning_ids.empty?
-          # Silence here is exactly how the old window bug stayed invisible
-          # — a path that never persists ids (team-strategy, ralph-loop
-          # re-extraction as of this change) now credits nothing rather than
-          # cross-crediting, but that must be discoverable, not just safe.
-          # Names the execution's class + id so an operator grepping this
-          # line can tell which caller/path never wired persistence, as
-          # opposed to a genuinely injection-free execution.
-          Rails.logger.info(
-            "[CompoundLearning] No injected learning ids to credit for " \
-            "#{execution.class}##{execution.try(:id)}"
-          )
-          return
-        end
-
-        credit_injections!(learning_ids: learning_ids)
-      rescue StandardError => e
-        # IMP-8673c0533e24: was "Confidence boost failed" — #credit_injections!
-        # no longer touches confidence_score, only positive_outcome_count.
-        Rails.logger.warn("[CompoundLearning] Injection credit failed: #{e.message}")
-      end
-
-      # Exact-id attribution seam (IMP-01daa42e33de), deliberately generic on
-      # `execution` rather than typed to Ai::AgentExecution: any completing
-      # execution record with a `performance_metrics` jsonb column can carry
-      # its injected ids the same way. Today only the
-      # Ai::McpAgentExecutor::ContextAndFormatting#persist_context_metrics
-      # writer populates it (see that method); executions reaching here via
-      # other post_execution_extract callers (team-strategy, ralph-loop
-      # cycle re-extraction) simply have nothing recorded yet and correctly
-      # get no credit rather than a guessed one — under-crediting on an
-      # unwired path is the safe failure mode, cross-crediting is not.
-      # Read-only: this is also the retrieval half a future negative-outcome
-      # caller (see 01a0b35b) would reuse to discredit by the same exact ids;
-      # it does not itself judge success/failure.
-      def injected_learning_ids_for(execution)
-        return [] unless execution.respond_to?(:performance_metrics)
-
-        metrics = execution.performance_metrics
-        return [] unless metrics.is_a?(Hash)
-
-        Array(metrics.dig("context", "compound_learning_ids"))
-      end
-
       def learning_freshness(updated_at)
         return "stale" unless updated_at
 
@@ -1205,9 +1146,9 @@ module Ai
       #                            nothing but a caller's attention.
       #   :on_missing_embedding  — injection (build_compound_context,
       #                            top_relevant_learnings). Both call
-      #                            record_injection! on every row they surface
-      #                            and boost_injected_learnings_on_success
-      #                            later credits those injections positively.
+      #                            record_injection! on every row they surface,
+      #                            and a cited injection is later credited
+      #                            positively (credit_injections!).
       #                            keyword_search ORs the first five words of
       #                            >= 3 characters, so on a prose task
       #                            description it is low precision; letting it

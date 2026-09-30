@@ -224,14 +224,12 @@ class Ai::McpAgentExecutor
       # IMP-01daa42e33de — the exact learning ids this execution's injection
       # surfaced, durably attached to THIS execution row (a DB write via
       # update_columns, same as the rest of this method) rather than held
-      # only in memory. Ai::Learning::CompoundLearningService#credit_injections!
-      # reads it back at completion via the shared
-      # #injected_learning_ids_for(execution) seam instead of inferring
-      # membership from a time window — see boost_injected_learnings_on_success.
-      # A crash between this write and completion still leaves the ids on
-      # the persisted row; an in-memory-only pass-through would not survive
-      # that gap, which is exactly when the old time-window guess used to
-      # fire wrong.
+      # only in memory. It is the exact-id record of what this execution was
+      # handed. Nothing credits from it today (IMP-24e98a33a768): an agent
+      # execution has no channel to cite which injections it used, so a
+      # success credits nothing and the injection stays neutral. A future
+      # citation channel would intersect cited ids with this record, as
+      # DevLoopTool#credit_injected_learnings! does for the dev loop.
       learning_ids = memory_result[:compound_learning_ids]
       context_metrics["compound_learning_ids"] = learning_ids if learning_ids.present?
 

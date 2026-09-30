@@ -398,103 +398,90 @@ RSpec.describe Ai::Learning::CompoundLearningService, type: :service do
     end
   end
 
-  describe "#boost_injected_learnings_on_success" do
-    # IMP-01daa42e33de. The old implementation inferred membership from
-    # `last_injected_at >= execution.created_at`, account-wide — any learning
-    # injected into ANY execution in the window got credited, regardless of
-    # which execution actually used it. These specs assert the replacement:
-    # exact-id attribution read back from execution.performance_metrics.
-
-    def execution_with_injected_ids(ids)
-      double("AgentExecution", performance_metrics: { "context" => { "compound_learning_ids" => ids } })
+  # IMP-24e98a33a768 — an agent execution has no structural channel to report
+  # WHICH injected learnings it used (no field on Ai::AgentExecution, no
+  # parameter on record_agent_execution, no key in the runtime result), so
+  # post_execution_extract must not credit injections on success. Mirrors the
+  # dev-loop contract (IMP-8673c0533e24): no citation, no credit — the
+  # injection stays neutral. A failing execution never credited anything and
+  # still writes nothing negative here.
+  describe "#post_execution_extract injection credit" do
+    let(:team) { create(:ai_agent_team, account: account) }
+    let!(:injected) do
+      create(:ai_compound_learning,
+             account: account,
+             injection_count: 3,
+             positive_outcome_count: 2,
+             negative_outcome_count: 1,
+             confidence_score: 0.5)
+    end
+    let!(:other_injected) do
+      create(:ai_compound_learning, account: account, injection_count: 1, positive_outcome_count: 0)
     end
 
-    it "resolves the execution's exact injected learnings as positive outcomes without re-counting the injection" do
+    def execution_double(status:, ids:)
+      double("TeamExecution",
+             id: SecureRandom.uuid,
+             status: status,
+             agent_team: team,
+             performance_metrics: { "context" => { "compound_learning_ids" => ids } }).tap do |exec|
+        allow(exec).to receive(:respond_to?).and_return(false)
+        allow(exec).to receive(:respond_to?).with(:agent_team).and_return(true)
+        allow(exec).to receive(:respond_to?).with(:performance_metrics).and_return(true)
+      end
+    end
+
+    def counters(learning)
+      learning.reload.attributes.slice(
+        "injection_count", "positive_outcome_count", "negative_outcome_count",
+        "effectiveness_score", "confidence_score", "last_injected_at"
+      )
+    end
+
+    it "leaves every injected learning's counters unchanged on a successful execution with no citation" do
+      before_counters = [ injected, other_injected ].map { |l| counters(l) }
+
+      service.post_execution_extract(execution_double(status: "completed", ids: [ injected.id, other_injected.id ]))
+
+      expect([ injected, other_injected ].map { |l| counters(l) }).to eq(before_counters)
+    end
+
+    it "leaves the counters unchanged on a failed execution (no positive, no negative write)" do
+      before_counters = [ injected, other_injected ].map { |l| counters(l) }
+
+      service.post_execution_extract(execution_double(status: "failed", ids: [ injected.id, other_injected.id ]))
+
+      expect([ injected, other_injected ].map { |l| counters(l) }).to eq(before_counters)
+    end
+  end
+
+  # The credit seam itself (shared with DevLoopTool#credit_injected_learnings!,
+  # which intersects cited AND injected ids before calling it): resolves a
+  # neutral injection positively by exact id without re-counting it.
+  describe "#credit_injections!" do
+    it "resolves the given learnings as positive outcomes without re-counting the injection" do
       learning = create(:ai_compound_learning,
                         account: account,
                         injection_count: 3,
                         positive_outcome_count: 2,
                         confidence_score: 0.5)
-      execution = execution_with_injected_ids([ learning.id ])
 
-      service.send(:boost_injected_learnings_on_success, execution)
+      service.credit_injections!(learning_ids: [ learning.id ])
       learning.reload
 
       expect(learning.injection_count).to eq(3)
       expect(learning.positive_outcome_count).to eq(3)
       expect(learning.effectiveness_score.to_f).to eq(1.0)
-      # IMP-8673c0533e24: credit_injections! no longer bumps confidence — a
-      # citation is evidence of USEFULNESS (positive_outcome_count /
-      # effectiveness_score), not of the content being more TRUE.
+      # A citation is evidence of USEFULNESS, not of the content being more TRUE.
       expect(learning.confidence_score.to_f).to eq(0.5)
     end
 
-    it "credits nothing when the execution recorded no injected ids, and logs the absence" do
+    it "credits nothing for an empty id list" do
       learning = create(:ai_compound_learning, account: account, injection_count: 2, positive_outcome_count: 0)
-      execution = execution_with_injected_ids([])
 
-      service.send(:boost_injected_learnings_on_success, execution)
+      service.credit_injections!(learning_ids: [])
 
       expect(learning.reload.positive_outcome_count).to eq(0)
-      # Silence is exactly how the window bug stayed invisible — the "no
-      # ids" branch must be discoverable, not just safe. This line is what
-      # lets an operator find which paths never credit without reading the
-      # diff. Class+id naming is asserted separately below against a real
-      # execution record, where `.class` resolves to something meaningful
-      # (a test double's `.class` is always RSpec::Mocks::Double).
-      expect(Rails.logger).to have_received(:info)
-        .with(a_string_matching(/No injected learning ids to credit for/))
-    end
-
-    it "credits nothing for an execution type that never persisted the ids (e.g. a bare double), and logs it" do
-      learning = create(:ai_compound_learning, account: account, injection_count: 2, positive_outcome_count: 0)
-      execution = double("SomeOtherExecutionType")
-
-      service.send(:boost_injected_learnings_on_success, execution)
-
-      expect(learning.reload.positive_outcome_count).to eq(0)
-      expect(Rails.logger).to have_received(:info)
-        .with(a_string_matching(/No injected learning ids to credit for/))
-    end
-
-    # The naming requirement itself: against a REAL execution record (a test
-    # double's `.class` is always RSpec::Mocks::Double, which would make this
-    # assertion vacuous) so the log line genuinely identifies which class/id
-    # never credited, the way an operator grepping production logs needs.
-    it "names the execution's real class and id in the no-credit log line" do
-      real_execution = create(:ai_agent_execution, account: account, agent: create(:ai_agent, account: account))
-
-      service.send(:boost_injected_learnings_on_success, real_execution)
-
-      expect(Rails.logger).to have_received(:info)
-        .with("[CompoundLearning] No injected learning ids to credit for Ai::AgentExecution##{real_execution.id}")
-    end
-
-    # The decisive example: two concurrent executions in the SAME account,
-    # each injected with a DIFFERENT learning, only one succeeding. A spec
-    # that only checked "the right learning got credited" could not see
-    # cross-crediting (the old time-window bug would ALSO have passed that
-    # half); asserting the unrelated execution's learning stayed untouched
-    # is what a window-based implementation cannot satisfy.
-    it "does not cross-credit a concurrent execution's injected learnings" do
-      succeeding_learning = create(:ai_compound_learning,
-                                   account: account,
-                                   injection_count: 1,
-                                   positive_outcome_count: 0,
-                                   confidence_score: 0.5)
-      concurrent_unrelated_learning = create(:ai_compound_learning,
-                                             account: account,
-                                             injection_count: 1,
-                                             positive_outcome_count: 0,
-                                             confidence_score: 0.5)
-
-      succeeding_execution = execution_with_injected_ids([ succeeding_learning.id ])
-
-      service.send(:boost_injected_learnings_on_success, succeeding_execution)
-
-      expect(succeeding_learning.reload.positive_outcome_count).to eq(1)
-      expect(concurrent_unrelated_learning.reload.positive_outcome_count).to eq(0)
-      expect(concurrent_unrelated_learning.reload.confidence_score.to_f).to eq(0.5)
     end
   end
 
