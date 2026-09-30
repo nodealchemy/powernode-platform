@@ -35,7 +35,7 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
 
   # GET /api/v1/internal/account_terminations/:id
   def show
-    render_success(data: termination_data(@termination))
+    render_success(data: termination_data(@termination, include_notification_email: true))
   end
 
   # PATCH/PUT /api/v1/internal/account_terminations/:id
@@ -323,8 +323,13 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
     permitted
   end
 
-  def termination_data(termination)
-    {
+  # `include_notification_email` is true for the show read alone
+  # (IMP-b719328ddeb9): the worker's completion notice needs the address
+  # snapshotted at request time (the owner is anonymized by then), and reads it
+  # BEFORE the completing write scrubs it. The list and every write response
+  # omit it.
+  def termination_data(termination, include_notification_email: false)
+    data = {
       id: termination.id,
       account_id: termination.account_id,
       status: termination.status,
@@ -354,5 +359,7 @@ class Api::V1::Internal::AccountTerminationsController < Api::V1::Internal::Inte
       # whether Account::Termination.initiate had actually set it.
       data_export_request_id: termination.data_export_request_id
     }
+    data[:notification_email] = termination.notification_email if include_notification_email
+    data
   end
 end

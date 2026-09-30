@@ -7,6 +7,11 @@ class Account::Termination < ApplicationRecord
     # Default grace period before permanent deletion
     DEFAULT_GRACE_PERIOD_DAYS = 30
 
+    # The completion-notice address is snapshotted at creation and scrubbed on
+    # the write that settles the termination (IMP-b719328ddeb9).
+    NOTIFICATION_SETTLED_STATUSES = %w[completed cancelled].freeze
+    include NotificationEmailSnapshot
+
     # Associations
     belongs_to :account
     belongs_to :requested_by, class_name: "User", optional: true
@@ -139,18 +144,20 @@ class Account::Termination < ApplicationRecord
     end
 
     def complete!(processor = nil)
-      update!(
-        status: "completed",
-        processed_by: processor,
-        completed_at: Time.current,
-        termination_log: termination_log + [ { event: "completed", by: processor&.id, at: Time.current.iso8601 } ]
-      )
+      address = capturing_notification_address do
+        update!(
+          status: "completed",
+          processed_by: processor,
+          completed_at: Time.current,
+          termination_log: termination_log + [ { event: "completed", by: processor&.id, at: Time.current.iso8601 } ]
+        )
+      end
 
       # Mark account as cancelled (terminated)
       account.update!(status: "cancelled")
 
       log_status_change("completed")
-      notify_completion
+      notify_completion(address)
       true
     end
 
@@ -298,17 +305,21 @@ class Account::Termination < ApplicationRecord
       )
     end
 
-    def notify_completion
+    def notification_email_source
+      account&.owner&.email
+    end
+
+    def notify_completion(address)
       return unless account
 
-      # Final completion email - account data has been deleted
-      # Note: We send to the owner's original email captured before termination
-      owner_email = account.owner&.email
-      return unless owner_email
+      # Final completion email - account data has been deleted. The owner is
+      # already anonymized here, so this goes to the address snapshotted at
+      # request time, never to account.owner.email.
+      return if address.blank?
 
       NotificationService.send_email(
         template: "account_termination_complete",
-        email: owner_email,
+        email: address,
         data: {
           termination_id: id,
           completed_at: completed_at&.iso8601,

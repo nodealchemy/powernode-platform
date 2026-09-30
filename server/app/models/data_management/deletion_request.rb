@@ -5,6 +5,11 @@ module DataManagement
   class DeletionRequest < ApplicationRecord
     # Table name handled by Data.table_name_prefix
 
+    # The completion-notice address is snapshotted at creation and scrubbed on
+    # the write that settles the request (IMP-b719328ddeb9).
+    NOTIFICATION_SETTLED_STATUSES = %w[completed failed rejected cancelled].freeze
+    include NotificationEmailSnapshot
+
     # Default grace period before permanent deletion
     GRACE_PERIOD_DAYS = 30
 
@@ -236,15 +241,17 @@ module DataManagement
     end
 
     def complete!(deletion_log:, retention_log: [])
-      update!(
-        status: "completed",
-        completed_at: Time.current,
-        deletion_log: deletion_log,
-        retention_log: retention_log
-      )
+      address = capturing_notification_address do
+        update!(
+          status: "completed",
+          completed_at: Time.current,
+          deletion_log: deletion_log,
+          retention_log: retention_log
+        )
+      end
 
       log_status_change("completed")
-      notify_user_of_completion
+      notify_user_of_completion(address)
     end
 
     def fail!(error_message)
@@ -435,12 +442,12 @@ module DataManagement
       )
     end
 
-    def notify_user_of_completion
-      return unless user
+    def notification_email_source
+      user&.email
+    end
 
-      # User's primary account data may be deleted, but we should still
-      # attempt to send the completion notification
-      user_email = user.email
+    def notify_user_of_completion(address)
+      return unless user
 
       # Create in-app notification if user record still exists and is accessible
       begin
@@ -459,10 +466,13 @@ module DataManagement
         Rails.logger.warn "Could not create in-app notification for deletion completion: #{e.message}"
       end
 
-      # Queue GDPR-compliant completion email
+      # Queue GDPR-compliant completion email to the address snapshotted before
+      # the erasure. user.email is anonymized by now and is never read here.
+      return if address.blank?
+
       NotificationService.send_email(
         template: "data_deletion_complete",
-        email: user_email,
+        email: address,
         data: {
           deletion_request_id: id,
           deletion_type: deletion_type,

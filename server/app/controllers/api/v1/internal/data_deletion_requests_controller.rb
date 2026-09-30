@@ -377,6 +377,11 @@ module Api
             return render_error("Request is not processing", status: :unprocessable_content)
           end
 
+          # The completing write scrubs the snapshotted notice address, so read
+          # it first. The user's own email is erased by this deletion and is
+          # never the source (IMP-b719328ddeb9).
+          address = @deletion_request.notification_email
+
           @deletion_request.update!(
             status: "completed",
             completed_at: Time.current,
@@ -385,19 +390,30 @@ module Api
           log_internal_audit("data_deletion.complete", "DeletionRequest", @deletion_request.id,
                              account_id: @deletion_request.account_id)
 
-          # Send completion notification
-          NotificationService.send_email(
-            template: "data_deletion_completed",
-            user_id: @deletion_request.user_id,
-            data: {
-              request_id: @deletion_request.id,
-              completed_at: @deletion_request.completed_at.iso8601
-            }
-          )
+          send_completion_notification(address)
 
           render_success(
             { data_deletion_request: serialize_request(@deletion_request) },
             message: "Deletion completed"
+          )
+        end
+
+        # A missing address (a legacy row, or a user who had none) is a warning,
+        # never a failure: the erasure this request records has already happened.
+        def send_completion_notification(address)
+          if address.blank?
+            Rails.logger.warn "[DataDeletionRequests] #{@deletion_request.id}: no notification address " \
+                              "on file, skipping the completion notification"
+            return
+          end
+
+          NotificationService.send_email(
+            template: "data_deletion_completed",
+            email: address,
+            data: {
+              request_id: @deletion_request.id,
+              completed_at: @deletion_request.completed_at.iso8601
+            }
           )
         end
 
@@ -425,6 +441,11 @@ module Api
             data[:retention_log] = request.retention_log
             data[:error_message] = request.error_message
             data[:metadata] = request.metadata
+            # The one place the snapshotted notice address leaves the server
+            # (IMP-b719328ddeb9): the worker's completion notice needs it, read
+            # here BEFORE the completing write scrubs it. Only the detail
+            # (show) shape carries it; every write response omits it.
+            data[:notification_email] = request.notification_email
           end
 
           data
