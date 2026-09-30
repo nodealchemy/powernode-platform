@@ -112,16 +112,19 @@ module Ai
       card = decider_change_card(approval)
       return nil unless card
 
+      # Readability FIRST: a session the card withholds the current value from
+      # is served no digest, so the queue sends none — telling that person to
+      # "approve it from the queue" would loop them back to where they are.
+      unless card.key?(:digest)
+        return [ "change_card_not_readable",
+                 "Your session is not shown this setting's current value, so it cannot confirm the change " \
+                 "as shown; a session that can read the setting decides it." ]
+      end
       claimed = params[:change_card_digest]
       if claimed.blank?
         return [ "change_card_digest_missing",
                  "This request changes a setting, so approve it from the approvals queue " \
                  "(/app/ai/control/approvals/queue), which sends the digest of the card it shows." ]
-      end
-      unless card.key?(:digest)
-        return [ "change_card_not_readable",
-                 "Your session is not shown this setting's current value, so it cannot confirm the change " \
-                 "as shown; a session that can read the setting decides it." ]
       end
       return nil if ::Ai::Approvals::ChangeCard.digest_matches?(card, claimed)
 
