@@ -40,6 +40,13 @@ export interface ApprovalChangeCard {
   current_value_set?: boolean;
   presented_new_value?: ApprovalPresentedValue;
   presented_current_value?: ApprovalPresentedValue;
+  /**
+   * The server's digest of exactly what this card shows (key, new value,
+   * current value at render). Echoed on approve, never computed here: the
+   * server recomputes it at decide time and refuses when the setting changed
+   * since the card was viewed. Absent when the current value is withheld.
+   */
+  digest?: string;
 }
 
 export interface ApprovalRequest {

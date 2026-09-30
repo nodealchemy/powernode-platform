@@ -169,7 +169,9 @@ const ApprovalCard: React.FC<{
     // moments later and would take an unrecoverable secret with it.
     approveMutation.mutate(
       // Only reachable from the expanded card, where the change card is shown.
-      { id: request.id, changeCardShown: hasChangeCard, onRevealedResult: onRevealed },
+      // The digest is the server's, echoed: it binds the decision to the values
+      // this card showed.
+      { id: request.id, changeCardShown: hasChangeCard, changeCardDigest: changeCard?.digest, onRevealedResult: onRevealed },
       {
         onSuccess: () => setOwnDecisions((count) => count + 1),
         onError: (error) => showNotification(`Approval failed: ${refusalReason(error)}`, 'error'),

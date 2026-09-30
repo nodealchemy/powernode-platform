@@ -29,6 +29,11 @@ jest.mock('@/shared/hooks/useWebSocket', () => {
   return { useWebSocket: () => socket };
 });
 jest.mock('@/shared/hooks/usePolling', () => ({ usePolling: jest.fn() }));
+// Mocked so a refused decision's notice can be asserted.
+const mockShowNotification = jest.fn();
+jest.mock('@/shared/hooks/useNotification', () => ({
+  useNotification: () => ({ showNotification: mockShowNotification }),
+}));
 
 const CARD_ROW = {
   id: 'req-s',
@@ -48,6 +53,8 @@ const CARD_ROW = {
     new_value: '["campaign.*"]',
     current_value: '["campaign.*","spend.*"]',
     current_value_set: true,
+    // Rendered by the server; the client echoes it on approve and never computes one.
+    digest: 'v1:' + 'ab'.repeat(32),
   },
 };
 
@@ -140,7 +147,7 @@ describe('ApprovalQueuePanel change card', () => {
     expect(screen.queryByRole('button', { name: /^Reject$/ })).toBeNull();
   });
 
-  it('decides from the expanded card and says the card was shown', async () => {
+  it('decides from the expanded card, says the card was shown and echoes its digest', async () => {
     mockPost.mockResolvedValue({ data: { data: { id: 'req-s', status: 'approved' } } });
     const user = userEvent.setup();
     renderPanel();
@@ -153,7 +160,46 @@ describe('ApprovalQueuePanel change card', () => {
       expect(mockPost).toHaveBeenCalledWith('/ai/autonomy/approvals/req-s/approve', {
         comments: undefined,
         change_card_shown: true,
+        change_card_digest: 'v1:' + 'ab'.repeat(32),
       })
+    );
+  });
+
+  it('sends no digest for a card the server rendered without one, rather than inventing it', async () => {
+    mockPost.mockResolvedValue({ data: { data: { id: 'req-s', status: 'approved' } } });
+    const { digest: _none, current_value: _hidden, current_value_set: _set, ...withheld } = CARD_ROW.change_card;
+    serve({ ...CARD_ROW, change_card: withheld });
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(await screen.findByText('platform.site_setting.protected_write'));
+    await screen.findByText('Exactly what you are approving');
+    await user.click(screen.getByRole('button', { name: /^Approve$/ }));
+
+    await waitFor(() =>
+      expect(mockPost).toHaveBeenCalledWith('/ai/autonomy/approvals/req-s/approve', {
+        comments: undefined,
+        change_card_shown: true,
+      })
+    );
+  });
+
+  it('says the request changed since it was viewed when the server refuses a stale digest', async () => {
+    mockPost.mockRejectedValue({
+      response: { status: 422, data: { error: 'The request changed since you viewed it; review the card again.', code: 'change_card_stale' } },
+    });
+    const user = userEvent.setup();
+    renderPanel();
+
+    await user.click(await screen.findByText('platform.site_setting.protected_write'));
+    await screen.findByText('Exactly what you are approving');
+    await user.click(screen.getByRole('button', { name: /^Approve$/ }));
+
+    await waitFor(() =>
+      expect(mockShowNotification).toHaveBeenCalledWith(
+        expect.stringMatching(/changed since you viewed it/),
+        'error'
+      )
     );
   });
 

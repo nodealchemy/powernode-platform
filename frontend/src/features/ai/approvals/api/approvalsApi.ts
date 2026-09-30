@@ -95,6 +95,7 @@ export function useApproveAction() {
       id,
       comments,
       changeCardShown,
+      changeCardDigest,
       onRevealedResult,
     }: {
       id: string;
@@ -103,6 +104,9 @@ export function useApproveAction() {
       // change card (its exact tool, setting and values). The server refuses to
       // approve a request that carries one without it.
       changeCardShown?: boolean;
+      // The card's server-rendered digest, echoed as given: the server refuses
+      // the decision when the setting changed since that card was rendered.
+      changeCardDigest?: string;
       // REQUIRED, not optional: an approve that forgets to take the slot is
       // exactly the bug this fixes, and a required parameter makes the compiler
       // the guard rather than a convention.
@@ -111,6 +115,7 @@ export function useApproveAction() {
       const response = await apiClient.post(`/ai/autonomy/approvals/${id}/approve`, {
         comments,
         ...(changeCardShown ? { change_card_shown: true } : {}),
+        ...(changeCardShown && changeCardDigest ? { change_card_digest: changeCardDigest } : {}),
       });
       return (takeRevealedResult(response.data?.data ?? {}, onRevealedResult) ?? {}) as unknown as ApprovalRequest;
     },
