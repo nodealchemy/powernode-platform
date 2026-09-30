@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 require "rails_helper"
-require Rails.root.join("db/migrate/20260930130000_widen_users_last_login_ip_to_text.rb")
+require Rails.root.join("db/migrate/20260930140000_widen_users_last_login_ip_to_text.rb")
 
 # IMP-7552124d35c1 -- runs the real DDL. The example transaction rolls it back;
 # the after(:context) hook drops the plan cache the DDL poisons (see

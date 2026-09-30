@@ -26,7 +26,10 @@ class WidenUsersLastLoginIpToText < ActiveRecord::Migration[8.1]
 
   def down
     return unless column_exists?(:users, :last_login_ip, :text)
-    return if select_value("SELECT 1 FROM users WHERE char_length(last_login_ip) > #{OLD_LIMIT} LIMIT 1")
+    if select_value("SELECT 1 FROM users WHERE char_length(last_login_ip) > #{OLD_LIMIT} LIMIT 1")
+      say "users.last_login_ip holds a value over #{OLD_LIMIT} chars; leaving the column as text"
+      return
+    end
 
     change_column :users, :last_login_ip, :string, limit: OLD_LIMIT
   end
