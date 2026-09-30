@@ -473,9 +473,18 @@ ENGINEERING_REFINE_CONDITIONS       = { "trust_tier_minimum" => "trusted" }.free
 # re-seed would write require_approval straight back over that decision. A row
 # an operator deleted is written again (absence is the only thing this seeds).
 # Returns true when a row was created.
+#
+# The row is looked up on the account's PRINCIPAL, not only the canonical:
+# Ai::Agents::AccountPrincipalResolver moves the account's agent-scoped rows off
+# the global canonical onto its clone on every resolution, so a seed that looks
+# on the canonical alone never finds a row it wrote before, writes it again, and
+# the next resolution collides on the full key. `existing` never mints, so seed
+# order is unaffected: before a clone exists the row goes on the canonical, and
+# the resolver carries it over later.
 engineering_upsert_policy = lambda do |agent:, category:, verb:, priority:, conditions:, chain: nil|
+  owner = Ai::Agents::AccountPrincipalResolver.existing(agent, account: engineering_admin_account) || agent
   policy = Ai::InterventionPolicy.find_or_initialize_by(
-    account: engineering_admin_account, scope: "agent", ai_agent_id: agent.id, user_id: nil,
+    account: engineering_admin_account, scope: "agent", ai_agent_id: owner.id, user_id: nil,
     action_category: category, priority: priority, conditions: conditions
   )
   next false unless policy.new_record?

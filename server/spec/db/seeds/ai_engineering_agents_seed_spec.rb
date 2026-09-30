@@ -477,6 +477,49 @@ RSpec.describe "ai_engineering_agents_seed" do
       expect(policy_rows(developer, "dev.prompt_refine").pluck(:priority)).to contain_exactly(10, 20)
     end
 
+    # The seed writes on the GLOBAL canonical; AccountPrincipalResolver then
+    # moves the rows onto the account's clone on every resolution. A seed that
+    # only looks on the canonical never finds them again, re-creates them, and
+    # (index in place) the next resolution raised RecordNotUnique.
+    describe "after the account's clone has taken the rows (seed, resolve, re-seed, resolve)" do
+      def clone_of(slug)
+        Ai::Agents::AccountPrincipalResolver.acting(canonical(slug), account: account, user: user)
+      end
+
+      it "finds its rows on the clone: no new row, no error, and an operator edit on the clone survives" do
+        seed_all!
+        release = canonical("release-manager")
+        clone = clone_of("release-manager")
+        expect(clone.id).not_to eq(release.id)
+        promote = policy_rows(clone, "release.promote").sole
+        promote.update!(policy: "auto_approve")
+        before = Ai::InterventionPolicy.pluck(:id).sort
+
+        expect { load_seed!("ai_engineering_agents_seed.rb") }.not_to raise_error
+
+        # Checked BEFORE the next resolution: the move would otherwise drop a
+        # re-created canonical copy and hide that the seed wrote it.
+        expect(Ai::InterventionPolicy.pluck(:id).sort).to eq(before)
+        expect(Ai::InterventionPolicy.where(ai_agent_id: release.id)).to be_empty
+
+        expect { clone_of("release-manager") }.not_to raise_error
+        expect(Ai::InterventionPolicy.pluck(:id).sort).to eq(before)
+        expect(promote.reload.policy).to eq("auto_approve")
+        expect(Ai::InterventionPolicy.group(*full_key).having("COUNT(*) > 1").count).to be_empty
+      end
+
+      it "keeps the trust-tier pair on the clone across a re-seed and a re-resolve" do
+        seed_all!
+        developer = clone_of("platform-developer")
+
+        load_seed!("ai_engineering_agents_seed.rb")
+        expect(Ai::InterventionPolicy.where(ai_agent_id: canonical("platform-developer").id)).to be_empty
+        clone_of("platform-developer")
+
+        expect(policy_rows(developer, "dev.prompt_refine").pluck(:priority)).to contain_exactly(10, 20)
+      end
+    end
+
     it "writes a missing row with the seeded verb, chain and conditions" do
       seed_all!
       developer = canonical("platform-developer")
