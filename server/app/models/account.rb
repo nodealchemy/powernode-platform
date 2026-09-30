@@ -256,6 +256,8 @@ class Account < ApplicationRecord
                        allow_blank: true
   validates :status, presence: true, inclusion: { in: %w[active suspended cancelled] }
 
+  validate :settings_free_of_reserved_keys, if: :will_save_change_to_settings?
+
   # Note: settings is now a native JSON column, no explicit serialization needed
 
   # Scopes
@@ -307,6 +309,26 @@ class Account < ApplicationRecord
   # A plain data key — the resolution semantics (opt-out sentinel, fail-loud
   # bucketing) live with the resolver, Ai::Provisioning::PlanComposerService.
   DEFAULT_SDWAN_NETWORK_SETTING = "default_sdwan_network_id"
+
+  # Keys of #settings that an owner (an extension included) has RESERVED against
+  # account-level writes: key => reason. #settings is merged from a caller-supplied
+  # hash by every account-settings writer (PUT /api/v1/settings, the accounts
+  # controller), gated only on a tenant-level permission, so a key that means a
+  # platform-operator decision (a grant read by a platform-wide reader) must not be
+  # settable there. Core names no key; owners register theirs from a to_prepare
+  # block (the registry is a class-level ivar and a reload wipes it).
+  #
+  # A reserved key can be REMOVED, and an unrelated edit to an account that
+  # already holds one is not blocked: only adding it or changing its value is.
+  # That is how a migration clears residue, and it does not make an old value
+  # suddenly un-saveable.
+  def self.reserved_setting_keys
+    @reserved_setting_keys ||= {}
+  end
+
+  def self.register_reserved_setting_key(key, reason:)
+    reserved_setting_keys[key.to_s] = reason.to_s
+  end
 
   # Instance methods
   def active?
@@ -504,6 +526,19 @@ class Account < ApplicationRecord
   end
 
   private
+
+  def settings_free_of_reserved_keys
+    return if self.class.reserved_setting_keys.empty?
+
+    now = settings.is_a?(Hash) ? settings.stringify_keys : {}
+    before = settings_in_database.is_a?(Hash) ? settings_in_database.stringify_keys : {}
+    self.class.reserved_setting_keys.each do |key, reason|
+      next unless now.key?(key)
+      next if before.key?(key) && before[key] == now[key]
+
+      errors.add(:settings, "#{key} is reserved and cannot be set here: #{reason}")
+    end
+  end
 
   def normalize_subdomain
     self.subdomain = subdomain&.downcase&.strip
