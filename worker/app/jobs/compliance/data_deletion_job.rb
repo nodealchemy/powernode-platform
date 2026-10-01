@@ -323,7 +323,7 @@ module Compliance
       # DELETABLE_DATA_TYPES members, so the loop above now handles them:
       # anonymized exactly once when not retained, untouched when retained.
 
-      [deletion_log, retention_log]
+      [ deletion_log, retention_log ]
     end
 
     def process_partial_deletion(deletion_request)

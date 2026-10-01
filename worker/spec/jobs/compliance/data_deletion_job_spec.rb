@@ -587,12 +587,12 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
     # and the retention_log never mentioned it. These examples assert the
     # data SURVIVES (its endpoint is never called) when the type is retained.
     {
-      'audit_logs' => ['Required for security and compliance auditing', ->(u, _a) { "/api/v1/internal/users/#{u}/anonymize_audit_logs" }],
-      'payments' => ['Required for tax and accounting purposes', ->(_u, a) { "/api/v1/internal/accounts/#{a}/anonymize_payments" }]
+      'audit_logs' => [ 'Required for security and compliance auditing', ->(u, _a) { "/api/v1/internal/users/#{u}/anonymize_audit_logs" } ],
+      'payments' => [ 'Required for tax and accounting purposes', ->(_u, a) { "/api/v1/internal/accounts/#{a}/anonymize_payments" } ]
     }.each do |retained_type, (expected_reason, endpoint_for)|
       context "when the request retains #{retained_type}" do
         let(:retaining_request) do
-          deletion_request_data.merge('data_types_to_retain' => [retained_type])
+          deletion_request_data.merge('data_types_to_retain' => [ retained_type ])
         end
 
         before do
@@ -750,12 +750,12 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
     # No member may be special-cased beside the loop.
     describe 'data_types_to_retain is binding for every deletable type' do
       endpoints = {
-        'profile' => [:patch, ->(u, _a) { "/api/v1/internal/users/#{u}/anonymize" }],
-        'audit_logs' => [:patch, ->(u, _a) { "/api/v1/internal/users/#{u}/anonymize_audit_logs" }],
-        'payments' => [:patch, ->(_u, a) { "/api/v1/internal/accounts/#{a}/anonymize_payments" }],
-        'settings' => [:delete, ->(u, _a) { "/api/v1/internal/users/#{u}/settings" }],
-        'consents' => [:delete, ->(u, _a) { "/api/v1/internal/users/#{u}/consents" }],
-        'communications' => [:delete, ->(u, _a) { "/api/v1/internal/users/#{u}/communications" }]
+        'profile' => [ :patch, ->(u, _a) { "/api/v1/internal/users/#{u}/anonymize" } ],
+        'audit_logs' => [ :patch, ->(u, _a) { "/api/v1/internal/users/#{u}/anonymize_audit_logs" } ],
+        'payments' => [ :patch, ->(_u, a) { "/api/v1/internal/accounts/#{a}/anonymize_payments" } ],
+        'settings' => [ :delete, ->(u, _a) { "/api/v1/internal/users/#{u}/settings" } ],
+        'consents' => [ :delete, ->(u, _a) { "/api/v1/internal/users/#{u}/consents" } ],
+        'communications' => [ :delete, ->(u, _a) { "/api/v1/internal/users/#{u}/communications" } ]
       }
 
       it 'covers exactly the job\'s DELETABLE_DATA_TYPES' do
@@ -774,7 +774,7 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
           end
 
           it 'is left untouched and logged as retained when retained' do
-            stub_with(deletion_request_data.merge('data_types_to_retain' => [data_type]))
+            stub_with(deletion_request_data.merge('data_types_to_retain' => [ data_type ]))
 
             job.execute(deletion_request_id)
 
@@ -783,7 +783,7 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
               "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
               hash_including(
                 status: 'completed',
-                retention_log: [hash_including(data_type: data_type)],
+                retention_log: [ hash_including(data_type: data_type) ],
                 deletion_log: satisfy { |log| log.none? { |entry| entry[:data_type] == data_type } }
               )
             )
