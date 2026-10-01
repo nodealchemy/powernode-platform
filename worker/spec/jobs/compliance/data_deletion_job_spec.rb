@@ -791,7 +791,7 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
           expect_retryable_with_partial_log(writes)
         end
 
-        it 'leaves the request retryable when a later batch times out after files were erased' do
+        it 'leaves the request retryable when a later batch times out after files were erased, carrying the count structurally' do
           allow(api_client).to receive(:delete).with(files_path)
             .and_return(files_batch(count: 2, remaining: 1, cursor: cursor_1))
           allow(api_client).to receive(:delete).with(files_path, { after_id: cursor_1 })
@@ -802,6 +802,40 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
             .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /after 2 file\(s\) were erased/)
 
           expect_retryable_with_partial_log(writes)
+          # The interrupted attempt's count survives as a `failed` files entry
+          # with records_affected, not only inside the error text.
+          expect(writes).to include(
+            hash_including(deletion_log: array_including(
+              hash_including(data_type: 'files', action: 'failed', records_affected: 2)
+            ))
+          )
+        end
+
+        it 'adds the interrupted attempt\'s count to the final files entry on resume' do
+          resumed = deletion_request_data.merge(
+            'status' => 'processing',
+            'error_message' => 'files: erasure interrupted after 2 file(s) were erased: execution expired',
+            'deletion_log' => [
+              { 'data_type' => 'consents', 'action' => 'deleted', 'records_affected' => 5,
+                'processed_at' => 1.minute.ago.iso8601 },
+              { 'data_type' => 'files', 'action' => 'failed', 'records_affected' => 2,
+                'error' => 'execution expired', 'processed_at' => 1.minute.ago.iso8601 }
+            ]
+          )
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+            .and_return(show_response(resumed))
+          allow(api_client).to receive(:delete).with(files_path)
+            .and_return(files_batch(count: 1, remaining: 0, cursor: cursor_1))
+          writes = capture_writes
+
+          job.execute(deletion_request_id)
+
+          completed = writes.find { |w| w[:status] == 'completed' }
+          expect(completed[:deletion_log]).to include(
+            hash_including(data_type: 'files', action: 'deleted', records_affected: 3)
+          )
+          expect(completed[:deletion_log].count { |e| (e[:data_type] || e['data_type']) == 'files' }).to eq(1)
         end
 
         it 'leaves the request retryable on a 503' do

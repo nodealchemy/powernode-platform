@@ -68,7 +68,18 @@ module Compliance
     # resumes it. When the retries are exhausted the job lands in the dead
     # set and the request stays 'processing' with error_message set; an
     # operator re-runs it once storage is back (docs/operations/compliance.md).
-    class RetryableErasureFailure < StandardError; end
+    class RetryableErasureFailure < StandardError
+      # Files erased before the interruption (this attempt plus any earlier
+      # attempt's carried count). The outer rescue persists it as a `failed`
+      # files entry with records_affected, so a resumed run can add it to
+      # its own count instead of under-reporting (critic A, item C).
+      attr_reader :erased_count
+
+      def initialize(message, erased_count: 0)
+        @erased_count = erased_count
+        super(message)
+      end
+    end
 
     def execute(deletion_request_id)
       log_info "Processing data deletion request: #{deletion_request_id}"
@@ -98,6 +109,9 @@ module Compliance
       unless deletion_request
         raise "Failed to fetch deletion request #{deletion_request_id}: empty response payload"
       end
+      # Read by #delete_files on a resumed run (the interrupted attempt's
+      # carried count); the per-type dispatch signature does not carry it.
+      @deletion_request = deletion_request
 
       # Verify ready for processing. 'processing' is accepted alongside
       # 'approved' so a Sidekiq retry RESUMES a request a prior attempt left
@@ -252,10 +266,19 @@ module Compliance
             # The partial logs travel with the error: the types already
             # processed are persisted now and carried forward on resume
             # (see settled_prior_entries), so they are not re-run to a
-            # count of 0 in the final record.
+            # count of 0 in the final record. The interrupted files count
+            # rides along as a `failed` files entry (not settled, so the
+            # type IS re-run — and adds this count to its own).
+            partial_log = deletion_log.dup
+            if e.erased_count.positive?
+              partial_log << {
+                data_type: 'files', action: 'failed', records_affected: e.erased_count,
+                error: e.message, processed_at: Time.current.iso8601
+              }
+            end
             patch_deletion_request!(
               deletion_request_id,
-              { error_message: e.message, deletion_log: deletion_log, retention_log: retention_log }
+              { error_message: e.message, deletion_log: partial_log, retention_log: retention_log }
             )
           rescue => write_error
             log_error "Failed to record the retryable erasure failure for deletion request " \
@@ -567,16 +590,23 @@ module Compliance
     #     settles the held files as a terminal failure.
     # Ids only in either message, never a filename, and bounded to a sample.
     def delete_files(user_id)
+      # An earlier, interrupted attempt's count (its `failed` files entry),
+      # added to this attempt's — the cursor restarts from nil on resume,
+      # so only the server's audit rows would otherwise remember it.
+      carried = carried_files_count
       result = erase_files_in_batches("/api/v1/internal/users/#{user_id}/files")
+      count = result[:count] + carried
 
       if result[:errors].any?
-        raise RetryableErasureFailure,
-              "files: #{result[:errors].size} file(s) not erased: #{file_erasure_failure_summary(result[:errors])}"
+        raise RetryableErasureFailure.new(
+          "files: #{result[:errors].size} file(s) not erased: #{file_erasure_failure_summary(result[:errors])}",
+          erased_count: count
+        )
       end
 
       if result[:held].any?
         return {
-          count: result[:count],
+          count: count,
           error: "#{result[:held].size} file(s) held: #{file_erasure_failure_summary(result[:held])}"
         }
       end
@@ -584,15 +614,17 @@ module Compliance
       # retained_platform_artifacts lands in the subject's deletion_log: the
       # record must say that some of their uploads were kept as platform
       # artifacts, not only how many were erased.
-      { count: result[:count], retained_platform_artifacts: result[:retained_platform_artifacts] }
+      { count: count, retained_platform_artifacts: result[:retained_platform_artifacts] }
     rescue FileErasureInterrupted => e
       # A later batch failed after files were already erased: never a skip.
       # Operational causes resume on retry; anything else is the failure it
       # is (the partial progress is in the server's own audit rows).
       raise e.error unless retryable_erasure_error?(e.error)
 
-      raise RetryableErasureFailure,
-            "files: erasure interrupted after #{e.totals[:count]} file(s) were erased: #{e.error.message}"
+      raise RetryableErasureFailure.new(
+        "files: erasure interrupted after #{e.totals[:count]} file(s) were erased: #{e.error.message}",
+        erased_count: e.totals[:count] + carried
+      )
     rescue BackendApiClient::ApiError => e
       if routing_miss_404?(e)
         log_warn "The server has no files erasure route (404); recording files as skipped rather than erased"
@@ -601,13 +633,24 @@ module Compliance
 
       raise unless retryable_erasure_error?(e)
 
-      raise RetryableErasureFailure, "files: erasure request failed (#{e.status}): #{e.message}"
+      raise RetryableErasureFailure.new("files: erasure request failed (#{e.status}): #{e.message}",
+                                        erased_count: carried)
     rescue Timeout::Error, CircuitBreaker::CircuitBreakerError => e
       # A storage that HANGS — an NFS hard mount with the server down, a
       # blackholed object-store endpoint — surfaces as the circuit breaker's
       # raw Timeout::Error at the client timeout (not an ApiError), or as an
       # open circuit on the next call. Both are operational.
-      raise RetryableErasureFailure, "files: erasure request did not complete: #{e.message}"
+      raise RetryableErasureFailure.new("files: erasure request did not complete: #{e.message}",
+                                        erased_count: carried)
+    end
+
+    def carried_files_count
+      Array(@deletion_request && @deletion_request['deletion_log']).sum do |entry|
+        next 0 unless entry.is_a?(Hash)
+
+        entry = entry.stringify_keys
+        entry['data_type'] == 'files' && entry['action'] == 'failed' ? entry['records_affected'].to_i : 0
+      end
     end
 
     # Operational failures a retry may clear: the client's own timeout
