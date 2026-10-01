@@ -58,6 +58,18 @@ module Compliance
     # now rejecting failed->failed as an illegal no-op transition.
     class PartialDeletionFailure < StandardError; end
 
+    # An OPERATIONAL per-type failure (IMP-d97f6e3bbc2b, critic B M2): the
+    # files erasure reported a blob the storage provider could not remove —
+    # the store is down, unmounted or misconfigured. Unlike a policy outcome
+    # (a held file) this is exactly what a retry exists for, and the data
+    # subject, anonymized by now, cannot re-file. So it must NOT end the
+    # request 'failed' (terminal, no re-arm): the outer rescue records the
+    # error on the still-'processing' row and re-raises so Sidekiq's retry
+    # resumes it. When the retries are exhausted the job lands in the dead
+    # set and the request stays 'processing' with error_message set; an
+    # operator re-runs it once storage is back (docs/operations/compliance.md).
+    class RetryableErasureFailure < StandardError; end
+
     def execute(deletion_request_id)
       log_info "Processing data deletion request: #{deletion_request_id}"
 
@@ -223,7 +235,21 @@ module Compliance
         # lose that detail (this write's payload carries only error_message)
         # and now 422 outright under the S-A/S3 transition guard, since
         # failed -> failed is not an allowed transition.
-        unless e.is_a?(PartialDeletionFailure)
+        #
+        # A RetryableErasureFailure is the one error that must NOT become
+        # 'failed': the request stays 'processing' (which the guard at the
+        # top of #execute resumes on Sidekiq's retry) and only error_message
+        # is written — a status-less, status-adjacent write the server
+        # permits while processing — so the state is visible to an operator
+        # if the retries run out.
+        if e.is_a?(RetryableErasureFailure)
+          begin
+            patch_deletion_request!(deletion_request_id, { error_message: e.message })
+          rescue => write_error
+            log_error "Failed to record the retryable erasure failure for deletion request " \
+                      "#{deletion_request_id}: #{write_error.message}"
+          end
+        elsif !e.is_a?(PartialDeletionFailure)
           begin
             patch_deletion_request!(
               deletion_request_id,
@@ -433,6 +459,10 @@ module Compliance
         log_warn "Unknown data type '#{data_type}' requested for deletion; recording it as skipped"
         { skipped: true, reason: 'unknown_data_type' }
       end
+    rescue RetryableErasureFailure
+      # Operational, not a per-type 'failed' entry: propagates to #execute's
+      # outer rescue, which keeps the request retryable.
+      raise
     rescue => e
       log_warn "Failed to process #{data_type}: #{e.message}"
       { count: 0, error: e.message }
@@ -492,25 +522,44 @@ module Compliance
       )
     end
 
-    # An OLDER server build still answers `erased: false` (no erasure path);
-    # that is recorded as the skip it is, with the server's reason, exactly
-    # as before this path existed. Otherwise every file the server could not
-    # erase — held by a referent or a blob the provider did not remove —
-    # makes the category a failed erasure: the subject's file is still there,
-    # so the request must not complete. Ids only in the message, never a
-    # filename.
+    # An OLDER server build has no users/:id/files route at all (the route
+    # arrived with the erasure path), so what it answers is a 404; that is
+    # recorded as the skip it is — `no_erasure_path`, exactly what the
+    # withdrawn type used to record — rather than becoming a terminal
+    # 'failed' after `profile` was already anonymized (critic B, H2).
+    #
+    # Otherwise, two kinds of file the server could not erase, kept apart
+    # (critic B, M2):
+    #   * HELD by a referent — a policy outcome no retry clears. The
+    #     subject's file is still there, so the category is a failed
+    #     erasure and the request ends 'failed' with the reason on record.
+    #   * ERROR — the provider did not remove the blob (store down,
+    #     unmounted). Operational: raised as RetryableErasureFailure so the
+    #     request stays 'processing' and Sidekiq's retry resumes it. Error
+    #     wins over held when both occur — once the store is back the retry
+    #     settles the held files as a terminal failure.
+    # Ids only in either message, never a filename, and bounded to a sample.
     def delete_files(user_id)
       result = erase_files_in_batches("/api/v1/internal/users/#{user_id}/files")
-      return { skipped: true, reason: result['reason'] || 'no_erasure_path' } if result['erased'] == false
 
-      if result[:failed].any?
+      if result[:errors].any?
+        raise RetryableErasureFailure,
+              "files: #{result[:errors].size} file(s) not erased: #{file_erasure_failure_summary(result[:errors])}"
+      end
+
+      if result[:held].any?
         return {
           count: result[:count],
-          error: "#{result[:failed].size} file(s) not erased: #{file_erasure_failure_summary(result[:failed])}"
+          error: "#{result[:held].size} file(s) held: #{file_erasure_failure_summary(result[:held])}"
         }
       end
 
       { count: result[:count] }
+    rescue BackendApiClient::ApiError => e
+      raise unless e.status == 404
+
+      log_warn "The server has no files erasure route (404); recording files as skipped rather than erased"
+      { skipped: true, reason: 'no_erasure_path' }
     end
 
     def anonymize_payments(account_id)

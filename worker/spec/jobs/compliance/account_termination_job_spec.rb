@@ -223,6 +223,9 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
       # failed step here. Neither is ever a silent success.
       context 'with the batched files erasure' do
         let(:files_path) { "/api/v1/internal/accounts/#{account_id}/files" }
+        # Real-shaped cursors: the server rejects anything but a UUID with 422.
+        let(:cursor_1) { SecureRandom.uuid }
+        let(:cursor_2) { SecureRandom.uuid }
 
         def files_batch(count:, remaining:, cursor:, failed: [])
           {
@@ -245,9 +248,9 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
 
         it 'walks the cursor until nothing remains and records the summed count' do
           expect(api_client).to receive(:delete).with(files_path).ordered
-            .and_return(files_batch(count: 2, remaining: 1, cursor: 'cursor-1'))
-          expect(api_client).to receive(:delete).with(files_path, { after_id: 'cursor-1' }).ordered
-            .and_return(files_batch(count: 1, remaining: 0, cursor: 'cursor-2'))
+            .and_return(files_batch(count: 2, remaining: 1, cursor: cursor_1))
+          expect(api_client).to receive(:delete).with(files_path, { after_id: cursor_1 }).ordered
+            .and_return(files_batch(count: 1, remaining: 0, cursor: cursor_2))
           appended = appended_entries
 
           job.execute
@@ -257,7 +260,7 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
 
         it 'records held files as a gap in the termination_log and still completes the termination' do
           allow(api_client).to receive(:delete).with(files_path).and_return(
-            files_batch(count: 4, remaining: 0, cursor: 'cursor-1',
+            files_batch(count: 4, remaining: 0, cursor: cursor_1,
                         failed: [ { 'id' => 'file-9', 'kind' => 'held', 'reason' => 'held_by_boot_image' } ])
           )
           appended = appended_entries
@@ -272,12 +275,27 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
           expect(appended.map { |e| e[:event] }).to include('deleted_api_keys')
         end
 
+        it 'stops walking after a batch in which every file failed operationally — the provider is down' do
+          allow(api_client).to receive(:delete).with(files_path).and_return(
+            files_batch(count: 0, remaining: 5, cursor: cursor_1,
+                        failed: [ { 'id' => 'file-1', 'kind' => 'error', 'reason' => 'storage_removal_failed' },
+                                  { 'id' => 'file-2', 'kind' => 'error', 'reason' => 'storage_removal_failed' } ])
+          )
+          appended = appended_entries
+
+          expect { job.execute }.to raise_error(/Account termination failed for: #{termination_id}/)
+
+          expect(api_client).to have_received(:delete).with(files_path).once
+          expect(api_client).not_to have_received(:delete).with(files_path, anything)
+          expect(appended).to include(hash_including(event: 'error', error: /5 remaining/))
+        end
+
         it 'stops a cursor that never finishes instead of looping forever' do
           stub_const('ComplianceFileErasureConcern::MAX_FILE_ERASURE_BATCHES', 3)
           allow(api_client).to receive(:delete).with(files_path)
-            .and_return(files_batch(count: 1, remaining: 1, cursor: 'cursor-1'))
+            .and_return(files_batch(count: 1, remaining: 1, cursor: cursor_1))
           allow(api_client).to receive(:delete).with(files_path, hash_including(:after_id)) do |_path, params|
-            files_batch(count: 1, remaining: 1, cursor: "#{params[:after_id]}-next")
+            files_batch(count: 1, remaining: 1, cursor: SecureRandom.uuid)
           end
           appended = appended_entries
 
@@ -289,7 +307,7 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
 
         it 'reverts the termination and fails loud when a blob could not be removed' do
           allow(api_client).to receive(:delete).with(files_path).and_return(
-            files_batch(count: 1, remaining: 0, cursor: 'cursor-1',
+            files_batch(count: 1, remaining: 0, cursor: cursor_1,
                         failed: [ { 'id' => 'file-2', 'kind' => 'error', 'reason' => 'storage_removal_failed' } ])
           )
           appended = appended_entries

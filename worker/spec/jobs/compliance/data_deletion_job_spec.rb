@@ -503,6 +503,9 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
     # a failed erasure of the category, never a completed one.
     describe "the 'files' data type" do
       let(:files_path) { "/api/v1/internal/users/#{user_id}/files" }
+      # Real-shaped cursors: the server rejects anything but a UUID with 422.
+      let(:cursor_1) { SecureRandom.uuid }
+      let(:cursor_2) { SecureRandom.uuid }
 
       before do
         allow(api_client).to receive(:get)
@@ -525,9 +528,9 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
 
       it 'walks the server cursor until nothing remains and records the total' do
         expect(api_client).to receive(:delete).with(files_path).ordered
-          .and_return(files_batch(count: 2, remaining: 1, cursor: 'cursor-1'))
-        expect(api_client).to receive(:delete).with(files_path, { after_id: 'cursor-1' }).ordered
-          .and_return(files_batch(count: 1, remaining: 0, cursor: 'cursor-2'))
+          .and_return(files_batch(count: 2, remaining: 1, cursor: cursor_1))
+        expect(api_client).to receive(:delete).with(files_path, { after_id: cursor_1 }).ordered
+          .and_return(files_batch(count: 1, remaining: 0, cursor: cursor_2))
         expect(api_client).to receive(:patch)
           .with(
             "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
@@ -543,30 +546,48 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
         job.execute(deletion_request_id)
       end
 
-      it 'fails the request when the server reports a file whose blob it could not remove' do
+      # Critic B, M2: a blob the provider could not remove is OPERATIONAL (the
+      # store is down, unmounted, misconfigured) — a retry may clear it, and
+      # the subject, anonymized by now, cannot re-file. So it must not end
+      # the request `failed` (terminal, no re-arm). The request stays
+      # `processing` with the error on record and the raise hands it to
+      # Sidekiq's retry, which resumes a `processing` row.
+      it 'leaves the request retryable, not failed, when the server reports a blob it could not remove' do
         allow(api_client).to receive(:delete).with(files_path).and_return(
-          files_batch(count: 0, remaining: 0, cursor: 'cursor-1',
+          files_batch(count: 0, remaining: 0, cursor: cursor_1,
                       failed: [ { 'id' => 'file-1', 'kind' => 'error', 'reason' => 'storage_removal_failed' } ])
         )
-        expect(api_client).to receive(:patch)
-          .with(
-            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
-            hash_including(
-              status: 'failed',
-              deletion_log: array_including(
-                hash_including(data_type: 'files', action: 'failed', error: /storage_removal_failed/)
-              )
-            )
-          )
-          .and_return(show_response(deletion_request_data))
+        writes = []
+        allow(api_client).to receive(:patch) do |path, payload|
+          writes << payload if path.end_with?(deletion_request_id)
+          show_response(deletion_request_data)
+        end
 
         expect { job.execute(deletion_request_id) }
-          .to raise_error(Compliance::DataDeletionJob::PartialDeletionFailure, /files/)
+          .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /storage_removal_failed/)
+
+        expect(writes.map { |w| w[:status] }.compact).to eq(%w[processing])
+        expect(writes).to include(hash_including(error_message: /files.*storage_removal_failed/))
+        expect(writes).not_to include(hash_including(status: 'failed'))
+        expect(writes).not_to include(hash_including(status: 'completed'))
+      end
+
+      it 'caps the failure text to a bounded sample rather than naming every file' do
+        failed = Array.new(40) { |i| { 'id' => "file-#{i}", 'kind' => 'error', 'reason' => 'storage_removal_failed' } }
+        allow(api_client).to receive(:delete).with(files_path).and_return(
+          files_batch(count: 0, remaining: 0, cursor: cursor_1, failed: failed)
+        )
+        allow(api_client).to receive(:patch).and_return(show_response(deletion_request_data))
+
+        expect { job.execute(deletion_request_id) }.to raise_error(
+          Compliance::DataDeletionJob::RetryableErasureFailure,
+          /40 file\(s\) not erased.*and 30 more/
+        )
       end
 
       it 'fails the request for a held file too — the subject\'s file was not erased' do
         allow(api_client).to receive(:delete).with(files_path).and_return(
-          files_batch(count: 3, remaining: 0, cursor: 'cursor-1',
+          files_batch(count: 3, remaining: 0, cursor: cursor_1,
                       failed: [ { 'id' => 'file-9', 'kind' => 'held', 'reason' => 'held_by_boot_image' } ])
         )
         expect(api_client).to receive(:patch)
@@ -585,9 +606,14 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
           .to raise_error(Compliance::DataDeletionJob::PartialDeletionFailure)
       end
 
-      it 'records a skip with the server\'s reason when an older server has no erasure path' do
-        allow(api_client).to receive(:delete).with(files_path).and_return(
-          'success' => true, 'data' => { 'count' => 0, 'erased' => false, 'reason' => 'no_erasure_path' }
+      # Critic B, H2: an OLDER server has no users/:id/files route at all, so
+      # what a new worker actually gets is a 404 — not an `erased: false`
+      # body (that shape only ever existed on the accounts route). Treated
+      # as the skip it is; the alternative was a terminal `failed` on every
+      # full deletion after `profile` had already been anonymized.
+      it 'records a skip with reason no_erasure_path when an older server answers 404' do
+        allow(api_client).to receive(:delete).with(files_path).and_raise(
+          BackendApiClient::ApiError.new('Resource not found', 404, { 'success' => false, 'error' => 'Not found' })
         )
         expect(api_client).to receive(:patch)
           .with(
