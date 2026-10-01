@@ -27,13 +27,18 @@ RSpec.describe 'Compliance::DataDeletionJob::DELETABLE_DATA_TYPES drift guard' d
     matches.first.split
   end
 
-  it 'keeps the worker list identical to the server list' do
+  it 'keeps the worker list holding exactly the server list types' do
     server = word_array_constant(server_model, 'DELETABLE_DATA_TYPES')
 
+    worker = Compliance::DataDeletionJob::DELETABLE_DATA_TYPES
+
+    # Order-insensitive: a harmless reorder on either side is not drift. Set
+    # membership still fails closed — a type missing on either side, a
+    # duplicate, or an empty parse all redden.
     expect(server).not_to be_empty
-    expect(Compliance::DataDeletionJob::DELETABLE_DATA_TYPES).to eq(server),
-                                                                 'worker DELETABLE_DATA_TYPES ' \
-                                                                 "#{Compliance::DataDeletionJob::DELETABLE_DATA_TYPES.inspect} " \
-                                                                 "must equal the server's #{server.inspect}"
+    expect(server.uniq.size).to eq(server.size), "drift guard: duplicate entry in the server list #{server.inspect}"
+    expect(worker.uniq.size).to eq(worker.size), "drift guard: duplicate entry in the worker list #{worker.inspect}"
+    expect(worker.sort).to eq(server.sort),
+                           "worker DELETABLE_DATA_TYPES #{worker.inspect} must hold the same types as the server's #{server.inspect}"
   end
 end
