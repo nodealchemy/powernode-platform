@@ -258,7 +258,7 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
         it 'records held files as a gap in the termination_log and still completes the termination' do
           allow(api_client).to receive(:delete).with(files_path).and_return(
             files_batch(count: 4, remaining: 0, cursor: 'cursor-1',
-                        failed: [ { 'id' => 'file-9', 'kind' => 'held', 'reason' => 'held_by_system_node_architecture' } ])
+                        failed: [ { 'id' => 'file-9', 'kind' => 'held', 'reason' => 'held_by_boot_image' } ])
           )
           appended = appended_entries
 
@@ -267,7 +267,7 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
           expect(appended).to include(hash_including(event: 'deleted_files', count: 4))
           expect(appended).to include(
             hash_including(event: 'files_erasure_held', count: 1,
-                           files: [ { id: 'file-9', reason: 'held_by_system_node_architecture' } ])
+                           files: [ { id: 'file-9', reason: 'held_by_boot_image' } ])
           )
           expect(appended.map { |e| e[:event] }).to include('deleted_api_keys')
         end

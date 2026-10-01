@@ -567,7 +567,7 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
       it 'fails the request for a held file too — the subject\'s file was not erased' do
         allow(api_client).to receive(:delete).with(files_path).and_return(
           files_batch(count: 3, remaining: 0, cursor: 'cursor-1',
-                      failed: [ { 'id' => 'file-9', 'kind' => 'held', 'reason' => 'held_by_system_node_architecture' } ])
+                      failed: [ { 'id' => 'file-9', 'kind' => 'held', 'reason' => 'held_by_boot_image' } ])
         )
         expect(api_client).to receive(:patch)
           .with(
@@ -575,7 +575,7 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
             hash_including(
               status: 'failed',
               deletion_log: array_including(
-                hash_including(data_type: 'files', action: 'failed', error: /held_by_system_node_architecture/)
+                hash_including(data_type: 'files', action: 'failed', error: /held_by_boot_image/)
               )
             )
           )
