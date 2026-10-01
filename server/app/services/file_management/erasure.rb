@@ -32,11 +32,20 @@ module FileManagement
   # then fails to commit (the storage-counter write after it, or the commit
   # itself). The row and its shares survive, the blob is gone, and the file
   # is reported as failed for this run. A retry re-selects it and completes,
-  # because every provider's delete_file treats a missing blob as success
-  # (local/nfs/smb: `return true unless exist?`; s3: delete_object is a
+  # because every provider's delete_file treats a missing blob on a
+  # REACHABLE store as success (local/nfs/smb: `return true unless exist?`
+  # once the root exists / the share is mounted; s3: delete_object is a
   # no-op on a missing key; gcs: `return true unless gcs_file`; azure: 404
-  # is success). Until then the row is a dangling pointer, not retained
-  # content.
+  # is success) — and an UNREACHABLE store (unmounted NFS/SMB share, a
+  # missing local root) as failure, so an outage never reads as an empty
+  # store. Until then the row is a dangling pointer, not retained content.
+  #
+  # CONCURRENT DUPLICATE: the worker's client retries a timed-out DELETE
+  # while the server may still be inside the first batch, so the same file
+  # can be selected by two requests at once. Each file is locked (SELECT
+  # FOR UPDATE) at the top of its transaction; the loser finds no row once
+  # the winner commits and reports nothing for it — no second destroy, no
+  # second storage-counter decrement, no duplicate audit row.
   #
   # Category policy: only PERSONAL_CATEGORIES are candidates. An allowlist,
   # not a denylist, so a category added later defaults to retained-and-
@@ -48,10 +57,11 @@ module FileManagement
     # supply-chain / disk-image categories are platform artifacts.
     PERSONAL_CATEGORIES = %w[user_upload workflow_output ai_generated temp import page_content].freeze
 
-    # Sized against the worker's 30-second per-request client timeout
-    # (BackendApiClient / CircuitBreaker): 50 blob deletes at a pessimistic
-    # 200 ms each is 10 s, well inside it. A caller may ask for more, up to
-    # MAX_BATCH_SIZE.
+    # Sized against the worker's per-request client timeout
+    # (BackendApiClient: API_TIMEOUT, 120 s by default, the circuit breaker
+    # lifts its own bound to match): 50 blob deletes at a pessimistic 200 ms
+    # each is 10 s, well inside it even on a slow object store. A caller may
+    # ask for more, up to MAX_BATCH_SIZE.
     DEFAULT_BATCH_SIZE = 50
     MAX_BATCH_SIZE = 200
 
@@ -150,6 +160,8 @@ module FileManagement
         end
 
         outcome = erase_one(file)
+        next if outcome == :already_gone
+
         if outcome.nil?
           erased_count += 1
         else
@@ -196,17 +208,29 @@ module FileManagement
     # out. Nothing else references those rows. Tags keep the cascade (their
     # after_destroy maintains the tag counter, and a tag row holds no
     # content).
+    # Returns nil (erased), :already_gone (a concurrent request erased it;
+    # not counted, not failed) or a failure hash.
     def erase_one(file)
-      FileManagement::Object.transaction(requires_new: true) do
-        ErasureReferentRegistry.release(file)
-        file.shares.delete_all
-        file.versions.delete_all
-        file.processing_jobs.delete_all
-        file.strict_storage_removal = true
-        file.audit_extra_redactions = AUDIT_REDACTED_FIELDS
-        file.destroy!
+      outcome = FileManagement::Object.transaction(requires_new: true) do
+        # Row lock first: a concurrent duplicate of this request (a retried
+        # DELETE) blocks here until this transaction commits, then finds no
+        # row and reports nothing. See CONCURRENT DUPLICATE above.
+        locked = FileManagement::Object.lock.find_by(id: file.id)
+        if locked.nil?
+          Rails.logger.info "[FileManagement::Erasure] #{file.id} was erased by a concurrent request; nothing to do"
+          next :already_gone
+        end
+
+        ErasureReferentRegistry.release(locked)
+        locked.shares.delete_all
+        locked.versions.delete_all
+        locked.processing_jobs.delete_all
+        locked.strict_storage_removal = true
+        locked.audit_extra_redactions = AUDIT_REDACTED_FIELDS
+        locked.destroy!
+        nil
       end
-      nil
+      outcome == :already_gone ? :already_gone : nil
     rescue FileManagement::Object::StorageRemovalFailed => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
       failure(file, "error", "storage_removal_failed")

@@ -122,6 +122,31 @@ RSpec.describe FileManagement::Erasure do
       FileManagement::ErasureReferentRegistry.unregister(:exploding)
     end
 
+    it 'does not count, destroy twice, or fail a file a concurrent erasure already removed' do
+      # The worker's retry middleware re-sends a timed-out DELETE while the
+      # server may still be inside the first batch. The per-file row lock
+      # serialises the two; the loser finds no row and reports nothing.
+      FileManagement::ErasureReferentRegistry.register(:racing_erasure) do |action, payload|
+        if action == :holds
+          # Raw deletes, no callbacks: the other request's commit, as seen
+          # from this one.
+          FileManagement::Share.where(file_object_id: payload).delete_all
+          FileManagement::ProcessingJob.where(file_object_id: payload).delete_all
+          FileManagement::Object.where(id: payload).delete_all
+        end
+        {}
+      end
+      expect(provider).not_to receive(:delete_file)
+
+      result = erase
+
+      expect(result.erased_count).to eq(0)
+      expect(result.failures).to be_empty
+      expect(result.remaining).to eq(0)
+    ensure
+      FileManagement::ErasureReferentRegistry.unregister(:racing_erasure)
+    end
+
     it 'refuses a malformed cursor instead of handing it to the database' do
       expect { erase(after_id: 'not-a-uuid') }.to raise_error(ArgumentError, /cursor/)
       expect(FileManagement::Object.exists?(file.id)).to be true
