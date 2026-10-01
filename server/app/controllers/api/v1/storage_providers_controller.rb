@@ -105,7 +105,12 @@ module Api
             message: "Storage configuration deleted successfully"
           })
         else
-          render_error("Failed to delete storage configuration", status: :unprocessable_content)
+          # A before_destroy guard that aborts explains itself on the model;
+          # surface that rather than a reason-less failure.
+          render_error(
+            @storage.errors.full_messages.to_sentence.presence || "Failed to delete storage configuration",
+            status: :unprocessable_content
+          )
         end
       end
 

@@ -160,6 +160,29 @@ RSpec.describe 'Api::V1::StorageProviders', type: :request do
         expect_error_response('Cannot delete storage with existing files. Move files to another storage first.', 422)
       end
     end
+
+    context 'when the model refuses the destroy' do
+      it 'returns the reason the model recorded' do
+        allow_any_instance_of(FileManagement::Storage).to receive(:destroy) do |record|
+          record.errors.add(:base, 'Cannot delete storage while it is in use')
+          false
+        end
+
+        expect {
+          delete "/api/v1/storage/#{storage.id}", headers: headers, as: :json
+        }.not_to change { account.file_storages.count }
+
+        expect_error_response('Cannot delete storage while it is in use', 422)
+      end
+
+      it 'falls back to the generic message when the model recorded none' do
+        allow_any_instance_of(FileManagement::Storage).to receive(:destroy).and_return(false)
+
+        delete "/api/v1/storage/#{storage.id}", headers: headers, as: :json
+
+        expect_error_response('Failed to delete storage configuration', 422)
+      end
+    end
   end
 
   describe 'POST /api/v1/storage/:id/test' do
