@@ -522,9 +522,22 @@ module AuditActions
   #           .distinct.pluck(Arel.sql("metadata->>'action_name'"))
   # Payload is who/what/when — principal, tool, action, and the tool's own
   # resource context. NEVER the material that was handed out.
+  # IMP-2c760325c102 (MCP isolation Phase 1 T4):
+  #   mcp.servers.spawn_refused — a stdio server's command/args/env was
+  #     refused at spawn time (server-side early refusal in
+  #     Mcp::SecurityService, or the worker's own validation, reported
+  #     through /api/v1/internal/audit_logs); metadata carries the command,
+  #     error class and message, never env values.
+  #   mcp.servers.native_execution_approve / _revoke — an operator granted
+  #     or withdrew the per-server native (unsandboxed) execution hatch
+  #     (revoke also fires automatically when the approved command changes).
+  #   mcp.servers.native_execution_spawn — the worker actually ran a child
+  #     unsandboxed under that approval.
   MCP_ACTIONS = %w[
     mcp.servers.read mcp.servers.create mcp.servers.update mcp.servers.delete
     mcp.servers.connect mcp.servers.disconnect mcp.servers.health_check mcp.servers.discover_tools
+    mcp.servers.spawn_refused
+    mcp.servers.native_execution_approve mcp.servers.native_execution_revoke mcp.servers.native_execution_spawn
     mcp.tools.read mcp.tools.execute mcp.tools.undeclared_action mcp.tools.canonical_principal_refused
     mcp.tools.sensitive_access
     mcp.executions.read mcp.executions.cancel

@@ -362,12 +362,12 @@ RSpec.describe Mcp::SecurityService do
   describe '.validate_stdio_server!' do
     it 'returns [command, string-keyed env, argv] for a whitelisted command' do
       command, env, argv = described_class.validate_stdio_server!(
-        'command' => 'npx', 'args' => ['@modelcontextprotocol/server-filesystem'],
+        'command' => 'npx', 'args' => ['@modelcontextprotocol/server-filesystem@2026.8.31'],
         'env' => { 'MCP_API_KEY' => 'secret' }
       )
 
       expect(command).to eq('npx')
-      expect(argv).to eq(['@modelcontextprotocol/server-filesystem'])
+      expect(argv).to eq(['@modelcontextprotocol/server-filesystem@2026.8.31'])
       expect(env).to include('MCP_API_KEY' => 'secret', 'PATH' => ENV['PATH'])
     end
 
@@ -389,7 +389,7 @@ RSpec.describe Mcp::SecurityService do
     it 'respects allow_extended_commands via capabilities' do
       expect do
         described_class.validate_stdio_server!(
-          'command' => 'uvx', 'args' => ['mcp-server-git'], 'capabilities' => { 'allow_extended_commands' => true }
+          'command' => 'uvx', 'args' => ['mcp-server-git==2026.8.18'], 'capabilities' => { 'allow_extended_commands' => true }
         )
       end.not_to raise_error
     end

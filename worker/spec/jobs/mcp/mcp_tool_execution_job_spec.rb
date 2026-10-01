@@ -227,7 +227,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
             tool_data.merge(
               'mcp_server' => tool_data['mcp_server'].merge(
                 'command' => 'uvx',
-                'args' => ['mcp-server-git'],
+                'args' => ['mcp-server-git==2026.8.18'],
                 'capabilities' => { 'allow_extended_commands' => true }
               )
             )
@@ -254,7 +254,7 @@ RSpec.describe Mcp::McpToolExecutionJob, type: :job do
         context 'without allow_extended_commands in the real nested payload' do
           let(:extended_tool_data) do
             tool_data.merge(
-              'mcp_server' => tool_data['mcp_server'].merge('command' => 'uvx', 'args' => ['mcp-server-git'])
+              'mcp_server' => tool_data['mcp_server'].merge('command' => 'uvx', 'args' => ['mcp-server-git==2026.8.18'])
             )
           end
           let(:extended_execution_data) { execution_data.merge('mcp_tool' => extended_tool_data) }

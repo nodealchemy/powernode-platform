@@ -131,6 +131,18 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
       raise_unless_mcp_module!
       stdio_arg_looks_like_path?
       stdio_arg_looks_like_mcp_module?
+      package_pin_violation
+      raise_on_unpinned_package!
+      package_pin_violation_for_argv
+      package_launcher_for
+      package_launcher_pin_violation
+      unknown_launcher_option_message
+      uv_pin_violation
+      pipx_pin_violation
+      bun_x_pin_violation
+      deno_specifier_pin_violation
+      pinned_package_spec?
+      unpinned_package_message
     ].freeze
 
     # Finds `def <method_name> ... end` by name and returns its
@@ -215,6 +227,17 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
     STDIN_DEVICE_PATH_PATTERN
     SHELL_METACHARACTER_PATTERN
     STOP_AT_FIRST_POSITIONAL_INTERPRETERS
+    PACKAGE_LAUNCHER_COMMANDS
+    UV_COMMON_BOOLEAN_FLAGS
+    UV_COMMON_VALUE_FLAGS
+    PACKAGE_LAUNCHER_RULES
+    EXACT_SEMVER_PATTERN
+    NPM_PINNED_PACKAGE_PATTERN
+    EXACT_PEP440_PATTERN
+    PYPI_PINNED_PACKAGE_PATTERN
+    JSR_PINNED_PACKAGE_PATTERN
+    DENO_NPM_PINNED_SPECIFIER_PATTERN
+    DENO_JSR_PINNED_SPECIFIER_PATTERN
   ].freeze
 
   # IMP-abda86fb39be — kept server-side ONLY so Mcp::WorkerStdioClient can
@@ -482,7 +505,26 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
       {:name=>"env: DOCKER_HOST forbidden", :command=>"docker", :args=>["run", "img"], :env=>{"DOCKER_HOST"=>"tcp://evil.example:2375"}, :capabilities=>{"allow_extended_commands"=>true}},
       {:name=>"env: GOPROXY forbidden", :command=>"go", :args=>["run", "."], :env=>{"GOPROXY"=>"https://evil.example"}, :capabilities=>{"allow_extended_commands"=>true}},
       {:name=>"env: legit MCP_/OPENAI_ prefixed vars pass through", :command=>"node", :args=>["s.js"], :env=>{"MCP_API_KEY"=>"secret", "OPENAI_API_KEY"=>"secret2"}, :capabilities=>{}},
-      {:name=>"env: legit LANG/TZ override passes through", :command=>"node", :args=>["s.js"], :env=>{"LANG"=>"en_US.UTF-8", "TZ"=>"America/New_York"}, :capabilities=>{}}
+      {:name=>"env: legit LANG/TZ override passes through", :command=>"node", :args=>["s.js"], :env=>{"LANG"=>"en_US.UTF-8", "TZ"=>"America/New_York"}, :capabilities=>{}},
+      # IMP-2c760325c102 — package-launcher pinning verdicts must agree too.
+      {:name=>"pin: npx -y pinned scoped", :command=>"npx", :args=>["-y", "@modelcontextprotocol/server-filesystem@2026.8.31", "/tmp"], :env=>{}, :capabilities=>{}},
+      {:name=>"pin: npx -y unpinned scoped", :command=>"npx", :args=>["-y", "@modelcontextprotocol/server-filesystem", "/tmp"], :env=>{}, :capabilities=>{}},
+      {:name=>"pin: npx @latest", :command=>"npx", :args=>["-y", "pkg@latest"], :env=>{}, :capabilities=>{}},
+      {:name=>"pin: npx -p unpinned selector", :command=>"npx", :args=>["-p", "pkg", "cmd"], :env=>{}, :capabilities=>{}},
+      {:name=>"pin: npx --registry steering", :command=>"npx", :args=>["--registry=https://evil.example", "pkg@1.2.3"], :env=>{}, :capabilities=>{}},
+      {:name=>"pin: npx nothing", :command=>"npx", :args=>[], :env=>{}, :capabilities=>{}},
+      {:name=>"pin: bun x pinned", :command=>"bun", :args=>["x", "pkg@1.2.3"], :env=>{}, :capabilities=>{}},
+      {:name=>"pin: bun x unpinned", :command=>"bun", :args=>["x", "pkg"], :env=>{}, :capabilities=>{}},
+      {:name=>"pin: uvx pinned", :command=>"uvx", :args=>["mcp-server-fetch==2026.8.18"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+      {:name=>"pin: uvx unpinned", :command=>"uvx", :args=>["mcp-server-fetch"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+      {:name=>"pin: uvx --from unpinned", :command=>"uvx", :args=>["--from", "pkg", "cmd"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+      {:name=>"pin: uvx --index-url", :command=>"uvx", :args=>["--index-url", "https://evil.example", "pkg==1.0.0"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+      {:name=>"pin: uv tool run unpinned", :command=>"uv", :args=>["tool", "run", "pkg"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+      {:name=>"pin: uv run --with unpinned", :command=>"uv", :args=>["run", "--with", "pkg", "s.py"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+      {:name=>"pin: pipx run unpinned", :command=>"pipx", :args=>["run", "pkg"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+      {:name=>"pin: pipx run --pip-args", :command=>"pipx", :args=>["run", "--pip-args=--index-url=x", "pkg==1.0.0"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+      {:name=>"pin: deno npm: unpinned", :command=>"deno", :args=>["run", "-A", "npm:pkg"], :env=>{}, :capabilities=>{}},
+      {:name=>"pin: deno jsr: pinned", :command=>"deno", :args=>["run", "jsr:@scope/pkg@1.2.3"], :env=>{}, :capabilities=>{}}
     ].freeze
 
   def self.verdict_for(klass, fixture)

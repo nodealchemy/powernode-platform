@@ -610,6 +610,7 @@ RSpec.describe McpSecurityService do
     it 'reads allow_extended/strict_env from server["capabilities"]' do
       server = {
         'command' => 'uvx',
+        'args' => [ 'mcp-server-git==2026.8.18' ],
         'env' => {},
         'capabilities' => { 'allow_extended_commands' => true }
       }

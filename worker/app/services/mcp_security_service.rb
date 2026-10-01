@@ -583,6 +583,135 @@ class McpSecurityService
   # doesn't model, so it stays fully, conservatively scanned as before.
   STOP_AT_FIRST_POSITIONAL_INTERPRETERS = %w[node bun ruby python python3].freeze
 
+  # IMP-2c760325c102 (MCP isolation Phase 1 T4) — PACKAGE-LAUNCHER PINNING.
+  # A launcher (npx, `bun x`, uvx / `uv tool run`, `uv run --with`,
+  # `pipx run`, deno's npm:/jsr: specifiers) resolves its package from a
+  # public registry AT SPAWN TIME, so "whatever the registry serves right
+  # now" is what runs — unless the spec names an EXACT version. Every
+  # launcher invocation must therefore be pinned, and the operator's bar is
+  # an exact version (not an integrity hash — see the docs page). Enforced
+  # at spawn time (#validate_stdio_server!, via #raise_on_unpinned_package!)
+  # AND at save time (the server's McpServer model calls the public
+  # #package_pin_violation), independently of the native-execution hatch,
+  # which bypasses only the sandbox.
+  #
+  # The option scan BEFORE the package positional is fail-closed by
+  # construction, the same way DENO_BOOLEAN_GLOBAL_FLAGS is: only the
+  # listed boolean / value / package / selector options are recognized,
+  # and anything else (a registry or index override, a requirements file,
+  # `--pip-args`, a short cluster like `-yp`, a typo) refuses the whole
+  # command line rather than guessing whether it consumed the next token.
+  # Options AFTER the positional belong to the package and are not scanned
+  # (every launcher here stops option parsing at its first positional).
+  PACKAGE_LAUNCHER_COMMANDS = %w[npx bun uvx uv pipx deno].freeze
+
+  # An exact semver (npm/jsr): MAJOR.MINOR.PATCH, no leading zeros, optional
+  # prerelease/build metadata. No "v" prefix, no "=" prefix, never a range
+  # or dist-tag.
+  EXACT_SEMVER_PATTERN = /(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?/.freeze
+
+  # npm package spec: an optionally-scoped LOWERCASE name, "@", an exact
+  # semver. Scoped names keep their leading "@" (the version separator is
+  # the LAST "@"); a second "@" after the version, an uppercase name, an
+  # npm: alias, a github:/git+/URL/tarball/file:/path spec all fail here.
+  NPM_PINNED_PACKAGE_PATTERN = /\A(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*@#{EXACT_SEMVER_PATTERN.source}\z/.freeze
+
+  # jsr always requires a scope.
+  JSR_PINNED_PACKAGE_PATTERN = /\A@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*@#{EXACT_SEMVER_PATTERN.source}\z/.freeze
+
+  # deno's `npm:`/`jsr:` specifiers, with an optional entry subpath AFTER
+  # the version (`npm:pkg@1.2.3/cli.js`).
+  DENO_NPM_PINNED_SPECIFIER_PATTERN = /\Anpm:(?:@[a-z0-9][a-z0-9._~-]*\/)?[a-z0-9][a-z0-9._~-]*@#{EXACT_SEMVER_PATTERN.source}(?:\/[A-Za-z0-9._\/-]+)?\z/.freeze
+  DENO_JSR_PINNED_SPECIFIER_PATTERN = /\Ajsr:@[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*@#{EXACT_SEMVER_PATTERN.source}(?:\/[A-Za-z0-9._\/-]+)?\z/.freeze
+
+  # An exact PEP 440 version: optional epoch, release segments, optional
+  # pre (a/b/rc), post and dev segments. No wildcard (`1.*`), no local
+  # version label.
+  EXACT_PEP440_PATTERN = /(?:\d+!)?\d+(?:\.\d+)*(?:(?:a|b|rc)\d+)?(?:\.post\d+)?(?:\.dev\d+)?/.freeze
+
+  # PyPI package spec: a PEP 503 name, optional extras, then "==<exact>"
+  # (PEP 508) or "@<exact>" (uv's shorthand). Ranges (>=, ~=, !=), the
+  # wildcard, arbitrary equality (===), a direct reference (`pkg @ url`),
+  # git+/URL/path specs all fail here.
+  PYPI_PINNED_PACKAGE_PATTERN = /\A[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?(?:\[[A-Za-z0-9._,-]+\])?(?:==|@)#{EXACT_PEP440_PATTERN.source}\z/.freeze
+
+  # Options shared by `uvx` / `uv tool run` and `uv run`. Index/registry
+  # steering (-i/--index/--index-url/--extra-index-url/--default-index/
+  # --find-links), requirements/constraints files, --with-editable and
+  # --allow-insecure-host are deliberately ABSENT: absent means refused.
+  UV_COMMON_BOOLEAN_FLAGS = %w[
+    -q --quiet -v --verbose -n --no-cache --offline --no-progress --no-config --no-index --refresh --reinstall
+    --isolated --managed-python --no-managed-python --native-tls --no-native-tls --no-env-file
+    --no-python-downloads --compile-bytecode --no-compile-bytecode --no-build --no-binary --no-sources
+  ].freeze
+  UV_COMMON_VALUE_FLAGS = %w[
+    -p --python --python-preference --cache-dir --color --project --directory --config-file --link-mode
+    --resolution --exclude-newer --prerelease --index-strategy --keyring-provider --python-platform
+    --no-build-package --no-binary-package --reinstall-package --refresh-package -P --upgrade-package
+    --fork-strategy
+  ].freeze
+
+  # Per-launcher option grammar for #package_launcher_pin_violation:
+  #   boolean_flags  — take no value.
+  #   value_flags    — take one value (attached with "=" on a long flag, or
+  #                    the next token); the value is not a package.
+  #   package_flags  — ADD a package (uvx/uv `--with`, pipx `--preinstall`);
+  #                    each value (comma-separated for uv) must be pinned,
+  #                    and the positional is still the package to pin.
+  #   selector_flags — SELECT the package (npx `-p/--package`, uvx `--from`,
+  #                    pipx `--spec`); must be pinned, and the positional is
+  #                    then a bin/command NAME inside that package, not a
+  #                    package spec.
+  #   pinned         — :npm or :pypi, which pattern a spec is held to.
+  #   positional     — :package (must be pinned unless a selector was given,
+  #                    and must be present) or :script (`uv run`: a local
+  #                    script/command, not pinned; only its --with is).
+  PACKAGE_LAUNCHER_RULES = {
+    'npx' => {
+      boolean_flags: %w[-y --yes --no -q --quiet --no-install --prefer-online --prefer-offline --ignore-existing].freeze,
+      value_flags: [].freeze,
+      package_flags: [].freeze,
+      selector_flags: %w[-p --package].freeze,
+      pinned: :npm,
+      positional: :package
+    }.freeze,
+    'bun x' => {
+      boolean_flags: %w[-b --bun].freeze,
+      value_flags: [].freeze,
+      package_flags: [].freeze,
+      selector_flags: [].freeze,
+      pinned: :npm,
+      positional: :package
+    }.freeze,
+    'uvx' => {
+      boolean_flags: UV_COMMON_BOOLEAN_FLAGS,
+      value_flags: UV_COMMON_VALUE_FLAGS,
+      package_flags: %w[-w --with].freeze,
+      selector_flags: %w[--from].freeze,
+      pinned: :pypi,
+      positional: :package
+    }.freeze,
+    'uv run' => {
+      boolean_flags: (UV_COMMON_BOOLEAN_FLAGS + %w[
+        --no-project --no-sync --locked --frozen --active --no-active --exact --all-extras --no-all-extras
+        --all-groups --no-dev --dev --only-dev --no-default-groups --all-packages --no-editable --script --gui-script
+      ]).freeze,
+      value_flags: (UV_COMMON_VALUE_FLAGS + %w[--extra --group --only-group --no-group --package --env-file -m --module]).freeze,
+      package_flags: %w[-w --with].freeze,
+      selector_flags: [].freeze,
+      pinned: :pypi,
+      positional: :script
+    }.freeze,
+    'pipx run' => {
+      boolean_flags: %w[-v --verbose -q --quiet --no-cache --system-site-packages --fetch-missing-python].freeze,
+      value_flags: %w[--python].freeze,
+      package_flags: %w[--preinstall].freeze,
+      selector_flags: %w[--spec].freeze,
+      pinned: :pypi,
+      positional: :package
+    }.freeze
+  }.freeze
+
   # IMP-4689ce5a4acb — deadline for a stdio MCP child's full round trip
   # (write stdin, read stdout+stderr to EOF, exit). Mcp::McpTransportClient
   # and every worker job here spawn through #spawn_stdio synchronously
@@ -793,6 +922,25 @@ class McpSecurityService
       raise_on_bun_shell_script!(args, positional_index, ambiguous) if interpreter == 'bun'
     end
 
+    # IMP-2c760325c102 — the SAVE-time face of package-launcher pinning
+    # (the server's McpServer model calls this from a validation): the
+    # refusal message for `command` + `args`, or nil when every launcher
+    # package in the command line is pinned (or the command is not a
+    # launcher at all). Tokenizes the command string exactly as
+    # #validate_stdio_server! does, so a launcher hidden in the command
+    # string ("npx -y pkg") is held to the same rule as one in args. Never
+    # raises: an unparseable command string is itself reported as the
+    # violation, so a validation built on this can only ever add an error.
+    def package_pin_violation(command, args)
+      tokens = tokenize_command(command)
+      return nil if tokens.empty?
+
+      package_pin_violation_for_argv(tokens.first, tokens.drop(1) + Array(args).map(&:to_s))
+    rescue CommandNotAllowedError => e
+      e.message
+    end
+
+
     # Shared validated-spawn entry point for every stdio MCP call site
     # (McpServerHealthCheckJob#ping_stdio_server, McpToolDiscoveryJob
     # #discover_stdio_tools, McpServerConnectionJob#establish_stdio_connection,
@@ -838,10 +986,14 @@ class McpSecurityService
       validate_exact_base_command!(base_command, allow_extended: allow_extended)
       validate_environment!(env) if env.present?
       validate_stdio_args!(base_command, combined_args)
+      raise_on_unpinned_package!(base_command, combined_args)
 
       final_env = build_stdio_env(env, strict_env: strict_env)
 
       [base_command, final_env, combined_args]
+    rescue SecurityError => e
+      record_spawn_refusal_audit(server, e)
+      raise
     end
 
     # IMP-e2cba83ee39f: the shared spawn point for every stdio MCP call
@@ -1124,7 +1276,42 @@ class McpSecurityService
       SANDBOX_MODES.include?(value) ? value : DEFAULT_SANDBOX_MODE
     end
 
+    # IMP-2c760325c102 — where spawn-time security events go: an object
+    # responding to #spawn_refused(server, error) and
+    # #native_execution_spawn(mcp_server_id:, account_id:, sandbox_mode:)
+    # (Mcp::SpawnAuditReporter, wired by the worker at boot — see
+    # config/boot.rb). nil means no reporting (the spec suite's default, so
+    # no spec ever makes a real audit HTTP call by accident). Injected
+    # rather than hardcoded because this class is plain Ruby with no
+    # knowledge of the backend API client, and because a reporter that
+    # fails must never change a spawn verdict — see
+    # #record_spawn_refusal_audit / #record_native_execution_bypass.
+    attr_accessor :audit_reporter
+
     private
+
+    # Per-side hook called by the shared #validate_stdio_server! on EVERY
+    # refusal (the server's Mcp::SecurityService has its own, writing the
+    # AuditLog row directly). Never raises: the refusal itself is what
+    # matters, and it is re-raised by the caller regardless.
+    def record_spawn_refusal_audit(server, error)
+      audit_reporter&.spawn_refused(server, error)
+    rescue StandardError => e
+      logger.error("[McpSecurityService] failed to report a stdio spawn refusal to the audit log: #{e.class}: #{e.message}")
+    end
+
+    # The native escape hatch was exercised for this spawn (see
+    # #spawn_stdio's `native_execution:`): say so loudly, and durably.
+    def record_native_execution_bypass(mcp_server_id:, account_id:)
+      mode = sandbox_mode
+      logger.warn(
+        "[McpSecurityService] native execution is approved for MCP server #{mcp_server_id} — running this stdio " \
+        "MCP child UNSANDBOXED (MCP_STDIO_SANDBOX_MODE=#{mode})."
+      )
+      audit_reporter&.native_execution_spawn(mcp_server_id: mcp_server_id, account_id: account_id, sandbox_mode: mode)
+    rescue StandardError => e
+      logger.error("[McpSecurityService] failed to report a native stdio spawn to the audit log: #{e.class}: #{e.message}")
+    end
 
     # Decides, for THIS #spawn_stdio call, whether to actually wrap the
     # spawn in a sandbox — the single place #spawn_stdio's mode dispatch
@@ -2317,6 +2504,189 @@ class McpSecurityService
       return false unless value.match?(MCP_MODULE_NAME_PATTERN)
 
       value.downcase.include?('mcp')
+    end
+
+    # IMP-2c760325c102 — the SPAWN-time face of package-launcher pinning,
+    # called by #validate_stdio_server! AFTER the inline-code rules (so an
+    # `npx -c` is still refused as inline code, and a launcher is only ever
+    # examined once the command itself is allowed).
+    def raise_on_unpinned_package!(base_command, args)
+      violation = package_pin_violation_for_argv(base_command, args)
+      raise CommandNotAllowedError, violation if violation
+    end
+
+    # Dispatches an already-resolved base command + argv to its launcher's
+    # grammar. nil for anything that is not a package launcher.
+    def package_pin_violation_for_argv(base_command, args)
+      launcher = package_launcher_for(base_command)
+      return nil unless launcher
+
+      args = Array(args).map(&:to_s)
+      case launcher
+      when 'npx' then package_launcher_pin_violation('npx', args, PACKAGE_LAUNCHER_RULES['npx'])
+      when 'uvx' then package_launcher_pin_violation('uvx', args, PACKAGE_LAUNCHER_RULES['uvx'])
+      when 'uv' then uv_pin_violation(args)
+      when 'pipx' then pipx_pin_violation(args)
+      when 'bun' then bun_x_pin_violation(args)
+      when 'deno' then deno_specifier_pin_violation(args)
+      end
+    end
+
+    # Basename only: the command has already passed the exact-path
+    # whitelist (#base_command_in_allowed_list?) on the spawn path, and on
+    # the save path the model only needs to know WHICH grammar applies.
+    def package_launcher_for(base_command)
+      name = File.basename(base_command.to_s)
+      PACKAGE_LAUNCHER_COMMANDS.include?(name) ? name : nil
+    end
+
+    # The shared option scan (see PACKAGE_LAUNCHER_RULES for the shape).
+    # Walks argv up to the first positional (or a bare "--", whose next
+    # token is the positional), classifying every option against the
+    # launcher's allowlists and refusing anything unlisted; then holds
+    # every collected package spec, and the positional when it is a
+    # package, to the launcher's pinned-spec pattern.
+    def package_launcher_pin_violation(launcher, args, rules)
+      packages = []
+      positional = nil
+      i = 0
+      while i < args.length
+        arg = args[i]
+        if arg == '--'
+          positional = args[i + 1]
+          break
+        end
+        unless arg.start_with?('-')
+          positional = arg
+          break
+        end
+
+        name, attached = arg.split('=', 2)
+        # "-p=x" is not a form any of these launchers parse as p + x;
+        # refuse it rather than guess. Only long options attach with "=".
+        return unknown_launcher_option_message(launcher, arg, rules) if attached && !name.start_with?('--')
+
+        if rules[:package_flags].include?(name) || rules[:selector_flags].include?(name)
+          value = attached || args[i + 1]
+          return "#{launcher} option #{name} needs a package spec" if value.nil? || value.start_with?('-')
+
+          value.split(',').each { |spec| packages << [ name, spec ] }
+          i += attached ? 1 : 2
+        elsif rules[:value_flags].include?(name)
+          return "#{launcher} option #{name} needs a value" if attached.nil? && args[i + 1].nil?
+
+          i += attached ? 1 : 2
+        elsif rules[:boolean_flags].include?(name) && attached.nil?
+          i += 1
+        else
+          return unknown_launcher_option_message(launcher, arg, rules)
+        end
+      end
+
+      packages.each do |flag, spec|
+        next if pinned_package_spec?(spec, rules[:pinned])
+
+        return unpinned_package_message(launcher, spec, rules[:pinned], via: flag)
+      end
+
+      return nil if rules[:positional] != :package
+      return nil if packages.any? { |flag, _spec| rules[:selector_flags].include?(flag) }
+      return "#{launcher}: no package was given to run" if positional.nil?
+      return nil if pinned_package_spec?(positional, rules[:pinned])
+
+      unpinned_package_message(launcher, positional, rules[:pinned], via: nil)
+    end
+
+    def unknown_launcher_option_message(launcher, arg, rules)
+      recognized = (rules[:boolean_flags] + rules[:value_flags] + rules[:package_flags] + rules[:selector_flags]).join(' ')
+      "#{launcher} option #{arg.inspect} is not allowed before the #{rules[:positional]} for stdio MCP servers " \
+        '(an unrecognized option could change which package or registry is used); options recognized there: ' \
+        "#{recognized}. Options for the package itself go after it."
+    end
+
+    # `uvx` IS `uv tool run`; `uv run` launches a local script/command but
+    # its --with pulls registry packages. Every other uv subcommand is not
+    # a launcher (and `uv pip install ...` as a server command just exits).
+    def uv_pin_violation(args)
+      if args[0] == 'tool' && args[1] == 'run'
+        package_launcher_pin_violation('uv tool run', args.drop(2), PACKAGE_LAUNCHER_RULES['uvx'])
+      elsif args[0] == 'run'
+        package_launcher_pin_violation('uv run', args.drop(1), PACKAGE_LAUNCHER_RULES['uv run'])
+      end
+    end
+
+    def pipx_pin_violation(args)
+      return nil unless args[0] == 'run'
+
+      package_launcher_pin_violation('pipx run', args.drop(1), PACKAGE_LAUNCHER_RULES['pipx run'])
+    end
+
+    # `bun x <pkg>` is bun's package runner. Its position is found with the
+    # same scan #raise_on_bun_shell_script! trusts; an ambiguous scan (an
+    # unrecognized bun flag before the subcommand) is refused here too, so
+    # the save-time gate cannot be more lenient than the spawn-time one.
+    def bun_x_pin_violation(args)
+      positional_index, ambiguous = scan_interpreter_flags!(args, INLINE_CODE_RULES_BY_INTERPRETER['bun'], 'bun')
+      if ambiguous
+        return 'bun: an unrecognized flag appears before the subcommand, so whether this is a "bun x" package launch ' \
+               'cannot be determined, and it is not allowed for stdio MCP servers'
+      end
+      return nil unless args[positional_index] == 'x'
+
+      package_launcher_pin_violation('bun x', args.drop(positional_index + 1), PACKAGE_LAUNCHER_RULES['bun x'])
+    end
+
+    # deno resolves `npm:`/`jsr:` specifiers from the registries at run
+    # time wherever they appear (the script positional, an --import, ...),
+    # so EVERY argv token in one of those schemes must be pinned — no
+    # positional modelling needed, and none attempted. Plain URL scripts
+    # (https://deno.land/x/...) are out of this rule's scope.
+    def deno_specifier_pin_violation(args)
+      args.each do |arg|
+        if arg.start_with?('npm:')
+          next if arg.match?(DENO_NPM_PINNED_SPECIFIER_PATTERN)
+
+          return unpinned_package_message('deno', arg, :npm, via: nil)
+        elsif arg.start_with?('jsr:')
+          next if arg.match?(DENO_JSR_PINNED_SPECIFIER_PATTERN)
+
+          return unpinned_package_message('deno', arg, :jsr, via: nil)
+        end
+      end
+      nil
+    end
+
+    def pinned_package_spec?(spec, kind)
+      case kind
+      when :npm then spec.match?(NPM_PINNED_PACKAGE_PATTERN)
+      when :pypi then spec.match?(PYPI_PINNED_PACKAGE_PATTERN)
+      when :jsr then spec.match?(JSR_PINNED_PACKAGE_PATTERN)
+      else false
+      end
+    end
+
+    # The actionable refusal: names the launcher, the offending spec (and
+    # the option it came through), the exact shape to write it in with the
+    # caller's own package name filled in, and what is refused and why.
+    def unpinned_package_message(launcher, spec, kind, via:)
+      source = via ? " (via #{via})" : ''
+      case kind
+      when :pypi
+        bare = spec.sub(/[\[=@<>~!].*\z/, '')
+        shape = "#{bare}==<version> or #{bare}@<version> (e.g. #{bare}==2026.8.18)"
+        refused = 'ranges (>=, ~=, !=, ==1.*), arbitrary equality (===), git/URL/path specs and requirements files'
+      when :jsr
+        bare = spec.sub(/(?<=.)@[^@\/]*\z/, '')
+        shape = "#{bare}@<major>.<minor>.<patch> (e.g. #{bare}@1.2.3)"
+        refused = 'dist-tags and ranges'
+      else
+        bare = spec.sub(/(?<=.)@[^@\/]*\z/, '')
+        shape = "#{bare}@<major>.<minor>.<patch> (e.g. #{bare}@1.2.3)"
+        refused = 'dist-tags (latest, next), ranges (^, ~, >=, *, x), git/URL/tarball/path specs and npm: aliases'
+      end
+
+      "#{launcher}: package #{spec.inspect}#{source} is not pinned to an exact version. " \
+        "Write it as #{shape}; #{refused} are refused."
     end
   end
 end
