@@ -104,9 +104,9 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
       end
 
       it 'deletes user data types' do
-        # consents/settings/communications call out via api_client.delete;
-        # profile/audit_logs/payments use PATCH (anonymize-in-place).
-        # 'files', 'activity' and 'analytics' are withdrawn from
+        # consents/settings/communications/files call out via
+        # api_client.delete; profile/audit_logs/payments use PATCH
+        # (anonymize-in-place). 'activity' and 'analytics' are withdrawn from
         # DELETABLE_DATA_TYPES entirely (IMP-bf52b4da135b) and are no longer
         # walked on a full deletion at all — UNSUPPORTED_DATA_TYPES now only
         # covers them arriving on a legacy row.
@@ -441,16 +441,6 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
         allow(api_client).to receive(:post).and_return('success' => true)
       end
 
-      it 'never calls a files endpoint — the type is withdrawn, not backed' do
-        # `files` HAS a backing model (FileManagement::Object) but no correct
-        # erasure path yet, so it is withdrawn rather than wired. Pins that
-        # this job does not call an endpoint that does not exist.
-        job.execute(deletion_request_id)
-
-        expect(api_client).not_to have_received(:delete)
-          .with("/api/v1/internal/users/#{user_id}/files")
-      end
-
       it 'erases the user\'s settings' do
         expect(api_client).to receive(:delete)
           .with("/api/v1/internal/users/#{user_id}/settings")
@@ -485,7 +475,7 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
       end
 
       it 'no longer walks the withdrawn types on a full deletion' do
-        # 'files', 'activity' and 'analytics' are withdrawn from
+        # 'activity' and 'analytics' are withdrawn from
         # DataManagement::DeletionRequest::DELETABLE_DATA_TYPES — a full
         # deletion must not manufacture log entries for categories the
         # platform no longer offers.
@@ -495,13 +485,134 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
             hash_including(
               status: 'completed',
               deletion_log: satisfy do |log|
-                log.none? { |entry| %w[files activity analytics].include?(entry[:data_type]) }
+                log.none? { |entry| %w[activity analytics].include?(entry[:data_type]) }
               end
             )
           )
           .and_return(show_response(deletion_request_data))
 
         job.execute(deletion_request_id)
+      end
+    end
+
+    # IMP-d97f6e3bbc2b — `files` is advertised again, backed by
+    # FileManagement::Erasure behind DELETE /api/v1/internal/users/:id/files.
+    # The server erases ONE bounded batch per request and returns a cursor;
+    # this job walks it until nothing remains. A file the server could not
+    # erase — held by a referent, or a blob the provider did not remove — is
+    # a failed erasure of the category, never a completed one.
+    describe "the 'files' data type" do
+      let(:files_path) { "/api/v1/internal/users/#{user_id}/files" }
+
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:patch).and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 1 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      def files_batch(count:, remaining:, cursor:, failed: [])
+        {
+          'success' => true,
+          'data' => {
+            'count' => count, 'erased' => true, 'failed' => failed,
+            'remaining' => remaining, 'cursor' => cursor, 'retained_platform_artifacts' => 0
+          }
+        }
+      end
+
+      it 'walks the server cursor until nothing remains and records the total' do
+        expect(api_client).to receive(:delete).with(files_path).ordered
+          .and_return(files_batch(count: 2, remaining: 1, cursor: 'cursor-1'))
+        expect(api_client).to receive(:delete).with(files_path, { after_id: 'cursor-1' }).ordered
+          .and_return(files_batch(count: 1, remaining: 0, cursor: 'cursor-2'))
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            hash_including(
+              status: 'completed',
+              deletion_log: array_including(
+                hash_including(data_type: 'files', action: 'deleted', records_affected: 3)
+              )
+            )
+          )
+          .and_return(show_response(deletion_request_data))
+
+        job.execute(deletion_request_id)
+      end
+
+      it 'fails the request when the server reports a file whose blob it could not remove' do
+        allow(api_client).to receive(:delete).with(files_path).and_return(
+          files_batch(count: 0, remaining: 0, cursor: 'cursor-1',
+                      failed: [ { 'id' => 'file-1', 'kind' => 'error', 'reason' => 'storage_removal_failed' } ])
+        )
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            hash_including(
+              status: 'failed',
+              deletion_log: array_including(
+                hash_including(data_type: 'files', action: 'failed', error: /storage_removal_failed/)
+              )
+            )
+          )
+          .and_return(show_response(deletion_request_data))
+
+        expect { job.execute(deletion_request_id) }
+          .to raise_error(Compliance::DataDeletionJob::PartialDeletionFailure, /files/)
+      end
+
+      it 'fails the request for a held file too — the subject\'s file was not erased' do
+        allow(api_client).to receive(:delete).with(files_path).and_return(
+          files_batch(count: 3, remaining: 0, cursor: 'cursor-1',
+                      failed: [ { 'id' => 'file-9', 'kind' => 'held', 'reason' => 'held_by_system_node_architecture' } ])
+        )
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            hash_including(
+              status: 'failed',
+              deletion_log: array_including(
+                hash_including(data_type: 'files', action: 'failed', error: /held_by_system_node_architecture/)
+              )
+            )
+          )
+          .and_return(show_response(deletion_request_data))
+
+        expect { job.execute(deletion_request_id) }
+          .to raise_error(Compliance::DataDeletionJob::PartialDeletionFailure)
+      end
+
+      it 'records a skip with the server\'s reason when an older server has no erasure path' do
+        allow(api_client).to receive(:delete).with(files_path).and_return(
+          'success' => true, 'data' => { 'count' => 0, 'erased' => false, 'reason' => 'no_erasure_path' }
+        )
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            hash_including(
+              status: 'completed',
+              deletion_log: array_including(
+                hash_including(data_type: 'files', action: 'skipped', reason: 'no_erasure_path')
+              )
+            )
+          )
+          .and_return(show_response(deletion_request_data))
+
+        job.execute(deletion_request_id)
+      end
+
+      it 'does not call the files endpoint when the request retains files' do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(deletion_request_data.merge('data_types_to_retain' => %w[files])))
+
+        job.execute(deletion_request_id)
+
+        expect(api_client).not_to have_received(:delete).with(files_path)
+        expect(api_client).not_to have_received(:delete).with(files_path, anything)
       end
     end
 
@@ -755,7 +866,10 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
         'payments' => [ :patch, ->(_u, a) { "/api/v1/internal/accounts/#{a}/anonymize_payments" } ],
         'settings' => [ :delete, ->(u, _a) { "/api/v1/internal/users/#{u}/settings" } ],
         'consents' => [ :delete, ->(u, _a) { "/api/v1/internal/users/#{u}/consents" } ],
-        'communications' => [ :delete, ->(u, _a) { "/api/v1/internal/users/#{u}/communications" } ]
+        'communications' => [ :delete, ->(u, _a) { "/api/v1/internal/users/#{u}/communications" } ],
+        # One batch per call; the stub's `count: 1` with no `remaining` is a
+        # single batch, so "exactly once" holds for files too.
+        'files' => [ :delete, ->(u, _a) { "/api/v1/internal/users/#{u}/files" } ]
       }
 
       it 'covers exactly the job\'s DELETABLE_DATA_TYPES' do

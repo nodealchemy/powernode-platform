@@ -213,6 +213,96 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
         expect(appended.map { |e| e[:event] }).not_to include('files_erasure_skipped')
       end
 
+      # IMP-d97f6e3bbc2b — the files endpoint is a real, bounded erasure now:
+      # one batch per request with a cursor, `failed` naming every file it
+      # could not erase with a kind. A HELD file (a referent will not let
+      # go — a boot image, say) is a policy gap no retry clears: recorded in
+      # the termination_log and the termination proceeds. An ERROR (the
+      # provider did not remove a blob) is operational: the termination
+      # reverts to grace_period and the next sweep retries, like every other
+      # failed step here. Neither is ever a silent success.
+      context 'with the batched files erasure' do
+        let(:files_path) { "/api/v1/internal/accounts/#{account_id}/files" }
+
+        def files_batch(count:, remaining:, cursor:, failed: [])
+          {
+            'success' => true,
+            'data' => {
+              'count' => count, 'erased' => true, 'failed' => failed,
+              'remaining' => remaining, 'cursor' => cursor, 'retained_platform_artifacts' => 1
+            }
+          }
+        end
+
+        def appended_entries
+          appended = []
+          allow(api_client).to receive(:patch) do |path, payload|
+            appended.concat(Array(payload[:termination_log_append])) if payload.is_a?(Hash)
+            { 'success' => true, 'data' => termination_data }
+          end
+          appended
+        end
+
+        it 'walks the cursor until nothing remains and records the summed count' do
+          expect(api_client).to receive(:delete).with(files_path).ordered
+            .and_return(files_batch(count: 2, remaining: 1, cursor: 'cursor-1'))
+          expect(api_client).to receive(:delete).with(files_path, { after_id: 'cursor-1' }).ordered
+            .and_return(files_batch(count: 1, remaining: 0, cursor: 'cursor-2'))
+          appended = appended_entries
+
+          job.execute
+
+          expect(appended).to include(hash_including(event: 'deleted_files', count: 3))
+        end
+
+        it 'records held files as a gap in the termination_log and still completes the termination' do
+          allow(api_client).to receive(:delete).with(files_path).and_return(
+            files_batch(count: 4, remaining: 0, cursor: 'cursor-1',
+                        failed: [ { 'id' => 'file-9', 'kind' => 'held', 'reason' => 'held_by_system_node_architecture' } ])
+          )
+          appended = appended_entries
+
+          job.execute
+
+          expect(appended).to include(hash_including(event: 'deleted_files', count: 4))
+          expect(appended).to include(
+            hash_including(event: 'files_erasure_held', count: 1,
+                           files: [ { id: 'file-9', reason: 'held_by_system_node_architecture' } ])
+          )
+          expect(appended.map { |e| e[:event] }).to include('deleted_api_keys')
+        end
+
+        it 'stops a cursor that never finishes instead of looping forever' do
+          stub_const('ComplianceFileErasureConcern::MAX_FILE_ERASURE_BATCHES', 3)
+          allow(api_client).to receive(:delete).with(files_path)
+            .and_return(files_batch(count: 1, remaining: 1, cursor: 'cursor-1'))
+          allow(api_client).to receive(:delete).with(files_path, hash_including(:after_id)) do |_path, params|
+            files_batch(count: 1, remaining: 1, cursor: "#{params[:after_id]}-next")
+          end
+          appended = appended_entries
+
+          expect { job.execute }.to raise_error(/Account termination failed for: #{termination_id}/)
+
+          expect(api_client).to have_received(:delete).with(files_path, anything).exactly(2).times
+          expect(appended).to include(hash_including(event: 'error', error: /did not finish within 3 batches/))
+        end
+
+        it 'reverts the termination and fails loud when a blob could not be removed' do
+          allow(api_client).to receive(:delete).with(files_path).and_return(
+            files_batch(count: 1, remaining: 0, cursor: 'cursor-1',
+                        failed: [ { 'id' => 'file-2', 'kind' => 'error', 'reason' => 'storage_removal_failed' } ])
+          )
+          appended = appended_entries
+
+          expect { job.execute }.to raise_error(/Account termination failed for: #{termination_id}/)
+
+          expect(appended).to include(hash_including(event: 'error', error: /storage_removal_failed/))
+          expect(appended.map { |e| e[:event] }).not_to include('deleted_api_keys')
+          expect(api_client).to have_received(:patch)
+            .with("/api/v1/internal/account_terminations/#{termination_id}", hash_including(status: 'grace_period'))
+        end
+      end
+
       it 'terminates the account via the dedicated idempotent terminate action' do
         # Fork 1 (IMP-b33a3ecca331): marks the account 'cancelled' server-side
         # through Api::V1::Internal::AccountsController#terminate, a narrow

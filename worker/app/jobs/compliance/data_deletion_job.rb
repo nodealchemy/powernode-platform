@@ -3,17 +3,15 @@
 module Compliance
   # Job for processing GDPR data deletion requests
   class DataDeletionJob < BaseJob
+    include ComplianceFileErasureConcern
+
     sidekiq_options queue: :compliance
 
-    # 'files', 'activity' and 'analytics' are WITHDRAWN from
+    # 'activity' and 'analytics' are WITHDRAWN from
     # DataManagement::DeletionRequest::DELETABLE_DATA_TYPES
     # (IMP-bf52b4da135b) — the server no longer advertises them and rejects
     # them on create. See that constant's comment for the per-type reasoning;
-    # in short, 'files' HAS a backing model (FileManagement::Object) but no
-    # correct erasure path yet (restrict-FKs from five tables, a blob-removal
-    # failure that is swallowed, and non-personal platform artifacts sharing
-    # the scope), while 'activity'/'analytics' have no category-level erasure
-    # path at all.
+    # in short, neither has a category-level erasure path at all.
     #
     # They stay listed HERE, rather than being deleted outright, because rows
     # created BEFORE that withdrawal can still carry them and this job must
@@ -21,13 +19,14 @@ module Compliance
     # false 'deleted'. This list is now purely a legacy-row compatibility
     # path; nothing new can enter it.
     #
-    # The other two this constant used to name — settings, communications —
-    # DO have a backing model with a clean erasure path (the users preference
-    # columns; Notification + EmailDelivery) and are now routed to real
+    # The three this constant used to name besides them — settings,
+    # communications, and (IMP-d97f6e3bbc2b) files — DO have a backing model
+    # with a real erasure path (the users preference columns; Notification +
+    # EmailDelivery; FileManagement::Erasure) and are routed to real
     # endpoints in #delete_data_type. Recording those as skipped was accurate
     # about the job's behaviour and wrong about the world: the data existed
     # and survived the erasure.
-    UNSUPPORTED_DATA_TYPES = %w[files activity analytics].freeze
+    UNSUPPORTED_DATA_TYPES = %w[activity analytics].freeze
 
     # Mirrors the server's DataManagement::DeletionRequest::DELETABLE_DATA_TYPES
     # (same members, same order) — the categories the platform advertises as
@@ -45,6 +44,7 @@ module Compliance
       settings
       consents
       communications
+      files
     ].freeze
 
     # A per-data-type deletion failure (IMP-b33a3ecca331 third review, S-C).
@@ -299,8 +299,8 @@ module Compliance
       # -> a retention_log entry and its endpoint is never called; otherwise
       # -> erased/anonymized by #delete_data_type and recorded in deletion_log
       # (a failure there is a per-type 'failed' entry, surfaced below as a
-      # PartialDeletionFailure). 'files', 'activity' and 'analytics' are not
-      # walked: they were withdrawn from the server constant (IMP-bf52b4da135b).
+      # PartialDeletionFailure). 'activity' and 'analytics' are not walked:
+      # they were withdrawn from the server constant (IMP-bf52b4da135b).
       DELETABLE_DATA_TYPES.each do |data_type|
         if data_types_to_retain.include?(data_type)
           retention_log << {
@@ -373,6 +373,11 @@ module Compliance
     #                      preference columns and by Notification +
     #                      EmailDelivery respectively. Both return the same
     #                      `data: { count: }` shape as 'consents'.
+    #   * 'files'      -> the per-user files erasure (IMP-d97f6e3bbc2b),
+    #                      batched: walked to the end through
+    #                      ComplianceFileErasureConcern. A file the server
+    #                      could not erase is a FAILED erasure of the
+    #                      category, whatever the rest of the batch did.
     # Withdrawn types — reachable only on a legacy row — are skipped
     # explicitly (see UNSUPPORTED_DATA_TYPES) rather than attempting a call
     # to an endpoint that does not exist.
@@ -394,6 +399,8 @@ module Compliance
         # read was always 0 regardless of the symbol/string key bug).
         response = api_client.delete("/api/v1/internal/users/#{user_id}/#{data_type}")
         { count: response['data']&.dig('count') || 0 }
+      when 'files'
+        delete_files(user_id)
       when *UNSUPPORTED_DATA_TYPES
         # Reached only by a legacy row: this type is withdrawn, so nothing
         # new can name it. The wording deliberately does NOT claim the data
@@ -483,6 +490,27 @@ module Compliance
         "/api/v1/internal/users/#{user_id}/anonymize_audit_logs",
         {}
       )
+    end
+
+    # An OLDER server build still answers `erased: false` (no erasure path);
+    # that is recorded as the skip it is, with the server's reason, exactly
+    # as before this path existed. Otherwise every file the server could not
+    # erase — held by a referent or a blob the provider did not remove —
+    # makes the category a failed erasure: the subject's file is still there,
+    # so the request must not complete. Ids only in the message, never a
+    # filename.
+    def delete_files(user_id)
+      result = erase_files_in_batches("/api/v1/internal/users/#{user_id}/files")
+      return { skipped: true, reason: result['reason'] || 'no_erasure_path' } if result['erased'] == false
+
+      if result[:failed].any?
+        return {
+          count: result[:count],
+          error: "#{result[:failed].size} file(s) not erased: #{file_erasure_failure_summary(result[:failed])}"
+        }
+      end
+
+      { count: result[:count] }
     end
 
     def anonymize_payments(account_id)

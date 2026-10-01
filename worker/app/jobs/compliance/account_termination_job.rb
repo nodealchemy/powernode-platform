@@ -4,7 +4,13 @@ module Compliance
   # Job for processing account terminations after grace period
   # Runs every 6 hours to check for accounts ready for termination
   class AccountTerminationJob < BaseJob
+    include ComplianceFileErasureConcern
+
     sidekiq_options queue: 'compliance', retry: 3
+
+    # How many held files one termination_log entry names. Ids and reasons
+    # only (never a filename); the count carries the rest.
+    HELD_FILES_LOGGED = 50
 
     # IMP-f0560910fa62: a 'processing' row with no live process behind it —
     # the worker crashed after process_termination's own status write
@@ -877,36 +883,7 @@ module Compliance
     end
 
     def delete_account_records(account_id, termination_log, own_export_request_id = nil)
-      # Files. Api::V1::Internal::AccountsController#delete_files returns
-      # `data: { count:, erased:, reason: }`.
-      #
-      # IMP-bf52b4da135b: that endpoint has never actually erased a file, and
-      # still does not — it now says so explicitly (`erased: false`) instead
-      # of returning a success-shaped "Deleted 0 file records". Record that
-      # honestly in the termination_log rather than writing a `deleted_files`
-      # entry for an erasure that did not happen: an operator reading this
-      # log must be able to see that files were NOT erased. Same shape as the
-      # `subscription_anonymize_skipped` entry below.
-      #
-      # `erased` is read with an explicit `== false` rather than a truthiness
-      # check so that an OLDER server build (which returns neither key) is
-      # treated as the legacy success path rather than being silently
-      # reported as skipped.
-      response = api_client.delete("/api/v1/internal/accounts/#{account_id}/files")
-      files_data = response['data'] || {}
-      termination_log << if files_data['erased'] == false
-        {
-          event: 'files_erasure_skipped',
-          reason: files_data['reason'] || 'no_erasure_path',
-          at: Time.current.iso8601
-        }
-      else
-        {
-          event: 'deleted_files',
-          count: files_data['count'] || 0,
-          at: Time.current.iso8601
-        }
-      end
+      delete_account_files(account_id, termination_log)
 
       # Delete API keys
       api_client.delete("/api/v1/internal/accounts/#{account_id}/api_keys")
@@ -957,6 +934,57 @@ module Compliance
         reason: 'no_billing_extension_provider',
         at: Time.current.iso8601
       }
+    end
+
+    # Files. Api::V1::Internal::AccountsController#delete_files is one
+    # bounded batch of FileManagement::Erasure (IMP-d97f6e3bbc2b), walked to
+    # the end through ComplianceFileErasureConcern. Three outcomes, none of
+    # them a silent success:
+    #   * an OLDER server build answers `erased: false` (IMP-bf52b4da135b's
+    #     honest "no erasure path"): recorded as `files_erasure_skipped`,
+    #     exactly as before. `== false`, not a truthiness check, so a build
+    #     returning neither key is still the deletion path;
+    #   * files the server HELD (a registered referent — a boot image's
+    #     kernel, say — will not let go): a policy gap no retry clears, so it
+    #     is recorded as `files_erasure_held` with the ids and reasons and
+    #     the termination proceeds; an operator reading the log can see
+    #     exactly which files survived and why;
+    #   * files the server could not erase for an operational reason (the
+    #     provider did not remove a blob): raise. The rescue in
+    #     process_termination reverts to grace_period and the next sweep
+    #     retries, the same posture as every other failed step here. A
+    #     PERMANENT provider fault therefore retries every sweep, loudly,
+    #     rather than completing a termination that left personal data in
+    #     object storage.
+    def delete_account_files(account_id, termination_log)
+      result = erase_files_in_batches("/api/v1/internal/accounts/#{account_id}/files")
+
+      if result['erased'] == false
+        termination_log << {
+          event: 'files_erasure_skipped',
+          reason: result['reason'] || 'no_erasure_path',
+          at: Time.current.iso8601
+        }
+        return
+      end
+
+      termination_log << { event: 'deleted_files', count: result[:count], at: Time.current.iso8601 }
+
+      if result[:held].any?
+        log_warn "Account #{account_id}: #{result[:held].size} file(s) held by a referent were not erased: " \
+                 "#{file_erasure_failure_summary(result[:held])}"
+        termination_log << {
+          event: 'files_erasure_held',
+          count: result[:held].size,
+          files: result[:held].first(HELD_FILES_LOGGED).map { |f| { id: f['id'], reason: f['reason'] } },
+          at: Time.current.iso8601
+        }
+      end
+
+      return if result[:errors].empty?
+
+      raise "File erasure failed for #{result[:errors].size} file(s) in account #{account_id}: " \
+            "#{file_erasure_failure_summary(result[:errors])}"
     end
 
     # Compliance::DataExportJob writes the subject's full personal-data archive
