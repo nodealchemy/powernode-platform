@@ -38,7 +38,10 @@ module StorageProviders
         fstype = after.split.first
         next if fstype.blank?
 
-        best = [ mount_point, fstype ] if best.nil? || mount_point.length > best[0].length
+        # On a tie the LATER line wins: a later mount at the same path
+        # shadows the earlier one (an autofs direct map lists the autofs
+        # trigger and then the nfs4 mount it triggered, at one mount point).
+        best = [ mount_point, fstype ] if best.nil? || mount_point.length >= best[0].length
       end
       best&.last
     rescue SystemCallError, IOError
@@ -46,9 +49,10 @@ module StorageProviders
     end
 
     # mountinfo escapes space, tab, newline and backslash as \040, \011,
-    # \012 and \134.
+    # \012 and \134, and every non-ASCII byte the same way; the bytes are
+    # reassembled and read as UTF-8 so the result compares with a path.
     def self.unescape(value)
-      value.gsub(/\\([0-7]{3})/) { Regexp.last_match(1).to_i(8).chr }
+      value.b.gsub(/\\([0-7]{3})/) { Regexp.last_match(1).to_i(8).chr }.force_encoding(Encoding::UTF_8)
     end
 
     def self.under?(path, mount_point)

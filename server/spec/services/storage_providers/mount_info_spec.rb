@@ -35,6 +35,32 @@ RSpec.describe StorageProviders::MountInfo do
       expect(described_class.fstype_for('/mnt/with space/x', source: mountinfo)).to eq('smb3')
     end
 
+    # Two mounts at ONE mount point: the later line shadows the earlier
+    # (an autofs direct map lists the autofs trigger, then the nfs4 mount it
+    # triggered, at the same path). The last line must win.
+    it 'lets the last line win on a mount-point tie' do
+      autofs_then_nfs = <<~MI
+        22 1 8:2 / / rw - ext4 /dev/sda2 rw
+        200 22 0:60 / /mnt/auto rw - autofs systemd-1 rw,direct
+        201 200 0:61 / /mnt/auto rw - nfs4 10.0.0.5:/export rw
+      MI
+      expect(described_class.fstype_for('/mnt/auto/files', source: autofs_then_nfs)).to eq('nfs4')
+
+      nfs_then_tmpfs = <<~MI
+        22 1 8:2 / / rw - ext4 /dev/sda2 rw
+        200 22 0:60 / /mnt/auto rw - nfs4 10.0.0.5:/export rw
+        201 22 0:61 / /mnt/auto rw - tmpfs tmpfs rw
+      MI
+      expect(described_class.fstype_for('/mnt/auto/files', source: nfs_then_tmpfs)).to eq('tmpfs')
+    end
+
+    it 'compares an octal-escaped non-ASCII mount point with a UTF-8 path' do
+      table = "22 1 8:2 / / rw - ext4 /dev/sda2 rw\n" \
+              "103 22 0:53 / /mnt/caf\\303\\251 rw - nfs4 10.0.0.8:/e rw\n"
+      expect(described_class.fstype_for('/mnt/café/x', source: table)).to eq('nfs4')
+      expect(described_class.fstype_for('/mnt/cafe/x', source: table)).to eq('ext4')
+    end
+
     it 'is nil for a blank path or an unreadable table' do
       expect(described_class.fstype_for('', source: mountinfo)).to be_nil
       expect(described_class.fstype_for('/mnt/nfs', source: '')).to be_nil
