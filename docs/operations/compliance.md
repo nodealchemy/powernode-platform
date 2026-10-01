@@ -81,7 +81,7 @@ What the platform supports:
       | btrfs subvolume as the mount point, nothing mounted | absent | refused (closed) — correct |
       | `mount_path` **nested** under the real mount (`/mnt/nfs/storage-a` on a share at `/mnt/nfs`, one share serving several storages) | present at the nested base | removed — correct; this configuration is supported |
       | Same-device bind mount of an **empty** directory onto the mount point (a container bind-mounting a host directory whose share is unmounted on the host) | absent | refused (closed) — correct |
-      | `mount_path: /` | present at `/` | removed — a nonsense configuration, reads as live |
+      | `mount_path: /` — local root only | present at `/` | removed — a nonsense configuration, reads as live. On NFS/SMB, initialize **refuses** (`/` is never on an `nfs`/`cifs` mount): the operator creates a nested base directory on the share and points `mount_path` at it before initializing |
       | Store created **before** the marker existed (no nonce on the row) | n/a | refused (closed), reason `store_not_initialized`, until an operator re-runs initialize (below); the store is **not** treated as dead, so its other files are still attempted |
       | `initialize_storage` run on an NFS/SMB store while the share is unmounted | not written | initialize **refuses** (`false`, the error names the share and the filesystem it found) — the marker is written only onto a base that `/proc/self/mountinfo` shows on an `nfs`/`nfs4` (NFS) or `cifs`/`smb3` (SMB) mount; a marker left there by an older build is shadowed once the share mounts, and the next initialize on the live share writes a new nonce it no longer matches |
 
