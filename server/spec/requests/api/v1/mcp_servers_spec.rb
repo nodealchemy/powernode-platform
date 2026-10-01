@@ -159,10 +159,26 @@ RSpec.describe 'Api::V1::McpServers', type: :request do
           description: 'A test server',
           connection_type: 'stdio',
           command: 'npx',
-          args: [ '-y', '@modelcontextprotocol/server-test' ],
+          args: [ '-y', '@modelcontextprotocol/server-test@1.0.0' ],
           config: { version: '1.0' }
         }
       }
+    end
+
+    # IMP-2c760325c102 — save-time package pinning, surfaced as a 422 naming
+    # the fix (the model validation; full grammar in the security service spec).
+    it 'refuses an unpinned npx package with an actionable validation error' do
+      unpinned = valid_params.deep_merge(mcp_server: { args: [ '-y', '@modelcontextprotocol/server-test' ] })
+
+      expect {
+        post '/api/v1/mcp_servers', params: unpinned, headers: headers, as: :json
+      }.not_to change(McpServer, :count)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      # Parsed, not response.body: Rails JSON-escapes "<"/">" as </>.
+      error = json_response_full['error']
+      expect(error).to match(/not pinned to an exact version/)
+      expect(error).to include('@modelcontextprotocol/server-test@<major>.<minor>.<patch>')
     end
 
     context 'with proper permissions' do

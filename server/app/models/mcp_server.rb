@@ -100,6 +100,15 @@ class McpServer < ApplicationRecord
   validate :validate_egress_allowlist_format
   validate :validate_allow_network_and_egress_allowlist_are_not_both_set
   validate :validate_oauth_configuration, if: -> { auth_type == "oauth2" }
+  # IMP-2c760325c102 — package-launcher pinning at SAVE time, on a new row
+  # or whenever the command line changes. Deliberately NOT on every save:
+  # the worker reports a spawn refusal by PATCHing status/last_error onto
+  # the same row (Api::V1::Internal::McpServersController#update), and a
+  # pre-existing unpinned row must stay saveable for that report to land —
+  # otherwise the operator would see nothing. Such a row is refused at
+  # spawn time (McpSecurityService.validate_stdio_server!) with the same
+  # message, and refused here the moment someone edits its command/args.
+  validate :validate_stdio_package_pinning, if: :stdio_command_line_changed?
 
   # ==========================================
   # Scopes
@@ -439,6 +448,29 @@ class McpServer < ApplicationRecord
     unless capabilities.is_a?(Hash)
       errors.add(:capabilities, "must be a hash")
     end
+  end
+
+  # IMP-2c760325c102 — see the `validate :validate_stdio_package_pinning`
+  # declaration for when this runs. The grammar (which launchers, what
+  # "pinned" means, the refusal text) is Mcp::SecurityService's, shared
+  # with the worker's spawn-time gate, so save-time and spawn-time can
+  # never disagree about a command line. #package_pin_violation never
+  # raises (an unparseable command string comes back as the violation).
+  def validate_stdio_package_pinning
+    violation = Mcp::SecurityService.package_pin_violation(command, args)
+    errors.add(:command, violation) if violation
+  end
+
+  def stdio_command_line_changed?
+    connection_type == "stdio" && (new_record? || command_changed? || args_changed?)
+  end
+
+  def clear_native_execution_on_command_change
+    @native_execution_cleared_by_change = false
+    return unless (command_changed? || args_changed?) && native_execution_approved?
+
+    self.capabilities = capabilities.except(NATIVE_EXECUTION_KEY)
+    @native_execution_cleared_by_change = true
   end
 
   # IMP-bf72723ef161 — validates capabilities['egress_allowlist'] entries.

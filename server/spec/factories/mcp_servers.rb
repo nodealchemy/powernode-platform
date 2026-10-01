@@ -63,7 +63,7 @@ FactoryBot.define do
     trait :stdio do
       connection_type { 'stdio' }
       command { 'npx' }
-      args { [ '-y', '@modelcontextprotocol/server-filesystem', '/tmp' ] }
+      args { [ '-y', '@modelcontextprotocol/server-filesystem@2026.8.31', '/tmp' ] }
       env do
         {
           'MCP_SERVER_TYPE' => 'stdio',
@@ -76,7 +76,7 @@ FactoryBot.define do
     trait :stdio_connection do
       connection_type { 'stdio' }
       command { 'npx' }
-      args { [ '-y', '@modelcontextprotocol/server-filesystem', '/tmp' ] }
+      args { [ '-y', '@modelcontextprotocol/server-filesystem@2026.8.31', '/tmp' ] }
       env do
         {
           'MCP_SERVER_TYPE' => 'stdio',
@@ -120,7 +120,7 @@ FactoryBot.define do
       description { 'Provides filesystem operations for AI agents' }
       connection_type { 'stdio' }
       command { 'npx' }
-      args { [ '-y', '@modelcontextprotocol/server-filesystem', '/workspace' ] }
+      args { [ '-y', '@modelcontextprotocol/server-filesystem@2026.8.31', '/workspace' ] }
       status { 'connected' }
       capabilities do
         {

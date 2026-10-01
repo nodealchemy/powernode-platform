@@ -270,14 +270,20 @@ class Api::V1::McpServersController < ApplicationController
     end
   end
 
+  # IMP-2c760325c102 — `args` is an ARRAY of strings (McpServer validates
+  # it as one); `permit(:args)` only ever admitted a scalar, so an array
+  # sent by any client was silently dropped and every API-created stdio
+  # server stored `args: []`. Surfaced by the save-time package-pinning
+  # validation ("npx: no package was given to run") and fixed here, since
+  # that validation has to see the same args the worker will spawn with.
   def mcp_server_params
     params.require(:mcp_server).permit(
       :name,
       :description,
       :connection_type,
       :command,
-      :args,
       :url,
+      args: [],
       config: {}
     )
   end

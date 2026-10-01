@@ -145,7 +145,7 @@ module Seeds
         description: 'A sandboxed filesystem MCP server for file operations (list, read, write, search). Based on the official @modelcontextprotocol/server-filesystem.',
         connection_type: 'stdio',
         command: 'npx',
-        args: [ '-y', '@modelcontextprotocol/server-filesystem', '/tmp' ],
+        args: [ '-y', '@modelcontextprotocol/server-filesystem@2026.8.31', '/tmp' ],
         env: {},
         status: 'disconnected',
         capabilities: {
@@ -266,7 +266,7 @@ module Seeds
         description: 'Weather information using the free Open-Meteo API. Get current weather, forecasts, and historical data without API keys.',
         connection_type: 'stdio',
         command: 'npx',
-        args: [ '-y', '@modelcontextprotocol/server-weather' ],
+        args: [ '-y', '@modelcontextprotocol/server-weather@0.6.2' ],
         env: {},
         status: 'disconnected',
         capabilities: {
@@ -336,7 +336,7 @@ module Seeds
         description: 'Get current time in various timezones. Uses the official MCP time server from Anthropic.',
         connection_type: 'stdio',
         command: 'npx',
-        args: [ '-y', '@modelcontextprotocol/server-time' ],
+        args: [ '-y', '@modelcontextprotocol/server-time@0.6.2' ],
         env: {},
         status: 'disconnected',
         capabilities: {
@@ -394,7 +394,7 @@ module Seeds
         description: 'Fetch and extract content from any URL. Converts web pages to markdown, handles images, and can fetch raw content.',
         connection_type: 'stdio',
         command: 'npx',
-        args: [ '-y', '@modelcontextprotocol/server-fetch' ],
+        args: [ '-y', '@modelcontextprotocol/server-fetch@0.6.2' ],
         env: {},
         status: 'disconnected',
         capabilities: {

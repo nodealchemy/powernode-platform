@@ -30,7 +30,7 @@ filesystem_server = McpServer.find_or_create_by!(account: account, name: 'Filesy
   server.connection_type = 'stdio'
   server.auth_type = 'none'
   server.command = 'npx'
-  server.args = [ '-y', '@anthropic-ai/mcp-server-filesystem' ]
+  server.args = [ '-y', '@anthropic-ai/mcp-server-filesystem@1.0.0' ]
   server.env = { 'MCP_ALLOWED_DIRS' => '/tmp,/home' }
   server.capabilities = {
     'tools' => true,
@@ -212,7 +212,7 @@ database_server = McpServer.find_or_create_by!(account: account, name: 'Database
   server.connection_type = 'stdio'
   server.auth_type = 'none'
   server.command = 'npx'
-  server.args = [ '-y', '@anthropic-ai/mcp-server-postgres' ]
+  server.args = [ '-y', '@anthropic-ai/mcp-server-postgres@1.0.0' ]
   server.env = { 'DATABASE_URL' => 'postgresql://localhost/powernode_development' }
   server.capabilities = {
     'tools' => true,
@@ -286,7 +286,7 @@ web_server = McpServer.find_or_create_by!(account: account, name: 'Web Fetch MCP
   server.connection_type = 'stdio'
   server.auth_type = 'none'
   server.command = 'npx'
-  server.args = [ '-y', '@anthropic-ai/mcp-server-fetch' ]
+  server.args = [ '-y', '@anthropic-ai/mcp-server-fetch@1.0.0' ]
   server.env = {}
   server.capabilities = {
     'tools' => true,
