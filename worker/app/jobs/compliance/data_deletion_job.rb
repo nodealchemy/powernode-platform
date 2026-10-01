@@ -29,6 +29,24 @@ module Compliance
     # and survived the erasure.
     UNSUPPORTED_DATA_TYPES = %w[files activity analytics].freeze
 
+    # Mirrors the server's DataManagement::DeletionRequest::DELETABLE_DATA_TYPES
+    # (same members, same order) — the categories the platform advertises as
+    # erasable. A 'full' deletion walks EVERY member through the one per-type
+    # loop in #process_full_deletion, so data_types_to_retain binds each of
+    # them the same way (IMP-ca3551dd27be). Duplicated rather than fetched
+    # because the worker reaches the server over the HTTP API only and never
+    # shares its models; spec/jobs/compliance/
+    # data_deletion_job_deletable_types_drift_spec.rb fails if the two lists
+    # diverge.
+    DELETABLE_DATA_TYPES = %w[
+      profile
+      audit_logs
+      payments
+      settings
+      consents
+      communications
+    ].freeze
+
     # A per-data-type deletion failure (IMP-b33a3ecca331 third review, S-C).
     # Distinct from the plain `raise failure_message` this used to be so the
     # outer rescue can tell "this path already wrote 'failed' with the full
@@ -277,18 +295,13 @@ module Compliance
       deletion_log = []
       retention_log = []
 
-      # Delete each data type. Mirrors the server's
-      # DataManagement::DeletionRequest::DELETABLE_DATA_TYPES minus the two
-      # entries this method handles unconditionally below (audit_logs,
-      # payments); 'files', 'activity' and 'analytics' are gone because they
-      # were withdrawn from that constant (IMP-bf52b4da135b) — walking them
-      # here only ever manufactured skip entries for categories the platform
-      # does not offer. The list is duplicated rather than fetched because
-      # the worker reaches the server over the HTTP API only and never shares
-      # its models.
-      deletable_types = %w[profile settings consents communications]
-
-      deletable_types.each do |data_type|
+      # Every DELETABLE_DATA_TYPES member goes through this ONE loop: retained
+      # -> a retention_log entry and its endpoint is never called; otherwise
+      # -> erased/anonymized by #delete_data_type and recorded in deletion_log
+      # (a failure there is a per-type 'failed' entry, surfaced below as a
+      # PartialDeletionFailure). 'files', 'activity' and 'analytics' are not
+      # walked: they were withdrawn from the server constant (IMP-bf52b4da135b).
+      DELETABLE_DATA_TYPES.each do |data_type|
         if data_types_to_retain.include?(data_type)
           retention_log << {
             data_type: data_type,
@@ -300,21 +313,15 @@ module Compliance
         end
       end
 
-      # Anonymize audit logs and payments (legally retained)
-      anonymize_audit_logs(user_id)
-      anonymize_payments(account_id)
-
-      # NOTE (IMP-bf52b4da135b): the user record is anonymized by the
-      # 'profile' branch of the loop ABOVE, which is skipped when the request
-      # retains 'profile'. There used to be an unconditional
-      # `anonymize_user(user_id)` call here as well, and it was wrong twice
-      # over: it anonymized the profile even when the data subject had asked
-      # for it to be RETAINED (the retention_log said "retained" while the
-      # row was anonymized anyway), and on every other request it ran the
-      # same anonymize a second time for no reason. Deleting it makes
-      # data_types_to_retain binding without changing the default path —
-      # 'profile' is in deletable_types, so an un-retained profile is still
-      # anonymized exactly once.
+      # NOTE (IMP-bf52b4da135b, IMP-ca3551dd27be): there used to be
+      # UNCONDITIONAL `anonymize_user`, `anonymize_audit_logs` and
+      # `anonymize_payments` calls here, after the loop. Each one anonymized
+      # its category even when the request RETAINED it (the retention_log
+      # said "retained" — or, for audit_logs/payments, said nothing at all —
+      # while the data was anonymized anyway), and the audit-log/payment ones
+      # were never recorded in the deletion_log. All three categories are
+      # DELETABLE_DATA_TYPES members, so the loop above now handles them:
+      # anonymized exactly once when not retained, untouched when retained.
 
       [deletion_log, retention_log]
     end
@@ -357,14 +364,9 @@ module Compliance
     # There is no /api/v1/internal/data_deletion/:type route — it never
     # existed. Point each real data type at the routed action that already
     # performs it instead of inventing a new generic endpoint (IMP-b33a3ecca331):
-    #   * 'profile'    -> the user anonymize action (idempotent with the
-    #                      unconditional anonymize_user call process_full_deletion
-    #                      already makes after this loop; calling it twice is
-    #                      harmless, not fixing that pre-existing redundancy here)
-    #   * 'audit_logs' -> the user audit-log anonymize action (only reachable via
-    #                      this method for a 'partial' deletion request; 'full'
-    #                      handles it separately, unconditionally, below)
-    #   * 'payments'   -> the account payment anonymize action (same as above)
+    #   * 'profile'    -> the user anonymize action
+    #   * 'audit_logs' -> the user audit-log anonymize action
+    #   * 'payments'   -> the account payment anonymize action
     #   * 'consents'   -> the already-routed user consents delete action
     #   * 'settings' / 'communications' -> the per-user erasure actions added
     #                      in IMP-bf52b4da135b, backed by the users
@@ -495,7 +497,8 @@ module Compliance
         'financial_records' => 'Required for tax and accounting purposes',
         'tax_documents' => 'Required by tax regulations',
         'legal_agreements' => 'Required for contract enforcement',
-        'audit_logs' => 'Required for security and compliance auditing'
+        'audit_logs' => 'Required for security and compliance auditing',
+        'payments' => 'Required for tax and accounting purposes'
       }[data_type] || 'Legal retention requirement'
     end
 
