@@ -32,7 +32,12 @@ RSpec.describe JobsController do
   # #post_stdio itself in Ruby 3, not as a Hash for this positional
   # parameter, and raises a confusing arity error instead of the intended
   # request body.
-  def post_stdio(body, auth: valid_token)
+  #
+  # IMP-f010c9fc7051: every request carries a valid `timeout_seconds` (the
+  # server always sends one) unless a test passes its own — `:omit` drops
+  # the key entirely, for the missing-field case.
+  def post_stdio(body, auth: valid_token, timeout_seconds: 15)
+    body = body.merge(timeout_seconds: timeout_seconds) unless timeout_seconds == :omit
     header 'Authorization', "Bearer #{auth}" if auth
     header 'Content-Type', 'application/json'
     post '/api/v1/mcp/execute_stdio', body.to_json
@@ -60,7 +65,7 @@ RSpec.describe JobsController do
 
     it 'returns {result:} with HTTP 200 on a successful execution' do
       allow_any_instance_of(Mcp::McpTransportClient).to receive(:execute_stdio_request) # rubocop:disable RSpec/AnyInstance
-        .with(server_hash, mcp_request).and_return(success: true, output: { 'ok' => true })
+        .with(server_hash, mcp_request, timeout: 15).and_return(success: true, output: { 'ok' => true })
 
       post_stdio({ account_id: 'acct-1', server: server_hash, mcp_request: mcp_request })
 
@@ -166,6 +171,59 @@ RSpec.describe JobsController do
       expect(last_response.status).to eq(500)
       expect(logged_messages).not_to be_empty
       expect(logged_messages.join("\n")).not_to include('super-secret-value')
+    end
+
+    # IMP-f010c9fc7051 — the synchronous deadline arrives per request from
+    # the server's SiteSetting. It is request-body input under a shared
+    # worker JWT, so it is validated here and REJECTED (not clamped) when
+    # it is anything but a positive Integer within MAX_STDIO_TIMEOUT_SECONDS:
+    # a huge value must never hold a worker slot, and a malformed one means
+    # the caller is broken, which a silent clamp would hide.
+    describe 'timeout_seconds' do
+      it 'hands an in-range timeout to spawn_stdio as its deadline' do
+        success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+        expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, timeout:, **_kwargs|
+          expect(timeout).to eq(7)
+          [ '{"jsonrpc":"2.0","id":"req-1","result":{"ok":true}}', '', success_status ]
+        end
+
+        post_stdio({ account_id: 'acct-1', server: server_hash, mcp_request: mcp_request }, timeout_seconds: 7)
+
+        expect(last_response.status).to eq(200)
+        expect(JSON.parse(last_response.body)).to eq('result' => { 'ok' => true })
+      end
+
+      it 'accepts exactly MAX_STDIO_TIMEOUT_SECONDS' do
+        max = McpSecurityService::MAX_STDIO_TIMEOUT_SECONDS
+        allow_any_instance_of(Mcp::McpTransportClient).to receive(:execute_stdio_request) # rubocop:disable RSpec/AnyInstance
+          .with(server_hash, mcp_request, timeout: max).and_return(success: true, output: {})
+
+        post_stdio({ account_id: 'acct-1', server: server_hash, mcp_request: mcp_request }, timeout_seconds: max)
+
+        expect(last_response.status).to eq(200)
+      end
+
+      [ :omit, nil, '15', 15.0, 15.5, 0, -1, true ].each do |bad|
+        it "refuses with 422, spawning nothing, when timeout_seconds is #{bad == :omit ? 'missing' : bad.inspect}" do
+          expect(McpSecurityService).not_to receive(:spawn_stdio)
+          expect_any_instance_of(Mcp::McpTransportClient).not_to receive(:execute_stdio_request) # rubocop:disable RSpec/AnyInstance
+
+          post_stdio({ account_id: 'acct-1', server: server_hash, mcp_request: mcp_request }, timeout_seconds: bad)
+
+          expect(last_response.status).to eq(422)
+          expect(JSON.parse(last_response.body).to_s).to match(/timeout_seconds/)
+        end
+      end
+
+      it 'refuses with 422, spawning nothing, when timeout_seconds is above MAX_STDIO_TIMEOUT_SECONDS' do
+        expect(McpSecurityService).not_to receive(:spawn_stdio)
+
+        post_stdio({ account_id: 'acct-1', server: server_hash, mcp_request: mcp_request },
+                   timeout_seconds: McpSecurityService::MAX_STDIO_TIMEOUT_SECONDS + 1)
+
+        expect(last_response.status).to eq(422)
+        expect(JSON.parse(last_response.body).to_s).to match(/timeout_seconds/)
+      end
     end
   end
 end

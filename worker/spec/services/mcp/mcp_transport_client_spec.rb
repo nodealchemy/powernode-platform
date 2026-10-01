@@ -429,6 +429,33 @@ RSpec.describe Mcp::McpTransportClient do
       expect(result).to eq(success: true, output: {})
     end
 
+    # IMP-f010c9fc7051 — the synchronous endpoint passes the server's
+    # per-request deadline through; every other caller (the async jobs)
+    # omits it and gets the worker's own constant default.
+    it 'passes an explicit timeout: through to spawn_stdio' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, timeout:, **_kwargs|
+        expect(timeout).to eq(9)
+        [ '{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status ]
+      end
+
+      result = client.execute_stdio_request(server, mcp_request, timeout: 9)
+      expect(result).to eq(success: true, output: {})
+    end
+
+    it 'defaults the deadline to DEFAULT_STDIO_TIMEOUT_SECONDS when the caller passes none' do
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, timeout:, **_kwargs|
+        expect(timeout).to eq(McpSecurityService::DEFAULT_STDIO_TIMEOUT_SECONDS)
+        [ '{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status ]
+      end
+
+      result = client.execute_stdio_request(server, mcp_request)
+      expect(result).to eq(success: true, output: {})
+    end
+
     # IMP-bd260c0b4c00 — the owning account keys the per-account sandbox
     # identity; this is the only place that reads it off the server hash.
     it "passes the server's account_id through to spawn_stdio (string or symbol keyed)" do

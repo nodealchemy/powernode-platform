@@ -327,6 +327,14 @@ class JobsController
   # required; a missing one, or a request account_id that disagrees with
   # it, is refused (422).
   #
+  # `timeout_seconds` (IMP-f010c9fc7051) is the deadline the server's
+  # Mcp::WorkerStdioClient sized its own HTTP read_timeout around, from the
+  # operator's SiteSetting. It is REQUIRED and REFUSED (422), never clamped
+  # or defaulted, unless it is an Integer within
+  # McpSecurityService::MAX_STDIO_TIMEOUT_SECONDS: an oversized value must
+  # not hold a worker thread, and a missing or malformed one means a broken
+  # caller whose server-side read_timeout no longer matches what would run.
+  #
   # McpSecurityService.validate_stdio_server! (invoked inside
   # #execute_stdio_request below) is the REAL security gate here, not
   # defense-in-depth: this action runs a command supplied in the request
@@ -373,8 +381,15 @@ class JobsController
       return error_response(422, 'account_id does not match the MCP server owner')
     end
 
+    timeout_seconds = data['timeout_seconds']
+    unless McpSecurityService.acceptable_stdio_timeout?(timeout_seconds)
+      return error_response(
+        422, "timeout_seconds must be an integer from 1 to #{McpSecurityService::MAX_STDIO_TIMEOUT_SECONDS}"
+      )
+    end
+
     begin
-      result = mcp_transport_client.execute_stdio_request(server, mcp_request)
+      result = mcp_transport_client.execute_stdio_request(server, mcp_request, timeout: timeout_seconds)
 
       if result[:success]
         success_response({ result: result[:output] })

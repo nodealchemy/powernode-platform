@@ -18,8 +18,8 @@ require 'ripper'
 # what both classes still actually share: #validate_stdio_server! and
 # every private helper it calls (SHARED_METHOD_NAMES below), plus the two
 # timeout constants Mcp::WorkerStdioClient still needs
-# (DEFAULT_STDIO_TIMEOUT_SECONDS/STDIO_TERM_GRACE_SECONDS, checked via
-# PARITY_CONSTANTS below like any other shared constant). This is a
+# (STDIO_TERM_GRACE_SECONDS/MAX_STDIO_TIMEOUT_SECONDS, checked via
+# TIMEOUT_PARITY_CONSTANTS below like any other shared constant). This is a
 # NARROWING, not a weakening: every method it used to implicitly compare
 # via the whole-body diff is still compared, just individually by name
 # instead of as one contiguous blob — the only methods dropped from
@@ -87,11 +87,14 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
     # the worker file — everything #validate_stdio_server! calls,
     # directly or transitively, PLUS #validate_command!/#command_allowed?
     # (the other two public entry points sharing the same private argv
-    # helpers) and #stdio_timeout_seconds (kept server-side purely for
-    # Mcp::WorkerStdioClient's read_timeout sizing — see
-    # Mcp::SecurityService's own class comment). Deliberately EXCLUDES
-    # #spawn_stdio, #raise_stdio_timeout!, #terminate_process_group! —
-    # worker-only now, nothing to compare them against.
+    # helpers). Deliberately EXCLUDES #spawn_stdio, #raise_stdio_timeout!,
+    # #terminate_process_group! — worker-only now, nothing to compare them
+    # against. IMP-f010c9fc7051 also dropped #stdio_timeout_seconds: the
+    # two sides no longer resolve the deadline the same way BY DESIGN (the
+    # server reads a SiteSetting and sends it per request; the worker
+    # validates what it receives and keeps its own constant default for
+    # async jobs), so what must still agree is the ceiling, compared as a
+    # value in TIMEOUT_PARITY_CONSTANTS below.
     SHARED_METHOD_NAMES = %w[
       validate_command!
       command_allowed?
@@ -101,7 +104,6 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
       validate_environment!
       validate_stdio_args!
       validate_stdio_server!
-      stdio_timeout_seconds
       build_stdio_env
       tokenize_command
       extract_base_command
@@ -221,10 +223,15 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
   # here would silently break the "server outlasts worker" timeout
   # ordering that class depends on, without touching a single fixture
   # verdict above — checked as plain values, not source text, since both
-  # are simple Integer literals.
+  # are simple Integer literals. IMP-f010c9fc7051: MAX_STDIO_TIMEOUT_SECONDS
+  # is the ceiling the server clamps its configured deadline to and the
+  # worker refuses a request above; if they drifted, an operator setting
+  # between the two would make every synchronous stdio call fail with a
+  # 422. DEFAULT_STDIO_TIMEOUT_SECONDS left the list with it: it is now
+  # the worker's async-job default only, and the server has no copy.
   TIMEOUT_PARITY_CONSTANTS = %w[
-    DEFAULT_STDIO_TIMEOUT_SECONDS
     STDIO_TERM_GRACE_SECONDS
+    MAX_STDIO_TIMEOUT_SECONDS
   ].freeze
 
   describe 'constants' do

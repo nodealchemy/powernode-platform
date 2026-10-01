@@ -587,9 +587,19 @@ class McpSecurityService
   # (write stdin, read stdout+stderr to EOF, exit). Mcp::McpTransportClient
   # and every worker job here spawn through #spawn_stdio synchronously
   # (job thread) — without a deadline, a hung MCP child pins that thread
-  # forever. Configurable via MCP_STDIO_TIMEOUT_SECONDS (see
-  # .stdio_timeout_seconds below) — this is only the fallback when unset.
+  # forever. IMP-f010c9fc7051: this is the default for every caller that
+  # does not pass `timeout:` (the async jobs). The synchronous
+  # /api/v1/mcp/execute_stdio path receives the server's configured
+  # deadline per request instead (JobsController, bounded by
+  # MAX_STDIO_TIMEOUT_SECONDS below).
   DEFAULT_STDIO_TIMEOUT_SECONDS = 30
+
+  # IMP-f010c9fc7051 — the largest per-request deadline
+  # /api/v1/mcp/execute_stdio accepts; JobsController refuses anything
+  # above it (422), so a request body can never hold a worker thread
+  # longer than this. Parity-spec-verified identical to the server's
+  # copy, which clamps its configured deadline to it.
+  MAX_STDIO_TIMEOUT_SECONDS = 60
 
   # Grace period between SIGTERM and SIGKILL when a deadline expires —
   # gives a well-behaved child a chance to exit cleanly before the harder
@@ -679,8 +689,8 @@ class McpSecurityService
 
   # Resource limits applied to every sandboxed stdio MCP child — ENV-
   # overridable, each with a documented default (see worker/.env.example),
-  # evaluated fresh (not memoized) like .stdio_timeout_seconds, so a
-  # config change takes effect without a restart.
+  # evaluated fresh (not memoized) like .sandbox_mode, so a config change
+  # takes effect without a restart.
   DEFAULT_SANDBOX_MEMORY_MAX = '512M'
   DEFAULT_SANDBOX_TASKS_MAX = '64'
   DEFAULT_SANDBOX_CPU_QUOTA = '200%'
@@ -945,7 +955,7 @@ class McpSecurityService
     # @raise [StdioTimeoutError] if the child doesn't finish within `timeout`
     # @raise [SandboxUnavailableError] if mode is "required" and sandboxing isn't possible
     # @raise [SandboxAccountRequiredError] if sandboxed and account_id is nil/blank
-    def spawn_stdio(command, env, args, stdin_data:, timeout: stdio_timeout_seconds, allow_network: false,
+    def spawn_stdio(command, env, args, stdin_data:, timeout: DEFAULT_STDIO_TIMEOUT_SECONDS, allow_network: false,
                      egress_allowlist: [], mcp_server_id: nil, account_id: nil)
       require 'open3'
 
@@ -1095,20 +1105,16 @@ class McpSecurityService
       "#{SANDBOX_IDENTITY_PREFIX}#{Digest::SHA256.hexdigest(normalized)[0, SANDBOX_IDENTITY_HEX_LENGTH]}"
     end
 
-    # Resolves the deadline from config — MCP_STDIO_TIMEOUT_SECONDS if set
-    # to a valid positive integer, else DEFAULT_STDIO_TIMEOUT_SECONDS. This
-    # is #spawn_stdio's own default `timeout:` value, evaluated fresh on
-    # every call rather than memoized — one source of truth instead of
-    # each call site (three on the server, four here) resolving and
-    # hardcoding its own number.
-    def stdio_timeout_seconds
-      value = Integer(ENV['MCP_STDIO_TIMEOUT_SECONDS'], exception: false)
-      value&.positive? ? value : DEFAULT_STDIO_TIMEOUT_SECONDS
+    # IMP-f010c9fc7051 — true only for a deadline JobsController may hand
+    # to #spawn_stdio from a request body: an Integer (not a numeric
+    # string, a Float or a boolean) in 1..MAX_STDIO_TIMEOUT_SECONDS.
+    def acceptable_stdio_timeout?(value)
+      value.is_a?(Integer) && value.between?(1, MAX_STDIO_TIMEOUT_SECONDS)
     end
 
     # Resolves MCP_STDIO_SANDBOX_MODE — "required" (default), "available"
     # or "off" (see SANDBOX_MODES above). Evaluated fresh on every call,
-    # never memoized, same reasoning as #stdio_timeout_seconds. An unknown
+    # never memoized, so a config change takes effect without a restart. An unknown
     # value (typo, unset-but-non-blank) falls back to DEFAULT_SANDBOX_MODE
     # rather than silently matching neither branch below — this is a
     # fail-closed setting, so an unrecognized value must not be treated as

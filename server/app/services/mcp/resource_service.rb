@@ -164,7 +164,8 @@ module Mcp
       return { error: { message: "Security error: #{e.message}" } }
     end
 
-    Mcp::WorkerStdioClient.execute(account_id: @account.id, server: server_hash, mcp_request: request)
+    Mcp::WorkerStdioClient.execute(account_id: @account.id, server: server_hash, mcp_request: request,
+                                   timeout: Mcp::WorkerStdioClient.timeout_seconds)
   end
 
   def send_websocket_request(request)

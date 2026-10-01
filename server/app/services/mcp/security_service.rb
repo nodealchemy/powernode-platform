@@ -33,12 +33,12 @@ require 'shellwords'
 # before it ever spawns anything — this file's validation is a fast local
 # refusal, never the only gate.
 #
-# stdio_timeout_seconds/DEFAULT_STDIO_TIMEOUT_SECONDS/
-# STDIO_TERM_GRACE_SECONDS are KEPT here (even though nothing spawns
-# server-side anymore) because Mcp::WorkerStdioClient needs the SAME
-# numbers to size its own HTTP read_timeout so the server never gives up
-# on the worker before the worker's own deadline+grace would have — see
-# that file's comment.
+# STDIO_TERM_GRACE_SECONDS/MAX_STDIO_TIMEOUT_SECONDS are KEPT here (even
+# though nothing spawns server-side anymore) because Mcp::WorkerStdioClient
+# needs the SAME numbers: the grace to size its own HTTP read_timeout so
+# the server never gives up on the worker before the worker's own
+# deadline+grace would have, and the ceiling to clamp the configured
+# deadline to before the worker would refuse it — see that file's comment.
 #
 # KEPT IN SYNC BY A PARITY SPEC: spec/services/mcp/security_service_parity_spec.rb
 # `require`s the worker class by relative path (spec-only — the two apps
@@ -47,8 +47,8 @@ require 'shellwords'
 # refuse, plus returned argv/env) over one shared adversarial fixture
 # table, AND identical normalized source for every method/constant this
 # file still shares with the worker (validate_stdio_server! and its
-# private helpers, plus the three timeout constants/stdio_timeout_seconds
-# above). It does NOT compare #spawn_stdio or its own private helpers
+# private helpers, plus the two timeout constants above). It does NOT
+# compare #spawn_stdio or its own private helpers
 # (raise_stdio_timeout!/terminate_process_group!) or StdioTimeoutError —
 # those exist ONLY on the worker now; there is nothing here to diverge
 # from them any more.
@@ -511,26 +511,22 @@ module Mcp
   # doesn't model, so it stays fully, conservatively scanned as before.
   STOP_AT_FIRST_POSITIONAL_INTERPRETERS = %w[node bun ruby python python3].freeze
 
-  # IMP-4689ce5a4acb — deadline for a stdio MCP child's full round trip
-  # (write stdin, read stdout+stderr to EOF, exit), enforced by the
-  # WORKER's own #spawn_stdio (IMP-abda86fb39be moved execution there).
-  # Kept here, identically to the worker's copy (see the class comment
-  # above), purely so Mcp::WorkerStdioClient can size its own HTTP
-  # read_timeout around the SAME number the worker will actually enforce,
-  # without a network round trip just to ask. Configurable via
-  # MCP_STDIO_TIMEOUT_SECONDS (see .stdio_timeout_seconds below) — this is
-  # only the fallback when unset.
-  DEFAULT_STDIO_TIMEOUT_SECONDS = 30
-
   # Grace period between SIGTERM and SIGKILL when the worker's own
   # deadline expires — gives a well-behaved child a chance to exit cleanly
-  # before the harder signal. Kept here for the same reason as
-  # DEFAULT_STDIO_TIMEOUT_SECONDS above: Mcp::WorkerStdioClient's
-  # read_timeout must outlast stdio_timeout_seconds + this grace (+ a
+  # before the harder signal. Kept here, identically to the worker's copy
+  # (see the class comment above), because Mcp::WorkerStdioClient's
+  # read_timeout must outlast the deadline it sends + this grace (+ a
   # margin) or the SERVER gives up on the worker before the worker gives
   # up on the child, and the operator sees "worker timeout" instead of the
   # real error.
   STDIO_TERM_GRACE_SECONDS = 2
+
+  # IMP-f010c9fc7051 — the largest per-request deadline the worker's
+  # /api/v1/mcp/execute_stdio accepts (it refuses anything above with a
+  # 422). Kept here, identically to the worker's copy, so
+  # Mcp::WorkerStdioClient can clamp the operator's configured deadline to
+  # it instead of sending a value the worker will refuse.
+  MAX_STDIO_TIMEOUT_SECONDS = 60
 
   class << self
     # Validate a command against the whitelist. `command` may be a single
@@ -673,20 +669,6 @@ module Mcp
       final_env = build_stdio_env(env, strict_env: strict_env)
 
       [base_command, final_env, combined_args]
-    end
-
-    # Resolves the deadline from config — MCP_STDIO_TIMEOUT_SECONDS if set
-    # to a valid positive integer, else DEFAULT_STDIO_TIMEOUT_SECONDS.
-    # IMP-abda86fb39be: this file no longer spawns anything itself — the
-    # WORKER's own McpSecurityService.spawn_stdio is what actually applies
-    # this as its `timeout:` default. This copy exists so
-    # Mcp::WorkerStdioClient can compute its HTTP read_timeout around the
-    # SAME number the worker will enforce, evaluated fresh on every call
-    # (never memoized) so an ENV change takes effect without a restart on
-    # either side, same as before.
-    def stdio_timeout_seconds
-      value = Integer(ENV['MCP_STDIO_TIMEOUT_SECONDS'], exception: false)
-      value&.positive? ? value : DEFAULT_STDIO_TIMEOUT_SECONDS
     end
 
     private

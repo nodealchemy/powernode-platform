@@ -98,7 +98,8 @@ module Mcp
 
     @logger.debug "[McpSyncExecutionService] Executing stdio command: #{@server.command}"
 
-    response = Mcp::WorkerStdioClient.execute(account_id: @account.id, server: server_hash, mcp_request: mcp_request)
+    response = Mcp::WorkerStdioClient.execute(account_id: @account.id, server: server_hash, mcp_request: mcp_request,
+                                              timeout: Mcp::WorkerStdioClient.timeout_seconds)
 
     if response[:error]
       { success: false, error: response[:error][:message] || response[:error]["message"] }

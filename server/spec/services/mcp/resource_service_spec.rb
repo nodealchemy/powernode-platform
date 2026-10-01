@@ -47,7 +47,13 @@ RSpec.describe Mcp::ResourceService do
       # for real by worker_stdio_client_spec.rb and the worker's own specs;
       # this test only cares what THIS call site passes in and does with
       # what comes back.
-      expect(Mcp::WorkerStdioClient).to receive(:execute) do |account_id:, server:, mcp_request:|
+      # IMP-f010c9fc7051 — the deadline is the operator's SiteSetting,
+      # passed per call, not whatever the worker happens to default to.
+      allow(::SiteSetting).to receive(:get).and_call_original
+      allow(::SiteSetting).to receive(:get).with(Mcp::WorkerStdioClient::TIMEOUT_SETTING).and_return(7)
+
+      expect(Mcp::WorkerStdioClient).to receive(:execute) do |account_id:, server:, mcp_request:, timeout:|
+        expect(timeout).to eq(7)
         expect(account_id).to eq(account.id)
         expect(server['account_id']).to eq(account.id) # the server's owner keys the sandbox identity
         expect(server['command']).to eq('node')
@@ -72,7 +78,7 @@ RSpec.describe Mcp::ResourceService do
       owned_server = create(:mcp_server, account: owner, connection_type: 'stdio', command: 'node', args: [ 'server.js' ], env: {})
       caller_service = described_class.new(server: owned_server, account: account)
 
-      expect(Mcp::WorkerStdioClient).to receive(:execute) do |account_id:, server:, mcp_request:|
+      expect(Mcp::WorkerStdioClient).to receive(:execute) do |account_id:, server:, mcp_request:, **_kwargs|
         expect(account_id).to eq(account.id)                # the caller
         expect(server['account_id']).to eq(owner.id)        # the owner keys the identity
         expect(server['account_id']).not_to eq(account_id)

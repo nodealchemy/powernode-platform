@@ -48,6 +48,20 @@ module Mcp
   # "worker unreachable" case couldn't previously occur) — there is no
   # pre-existing shape to preserve for it beyond that generic catch-all.
   class WorkerStdioClient
+    # IMP-f010c9fc7051 — the stdio deadline for THIS synchronous path is
+    # DB-driven config, read per call (so a change needs no restart), with
+    # DEFAULT_TIMEOUT_SECONDS as the fallback, the same unseeded-key pattern
+    # as Mcp::ToolCatalog's description limit. Every caller here is a Puma
+    # request thread (the prompts/resources controllers, a synchronous tool
+    # call), held for deadline + TERM grace + READ_TIMEOUT_MARGIN_SECONDS
+    # in the worst case. The default is therefore 15s, a 22s worst-case
+    # hold on a 16-thread pool, against the 37s the old shared 30s default
+    # cost. The worker's async jobs keep their own longer default. A
+    # cold package fetch (each request spawns the child fresh) is the
+    # realistic slow case; that is what the setting lets an operator raise.
+    TIMEOUT_SETTING = "mcp.stdio.timeout_seconds"
+    DEFAULT_TIMEOUT_SECONDS = 15
+
     # Headroom on top of the worker's own deadline+grace (below) for the
     # worker's own HTTP request/response overhead (JSON parse, Rack
     # dispatch, network latency) — NOT part of the deadline math itself,
@@ -56,43 +70,50 @@ module Mcp
     OPEN_TIMEOUT_SECONDS = 10
 
     class << self
-      def execute(account_id:, server:, mcp_request:)
-        transport.post('/api/v1/mcp/execute_stdio', {
+      # `timeout:` is the deadline the worker enforces on the child, sent in
+      # the request body; the worker refuses one it does not accept (see
+      # Mcp::SecurityService::MAX_STDIO_TIMEOUT_SECONDS). Required, so every
+      # call site states it — normally .timeout_seconds below.
+      def execute(account_id:, server:, mcp_request:, timeout:)
+        transport(timeout).post("/api/v1/mcp/execute_stdio", {
           account_id: account_id,
           server: server,
-          mcp_request: mcp_request
+          mcp_request: mcp_request,
+          timeout_seconds: timeout
         }).deep_symbolize_keys
+      end
+
+      # The operator-configured deadline. Anything but a positive decimal
+      # integer (a fraction, a boolean, "010" read as octal) is ignored for
+      # the default rather than honoured; a value above the worker's
+      # ceiling is clamped to it, since the worker would refuse it outright.
+      def timeout_seconds
+        value = Integer(::SiteSetting.get(TIMEOUT_SETTING).to_s, 10, exception: false)
+        return DEFAULT_TIMEOUT_SECONDS unless value&.positive?
+
+        [ value, Mcp::SecurityService::MAX_STDIO_TIMEOUT_SECONDS ].min
       end
 
       private
 
       # Not memoized: WorkerTransport re-resolves
-      # Rails.application.config.worker_url on every .new, and
-      # #read_timeout below re-reads MCP_STDIO_TIMEOUT_SECONDS on every
-      # call (via Mcp::SecurityService.stdio_timeout_seconds, itself never
-      # memoized) — a memoized transport would freeze a stale timeout if
-      # the ENV var changes without a restart.
-      def transport
-        WorkerTransport.new(open_timeout: OPEN_TIMEOUT_SECONDS, read_timeout: read_timeout)
+      # Rails.application.config.worker_url on every .new, and its
+      # read_timeout follows each call's own deadline.
+      def transport(timeout)
+        WorkerTransport.new(open_timeout: OPEN_TIMEOUT_SECONDS, read_timeout: read_timeout(timeout))
       end
 
-      # MUST exceed the worker's own spawn_stdio deadline
-      # (Mcp::SecurityService.stdio_timeout_seconds) plus its TERM->KILL
-      # grace (Mcp::SecurityService::STDIO_TERM_GRACE_SECONDS) — otherwise
-      # the SERVER gives up on the HTTP call before the WORKER gives up on
-      # the child, and the operator sees a generic
-      # WorkerTransport::TimeoutError ("worker timeout") instead of the
-      # worker's own precise StdioTimeoutError message. The GRACE constant
-      # is parity-spec-verified identical between the two apps, but the
-      # DEADLINE (stdio_timeout_seconds) reads MCP_STDIO_TIMEOUT_SECONDS
-      # from THIS process's own ENV — a parity spec run in one process
-      # cannot see the other's live ENV. This sum is only exact when the
-      # operator has actually set the SAME MCP_STDIO_TIMEOUT_SECONDS value
-      # on both the server and the worker (see server/.env.example and
-      # worker/.env.example) — a mismatch here is a deployment error, not
-      # something this code can detect or correct for on its own.
-      def read_timeout
-        Mcp::SecurityService.stdio_timeout_seconds +
+      # MUST exceed the deadline the worker is told to enforce plus its
+      # TERM->KILL grace (Mcp::SecurityService::STDIO_TERM_GRACE_SECONDS,
+      # parity-spec-verified identical to the worker's) — otherwise the
+      # SERVER gives up on the HTTP call before the WORKER gives up on the
+      # child, and the operator sees a generic WorkerTransport::TimeoutError
+      # ("worker timeout") instead of the worker's own precise
+      # StdioTimeoutError message. Both ends now use the same per-call
+      # number, so they cannot disagree the way two separately set ENV
+      # values could.
+      def read_timeout(timeout)
+        timeout +
           Mcp::SecurityService::STDIO_TERM_GRACE_SECONDS +
           READ_TIMEOUT_MARGIN_SECONDS
       end

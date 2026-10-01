@@ -56,8 +56,10 @@ module Mcp
     # can share the SAME validate/spawn/parse path an async tool execution
     # already used, instead of a second hand-rolled copy. `mcp_request` is
     # the full, already-framed JSON-RPC envelope — this method is
-    # deliberately agnostic to which MCP method it carries.
-    def execute_stdio_request(server, mcp_request)
+    # deliberately agnostic to which MCP method it carries. `timeout:` is
+    # the synchronous endpoint's per-request deadline (IMP-f010c9fc7051,
+    # already bounds-checked there); the async jobs omit it.
+    def execute_stdio_request(server, mcp_request, timeout: McpSecurityService::DEFAULT_STDIO_TIMEOUT_SECONDS)
       # Security validation - command whitelist, environment sanitization
       # and argument validation, shared with McpServerConnectionJob,
       # McpServerHealthCheckJob and McpToolDiscoveryJob via
@@ -104,7 +106,7 @@ module Mcp
         # exec form + unsetenv_others: true — IMP-97b6b1185748 item 1,
         # IMP-e2cba83ee39f) — never call Open3.capture3 directly here.
         stdout, stderr, status = McpSecurityService.spawn_stdio(
-          command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network,
+          command, sanitized_env, args, stdin_data: stdin_data, timeout: timeout, allow_network: allow_network,
                                          egress_allowlist: egress_allowlist,
                                          mcp_server_id: indifferent_server['id'],
                                          account_id: indifferent_server['account_id']
