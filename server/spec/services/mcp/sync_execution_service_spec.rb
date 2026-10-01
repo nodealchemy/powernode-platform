@@ -131,5 +131,24 @@ RSpec.describe Mcp::SyncExecutionService do
       expect(result[:error]).to match(/Connection refused/)
       expect(result[:execution_time_ms]).to be_a(Integer)
     end
+
+    # IMP-ecc0e18c0455: worker-web refuses the call over its concurrency
+    # cap with 503 + {error:{message:,code:}}. Through the REAL
+    # Mcp::WorkerStdioClient (only the HTTP hop is stubbed), the caller
+    # sees the worker's own message, not "Worker returned HTTP 503", and
+    # the worker is asked once.
+    it 'surfaces a worker capacity refusal as its own clear error, asking the worker once' do
+      allow(WorkerJobService).to receive(:system_worker_jwt).and_return('test-jwt')
+      stub = stub_request(:post, "#{Rails.application.config.worker_url.chomp('/')}/api/v1/mcp/execute_stdio")
+        .to_return(status: 503, body: { 'error' => { 'message' => 'MCP stdio capacity exhausted',
+                                                       'code' => 'mcp_stdio_capacity_exhausted' } }.to_json)
+
+      result = service.execute
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to eq('MCP stdio capacity exhausted')
+      expect(result[:execution_time_ms]).to be_a(Integer)
+      expect(stub).to have_been_requested.once
+    end
   end
 end

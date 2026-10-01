@@ -47,6 +47,17 @@ module Mcp
   # genuinely NEW failure mode (execution used to be in-process, so a
   # "worker unreachable" case couldn't previously occur) — there is no
   # pre-existing shape to preserve for it beyond that generic catch-all.
+  #
+  # ONE non-2xx response IS translated (IMP-ecc0e18c0455): worker-web caps
+  # how many of these executions run at once and refuses the call over the
+  # cap, immediately, with HTTP 503 and an `{error:{message:,code:}}` body
+  # whose code is CAPACITY_REFUSAL_CODE. Nothing
+  # ran and nothing is broken, so it is returned as the ordinary `:error`
+  # result carrying the worker's own message ("MCP stdio capacity
+  # exhausted"), which every call site already surfaces. Left to propagate
+  # it would read "Worker returned HTTP 503". It is never retried here (a
+  # retry is exactly the load the cap is shedding) and it is not a timeout.
+  # A model that is handed the error as a tool result may still call again.
   class WorkerStdioClient
     # IMP-f010c9fc7051 — the stdio deadline for THIS synchronous path is
     # DB-driven config, read per call (so a change needs no restart), with
@@ -69,6 +80,12 @@ module Mcp
     READ_TIMEOUT_MARGIN_SECONDS = 5
     OPEN_TIMEOUT_SECONDS = 10
 
+    # How worker-web's JobsController marks a capacity refusal: this status
+    # with this `error.code` (JobsController::STDIO_CAPACITY_EXHAUSTED_CODE,
+    # held identical by this class's spec).
+    CAPACITY_REFUSAL_STATUS = 503
+    CAPACITY_REFUSAL_CODE = "mcp_stdio_capacity_exhausted"
+
     class << self
       # `timeout:` is the deadline the worker enforces on the child, sent in
       # the request body; the worker refuses one it does not accept (see
@@ -81,6 +98,12 @@ module Mcp
           mcp_request: mcp_request,
           timeout_seconds: timeout
         }).deep_symbolize_keys
+      rescue WorkerTransport::HttpError => e
+        message = capacity_refusal_message(e)
+        raise unless message
+
+        Rails.logger.warn "[Mcp::WorkerStdioClient] worker refused stdio execution: #{message}"
+        { error: { message: message } }
       end
 
       # The operator-configured deadline. Anything but a positive decimal
@@ -95,6 +118,23 @@ module Mcp
       end
 
       private
+
+      # The worker's refusal message, or nil when this failure is not one.
+      # Keyed on the status AND the worker's own code together: a 503 from
+      # anything in front of the worker (a proxy with the worker down),
+      # even one with a JSON `{error:{message:}}` page, and the worker's
+      # own plain `{error: "text"}` errors must all keep raising as
+      # transport failures.
+      def capacity_refusal_message(http_error)
+        return nil unless http_error.status == CAPACITY_REFUSAL_STATUS
+        return nil unless http_error.parsed.is_a?(Hash)
+
+        error = http_error.parsed["error"]
+        return nil unless error.is_a?(Hash) && error["code"] == CAPACITY_REFUSAL_CODE
+
+        message = error["message"]
+        message.is_a?(String) && message.present? ? message : "MCP stdio capacity exhausted"
+      end
 
       # Not memoized: WorkerTransport re-resolves
       # Rails.application.config.worker_url on every .new, and its

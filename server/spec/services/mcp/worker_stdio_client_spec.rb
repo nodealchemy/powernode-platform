@@ -40,6 +40,86 @@ RSpec.describe Mcp::WorkerStdioClient do
       end.to raise_error(WorkerTransport::HttpError)
     end
 
+    # IMP-ecc0e18c0455 — worker-web caps concurrent stdio executions and
+    # refuses the one over the cap with 503 + {error:{message:,code:}}. That is a
+    # domain-level outcome (nothing ran; nothing is broken), so it comes
+    # back in the ordinary error shape with the worker's own message, never
+    # as the opaque "Worker returned HTTP 503" and never as a timeout.
+    describe 'a capacity refusal from the worker (503 with an error message body)' do
+      let(:refusal_body) do
+        { 'error' => { 'message' => 'MCP stdio capacity exhausted', 'code' => 'mcp_stdio_capacity_exhausted' } }.to_json
+      end
+
+      # The worker is a separate app, so the shared literals are held
+      # identical by reading its source, as security_service_parity_spec does.
+      it "recognises exactly the code and status the worker's JobsController sends" do
+        source = Rails.root.join('..', 'worker', 'app', 'controllers', 'jobs_controller.rb').read
+
+        expect(source).to include("STDIO_CAPACITY_EXHAUSTED_CODE = '#{described_class::CAPACITY_REFUSAL_CODE}'")
+        expect(source).to match(/def stdio_capacity_exhausted_response.*?\[ #{described_class::CAPACITY_REFUSAL_STATUS},\n/m)
+      end
+
+      it 'still reports the refusal when the worker sends the code without a usable message' do
+        stub_request(:post, "#{worker_url}/api/v1/mcp/execute_stdio")
+          .to_return(status: 503, body: { 'error' => { 'code' => 'mcp_stdio_capacity_exhausted' } }.to_json)
+
+        response = described_class.execute(account_id: account.id, server: server_hash, mcp_request: mcp_request, timeout: 12)
+
+        expect(response).to eq(error: { message: 'MCP stdio capacity exhausted' })
+      end
+
+      it "returns the worker's message in the {error:{message:}} shape instead of raising" do
+        stub_request(:post, "#{worker_url}/api/v1/mcp/execute_stdio").to_return(status: 503, body: refusal_body)
+
+        response = described_class.execute(account_id: account.id, server: server_hash, mcp_request: mcp_request, timeout: 12)
+
+        expect(response).to eq(error: { message: 'MCP stdio capacity exhausted' })
+      end
+
+      it 'asks the worker exactly once: a refusal is never retried' do
+        stub = stub_request(:post, "#{worker_url}/api/v1/mcp/execute_stdio").to_return(status: 503, body: refusal_body)
+
+        described_class.execute(account_id: account.id, server: server_hash, mcp_request: mcp_request, timeout: 12)
+
+        expect(stub).to have_been_requested.once
+      end
+
+      it 'logs the refusal as a warning, with the message only' do
+        stub_request(:post, "#{worker_url}/api/v1/mcp/execute_stdio").to_return(status: 503, body: refusal_body)
+        allow(Rails.logger).to receive(:warn)
+        secret_server = server_hash.merge('env' => { 'API_TOKEN' => 'super-secret-value' })
+
+        described_class.execute(account_id: account.id, server: secret_server, mcp_request: mcp_request, timeout: 12)
+
+        expect(Rails.logger).to have_received(:warn).with(/MCP stdio capacity exhausted/).once
+        expect(Rails.logger).not_to have_received(:warn).with(/super-secret-value/)
+      end
+    end
+
+    # Only that status with that code is a refusal. A 503 from anything in
+    # front of the worker (a proxy with the worker down, even one with a
+    # JSON error page of the same shape) or any other status keeps
+    # propagating as the transport failure it is.
+    {
+      'a 503 with a non-JSON body' => [ 503, 'Service Unavailable' ],
+      'a 503 with an empty body' => [ 503, '' ],
+      "a 503 in the worker's plain error shape" => [ 503, { 'error' => 'down', 'timestamp' => 'now' }.to_json ],
+      'a 503 with another code' => [ 503, { 'error' => { 'message' => 'x', 'code' => 'x' } }.to_json ],
+      'a 503 {error:{message:}} page with no code' => [ 503, { 'error' => { 'message' => 'upstream unavailable' } }.to_json ],
+      'a 503 with the refusal message but no code' => [ 503, { 'error' => { 'message' => 'MCP stdio capacity exhausted' } }.to_json ],
+      'a 503 whose body is a JSON array' => [ 503, [ { 'error' => { 'code' => 'mcp_stdio_capacity_exhausted' } } ].to_json ],
+      'a 500 with the refusal body' => [ 500, { 'error' => { 'message' => 'x', 'code' => 'mcp_stdio_capacity_exhausted' } }.to_json ],
+      'a 429 with the refusal body' => [ 429, { 'error' => { 'message' => 'x', 'code' => 'mcp_stdio_capacity_exhausted' } }.to_json ]
+    }.each do |label, (status, body)|
+      it "still raises WorkerTransport::HttpError for #{label}" do
+        stub_request(:post, "#{worker_url}/api/v1/mcp/execute_stdio").to_return(status: status, body: body)
+
+        expect do
+          described_class.execute(account_id: account.id, server: server_hash, mcp_request: mcp_request, timeout: 12)
+        end.to raise_error(WorkerTransport::HttpError) { |e| expect(e.status).to eq(status) }
+      end
+    end
+
     it 'lets an unreachable worker propagate as WorkerTransport::ConnectionError' do
       stub_request(:post, "#{worker_url}/api/v1/mcp/execute_stdio").to_raise(Errno::ECONNREFUSED)
 
