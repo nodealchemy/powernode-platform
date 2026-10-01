@@ -166,7 +166,6 @@ class McpSecurityService
     TZ
     NODE_ENV
     RUBY_VERSION
-    XDG_CONFIG_HOME
     XDG_DATA_HOME
     XDG_CACHE_HOME
     TMPDIR
@@ -696,7 +695,18 @@ class McpSecurityService
   PACKAGE_MANAGER_ENTRY_BASENAMES = %w[
     npx-cli.js npm-cli.js npm npx corepack pnpm yarn yarn.js gem bundle bundler pip pip3 pipx uv uvx
   ].freeze
-  PACKAGE_MANAGER_ENTRY_PATH_PATTERN = %r{/node_modules/(npm|corepack|pnpm|yarn)/}.freeze
+  # Round 2: the python package managers' module entry points
+  # (`python3 .../dist-packages/pip/__main__.py install x`) and bundler's
+  # exe directory inside a gems tree (a real install location —
+  # /usr/local/lib/ruby/gems/<v>/gems/bundler-<v>/exe/bundle). RubyGems'
+  # own lib directory is NOT listed: nothing under it is runnable as a
+  # program (running gem_runner.rb does nothing); the `gem` program is a
+  # bin/ script, caught by basename.
+  PACKAGE_MANAGER_ENTRY_PATH_PATTERN = %r{
+    /node_modules/(npm|corepack|pnpm|yarn)/ |
+    /(site|dist)-packages/(pip|pipx|uv|setuptools)/ |
+    /gems/bundler-[^/]+/exe/
+  }x.freeze
 
   # Per-launcher option grammar for #package_launcher_pin_violation:
   #   boolean_flags  — take no value.
@@ -975,8 +985,11 @@ class McpSecurityService
       return unless rules
 
       positional_index, ambiguous = scan_interpreter_flags!(args, rules, interpreter)
-      raise_on_bun_shell_script!(args, positional_index, ambiguous) if interpreter == 'bun'
+      # Round 2: the entry-point denylist runs BEFORE bun's script-name rule
+      # so `bun -- <entry>` is refused as what it is (bun's rule would refuse
+      # the "--" token as a non-path script name and hide the entry point).
       raise_on_package_manager_entry!(command, args)
+      raise_on_bun_shell_script!(args, positional_index, ambiguous) if interpreter == 'bun'
     end
 
     # IMP-2c760325c102 — the SAVE-time face of package-launcher pinning
@@ -2542,13 +2555,7 @@ class McpSecurityService
 
     def raise_unless_path_like!(flag_label, value)
       if stdio_arg_looks_like_path?(value)
-        if package_manager_entry?(value)
-          raise CommandNotAllowedError.new(
-            "Argument '#{flag_label}' loads a package manager entry point (#{value.inspect}) and is not allowed for " \
-            'stdio MCP servers',
-            rule: 'package_manager_entry', arg_index: nil
-          )
-        end
+        package_manager_entry_guard!(value, position: "#{flag_label} value", arg_index: nil)
         return
       end
 
@@ -2731,7 +2738,10 @@ class McpSecurityService
     # never a bare interpreter name (`uv run python ...` would hand uv's
     # managed interpreter whatever follows).
     def raise_unless_local_script!(launcher, positional, arg_index)
-      return if stdio_arg_looks_like_path?(positional)
+      if stdio_arg_looks_like_path?(positional)
+        package_manager_entry_guard!(positional, position: "#{launcher} script", arg_index: arg_index)
+        return
+      end
 
       raise CommandNotAllowedError.new(
         "#{launcher}: #{positional.inspect} must be a local path (./server.py, /opt/app/server.py) for stdio MCP " \
@@ -2817,9 +2827,10 @@ class McpSecurityService
         value = arg
         if arg.start_with?('-') && arg.include?('=')
           value = arg.split('=', 2).last
-          if value.match?(%r{\Ahttps?://}i)
+          if value.match?(%r{\A(https?:|data:)}i)
             raise CommandNotAllowedError.new(
-              "deno: #{arg.split('=', 2).first} points at a remote URL, which is not allowed for stdio MCP servers",
+              "deno: #{arg.split('=', 2).first} points at a remote URL or an inline data: URL, which is not allowed " \
+              'for stdio MCP servers',
               rule: 'deno_remote_flag_value', arg_index: index
             )
           end
@@ -2876,53 +2887,98 @@ class McpSecurityService
         "Write it as #{shape}; #{refused} are refused."
     end
 
-    # Round 1 blocker 1 — see PACKAGE_MANAGER_ENTRY_BASENAMES. Checks every
-    # script-like value the interpreter would EXECUTE: for the
-    # stop-at-first-positional interpreters their first positional (every
-    # non-option token when the scan was ambiguous and the positional could
-    # not be told apart from an option's value); for deno and bun every
-    # non-option token (their subcommand grammar is not modelled past the
-    # subcommand). -r/--require/--import values are checked where they are
-    # accepted (#raise_unless_path_like!). Runs its own scan so the
-    # save-time gate (#package_pin_violation) holds the same line as the
+    # Round 1 blocker 1, restructured in round 2 — see
+    # PACKAGE_MANAGER_ENTRY_BASENAMES. Every argv value the interpreter would
+    # EXECUTE goes through #package_manager_entry_guard!, the ONE place the
+    # denylist is applied: the positions #executable_argv_positions
+    # enumerates here (the first positional, the token after "--", and every
+    # non-option token plus every attached path-like option value when the
+    # scan could not tell the positional apart from an option's value), the
+    # path-taking flag values as the flag scan meets them
+    # (#raise_unless_path_like!: -r/--require/--import, separate or
+    # attached), and a launcher's script positional
+    # (#raise_unless_local_script!: `uv run <path>`). Runs its own scan so
+    # the save-time gate (#package_pin_violation) holds the same line as the
     # spawn-time one (#validate_stdio_args!).
     def raise_on_package_manager_entry!(base_command, args)
       interpreter = interpreter_key_for(base_command)
       return unless interpreter
 
       args = Array(args).map(&:to_s)
-      package_manager_entry_candidates(interpreter, args).each do |index|
-        next unless package_manager_entry?(args[index])
-
-        raise CommandNotAllowedError.new(
-          "#{interpreter}: #{args[index].inspect} is a package manager entry point and is not allowed for stdio " \
-          'MCP servers (a package manager run through its interpreter is the same unpinned registry fetch the ' \
-          'launcher rule refuses — spawn the server package directly, pinned)',
-          rule: 'package_manager_entry', arg_index: index
-        )
+      executable_argv_positions(interpreter, args).each do |index, value|
+        package_manager_entry_guard!(value, position: "#{interpreter} script", arg_index: index)
       end
       nil
     end
 
-    # @return [Array<Integer>] indexes into `args` of the tokens to check
-    def package_manager_entry_candidates(interpreter, args)
-      non_option_indexes = args.each_index.reject { |i| args[i].start_with?('-') }
-      return non_option_indexes if interpreter == 'deno' || interpreter == 'bun'
+    # The denylist itself. `position` says where the value sat (message
+    # only); the rule name and the index are what the audit row keeps.
+    def package_manager_entry_guard!(value, position:, arg_index:)
+      return unless package_manager_entry?(value)
+
+      raise CommandNotAllowedError.new(
+        "#{position} #{value.inspect} is a package manager entry point and is not allowed for stdio MCP servers " \
+        '(a package manager run through its interpreter is the same unpinned registry fetch the launcher rule ' \
+        'refuses — spawn the server package directly, pinned)',
+        rule: 'package_manager_entry', arg_index: arg_index
+      )
+    end
+
+    # @return [Array<Array(Integer, String)>] [index, value] pairs for the
+    #   argv values the interpreter would execute as its program.
+    def executable_argv_positions(interpreter, args)
+      # deno/bun: the subcommand grammar is not modelled past the subcommand,
+      # so every non-option token (the one after "--" included) is checked.
+      return non_option_argv_positions(args) if interpreter == 'deno' || interpreter == 'bun'
 
       rules = INLINE_CODE_RULES_BY_INTERPRETER[interpreter]
-      return non_option_indexes unless rules
+      return non_option_argv_positions(args) unless rules
 
-      positional_index, ambiguous = scan_interpreter_flags!(args, rules, interpreter)
-      return non_option_indexes if ambiguous
+      begin
+        positional_index, ambiguous = scan_interpreter_flags!(args, rules, interpreter)
+      rescue CommandNotAllowedError => e
+        # A flag value already went through the guard: that verdict stands.
+        raise if e.rule == 'package_manager_entry'
+
+        # Otherwise the scan refused inline code (-e, -c, ...), a SPAWN-time
+        # rule (#validate_stdio_args! raises it first there) that must not
+        # leak into the save-time face: check every token independently.
+        return path_like_argv_positions(args)
+      end
+      return path_like_argv_positions(args) if ambiguous
       return [] if positional_index >= args.length
 
-      [ positional_index ]
-    rescue CommandNotAllowedError
-      # The flag scan refuses inline code (-e, -c, ...) on its own; that is a
-      # SPAWN-time rule (#validate_stdio_args! raises it first there) and must
-      # not leak into the save-time face through this denylist, so the scan's
-      # verdict is dropped here and every non-option token is checked instead.
-      non_option_indexes
+      value = args[positional_index]
+      if value == '--'
+        # POSIX end of options: the scan stops ON the marker, the program is
+        # the NEXT token (round 2 blocker 1).
+        positional_index += 1
+        return [] if positional_index >= args.length
+
+        value = args[positional_index]
+      elsif value.start_with?('-')
+        # The scan stopped on `python -m <mcp module>`: a module name, not a path.
+        return []
+      end
+
+      [ [ positional_index, value ] ]
+    end
+
+    def non_option_argv_positions(args)
+      args.each_index.reject { |i| args[i].start_with?('-') }.map { |i| [ i, args[i] ] }
+    end
+
+    # The fail-closed fallback when the positional cannot be told apart from
+    # an option's value: every non-option token, plus every path-like value
+    # attached to an option ("--require=/x", "-r/x"). The denylist can only
+    # ever refuse an entry point, so over-checking costs nothing.
+    def path_like_argv_positions(args)
+      args.each_with_index.filter_map do |arg, i|
+        next [ i, arg ] unless arg.start_with?('-')
+
+        attached = arg.start_with?('--') ? arg.split('=', 2)[1] : arg[%r{\.{0,2}/.*\z}]
+        [ i, attached ] if attached && stdio_arg_looks_like_path?(attached)
+      end
     end
 
     # Lexical normalization first (File.expand_path, never touching the

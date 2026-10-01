@@ -168,6 +168,7 @@ RSpec.describe McpSecurityService, 'package-launcher pinning' do
 [ 'deno --preload= unpinned npm', 'deno', %w[run --preload=npm:pkg ./s.ts], {}, /not pinned/ ],
 [ 'deno --import-map= remote URL', 'deno', %w[run --import-map=https://evil.example/map.json ./s.ts], {}, /remote URL/ ],
 [ 'deno --config= remote URL', 'deno', %w[run --config=http://evil.example/deno.json ./s.ts], {}, /remote URL/ ],
+[ 'deno --import-map= data: URL', 'deno', %w[run --import-map=data:application/json,{} ./s.ts], {}, /data: URL/ ],
 # npx selector positional must be a bin name (round 1 item 7'.
 [ 'npx selector then a path', 'npx', %w[-p pkg@1.2.3 ./x], {}, /bin name/ ],
 [ 'npx selector then uppercase', 'npx', %w[-p pkg@1.2.3 Bin], {}, /bin name/ ]
@@ -244,6 +245,10 @@ RSpec.describe McpSecurityService, 'package-launcher pinning' do
   end
 
   describe 'forbidden configuration-steering env for launchers' do
+    it 'does not also list XDG_CONFIG_HOME as allowed (round 2 item 6)' do
+      expect(described_class::ALLOWED_ENV_VARS).not_to include('XDG_CONFIG_HOME')
+    end
+
     it 'refuses UV_CONFIG_FILE and XDG_CONFIG_HOME, naming the KEY only' do
       %w[UV_CONFIG_FILE XDG_CONFIG_HOME].each do |key|
         server = self.class.server_hash('uvx', %w[pkg==1.0.0], PIN_EXT).merge('env' => { key => '/tmp/secret-config' })
@@ -302,6 +307,77 @@ RSpec.describe McpSecurityService, 'package-launcher pinning' do
 
     it 'does not require allow_extended_commands to evaluate an extended launcher' do
       expect(described_class.package_pin_violation('uvx', %w[pkg])).to match(/not pinned/)
+    end
+  end
+
+  # Round 2 — the package-manager-entry denylist as a TABLE of (executable
+  # argv position) x (entry-point shape), asserted on BOTH faces in one
+  # example so save and spawn can never again disagree on a position. The
+  # positions are generated from the rule tables (every path-taking flag of
+  # every stop-at-first-positional interpreter, separate and attached, the
+  # first positional, the token after "--"); the launcher positions (deno,
+  # bun run, uv run) are hand-listed because their grammars are not
+  # table-driven. A benign script in every position is the control.
+  ENTRY_POINTS = [
+    [ 'npx-cli.js under npm/', '/usr/local/lib/node_modules/npm/bin/npx-cli.js' ],
+    [ 'npx by basename', '/usr/local/bin/npx' ],
+    [ 'gem by basename', '/usr/local/bin/gem' ],
+    [ 'pip by basename', '/usr/bin/pip' ],
+    [ 'pip __main__ under dist-packages', '/usr/lib/python3/dist-packages/pip/__main__.py' ],
+    [ 'pipx __main__ under site-packages', '/usr/local/lib/python3.12/site-packages/pipx/__main__.py' ],
+    [ 'uv __main__ under a venv', '/home/x/.venv/lib/python3.12/site-packages/uv/__main__.py' ],
+    [ 'setuptools __main__', '/usr/lib/python3/dist-packages/setuptools/__main__.py' ],
+    [ 'renamed script under bundler exe/', '/usr/local/lib/ruby/gems/3.2.0/gems/bundler-2.7.1/exe/b' ]
+  ].freeze
+  BENIGN_SCRIPT = '/opt/app/server.js'
+
+  # [name, command, args, capabilities] for every argv position the
+  # interpreter would EXECUTE, filled with `path`.
+  def self.executable_positions(path)
+    rows = []
+    described_class::STOP_AT_FIRST_POSITIONAL_INTERPRETERS.each do |interpreter|
+      rules = described_class::INLINE_CODE_RULES_BY_INTERPRETER.fetch(interpreter)
+      rows << [ "#{interpreter} first positional", interpreter, [ path, 'x' ], {} ]
+      rows << [ "#{interpreter} after --", interpreter, [ '--', path, 'x' ], {} ]
+      Array(rules[:path_exempt_short]).each do |flag|
+        rows << [ "#{interpreter} -#{flag} separate", interpreter, [ "-#{flag}", path, './s.js' ], {} ]
+        rows << [ "#{interpreter} -#{flag} attached", interpreter, [ "-#{flag}#{path}", './s.js' ], {} ]
+      end
+      Array(rules[:path_exempt_long]).each do |flag|
+        rows << [ "#{interpreter} --#{flag} separate", interpreter, [ "--#{flag}", path, './s.js' ], {} ]
+        rows << [ "#{interpreter} --#{flag}= attached", interpreter, [ "--#{flag}=#{path}", './s.js' ], {} ]
+      end
+    end
+    rows << [ 'deno run script', 'deno', [ 'run', '-A', path ], {} ]
+    rows << [ 'deno serve script', 'deno', [ 'serve', path ], {} ]
+    rows << [ 'deno run after --', 'deno', [ 'run', '--', path ], {} ]
+    rows << [ 'bun run script', 'bun', [ 'run', path ], {} ]
+    rows << [ 'uv run script', 'uv', [ 'run', path ], PIN_EXT ]
+    rows
+  end
+
+  describe 'package manager entry points: every executable argv position x every entry shape, both faces' do
+    ENTRY_POINTS.each do |entry_name, entry_path|
+      executable_positions(entry_path).each do |name, command, args, capabilities|
+        it "refuses at spawn and at save: #{name} <- #{entry_name}" do
+          expect { described_class.validate_stdio_server!(self.class.server_hash(command, args, capabilities)) }
+            .to raise_error(described_class::CommandNotAllowedError, /package manager entry point/) { |e|
+              expect(e.rule).to eq('package_manager_entry')
+            }
+          expect(described_class.package_pin_violation(command, args)).to match(/package manager entry point/)
+        end
+      end
+    end
+
+    executable_positions(BENIGN_SCRIPT).each do |name, command, args, capabilities|
+      it "does not fire for a real script: #{name}" do
+        begin
+          described_class.validate_stdio_server!(self.class.server_hash(command, args, capabilities))
+        rescue described_class::CommandNotAllowedError => e
+          expect(e.message).not_to match(/package manager entry point/)
+        end
+        expect(described_class.package_pin_violation(command, args).to_s).not_to match(/package manager entry point/)
+      end
     end
   end
 end

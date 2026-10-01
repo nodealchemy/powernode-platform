@@ -148,7 +148,10 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
       unpinned_package_message
       raise_on_package_manager_entry!
       package_manager_entry?
-      package_manager_entry_candidates
+      package_manager_entry_guard!
+      executable_argv_positions
+      non_option_argv_positions
+      path_like_argv_positions
       raise_on_launcher_global_option!
     ].freeze
 
@@ -546,6 +549,7 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
 {:name=>"py: uvx --python path", :command=>"uvx", :args=>["--python", "/tmp/evil", "pkg==1.0.0"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
 {:name=>"py: uvx --python version", :command=>"uvx", :args=>["--python", "3.12", "pkg==1.0.0"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
 {:name=>"uv run bare script", :command=>"uv", :args=>["run", "server.py"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+{:name=>"deno --import-map= data:", :command=>"deno", :args=>["run", "--import-map=data:application/json,{}", "./s.ts"], :env=>{}, :capabilities=>{}},
 {:name=>"uv run ./script", :command=>"uv", :args=>["run", "./server.py"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
 {:name=>"npx selector then path", :command=>"npx", :args=>["-p", "pkg@1.2.3", "./x"], :env=>{}, :capabilities=>{}},
 {:name=>"deno --preload= unpinned", :command=>"deno", :args=>["run", "--preload=npm:pkg", "./s.ts"], :env=>{}, :capabilities=>{}},
@@ -567,7 +571,45 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
     { allowed: false, error_class: e.class.name.split('::').last, message: e.message }
   end
 
-  MCP_SECURITY_PARITY_FIXTURES.each do |fixture|
+  # Round 2: the entry-point denylist's (position x entry) table, generated
+  # exactly as the two pinning specs generate it from the worker's rule
+  # tables, so every position both faces check is also a parity row.
+  PACKAGE_MANAGER_ENTRY_PARITY_FIXTURES = [
+    '/usr/local/lib/node_modules/npm/bin/npx-cli.js',
+    '/usr/local/bin/npx',
+    '/usr/local/bin/gem',
+    '/usr/bin/pip',
+    '/usr/lib/python3/dist-packages/pip/__main__.py',
+    '/usr/local/lib/python3.12/site-packages/pipx/__main__.py',
+    '/usr/local/lib/ruby/gems/3.2.0/gems/bundler-2.7.1/exe/b',
+    '/opt/app/server.js'
+  ].flat_map do |path|
+    rows = []
+    worker_klass::STOP_AT_FIRST_POSITIONAL_INTERPRETERS.each do |interpreter|
+      rules = worker_klass::INLINE_CODE_RULES_BY_INTERPRETER.fetch(interpreter)
+      rows << [ "#{interpreter} first positional", interpreter, [ path, 'x' ] ]
+      rows << [ "#{interpreter} after --", interpreter, [ '--', path, 'x' ] ]
+      Array(rules[:path_exempt_short]).each do |flag|
+        rows << [ "#{interpreter} -#{flag} separate", interpreter, [ "-#{flag}", path, './s.js' ] ]
+        rows << [ "#{interpreter} -#{flag} attached", interpreter, [ "-#{flag}#{path}", './s.js' ] ]
+      end
+      Array(rules[:path_exempt_long]).each do |flag|
+        rows << [ "#{interpreter} --#{flag} separate", interpreter, [ "--#{flag}", path, './s.js' ] ]
+        rows << [ "#{interpreter} --#{flag}= attached", interpreter, [ "--#{flag}=#{path}", './s.js' ] ]
+      end
+    end
+    rows << [ 'deno run script', 'deno', [ 'run', '-A', path ] ]
+    rows << [ 'deno serve script', 'deno', [ 'serve', path ] ]
+    rows << [ 'deno run after --', 'deno', [ 'run', '--', path ] ]
+    rows << [ 'bun run script', 'bun', [ 'run', path ] ]
+    rows << [ 'uv run script', 'uv', [ 'run', path ] ]
+    rows.map do |name, command, args|
+      { name: "pm: #{name} <- #{path}", command: command, args: args, env: {},
+        capabilities: command == 'uv' ? { 'allow_extended_commands' => true } : {} }
+    end
+  end.freeze
+
+  (MCP_SECURITY_PARITY_FIXTURES + PACKAGE_MANAGER_ENTRY_PARITY_FIXTURES).each do |fixture|
     it "agrees with the worker on: #{fixture[:name]}" do
       worker_verdict = self.class.verdict_for(worker_klass, fixture)
       server_verdict = self.class.verdict_for(server_klass, fixture)
