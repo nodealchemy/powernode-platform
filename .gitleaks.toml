@@ -177,6 +177,13 @@ paths = [
     # No key material is committed; the key is generated per-instance at call
     # time and returned once for Vault storage, never stored in source.
     '''extensions/system/server/app/services/system/dev_cell/ssh_key_generator\.rb$''',
+    # Agent log_tail redaction tests (IMP-33ab99763220): the private-key rule
+    # matches header and footer STRING LITERALS the tests wrap around bodies
+    # built at run time by syntheticPEMBody from a seeded generator. The file
+    # holds no base64 run of 60+ characters; no key material is committed.
+    # Matches the path relative to the core checkout, to the extension checkout
+    # (the pre-critic gate's ext-gitleaks source root), or under an absolute root.
+    '''(^|/)(extensions/system/)?agent/internal/runtime/tasks/handlers/module_build_log_tail_test\.go$''',
 ]
 
 # Ignore specific regex patterns in content
