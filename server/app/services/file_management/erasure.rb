@@ -157,8 +157,20 @@ module FileManagement
 
       failures = []
       erased_count = 0
+      @dead_storage_ids = Set.new
+      @failed_handlers = Set.new
 
       batch.each do |file|
+        # A storage whose provider already failed to remove a blob in this
+        # call is not asked again: every further file on it is reported as
+        # unreachable without a provider call, so a dead store costs one
+        # attempt per batch and never starves the files on a healthy store
+        # behind it (the cursor still advances past them).
+        if @dead_storage_ids.include?(file.file_storage_id)
+          failures << failure(file, "error", "storage_unreachable")
+          next
+        end
+
         outcome = erase_one(file)
         next if outcome == :already_gone
 
@@ -178,7 +190,7 @@ module FileManagement
         retained_count: retained_count,
         remaining: remaining,
         cursor: cursor,
-        referents_consulted: ErasureReferentRegistry.names.map(&:to_s)
+        referents_consulted: (ErasureReferentRegistry.names.map(&:to_s) - @failed_handlers.to_a)
       )
     end
 
@@ -244,7 +256,12 @@ module FileManagement
       outcome
     rescue FileManagement::Object::StorageRemovalFailed => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
+      @dead_storage_ids << file.file_storage_id
       failure(file, "error", "storage_removal_failed")
+    rescue ErasureReferentRegistry::HandlerError => e
+      Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
+      @failed_handlers << e.handler_name
+      failure(file, "error", "referent_handler_failed:#{e.handler_name}")
     rescue ActiveRecord::InvalidForeignKey => e
       Rails.logger.warn "[FileManagement::Erasure] #{file.id} is referenced by an unregistered restrict FK: #{e.message}"
       failure(file, "held", "referenced_by_restrict_fk")

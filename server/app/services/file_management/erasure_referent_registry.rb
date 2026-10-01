@@ -54,15 +54,36 @@ module FileManagement
 
     ACTIONS = %i[holds release].freeze
 
+    # A handler that raised on :holds, or answered anything but a Hash. The
+    # erasure cannot tell what that handler holds, so it must not destroy
+    # the file; the error names the handler so the failure reason can.
+    class HandlerError < StandardError
+      attr_reader :handler_name
+
+      def initialize(handler_name, message)
+        @handler_name = handler_name.to_s
+        super("referent handler #{handler_name} failed: #{message}")
+      end
+    end
+
     class << self
       # Every id at least one handler refuses to release, with the first
-      # handler's reason. Handlers are asked in registration order.
+      # handler's reason. Handlers are asked in registration order. A
+      # handler that raises or answers a non-Hash raises HandlerError —
+      # "nil" is not "holds nothing".
       def holds(file_object_ids)
         ids = Array(file_object_ids)
         return {} if ids.empty?
 
         handlers.each_with_object({}) do |(name, handler), held|
-          (handler.call(:holds, ids) || {}).each do |id, reason|
+          answer = begin
+            handler.call(:holds, ids)
+          rescue StandardError => e
+            raise HandlerError.new(name, "#{e.class}: #{e.message}")
+          end
+          raise HandlerError.new(name, "answered #{answer.inspect} instead of a Hash") unless answer.is_a?(Hash)
+
+          answer.each do |id, reason|
             held[id] ||= reason.presence || "held_by_#{name}"
           end
         end

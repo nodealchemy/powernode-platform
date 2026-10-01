@@ -200,6 +200,36 @@ RSpec.describe FileManagement::Erasure do
       expect(result.to_h[:referents_consulted]).to eq(result.audit_metadata[:referents_consulted])
     end
 
+    it 'treats a non-Hash holds answer as that handler failing — the file is not destroyed and the handler is not listed as consulted' do
+      FileManagement::ErasureReferentRegistry.register(:mute) { |action, _payload| action == :holds ? nil : nil }
+
+      result = erase
+
+      expect(result.erased_count).to eq(0)
+      expect(result.failures).to contain_exactly(
+        hash_including(id: file.id, kind: 'error', reason: 'referent_handler_failed:mute')
+      )
+      expect(FileManagement::Object.exists?(file.id)).to be true
+      expect(result.referents_consulted).to include('chat_message_attachments')
+      expect(result.referents_consulted).not_to include('mute')
+    ensure
+      FileManagement::ErasureReferentRegistry.unregister(:mute)
+    end
+
+    it 'names the handler that raised on :holds, and does not list it as consulted' do
+      FileManagement::ErasureReferentRegistry.register(:broken) { |action, _payload| raise 'db away' if action == :holds }
+
+      result = erase
+
+      expect(result.failures).to contain_exactly(
+        hash_including(id: file.id, kind: 'error', reason: 'referent_handler_failed:broken')
+      )
+      expect(result.referents_consulted).not_to include('broken')
+      expect(FileManagement::Object.exists?(file.id)).to be true
+    ensure
+      FileManagement::ErasureReferentRegistry.unregister(:broken)
+    end
+
     it 'asks the referents per file, inside its transaction, so a pointer set mid-batch is caught' do
       first = file
       second = personal_file(filename: 'second.pdf')
@@ -244,6 +274,25 @@ RSpec.describe FileManagement::Erasure do
 
       expect(erase.erased_count).to eq(1)
       expect(FileManagement::Object.exists?(file.id)).to be false
+    end
+  end
+
+  describe 'a dead storage inside one call' do
+    it 'tries a storage once, reports its other files as unreachable without a provider call, and still erases files on a healthy storage' do
+      dead = create(:file_storage, account: account)
+      healthy = storage
+      on_dead = [ personal_file(storage: dead, filename: 'a.pdf'), personal_file(storage: dead, filename: 'b.pdf') ]
+      on_healthy = personal_file(storage: healthy, filename: 'c.pdf')
+      allow(provider).to receive(:delete_file) { |file_object| file_object.file_storage_id != dead.id }
+
+      result = erase
+
+      expect(result.erased_count).to eq(1)
+      expect(FileManagement::Object.exists?(on_healthy.id)).to be false
+      on_dead.each { |f| expect(FileManagement::Object.exists?(f.id)).to be true }
+      expect(result.failures.map { |f| f[:reason] }).to contain_exactly('storage_removal_failed', 'storage_unreachable')
+      expect(result.failures.map { |f| f[:kind] }.uniq).to eq([ 'error' ])
+      expect(provider).to have_received(:delete_file).exactly(2).times
     end
   end
 
