@@ -250,7 +250,8 @@ module Api
         def deletion_request_update_params
           params.permit(
             :status, :processing_started_at, :completed_at, :error_message,
-            deletion_log: [ :data_type, :action, :error, :records_affected, :processed_at, :reason ],
+            deletion_log: [ :data_type, :action, :error, :records_affected, :processed_at, :reason,
+                            :retained_platform_artifacts ],
             retention_log: [ :data_type, :reason, :processed_at ],
             metadata: {}
           )

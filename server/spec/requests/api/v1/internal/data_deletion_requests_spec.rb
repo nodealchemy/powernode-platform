@@ -507,6 +507,28 @@ RSpec.describe 'Api::V1::Internal::DataDeletionRequests', type: :request do
       expect(deletion_request.retention_log.size).to eq(1)
     end
 
+    # IMP-d97f6e3bbc2b — the `files` entry carries how many of the subject's
+    # uploads were retained as platform artifacts; strong params must let
+    # that key through or the subject's record silently loses it.
+    it 'persists the retained_platform_artifacts count on a files deletion_log entry' do
+      deletion_request.update!(status: 'processing', processing_started_at: Time.current)
+
+      patch "/api/v1/internal/data_deletion_requests/#{deletion_request.id}",
+            params: {
+              status: 'completed',
+              completed_at: Time.current.iso8601,
+              deletion_log: [
+                { data_type: 'files', action: 'deleted', records_affected: 3, retained_platform_artifacts: 2,
+                  processed_at: Time.current.iso8601 }
+              ]
+            },
+            headers: internal_headers,
+            as: :json
+
+      expect_success_response
+      expect(deletion_request.reload.deletion_log.first).to include('retained_platform_artifacts' => 2)
+    end
+
     it 'persists a failed transition with error_message and a skipped-type log entry' do
       deletion_request.update!(status: 'processing', processing_started_at: Time.current)
 
