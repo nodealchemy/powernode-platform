@@ -278,10 +278,10 @@ RSpec.describe FileManagement::Erasure do
   end
 
   describe 'a dead storage inside one call' do
-    it 'tries a storage once, reports its other files as unreachable without a provider call, and still erases files on a healthy storage' do
+    it 'tries a storage twice, then reports its other files as unreachable without a provider call, and still erases files on a healthy storage' do
       dead = create(:file_storage, account: account)
       healthy = storage
-      on_dead = [ personal_file(storage: dead, filename: 'a.pdf'), personal_file(storage: dead, filename: 'b.pdf') ]
+      on_dead = Array.new(3) { |i| personal_file(storage: dead, filename: "dead#{i}.pdf") }
       on_healthy = personal_file(storage: healthy, filename: 'c.pdf')
       allow(provider).to receive(:delete_file) { |file_object| file_object.file_storage_id != dead.id }
 
@@ -290,9 +290,23 @@ RSpec.describe FileManagement::Erasure do
       expect(result.erased_count).to eq(1)
       expect(FileManagement::Object.exists?(on_healthy.id)).to be false
       on_dead.each { |f| expect(FileManagement::Object.exists?(f.id)).to be true }
-      expect(result.failures.map { |f| f[:reason] }).to contain_exactly('storage_removal_failed', 'storage_unreachable')
+      expect(result.failures.map { |f| f[:reason] })
+        .to contain_exactly('storage_removal_failed', 'storage_removal_failed', 'storage_unreachable')
       expect(result.failures.map { |f| f[:kind] }.uniq).to eq([ 'error' ])
-      expect(provider).to have_received(:delete_file).exactly(2).times
+      # Two attempts on the dead storage, one on the healthy one.
+      expect(provider).to have_received(:delete_file).exactly(3).times
+    end
+
+    it 'does not let ONE undeletable blob starve its batch-mates on the same storage' do
+      bad = personal_file(filename: 'locked.pdf')
+      good = Array.new(3) { |i| personal_file(filename: "fine#{i}.pdf") }
+      allow(provider).to receive(:delete_file) { |file_object| file_object.id != bad.id }
+
+      result = erase(batch_size: 10)
+
+      expect(result.erased_count).to eq(3)
+      good.each { |f| expect(FileManagement::Object.exists?(f.id)).to be false }
+      expect(result.failures).to contain_exactly(hash_including(id: bad.id, reason: 'storage_removal_failed'))
     end
   end
 

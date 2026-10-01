@@ -66,6 +66,10 @@ module FileManagement
     DEFAULT_BATCH_SIZE = 50
     MAX_BATCH_SIZE = 200
 
+    # Blob-removal failures on one storage within one call before its
+    # remaining files in the batch are reported unreachable unattempted.
+    STORAGE_FAILURES_BEFORE_UNREACHABLE = 2
+
     # Personal content the destroy's own audit row must not archive — the
     # same hazard Api::V1::Internal::UsersController#delete_settings guards
     # against with audit_extra_redactions.
@@ -157,16 +161,19 @@ module FileManagement
 
       failures = []
       erased_count = 0
-      @dead_storage_ids = Set.new
+      @storage_failures = Hash.new(0)
       @failed_handlers = Set.new
 
       batch.each do |file|
-        # A storage whose provider already failed to remove a blob in this
-        # call is not asked again: every further file on it is reported as
-        # unreachable without a provider call, so a dead store costs one
-        # attempt per batch and never starves the files on a healthy store
-        # behind it (the cursor still advances past them).
-        if @dead_storage_ids.include?(file.file_storage_id)
+        # A storage whose provider has failed to remove
+        # STORAGE_FAILURES_BEFORE_UNREACHABLE blobs in this call is not asked
+        # again: every further file on it is reported as unreachable without
+        # a provider call. Two, not one: a single undeletable blob (a
+        # permission error) must not starve its batch-mates, while a dead
+        # store still costs only two attempts per batch and never starves
+        # the files on a healthy store behind it (the cursor advances past
+        # them).
+        if @storage_failures[file.file_storage_id] >= STORAGE_FAILURES_BEFORE_UNREACHABLE
           failures << failure(file, "error", "storage_unreachable")
           next
         end
@@ -256,7 +263,7 @@ module FileManagement
       outcome
     rescue FileManagement::Object::StorageRemovalFailed => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
-      @dead_storage_ids << file.file_storage_id
+      @storage_failures[file.file_storage_id] += 1
       failure(file, "error", "storage_removal_failed")
     rescue ErasureReferentRegistry::HandlerError => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
