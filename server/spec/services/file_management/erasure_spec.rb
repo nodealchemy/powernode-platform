@@ -339,6 +339,8 @@ RSpec.describe FileManagement::Erasure do
       expect(result.failures.map { |f| f[:reason] }).to eq(%w[store_not_initialized store_not_initialized])
       expect(result.failures.map { |f| f[:kind] }.uniq).to eq([ 'error' ])
       expect(provider).to have_received(:delete_file).exactly(2).times
+      # Not probed at all — "no evidence" is not an answer to the dead-store question.
+      expect(provider).not_to have_received(:store_live?)
       files.each { |f| expect(FileManagement::Object.exists?(f.id)).to be true }
     end
 
