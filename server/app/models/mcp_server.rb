@@ -75,6 +75,36 @@ class McpServer < ApplicationRecord
   # duplicated deliberately, same reasoning as FORBIDDEN_EGRESS_RANGES.
   EGRESS_NUMERIC_PSEUDO_IP_FORMAT = /\A(0x[0-9a-fA-F]+|[0-9]+)(\.(0x[0-9a-fA-F]+|[0-9]+)){0,3}\z/
 
+  # IMP-2c760325c102 (MCP isolation Phase 1 T4) — the NATIVE EXECUTION
+  # hatch: an operator-approved, per-server permission to run this stdio
+  # server with NO sandbox (the worker's systemd-run wrapper). Stored under
+  # this capabilities key as { "approved_at" => iso8601, "approved_by_id" =>
+  # user id }, written ONLY by #approve_native_execution! (reached through
+  # McpServersController#approve_native_execution, its own permission-gated
+  # endpoint — never a create/update attribute: McpServersController permits
+  # no `capabilities` param at all, #config= writes only capabilities["config"],
+  # and the worker-facing internal #update strips this key). Cleared
+  # automatically when the command or args change (#clear_native_execution_on_command_change),
+  # so an approval never silently carries over to a different command line.
+  NATIVE_EXECUTION_KEY = "native_execution"
+
+  # The hatch exists in CORE MODE ONLY (self-hosted, single operator). "The
+  # business layer is present" is detected through the generic capability
+  # seam, never by naming an extension: a SaaS deployment registers
+  # :public_registration (see Api::V1::Auth::RegistrationsController
+  # #require_saas_mode), a billed one :subscriptions. While either is
+  # present, .native_execution_available? is false, approvals cannot be
+  # granted, and an EXISTING approval goes dormant (#native_execution_effective?
+  # false, so the worker is told `native_execution_approved: false`) without
+  # being erased.
+  NATIVE_EXECUTION_BLOCKING_CAPABILITIES = %i[subscriptions public_registration].freeze
+
+  # Capabilities keys the WORKER is told about — the spawn-policy flags
+  # McpSecurityService.validate_stdio_server!/#spawn_stdio actually read
+  # (allow-list, not pass-through: `config` holds user-supplied secrets and
+  # `last_error` free text — see Api::V1::Internal::McpServerCapabilitiesSerialization).
+  WORKER_CAPABILITY_KEYS = %w[allow_extended_commands strict_environment allow_network egress_allowlist].freeze
+
   # ==========================================
   # Validations
   # ==========================================
@@ -126,6 +156,9 @@ class McpServer < ApplicationRecord
   # Callbacks
   # ==========================================
   before_validation :set_default_values, on: :create
+  # IMP-2c760325c102 — an approval is bound to the command line it was
+  # granted for (see NATIVE_EXECUTION_KEY).
+  before_validation :clear_native_execution_on_command_change, on: :update
   after_create :initialize_connection
   after_update :broadcast_status_change, if: :saved_change_to_status?
 
@@ -285,6 +318,66 @@ class McpServer < ApplicationRecord
       "MCP_SERVER_NAME" => name,
       "MCP_SERVER_ID" => id
     )
+  end
+
+  # ==========================================
+  # Native execution hatch (IMP-2c760325c102)
+  # ==========================================
+
+  # True only in core mode — see NATIVE_EXECUTION_BLOCKING_CAPABILITIES.
+  def self.native_execution_available?
+    NATIVE_EXECUTION_BLOCKING_CAPABILITIES.none? { |cap| Shared::FeatureGateService.capability_present?(cap) }
+  end
+
+  # The stored approval record ({ "approved_at", "approved_by_id" }) or nil.
+  def native_execution_approval
+    record = capabilities.is_a?(Hash) ? capabilities[NATIVE_EXECUTION_KEY] : nil
+    record.is_a?(Hash) && record["approved_at"].present? ? record : nil
+  end
+
+  def native_execution_approved?
+    native_execution_approval.present?
+  end
+
+  # What the WORKER is told: approved AND available (core mode) AND a stdio
+  # server. The gate is applied here, at serialization time on the server,
+  # so a business layer appearing later makes every approval dormant at the
+  # next spawn without any data change.
+  def native_execution_effective?
+    native_execution_approved? && connection_type == "stdio" && self.class.native_execution_available?
+  end
+
+  # Set by #clear_native_execution_on_command_change for the duration of
+  # the save that cleared an approval, so the controller can audit it as a
+  # revoke with its reason.
+  def native_execution_cleared_by_change?
+    @native_execution_cleared_by_change == true
+  end
+
+  def approve_native_execution!(approver)
+    self.capabilities = (capabilities || {}).merge(
+      NATIVE_EXECUTION_KEY => { "approved_at" => Time.current.iso8601, "approved_by_id" => approver.id }
+    )
+    save!
+  end
+
+  def revoke_native_execution!
+    return true unless capabilities.is_a?(Hash) && capabilities.key?(NATIVE_EXECUTION_KEY)
+
+    self.capabilities = capabilities.except(NATIVE_EXECUTION_KEY)
+    save!
+  end
+
+  # The capabilities hash handed to the worker (internal API serializer AND
+  # the server's own synchronous stdio paths): the spawn-policy allow-list
+  # plus, only while it holds, the computed `native_execution_approved`
+  # flag (absent otherwise, like every other unset policy key — the worker
+  # tests for an exact `true`). Never the stored approval record, config or
+  # last_error.
+  def worker_capabilities
+    policy = (capabilities.is_a?(Hash) ? capabilities : {}).slice(*WORKER_CAPABILITY_KEYS)
+    policy["native_execution_approved"] = true if native_execution_effective?
+    policy
   end
 
   # ==========================================

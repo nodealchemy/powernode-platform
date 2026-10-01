@@ -177,6 +177,11 @@ module Permissions
     # MCP (Model Context Protocol) - Account-scoped
     "mcp.servers.read" => "View MCP servers",
     "mcp.servers.write" => "Manage MCP servers (create, update, delete, connect, disconnect)",
+    # IMP-2c760325c102 — deliberately NOT part of mcp.servers.write: approving
+    # a server to run outside the stdio sandbox is an operator decision taken
+    # separately from creating/editing the server (owner/admin only; the
+    # manager and ai_specialist role profiles enumerate write without it).
+    "mcp.servers.native_execution" => "Approve a stdio MCP server to run natively, outside the sandbox (core mode only)",
     "mcp.tools.read" => "View MCP tools",
     "mcp.tools.execute" => "Execute MCP tools",
     "mcp.executions.read" => "View MCP tool executions",

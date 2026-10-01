@@ -435,4 +435,182 @@ RSpec.describe McpServer, type: :model do
       expect(env['MCP_SERVER_ID']).to eq(server.id)
     end
   end
+
+  # IMP-2c760325c102 (MCP isolation Phase 1 T4) — package-launcher pinning
+  # at SAVE time. The full grammar lives in
+  # spec/services/mcp/security_service_package_pinning_spec.rb; this block
+  # only proves the model consults it, and WHEN.
+  describe 'package-launcher pinning at save time' do
+    let(:account) { create(:account) }
+
+    it 'refuses to create a stdio server whose npx package is not pinned to an exact version' do
+      server = build(:mcp_server, account: account, command: 'npx', args: [ '-y', '@modelcontextprotocol/server-filesystem', '/tmp' ])
+
+      expect(server).not_to be_valid
+      expect(server.errors[:command].join).to match(/not pinned to an exact version/)
+    end
+
+    it 'accepts a stdio server whose package is pinned' do
+      server = build(:mcp_server, account: account, command: 'npx', args: [ '-y', '@modelcontextprotocol/server-filesystem@2026.8.31', '/tmp' ])
+
+      expect(server).to be_valid
+    end
+
+    it 'checks launcher tokens in the command string, not only args' do
+      server = build(:mcp_server, account: account, command: 'npx -y pkg', args: [])
+
+      expect(server).not_to be_valid
+      expect(server.errors[:command].join).to match(/not pinned/)
+    end
+
+    it 'does not apply to http/websocket servers' do
+      server = build(:mcp_server, account: account, connection_type: 'http', command: 'https://example.com/mcp', args: [])
+
+      expect(server).to be_valid
+    end
+
+    it 'refuses editing the command/args of an existing row into an unpinned launcher' do
+      server = create(:mcp_server, account: account, command: 'node', args: [ 'server.js' ])
+      server.command = 'npx'
+      server.args = [ '-y', 'pkg' ]
+
+      expect(server).not_to be_valid
+      expect(server.errors[:command].join).to match(/not pinned/)
+    end
+
+    # The worker reports a spawn refusal by PATCHing status/last_error onto
+    # the SAME row; if every save re-ran this validation, that report would
+    # itself be refused and the operator would see nothing. Pre-existing
+    # unpinned rows therefore stay saveable until their command/args change.
+    it 'lets a pre-existing unpinned row save status/last_error updates unchanged (the spawn refusal must be reportable)' do
+      server = create(:mcp_server, account: account, command: 'node', args: [ 'server.js' ])
+      server.update_columns(command: 'npx', args: [ '-y', 'pkg' ])
+      server.reload
+
+      expect(server.update(status: 'error', last_error: 'Security error: npx: package "pkg" is not pinned')).to be true
+      expect(server.reload.last_error).to match(/not pinned/)
+    end
+  end
+
+  # IMP-2c760325c102 — the native (unsandboxed) execution hatch, core mode
+  # only, operator-approved per server, cleared whenever the command changes.
+  describe 'native execution approval' do
+    let(:account) { create(:account) }
+    let(:approver) { create(:user, :owner, account: account) }
+    let(:server) { create(:mcp_server, account: account, command: 'node', args: [ 'server.js' ]) }
+
+    def stub_business_layer(present)
+      allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original
+      McpServer::NATIVE_EXECUTION_BLOCKING_CAPABILITIES.each do |cap|
+        allow(Shared::FeatureGateService).to receive(:capability_present?).with(cap).and_return(present)
+      end
+    end
+
+    describe '.native_execution_available?' do
+      it 'is true when no business-layer capability is present (core mode)' do
+        stub_business_layer(false)
+        expect(described_class.native_execution_available?).to be true
+      end
+
+      it 'is false when the business layer is present' do
+        stub_business_layer(false)
+        allow(Shared::FeatureGateService).to receive(:capability_present?).with(:subscriptions).and_return(true)
+        expect(described_class.native_execution_available?).to be false
+      end
+    end
+
+    it 'is not approved by default' do
+      expect(server.native_execution_approved?).to be false
+      expect(server.native_execution_effective?).to be false
+    end
+
+    it '#approve_native_execution! records who approved and when, in capabilities' do
+      stub_business_layer(false)
+      server.approve_native_execution!(approver)
+      server.reload
+
+      expect(server.native_execution_approved?).to be true
+      expect(server.native_execution_approval['approved_by_id']).to eq(approver.id)
+      expect(server.native_execution_approval['approved_at']).to be_present
+      expect(server.native_execution_effective?).to be true
+    end
+
+    it '#revoke_native_execution! clears it' do
+      stub_business_layer(false)
+      server.approve_native_execution!(approver)
+      server.revoke_native_execution!
+      server.reload
+
+      expect(server.native_execution_approved?).to be false
+      expect(server.capabilities).not_to have_key(McpServer::NATIVE_EXECUTION_KEY)
+    end
+
+    it 'an approval goes dormant (not effective) while the business layer is present, without being erased' do
+      stub_business_layer(false)
+      server.approve_native_execution!(approver)
+      stub_business_layer(true)
+
+      expect(server.reload.native_execution_approved?).to be true
+      expect(server.native_execution_effective?).to be false
+    end
+
+    it 'is cleared automatically when the command changes' do
+      stub_business_layer(false)
+      server.approve_native_execution!(approver)
+      server.update!(command: 'python3', args: [ 'server.py' ])
+
+      expect(server.reload.native_execution_approved?).to be false
+      expect(server.native_execution_cleared_by_change?).to be true
+    end
+
+    it 'is cleared automatically when the args change' do
+      stub_business_layer(false)
+      server.approve_native_execution!(approver)
+      server.update!(args: [ 'server.js', '--other' ])
+
+      expect(server.reload.native_execution_approved?).to be false
+    end
+
+    it 'survives an unrelated edit (description, status)' do
+      stub_business_layer(false)
+      server.approve_native_execution!(approver)
+      server.update!(description: 'renamed', status: 'error')
+
+      expect(server.reload.native_execution_approved?).to be true
+    end
+
+    it 'is only ever effective for stdio servers' do
+      stub_business_layer(false)
+      http_server = create(:mcp_server, account: account, connection_type: 'http', command: 'https://example.com/mcp', args: [])
+      http_server.approve_native_execution!(approver)
+
+      expect(http_server.native_execution_effective?).to be false
+    end
+
+    describe '#worker_capabilities (what the worker is told)' do
+      it 'carries only the spawn-policy keys plus the computed native_execution_approved flag' do
+        stub_business_layer(false)
+        server.update!(capabilities: server.capabilities.merge(
+          'allow_network' => true, 'config' => { 'api_key' => 'secret' }, 'last_error' => 'x', 'tools' => true
+        ))
+        server.approve_native_execution!(approver)
+
+        expect(server.worker_capabilities).to eq('allow_network' => true, 'native_execution_approved' => true)
+      end
+
+      it 'omits native_execution_approved while the business layer is present, even if approved' do
+        stub_business_layer(false)
+        server.approve_native_execution!(approver)
+        stub_business_layer(true)
+
+        expect(server.worker_capabilities).not_to have_key('native_execution_approved')
+      end
+
+      it 'omits native_execution_approved for an unapproved server (the worker tests for an exact true)' do
+        stub_business_layer(false)
+
+        expect(server.worker_capabilities).to eq({})
+      end
+    end
+  end
 end

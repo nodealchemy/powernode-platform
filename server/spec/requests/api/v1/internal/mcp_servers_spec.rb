@@ -109,6 +109,25 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
         served = json_response_data['mcp_servers'].find { |s| s['id'] == allowlisted_server.id }
         expect(served['capabilities']).to eq('egress_allowlist' => [ '10.0.0.0/8' ])
       end
+
+      # IMP-2c760325c102 — the native-execution hatch reaches the worker as
+      # a COMPUTED boolean (approved AND core mode AND stdio), never as the
+      # stored approval record, so the core-mode gate is applied here, on
+      # the server, where the business layer's presence is known.
+      it 'exposes native_execution_approved as a computed boolean, never the stored approval' do
+        allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original
+        McpServer::NATIVE_EXECUTION_BLOCKING_CAPABILITIES.each do |cap|
+          allow(Shared::FeatureGateService).to receive(:capability_present?).with(cap).and_return(false)
+        end
+        approved_server = create(:mcp_server, account: account, command: 'node', args: [ 'server.js' ])
+        approved_server.approve_native_execution!(create(:user, :owner, account: account))
+
+        get '/api/v1/internal/mcp_servers', headers: internal_headers, as: :json
+
+        served = json_response_data['mcp_servers'].find { |s| s['id'] == approved_server.id }
+        expect(served['capabilities']).to eq('native_execution_approved' => true)
+        expect(served['capabilities']).not_to have_key('native_execution')
+      end
     end
 
     context 'without authentication' do
@@ -482,6 +501,33 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
 
         expect(response).to have_http_status(:not_found)
       end
+    end
+  end
+
+  # IMP-2c760325c102 — what the worker-facing #update may and may not do.
+  describe 'PATCH /api/v1/internal/mcp_servers/:id (pinning + native execution)' do
+    it 'cannot grant native execution — the key is operator-only and stripped from the merge' do
+      patch "/api/v1/internal/mcp_servers/#{mcp_server.id}",
+            headers: internal_headers,
+            params: { status: 'connected', capabilities: { native_execution: { approved_at: Time.current.iso8601 } } },
+            as: :json
+
+      expect_success_response
+      expect(mcp_server.reload.native_execution_approved?).to be false
+      expect(mcp_server.capabilities).not_to have_key('native_execution')
+    end
+
+    it 'can still record the spawn refusal (status/last_error) on a pre-existing UNPINNED row' do
+      mcp_server.update_columns(command: 'npx', args: [ '-y', 'pkg' ])
+
+      patch "/api/v1/internal/mcp_servers/#{mcp_server.id}",
+            headers: internal_headers,
+            params: { status: 'error', last_error: 'Security error: npx: package "pkg" is not pinned to an exact version' },
+            as: :json
+
+      expect_success_response
+      expect(mcp_server.reload.status).to eq('error')
+      expect(mcp_server.last_error).to match(/not pinned/)
     end
   end
 end

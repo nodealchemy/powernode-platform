@@ -150,7 +150,14 @@ module Mcp
       "command" => @server.command,
       "args" => @server.args,
       "env" => @server.env,
-      "capabilities" => @server.capabilities,
+      # IMP-2c760325c102 — the same allowlisted, server-COMPUTED capabilities
+      # the async path gets from the internal API (spawn-policy keys plus the
+      # native_execution_approved boolean, which carries the core-mode gate),
+      # never the raw stored hash: that leaked config/last_error to the worker
+      # and would have let a stored approval bypass the gate. "id" lets the
+      # worker attribute its sandbox egress log and spawn audit rows.
+      "id" => @server.id,
+      "capabilities" => @server.worker_capabilities,
       # IMP-bd260c0b4c00 — the OWNING account keys the worker's per-account
       # sandbox identity, same as the async path (never the caller's).
       # The worker refuses when this and the request's account_id differ.

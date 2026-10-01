@@ -656,4 +656,131 @@ RSpec.describe 'Api::V1::McpServers', type: :request do
       end
     end
   end
+
+  # IMP-2c760325c102 (MCP isolation Phase 1 T4) — the native (unsandboxed)
+  # execution hatch: operator-approved per server through ITS OWN endpoint,
+  # never through create/update, only in core mode, audited.
+  describe 'native execution approval (POST/DELETE /api/v1/mcp_servers/:id/native_execution)' do
+    let(:owner) { create(:user, :owner, account: account) }
+    let(:owner_headers) { auth_headers_for(owner) }
+    let(:server) { create(:mcp_server, :disconnected, account: account, command: 'node', args: [ 'server.js' ]) }
+    let(:path) { "/api/v1/mcp_servers/#{server.id}/native_execution" }
+
+    def stub_business_layer(present)
+      allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original
+      McpServer::NATIVE_EXECUTION_BLOCKING_CAPABILITIES.each do |cap|
+        allow(Shared::FeatureGateService).to receive(:capability_present?).with(cap).and_return(present)
+      end
+    end
+
+    before { stub_business_layer(false) }
+
+    it 'the owner role carries the permission and a manager (mcp.servers.write) does not' do
+      expect(owner.has_permission?('mcp.servers.native_execution')).to be true
+      expect(user.has_permission?('mcp.servers.write')).to be true
+      expect(user.has_permission?('mcp.servers.native_execution')).to be false
+    end
+
+    it 'approves, serializes the approval, and writes an audit row naming the approver' do
+      expect {
+        post path, headers: owner_headers, as: :json
+      }.to change { AuditLog.where(action: 'mcp.servers.native_execution_approve', resource_id: server.id).count }.by(1)
+
+      expect(response).to have_http_status(:ok)
+      native = json_response_data['mcp_server']['native_execution']
+      expect(native['approved']).to be true
+      expect(native['available']).to be true
+      expect(native['approved_by_id']).to eq(owner.id)
+      expect(server.reload.native_execution_approved?).to be true
+      expect(AuditLog.where(action: 'mcp.servers.native_execution_approve').last.user_id).to eq(owner.id)
+    end
+
+    it 'revokes and audits' do
+      server.approve_native_execution!(owner)
+
+      expect {
+        delete path, headers: owner_headers, as: :json
+      }.to change { AuditLog.where(action: 'mcp.servers.native_execution_revoke', resource_id: server.id).count }.by(1)
+
+      expect(response).to have_http_status(:ok)
+      expect(server.reload.native_execution_approved?).to be false
+    end
+
+    it 'is refused (403) for a user who can manage servers but lacks mcp.servers.native_execution' do
+      post path, headers: headers, as: :json
+
+      expect_error_response('Insufficient permissions to approve native execution', 403)
+      expect(server.reload.native_execution_approved?).to be false
+    end
+
+    it 'is refused (403) while the business layer is present — core mode only' do
+      stub_business_layer(true)
+
+      post path, headers: owner_headers, as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(response.body).to match(/core mode/)
+      expect(server.reload.native_execution_approved?).to be false
+    end
+
+    it 'revocation is still allowed while the business layer is present' do
+      server.approve_native_execution!(owner)
+      stub_business_layer(true)
+
+      delete path, headers: owner_headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(server.reload.native_execution_approved?).to be false
+    end
+
+    it 'is refused (422) for a non-stdio server' do
+      http_server = create(:mcp_server, :disconnected, account: account, connection_type: 'http', command: 'https://example.com/mcp', args: [])
+
+      post "/api/v1/mcp_servers/#{http_server.id}/native_execution", headers: owner_headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it 'cannot be set through create (the capability never reaches the model from mcp_server params)' do
+      params = {
+        mcp_server: {
+          name: 'Sneaky', connection_type: 'stdio', command: 'node', args: [ 'server.js' ],
+          capabilities: { native_execution: { approved_at: Time.current.iso8601, approved_by_id: owner.id } },
+          config: { capabilities: { native_execution: true } }
+        }
+      }
+
+      post '/api/v1/mcp_servers', params: params, headers: owner_headers, as: :json
+
+      # config.capabilities.native_execution is outside the config allowlist (422);
+      # a top-level capabilities param is simply not permitted. Either way no approval lands.
+      expect(McpServer.find_by(name: 'Sneaky')&.native_execution_approved?).to be_falsey
+    end
+
+    it 'cannot be set through update' do
+      patch "/api/v1/mcp_servers/#{server.id}", params: { mcp_server: { capabilities: { native_execution: { approved_at: Time.current.iso8601 } } } },
+                                                headers: owner_headers, as: :json
+
+      expect(server.reload.native_execution_approved?).to be false
+    end
+
+    it 'is cleared (and the clearing audited as a revoke) when the command is edited' do
+      server.approve_native_execution!(owner)
+
+      expect {
+        patch "/api/v1/mcp_servers/#{server.id}", params: { mcp_server: { command: 'python3', args: [ 'server.py' ] } },
+                                                  headers: owner_headers, as: :json
+      }.to change { AuditLog.where(action: 'mcp.servers.native_execution_revoke', resource_id: server.id).count }.by(1)
+
+      expect(response).to have_http_status(:ok)
+      expect(server.reload.native_execution_approved?).to be false
+      expect(json_response_data['mcp_server']['native_execution']['approved']).to be false
+    end
+
+    it 'does not leak into another account' do
+      post path, headers: auth_headers_for(create(:user, :owner, account: other_account)), as: :json
+
+      expect(response).to have_http_status(:not_found)
+    end
+  end
 end

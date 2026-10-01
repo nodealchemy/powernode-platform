@@ -1267,6 +1267,10 @@ Rails.application.routes.draw do
           post :disconnect
           post :health_check
           post :discover_tools
+          # IMP-2c760325c102 — the native (unsandboxed) execution hatch has
+          # its OWN verbs, never a create/update attribute.
+          post :native_execution, to: "mcp_servers#approve_native_execution"
+          delete :native_execution, to: "mcp_servers#revoke_native_execution"
 
           # OAuth endpoints for MCP server authentication
           scope :oauth, as: :oauth do

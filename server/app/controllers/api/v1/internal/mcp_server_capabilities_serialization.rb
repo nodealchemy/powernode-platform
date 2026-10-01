@@ -53,15 +53,23 @@ module Api
       # operator direction: this serializer is the ONLY path
       # egress_allowlist may ever reach the worker through — no other
       # endpoint/serializer may add it.
+      #
+      # IMP-2c760325c102 — the allowlist itself now lives on the model
+      # (McpServer#worker_capabilities) because the server's synchronous
+      # stdio paths (Mcp::PromptService/ResourceService/SyncExecutionService)
+      # build the same worker payload WITHOUT going through this controller
+      # concern, and were handing the worker the RAW stored hash. One
+      # definition, three consumers. It also adds the COMPUTED
+      # `native_execution_approved` boolean (approval standing AND core
+      # mode AND stdio) — the stored approval record itself never leaves
+      # the server.
       module McpServerCapabilitiesSerialization
         extend ActiveSupport::Concern
 
         private
 
         def serialize_mcp_server_capabilities(server)
-          (server.capabilities || {}).slice(
-            'allow_extended_commands', 'strict_environment', 'allow_network', 'egress_allowlist'
-          )
+          server.worker_capabilities
         end
       end
     end
