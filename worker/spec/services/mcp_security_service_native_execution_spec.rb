@@ -67,6 +67,19 @@ RSpec.describe McpSecurityService, 'native execution and spawn audit' do
       described_class.spawn_stdio('/bin/cat', env, [], stdin_data: '', timeout: 5, mcp_server_id: 'srv-1', account_id: 'acct-1')
     end
 
+    it 'the real reporter timing out (post_no_retry 408) never blocks the spawn' do
+      api_client = instance_double(BackendApiClient)
+      allow(api_client).to receive(:post_no_retry).and_raise(BackendApiClient::ApiError.new('timeout', 408))
+      described_class.audit_reporter = Mcp::SpawnAuditReporter.new(api_client: api_client)
+
+      stdout, _stderr, status = described_class.spawn_stdio('/bin/cat', env, [], stdin_data: 'ping', timeout: 5,
+                                                                                mcp_server_id: 'srv-1', account_id: 'acct-1',
+                                                                                native_execution: true)
+      expect(status.success?).to be true
+      expect(stdout).to eq('ping')
+      expect(api_client).to have_received(:post_no_retry).once
+    end
+
     it 'a failing reporter never blocks the spawn' do
       allow(reporter).to receive(:native_execution_spawn).and_raise(StandardError, 'audit sink down')
 
@@ -98,6 +111,16 @@ RSpec.describe McpSecurityService, 'native execution and spawn audit' do
       expect(reporter).not_to receive(:spawn_refused)
 
       described_class.validate_stdio_server!(server.merge('args' => %w[-y pkg@1.2.3]))
+    end
+
+    it 'the real reporter timing out (post_no_retry 408) never changes the verdict' do
+      api_client = instance_double(BackendApiClient)
+      allow(api_client).to receive(:post_no_retry).and_raise(BackendApiClient::ApiError.new('timeout', 408))
+      described_class.audit_reporter = Mcp::SpawnAuditReporter.new(api_client: api_client)
+
+      expect { described_class.validate_stdio_server!(server) }
+        .to raise_error(described_class::CommandNotAllowedError, /not pinned/)
+      expect(api_client).to have_received(:post_no_retry).once
     end
 
     it 'a failing reporter never changes the verdict' do

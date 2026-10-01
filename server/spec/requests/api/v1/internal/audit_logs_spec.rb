@@ -27,9 +27,8 @@ RSpec.describe 'Api::V1::Internal::AuditLogs', type: :request do
           severity: 'medium',
           risk_level: 'medium',
           metadata: {
-            account_id: account.id, mcp_server_name: mcp_server.name, command: 'npx',
-            error_class: 'CommandNotAllowedError',
-            message: 'npx: package "pkg" is not pinned to an exact version', stage: 'worker_validation'
+            account_id: account.id, mcp_server_name: mcp_server.name, launcher: 'npx', arg_count: 2, arg_index: 1,
+            rule: 'package_pin', error_class: 'CommandNotAllowedError', stage: 'worker_validation'
           }
         }
       }
@@ -47,8 +46,10 @@ RSpec.describe 'Api::V1::Internal::AuditLogs', type: :request do
       expect(row.source).to eq('worker')
       expect(row.severity).to eq('medium')
       expect(row.risk_level).to eq('medium')
-      expect(row.metadata).to include('command' => 'npx', 'error_class' => 'CommandNotAllowedError', 'stage' => 'worker_validation')
-      expect(row.metadata['message']).to match(/not pinned/)
+      expect(row.metadata).to include('launcher' => 'npx', 'arg_count' => 2, 'arg_index' => 1, 'rule' => 'package_pin',
+                                      'error_class' => 'CommandNotAllowedError', 'stage' => 'worker_validation')
+      # the worker's mTLS account is the row's account; the owner travels in metadata
+      expect(row.metadata['account_id']).to eq(account.id)
     end
 
     it 'records mcp.servers.native_execution_spawn as the reporter sends it' do
