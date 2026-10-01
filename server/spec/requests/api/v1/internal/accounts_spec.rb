@@ -302,6 +302,7 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
         row = AuditLog.find_by(account_id: account.id, action: 'account.delete_files')
         expect(row.metadata['records_deleted']).to eq(1)
         expect(row.metadata['erased']).to be true
+        expect(row.metadata['referents_consulted']).to include('chat_message_attachments')
       end
 
       it 'rejects a malformed cursor with 422 rather than a 500 that would revert a termination' do

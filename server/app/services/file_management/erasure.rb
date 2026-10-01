@@ -10,13 +10,14 @@ module FileManagement
   # leaves no destruction behind" and "a failed blob delete is not counted"
   # hold at once:
   #
-  #   1. The referent seam is asked, once per batch and read-only, which ids
-  #      it HOLDS (ErasureReferentRegistry.holds). A held file is refused
-  #      with the handler's reason and never touched.
-  #   2. Each remaining file is erased in its OWN transaction (a savepoint
-  #      under an outer one): the seam RELEASES the file (core's chat
-  #      attachment nullifies its pointer), the shares are deleted, and the
-  #      row is destroyed. The model's after_destroy removes the blob as the
+  #   1. Each file is erased in its OWN transaction (a savepoint under an
+  #      outer one). The row is locked, then the referent seam is asked,
+  #      read-only, whether it HOLDS the file (ErasureReferentRegistry
+  #      .holds) — a held file is refused with the handler's reason and
+  #      never touched.
+  #   2. Otherwise, inside the same transaction, the seam RELEASES the file
+  #      (core's chat attachment nullifies its pointer), the shares,
+  #      versions and processing jobs are deleted, and the row is destroyed. The model's after_destroy removes the blob as the
   #      LAST step inside that transaction, in strict mode, so a provider
   #      that returns false (every provider rescues internally and returns
   #      false rather than raising) raises StorageRemovalFailed and the
@@ -69,14 +70,17 @@ module FileManagement
     # same hazard Api::V1::Internal::UsersController#delete_settings guards
     # against with audit_extra_redactions.
     AUDIT_REDACTED_FIELDS = %w[
-      filename storage_key metadata exif_data dimensions processing_metadata
-      checksum_md5 checksum_sha256
+      filename storage_key content_type metadata exif_data dimensions processing_metadata
+      checksum_md5 checksum_sha256 access_permissions attachable_type attachable_id
     ].freeze
 
     # failures: [{ id:, kind: 'held' | 'error', reason: }]. 'held' is a
     # policy gap (a referent will not let go) a retry cannot clear; 'error'
     # is operational (storage, an unexpected raise) and a retry may.
-    Result = Struct.new(:erased_count, :failures, :retained_count, :remaining, :cursor, keyword_init: true) do
+    # referents_consulted: the registered referent handler names, so an
+    # audit row can tell "no handler was registered" from "nothing held".
+    Result = Struct.new(:erased_count, :failures, :retained_count, :remaining, :cursor, :referents_consulted,
+                        keyword_init: true) do
       def held
         failures.select { |f| f[:kind] == "held" }
       end
@@ -97,7 +101,8 @@ module FileManagement
           errors: errors.size,
           retained_platform_artifacts: retained_count,
           remaining: remaining,
-          cursor: cursor
+          cursor: cursor,
+          referents_consulted: referents_consulted
         }
       end
 
@@ -108,7 +113,8 @@ module FileManagement
           held: held.size,
           errors: errors.size,
           retained_platform_artifacts: retained_count,
-          remaining: remaining
+          remaining: remaining,
+          referents_consulted: referents_consulted
         }
       end
 
@@ -148,17 +154,11 @@ module FileManagement
 
     def call
       batch = candidates.limit(@batch_size).includes(:storage).to_a
-      held = ErasureReferentRegistry.holds(batch.map(&:id))
 
       failures = []
       erased_count = 0
 
       batch.each do |file|
-        if (reason = held[file.id])
-          failures << failure(file, "held", reason)
-          next
-        end
-
         outcome = erase_one(file)
         next if outcome == :already_gone
 
@@ -177,7 +177,8 @@ module FileManagement
         failures: failures,
         retained_count: retained_count,
         remaining: remaining,
-        cursor: cursor
+        cursor: cursor,
+        referents_consulted: ErasureReferentRegistry.names.map(&:to_s)
       )
     end
 
@@ -221,6 +222,14 @@ module FileManagement
           next :already_gone
         end
 
+        # Holds are asked PER FILE, here, after the lock — not once per
+        # batch — so a platform pointer set on this file after the batch was
+        # selected is still caught, including on a column no foreign key
+        # backs. A handful of indexed lookups per file; cheap.
+        if (reason = ErasureReferentRegistry.holds([ locked.id ])[locked.id])
+          next failure(locked, "held", reason)
+        end
+
         ErasureReferentRegistry.release(locked)
         locked.shares.delete_all
         locked.versions.delete_all
@@ -230,7 +239,9 @@ module FileManagement
         locked.destroy!
         nil
       end
-      outcome == :already_gone ? :already_gone : nil
+      # A held outcome is a hash; the transaction block returned it after
+      # touching nothing, so there is nothing to roll back.
+      outcome
     rescue FileManagement::Object::StorageRemovalFailed => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
       failure(file, "error", "storage_removal_failed")

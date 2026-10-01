@@ -126,15 +126,13 @@ RSpec.describe FileManagement::Erasure do
       # The worker's retry middleware re-sends a timed-out DELETE while the
       # server may still be inside the first batch. The per-file row lock
       # serialises the two; the loser finds no row and reports nothing.
-      FileManagement::ErasureReferentRegistry.register(:racing_erasure) do |action, payload|
-        if action == :holds
-          # Raw deletes, no callbacks: the other request's commit, as seen
-          # from this one.
-          FileManagement::Share.where(file_object_id: payload).delete_all
-          FileManagement::ProcessingJob.where(file_object_id: payload).delete_all
-          FileManagement::Object.where(id: payload).delete_all
-        end
-        {}
+      # The other request's commit lands between this request's SELECT and
+      # its row lock: raw deletes, no callbacks, right before the lock query.
+      allow(FileManagement::Object).to receive(:lock).and_wrap_original do |original, *args|
+        FileManagement::Share.where(file_object_id: file.id).delete_all
+        FileManagement::ProcessingJob.where(file_object_id: file.id).delete_all
+        FileManagement::Object.where(id: file.id).delete_all
+        original.call(*args)
       end
       expect(provider).not_to receive(:delete_file)
 
@@ -143,8 +141,6 @@ RSpec.describe FileManagement::Erasure do
       expect(result.erased_count).to eq(0)
       expect(result.failures).to be_empty
       expect(result.remaining).to eq(0)
-    ensure
-      FileManagement::ErasureReferentRegistry.unregister(:racing_erasure)
     end
 
     it 'refuses a malformed cursor instead of handing it to the database' do
@@ -195,6 +191,36 @@ RSpec.describe FileManagement::Erasure do
 
     it 'registers the core chat-attachment release handler at boot' do
       expect(FileManagement::ErasureReferentRegistry.registered?(:chat_message_attachments)).to be true
+    end
+
+    it 'records which referents were consulted, so "no handler" is distinguishable from "no holds"' do
+      result = erase
+
+      expect(result.audit_metadata[:referents_consulted]).to include('chat_message_attachments')
+      expect(result.to_h[:referents_consulted]).to eq(result.audit_metadata[:referents_consulted])
+    end
+
+    it 'asks the referents per file, inside its transaction, so a pointer set mid-batch is caught' do
+      first = file
+      second = personal_file(filename: 'second.pdf')
+      # Holds `second` only once `first` is gone — i.e. only if holds are
+      # re-read after the batch began. A once-per-batch read would see no
+      # hold and destroy it.
+      FileManagement::ErasureReferentRegistry.register(:late_pointer) do |action, payload|
+        if action == :holds && !FileManagement::Object.exists?(first.id) && payload.include?(second.id)
+          { second.id => 'held_by_late_pointer' }
+        else
+          {}
+        end
+      end
+
+      result = erase
+
+      expect(result.erased_count).to eq(1)
+      expect(result.failures).to contain_exactly(hash_including(id: second.id, kind: 'held', reason: 'held_by_late_pointer'))
+      expect(FileManagement::Object.exists?(second.id)).to be true
+    ensure
+      FileManagement::ErasureReferentRegistry.unregister(:late_pointer)
     end
   end
 
@@ -265,7 +291,9 @@ RSpec.describe FileManagement::Erasure do
       file = personal_file(
         filename: 'passport-scan.pdf',
         metadata: { 'subject' => 'passport' },
-        exif_data: { 'gps' => '52.5,13.4' }
+        exif_data: { 'gps' => '52.5,13.4' },
+        access_permissions: { 'viewers' => { user.id => true } },
+        attachable: user
       )
 
       # Auditable.logging_enabled defaults to false in the test env; the
@@ -275,10 +303,9 @@ RSpec.describe FileManagement::Erasure do
       row = AuditLog.where(resource_type: 'FileManagement::Object', resource_id: file.id, action: 'deleted').last
       expect(row).to be_present
       old_values = row.old_values || {}
-      expect(old_values['filename']).to eq(Auditable::REDACTED_PLACEHOLDER)
-      expect(old_values['storage_key']).to eq(Auditable::REDACTED_PLACEHOLDER)
-      expect(old_values['metadata']).to eq(Auditable::REDACTED_PLACEHOLDER)
-      expect(old_values['exif_data']).to eq(Auditable::REDACTED_PLACEHOLDER)
+      %w[filename storage_key metadata exif_data content_type access_permissions attachable_type attachable_id].each do |field|
+        expect(old_values[field]).to eq(Auditable::REDACTED_PLACEHOLDER), "#{field} was archived in the audit row"
+      end
     end
 
     it 'writes no audit row for the versions and processing jobs it removes — they would archive the content too' do

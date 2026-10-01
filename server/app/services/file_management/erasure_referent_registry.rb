@@ -14,10 +14,13 @@ module FileManagement
   # Handler contract: any callable responding to #call(action, payload).
   #
   #   call(:holds, file_object_ids)  -> { file_object_id => reason }
-  #       Asked ONCE per batch, read-only, before any destruction. The
-  #       handler names every id it refuses to let go of, with a reason
-  #       string the erasure reports verbatim (an empty reason is replaced
-  #       by "held_by_<handler name>"). Return {} to hold nothing.
+  #       Asked per file, read-only, inside that file's erasure transaction
+  #       after its row lock and before any destruction (so a pointer set
+  #       after the batch was selected is still seen). The handler names
+  #       every id it refuses to let go of, with a reason string the erasure
+  #       reports verbatim (an empty reason is replaced by
+  #       "held_by_<handler name>"). Return {} to hold nothing. The ids
+  #       argument stays an array so a handler can answer for many at once.
   #
   #   call(:release, file_object)    -> ignored
   #       Called INSIDE that file's erasure transaction, immediately before
@@ -32,8 +35,11 @@ module FileManagement
   # file_erasure_referents.rb); an extension's boot-image referents hold.
   #
   # Unlike the lifecycle registry, handler errors are NOT swallowed: an
-  # erasure that cannot establish what holds a file must not destroy it, and
-  # a release that failed must roll the destroy back. Example (in an
+  # erasure that cannot establish what holds a file must not destroy it
+  # (that file is reported as failed), and a release that failed must roll
+  # the destroy back. The registered names travel with every result
+  # (Result#referents_consulted) so an audit row can tell "no handler" from
+  # "no holds". Example (in an
   # extension's boot initializer — core never references the extension):
   #
   #   FileManagement::ErasureReferentRegistry.register(:boot_images) do |action, payload|
