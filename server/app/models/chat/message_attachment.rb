@@ -49,6 +49,15 @@ module Chat
     after_create :enqueue_malware_scan, unless: :scanned_for_malware?
     after_create :enqueue_transcription, if: :needs_transcription?
 
+    # Drops this table's pointers to a FileManagement::Object about to be
+    # erased (the registry handler in config/initializers/
+    # file_erasure_referents.rb, IMP-d97f6e3bbc2b). The attachment row stays:
+    # it is chat data, and `file_object` is optional. Runs inside the
+    # erasure's transaction, so a failed erasure restores the pointer.
+    def self.release_file_object!(file_object)
+      where(file_object_id: file_object.id).update_all(file_object_id: nil, updated_at: Time.current)
+    end
+
     # Type checks
     def image?
       attachment_type == "image"

@@ -7,6 +7,18 @@ module FileManagement
     # Roles an object can play inside a FileManagement::Bundle (see Bundle#add_object!).
     BUNDLE_ROLES = %w[scene voiceover music document thumbnail artifact].freeze
 
+    # Raised by #remove_from_storage when #strict_storage_removal is set and
+    # the provider did not remove the blob. Every storage provider rescues
+    # internally and RETURNS false rather than raising, so the after_destroy's
+    # own rescue never saw a failure — the row was destroyed and the bytes
+    # stayed. Strict mode turns that false into a raise, which rolls the
+    # destroy back (IMP-d97f6e3bbc2b).
+    class StorageRemovalFailed < StandardError; end
+
+    # Set by FileManagement::Erasure for the one destroy whose blob removal
+    # must either succeed or roll the row back. In-memory only.
+    attr_accessor :strict_storage_removal
+
     # Associations
     belongs_to :account
     belongs_to :storage, class_name: "FileManagement::Storage", foreign_key: :file_storage_id
@@ -593,10 +605,20 @@ module FileManagement
       end
     end
 
+    # after_destroy, so it runs after the row DELETE inside the destroy's
+    # transaction: in strict mode a failure here rolls the row back.
     def remove_from_storage
-      storage.storage_provider.delete_file(self)
-    rescue StandardError => e
-      Rails.logger.error "Failed to delete file from storage: #{e.message}"
+      removed = begin
+        storage.storage_provider.delete_file(self)
+      rescue StandardError => e
+        Rails.logger.error "Failed to delete file from storage: #{e.message}"
+        false
+      end
+      return if removed || !strict_storage_removal
+
+      # The id, not the storage_key: the key embeds the filename, and this
+      # message is logged.
+      raise StorageRemovalFailed, "storage provider (#{storage&.provider_type}) did not remove the blob of file object #{id}"
     end
 
     def check_if_deletable
