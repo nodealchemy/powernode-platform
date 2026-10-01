@@ -20,18 +20,19 @@ module ComplianceFileErasureConcern
   # exception message, a termination_log entry and an error_message column.
   FAILURE_SAMPLE_SIZE = 10
 
-  # The server stopped answering (an ApiError) AFTER at least one batch had
-  # already erased files. Distinct from an error on the first request so a
-  # caller can tell "this server has no erasure route" from "the erasure
-  # was interrupted part way" — the latter must never be recorded as a
-  # skip. Carries the totals so far and the error that stopped the walk.
+  # A request failed AFTER at least one batch had already erased files —
+  # an ApiError, the circuit breaker's raw Timeout::Error at the client
+  # timeout, an open circuit. Distinct from an error on the first request
+  # so a caller can tell "this server has no erasure route" from "the
+  # erasure was interrupted part way" — the latter must never be recorded
+  # as a skip. Carries the totals so far and the error that stopped the walk.
   class FileErasureInterrupted < StandardError
-    attr_reader :totals, :api_error
+    attr_reader :totals, :error
 
-    def initialize(totals, api_error)
+    def initialize(totals, error)
       @totals = totals
-      @api_error = api_error
-      super("file erasure interrupted after #{totals[:count]} file(s) were erased: #{api_error.message}")
+      @error = error
+      super("file erasure interrupted after #{totals[:count]} file(s) were erased: #{error.message}")
     end
   end
 
@@ -56,7 +57,7 @@ module ComplianceFileErasureConcern
     loop do
       response = begin
         after_id ? api_client.delete(path, { after_id: after_id }) : api_client.delete(path)
-      rescue BackendApiClient::ApiError => e
+      rescue StandardError => e
         raise if totals[:batches].zero?
 
         raise FileErasureInterrupted.new(finish_file_erasure_totals(totals), e)

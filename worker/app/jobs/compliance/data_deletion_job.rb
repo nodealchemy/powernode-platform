@@ -586,15 +586,43 @@ module Compliance
       # artifacts, not only how many were erased.
       { count: result[:count], retained_platform_artifacts: result[:retained_platform_artifacts] }
     rescue FileErasureInterrupted => e
-      # The server stopped answering after files were already erased: never
-      # a skip, and not a terminal failure either — the walk resumes on retry.
-      raise RetryableErasureFailure,
-            "files: erasure interrupted after #{e.totals[:count]} file(s) were erased: #{e.api_error.message}"
-    rescue BackendApiClient::ApiError => e
-      raise unless routing_miss_404?(e)
+      # A later batch failed after files were already erased: never a skip.
+      # Operational causes resume on retry; anything else is the failure it
+      # is (the partial progress is in the server's own audit rows).
+      raise e.error unless retryable_erasure_error?(e.error)
 
-      log_warn "The server has no files erasure route (404); recording files as skipped rather than erased"
-      { skipped: true, reason: 'no_erasure_path' }
+      raise RetryableErasureFailure,
+            "files: erasure interrupted after #{e.totals[:count]} file(s) were erased: #{e.error.message}"
+    rescue BackendApiClient::ApiError => e
+      if routing_miss_404?(e)
+        log_warn "The server has no files erasure route (404); recording files as skipped rather than erased"
+        return { skipped: true, reason: 'no_erasure_path' }
+      end
+
+      raise unless retryable_erasure_error?(e)
+
+      raise RetryableErasureFailure, "files: erasure request failed (#{e.status}): #{e.message}"
+    rescue Timeout::Error, CircuitBreaker::CircuitBreakerError => e
+      # A storage that HANGS — an NFS hard mount with the server down, a
+      # blackholed object-store endpoint — surfaces as the circuit breaker's
+      # raw Timeout::Error at the client timeout (not an ApiError), or as an
+      # open circuit on the next call. Both are operational.
+      raise RetryableErasureFailure, "files: erasure request did not complete: #{e.message}"
+    end
+
+    # Operational failures a retry may clear: the client's own timeout
+    # (408) and connection failure (503), any server 5xx, the breaker's
+    # raw Timeout::Error and an open circuit. A 4xx other than a routing
+    # miss — a malformed cursor, a missing user — is not.
+    def retryable_erasure_error?(error)
+      case error
+      when Timeout::Error, CircuitBreaker::CircuitBreakerError
+        true
+      when BackendApiClient::ApiError
+        error.status.nil? || error.status == 408 || error.status >= 500
+      else
+        false
+      end
     end
 
     # Only a 404 WITHOUT the platform's NOT_FOUND envelope is a missing

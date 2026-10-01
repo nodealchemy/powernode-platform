@@ -651,7 +651,7 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
           .to raise_error(Compliance::DataDeletionJob::PartialDeletionFailure)
       end
 
-      it 'does not record a skip when the 404 arrives on a later batch after files were already erased' do
+      it 'does not record a skip when a 404 arrives on a later batch after files were already erased — it is the 4xx failure it is' do
         allow(api_client).to receive(:delete).with(files_path)
           .and_return(files_batch(count: 2, remaining: 1, cursor: cursor_1))
         allow(api_client).to receive(:delete).with(files_path, { after_id: cursor_1 }).and_raise(
@@ -664,12 +664,11 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
         end
 
         expect { job.execute(deletion_request_id) }
-          .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /after 2 file\(s\) were erased/)
+          .to raise_error(Compliance::DataDeletionJob::PartialDeletionFailure)
 
-        expect(writes).not_to include(hash_including(status: 'failed'))
-        expect(writes).not_to include(hash_including(status: 'completed'))
-        expect(writes.flat_map { |w| Array(w[:deletion_log]) })
-          .not_to include(hash_including(data_type: 'files', action: 'skipped'))
+        logged = writes.flat_map { |w| Array(w[:deletion_log]) }
+        expect(logged).not_to include(hash_including(data_type: 'files', action: 'skipped'))
+        expect(logged).to include(hash_including(data_type: 'files', action: 'failed', error: /Resource not found/))
       end
 
       it 'keeps walking past a batch in which every file failed, so files on a healthy store behind it are still erased' do
@@ -748,6 +747,101 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
           hash_including(data_type: 'files', action: 'deleted', records_affected: 1)
         )
         expect(completed[:deletion_log].count { |e| e[:data_type] == 'consents' || e['data_type'] == 'consents' }).to eq(1)
+      end
+
+      # Round 4: a storage that HANGS (an NFS hard mount with the server
+      # down, a blackholed S3 endpoint) surfaces as the circuit breaker's raw
+      # Timeout::Error at 120 s, or as the client's 408/5xx ApiError — none
+      # of them a fast provider false. All must leave the request
+      # retryable with its partial log, on the first batch and mid-walk;
+      # a 4xx other than a routing-miss 404 stays the failure it is.
+      context 'when the storage hangs or the server is unavailable' do
+        before do
+          allow(api_client).to receive(:delete).with("/api/v1/internal/users/#{user_id}/consents")
+            .and_return('success' => true, 'data' => { 'count' => 5 })
+        end
+
+        def capture_writes
+          writes = []
+          allow(api_client).to receive(:patch) do |path, payload|
+            writes << payload if path.end_with?(deletion_request_id)
+            show_response(deletion_request_data)
+          end
+          writes
+        end
+
+        def expect_retryable_with_partial_log(writes)
+          expect(writes.map { |w| w[:status] }.compact).to eq(%w[processing])
+          expect(writes).to include(
+            hash_including(
+              error_message: /files/,
+              deletion_log: array_including(hash_including(data_type: 'consents', action: 'deleted', records_affected: 5))
+            )
+          )
+          expect(writes).not_to include(hash_including(status: 'failed'))
+        end
+
+        it 'leaves the request retryable when the first batch times out' do
+          allow(api_client).to receive(:delete).with(files_path).and_raise(Timeout::Error, 'execution expired')
+          writes = capture_writes
+
+          expect { job.execute(deletion_request_id) }
+            .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /execution expired/)
+
+          expect_retryable_with_partial_log(writes)
+        end
+
+        it 'leaves the request retryable when a later batch times out after files were erased' do
+          allow(api_client).to receive(:delete).with(files_path)
+            .and_return(files_batch(count: 2, remaining: 1, cursor: cursor_1))
+          allow(api_client).to receive(:delete).with(files_path, { after_id: cursor_1 })
+            .and_raise(Timeout::Error, 'execution expired')
+          writes = capture_writes
+
+          expect { job.execute(deletion_request_id) }
+            .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /after 2 file\(s\) were erased/)
+
+          expect_retryable_with_partial_log(writes)
+        end
+
+        it 'leaves the request retryable on a 503' do
+          allow(api_client).to receive(:delete).with(files_path).and_raise(
+            BackendApiClient::ApiError.new('Connection failed: refused', 503)
+          )
+          writes = capture_writes
+
+          expect { job.execute(deletion_request_id) }
+            .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /Connection failed/)
+
+          expect_retryable_with_partial_log(writes)
+        end
+
+        it 'leaves the request retryable when the circuit is open' do
+          allow(api_client).to receive(:delete).with(files_path).and_raise(
+            CircuitBreaker::CircuitOpenError, 'Circuit breaker is OPEN for backend_api'
+          )
+          writes = capture_writes
+
+          expect { job.execute(deletion_request_id) }
+            .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /OPEN/)
+
+          expect_retryable_with_partial_log(writes)
+        end
+
+        it 'still fails the request terminally on a 422' do
+          allow(api_client).to receive(:delete).with(files_path).and_raise(
+            BackendApiClient::ApiError.new('after_id must be a cursor', 422, { 'success' => false })
+          )
+          writes = capture_writes
+
+          expect { job.execute(deletion_request_id) }
+            .to raise_error(Compliance::DataDeletionJob::PartialDeletionFailure)
+
+          expect(writes).to include(
+            hash_including(status: 'failed',
+                           deletion_log: array_including(hash_including(data_type: 'files', action: 'failed')))
+          )
+        end
       end
 
       it 'does not call the files endpoint when the request retains files' do
