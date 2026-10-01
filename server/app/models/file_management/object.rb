@@ -13,7 +13,16 @@ module FileManagement
     # own rescue never saw a failure — the row was destroyed and the bytes
     # stayed. Strict mode turns that false into a raise, which rolls the
     # destroy back (IMP-d97f6e3bbc2b).
-    class StorageRemovalFailed < StandardError; end
+    class StorageRemovalFailed < StandardError
+      # The provider's refusal reason when it gave one (e.g.
+      # "store_not_initialized" from StorageProviders::PathLiveness), else nil.
+      attr_reader :reason
+
+      def initialize(message, reason: nil)
+        super(message)
+        @reason = reason
+      end
+    end
 
     # Set by FileManagement::Erasure for the one destroy whose blob removal
     # must either succeed or roll the row back. In-memory only.
@@ -608,8 +617,9 @@ module FileManagement
     # after_destroy, so it runs after the row DELETE inside the destroy's
     # transaction: in strict mode a failure here rolls the row back.
     def remove_from_storage
+      provider = storage.storage_provider
       removed = begin
-        storage.storage_provider.delete_file(self)
+        provider.delete_file(self)
       rescue StandardError => e
         Rails.logger.error "Failed to delete file from storage: #{e.message}"
         false
@@ -618,7 +628,10 @@ module FileManagement
 
       # The id, not the storage_key: the key embeds the filename, and this
       # message is logged.
-      raise StorageRemovalFailed, "storage provider (#{storage&.provider_type}) did not remove the blob of file object #{id}"
+      reason = provider.last_removal_refusal
+      message = "storage provider (#{storage&.provider_type}) did not remove the blob of file object #{id}"
+      message += " (#{reason})" if reason
+      raise StorageRemovalFailed.new(message, reason: reason)
     end
 
     def check_if_deletable

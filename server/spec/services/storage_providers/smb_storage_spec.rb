@@ -24,7 +24,17 @@ RSpec.describe StorageProviders::SmbStorage, type: :service do
     FileUtils.mkdir_p(mount_path)
     # Stub the mounted? check to return true for tests
     allow(provider).to receive(:mounted?).and_return(true)
+    # Round 5: the liveness marker is written only when the base sits on a
+    # real SMB mount per /proc/self/mountinfo; the read is injectable.
+    allow(StorageProviders::MountInfo).to receive(:read).and_return(mounted_mountinfo)
   end
+
+  # One cifs mount exactly at the (resolved) mount path.
+  let(:mounted_mountinfo) do
+    "100 1 0:50 / #{File.realpath(mount_path)} rw,relatime shared:1 - cifs //192.168.1.200/storage rw\n"
+  end
+  # The parent filesystem only: nothing mounted on the mount path.
+  let(:unmounted_mountinfo) { "98 1 8:2 / / rw,relatime shared:1 - ext4 /dev/sda2 rw\n" }
 
   after do
     FileUtils.rm_rf(mount_path)
@@ -365,13 +375,38 @@ RSpec.describe StorageProviders::SmbStorage, type: :service do
       allow(provider).to receive(:mounted?).and_return(false)
     end
 
-    it 'initialize_storage writes the marker and stores its nonce on the storage row' do
+    it 'initialize_storage writes the marker and stores its nonce when the base is on a cifs mount' do
       expect(provider.initialize_storage).to be true
 
       nonce = storage_config.reload.metadata['liveness_marker']
       expect(nonce).to be_present
       expect(File.read(marker).strip).to eq(nonce)
       expect(provider.store_live?).to be true
+    end
+
+    # Round 5 (critic A): the marker write used to be gated by the legacy
+    # `mounted?`, which is `include?("")` for a mount_path-only config, so
+    # initialize_storage wrote the marker onto the UNMOUNTED base and
+    # reported success — the exact trap the nonce exists to defeat. Now the
+    # base must sit on a real SMB mount per mountinfo, or nothing is
+    # written and the error names the share.
+    it 'refuses to initialize and writes NO marker when the base is not on a SMB mount' do
+      allow(StorageProviders::MountInfo).to receive(:read).and_return(unmounted_mountinfo)
+
+      expect(provider.initialize_storage).to be false
+
+      expect(File.exist?(marker)).to be false
+      expect(storage_config.reload.metadata['liveness_marker']).to be_blank
+      expect(provider.store_liveness).to eq(:unknown)
+    end
+
+    it 'refuses when the base sits on a mount of the wrong filesystem type' do
+      allow(StorageProviders::MountInfo).to receive(:read).and_return(
+        "100 1 0:50 / #{File.realpath(mount_path)} rw - ext4 /dev/sdb1 rw\n"
+      )
+
+      expect(provider.initialize_storage).to be false
+      expect(File.exist?(marker)).to be false
     end
 
     it 'returns true for a missing blob when the marker matches the stored nonce' do

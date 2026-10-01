@@ -262,8 +262,17 @@ module FileManagement
       outcome
     rescue FileManagement::Object::StorageRemovalFailed => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
-      probe_storage_live(file) unless @storage_live.key?(file.file_storage_id)
-      failure(file, "error", "storage_removal_failed")
+      # A provider that refused for want of a liveness marker
+      # (store_not_initialized) has no evidence the store is dead either:
+      # the failure carries that reason — so the operator is told to
+      # initialize the store — and the storage is not probed, so its other
+      # files are still attempted.
+      if e.reason == "store_not_initialized"
+        failure(file, "error", e.reason)
+      else
+        probe_storage_live(file) unless @storage_live.key?(file.file_storage_id)
+        failure(file, "error", "storage_removal_failed")
+      end
     rescue ErasureReferentRegistry::HandlerError => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
       @failed_handlers << e.handler_name

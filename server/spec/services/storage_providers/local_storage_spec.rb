@@ -397,11 +397,33 @@ RSpec.describe StorageProviders::LocalStorage, type: :service do
       expect(provider.delete_file(file_object)).to be false
     end
 
-    it 'returns false for a missing blob on a store that predates the marker (no nonce on the row)' do
+    # Round 5: three-valued liveness. No nonce on the row is NO EVIDENCE
+    # (:unknown) — a missing blob is refused with its own reason, so the
+    # operator is told to initialize the store, but the store is not
+    # treated as dead: its other blobs are still attempted. A nonce with a
+    # missing or mismatched marker is :dead.
+    it 'refuses a missing blob on a store that predates the marker, naming the reason, without declaring the store dead' do
       provider.initialize_storage
       storage_config.update_columns(metadata: {})
 
+      expect(provider.store_liveness).to eq(:unknown)
+      expect(provider.store_live?).to be true
       expect(provider.delete_file(file_object)).to be false
+      expect(provider.last_removal_refusal).to eq('store_not_initialized')
+    end
+
+    it 'is :live with a matching marker and :dead with a missing or stale one' do
+      provider.initialize_storage
+      expect(provider.store_liveness).to eq(:live)
+
+      File.write(marker, 'stale')
+      expect(provider.store_liveness).to eq(:dead)
+      expect(provider.store_live?).to be false
+      expect(provider.delete_file(file_object)).to be false
+      expect(provider.last_removal_refusal).to be_nil
+
+      File.delete(marker)
+      expect(provider.store_liveness).to eq(:dead)
     end
 
     it 'deletes an existing blob even with no marker at all' do

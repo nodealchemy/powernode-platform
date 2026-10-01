@@ -7,6 +7,9 @@ module StorageProviders
     include StorageProviders::PathLiveness
     attr_reader :mount_path
 
+    # Filesystem types initialize_storage accepts under the mount path.
+    NFS_FSTYPES = %w[nfs nfs4].freeze
+
     def initialize(storage_config)
       super
       @mount_path = config("mount_path")
@@ -85,10 +88,22 @@ module StorageProviders
         end
       end
 
+      # The liveness marker (PathLiveness) is the evidence delete_file relies
+      # on for a missing blob, so it is written only onto a base that really
+      # sits on an NFS mount per /proc/self/mountinfo — `mounted?` above is a
+      # substring test that passes for a mount_path-only configuration, and
+      # mount_nfs_share reports success without mounting when there is no
+      # server to mount. Writing the marker onto the unmounted mount point
+      # would be exactly the trap the marker exists to defeat.
+      fstype = base_fstype
+      unless NFS_FSTYPES.include?(fstype)
+        log_error("Refusing to initialize NFS storage: #{@mount_path} is not on an NFS mount " \
+                  "(found #{fstype || 'no mount'}; expected share #{share_description})")
+        return false
+      end
+
       # Create base directory structure if needed
       ensure_directory_structure
-      # A successful write to the (mounted) share is the liveness evidence
-      # delete_file relies on for a missing blob (PathLiveness).
       write_liveness_marker!
 
       log_info("Initialized NFS storage at #{@mount_path}")
@@ -227,6 +242,7 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
+      @last_removal_refusal = nil
       full_path = full_path_for(file_object.storage_key)
 
       # A MISSING blob is "already removed" only with positive evidence the
@@ -235,12 +251,7 @@ module StorageProviders
       # erasure in strict mode destroys the row on a true return
       # (IMP-d97f6e3bbc2b). Never decided by the legacy `mounted?`. An
       # EXISTING blob is deleted regardless.
-      unless File.exist?(full_path)
-        return true if store_live?
-
-        log_error("Refusing to report file object #{file_object.id} removed: no liveness evidence for the NFS store")
-        return false
-      end
+      return missing_blob_removed?(file_object, "NFS") unless File.exist?(full_path)
 
       File.delete(full_path)
 
@@ -369,6 +380,12 @@ module StorageProviders
 
     def liveness_base
       @mount_path
+    end
+
+    def share_description
+      return "none configured (mount_path only)" unless @server_address && @share_path
+
+      "#{@server_address}:#{@share_path}"
     end
 
     def mounted?

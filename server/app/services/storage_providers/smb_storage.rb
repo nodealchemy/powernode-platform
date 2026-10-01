@@ -7,6 +7,9 @@ module StorageProviders
     include StorageProviders::PathLiveness
     attr_reader :mount_path
 
+    # Filesystem types initialize_storage accepts under the mount path.
+    SMB_FSTYPES = %w[cifs smb3].freeze
+
     def initialize(storage_config)
       super
       @mount_path = config("mount_path")
@@ -74,10 +77,19 @@ module StorageProviders
         end
       end
 
+      # Same as the NFS provider: the liveness marker is written only onto a
+      # base that really sits on a CIFS/SMB mount per /proc/self/mountinfo,
+      # because `mounted?` above and mount_smb_share both report success
+      # without a mount for a mount_path-only configuration.
+      fstype = base_fstype
+      unless SMB_FSTYPES.include?(fstype)
+        log_error("Refusing to initialize SMB storage: #{@mount_path} is not on an SMB mount " \
+                  "(found #{fstype || 'no mount'}; expected share #{share_description})")
+        return false
+      end
+
       # Create base directory structure if needed
       ensure_directory_structure
-      # A successful write to the (mounted) share is the liveness evidence
-      # delete_file relies on for a missing blob (PathLiveness).
       write_liveness_marker!
 
       log_info("Initialized SMB storage at #{@mount_path}")
@@ -214,17 +226,13 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
+      @last_removal_refusal = nil
       full_path = full_path_for(file_object.storage_key)
 
       # Same as the NFS provider: a missing blob is "already removed" only
       # with the liveness marker as evidence (PathLiveness); an existing
       # blob is deleted regardless (IMP-d97f6e3bbc2b).
-      unless File.exist?(full_path)
-        return true if store_live?
-
-        log_error("Refusing to report file object #{file_object.id} removed: no liveness evidence for the SMB store")
-        return false
-      end
+      return missing_blob_removed?(file_object, "SMB") unless File.exist?(full_path)
 
       File.delete(full_path)
 
@@ -384,6 +392,12 @@ module StorageProviders
 
     def liveness_base
       @mount_path
+    end
+
+    def share_description
+      return "none configured (mount_path only)" unless @server_address && @share_name
+
+      "//#{@server_address}/#{@share_name}"
     end
 
     def mounted?

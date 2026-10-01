@@ -30,8 +30,10 @@ RSpec.describe FileManagement::Erasure do
     allow(provider).to receive(:initialize_storage).and_return(true)
     allow(provider).to receive(:delete_file).and_return(true)
     # The liveness probe: a live store by default, so a failed removal is
-    # one object's; the dead-storage examples override it.
+    # one object's; the dead-storage examples override it. No refusal
+    # reason by default: a false from delete_file is storage_removal_failed.
     allow(provider).to receive(:store_live?).and_return(true)
+    allow(provider).to receive(:last_removal_refusal).and_return(nil)
   end
 
   def personal_file(**attrs)
@@ -320,6 +322,24 @@ RSpec.describe FileManagement::Erasure do
       good.each { |f| expect(FileManagement::Object.exists?(f.id)).to be false }
       expect(result.failures).to contain_exactly(hash_including(id: bad.id, reason: 'storage_removal_failed'))
       expect(provider).to have_received(:delete_file).exactly(4).times
+    end
+
+    it 'keeps an UNINITIALIZED store (no nonce) per-file, with a reason that says to initialize it' do
+      # Round 5: no evidence is not "dead". The provider refuses each
+      # missing blob with store_not_initialized but still answers live-ish
+      # to the probe, so the files beside it — whose blobs may well exist —
+      # are still attempted.
+      files = Array.new(2) { |i| personal_file(filename: "f#{i}.pdf") }
+      allow(provider).to receive(:delete_file).and_return(false)
+      allow(provider).to receive(:last_removal_refusal).and_return('store_not_initialized')
+      allow(provider).to receive(:store_live?).and_return(true)
+
+      result = erase
+
+      expect(result.failures.map { |f| f[:reason] }).to eq(%w[store_not_initialized store_not_initialized])
+      expect(result.failures.map { |f| f[:kind] }.uniq).to eq([ 'error' ])
+      expect(provider).to have_received(:delete_file).exactly(2).times
+      files.each { |f| expect(FileManagement::Object.exists?(f.id)).to be true }
     end
 
     it 'treats a probe that raises as unreachable — no evidence the store is live' do

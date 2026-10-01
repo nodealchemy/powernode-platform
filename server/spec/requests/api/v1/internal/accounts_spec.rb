@@ -213,7 +213,7 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
   # action is one bounded batch of it, and the worker loops on the cursor.
   describe 'DELETE /api/v1/internal/accounts/:account_id/files' do
     let(:storage) { create(:file_storage, account: account) }
-    let(:provider) { instance_double(StorageProviders::LocalStorage, delete_file: true, initialize_storage: true, store_live?: true) }
+    let(:provider) { instance_double(StorageProviders::LocalStorage, delete_file: true, initialize_storage: true, store_live?: true, last_removal_refusal: nil) }
 
     before do
       allow(StorageProviderFactory).to receive(:create).and_return(provider)

@@ -71,6 +71,13 @@ module StorageProviders
       true
     end
 
+    # Why the last delete_file refused to report a blob removed, or nil
+    # (PathLiveness records "store_not_initialized" for a store with no
+    # liveness marker). API-backed providers have no such reason.
+    def last_removal_refusal
+      nil
+    end
+
     # Copy file
     # @param source_key [String] source storage key
     # @param destination_key [String] destination storage key

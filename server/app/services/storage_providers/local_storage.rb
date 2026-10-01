@@ -149,18 +149,14 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
+      @last_removal_refusal = nil
       file_path = full_path(file_object.storage_key)
 
       # A missing blob is "already removed" only with positive evidence the
       # root is the live store — the liveness marker (PathLiveness). A root
       # that is gone, or an empty mount point for an unmounted volume, has
       # none (IMP-d97f6e3bbc2b). An existing blob is deleted regardless.
-      unless file_path.exist?
-        return true if store_live?
-
-        log_error("Refusing to report file object #{file_object.id} removed: no liveness evidence for the local store")
-        return false
-      end
+      return missing_blob_removed?(file_object, "local") unless file_path.exist?
 
       File.delete(file_path)
       log_info("Deleted the blob of file object #{file_object.id}")
