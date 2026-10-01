@@ -75,6 +75,16 @@ job_files.each do |f|
   require f unless excluded_files.include?(f)
 end
 
+# IMP-2c760325c102 — wire the stdio MCP spawn audit sink. McpSecurityService
+# is plain Ruby and takes its reporter by injection (nil = no reporting);
+# the worker proper reports every spawn refusal and every native
+# (unsandboxed) spawn through the internal audit endpoint. The spec suite
+# resets this to nil (spec/spec_helper.rb) so no example ever makes a real
+# audit HTTP call by accident.
+require_relative '../app/services/mcp_security_service'
+require_relative '../app/services/mcp/spawn_audit_reporter'
+McpSecurityService.audit_reporter = Mcp::SpawnAuditReporter.new
+
 # Load extension worker modules dynamically from extensions/*/extension.json.
 # Skip slugs marked disabled in config/extensions_state.json so a disabled
 # extension's worker code is never required.

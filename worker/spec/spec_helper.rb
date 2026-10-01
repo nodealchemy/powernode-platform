@@ -35,6 +35,15 @@ require_relative '../config/application'
 # Configure test environment
 PowernodeWorker.application.logger.level = Logger::ERROR
 
+# IMP-2c760325c102 — config/boot.rb wires McpSecurityService's spawn audit
+# reporter to the real backend client. Under WebMock (disable_net_connect!
+# below) a stray audit POST from any spec that exercises a stdio refusal
+# would raise WebMock::NetConnectNotAllowedError — an Exception, not a
+# StandardError, so nothing in the reporter's own rescue would catch it.
+# nil means "no reporting"; the reporter has its own spec with the HTTP
+# stubbed, and McpSecurityService's spec injects a double where it matters.
+McpSecurityService.audit_reporter = nil
+
 # Load support files
 Dir[File.join(__dir__, 'support', '*.rb')].sort.each { |file| require file }
 

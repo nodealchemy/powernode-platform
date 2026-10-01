@@ -1096,22 +1096,42 @@ class McpSecurityService
     #     generated --unit= name>` reaches it.
     #
     # required (default) vs available vs off: see SANDBOX_MODES above.
-    # `allow_network:`, `timeout:` and `account_id:` are the only sandbox-
-    # relevant arguments a caller passes in — the unit name, resource
-    # limits and env-file path are generated fresh, internally, every call.
-    # `account_id:` (the owning account of the MCP server, already on the
-    # caller's payload) selects the sandbox identity; it is ignored when
-    # sandboxing is off.
+    # `allow_network:`, `timeout:`, `account_id:` and `native_execution:`
+    # are the only sandbox-relevant arguments a caller passes in — the unit
+    # name, resource limits and env-file path are generated fresh,
+    # internally, every call. `account_id:` (the owning account of the MCP
+    # server, already on the caller's payload) selects the sandbox
+    # identity; it is ignored when sandboxing is off.
+    #
+    # IMP-2c760325c102 (MCP isolation Phase 1 T4) — `native_execution:` is
+    # the operator-approved, per-server, core-mode-only NATIVE ESCAPE HATCH:
+    # true means "run this child with NO sandbox at all", whatever
+    # MCP_STDIO_SANDBOX_MODE says — including "required" on a host where
+    # sandboxing is unavailable, which is exactly the case the hatch exists
+    # for. It bypasses ONLY the sandbox: `command`/`env`/`args` are still
+    # the 3-tuple #validate_stdio_server! returned (argv/env validation and
+    # package pinning are unchanged by it), and every such spawn is WARN-
+    # logged and reported to the audit log (#record_native_execution_bypass).
+    # The flag is never decided here: it arrives as the server-computed
+    # `capabilities['native_execution_approved']` boolean, which the server
+    # only emits while the approval stands AND the deployment is in core
+    # mode (see McpServer#worker_capabilities on the server side).
     #
     # @return [Array(String, String, Process::Status)] [stdout, stderr, status]
     # @raise [StdioTimeoutError] if the child doesn't finish within `timeout`
     # @raise [SandboxUnavailableError] if mode is "required" and sandboxing isn't possible
     # @raise [SandboxAccountRequiredError] if sandboxed and account_id is nil/blank
     def spawn_stdio(command, env, args, stdin_data:, timeout: DEFAULT_STDIO_TIMEOUT_SECONDS, allow_network: false,
-                     egress_allowlist: [], mcp_server_id: nil, account_id: nil)
+                     egress_allowlist: [], mcp_server_id: nil, account_id: nil, native_execution: false)
       require 'open3'
 
-      sandboxed = sandbox_for_this_call?
+      sandboxed =
+        if native_execution
+          record_native_execution_bypass(mcp_server_id: mcp_server_id, account_id: account_id)
+          false
+        else
+          sandbox_for_this_call?
+        end
       # Checked BEFORE the env file is written: a missing account must
       # refuse without leaving a secret on /run or spawning anything.
       sandbox_identity(account_id) if sandboxed

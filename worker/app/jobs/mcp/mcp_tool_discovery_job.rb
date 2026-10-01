@@ -104,6 +104,9 @@ module Mcp
       allow_network = server.dig('capabilities', 'allow_network') == true
       # IMP-bf72723ef161 — same reasoning/gating as allow_network above.
       egress_allowlist = server.dig('capabilities', 'egress_allowlist')
+      # IMP-2c760325c102 — the native escape hatch, same gating path as
+      # allow_network (server-computed boolean; only an exact `true` counts).
+      native_execution = server.dig('capabilities', 'native_execution_approved') == true
 
       begin
         # Build MCP tools/list request
@@ -121,7 +124,7 @@ module Mcp
         stdout, stderr, status = McpSecurityService.spawn_stdio(
           command, sanitized_env, args, stdin_data: stdin_data, allow_network: allow_network,
                                          egress_allowlist: egress_allowlist, mcp_server_id: server['id'],
-                                         account_id: server['account_id']
+                                         account_id: server['account_id'], native_execution: native_execution
         )
 
         if status.success? || stdout.present?

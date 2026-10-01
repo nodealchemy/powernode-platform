@@ -90,6 +90,11 @@ module Mcp
       # against its own forbidden-range list before ever reaching
       # IPAddressAllow.
       egress_allowlist = indifferent_server.dig('capabilities', 'egress_allowlist')
+      # IMP-2c760325c102 — the operator-approved native escape hatch, a
+      # server-COMPUTED boolean (approval standing AND core mode); only an
+      # exact `true` counts. Bypasses the sandbox inside spawn_stdio only —
+      # validate_stdio_server! above ran unchanged.
+      native_execution = indifferent_server.dig('capabilities', 'native_execution_approved') == true
 
       begin
         # IMP-abda86fb39be review — JSON-RPC over stdio is
@@ -109,7 +114,8 @@ module Mcp
           command, sanitized_env, args, stdin_data: stdin_data, timeout: timeout, allow_network: allow_network,
                                          egress_allowlist: egress_allowlist,
                                          mcp_server_id: indifferent_server['id'],
-                                         account_id: indifferent_server['account_id']
+                                         account_id: indifferent_server['account_id'],
+                                         native_execution: native_execution
         )
 
         if status.success?

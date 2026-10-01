@@ -277,6 +277,28 @@ RSpec.describe Mcp::McpServerConnectionJob, type: :job do
           job.execute(server_id, { 'action' => 'connect' })
         end
 
+        # IMP-2c760325c102 — the native-execution hatch flag is read from the
+        # same serialized capabilities and threaded through the same way;
+        # it bypasses only the sandbox inside spawn_stdio, never validation.
+        it 'passes native_execution: true through to spawn_stdio when the server reports native_execution_approved' do
+          allow(api_client).to receive(:get)
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge(
+              'command' => 'node', 'capabilities' => { 'native_execution_approved' => true }
+            ) })
+          allow(api_client).to receive(:patch).and_return(success: true)
+          allow(Mcp::McpToolDiscoveryJob).to receive(:perform_async)
+
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, native_execution:, **_kwargs|
+            expect(native_execution).to be true
+            ['{}', '', instance_double(Process::Status, success?: true)]
+          end
+
+          job.execute(server_id, { 'action' => 'connect' })
+
+          expect(api_client).to have_received(:patch)
+            .with("/api/v1/internal/mcp_servers/#{server_id}", hash_including(status: 'connected'))
+        end
+
         # IMP-bf72723ef161 — same reasoning as allow_network above.
         it "passes egress_allowlist through to spawn_stdio when the server's capabilities carry one" do
           allow(api_client).to receive(:get)

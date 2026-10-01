@@ -470,6 +470,35 @@ RSpec.describe Mcp::McpTransportClient do
       expect(result).to eq(success: true, output: {})
     end
 
+    # IMP-2c760325c102 — the native-execution hatch flag is read here the
+    # same way and threaded through; the sandbox bypass happens inside
+    # spawn_stdio, after validate_stdio_server! has already run unchanged.
+    it 'passes native_execution: true through to spawn_stdio when the server reports native_execution_approved' do
+      native_server = server.merge(capabilities: { 'native_execution_approved' => true })
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, native_execution:, **_kwargs|
+        expect(native_execution).to be true
+        ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
+      end
+
+      result = client.execute_stdio_request(native_server, mcp_request)
+      expect(result).to eq(success: true, output: {})
+    end
+
+    it 'passes native_execution: false when capabilities omit it (and a non-true value never counts)' do
+      lying_server = server.merge(capabilities: { 'native_execution_approved' => 'true' })
+      success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
+
+      expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, native_execution:, **_kwargs|
+        expect(native_execution).to be false
+        ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
+      end
+
+      result = client.execute_stdio_request(lying_server, mcp_request)
+      expect(result).to eq(success: true, output: {})
+    end
+
     # IMP-bf72723ef161 — same reasoning as allow_network above: this
     # method is the ONLY place that reads
     # server['capabilities']['egress_allowlist'] and threads it through.

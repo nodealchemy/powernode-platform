@@ -302,6 +302,25 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
           job.execute(server_id)
         end
 
+        # IMP-2c760325c102 — the native-execution hatch flag, same gating path.
+        it 'passes native_execution: true through to spawn_stdio when the server reports native_execution_approved' do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/mcp_servers/#{server_id}")
+            .and_return('success' => true, 'data' => { 'mcp_server' => server_data.merge(
+              'command' => 'node', 'capabilities' => { 'native_execution_approved' => true }
+            ) })
+
+          expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, native_execution:, **_kwargs|
+            expect(native_execution).to be true
+            ['{}', '', instance_double(Process::Status, success?: true)]
+          end
+
+          job.execute(server_id)
+
+          expect(api_client).to have_received(:post)
+            .with("/api/v1/internal/mcp_servers/#{server_id}/health_result", hash_including(healthy: true))
+        end
+
         # IMP-bf72723ef161 — same reasoning as allow_network above.
         it "passes egress_allowlist through to spawn_stdio when the server's capabilities carry one" do
           allow(api_client).to receive(:get)
