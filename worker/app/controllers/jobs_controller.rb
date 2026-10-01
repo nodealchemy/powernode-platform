@@ -1,7 +1,27 @@
 # frozen_string_literal: true
 
+require_relative '../services/mcp/stdio_concurrency_limiter'
+
 # Jobs API controller for receiving job enqueue requests from the backend
 class JobsController
+  # IMP-ecc0e18c0455 — the refusal for a synchronous stdio MCP call that
+  # would exceed Mcp::StdioConcurrencyLimiter's cap. The server's
+  # Mcp::WorkerStdioClient recognises it by the 503 status together with
+  # this exact `code` in the {error:{message:,code:}} body (a parity spec
+  # there reads these two constants from this file).
+  STDIO_CAPACITY_EXHAUSTED_MESSAGE = 'MCP stdio capacity exhausted'
+  STDIO_CAPACITY_EXHAUSTED_CODE = 'mcp_stdio_capacity_exhausted'
+
+  class << self
+    # A controller is built per request, so the limiter is process-wide:
+    # Mcp::StdioConcurrencyLimiter.instance unless a spec swaps its own in.
+    attr_writer :stdio_limiter
+
+    def stdio_limiter
+      @stdio_limiter || Mcp::StdioConcurrencyLimiter.instance
+    end
+  end
+
   def self.call(env)
     new.call(env)
   end
@@ -343,6 +363,10 @@ class JobsController
   # cannot be assumed to have already run -- this request reaching us at
   # all must be treated as unvalidated input.
   #
+  # At most Mcp::StdioConcurrencyLimiter's cap of these run at once in this
+  # process (IMP-ecc0e18c0455); the call over the cap is refused at once
+  # with 503 and {error:{message:,code:}}, never parked waiting for a slot.
+  #
   # NEVER logs `data`/`server`/`mcp_request` -- `server['env']` carries
   # the MCP server's own secrets (API tokens, credentials). Only
   # exception class/message are logged on an unhandled failure, same
@@ -388,6 +412,14 @@ class JobsController
       )
     end
 
+    # After every check above, so a request those refuse never takes (or is
+    # refused for) a slot. The command validation inside
+    # #execute_stdio_request runs with the slot held: a disallowed command
+    # occupies one for the instant it takes to be refused, and when the cap
+    # is full it is answered 503 like any other call.
+    limiter = self.class.stdio_limiter
+    return stdio_capacity_exhausted_response(limiter) unless limiter.try_acquire
+
     begin
       result = mcp_transport_client.execute_stdio_request(server, mcp_request, timeout: timeout_seconds)
 
@@ -399,7 +431,28 @@ class JobsController
     rescue StandardError => e
       PowernodeWorker.application.logger.error "stdio MCP execution failed: #{e.class}: #{e.message}"
       error_response(500, "stdio MCP execution failed: #{e.class}: #{e.message}")
+    ensure
+      # Every exit path, including one no `rescue` here sees (a
+      # non-StandardError unwinding the request thread).
+      limiter.release
     end
+  end
+
+  # 503, not the 200 a domain-level failure gets: nothing was attempted,
+  # and the condition is this process's, not the MCP server's. The body
+  # keeps the {error:{message:}} shape, plus the `code` that lets
+  # Mcp::WorkerStdioClient tell this from any other 503 and hand it to its
+  # callers as the ordinary error result. The one line logged per refusal
+  # (not rate-limited) is how an operator sees saturation; it carries
+  # counts only.
+  def stdio_capacity_exhausted_response(limiter)
+    PowernodeWorker.application.logger.warn(
+      "stdio MCP capacity exhausted: cap #{limiter.limit} in use, " \
+      "#{limiter.rejected_total} refused since boot (#{Mcp::StdioConcurrencyLimiter::ENV_KEY})"
+    )
+    [ 503,
+      { 'content-type' => 'application/json' },
+      [ { error: { message: STDIO_CAPACITY_EXHAUSTED_MESSAGE, code: STDIO_CAPACITY_EXHAUSTED_CODE } }.to_json ] ]
   end
 
   # Build a LlmProxyClient for direct LLM provider calls.

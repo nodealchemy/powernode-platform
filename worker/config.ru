@@ -7,6 +7,13 @@ require 'rack/session'
 # Initialize the Powernode Worker application
 PowernodeWorker.application
 
+# Resolve the synchronous stdio MCP concurrency cap now, so the effective
+# value (and any warning about MCP_STDIO_MAX_CONCURRENCY) is in the boot log
+# rather than surfacing on the first /api/v1/mcp/execute_stdio call.
+PowernodeWorker.application.logger.info(
+  "stdio MCP concurrency cap: #{Mcp::StdioConcurrencyLimiter.instance.limit} per process"
+)
+
 # Read version from VERSION file
 VERSION_FILE = File.expand_path('VERSION', __dir__)
 WORKER_VERSION = File.exist?(VERSION_FILE) ? File.read(VERSION_FILE).strip : '0.0.1-dev'
