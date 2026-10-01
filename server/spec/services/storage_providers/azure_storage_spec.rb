@@ -189,6 +189,20 @@ RSpec.describe StorageProviders::AzureStorage, type: :service do
       result = provider.delete_file(file_object)
       expect(result).to be true
     end
+
+    # IMP-d97f6e3bbc2b (round 5): a 404 is "already removed" only when the
+    # BLOB is what is missing. A missing CONTAINER is the store being gone,
+    # and a GDPR erasure in strict mode destroys the row on a true return.
+    it 'returns false on a 404 whose error code is ContainerNotFound — the store itself is missing' do
+      stub_azure_request(
+        method: :delete,
+        path_pattern: "/test-container/#{file_object.storage_key}",
+        status: 404,
+        body: '<Error><Code>ContainerNotFound</Code></Error>'
+      )
+
+      expect(provider.delete_file(file_object)).to be false
+    end
   end
 
   describe '#file_exists?' do

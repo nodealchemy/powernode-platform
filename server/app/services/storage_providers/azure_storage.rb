@@ -222,10 +222,12 @@ module StorageProviders
       log_info("Deleted the blob of file object #{file_object.id} from Azure")
       true
     rescue AzureError => e
-      if e.status_code == 404
-        # File doesn't exist, consider it a success
-        return true
-      end
+      # Only a missing BLOB is "already removed". A 404 for a missing
+      # CONTAINER (ContainerNotFound) is the store being gone, and a GDPR
+      # erasure in strict mode destroys the row on a true return
+      # (IMP-d97f6e3bbc2b) — fail closed.
+      return true if e.status_code == 404 && e.error_code == "BlobNotFound"
+
       log_error("Failed to delete the blob of file object #{file_object.id}: #{e.message}")
       false
     end
