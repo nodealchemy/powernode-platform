@@ -226,10 +226,10 @@ module StorageProviders
       # Clean up empty parent directories
       cleanup_empty_directories(File.dirname(full_path))
 
-      log_info("Deleted file from SMB: #{file_object.storage_key}")
+      log_info("Deleted the blob of file object #{file_object.id} from SMB")
       true
     rescue StandardError => e
-      log_error("Failed to delete file #{file_object.storage_key}: #{e.message}")
+      log_error("Failed to delete the blob of file object #{file_object.id}: #{e.message}")
       false
     end
 

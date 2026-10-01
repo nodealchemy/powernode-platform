@@ -219,14 +219,14 @@ module StorageProviders
     def delete_file(file_object)
       make_request(:delete, blob_path(file_object.storage_key))
 
-      log_info("Deleted file from Azure: #{file_object.storage_key}")
+      log_info("Deleted the blob of file object #{file_object.id} from Azure")
       true
     rescue AzureError => e
       if e.status_code == 404
         # File doesn't exist, consider it a success
         return true
       end
-      log_error("Failed to delete file #{file_object.storage_key}: #{e.message}")
+      log_error("Failed to delete the blob of file object #{file_object.id}: #{e.message}")
       false
     end
 

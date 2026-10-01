@@ -248,10 +248,10 @@ module StorageProviders
         key: file_object.storage_key
       )
 
-      log_info("Deleted file from S3: #{file_object.storage_key}")
+      log_info("Deleted the blob of file object #{file_object.id} from S3")
       true
     rescue Aws::S3::Errors::ServiceError => e
-      log_error("Failed to delete file #{file_object.storage_key}: #{e.message}")
+      log_error("Failed to delete the blob of file object #{file_object.id}: #{e.message}")
       false
     end
 

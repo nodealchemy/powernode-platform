@@ -199,10 +199,10 @@ module StorageProviders
 
       gcs_file.delete
 
-      log_info("Deleted file from GCS: #{file_object.storage_key}")
+      log_info("Deleted the blob of file object #{file_object.id} from GCS")
       true
     rescue Google::Cloud::Error => e
-      log_error("Failed to delete file #{file_object.storage_key}: #{e.message}")
+      log_error("Failed to delete the blob of file object #{file_object.id}: #{e.message}")
       false
     end
 
