@@ -6,6 +6,7 @@ module StorageProviders
   # Local filesystem storage provider
   # Stores files on the local disk with configurable root path
   class LocalStorage < Base
+    include StorageProviders::PathLiveness
     DEFAULT_ROOT_PATH = Rails.root.join("storage", "files")
 
     def initialize(storage_config)
@@ -18,6 +19,9 @@ module StorageProviders
     def initialize_storage
       ensure_root_directory_exists
       create_subdirectories
+      # A successful write to the root is the liveness evidence delete_file
+      # relies on for a missing blob (PathLiveness).
+      write_liveness_marker!
 
       log_info("Initialized local storage at #{@root_path}")
       true
@@ -147,13 +151,14 @@ module StorageProviders
     def delete_file(file_object)
       file_path = full_path(file_object.storage_key)
 
-      # A missing blob under a root that is gone (an unmounted volume, a
-      # wiped path) is not "already removed"; only a present root may say
-      # so (IMP-d97f6e3bbc2b). An existing blob is deleted regardless.
+      # A missing blob is "already removed" only with positive evidence the
+      # root is the live store — the liveness marker (PathLiveness). A root
+      # that is gone, or an empty mount point for an unmounted volume, has
+      # none (IMP-d97f6e3bbc2b). An existing blob is deleted regardless.
       unless file_path.exist?
-        return true if @root_path.directory?  # Already deleted
+        return true if store_live?
 
-        log_error("Refusing to report file object #{file_object.id} removed: storage root is missing")
+        log_error("Refusing to report file object #{file_object.id} removed: no liveness evidence for the local store")
         return false
       end
 
@@ -263,6 +268,8 @@ module StorageProviders
       files = []
       search_path.find do |path|
         next if path.directory?
+        # The liveness marker is bookkeeping, not a stored file.
+        next if path.basename.to_s == StorageProviders::Base::LIVENESS_MARKER
 
         relative_path = path.relative_path_from(@root_path).to_s
 
@@ -325,6 +332,10 @@ module StorageProviders
 
     def full_path(storage_key)
       @root_path.join(storage_key)
+    end
+
+    def liveness_base
+      @root_path.to_s
     end
 
     def ensure_root_directory_exists

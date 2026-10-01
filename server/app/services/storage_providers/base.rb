@@ -56,6 +56,21 @@ module StorageProviders
       raise NotImplementedError, "#{self.class} must implement delete_file"
     end
 
+    # Marker file a path-backed provider writes at its base on a successful
+    # initialize_storage (StorageProviders::PathLiveness).
+    LIVENESS_MARKER = ".powernode_store"
+
+    # Positive evidence that the store is live, consulted by
+    # FileManagement::Erasure after a failed blob removal to tell a dead
+    # store (short-circuit the rest of its files in the batch) from one bad
+    # object (stay per-file). An API-backed provider (S3, GCS, Azure) has no
+    # mount to lose and its delete answers positively for a missing key, so
+    # it is never short-circuited: every failure there is one object's.
+    # Path-backed providers override this via PathLiveness.
+    def store_live?
+      true
+    end
+
     # Copy file
     # @param source_key [String] source storage key
     # @param destination_key [String] destination storage key

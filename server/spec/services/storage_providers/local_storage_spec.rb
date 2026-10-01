@@ -353,13 +353,68 @@ RSpec.describe StorageProviders::LocalStorage, type: :service do
     end
   end
 
-  # IMP-d97f6e3bbc2b (critic B, H1) — a root directory that is gone (an
-  # unmounted volume, a wiped path) is not a store with the blob already
-  # removed. Only a present root may report a missing blob as removed.
-  describe '#delete_file when the root directory is gone' do
-    it 'returns false rather than reporting the blob removed' do
+  # IMP-d97f6e3bbc2b (round 4, final) — a MISSING blob counts as removed
+  # only on POSITIVE evidence that the store is live: the liveness marker
+  # initialize_storage wrote with a successful write to the store
+  # (`.powernode_store`, holding a nonce that is also kept on the
+  # FileManagement::Storage row). No marker, a stale nonce, or a store
+  # row without a nonce (predates the marker) means no evidence, and the
+  # blob is refused — never "removed". An EXISTING blob is deleted
+  # regardless. No mount table, no device comparison, no `mounted?`.
+  describe '#delete_file decided by the liveness marker' do
+    let(:base) { storage_config.configuration['root_path'] }
+    let(:blob_path) { File.join(base, file_object.storage_key) }
+    let(:marker) { File.join(base, StorageProviders::Base::LIVENESS_MARKER) }
+
+    it 'initialize_storage writes the marker and stores its nonce on the storage row' do
+      expect(provider.initialize_storage).to be true
+
+      nonce = storage_config.reload.metadata['liveness_marker']
+      expect(nonce).to be_present
+      expect(File.read(marker).strip).to eq(nonce)
+      expect(provider.store_live?).to be true
+    end
+
+    it 'returns true for a missing blob when the marker matches the stored nonce' do
       provider.initialize_storage
-      FileUtils.rm_rf(storage_config.configuration['root_path'])
+
+      expect(File.exist?(blob_path)).to be false
+      expect(provider.delete_file(file_object)).to be true
+    end
+
+    it 'returns false for a missing blob when the marker is absent — an empty mount point is not a live store' do
+      provider.initialize_storage
+      File.delete(marker)
+
+      expect(provider.store_live?).to be false
+      expect(provider.delete_file(file_object)).to be false
+    end
+
+    it 'returns false for a missing blob when the marker carries a stale nonce (written by an older initialize, shadowed since)' do
+      provider.initialize_storage
+      File.write(marker, 'nonce-from-an-earlier-initialize')
+
+      expect(provider.delete_file(file_object)).to be false
+    end
+
+    it 'returns false for a missing blob on a store that predates the marker (no nonce on the row)' do
+      provider.initialize_storage
+      storage_config.update_columns(metadata: {})
+
+      expect(provider.delete_file(file_object)).to be false
+    end
+
+    it 'deletes an existing blob even with no marker at all' do
+      FileUtils.mkdir_p(File.dirname(blob_path))
+      File.write(blob_path, 'bytes')
+
+      expect(provider.delete_file(file_object)).to be true
+      expect(File.exist?(blob_path)).to be false
+    end
+
+    it 'refuses a missing blob when the root directory itself is gone' do
+      provider.initialize_storage
+      FileUtils.rm_rf(base)
 
       expect(provider.delete_file(file_object)).to be false
     end

@@ -4,6 +4,7 @@ module StorageProviders
   # SMB/CIFS storage provider
   # Provides network filesystem storage using mounted SMB/CIFS shares
   class SmbStorage < Base
+    include StorageProviders::PathLiveness
     attr_reader :mount_path
 
     def initialize(storage_config)
@@ -75,6 +76,9 @@ module StorageProviders
 
       # Create base directory structure if needed
       ensure_directory_structure
+      # A successful write to the (mounted) share is the liveness evidence
+      # delete_file relies on for a missing blob (PathLiveness).
+      write_liveness_marker!
 
       log_info("Initialized SMB storage at #{@mount_path}")
       true
@@ -213,12 +217,12 @@ module StorageProviders
       full_path = full_path_for(file_object.storage_key)
 
       # Same as the NFS provider: a missing blob is "already removed" only
-      # on a mounted share, decided by the exact mount-point test; an
-      # existing blob is deleted regardless (IMP-d97f6e3bbc2b).
+      # with the liveness marker as evidence (PathLiveness); an existing
+      # blob is deleted regardless (IMP-d97f6e3bbc2b).
       unless File.exist?(full_path)
-        return true if StorageProviders::MountPoint.mount_point?(@mount_path)
+        return true if store_live?
 
-        log_error("Refusing to report file object #{file_object.id} removed: nothing is mounted on the SMB mount point")
+        log_error("Refusing to report file object #{file_object.id} removed: no liveness evidence for the SMB store")
         return false
       end
 
@@ -376,6 +380,10 @@ module StorageProviders
 
     def full_path_for(storage_key)
       File.join(@mount_path, sanitize_key(storage_key))
+    end
+
+    def liveness_base
+      @mount_path
     end
 
     def mounted?

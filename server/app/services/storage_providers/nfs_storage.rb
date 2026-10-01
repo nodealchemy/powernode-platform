@@ -4,6 +4,7 @@ module StorageProviders
   # NFS (Network File System) storage provider
   # Provides network filesystem storage using mounted NFS shares
   class NfsStorage < Base
+    include StorageProviders::PathLiveness
     attr_reader :mount_path
 
     def initialize(storage_config)
@@ -86,6 +87,9 @@ module StorageProviders
 
       # Create base directory structure if needed
       ensure_directory_structure
+      # A successful write to the (mounted) share is the liveness evidence
+      # delete_file relies on for a missing blob (PathLiveness).
+      write_liveness_marker!
 
       log_info("Initialized NFS storage at #{@mount_path}")
       true
@@ -225,16 +229,16 @@ module StorageProviders
     def delete_file(file_object)
       full_path = full_path_for(file_object.storage_key)
 
-      # A MISSING blob is "already removed" only on a mounted share; an
-      # unmounted share's mount point is an ordinary empty directory, and a
-      # GDPR erasure in strict mode destroys the row on a true return
-      # (IMP-d97f6e3bbc2b). Decided by the exact mount-point test, never by
-      # the legacy `mounted?` (a substring match over `mount` output). An
-      # EXISTING blob is deleted whatever that test says.
+      # A MISSING blob is "already removed" only with positive evidence the
+      # share is live — the liveness marker (PathLiveness); an unmounted
+      # share's mount point is an ordinary empty directory, and a GDPR
+      # erasure in strict mode destroys the row on a true return
+      # (IMP-d97f6e3bbc2b). Never decided by the legacy `mounted?`. An
+      # EXISTING blob is deleted regardless.
       unless File.exist?(full_path)
-        return true if StorageProviders::MountPoint.mount_point?(@mount_path)
+        return true if store_live?
 
-        log_error("Refusing to report file object #{file_object.id} removed: nothing is mounted on the NFS mount point")
+        log_error("Refusing to report file object #{file_object.id} removed: no liveness evidence for the NFS store")
         return false
       end
 
@@ -361,6 +365,10 @@ module StorageProviders
 
     def full_path_for(storage_key)
       File.join(@mount_path, sanitize_key(storage_key))
+    end
+
+    def liveness_base
+      @mount_path
     end
 
     def mounted?
