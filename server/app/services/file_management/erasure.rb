@@ -33,12 +33,14 @@ module FileManagement
   # then fails to commit (the storage-counter write after it, or the commit
   # itself). The row and its shares survive, the blob is gone, and the file
   # is reported as failed for this run. A retry re-selects it and completes,
-  # because every provider's delete_file treats a missing blob on a
-  # REACHABLE store as success (local/nfs/smb: `return true unless exist?`
-  # once the root exists / the share is mounted; s3: delete_object is a
-  # no-op on a missing key; gcs: `return true unless gcs_file`; azure: 404
-  # is success) — and an UNREACHABLE store (unmounted NFS/SMB share, a
-  # missing local root) as failure, so an outage never reads as an empty
+  # because every provider's delete_file treats a missing blob as success
+  # only with positive evidence the store is live (local/nfs/smb: the
+  # liveness marker initialize_storage wrote there, see
+  # StorageProviders::PathLiveness; s3/gcs/azure: the service itself
+  # answered — delete_object is a no-op on a missing key, gcs `return true
+  # unless gcs_file`, azure 404 is success) — and with no evidence
+  # (unmounted share, empty bind mount, unmounted volume, a store that
+  # predates the marker) as failure, so an outage never reads as an empty
   # store. Until then the row is a dangling pointer, not retained content.
   #
   # CONCURRENT DUPLICATE: the worker's client retries a timed-out DELETE
@@ -65,10 +67,6 @@ module FileManagement
     # ask for more, up to MAX_BATCH_SIZE.
     DEFAULT_BATCH_SIZE = 50
     MAX_BATCH_SIZE = 200
-
-    # Blob-removal failures on one storage within one call before its
-    # remaining files in the batch are reported unreachable unattempted.
-    STORAGE_FAILURES_BEFORE_UNREACHABLE = 2
 
     # Personal content the destroy's own audit row must not archive — the
     # same hazard Api::V1::Internal::UsersController#delete_settings guards
@@ -161,19 +159,20 @@ module FileManagement
 
       failures = []
       erased_count = 0
-      @storage_failures = Hash.new(0)
+      @storage_live = {}
       @failed_handlers = Set.new
 
       batch.each do |file|
-        # A storage whose provider has failed to remove
-        # STORAGE_FAILURES_BEFORE_UNREACHABLE blobs in this call is not asked
+        # A storage the liveness probe found DEAD in this call is not asked
         # again: every further file on it is reported as unreachable without
-        # a provider call. Two, not one: a single undeletable blob (a
-        # permission error) must not starve its batch-mates, while a dead
-        # store still costs only two attempts per batch and never starves
-        # the files on a healthy store behind it (the cursor advances past
-        # them).
-        if @storage_failures[file.file_storage_id] >= STORAGE_FAILURES_BEFORE_UNREACHABLE
+        # a provider call. The probe (provider#store_live?) runs at most once
+        # per storage per call, only after a failed blob removal there — so
+        # one bad object on a live store (Object Lock, a denied ACL, a blob
+        # the provider refused) stays per-file and its batch-mates are still
+        # attempted, while a dead store costs one attempt plus one probe per
+        # batch and never starves the files on a healthy store behind it
+        # (the cursor advances past them).
+        if @storage_live[file.file_storage_id] == false
           failures << failure(file, "error", "storage_unreachable")
           next
         end
@@ -263,7 +262,7 @@ module FileManagement
       outcome
     rescue FileManagement::Object::StorageRemovalFailed => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
-      @storage_failures[file.file_storage_id] += 1
+      probe_storage_live(file) unless @storage_live.key?(file.file_storage_id)
       failure(file, "error", "storage_removal_failed")
     rescue ErasureReferentRegistry::HandlerError => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
@@ -279,6 +278,17 @@ module FileManagement
 
     def failure(file, kind, reason)
       { id: file.id, kind: kind, reason: reason }
+    end
+
+    # Positive evidence only: a probe that raises is "no evidence", i.e. not
+    # live. Recorded once per storage per call.
+    def probe_storage_live(file)
+      @storage_live[file.file_storage_id] = begin
+        file.storage.storage_provider.store_live? == true
+      rescue StandardError => e
+        Rails.logger.error "[FileManagement::Erasure] liveness probe for storage #{file.file_storage_id} raised: #{e.class}: #{e.message}"
+        false
+      end
     end
   end
 end

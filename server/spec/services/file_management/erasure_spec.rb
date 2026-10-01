@@ -29,6 +29,9 @@ RSpec.describe FileManagement::Erasure do
     allow(StorageProviderFactory).to receive(:create).and_return(provider)
     allow(provider).to receive(:initialize_storage).and_return(true)
     allow(provider).to receive(:delete_file).and_return(true)
+    # The liveness probe: a live store by default, so a failed removal is
+    # one object's; the dead-storage examples override it.
+    allow(provider).to receive(:store_live?).and_return(true)
   end
 
   def personal_file(**attrs)
@@ -277,13 +280,20 @@ RSpec.describe FileManagement::Erasure do
     end
   end
 
+  # The short-circuit fires ONLY on a positive unreachability result from
+  # the storage's own liveness probe (store_live? false), checked at most
+  # once per storage per call, after its first failed blob removal. A
+  # failed removal on a LIVE store is one bad object (Object Lock, a denied
+  # ACL, a legitimately missing blob the provider refused) and stays
+  # per-file; the files beside it are still attempted.
   describe 'a dead storage inside one call' do
-    it 'tries a storage twice, then reports its other files as unreachable without a provider call, and still erases files on a healthy storage' do
+    it 'probes a storage once after its first failure; a dead store short-circuits, and files on a healthy storage are still erased' do
       dead = create(:file_storage, account: account)
       healthy = storage
       on_dead = Array.new(3) { |i| personal_file(storage: dead, filename: "dead#{i}.pdf") }
       on_healthy = personal_file(storage: healthy, filename: 'c.pdf')
       allow(provider).to receive(:delete_file) { |file_object| file_object.file_storage_id != dead.id }
+      allow(provider).to receive(:store_live?).and_return(false)
 
       result = erase
 
@@ -291,22 +301,36 @@ RSpec.describe FileManagement::Erasure do
       expect(FileManagement::Object.exists?(on_healthy.id)).to be false
       on_dead.each { |f| expect(FileManagement::Object.exists?(f.id)).to be true }
       expect(result.failures.map { |f| f[:reason] })
-        .to contain_exactly('storage_removal_failed', 'storage_removal_failed', 'storage_unreachable')
+        .to contain_exactly('storage_removal_failed', 'storage_unreachable', 'storage_unreachable')
       expect(result.failures.map { |f| f[:kind] }.uniq).to eq([ 'error' ])
-      # Two attempts on the dead storage, one on the healthy one.
-      expect(provider).to have_received(:delete_file).exactly(3).times
+      # One attempt on the dead storage, one on the healthy one, one probe.
+      expect(provider).to have_received(:delete_file).exactly(2).times
+      expect(provider).to have_received(:store_live?).once
     end
 
-    it 'does not let ONE undeletable blob starve its batch-mates on the same storage' do
+    it 'keeps a failure on a LIVE store per-file: the second file on the same storage is attempted and erased' do
       bad = personal_file(filename: 'locked.pdf')
       good = Array.new(3) { |i| personal_file(filename: "fine#{i}.pdf") }
       allow(provider).to receive(:delete_file) { |file_object| file_object.id != bad.id }
+      allow(provider).to receive(:store_live?).and_return(true)
 
       result = erase(batch_size: 10)
 
       expect(result.erased_count).to eq(3)
       good.each { |f| expect(FileManagement::Object.exists?(f.id)).to be false }
       expect(result.failures).to contain_exactly(hash_including(id: bad.id, reason: 'storage_removal_failed'))
+      expect(provider).to have_received(:delete_file).exactly(4).times
+    end
+
+    it 'treats a probe that raises as unreachable — no evidence the store is live' do
+      files = Array.new(2) { |i| personal_file(filename: "f#{i}.pdf") }
+      allow(provider).to receive(:delete_file).and_return(false)
+      allow(provider).to receive(:store_live?).and_raise(Errno::EIO)
+
+      result = erase
+
+      expect(result.failures.map { |f| f[:reason] }).to contain_exactly('storage_removal_failed', 'storage_unreachable')
+      files.each { |f| expect(FileManagement::Object.exists?(f.id)).to be true }
     end
   end
 

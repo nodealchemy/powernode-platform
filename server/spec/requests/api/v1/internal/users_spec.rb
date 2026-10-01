@@ -931,7 +931,7 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
   # column of its own, independent of uploaded_by.account_id.
   describe 'DELETE /api/v1/internal/users/:user_id/files' do
     let(:storage) { create(:file_storage, account: account) }
-    let(:provider) { instance_double(StorageProviders::LocalStorage, delete_file: true, initialize_storage: true) }
+    let(:provider) { instance_double(StorageProviders::LocalStorage, delete_file: true, initialize_storage: true, store_live?: true) }
 
     before do
       allow(StorageProviderFactory).to receive(:create).and_return(provider)
