@@ -573,6 +573,25 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
         expect(writes).not_to include(hash_including(status: 'completed'))
       end
 
+      # Round 5: a store with no liveness marker is an operator action, not
+      # a retry — the error_message says which.
+      it 'tells the operator to initialize the store when the server reports store_not_initialized' do
+        allow(api_client).to receive(:delete).with(files_path).and_return(
+          files_batch(count: 0, remaining: 0, cursor: cursor_1,
+                      failed: [ { 'id' => 'file-1', 'kind' => 'error', 'reason' => 'store_not_initialized' } ])
+        )
+        writes = []
+        allow(api_client).to receive(:patch) do |path, payload|
+          writes << payload if path.end_with?(deletion_request_id)
+          show_response(deletion_request_data)
+        end
+
+        expect { job.execute(deletion_request_id) }
+          .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /store_not_initialized: re-run initialize/)
+
+        expect(writes).to include(hash_including(error_message: /re-run initialize on that file storage .* with its share mounted/))
+      end
+
       it 'caps the failure text to a bounded sample rather than naming every file' do
         failed = Array.new(40) { |i| { 'id' => "file-#{i}", 'kind' => 'error', 'reason' => 'storage_removal_failed' } }
         allow(api_client).to receive(:delete).with(files_path).and_return(
@@ -586,7 +605,7 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
         )
       end
 
-      it 'fails the request for a held file too — the subject\'s file was not erased' do
+      it 'fails the request for a held file too — the subject\'s file was not erased — and still records how many were' do
         allow(api_client).to receive(:delete).with(files_path).and_return(
           files_batch(count: 3, remaining: 0, cursor: cursor_1,
                       failed: [ { 'id' => 'file-9', 'kind' => 'held', 'reason' => 'held_by_boot_image' } ])
@@ -597,7 +616,8 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
             hash_including(
               status: 'failed',
               deletion_log: array_including(
-                hash_including(data_type: 'files', action: 'failed', error: /held_by_boot_image/)
+                hash_including(data_type: 'files', action: 'failed', error: /held_by_boot_image/,
+                               records_affected: 3)
               )
             )
           )

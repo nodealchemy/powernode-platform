@@ -90,7 +90,13 @@ module ComplianceFileErasureConcern
   def file_erasure_failure_summary(failures)
     sample = failures.first(FAILURE_SAMPLE_SIZE).map { |f| "#{f['id']} (#{f['kind']}: #{f['reason']})" }
     rest = failures.size - sample.size
-    rest.positive? ? "#{sample.join(', ')}, and #{rest} more" : sample.join(', ')
+    summary = rest.positive? ? "#{sample.join(', ')}, and #{rest} more" : sample.join(', ')
+    # A store the server could not vouch for (no liveness marker on its
+    # row) needs an operator action, not a retry: say which one.
+    if failures.any? { |f| f['reason'] == 'store_not_initialized' }
+      summary += ' — store_not_initialized: re-run initialize on that file storage (Admin → Storage) with its share mounted'
+    end
+    summary
   end
 
   private

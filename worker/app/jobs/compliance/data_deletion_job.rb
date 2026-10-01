@@ -531,12 +531,17 @@ module Compliance
           processed_at: Time.current.iso8601
         }
       elsif result[:error]
-        {
+        # A failed `files` pass still erased what it erased: carry the
+        # count so the log is honest about partial progress and a resume
+        # can carry it forward (carried_files_count).
+        entry = {
           data_type: data_type,
           action: 'failed',
           error: result[:error],
           processed_at: Time.current.iso8601
         }
+        entry[:records_affected] = result[:count] if result.key?(:count)
+        entry
       elsif result[:anonymized]
         {
           data_type: data_type,
