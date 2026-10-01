@@ -80,56 +80,33 @@ class Api::V1::Internal::AccountsController < Api::V1::Internal::InternalBaseCon
     render_success(message: "Anonymized #{count || 0} payment records")
   end
 
-  # DELETE /api/v1/internal/accounts/:account_id/files
+  # DELETE /api/v1/internal/accounts/:account_id/files?batch_size=&after_id=
   #
-  # `data: { count: }` added (IMP-b33a3ecca331 review, S5): the worker reads
-  # this count back (Compliance::AccountTerminationJob#delete_account_records)
-  # to log how many records were actually deleted — a message-only response
-  # gave it nothing structured to read, so that read always saw 0.
-  # IMP-bf52b4da135b: this action has NEVER erased a file. It was
-  # `@account.files.delete_all if @account.respond_to?(:files)`, and Account
-  # declares no `files` association, so the guard was ALWAYS false and every
-  # account termination recorded "Deleted 0 file records" — a success-shaped
-  # response over an erasure that did not happen, which is exactly why the
-  # gap survived this long.
+  # ONE bounded batch of FileManagement::Erasure over every personal file in
+  # the account, whoever uploaded it (the whole account is being terminated).
+  # Platform artifacts in the account — disk images, SBOM exports,
+  # attestation proofs, vendor artifacts — are not personal data and are
+  # left, counted in `retained_platform_artifacts`. The worker
+  # (Compliance::AccountTerminationJob) loops on `cursor` until `remaining`
+  # is 0, so no single request walks a large account.
   #
-  # It is NOT restored to that shape and NOT implemented here either. Real
-  # file erasure is blocked on problems that are their own piece of work, and
-  # they are demonstrated rather than asserted (see the reproduction kept with
-  # the follow-up task): five tables reference file_objects with no inverse
-  # association and no `on_delete`, so destroying a chat-attached file raises
-  #   PG::ForeignKeyViolation ... violates foreign key constraint
-  #   "fk_rails_ca093e583a" on table "chat_message_attachments"
-  # mid-iteration, after shares have already been deleted and with no
-  # rollback; FileManagement::Object's after_destroy :remove_from_storage
-  # swallows a blob-removal failure, so a naive implementation reports
-  # erasure it did not perform; and the same scope holds non-personal
-  # platform artifacts (disk_image, sbom_export, attestation_proof,
-  # vendor_certificate, ...) that must not be swept up by a data-subject
-  # request.
-  #
-  # So until that lands, this reports the gap HONESTLY instead of hiding it:
-  # `erased: false` with a reason, and a message that does not claim a
-  # deletion. Same shape as the already-established
-  # `subscription_anonymize_skipped` precedent in
-  # Compliance::AccountTerminationJob#delete_account_records — an unmet
-  # obligation recorded as unmet.
-  #
-  # Deliberately NOT a 5xx/501: BackendApiClient raises ApiError on any
-  # non-2xx, which would abort the whole account termination, and a
-  # termination has no path back once it fails. Failing every termination to
-  # signal a known, already-documented gap trades a visible gap for a broken
-  # pipeline. `count: 0` is retained so the existing worker read keeps
-  # working; `erased` is what callers should branch on.
+  # IMP-bf52b4da135b had this report `erased: false, reason: no_erasure_path`
+  # because it had never erased a file; IMP-d97f6e3bbc2b is the erasure
+  # path. A per-file failure is in `failed` (kind 'held' = a referent will
+  # not let go; 'error' = storage or an unexpected raise), never a 5xx:
+  # BackendApiClient raises on any non-2xx, which would abort the whole
+  # termination, and the worker decides per kind.
   def delete_files
-    log_internal_audit(
-      "account.delete_files", "Account", @account.id,
-      account_id: @account.id, records_deleted: 0, erased: false, reason: "no_erasure_path"
+    unless FileManagement::Erasure.valid_cursor?(params[:after_id])
+      return render_error("after_id must be a cursor returned by this action", status: :unprocessable_entity)
+    end
+
+    result = FileManagement::Erasure.call(
+      scope: FileManagement::Object.where(account_id: @account.id),
+      batch_size: params[:batch_size], after_id: params[:after_id]
     )
-    render_success(
-      data: { count: 0, erased: false, reason: "no_erasure_path" },
-      message: "Files were NOT erased: this platform has no erasure path for file objects yet"
-    )
+    log_internal_audit("account.delete_files", "Account", @account.id, account_id: @account.id, **result.audit_metadata)
+    render_success(data: result.to_h, message: result.message)
   end
 
   # DELETE /api/v1/internal/accounts/:account_id/api_keys

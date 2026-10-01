@@ -194,14 +194,14 @@ module AuditActions
   # groups, so an unregistered literal makes the write fail and leaves the
   # irreversible erasure it documents with no audit row.
   #
-  # Deliberately NO `user.delete_files`: `files` is withdrawn from
-  # DELETABLE_DATA_TYPES until a real erasure backend exists for it (see the
-  # constant's comment), so there is no action to register yet.
+  # user.delete_files added (IMP-d97f6e3bbc2b) with the FileManagement::Erasure
+  # backend that re-advertised `files`.
   USER_DATA_LIFECYCLE_ACTIONS = %w[
     user.anonymize user.anonymize_audit_logs
     user.delete_consents user.delete_terms_acceptances
     user.delete_password_histories user.delete_roles
     user.delete_settings user.delete_communications
+    user.delete_files
   ].freeze
 
   # =============================================================================

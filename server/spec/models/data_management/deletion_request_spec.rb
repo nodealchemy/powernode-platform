@@ -23,15 +23,17 @@ RSpec.describe DataManagement::DeletionRequest, type: :model do
   describe 'DELETABLE_DATA_TYPES' do
     it 'only advertises data types that have a backing erasure path' do
       expect(described_class::DELETABLE_DATA_TYPES).to contain_exactly(
-        'profile', 'audit_logs', 'payments', 'settings', 'consents', 'communications'
+        'profile', 'audit_logs', 'payments', 'settings', 'consents', 'communications', 'files'
       )
     end
 
+    it 'advertises files again now that FileManagement::Erasure backs it (IMP-d97f6e3bbc2b)' do
+      expect(described_class::DELETABLE_DATA_TYPES).to include('files')
+    end
+
     it 'no longer advertises the withdrawn types' do
-      # 'files' has a backing model but no correct erasure path yet;
       # 'activity'/'analytics' have no category-level erasure path at all.
       # See the constant's own comment for the per-type reasoning.
-      expect(described_class::DELETABLE_DATA_TYPES).not_to include('files')
       expect(described_class::DELETABLE_DATA_TYPES).not_to include('activity')
       expect(described_class::DELETABLE_DATA_TYPES).not_to include('analytics')
     end

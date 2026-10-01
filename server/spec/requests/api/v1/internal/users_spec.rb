@@ -924,6 +924,89 @@ RSpec.describe 'Api::V1::Internal::Users', type: :request do
     end
   end
 
+  # IMP-d97f6e3bbc2b — the `files` entry in DELETABLE_DATA_TYPES, re-advertised
+  # now that FileManagement::Erasure exists. Scoped to the files THIS data
+  # subject uploaded in THEIR account: a co-member's uploads are that
+  # co-member's personal data, and FileManagement::Object.account_id is a
+  # column of its own, independent of uploaded_by.account_id.
+  describe 'DELETE /api/v1/internal/users/:user_id/files' do
+    let(:storage) { create(:file_storage, account: account) }
+    let(:provider) { instance_double(StorageProviders::LocalStorage, delete_file: true, initialize_storage: true) }
+
+    before do
+      allow(StorageProviderFactory).to receive(:create).and_return(provider)
+    end
+
+    context 'with valid service token' do
+      it 'erases the files the subject uploaded and returns the count' do
+        files = create_list(:file_object, 2, account: account, storage: storage, uploaded_by: user)
+
+        delete "/api/v1/internal/users/#{user.id}/files", headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['count']).to eq(2)
+        expect(json_response_data['erased']).to be true
+        expect(json_response_data['failed']).to eq([])
+        expect(json_response_data['remaining']).to eq(0)
+        files.each { |f| expect(FileManagement::Object.exists?(f.id)).to be false }
+        expect(AuditLog.exists?(account_id: account.id, action: 'user.delete_files')).to be true
+      end
+
+      it 'does not reach files uploaded by another user in the same account' do
+        other_user = create(:user, account: account)
+        theirs = create(:file_object, account: account, storage: storage, uploaded_by: other_user)
+
+        delete "/api/v1/internal/users/#{user.id}/files", headers: internal_headers, as: :json
+
+        expect(json_response_data['count']).to eq(0)
+        expect(FileManagement::Object.exists?(theirs.id)).to be true
+      end
+
+      it 'does not reach a file the subject uploaded into ANOTHER account' do
+        # The hardening a user-varying spec cannot see: account_id is held
+        # fixed there. This one varies the account while holding the uploader.
+        other_account = create(:account)
+        elsewhere = create(:file_object, account: other_account,
+                                         storage: create(:file_storage, account: other_account),
+                                         uploaded_by: user)
+
+        delete "/api/v1/internal/users/#{user.id}/files", headers: internal_headers, as: :json
+
+        expect(json_response_data['count']).to eq(0)
+        expect(FileManagement::Object.exists?(elsewhere.id)).to be true
+      end
+
+      it 'reports a file whose blob delete failed as failed rather than erased' do
+        file = create(:file_object, account: account, storage: storage, uploaded_by: user)
+        allow(provider).to receive(:delete_file).and_return(false)
+
+        delete "/api/v1/internal/users/#{user.id}/files", headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(json_response_data['count']).to eq(0)
+        expect(json_response_data['failed']).to contain_exactly(
+          hash_including('id' => file.id, 'kind' => 'error', 'reason' => 'storage_removal_failed')
+        )
+        expect(FileManagement::Object.exists?(file.id)).to be true
+      end
+
+      it 'returns 404 for a non-existent user' do
+        delete '/api/v1/internal/users/00000000-0000-0000-0000-000000000000/files',
+               headers: internal_headers, as: :json
+
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
+    context 'without service token' do
+      it 'returns unauthorized error' do
+        delete "/api/v1/internal/users/#{user.id}/files", as: :json
+
+        expect_error_response('mTLS client certificate required', 401)
+      end
+    end
+  end
+
   describe 'DELETE /api/v1/internal/users/:user_id/terms_acceptances' do
     context 'with valid service token' do
       it 'returns success message with count' do

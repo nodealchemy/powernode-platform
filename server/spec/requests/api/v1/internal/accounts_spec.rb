@@ -205,54 +205,113 @@ RSpec.describe 'Api::V1::Internal::Accounts', type: :request do
     end
   end
 
+  # IMP-d97f6e3bbc2b — the account-termination files path. IMP-bf52b4da135b
+  # withdrew `files` because this action had never erased one (it was gated on
+  # an association Account does not have) and a real erasure was blocked on
+  # restrict FKs, a swallowed blob-removal failure and platform artifacts
+  # sharing the scope. FileManagement::Erasure now resolves all three; this
+  # action is one bounded batch of it, and the worker loops on the cursor.
   describe 'DELETE /api/v1/internal/accounts/:account_id/files' do
+    let(:storage) { create(:file_storage, account: account) }
+    let(:provider) { instance_double(StorageProviders::LocalStorage, delete_file: true, initialize_storage: true) }
+
+    before do
+      allow(StorageProviderFactory).to receive(:create).and_return(provider)
+    end
+
     context 'with internal authentication' do
-      it 'writes an audit_logs row for the delete_files action' do
+      it 'erases every personal file in the account, whoever uploaded it, and reports the count' do
+        member = create(:user, account: account)
+        mine = create(:file_object, account: account, storage: storage, uploaded_by: owner)
+        theirs = create(:file_object, account: account, storage: storage, uploaded_by: member)
+
         delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
 
         expect_success_response
-        # IMP-b33a3ecca331 (S5): the response carries `data: {count:}`
-        # (Compliance::AccountTerminationJob reads it back), so
-        # json_response_data returns that data hash rather than falling back
-        # to the whole envelope — read `message` from the full response.
-        expect(json_response_data['count']).to eq(0)
+        expect(json_response_data['count']).to eq(2)
+        expect(json_response_data['erased']).to be true
+        expect(json_response_data['failed']).to eq([])
+        expect(json_response_data['remaining']).to eq(0)
+        expect(FileManagement::Object.exists?(mine.id)).to be false
+        expect(FileManagement::Object.exists?(theirs.id)).to be false
         expect(
           AuditLog.exists?(account_id: account.id, action: 'account.delete_files')
         ).to be true
       end
 
-      # IMP-bf52b4da135b — this action has never erased a file
-      # (`@account.respond_to?(:files)` is always false; Account has no such
-      # association) and still does not, because real file erasure is blocked
-      # on restrict-FKs, a swallowed blob-removal failure, and non-personal
-      # artifacts sharing the scope. What changed is that it no longer
-      # PRETENDS: a success-shaped "Deleted 0 file records" is what let this
-      # gap survive unnoticed.
-      it 'reports explicitly that files were not erased, instead of claiming a deletion' do
+      it 'does not destroy a disk image or an attestation proof — a termination is not a licence to erase platform artifacts' do
+        disk_image = create(:file_object, account: account, storage: storage, uploaded_by: owner, category: 'disk_image')
+        proof = create(:file_object, account: account, storage: storage, uploaded_by: owner, category: 'attestation_proof')
+
         delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
 
         expect_success_response
-        expect(json_response_data['erased']).to be false
-        expect(json_response_data['reason']).to eq('no_erasure_path')
-        expect(json_response['message']).to include('NOT erased')
-        expect(json_response['message']).not_to match(/\ADeleted \d+ file records\z/)
+        expect(json_response_data['count']).to eq(0)
+        expect(json_response_data['retained_platform_artifacts']).to eq(2)
+        expect(FileManagement::Object.exists?(disk_image.id)).to be true
+        expect(FileManagement::Object.exists?(proof.id)).to be true
       end
 
-      it 'records the unmet obligation in the audit row' do
+      it 'does not reach files in another account' do
+        other = create(:file_object)
+
+        delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
+
+        expect(FileManagement::Object.exists?(other.id)).to be true
+      end
+
+      it 'reports a file whose blob delete failed as failed, not erased, and does not fail the request' do
+        file = create(:file_object, account: account, storage: storage, uploaded_by: owner)
+        allow(provider).to receive(:delete_file).and_return(false)
+
+        delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
+
+        # Not a 5xx: BackendApiClient raises on any non-2xx, which would abort
+        # the whole termination; the worker reads `failed` and decides.
+        expect(response).to have_http_status(:success)
+        expect(json_response_data['count']).to eq(0)
+        expect(json_response_data['failed']).to contain_exactly(
+          hash_including('id' => file.id, 'kind' => 'error', 'reason' => 'storage_removal_failed')
+        )
+        expect(FileManagement::Object.exists?(file.id)).to be true
+      end
+
+      it 'honours batch_size and after_id so the worker can page through a large account' do
+        files = create_list(:file_object, 3, account: account, storage: storage, uploaded_by: owner)
+
+        delete "/api/v1/internal/accounts/#{account.id}/files",
+               params: { batch_size: 2 }, headers: internal_headers, as: :json
+
+        expect(json_response_data['count']).to eq(2)
+        expect(json_response_data['remaining']).to eq(1)
+        cursor = json_response_data['cursor']
+        expect(cursor).to eq(files.map(&:id).sort[1])
+
+        delete "/api/v1/internal/accounts/#{account.id}/files",
+               params: { batch_size: 2, after_id: cursor }, headers: internal_headers, as: :json
+
+        expect(json_response_data['count']).to eq(1)
+        expect(json_response_data['remaining']).to eq(0)
+      end
+
+      it 'records the outcome in the audit row' do
+        create(:file_object, account: account, storage: storage, uploaded_by: owner)
+
         delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
 
         row = AuditLog.find_by(account_id: account.id, action: 'account.delete_files')
-        expect(row.metadata['erased']).to be false
-        expect(row.metadata['reason']).to eq('no_erasure_path')
+        expect(row.metadata['records_deleted']).to eq(1)
+        expect(row.metadata['erased']).to be true
       end
 
-      it 'does not fail the request — a known gap must not abort account termination' do
-        # Deliberately not a 501/5xx: BackendApiClient raises on any non-2xx,
-        # which would abort the whole termination, and a termination has no
-        # path back once it fails.
-        delete "/api/v1/internal/accounts/#{account.id}/files", headers: internal_headers, as: :json
+      it 'rejects a malformed cursor with 422 rather than a 500 that would revert a termination' do
+        file = create(:file_object, account: account, storage: storage, uploaded_by: owner)
 
-        expect(response).to have_http_status(:success)
+        delete "/api/v1/internal/accounts/#{account.id}/files",
+               params: { after_id: 'not-a-uuid' }, headers: internal_headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(FileManagement::Object.exists?(file.id)).to be true
       end
     end
   end

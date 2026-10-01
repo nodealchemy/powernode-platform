@@ -215,6 +215,7 @@ Rails.application.routes.draw do
           delete :terms_acceptances, to: "users#delete_terms_acceptances"
           delete :password_histories, to: "users#delete_password_histories"
           delete :roles, to: "users#delete_roles"
+          delete :files, to: "users#delete_files"
         end
 
         # Account data export endpoints

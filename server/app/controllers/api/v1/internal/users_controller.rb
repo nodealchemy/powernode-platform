@@ -5,7 +5,7 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
   before_action :set_user, only: [ :show, :anonymize, :anonymize_audit_logs,
                                     :delete_consents, :delete_terms_acceptances,
                                     :delete_password_histories, :delete_roles,
-                                    :delete_settings, :delete_communications ]
+                                    :delete_settings, :delete_communications, :delete_files ]
 
   # GET /api/v1/internal/users/:id
   def show
@@ -482,6 +482,29 @@ class Api::V1::Internal::UsersController < Api::V1::Internal::InternalBaseContro
       email_deliveries_deleted: email_count
     )
     render_success(data: { count: count }, message: "Deleted #{count} communication records")
+  end
+
+  # DELETE /api/v1/internal/users/:user_id/files?batch_size=&after_id=
+  #
+  # The `files` entry in DELETABLE_DATA_TYPES (IMP-d97f6e3bbc2b): one bounded
+  # batch of FileManagement::Erasure over the files THIS subject uploaded in
+  # THEIR account. Both columns, deliberately — a co-member's uploads are the
+  # co-member's personal data, and FileManagement::Object.account_id is a
+  # column of its own, independent of uploaded_by.account_id. Same payload
+  # shape as the account action; Compliance::DataDeletionJob loops on
+  # `cursor` until `remaining` is 0 and records any `failed` entry as a
+  # failed erasure of the category.
+  def delete_files
+    unless FileManagement::Erasure.valid_cursor?(params[:after_id])
+      return render_error("after_id must be a cursor returned by this action", status: :unprocessable_entity)
+    end
+
+    result = FileManagement::Erasure.call(
+      scope: FileManagement::Object.where(account_id: @user.account_id, uploaded_by_id: @user.id),
+      batch_size: params[:batch_size], after_id: params[:after_id]
+    )
+    log_internal_audit("user.delete_files", "User", @user.id, account_id: @user.account_id, **result.audit_metadata)
+    render_success(data: result.to_h, message: result.message)
   end
 
   # DELETE /api/v1/internal/users/:user_id/terms_acceptances

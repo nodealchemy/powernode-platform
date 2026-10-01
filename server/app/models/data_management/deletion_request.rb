@@ -90,31 +90,22 @@ module DataManagement
     #                     (#delete_settings)
     #   consents       -> UserConsent (#delete_consents)
     #   communications -> Notification + EmailDelivery (#delete_communications)
+    #   files          -> FileManagement::Object rows the subject uploaded in
+    #                     their account, and their blobs, through
+    #                     FileManagement::Erasure (#delete_files). Withdrawn
+    #                     by IMP-bf52b4da135b — five tables reference
+    #                     file_objects through NO ACTION foreign keys with no
+    #                     inverse association, the blob-removal failure was
+    #                     swallowed, and the scope held platform artifacts —
+    #                     and re-advertised by IMP-d97f6e3bbc2b, which routes
+    #                     the referents through
+    #                     FileManagement::ErasureReferentRegistry, erases each
+    #                     file in its own transaction with the blob removal
+    #                     inside it, and erases only personal categories.
     #
-    # THREE types were WITHDRAWN (IMP-bf52b4da135b). Withdrawal means the
+    # TWO types remain WITHDRAWN (IMP-bf52b4da135b). Withdrawal means the
     # platform stops OFFERING a category it has no erasure path for — it is
     # not a claim that the underlying data does not exist:
-    #
-    #   files    -> FileManagement::Object exists and holds real personal
-    #               data, but there is no correct erasure path for it yet and
-    #               building one is its own piece of work. Five tables
-    #               reference file_objects with no inverse association and no
-    #               `on_delete` (chat_message_attachments,
-    #               system_disk_image_publications x2,
-    #               system_node_architectures x3), so they default to NO
-    #               ACTION and a destroy raises InvalidForeignKey on any
-    #               chat-attached file; FileManagement::Object's
-    #               after_destroy :remove_from_storage swallows a blob-removal
-    #               failure, so a naive implementation reports erasure it did
-    #               not perform; and the same scope holds non-personal
-    #               platform artifacts (disk_image, sbom_export,
-    #               attestation_proof, vendor_certificate, ...) that must not
-    #               be swept up by a data-subject request. Previously this was
-    #               ADVERTISED AND INERT — Api::V1::Internal::AccountsController
-    #               #delete_files is gated on `@account.respond_to?(:files)`
-    #               and Account has no such association, so it always reported
-    #               "Deleted 0 file records". Withdrawing makes the
-    #               advertisement honest until the real implementation lands.
     #
     #   activity, analytics
     #            -> no CATEGORY-LEVEL erasure path was ever built for either,
@@ -138,6 +129,7 @@ module DataManagement
       settings
       consents
       communications
+      files
     ].freeze
 
     # Data types that must be retained for legal reasons

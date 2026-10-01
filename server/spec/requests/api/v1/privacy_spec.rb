@@ -356,9 +356,11 @@ RSpec.describe 'Api::V1::Privacy', type: :request do
       end
 
       it 'still accepts a selection of advertised data types' do
+        # `files` is advertised again (IMP-d97f6e3bbc2b): FileManagement::Erasure
+        # now backs it.
         expect {
           post '/api/v1/privacy/deletion',
-               params: deletion_params.merge(data_types_to_delete: %w[profile settings communications]),
+               params: deletion_params.merge(data_types_to_delete: %w[profile settings communications files]),
                headers: headers,
                as: :json
         }.to change { DataManagement::DeletionRequest.count }.by(1)
