@@ -165,6 +165,57 @@ RSpec.describe Mcp::SecurityService, 'package-launcher pinning' do
     end
   end
 
+  # The server-side refusal audit (#record_spawn_refusal_audit): a real
+  # AuditLog row, written directly, for a hash that carries the server's
+  # id and owning account — exactly what Mcp::PromptService/ResourceService/
+  # SyncExecutionService now build. Every other example in this file runs
+  # with no id/account and must leave the audit log untouched.
+  describe 'refusal audit (server side)' do
+    let(:account) { create(:account) }
+    let(:mcp_server) { create(:mcp_server, account: account, command: 'node', args: [ 'server.js' ]) }
+
+    def attributed_server(args)
+      { 'id' => mcp_server.id, 'account_id' => account.id, 'command' => 'npx', 'args' => args, 'env' => {}, 'capabilities' => {} }
+    end
+
+    it 'writes an mcp.servers.spawn_refused row naming the server, the command and the error, and re-raises' do
+      expect {
+        expect { described_class.validate_stdio_server!(attributed_server(%w[-y pkg])) }
+          .to raise_error(described_class::CommandNotAllowedError, /not pinned/)
+      }.to change { AuditLog.where(action: 'mcp.servers.spawn_refused', resource_id: mcp_server.id).count }.by(1)
+
+      row = AuditLog.where(action: 'mcp.servers.spawn_refused', resource_id: mcp_server.id).last
+      expect(row.account_id).to eq(account.id)
+      expect(row.resource_type).to eq('McpServer')
+      expect(row.user_id).to be_nil
+      expect(row.severity).to eq('medium')
+      expect(row.metadata).to include('command' => 'npx', 'error_class' => 'CommandNotAllowedError', 'stage' => 'server_validation')
+      expect(row.metadata['message']).to match(/not pinned/)
+    end
+
+    it 'writes a row for an environment refusal too, naming the forbidden KEY only' do
+      server = attributed_server(%w[-y pkg@1.2.3]).merge('env' => { 'LD_PRELOAD' => '/tmp/evil.so' })
+
+      expect {
+        expect { described_class.validate_stdio_server!(server) }.to raise_error(described_class::EnvironmentViolationError)
+      }.to change { AuditLog.where(action: 'mcp.servers.spawn_refused', resource_id: mcp_server.id).count }.by(1)
+
+      expect(AuditLog.where(action: 'mcp.servers.spawn_refused').last.metadata['error_class']).to eq('EnvironmentViolationError')
+    end
+
+    it 'writes nothing for an accepted server' do
+      expect { described_class.validate_stdio_server!(attributed_server(%w[-y pkg@1.2.3])) }
+        .not_to change(AuditLog, :count)
+    end
+
+    it 'skips the row (and still refuses) when the hash carries no account to attach it to' do
+      expect {
+        expect { described_class.validate_stdio_server!(attributed_server(%w[-y pkg]).except('account_id')) }
+          .to raise_error(described_class::CommandNotAllowedError, /not pinned/)
+      }.not_to change(AuditLog, :count)
+    end
+  end
+
   describe '.package_pin_violation (save-time gate used by the server model)' do
     it 'returns nil for a pinned launcher invocation' do
       expect(described_class.package_pin_violation('npx', %w[-y pkg@1.2.3])).to be_nil
