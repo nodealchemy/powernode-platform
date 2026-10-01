@@ -496,12 +496,14 @@ module Compliance
           processed_at: Time.current.iso8601
         }
       else
-        {
+        entry = {
           data_type: data_type,
           action: 'deleted',
           records_affected: result[:count],
           processed_at: Time.current.iso8601
         }
+        entry[:retained_platform_artifacts] = result[:retained_platform_artifacts] if result.key?(:retained_platform_artifacts)
+        entry
       end
     end
 
@@ -554,7 +556,10 @@ module Compliance
         }
       end
 
-      { count: result[:count] }
+      # retained_platform_artifacts lands in the subject's deletion_log: the
+      # record must say that some of their uploads were kept as platform
+      # artifacts, not only how many were erased.
+      { count: result[:count], retained_platform_artifacts: result[:retained_platform_artifacts] }
     rescue BackendApiClient::ApiError => e
       raise unless e.status == 404
 

@@ -516,28 +516,29 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
         allow(api_client).to receive(:post).and_return('success' => true)
       end
 
-      def files_batch(count:, remaining:, cursor:, failed: [])
+      def files_batch(count:, remaining:, cursor:, failed: [], retained: 0)
         {
           'success' => true,
           'data' => {
             'count' => count, 'erased' => true, 'failed' => failed,
-            'remaining' => remaining, 'cursor' => cursor, 'retained_platform_artifacts' => 0
+            'remaining' => remaining, 'cursor' => cursor, 'retained_platform_artifacts' => retained
           }
         }
       end
 
-      it 'walks the server cursor until nothing remains and records the total' do
+      it 'walks the server cursor until nothing remains and records the total and what was retained' do
         expect(api_client).to receive(:delete).with(files_path).ordered
           .and_return(files_batch(count: 2, remaining: 1, cursor: cursor_1))
         expect(api_client).to receive(:delete).with(files_path, { after_id: cursor_1 }).ordered
-          .and_return(files_batch(count: 1, remaining: 0, cursor: cursor_2))
+          .and_return(files_batch(count: 1, remaining: 0, cursor: cursor_2, retained: 2))
         expect(api_client).to receive(:patch)
           .with(
             "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
             hash_including(
               status: 'completed',
               deletion_log: array_including(
-                hash_including(data_type: 'files', action: 'deleted', records_affected: 3)
+                hash_including(data_type: 'files', action: 'deleted', records_affected: 3,
+                               retained_platform_artifacts: 2)
               )
             )
           )
