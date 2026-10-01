@@ -666,14 +666,14 @@ RSpec.describe 'Api::V1::McpServers', type: :request do
     let(:server) { create(:mcp_server, :disconnected, account: account, command: 'node', args: [ 'server.js' ]) }
     let(:path) { "/api/v1/mcp_servers/#{server.id}/native_execution" }
 
-    def stub_business_layer(present)
+    def stub_saas_layer(present)
       allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original
       McpServer::NATIVE_EXECUTION_BLOCKING_CAPABILITIES.each do |cap|
         allow(Shared::FeatureGateService).to receive(:capability_present?).with(cap).and_return(present)
       end
     end
 
-    before { stub_business_layer(false) }
+    before { stub_saas_layer(false) }
 
     it 'the owner role carries the permission and a manager (mcp.servers.write) does not' do
       expect(owner.has_permission?('mcp.servers.native_execution')).to be true
@@ -713,8 +713,8 @@ RSpec.describe 'Api::V1::McpServers', type: :request do
       expect(server.reload.native_execution_approved?).to be false
     end
 
-    it 'is refused (403) while the business layer is present — core mode only' do
-      stub_business_layer(true)
+    it 'is refused (403) while the SaaS layer is present — core mode only' do
+      stub_saas_layer(true)
 
       post path, headers: owner_headers, as: :json
 
@@ -723,14 +723,35 @@ RSpec.describe 'Api::V1::McpServers', type: :request do
       expect(server.reload.native_execution_approved?).to be false
     end
 
-    it 'revocation is still allowed while the business layer is present' do
+    it 'revocation is still allowed while the SaaS layer is present' do
       server.approve_native_execution!(owner)
-      stub_business_layer(true)
+      stub_saas_layer(true)
 
       delete path, headers: owner_headers, as: :json
 
       expect(response).to have_http_status(:ok)
       expect(server.reload.native_execution_approved?).to be false
+    end
+
+    it 'is refused (422) for a server whose command line is not pinned, and writes no approval' do
+      server.update_columns(command: 'npx', args: [ '-y', 'pkg' ])
+
+      post path, headers: owner_headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response_full['error']).to match(/not pinned to an exact version/)
+      expect(server.reload.native_execution_approved?).to be false
+    end
+
+    it 'the approval audit row carries the launcher and the arg count (command tokens + args, as spawn_refused counts it), never the args' do
+      server.update_columns(command: '/usr/local/bin/node server.js', args: [ '--port', '3000' ])
+
+      post path, headers: owner_headers, as: :json
+
+      row = AuditLog.where(action: 'mcp.servers.native_execution_approve', resource_id: server.id).last
+      expect(row.metadata).to include('launcher' => 'node', 'arg_count' => 3)
+      expect(row.metadata.keys).not_to include('args', 'command')
+      expect(row.metadata.to_json).not_to include('server.js', '3000')
     end
 
     it 'is refused (422) for a non-stdio server' do

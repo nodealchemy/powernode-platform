@@ -3,6 +3,7 @@
 class Api::V1::McpServersController < ApplicationController
   include AuditLogging
   include Api::V1::McpServerConfigSerialization
+  include Api::V1::McpServerNativeExecutionActions
 
   before_action :authenticate_request
   before_action :require_read_permission, only: [ :index, :show, :health_check ]
@@ -99,54 +100,8 @@ class Api::V1::McpServersController < ApplicationController
     render_error("Failed to update MCP server", status: :internal_server_error)
   end
 
-  # POST /api/v1/mcp_servers/:id/native_execution (IMP-2c760325c102)
-  #
-  # Approve this stdio server to run NATIVELY — outside the worker's
-  # systemd-run sandbox. Core mode only (McpServer.native_execution_available?);
-  # the approval bypasses the sandbox and nothing else (command/args/env
-  # validation and package pinning still apply), is bound to the current
-  # command line (cleared when it changes), is reported to the worker as a
-  # computed boolean, and is audited here and again at every native spawn.
-  def approve_native_execution
-    unless McpServer.native_execution_available?
-      return render_error("Native execution is only available in core mode (self-hosted, no business layer present)",
-                          status: :forbidden)
-    end
-    unless @mcp_server.connection_type == "stdio"
-      return render_error("Native execution applies to stdio MCP servers only", status: :unprocessable_content)
-    end
-
-    @mcp_server.approve_native_execution!(current_user)
-
-    render_success({
-      mcp_server: serialize_mcp_server(@mcp_server),
-      message: "Native execution approved — this server will run outside the sandbox"
-    })
-
-    log_audit_event("mcp.servers.native_execution_approve", @mcp_server,
-                    severity: "high", risk_level: "high",
-                    metadata: { command: @mcp_server.command, args: @mcp_server.args })
-  rescue StandardError => e
-    Rails.logger.error "Failed to approve native execution: #{e.message}"
-    render_error("Failed to approve native execution", status: :internal_server_error)
-  end
-
-  # DELETE /api/v1/mcp_servers/:id/native_execution (IMP-2c760325c102)
-  # Allowed in every mode — withdrawing the hatch is never gated.
-  def revoke_native_execution
-    @mcp_server.revoke_native_execution!
-
-    render_success({
-      mcp_server: serialize_mcp_server(@mcp_server),
-      message: "Native execution revoked — this server will run sandboxed"
-    })
-
-    log_audit_event("mcp.servers.native_execution_revoke", @mcp_server,
-                    severity: "high", risk_level: "high", metadata: { reason: "operator" })
-  rescue StandardError => e
-    Rails.logger.error "Failed to revoke native execution: #{e.message}"
-    render_error("Failed to revoke native execution", status: :internal_server_error)
-  end
+  # POST/DELETE /api/v1/mcp_servers/:id/native_execution — see
+  # Api::V1::McpServerNativeExecutionActions (IMP-2c760325c102).
 
   # DELETE /api/v1/mcp_servers/:id
   def destroy
@@ -257,12 +212,6 @@ class Api::V1::McpServersController < ApplicationController
     end
   end
 
-  def require_native_execution_permission
-    unless current_user.has_permission?("mcp.servers.native_execution")
-      render_error("Insufficient permissions to approve native execution", status: :forbidden)
-    end
-  end
-
   # IMP-80e613fb9c43: config has no schema of its own (see
   # Api::V1::McpServerConfigSerialization), so reject anything outside the
   # allowlist at write time rather than silently dropping or storing it —
@@ -368,16 +317,8 @@ class Api::V1::McpServersController < ApplicationController
       last_connected_at: server.last_connected_at,
       last_error: server.last_error,
       config: serialize_mcp_server_config(server),
-      # IMP-2c760325c102 — the hatch's state, read-only here (see
-      # #approve_native_execution): `available` is the core-mode gate,
-      # `approved` the stored approval, `effective` what the worker is told.
-      native_execution: {
-        available: McpServer.native_execution_available?,
-        approved: server.native_execution_approved?,
-        effective: server.native_execution_effective?,
-        approved_at: server.native_execution_approval&.dig("approved_at"),
-        approved_by_id: server.native_execution_approval&.dig("approved_by_id")
-      },
+      # IMP-2c760325c102 — see Api::V1::McpServerNativeExecutionActions.
+      native_execution: serialize_native_execution(server),
       created_at: server.created_at,
       updated_at: server.updated_at
     }

@@ -469,6 +469,25 @@ RSpec.describe McpServer, type: :model do
       expect(server).to be_valid
     end
 
+    # Round 1 item 8: switching an existing row INTO stdio is a command-line
+    # change for this rule's purposes — the stored command now gets spawned.
+    it 'runs when connection_type changes to stdio, even if command/args are untouched' do
+      server = create(:mcp_server, account: account, connection_type: 'http', command: 'https://example.com/mcp', args: [])
+      server.update_columns(command: 'npx -y pkg')
+      server.reload
+      server.connection_type = 'stdio'
+
+      expect(server).not_to be_valid
+      expect(server.errors[:command].join).to match(/not pinned/)
+    end
+
+    it 'refuses an interpreter running a package manager entry point at save time too' do
+      server = build(:mcp_server, account: account, command: 'node', args: [ '/usr/local/lib/node_modules/npm/bin/npx-cli.js', '-y', 'evil' ])
+
+      expect(server).not_to be_valid
+      expect(server.errors[:command].join).to match(/package manager entry point/)
+    end
+
     it 'refuses editing the command/args of an existing row into an unpinned launcher' do
       server = create(:mcp_server, account: account, command: 'node', args: [ 'server.js' ])
       server.command = 'npx'
@@ -499,7 +518,7 @@ RSpec.describe McpServer, type: :model do
     let(:approver) { create(:user, :owner, account: account) }
     let(:server) { create(:mcp_server, account: account, command: 'node', args: [ 'server.js' ]) }
 
-    def stub_business_layer(present)
+    def stub_saas_layer(present)
       allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original
       McpServer::NATIVE_EXECUTION_BLOCKING_CAPABILITIES.each do |cap|
         allow(Shared::FeatureGateService).to receive(:capability_present?).with(cap).and_return(present)
@@ -507,13 +526,13 @@ RSpec.describe McpServer, type: :model do
     end
 
     describe '.native_execution_available?' do
-      it 'is true when no business-layer capability is present (core mode)' do
-        stub_business_layer(false)
+      it 'is true when no SaaS-layer capability is present (core mode)' do
+        stub_saas_layer(false)
         expect(described_class.native_execution_available?).to be true
       end
 
-      it 'is false when the business layer is present' do
-        stub_business_layer(false)
+      it 'is false when the SaaS layer is present' do
+        stub_saas_layer(false)
         allow(Shared::FeatureGateService).to receive(:capability_present?).with(:subscriptions).and_return(true)
         expect(described_class.native_execution_available?).to be false
       end
@@ -525,7 +544,7 @@ RSpec.describe McpServer, type: :model do
     end
 
     it '#approve_native_execution! records who approved and when, in capabilities' do
-      stub_business_layer(false)
+      stub_saas_layer(false)
       server.approve_native_execution!(approver)
       server.reload
 
@@ -536,7 +555,7 @@ RSpec.describe McpServer, type: :model do
     end
 
     it '#revoke_native_execution! clears it' do
-      stub_business_layer(false)
+      stub_saas_layer(false)
       server.approve_native_execution!(approver)
       server.revoke_native_execution!
       server.reload
@@ -545,17 +564,17 @@ RSpec.describe McpServer, type: :model do
       expect(server.capabilities).not_to have_key(McpServer::NATIVE_EXECUTION_KEY)
     end
 
-    it 'an approval goes dormant (not effective) while the business layer is present, without being erased' do
-      stub_business_layer(false)
+    it 'an approval goes dormant (not effective) while the SaaS layer is present, without being erased' do
+      stub_saas_layer(false)
       server.approve_native_execution!(approver)
-      stub_business_layer(true)
+      stub_saas_layer(true)
 
       expect(server.reload.native_execution_approved?).to be true
       expect(server.native_execution_effective?).to be false
     end
 
     it 'is cleared automatically when the command changes' do
-      stub_business_layer(false)
+      stub_saas_layer(false)
       server.approve_native_execution!(approver)
       server.update!(command: 'python3', args: [ 'server.py' ])
 
@@ -564,15 +583,34 @@ RSpec.describe McpServer, type: :model do
     end
 
     it 'is cleared automatically when the args change' do
-      stub_business_layer(false)
+      stub_saas_layer(false)
       server.approve_native_execution!(approver)
       server.update!(args: [ 'server.js', '--other' ])
 
       expect(server.reload.native_execution_approved?).to be false
     end
 
+    it 'is cleared automatically when the connection_type changes' do
+      stub_saas_layer(false)
+      server.approve_native_execution!(approver)
+      server.update!(connection_type: 'http', command: 'https://example.com/mcp', args: [])
+
+      expect(server.reload.native_execution_approved?).to be false
+      expect(server.native_execution_cleared_by_change?).to be true
+    end
+
+    it '#approve_native_execution! refuses a server whose command line is not pinned (the hatch never bypasses pinning)' do
+      stub_saas_layer(false)
+      server.update_columns(command: 'npx', args: [ '-y', 'pkg' ])
+      server.reload
+
+      expect { server.approve_native_execution!(approver) }
+        .to raise_error(McpServer::NativeExecutionRefused, /not pinned/)
+      expect(server.reload.native_execution_approved?).to be false
+    end
+
     it 'survives an unrelated edit (description, status)' do
-      stub_business_layer(false)
+      stub_saas_layer(false)
       server.approve_native_execution!(approver)
       server.update!(description: 'renamed', status: 'error')
 
@@ -580,7 +618,7 @@ RSpec.describe McpServer, type: :model do
     end
 
     it 'is only ever effective for stdio servers' do
-      stub_business_layer(false)
+      stub_saas_layer(false)
       http_server = create(:mcp_server, account: account, connection_type: 'http', command: 'https://example.com/mcp', args: [])
       http_server.approve_native_execution!(approver)
 
@@ -589,7 +627,7 @@ RSpec.describe McpServer, type: :model do
 
     describe '#worker_capabilities (what the worker is told)' do
       it 'carries only the spawn-policy keys plus the computed native_execution_approved flag' do
-        stub_business_layer(false)
+        stub_saas_layer(false)
         server.update!(capabilities: server.capabilities.merge(
           'allow_network' => true, 'config' => { 'api_key' => 'secret' }, 'last_error' => 'x', 'tools' => true
         ))
@@ -598,16 +636,16 @@ RSpec.describe McpServer, type: :model do
         expect(server.worker_capabilities).to eq('allow_network' => true, 'native_execution_approved' => true)
       end
 
-      it 'omits native_execution_approved while the business layer is present, even if approved' do
-        stub_business_layer(false)
+      it 'omits native_execution_approved while the SaaS layer is present, even if approved' do
+        stub_saas_layer(false)
         server.approve_native_execution!(approver)
-        stub_business_layer(true)
+        stub_saas_layer(true)
 
         expect(server.worker_capabilities).not_to have_key('native_execution_approved')
       end
 
       it 'omits native_execution_approved for an unapproved server (the worker tests for an exact true)' do
-        stub_business_layer(false)
+        stub_saas_layer(false)
 
         expect(server.worker_capabilities).to eq({})
       end

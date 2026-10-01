@@ -88,8 +88,12 @@ class McpServer < ApplicationRecord
   # so an approval never silently carries over to a different command line.
   NATIVE_EXECUTION_KEY = "native_execution"
 
+  # Raised by #approve_native_execution! for a command line the launcher
+  # rule would refuse (see that method); the controller renders it as 422.
+  class NativeExecutionRefused < StandardError; end
+
   # The hatch exists in CORE MODE ONLY (self-hosted, single operator). "The
-  # business layer is present" is detected through the generic capability
+  # SaaS layer is present" is detected through the generic capability
   # seam, never by naming an extension: a SaaS deployment registers
   # :public_registration (see Api::V1::Auth::RegistrationsController
   # #require_saas_mode), a billed one :subscriptions. While either is
@@ -341,7 +345,7 @@ class McpServer < ApplicationRecord
 
   # What the WORKER is told: approved AND available (core mode) AND a stdio
   # server. The gate is applied here, at serialization time on the server,
-  # so a business layer appearing later makes every approval dormant at the
+  # so a SaaS layer appearing later makes every approval dormant at the
   # next spawn without any data change.
   def native_execution_effective?
     native_execution_approved? && connection_type == "stdio" && self.class.native_execution_available?
@@ -354,7 +358,15 @@ class McpServer < ApplicationRecord
     @native_execution_cleared_by_change == true
   end
 
+  # Round 1 item 8 — the hatch bypasses the sandbox, never pinning: a
+  # server whose command line the launcher rule would refuse at spawn time
+  # cannot be approved either (a pre-existing unpinned row must be
+  # re-pinned first). Raises NativeExecutionRefused with the same message
+  # the spawn would carry.
   def approve_native_execution!(approver)
+    violation = Mcp::SecurityService.package_pin_violation(command, args)
+    raise NativeExecutionRefused, violation if violation
+
     self.capabilities = (capabilities || {}).merge(
       NATIVE_EXECUTION_KEY => { "approved_at" => Time.current.iso8601, "approved_by_id" => approver.id }
     )
@@ -554,13 +566,15 @@ class McpServer < ApplicationRecord
     errors.add(:command, violation) if violation
   end
 
+  # Round 1 item 8: a connection_type change counts too — switching a row
+  # INTO stdio means its stored command line now gets spawned.
   def stdio_command_line_changed?
-    connection_type == "stdio" && (new_record? || command_changed? || args_changed?)
+    connection_type == "stdio" && (new_record? || command_changed? || args_changed? || connection_type_changed?)
   end
 
   def clear_native_execution_on_command_change
     @native_execution_cleared_by_change = false
-    return unless (command_changed? || args_changed?) && native_execution_approved?
+    return unless (command_changed? || args_changed? || connection_type_changed?) && native_execution_approved?
 
     self.capabilities = capabilities.except(NATIVE_EXECUTION_KEY)
     @native_execution_cleared_by_change = true

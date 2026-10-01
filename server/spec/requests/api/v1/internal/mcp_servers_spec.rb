@@ -113,7 +113,7 @@ RSpec.describe 'Api::V1::Internal::McpServers', type: :request do
       # IMP-2c760325c102 — the native-execution hatch reaches the worker as
       # a COMPUTED boolean (approved AND core mode AND stdio), never as the
       # stored approval record, so the core-mode gate is applied here, on
-      # the server, where the business layer's presence is known.
+      # the server, where the SaaS layer's presence is known.
       it 'exposes native_execution_approved as a computed boolean, never the stored approval' do
         allow(Shared::FeatureGateService).to receive(:capability_present?).and_call_original
         McpServer::NATIVE_EXECUTION_BLOCKING_CAPABILITIES.each do |cap|
