@@ -38,10 +38,10 @@ RSpec.describe McpSecurityService, 'package-launcher pinning' do
     [ 'uvx extras keep the pin', 'uvx', %w[pkg[extra]==1.0.0], PIN_EXT ],
     [ 'uvx PEP 440 pre/post/dev/epoch exact forms', 'uvx', %w[pkg==1!2.0rc1.post1.dev2], PIN_EXT ],
     [ 'uv tool run name==exact', 'uv', %w[tool run pkg==1.0.0], PIN_EXT ],
-    [ 'uv run --with pinned', 'uv', %w[run --with pkg==1.0.0 server.py], PIN_EXT ],
-    [ 'uv run args after the script belong to the script', 'uv', %w[run server.py --with foo], PIN_EXT ],
+    [ 'uv run --with pinned', 'uv', %w[run --with pkg==1.0.0 ./server.py], PIN_EXT ],
+    [ 'uv run args after the script belong to the script', 'uv', %w[run ./server.py --with foo], PIN_EXT ],
     [ 'uv run -m module (no package)', 'uv', %w[run -m mcp_server_git], PIN_EXT ],
-    [ 'uv run --no-project script', 'uv', %w[run --no-project server.py], PIN_EXT ],
+    [ 'uv run --no-project script', 'uv', %w[run --no-project ./server.py], PIN_EXT ],
     [ 'uv non-launcher subcommand is not this rule\'s concern', 'uv', %w[pip install x], PIN_EXT ],
     [ 'pipx run name==exact', 'pipx', %w[run pkg==1.0.0 --arg], PIN_EXT ],
     [ 'pipx run --spec pinned then an app name', 'pipx', %w[run --spec pkg==1.0.0 app], PIN_EXT ],
@@ -52,7 +52,16 @@ RSpec.describe McpSecurityService, 'package-launcher pinning' do
     [ 'deno run jsr:@scope/name@exact', 'deno', %w[run jsr:@scope/pkg@1.2.3], {} ],
     [ 'deno run a local script', 'deno', %w[run -A server.ts], {} ],
     [ 'node is not a launcher', 'node', %w[dist/index.js], {} ],
-    [ 'python -m is not a launcher', 'python', %w[-m mcp_server_git], {} ]
+    [ 'python -m is not a launcher', 'python', %w[-m mcp_server_git], {} ],
+[ 'uv run path-like script', 'uv', %w[run ./server.py], PIN_EXT ],
+[ 'uvx --python version only', 'uvx', %w[--python=3.12.1 pkg==1.0.0], PIN_EXT ],
+[ 'pipx run -p version only', 'pipx', %w[run -p 3.12 pkg==1.0.0], PIN_EXT ],
+[ 'npx selector with a bin name after --', 'npx', %w[-p pkg@1.2.3 -- some-bin], {} ],
+[ 'deno run --preload= pinned npm specifier', 'deno', %w[run --preload=npm:pkg@1.2.3 ./s.ts], {} ],
+    [ 'deno run a remote URL script - out of this rule, documented', 'deno', %w[run https://deno.land/x/pkg/mod.ts], {} ],
+[ 'node a real script path', 'node', %w[./dist/index.js], {} ],
+[ 'node an absolute script path', 'node', %w[/opt/app/server.js --port 3000], {} ],
+[ 'ruby a real script', 'ruby', %w[./mcp_server.rb], {} ]
   ].freeze
 
   # [name, command, args, capabilities, message fragment]
@@ -109,10 +118,10 @@ RSpec.describe McpSecurityService, 'package-launcher pinning' do
     [ 'uvx local path', 'uvx', %w[./pkg], PIN_EXT, /not pinned/ ],
     [ 'uvx wheel URL', 'uvx', %w[https://example.com/pkg.whl], PIN_EXT, /not pinned/ ],
     [ 'uv tool run bare name', 'uv', %w[tool run pkg], PIN_EXT, /not pinned/ ],
-    [ 'uv run --with unpinned', 'uv', %w[run --with pkg server.py], PIN_EXT, /not pinned/ ],
-    [ 'uv run --with-requirements', 'uv', %w[run --with-requirements r.txt server.py], PIN_EXT, /is not allowed before the (script|package)/ ],
-    [ 'uv run --index-url', 'uv', %w[run --index-url https://evil.example server.py], PIN_EXT, /is not allowed before the (script|package)/ ],
-    [ 'uv run unknown option', 'uv', %w[run --unknown-opt server.py], PIN_EXT, /is not allowed before the (script|package)/ ],
+    [ 'uv run --with unpinned', 'uv', %w[run --with pkg ./server.py], PIN_EXT, /not pinned/ ],
+    [ 'uv run --with-requirements', 'uv', %w[run --with-requirements r.txt ./server.py], PIN_EXT, /is not allowed before the (script|package)/ ],
+    [ 'uv run --index-url', 'uv', %w[run --index-url https://evil.example ./server.py], PIN_EXT, /is not allowed before the (script|package)/ ],
+    [ 'uv run unknown option', 'uv', %w[run --unknown-opt ./server.py], PIN_EXT, /is not allowed before the (script|package)/ ],
     [ 'pipx run bare name', 'pipx', %w[run pkg], PIN_EXT, /not pinned/ ],
     [ 'pipx run --spec unpinned', 'pipx', %w[run --spec pkg app], PIN_EXT, /not pinned/ ],
     [ 'pipx run --pip-args (index steering)', 'pipx', %w[run --pip-args=--index-url=https://evil.example pkg==1.0.0], PIN_EXT, /is not allowed before the package/ ],
@@ -124,7 +133,44 @@ RSpec.describe McpSecurityService, 'package-launcher pinning' do
     [ 'deno run npm:@latest', 'deno', %w[run npm:pkg@latest], {}, /not pinned/ ],
     [ 'deno run jsr: bare name', 'deno', %w[run jsr:@scope/pkg], {}, /not pinned/ ],
     [ 'deno npm: specifier anywhere in argv', 'deno', %w[run --config c.json npm:pkg], {}, /not pinned/ ],
-    [ 'deno serve npm: bare name', 'deno', %w[serve npm:pkg], {}, /not pinned/ ]
+    [ 'deno serve npm: bare name', 'deno', %w[serve npm:pkg], {}, /not pinned/ ],
+# Interpreter-script bypass (round 1 blocker 1': a package manager run THROUGH its interpreter.
+[ 'node npx-cli.js', 'node', %w[/usr/local/lib/node_modules/npm/bin/npx-cli.js -y evil-pkg], {}, /package manager entry point/ ],
+[ 'node npm-cli.js exec', 'node', %w[./npm-cli.js exec --yes -- evil-pkg], {}, /package manager entry point/ ],
+[ 'node bare npm', 'node', %w[npm exec evil-pkg], {}, /package manager entry point/ ],
+[ 'node yarn under node_modules', 'node', %w[/opt/x/node_modules/yarn/bin/yarn.js dlx evil], {}, /package manager entry point/ ],
+[ 'node -r npm-cli.js preload', 'node', %w[-r /usr/lib/node_modules/npm/bin/npm-cli.js ./server.js], {}, /package manager entry point/ ],
+[ 'node ambiguous flags then npx-cli.js', 'node', %w[--title x /opt/npx-cli.js], {}, /package manager entry point/ ],
+[ 'ruby gem install', 'ruby', %w[/usr/local/bin/gem install evil-gem], {}, /package manager entry point/ ],
+[ 'ruby bundle', 'ruby', %w[/usr/bin/bundle exec evil], {}, /package manager entry point/ ],
+[ 'python pip script', 'python3', %w[/usr/bin/pip install evil], {}, /package manager entry point/ ],
+[ 'python uv script', 'python3', %w[./uv tool run evil], {}, /package manager entry point/ ],
+[ 'deno run npm-cli.js', 'deno', %w[run -A /usr/lib/node_modules/npm/bin/npm-cli.js exec evil], {}, /package manager entry point/ ],
+[ 'bun run npx-cli.js', 'bun', %w[run /usr/lib/node_modules/npm/bin/npx-cli.js evil], {}, /package manager entry point/ ],
+# Global option before the subcommand (round 1 blocker 2'.
+[ 'uv -q tool run', 'uv', %w[-q tool run pkg==1.0.0], PIN_EXT, /global option/ ],
+[ 'uv --quiet run --with', 'uv', %w[--quiet run --with pkg==1.0.0 ./s.py], PIN_EXT, /global option/ ],
+[ 'pipx --quiet run', 'pipx', %w[--quiet run pkg==1.0.0], PIN_EXT, /global option/ ],
+# Dropped pre-package value options and the python version rule (round 1 item 5'.
+[ 'uvx --config-file', 'uvx', %w[--config-file /tmp/uv.toml pkg==1.0.0], PIN_EXT, /is not allowed before the package/ ],
+[ 'uvx --project', 'uvx', %w[--project /tmp/p pkg==1.0.0], PIN_EXT, /is not allowed before the package/ ],
+[ 'uvx --directory', 'uvx', %w[--directory /tmp pkg==1.0.0], PIN_EXT, /is not allowed before the package/ ],
+[ 'uvx --cache-dir', 'uvx', %w[--cache-dir /tmp/c pkg==1.0.0], PIN_EXT, /is not allowed before the package/ ],
+[ 'uv run --cache-dir', 'uv', %w[run --cache-dir /tmp/c ./s.py], PIN_EXT, /is not allowed before the script/ ],
+[ 'uvx --python path', 'uvx', %w[--python /tmp/evil-python pkg==1.0.0], PIN_EXT, /python version/ ],
+[ 'uvx -p name', 'uvx', %w[-p pypy3 pkg==1.0.0], PIN_EXT, /python version/ ],
+[ 'pipx run --python path', 'pipx', %w[run --python /usr/bin/python3 pkg==1.0.0], PIN_EXT, /python version/ ],
+# uv run positional must be a local path (round 1 item 5'.
+[ 'uv run bare script name', 'uv', %w[run server.py], PIN_EXT, /local path/ ],
+[ 'uv run URL', 'uv', %w[run https://example.com/s.py], PIN_EXT, /local path/ ],
+[ 'uv run bare interpreter', 'uv', %w[run python ./s.py], PIN_EXT, /local path/ ],
+# deno attached flag values (round 1 item 6'.
+[ 'deno --preload= unpinned npm', 'deno', %w[run --preload=npm:pkg ./s.ts], {}, /not pinned/ ],
+[ 'deno --import-map= remote URL', 'deno', %w[run --import-map=https://evil.example/map.json ./s.ts], {}, /remote URL/ ],
+[ 'deno --config= remote URL', 'deno', %w[run --config=http://evil.example/deno.json ./s.ts], {}, /remote URL/ ],
+# npx selector positional must be a bin name (round 1 item 7'.
+[ 'npx selector then a path', 'npx', %w[-p pkg@1.2.3 ./x], {}, /bin name/ ],
+[ 'npx selector then uppercase', 'npx', %w[-p pkg@1.2.3 Bin], {}, /bin name/ ]
   ].freeze
 
   def self.server_hash(command, args, capabilities)
@@ -162,6 +208,68 @@ RSpec.describe McpSecurityService, 'package-launcher pinning' do
     it 'runs AFTER the inline-code rules, so npx -c is still refused as inline code, not as an unpinned package' do
       expect { described_class.validate_stdio_server!(self.class.server_hash('npx', %w[-c id], {})) }
         .to raise_error(described_class::CommandNotAllowedError, /not allowed/) { |e| expect(e.message).not_to match(/pinned/) }
+    end
+  end
+
+
+  describe 'structured refusals (what the audit log stores instead of argv)' do
+    it 'an unpinned package carries rule and the offending argv index' do
+      expect { described_class.validate_stdio_server!(self.class.server_hash('npx', %w[-y pkg], {})) }
+        .to raise_error(described_class::CommandNotAllowedError) { |e|
+          expect(e.rule).to eq('package_pin')
+          expect(e.arg_index).to eq(1)
+        }
+    end
+
+    it 'an index counts command-string tokens too, since they are part of the resolved argv' do
+      expect { described_class.validate_stdio_server!(self.class.server_hash('npx -y', %w[--with x pkg], {})) }
+        .to raise_error(described_class::CommandNotAllowedError) { |e|
+          expect(e.rule).to eq('launcher_option')
+          expect(e.arg_index).to eq(1)
+        }
+    end
+
+    it 'a package manager entry point names its rule and index' do
+      expect { described_class.validate_stdio_server!(self.class.server_hash('ruby', %w[/usr/local/bin/gem install x], {})) }
+        .to raise_error(described_class::CommandNotAllowedError) { |e|
+          expect(e.rule).to eq('package_manager_entry')
+          expect(e.arg_index).to eq(0)
+        }
+    end
+
+    it 'a refusal from the pre-existing rules has no rule name, only its class' do
+      expect { described_class.validate_stdio_server!(self.class.server_hash('node', %w[-e x], {})) }
+        .to raise_error(described_class::CommandNotAllowedError) { |e| expect(e.rule).to be_nil }
+    end
+  end
+
+  describe 'forbidden configuration-steering env for launchers' do
+    it 'refuses UV_CONFIG_FILE and XDG_CONFIG_HOME, naming the KEY only' do
+      %w[UV_CONFIG_FILE XDG_CONFIG_HOME].each do |key|
+        server = self.class.server_hash('uvx', %w[pkg==1.0.0], PIN_EXT).merge('env' => { key => '/tmp/secret-config' })
+        expect { described_class.validate_stdio_server!(server) }
+          .to raise_error(described_class::EnvironmentViolationError, /#{key}/) { |e| expect(e.message).not_to include('secret-config') }
+      end
+    end
+  end
+
+  describe '.package_pin_violation also refuses a package manager entry point (save-time parity with spawn time)' do
+    it 'returns the refusal for node running npx-cli.js' do
+      expect(described_class.package_pin_violation('node', %w[/usr/local/lib/node_modules/npm/bin/npx-cli.js -y evil]))
+        .to match(/package manager entry point/)
+    end
+
+    it 'returns nil for a real script' do
+      expect(described_class.package_pin_violation('node', %w[./dist/index.js])).to be_nil
+    end
+
+    it 'leaves the inline-code rule to spawn time (an -e script is not a save-time violation)' do
+      expect(described_class.package_pin_violation('node', %w[-e console.log(1)])).to be_nil
+    end
+
+    it 'still checks every non-option token when an inline-code flag makes the positional ambiguous' do
+      expect(described_class.package_pin_violation('node', %w[-e x /usr/local/lib/node_modules/npm/bin/npm-cli.js]))
+        .to match(/package manager entry point/)
     end
   end
 

