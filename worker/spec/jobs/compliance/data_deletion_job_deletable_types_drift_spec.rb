@@ -1,0 +1,39 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+# Drift guard (IMP-ca3551dd27be). Compliance::DataDeletionJob walks its own
+# DELETABLE_DATA_TYPES on a 'full' deletion and honours data_types_to_retain
+# for each member. The authoritative list is the server's
+# DataManagement::DeletionRequest::DELETABLE_DATA_TYPES — what the platform
+# ADVERTISES as erasable and validates requests against. The worker cannot
+# load server code, so the server constant is read here as SOURCE TEXT. A
+# server type missing from the worker list would never be erased on a full
+# deletion; a worker type missing from the server list would be walked for a
+# category the platform does not offer. A constant that cannot be found, or
+# is not one %w[] literal, fails loudly rather than passing on a comparison
+# it never made.
+RSpec.describe 'Compliance::DataDeletionJob::DELETABLE_DATA_TYPES drift guard' do
+  let(:repo_root) { File.expand_path('../../../..', __dir__) }
+  let(:server_model) { 'server/app/models/data_management/deletion_request.rb' }
+
+  def word_array_constant(relative_path, name)
+    path = File.join(repo_root, relative_path)
+    expect(File.file?(path)).to be(true), "drift guard: #{relative_path} not found under #{repo_root}"
+
+    matches = File.read(path).scan(/^\s*#{name}\s*=\s*%w\[([^\]]*)\]/m).flatten
+    expect(matches.size).to eq(1),
+                            "drift guard: expected one #{name} = %w[...] literal in #{relative_path}, found #{matches.size}"
+    matches.first.split
+  end
+
+  it 'keeps the worker list identical to the server list' do
+    server = word_array_constant(server_model, 'DELETABLE_DATA_TYPES')
+
+    expect(server).not_to be_empty
+    expect(Compliance::DataDeletionJob::DELETABLE_DATA_TYPES).to eq(server),
+                                                                 'worker DELETABLE_DATA_TYPES ' \
+                                                                 "#{Compliance::DataDeletionJob::DELETABLE_DATA_TYPES.inspect} " \
+                                                                 "must equal the server's #{server.inspect}"
+  end
+end

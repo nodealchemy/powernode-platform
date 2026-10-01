@@ -579,6 +579,187 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
       end
     end
 
+    # IMP-ca3551dd27be — `data_types_to_retain` was binding for profile,
+    # settings, consents and communications (the per-type loop) but IGNORED
+    # for the other two DELETABLE_DATA_TYPES members: process_full_deletion
+    # called anonymize_audit_logs / anonymize_payments UNCONDITIONALLY after
+    # the loop, so a request that retained either still had it anonymized,
+    # and the retention_log never mentioned it. These examples assert the
+    # data SURVIVES (its endpoint is never called) when the type is retained.
+    {
+      'audit_logs' => ['Required for security and compliance auditing', ->(u, _a) { "/api/v1/internal/users/#{u}/anonymize_audit_logs" }],
+      'payments' => ['Required for tax and accounting purposes', ->(_u, a) { "/api/v1/internal/accounts/#{a}/anonymize_payments" }]
+    }.each do |retained_type, (expected_reason, endpoint_for)|
+      context "when the request retains #{retained_type}" do
+        let(:retaining_request) do
+          deletion_request_data.merge('data_types_to_retain' => [retained_type])
+        end
+
+        before do
+          allow(api_client).to receive(:get)
+            .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+            .and_return(show_response(retaining_request))
+          allow(api_client).to receive(:patch).and_return(show_response(retaining_request))
+          allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 2 })
+          allow(api_client).to receive(:post).and_return('success' => true)
+        end
+
+        it "never calls the #{retained_type} anonymize endpoint" do
+          job.execute(deletion_request_id)
+
+          expect(api_client).not_to have_received(:patch).with(endpoint_for.call(user_id, account_id), anything)
+        end
+
+        it "records #{retained_type} as retained with its reason, and not in the deletion_log" do
+          job.execute(deletion_request_id)
+
+          expect(api_client).to have_received(:patch).with(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            hash_including(
+              status: 'completed',
+              retention_log: array_including(hash_including(data_type: retained_type, reason: expected_reason)),
+              deletion_log: satisfy { |log| log.none? { |entry| entry[:data_type] == retained_type } }
+            )
+          )
+        end
+      end
+    end
+
+    # Inverse oracle for the retention examples above: a fix that simply
+    # stopped anonymizing audit logs and payments would pass every "survives"
+    # assertion. Un-retained, each must still be anonymized — exactly once,
+    # and RECORDED (the old unconditional calls ran but logged nothing).
+    context 'when the request retains neither audit_logs nor payments' do
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:patch).and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 2 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      it 'anonymizes audit logs and payments exactly once each' do
+        job.execute(deletion_request_id)
+
+        expect(api_client).to have_received(:patch)
+          .with("/api/v1/internal/users/#{user_id}/anonymize_audit_logs", anything).exactly(1).time
+        expect(api_client).to have_received(:patch)
+          .with("/api/v1/internal/accounts/#{account_id}/anonymize_payments", anything).exactly(1).time
+      end
+
+      it 'records both as anonymized in the deletion_log' do
+        job.execute(deletion_request_id)
+
+        expect(api_client).to have_received(:patch).with(
+          "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+          hash_including(
+            status: 'completed',
+            deletion_log: array_including(
+              hash_including(data_type: 'audit_logs', action: 'anonymized'),
+              hash_including(data_type: 'payments', action: 'anonymized')
+            )
+          )
+        )
+      end
+    end
+
+    # Moving audit_logs/payments into the per-type loop also moves their
+    # failures there: an audit-log anonymize that raises on a 'full' request
+    # is now a recorded per-type failure (PartialDeletionFailure with the
+    # full deletion_log), exactly like a failed consents delete — not a raw
+    # error that reached the outer rescue with no per-type detail.
+    context 'when the audit-log anonymize fails on a full deletion' do
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:patch).and_return(show_response(deletion_request_data))
+        allow(api_client).to receive(:patch)
+          .with("/api/v1/internal/users/#{user_id}/anonymize_audit_logs", {})
+          .and_raise(BackendApiClient::ApiError.new('audit log service unavailable'))
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 1 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      it 'records audit_logs as a failed type and fails the request once with the per-type log' do
+        expect { job.execute(deletion_request_id) }
+          .to raise_error(described_class::PartialDeletionFailure, /audit_logs/)
+
+        expect(api_client).to have_received(:patch).with(
+          "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+          hash_including(
+            status: 'failed',
+            deletion_log: array_including(hash_including(data_type: 'audit_logs', action: 'failed'))
+          )
+        ).once
+      end
+    end
+
+    # Uniformity across EVERY DELETABLE_DATA_TYPES member (IMP-ca3551dd27be):
+    # retained -> its endpoint is never called and it is in retention_log;
+    # not retained -> its endpoint is called once and it is in deletion_log.
+    # No member may be special-cased beside the loop.
+    describe 'data_types_to_retain is binding for every deletable type' do
+      endpoints = {
+        'profile' => [:patch, ->(u, _a) { "/api/v1/internal/users/#{u}/anonymize" }],
+        'audit_logs' => [:patch, ->(u, _a) { "/api/v1/internal/users/#{u}/anonymize_audit_logs" }],
+        'payments' => [:patch, ->(_u, a) { "/api/v1/internal/accounts/#{a}/anonymize_payments" }],
+        'settings' => [:delete, ->(u, _a) { "/api/v1/internal/users/#{u}/settings" }],
+        'consents' => [:delete, ->(u, _a) { "/api/v1/internal/users/#{u}/consents" }],
+        'communications' => [:delete, ->(u, _a) { "/api/v1/internal/users/#{u}/communications" }]
+      }
+
+      it 'covers exactly the job\'s DELETABLE_DATA_TYPES' do
+        expect(endpoints.keys).to match_array(described_class::DELETABLE_DATA_TYPES)
+      end
+
+      endpoints.each do |data_type, (verb, path_for)|
+        context "for #{data_type}" do
+          def stub_with(request)
+            allow(api_client).to receive(:get)
+              .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+              .and_return(show_response(request))
+            allow(api_client).to receive(:patch).and_return(show_response(request))
+            allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 1 })
+            allow(api_client).to receive(:post).and_return('success' => true)
+          end
+
+          it 'is left untouched and logged as retained when retained' do
+            stub_with(deletion_request_data.merge('data_types_to_retain' => [data_type]))
+
+            job.execute(deletion_request_id)
+
+            expect(api_client).not_to have_received(verb).with(path_for.call(user_id, account_id), any_args)
+            expect(api_client).to have_received(:patch).with(
+              "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+              hash_including(
+                status: 'completed',
+                retention_log: [hash_including(data_type: data_type)],
+                deletion_log: satisfy { |log| log.none? { |entry| entry[:data_type] == data_type } }
+              )
+            )
+          end
+
+          it 'is erased exactly once and logged when not retained' do
+            stub_with(deletion_request_data)
+
+            job.execute(deletion_request_id)
+
+            expect(api_client).to have_received(verb).with(path_for.call(user_id, account_id), any_args).exactly(1).time
+            expect(api_client).to have_received(:patch).with(
+              "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+              hash_including(
+                status: 'completed',
+                retention_log: [],
+                deletion_log: array_including(hash_including(data_type: data_type))
+              )
+            )
+          end
+        end
+      end
+    end
+
     context 'with anonymization type' do
       let(:anonymize_request) { deletion_request_data.merge('deletion_type' => 'anonymize') }
 
@@ -683,23 +864,30 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
     # error is re-raised even when the rescue's own 'failed'-status write also
     # fails. Deliberately NOT a PartialDeletionFailure (that path already
     # wrote 'failed' before raising and SKIPS this write entirely, per S-C) —
-    # anonymize_audit_logs is called unconditionally by process_full_deletion,
-    # OUTSIDE delete_data_type's own internal per-type rescue, so an error
-    # there reaches the outer rescue as a raw, non-PartialDeletionFailure
-    # exception and DOES attempt this write. Would redden on a revert to a
+    # process_anonymization calls anonymize_audit_logs OUTSIDE
+    # delete_data_type's own internal per-type rescue, so an error there
+    # reaches the outer rescue as a raw, non-PartialDeletionFailure exception
+    # and DOES attempt this write. (IMP-ca3551dd27be: this context used to
+    # ride on a 'full' request, whose audit-log anonymize was ALSO an
+    # unconditional out-of-loop call. That call now goes through the per-type
+    # loop like every other DELETABLE_DATA_TYPES member, so a failure there is
+    # a PartialDeletionFailure — the 'anonymize' request is the raw raise site
+    # that remains.) Would redden on a revert to a
     # bare (non-nested) `patch_deletion_request!` call in the outer rescue:
     # the write's own exception ("Failed to update data deletion request...")
     # would replace `e` on the implicit re-raise, so `job.execute` would
     # raise THAT message instead of the original domain failure.
     context 'when an unexpected error occurs mid-processing and the failed-status write also fails' do
+      let(:anonymize_request) { deletion_request_data.merge('deletion_type' => 'anonymize') }
+
       before do
         allow(api_client).to receive(:get)
           .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
-          .and_return(show_response(deletion_request_data))
+          .and_return(show_response(anonymize_request))
         allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 5 })
         # General patch stub FIRST (least specific — matches whatever none of
-        # the narrower ones below claim, e.g. the 'profile' anonymize call
-        # process_full_deletion also makes). instance_double is a verifying
+        # the narrower ones below claim, e.g. the user anonymize call
+        # process_anonymization makes first). instance_double is a verifying
         # double: any patch call matching NEITHER this NOR a narrower `.with`
         # below would raise a mock-framework error, not a StandardError the
         # job's own rescues would catch — so every real call site this run
