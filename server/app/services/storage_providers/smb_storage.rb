@@ -210,6 +210,13 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
+      # Same as the NFS provider: only a MOUNTED share may report a missing
+      # blob as already removed (IMP-d97f6e3bbc2b).
+      unless mounted?
+        log_error("Refusing to report file object #{file_object.id} removed: SMB share is not mounted")
+        return false
+      end
+
       full_path = full_path_for(file_object.storage_key)
 
       return true unless File.exist?(full_path)

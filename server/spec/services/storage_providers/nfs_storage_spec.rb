@@ -247,4 +247,29 @@ RSpec.describe StorageProviders::NfsStorage, type: :service do
       expect(result).to include(file_object.storage_key)
     end
   end
+
+  # IMP-d97f6e3bbc2b (critic B, H1) — an UNMOUNTED share is not an empty
+  # share. With the mount absent the mount point is an ordinary empty
+  # directory, so `File.exist?` is false for every blob and the old
+  # `return true unless File.exist?` reported each one removed: a GDPR
+  # erasure in strict mode would then destroy the row, count it, and leave
+  # the bytes on the share with nothing pointing at them. The real class,
+  # not a double: `mounted?` is NOT stubbed here, so it answers from the
+  # host's mount table, where the tmp mount point never appears.
+  describe '#delete_file against the real mount check' do
+    before { allow(provider).to receive(:mounted?).and_call_original }
+
+    it 'returns false when the mount point exists but nothing is mounted on it' do
+      expect(File.directory?(mount_path)).to be true
+      expect(provider.send(:mounted?)).to be false
+
+      expect(provider.delete_file(file_object)).to be false
+    end
+
+    it 'still reports a missing blob on a MOUNTED share as removed (the retry-after-partial-commit case)' do
+      allow(provider).to receive(:mounted?).and_return(true)
+
+      expect(provider.delete_file(file_object)).to be true
+    end
+  end
 end

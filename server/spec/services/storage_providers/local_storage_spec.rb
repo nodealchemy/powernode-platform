@@ -352,4 +352,16 @@ RSpec.describe StorageProviders::LocalStorage, type: :service do
       expect(signed).to eq("#{download}?disposition=inline")
     end
   end
+
+  # IMP-d97f6e3bbc2b (critic B, H1) — a root directory that is gone (an
+  # unmounted volume, a wiped path) is not a store with the blob already
+  # removed. Only a present root may report a missing blob as removed.
+  describe '#delete_file when the root directory is gone' do
+    it 'returns false rather than reporting the blob removed' do
+      provider.initialize_storage
+      FileUtils.rm_rf(storage_config.configuration['root_path'])
+
+      expect(provider.delete_file(file_object)).to be false
+    end
+  end
 end

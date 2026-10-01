@@ -340,4 +340,24 @@ RSpec.describe StorageProviders::SmbStorage, type: :service do
       expect(result).to have_key('modified_at')
     end
   end
+
+  # IMP-d97f6e3bbc2b (critic B, H1) — same defect as the NFS provider: an
+  # unmounted share's mount point is an empty directory, and a missing
+  # blob there must not be reported as removed. Real `mounted?` here.
+  describe '#delete_file against the real mount check' do
+    before { allow(provider).to receive(:mounted?).and_call_original }
+
+    it 'returns false when the mount point exists but nothing is mounted on it' do
+      expect(File.directory?(mount_path)).to be true
+      expect(provider.send(:mounted?)).to be false
+
+      expect(provider.delete_file(file_object)).to be false
+    end
+
+    it 'still reports a missing blob on a MOUNTED share as removed' do
+      allow(provider).to receive(:mounted?).and_return(true)
+
+      expect(provider.delete_file(file_object)).to be true
+    end
+  end
 end
