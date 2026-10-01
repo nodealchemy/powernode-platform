@@ -22,6 +22,7 @@ hosted_server_count = 0
 # ============================================================================
 if seed_instances
 # Map of MCP server name → { auth_type, command (npx/uvx package), container_template_slug }
+# The @1.0.0 / ==1.0.0 pins are PLACEHOLDERS that satisfy the exact-version grammar; the versions (and some packages) may not exist on the registry — set real ones before connecting.
 MCP_SERVER_DEFS = {
   "Slack" => { auth: "api_key", cmd: "npx -y @anthropic/mcp-server-slack@1.0.0", tpl: "mcp-slack" },
   "Notion" => { auth: "api_key", cmd: "npx -y @notionhq/mcp-server@1.0.0", tpl: "mcp-notion" },

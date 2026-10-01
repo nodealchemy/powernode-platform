@@ -266,6 +266,7 @@ module Seeds
         description: 'Weather information using the free Open-Meteo API. Get current weather, forecasts, and historical data without API keys.',
         connection_type: 'stdio',
         command: 'npx',
+        # @0.6.2 on the fictitious example packages is a placeholder that satisfies the exact-version grammar; it is not a published version.
         args: [ '-y', '@modelcontextprotocol/server-weather@0.6.2' ],
         env: {},
         status: 'disconnected',
