@@ -617,8 +617,12 @@ module FileManagement
     # after_destroy, so it runs after the row DELETE inside the destroy's
     # transaction: in strict mode a failure here rolls the row back.
     def remove_from_storage
-      provider = storage.storage_provider
+      # The provider is built inside the rescue: a non-strict destroy whose
+      # provider cannot even be constructed logs and proceeds, as it always
+      # has; only strict mode turns any failure here into a raise.
+      provider = nil
       removed = begin
+        provider = storage.storage_provider
         provider.delete_file(self)
       rescue StandardError => e
         Rails.logger.error "Failed to delete file from storage: #{e.message}"
@@ -628,7 +632,7 @@ module FileManagement
 
       # The id, not the storage_key: the key embeds the filename, and this
       # message is logged.
-      reason = provider.last_removal_refusal
+      reason = provider&.last_removal_refusal
       message = "storage provider (#{storage&.provider_type}) did not remove the blob of file object #{id}"
       message += " (#{reason})" if reason
       raise StorageRemovalFailed.new(message, reason: reason)
