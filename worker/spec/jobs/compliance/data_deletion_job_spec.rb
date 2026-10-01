@@ -664,6 +664,54 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
       end
     end
 
+    # The retain list every data-subject request actually carries:
+    # DataManagement::DeletionRequest#set_defaults fills it with
+    # LEGALLY_RETAINED_DATA_TYPES, and Api::V1::PrivacyController
+    # #request_deletion never overrides it. None of the three names a
+    # DELETABLE_DATA_TYPES member, so today it retains NOTHING: every category
+    # is erased or anonymized and the retention_log stays empty. Pinned so
+    # that mapping one of them onto a category (e.g. financial_records ->
+    # payments) is a visible, deliberate change rather than a silent one.
+    context 'with the production default retain list' do
+      let(:default_retain_request) do
+        deletion_request_data.merge('data_types_to_retain' => %w[financial_records tax_documents legal_agreements])
+      end
+
+      before do
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(default_retain_request))
+        allow(api_client).to receive(:patch).and_return(show_response(default_retain_request))
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 1 })
+        allow(api_client).to receive(:post).and_return('success' => true)
+      end
+
+      it 'erases or anonymizes every deletable type once and retains nothing' do
+        job.execute(deletion_request_id)
+
+        %w[anonymize anonymize_audit_logs].each do |action|
+          expect(api_client).to have_received(:patch)
+            .with("/api/v1/internal/users/#{user_id}/#{action}", anything).exactly(1).time
+        end
+        expect(api_client).to have_received(:patch)
+          .with("/api/v1/internal/accounts/#{account_id}/anonymize_payments", anything).exactly(1).time
+        %w[settings consents communications].each do |data_type|
+          expect(api_client).to have_received(:delete)
+            .with("/api/v1/internal/users/#{user_id}/#{data_type}").exactly(1).time
+        end
+        expect(api_client).to have_received(:patch).with(
+          "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+          hash_including(
+            status: 'completed',
+            retention_log: [],
+            deletion_log: satisfy do |log|
+              log.map { |entry| entry[:data_type] }.sort == described_class::DELETABLE_DATA_TYPES.sort
+            end
+          )
+        )
+      end
+    end
+
     # Moving audit_logs/payments into the per-type loop also moves their
     # failures there: an audit-log anonymize that raises on a 'full' request
     # is now a recorded per-type failure (PartialDeletionFailure with the
