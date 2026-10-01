@@ -983,12 +983,11 @@ module Compliance
 
       return if result[:errors].empty?
 
-      # Bounded: a sample of ids plus a count (never a filename), and the
-      # files the walk stopped short of once a whole batch failed
-      # operationally (the store is down; see the concern).
+      # Bounded: a sample of ids plus a count, never a filename. The walk
+      # itself went to the end — files on a healthy store behind a dead one
+      # were erased and recorded above.
       raise "File erasure failed for #{result[:errors].size} file(s) in account #{account_id}: " \
-            "#{file_erasure_failure_summary(result[:errors])}; #{result[:aborted_remaining]} remaining " \
-            'past the point the walk stopped'
+            "#{file_erasure_failure_summary(result[:errors])}"
     end
 
     # Compliance::DataExportJob writes the subject's full personal-data archive

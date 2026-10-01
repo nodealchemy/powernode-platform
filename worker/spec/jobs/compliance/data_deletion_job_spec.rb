@@ -612,9 +612,10 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
       # body (that shape only ever existed on the accounts route). Treated
       # as the skip it is; the alternative was a terminal `failed` on every
       # full deletion after `profile` had already been anonymized.
-      it 'records a skip with reason no_erasure_path when an older server answers 404' do
+      it 'records a skip with reason no_erasure_path when an older server answers a routing-miss 404' do
+        # Rails' default 404 for an unrouted path: no JSON envelope, no code.
         allow(api_client).to receive(:delete).with(files_path).and_raise(
-          BackendApiClient::ApiError.new('Resource not found', 404, { 'success' => false, 'error' => 'Not found' })
+          BackendApiClient::ApiError.new('Resource not found', 404, '<!DOCTYPE html><title>Not Found</title>')
         )
         expect(api_client).to receive(:patch)
           .with(
@@ -629,6 +630,124 @@ RSpec.describe Compliance::DataDeletionJob, type: :job do
           .and_return(show_response(deletion_request_data))
 
         job.execute(deletion_request_id)
+      end
+
+      it 'treats a NOT_FOUND-coded 404 (the user is missing, the route is not) as the failure it is' do
+        allow(api_client).to receive(:delete).with(files_path).and_raise(
+          BackendApiClient::ApiError.new('User not found', 404,
+                                         { 'success' => false, 'error' => 'User not found', 'code' => 'NOT_FOUND' })
+        )
+        expect(api_client).to receive(:patch)
+          .with(
+            "/api/v1/internal/data_deletion_requests/#{deletion_request_id}",
+            hash_including(
+              status: 'failed',
+              deletion_log: array_including(hash_including(data_type: 'files', action: 'failed', error: /User not found/))
+            )
+          )
+          .and_return(show_response(deletion_request_data))
+
+        expect { job.execute(deletion_request_id) }
+          .to raise_error(Compliance::DataDeletionJob::PartialDeletionFailure)
+      end
+
+      it 'does not record a skip when the 404 arrives on a later batch after files were already erased' do
+        allow(api_client).to receive(:delete).with(files_path)
+          .and_return(files_batch(count: 2, remaining: 1, cursor: cursor_1))
+        allow(api_client).to receive(:delete).with(files_path, { after_id: cursor_1 }).and_raise(
+          BackendApiClient::ApiError.new('Resource not found', 404, 'Not Found')
+        )
+        writes = []
+        allow(api_client).to receive(:patch) do |path, payload|
+          writes << payload if path.end_with?(deletion_request_id)
+          show_response(deletion_request_data)
+        end
+
+        expect { job.execute(deletion_request_id) }
+          .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /after 2 file\(s\) were erased/)
+
+        expect(writes).not_to include(hash_including(status: 'failed'))
+        expect(writes).not_to include(hash_including(status: 'completed'))
+        expect(writes.flat_map { |w| Array(w[:deletion_log]) })
+          .not_to include(hash_including(data_type: 'files', action: 'skipped'))
+      end
+
+      it 'keeps walking past a batch in which every file failed, so files on a healthy store behind it are still erased' do
+        dead = [ { 'id' => 'file-1', 'kind' => 'error', 'reason' => 'storage_removal_failed' } ]
+        expect(api_client).to receive(:delete).with(files_path).ordered
+          .and_return(files_batch(count: 0, remaining: 1, cursor: cursor_1, failed: dead))
+        expect(api_client).to receive(:delete).with(files_path, { after_id: cursor_1 }).ordered
+          .and_return(files_batch(count: 1, remaining: 0, cursor: cursor_2))
+        allow(api_client).to receive(:patch).and_return(show_response(deletion_request_data))
+
+        expect { job.execute(deletion_request_id) }
+          .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure, /1 file\(s\) not erased/)
+      end
+
+      # Critic A round 3, items 5 and 6: the types already processed when
+      # `files` raises must not be lost — the partial deletion_log is
+      # persisted with the error, a resumed run carries those entries
+      # forward instead of re-running them to a count of 0, and the
+      # completing write clears the stale error_message.
+      it 'persists the partial deletion_log alongside the error when files is retryable' do
+        allow(api_client).to receive(:delete).with("/api/v1/internal/users/#{user_id}/consents")
+          .and_return('success' => true, 'data' => { 'count' => 5 })
+        allow(api_client).to receive(:delete).with(files_path).and_return(
+          files_batch(count: 0, remaining: 0, cursor: cursor_1,
+                      failed: [ { 'id' => 'file-1', 'kind' => 'error', 'reason' => 'storage_removal_failed' } ])
+        )
+        writes = []
+        allow(api_client).to receive(:patch) do |path, payload|
+          writes << payload if path.end_with?(deletion_request_id)
+          show_response(deletion_request_data)
+        end
+
+        expect { job.execute(deletion_request_id) }
+          .to raise_error(Compliance::DataDeletionJob::RetryableErasureFailure)
+
+        expect(writes).to include(
+          hash_including(
+            error_message: /storage_removal_failed/,
+            deletion_log: array_including(hash_including(data_type: 'consents', action: 'deleted', records_affected: 5)),
+            retention_log: []
+          )
+        )
+      end
+
+      it 'carries the persisted entries forward on resume instead of re-running those types, and clears the error' do
+        resumed = deletion_request_data.merge(
+          'status' => 'processing',
+          'error_message' => 'files: 1 file(s) not erased: file-1 (error: storage_removal_failed)',
+          'deletion_log' => [
+            { 'data_type' => 'profile', 'action' => 'anonymized', 'processed_at' => 1.minute.ago.iso8601 },
+            { 'data_type' => 'consents', 'action' => 'deleted', 'records_affected' => 5,
+              'processed_at' => 1.minute.ago.iso8601 }
+          ]
+        )
+        allow(api_client).to receive(:get)
+          .with("/api/v1/internal/data_deletion_requests/#{deletion_request_id}")
+          .and_return(show_response(resumed))
+        allow(api_client).to receive(:delete).with(files_path)
+          .and_return(files_batch(count: 1, remaining: 0, cursor: cursor_1))
+        writes = []
+        allow(api_client).to receive(:patch) do |path, payload|
+          writes << payload if path.end_with?(deletion_request_id)
+          show_response(resumed)
+        end
+
+        job.execute(deletion_request_id)
+
+        expect(api_client).not_to have_received(:patch).with("/api/v1/internal/users/#{user_id}/anonymize", {})
+        expect(api_client).not_to have_received(:delete).with("/api/v1/internal/users/#{user_id}/consents")
+        completed = writes.find { |w| w[:status] == 'completed' }
+        expect(completed).to be_present
+        expect(completed[:error_message]).to be_nil
+        expect(completed).to have_key(:error_message)
+        expect(completed[:deletion_log]).to include(
+          hash_including(data_type: 'consents', action: 'deleted', records_affected: 5),
+          hash_including(data_type: 'files', action: 'deleted', records_affected: 1)
+        )
+        expect(completed[:deletion_log].count { |e| e[:data_type] == 'consents' || e['data_type'] == 'consents' }).to eq(1)
       end
 
       it 'does not call the files endpoint when the request retains files' do

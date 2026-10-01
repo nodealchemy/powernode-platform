@@ -275,19 +275,18 @@ RSpec.describe Compliance::AccountTerminationJob, type: :job do
           expect(appended.map { |e| e[:event] }).to include('deleted_api_keys')
         end
 
-        it 'stops walking after a batch in which every file failed operationally — the provider is down' do
-          allow(api_client).to receive(:delete).with(files_path).and_return(
-            files_batch(count: 0, remaining: 5, cursor: cursor_1,
-                        failed: [ { 'id' => 'file-1', 'kind' => 'error', 'reason' => 'storage_removal_failed' },
-                                  { 'id' => 'file-2', 'kind' => 'error', 'reason' => 'storage_removal_failed' } ])
-          )
+        it 'keeps walking past a batch in which every file failed — files on a healthy store behind it are still erased' do
+          dead = [ { 'id' => 'file-1', 'kind' => 'error', 'reason' => 'storage_removal_failed' } ]
+          expect(api_client).to receive(:delete).with(files_path).ordered
+            .and_return(files_batch(count: 0, remaining: 3, cursor: cursor_1, failed: dead))
+          expect(api_client).to receive(:delete).with(files_path, { after_id: cursor_1 }).ordered
+            .and_return(files_batch(count: 3, remaining: 0, cursor: cursor_2))
           appended = appended_entries
 
           expect { job.execute }.to raise_error(/Account termination failed for: #{termination_id}/)
 
-          expect(api_client).to have_received(:delete).with(files_path).once
-          expect(api_client).not_to have_received(:delete).with(files_path, anything)
-          expect(appended).to include(hash_including(event: 'error', error: /5 remaining/))
+          expect(appended).to include(hash_including(event: 'deleted_files', count: 3))
+          expect(appended).to include(hash_including(event: 'error', error: /1 file\(s\)/))
         end
 
         it 'stops a cursor that never finishes instead of looping forever' do

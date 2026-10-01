@@ -20,42 +20,58 @@ module ComplianceFileErasureConcern
   # exception message, a termination_log entry and an error_message column.
   FAILURE_SAMPLE_SIZE = 10
 
+  # The server stopped answering (an ApiError) AFTER at least one batch had
+  # already erased files. Distinct from an error on the first request so a
+  # caller can tell "this server has no erasure route" from "the erasure
+  # was interrupted part way" — the latter must never be recorded as a
+  # skip. Carries the totals so far and the error that stopped the walk.
+  class FileErasureInterrupted < StandardError
+    attr_reader :totals, :api_error
+
+    def initialize(totals, api_error)
+      @totals = totals
+      @api_error = api_error
+      super("file erasure interrupted after #{totals[:count]} file(s) were erased: #{api_error.message}")
+    end
+  end
+
   # Returns a symbol-keyed summary over every batch:
   #   { count:, failed: [ { 'id' =>, 'kind' => 'held' | 'error', 'reason' => } ],
-  #     held: [...], errors: [...], retained_platform_artifacts:, batches:,
-  #     aborted_remaining: }
+  #     held: [...], errors: [...], retained_platform_artifacts:, batches: }
   # or, from an OLDER server build that still reports `erased: false` (the
   # accounts route did, before the erasure path existed), that response's
   # data untouched ({ 'erased' => false, 'reason' => ... }) so the caller can
   # keep recording the gap the way it did before.
   #
-  # Stops walking after a batch in which NOTHING was erased and every
-  # failure was operational: the store is down, and every further batch
-  # would fail the same way while growing the failure list. The files past
-  # the cursor are reported in `aborted_remaining`, never as erased.
+  # The walk does NOT stop on a batch in which every file failed: the
+  # server advances the cursor past failed files and short-circuits a
+  # storage that already failed inside a call (one provider attempt per
+  # dead store per batch), so files on a healthy store behind a dead one
+  # are still reached, `remaining` strictly decreases, and the ceiling
+  # above bounds everything-dead.
   def erase_files_in_batches(path)
-    totals = { count: 0, failed: [], retained_platform_artifacts: 0, batches: 0, aborted_remaining: 0 }
+    totals = { count: 0, failed: [], retained_platform_artifacts: 0, batches: 0 }
     after_id = nil
 
     loop do
-      response = after_id ? api_client.delete(path, { after_id: after_id }) : api_client.delete(path)
+      response = begin
+        after_id ? api_client.delete(path, { after_id: after_id }) : api_client.delete(path)
+      rescue BackendApiClient::ApiError => e
+        raise if totals[:batches].zero?
+
+        raise FileErasureInterrupted.new(finish_file_erasure_totals(totals), e)
+      end
       data = response['data'] || {}
       return data if data['erased'] == false
 
-      failed = Array(data['failed'])
       totals[:count] += data['count'].to_i
-      totals[:failed].concat(failed)
+      totals[:failed].concat(Array(data['failed']))
       totals[:retained_platform_artifacts] = data['retained_platform_artifacts'].to_i
       totals[:batches] += 1
 
       remaining = data['remaining'].to_i
       cursor = data['cursor']
       break if remaining.zero? || cursor.blank?
-
-      if data['count'].to_i.zero? && failed.any? && failed.all? { |f| f['kind'] != 'held' }
-        totals[:aborted_remaining] = remaining
-        break
-      end
 
       if totals[:batches] >= MAX_FILE_ERASURE_BATCHES
         raise "File erasure at #{path} did not finish within #{MAX_FILE_ERASURE_BATCHES} batches " \
@@ -65,9 +81,7 @@ module ComplianceFileErasureConcern
       after_id = cursor
     end
 
-    totals[:held] = totals[:failed].select { |f| f['kind'] == 'held' }
-    totals[:errors] = totals[:failed].reject { |f| f['kind'] == 'held' }
-    totals
+    finish_file_erasure_totals(totals)
   end
 
   # One bounded line naming the first FAILURE_SAMPLE_SIZE files the server
@@ -76,5 +90,13 @@ module ComplianceFileErasureConcern
     sample = failures.first(FAILURE_SAMPLE_SIZE).map { |f| "#{f['id']} (#{f['kind']}: #{f['reason']})" }
     rest = failures.size - sample.size
     rest.positive? ? "#{sample.join(', ')}, and #{rest} more" : sample.join(', ')
+  end
+
+  private
+
+  def finish_file_erasure_totals(totals)
+    totals[:held] = totals[:failed].select { |f| f['kind'] == 'held' }
+    totals[:errors] = totals[:failed].reject { |f| f['kind'] == 'held' }
+    totals
   end
 end

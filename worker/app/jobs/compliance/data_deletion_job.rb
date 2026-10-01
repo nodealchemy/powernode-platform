@@ -145,17 +145,19 @@ module Compliance
       return unless request_processing_start!(deletion_request_id, deletion_request['status'])
 
       begin
+        # Both logs are built in place, so what was processed before a
+        # per-type raise is still here for the rescue below to persist.
         deletion_log = []
         retention_log = []
 
         # Process deletion based on type
         case deletion_request['deletion_type']
         when 'full'
-          deletion_log, retention_log = process_full_deletion(deletion_request)
+          process_full_deletion(deletion_request, deletion_log, retention_log)
         when 'partial'
-          deletion_log = process_partial_deletion(deletion_request)
+          process_partial_deletion(deletion_request, deletion_log)
         when 'anonymize'
-          deletion_log = process_anonymization(deletion_request)
+          process_anonymization(deletion_request, deletion_log)
         end
 
         # GDPR/compliance safety: a per-data-type erasure that did not succeed
@@ -187,14 +189,17 @@ module Compliance
           raise PartialDeletionFailure, failure_message
         end
 
-        # Complete the request
+        # Complete the request. `error_message: nil` clears what a retried
+        # run left on the row (see RetryableErasureFailure) — a completed
+        # request must not carry a stale error.
         patch_deletion_request!(
           deletion_request_id,
           {
             status: 'completed',
             completed_at: Time.current.iso8601,
             deletion_log: deletion_log,
-            retention_log: retention_log
+            retention_log: retention_log,
+            error_message: nil
           }
         )
 
@@ -244,7 +249,14 @@ module Compliance
         # if the retries run out.
         if e.is_a?(RetryableErasureFailure)
           begin
-            patch_deletion_request!(deletion_request_id, { error_message: e.message })
+            # The partial logs travel with the error: the types already
+            # processed are persisted now and carried forward on resume
+            # (see settled_prior_entries), so they are not re-run to a
+            # count of 0 in the final record.
+            patch_deletion_request!(
+              deletion_request_id,
+              { error_message: e.message, deletion_log: deletion_log, retention_log: retention_log }
+            )
           rescue => write_error
             log_error "Failed to record the retryable erasure failure for deletion request " \
                       "#{deletion_request_id}: #{write_error.message}"
@@ -313,13 +325,11 @@ module Compliance
       response
     end
 
-    def process_full_deletion(deletion_request)
+    def process_full_deletion(deletion_request, deletion_log, retention_log)
       user_id = deletion_request['user_id']
       account_id = deletion_request['account_id']
       data_types_to_retain = deletion_request['data_types_to_retain'] || []
-
-      deletion_log = []
-      retention_log = []
+      prior = settled_prior_entries(deletion_request)
 
       # Every DELETABLE_DATA_TYPES member goes through this ONE loop: retained
       # -> a retention_log entry and its endpoint is never called; otherwise
@@ -327,6 +337,8 @@ module Compliance
       # (a failure there is a per-type 'failed' entry, surfaced below as a
       # PartialDeletionFailure). 'activity' and 'analytics' are not walked:
       # they were withdrawn from the server constant (IMP-bf52b4da135b).
+      # A type the persisted log already shows settled (a resumed run) is
+      # carried forward, not re-run.
       DELETABLE_DATA_TYPES.each do |data_type|
         if data_types_to_retain.include?(data_type)
           retention_log << {
@@ -334,6 +346,8 @@ module Compliance
             reason: retention_reason_for(data_type),
             processed_at: Time.current.iso8601
           }
+        elsif prior.key?(data_type)
+          deletion_log << prior[data_type]
         else
           deletion_log << deletion_log_entry(data_type, delete_data_type(data_type, user_id, account_id))
         end
@@ -348,29 +362,40 @@ module Compliance
       # were never recorded in the deletion_log. All three categories are
       # DELETABLE_DATA_TYPES members, so the loop above now handles them:
       # anonymized exactly once when not retained, untouched when retained.
-
-      [ deletion_log, retention_log ]
+      nil
     end
 
-    def process_partial_deletion(deletion_request)
+    # The entries a PREVIOUS run of this request persisted for types it
+    # settled (deleted / anonymized / skipped) before a RetryableErasureFailure
+    # stopped it — keyed by data_type, keys symbolized to match the entries
+    # this run builds. A 'failed' entry is not settled and is re-run.
+    def settled_prior_entries(deletion_request)
+      Array(deletion_request['deletion_log']).each_with_object({}) do |entry, settled|
+        next unless entry.is_a?(Hash)
+
+        entry = entry.symbolize_keys
+        next unless %w[deleted anonymized skipped].include?(entry[:action].to_s)
+
+        settled[entry[:data_type].to_s] ||= entry
+      end
+    end
+
+    def process_partial_deletion(deletion_request, deletion_log)
       user_id = deletion_request['user_id']
       account_id = deletion_request['account_id']
       data_types = deletion_request['data_types_to_delete'] || []
-
-      deletion_log = []
+      prior = settled_prior_entries(deletion_request)
 
       data_types.each do |data_type|
-        deletion_log << deletion_log_entry(data_type, delete_data_type(data_type, user_id, account_id))
+        deletion_log << (prior[data_type] || deletion_log_entry(data_type, delete_data_type(data_type, user_id, account_id)))
       end
 
-      deletion_log
+      nil
     end
 
-    def process_anonymization(deletion_request)
+    def process_anonymization(deletion_request, deletion_log)
       user_id = deletion_request['user_id']
       account_id = deletion_request['account_id']
-
-      deletion_log = []
 
       # Anonymize user
       anonymize_user(user_id)
@@ -384,7 +409,7 @@ module Compliance
       anonymize_payments(account_id)
       deletion_log << { data_type: 'payments', action: 'anonymized', processed_at: Time.current.iso8601 }
 
-      deletion_log
+      nil
     end
 
     # There is no /api/v1/internal/data_deletion/:type route — it never
@@ -560,11 +585,27 @@ module Compliance
       # record must say that some of their uploads were kept as platform
       # artifacts, not only how many were erased.
       { count: result[:count], retained_platform_artifacts: result[:retained_platform_artifacts] }
+    rescue FileErasureInterrupted => e
+      # The server stopped answering after files were already erased: never
+      # a skip, and not a terminal failure either — the walk resumes on retry.
+      raise RetryableErasureFailure,
+            "files: erasure interrupted after #{e.totals[:count]} file(s) were erased: #{e.api_error.message}"
     rescue BackendApiClient::ApiError => e
-      raise unless e.status == 404
+      raise unless routing_miss_404?(e)
 
       log_warn "The server has no files erasure route (404); recording files as skipped rather than erased"
       { skipped: true, reason: 'no_erasure_path' }
+    end
+
+    # Only a 404 WITHOUT the platform's NOT_FOUND envelope is a missing
+    # route (Rails' default 404 for an unrouted path). A 404 that carries
+    # `code: "NOT_FOUND"` came from a routed action — the user is missing,
+    # not the route — and is the error it looks like.
+    def routing_miss_404?(error)
+      return false unless error.status == 404
+
+      body = error.response_body
+      !(body.is_a?(Hash) && body['code'] == 'NOT_FOUND')
     end
 
     def anonymize_payments(account_id)
