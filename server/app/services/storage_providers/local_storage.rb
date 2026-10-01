@@ -145,17 +145,17 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
-      # A root that is gone (an unmounted volume, a wiped path) is not a
-      # store with the blob already removed; only a present root may report
-      # a missing blob as removed (IMP-d97f6e3bbc2b).
-      unless @root_path.directory?
+      file_path = full_path(file_object.storage_key)
+
+      # A missing blob under a root that is gone (an unmounted volume, a
+      # wiped path) is not "already removed"; only a present root may say
+      # so (IMP-d97f6e3bbc2b). An existing blob is deleted regardless.
+      unless file_path.exist?
+        return true if @root_path.directory?  # Already deleted
+
         log_error("Refusing to report file object #{file_object.id} removed: storage root is missing")
         return false
       end
-
-      file_path = full_path(file_object.storage_key)
-
-      return true unless file_path.exist?  # Already deleted
 
       File.delete(file_path)
       log_info("Deleted the blob of file object #{file_object.id}")

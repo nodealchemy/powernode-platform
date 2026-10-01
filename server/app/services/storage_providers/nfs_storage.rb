@@ -223,18 +223,20 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
-      # An unmounted share's mount point is an ordinary empty directory, so
-      # a missing blob there means nothing — only a MOUNTED share may report
-      # a missing blob as already removed (IMP-d97f6e3bbc2b: a GDPR erasure
-      # in strict mode destroys the row on a true return).
-      unless mounted?
-        log_error("Refusing to report file object #{file_object.id} removed: NFS share is not mounted")
-        return false
-      end
-
       full_path = full_path_for(file_object.storage_key)
 
-      return true unless File.exist?(full_path)
+      # A MISSING blob is "already removed" only on a mounted share; an
+      # unmounted share's mount point is an ordinary empty directory, and a
+      # GDPR erasure in strict mode destroys the row on a true return
+      # (IMP-d97f6e3bbc2b). Decided by the exact mount-point test, never by
+      # the legacy `mounted?` (a substring match over `mount` output). An
+      # EXISTING blob is deleted whatever that test says.
+      unless File.exist?(full_path)
+        return true if StorageProviders::MountPoint.mount_point?(@mount_path)
+
+        log_error("Refusing to report file object #{file_object.id} removed: nothing is mounted on the NFS mount point")
+        return false
+      end
 
       File.delete(full_path)
 

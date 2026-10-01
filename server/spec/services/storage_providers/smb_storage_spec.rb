@@ -156,7 +156,12 @@ RSpec.describe StorageProviders::SmbStorage, type: :service do
       expect(File.exist?(File.join(mount_path, file_object.storage_key))).to be false
     end
 
-    it 'returns true when file does not exist' do
+    it 'returns true when file does not exist on a MOUNTED share' do
+      # IMP-d97f6e3bbc2b: a missing blob reads as "already removed" only on
+      # a mounted share; the stat seam says mount_path is a mount point.
+      resolved = File.realpath(mount_path)
+      allow(StorageProviders::MountPoint).to receive(:device_of).with(resolved).and_return(42)
+      allow(StorageProviders::MountPoint).to receive(:device_of).with(File.dirname(resolved)).and_return(7)
       file_object.update(storage_key: 'nonexistent.txt')
 
       result = provider.delete_file(file_object)
@@ -341,23 +346,50 @@ RSpec.describe StorageProviders::SmbStorage, type: :service do
     end
   end
 
-  # IMP-d97f6e3bbc2b (critic B, H1) — same defect as the NFS provider: an
-  # unmounted share's mount point is an empty directory, and a missing
-  # blob there must not be reported as removed. Real `mounted?` here.
-  describe '#delete_file against the real mount check' do
-    before { allow(provider).to receive(:mounted?).and_call_original }
+  # IMP-d97f6e3bbc2b (round 3) — delete_file never consults `mounted?` (a
+  # substring match over `mount` output that fails open and closed). An
+  # EXISTING blob is deleted whatever the mount answer; only a MISSING blob
+  # is decided by the exact mount-point test on mount_path itself
+  # (StorageProviders::MountPoint): mounted and missing = already removed,
+  # unmounted = unreachable, not erased. None of this depends on the
+  # runner's mount table: the stat seam is stubbed, not the predicate.
+  describe '#delete_file with a mount_path-only configuration' do
+    let(:storage_config) do
+      create(:file_storage, :smb, account: account, configuration: { 'mount_path' => mount_path })
+    end
+    let(:blob_path) { File.join(mount_path, file_object.storage_key) }
+    let(:resolved) { File.realpath(mount_path) }
 
-    it 'returns false when the mount point exists but nothing is mounted on it' do
-      expect(File.directory?(mount_path)).to be true
-      expect(provider.send(:mounted?)).to be false
+    before do
+      # Prove independence from the legacy predicate: it says "unmounted".
+      allow(provider).to receive(:mounted?).and_return(false)
+    end
 
+    def stub_mount_point(mounted)
+      allow(StorageProviders::MountPoint).to receive(:device_of).with(resolved).and_return(mounted ? 42 : 7)
+      allow(StorageProviders::MountPoint).to receive(:device_of).with(File.dirname(resolved)).and_return(7)
+    end
+
+    it 'returns false for a missing blob when nothing is mounted on the mount point' do
+      stub_mount_point(false)
+
+      expect(File.exist?(blob_path)).to be false
       expect(provider.delete_file(file_object)).to be false
     end
 
-    it 'still reports a missing blob on a MOUNTED share as removed' do
-      allow(provider).to receive(:mounted?).and_return(true)
+    it 'returns true for a missing blob on a mounted share (the retry-after-partial-commit case)' do
+      stub_mount_point(true)
 
       expect(provider.delete_file(file_object)).to be true
+    end
+
+    it 'deletes an existing blob even when the mount test would say unmounted' do
+      stub_mount_point(false)
+      FileUtils.mkdir_p(File.dirname(blob_path))
+      File.write(blob_path, 'bytes')
+
+      expect(provider.delete_file(file_object)).to be true
+      expect(File.exist?(blob_path)).to be false
     end
   end
 end
