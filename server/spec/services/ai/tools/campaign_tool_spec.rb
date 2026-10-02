@@ -90,6 +90,61 @@ RSpec.describe Ai::Tools::CampaignTool do
   end
 
   # Secreview LOW: the verb passed no actor to propose!, so it skipped the shared campaign check.
+  describe "plan_increments validation (IMP-fd7e7082b431)" do
+    let(:plan) { [ { "title" => "First", "files" => [ "a.rb" ], "acceptance_criteria" => "works", "dependencies" => [] } ] }
+    let(:bad_plan) { [ { "title" => "First", "file" => [ "a.rb" ] } ] }
+
+    it "documents the per-increment keys where a caller reads them" do
+      %w[campaign_propose campaign_update_proposal campaign_start].each do |action|
+        text = described_class.action_definitions.fetch(action)[:parameters][:configuration][:description]
+        expect(text).to include("plan_increments", "files", "acceptance_criteria", "dependencies", "task_key"), action
+      end
+    end
+
+    it "campaign_propose queues a well-formed plan" do
+      res = exec(action: "campaign_propose", title: "Planned", objective: "With a plan", configuration: { plan_increments: plan })
+
+      expect(res[:success]).to be true
+    end
+
+    it "campaign_propose refuses a malformed plan, names the key, and queues nothing" do
+      expect do
+        res = exec(action: "campaign_propose", title: "Typo", objective: "Bad plan", configuration: { plan_increments: bad_plan })
+
+        expect(res[:success]).to be false
+        expect(res[:error]).to match(/plan_increments\[0\]\.file is not a known key/)
+      end.not_to change(Ai::CampaignProposal, :count)
+    end
+
+    it "campaign_update_proposal refuses a malformed plan and leaves the configuration as it was" do
+      pid = exec(action: "campaign_propose", title: "Planned", objective: "With a plan",
+                 configuration: { plan_increments: plan })[:data][:proposal][:id]
+
+      res = exec(action: "campaign_update_proposal", proposal_id: pid, configuration: { plan_increments: bad_plan })
+
+      expect(res[:success]).to be false
+      expect(res[:error]).to match(/plan_increments\[0\]\.file/)
+      expect(Ai::CampaignProposal.find(pid).configuration["plan_increments"].first).to include("files" => [ "a.rb" ])
+    end
+
+    it "campaign_start refuses a malformed plan and creates no campaign" do
+      expect do
+        res = exec(action: "campaign_start", name: "Bad plan", configuration: { plan_increments: [ { "title" => "T", "files" => "a.rb" } ] })
+
+        expect(res[:success]).to be false
+        expect(res[:error]).to match(/plan_increments\[0\]\.files must be a list of strings/)
+      end.not_to change(Ai::Campaign, :count)
+    end
+
+    it "leaves max_concurrent_claims at one for a campaign loop, whatever the plan declares" do
+      res = exec(action: "campaign_start", name: "Declared files", configuration: { plan_increments: plan })
+
+      expect(res[:success]).to be true
+      loop_config = Ai::Campaign.find(res[:data][:campaign][:id]).ralph_loops.first.configuration
+      expect(loop_config["max_concurrent_claims"] || 1).to eq(1)
+    end
+  end
+
   it "campaign_propose asks the shared campaign check for its user, creating nothing for one who lacks manage here" do
     user # the account's first user (OWNER) holds ai.campaigns.manage
     reader = create(:user, account: account, permissions: %w[ai.campaigns.read])

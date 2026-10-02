@@ -88,18 +88,21 @@ RSpec.describe Ai::DevLoop::CampaignDriver do
       # Ai::Tools::DevLoopTool#task_files already reads for the parallel-claim
       # collision guard; acceptance_criteria/dependencies are RalphTask's own
       # column names.
+      # Entries that are not strings (nil, 42) are no longer normalised away here: a plan
+      # carrying one is refused when the campaign is created (IMP-fd7e7082b431,
+      # Ai::Campaigns::PlanIncrements), so what reaches the driver is strings.
       it "carries increment files into metadata.files, normalized (strings, unique, blanks dropped)" do
         loop = driver.start(
           name: "Files",
           configuration: {
             "plan_increments" => [
-              { "title" => "First", "files" => [ "b.rb", "a.rb", "a.rb", "", nil, 42 ] }
+              { "title" => "First", "files" => [ "b.rb", "a.rb", "a.rb", "", " c.rb " ] }
             ]
           }
         )[:loop]
 
         task = loop.ralph_tasks.find_by(task_key: "increment-first")
-        expect(task.metadata["files"]).to eq(%w[b.rb a.rb 42])
+        expect(task.metadata["files"]).to eq(%w[b.rb a.rb c.rb])
       end
 
       it "seeds an empty files list (not a missing key) when the increment declares none" do

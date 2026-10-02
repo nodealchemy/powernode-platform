@@ -105,7 +105,7 @@ module Ai
             suggested_driver: { type: "string", required: false, description: "claude_code | platform_agent | platform_team | platform_mission" },
             description: { type: "string", required: false, description: "Optional campaign description" },
             configuration: { type: "object", required: false,
-                             description: "Durable config: scope/posture/ordering/keep-going" },
+                             description: "Durable config. #{::Ai::Campaigns::PlanIncrements::DOCUMENTATION}" },
             decision_authority: { type: "string", required: false,
                                   description: "supervised | monitored | trusted | autonomous (default trusted)" },
             stop_conditions: { type: "object", required: false,
@@ -134,7 +134,7 @@ module Ai
               suggested_workload: { type: "string", required: false, description: "improvement-campaign|feature-development|new-project" },
               suggested_driver: { type: "string", required: false, description: "claude_code|platform_agent|platform_team|platform_mission" },
               decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous (default trusted)" },
-              configuration: { type: "object", required: false, description: "Spawn configuration (scope/posture/plan_increments/...)" }
+              configuration: { type: "object", required: false, description: "Spawn configuration. #{::Ai::Campaigns::PlanIncrements::DOCUMENTATION}" }
             }
           },
           "campaign_update_proposal" => {
@@ -152,7 +152,7 @@ module Ai
               suggested_workload: { type: "string", required: false, description: "improvement-campaign|feature-development|new-project" },
               suggested_driver: { type: "string", required: false, description: "claude_code|platform_agent|platform_team|platform_mission" },
               decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous" },
-              configuration: { type: "object", required: false, description: "Replaces the proposal's spawn configuration" }
+              configuration: { type: "object", required: false, description: "Replaces the proposal's spawn configuration. #{::Ai::Campaigns::PlanIncrements::DOCUMENTATION}" }
             }
           },
           "campaign_reject_proposal" => {
@@ -209,7 +209,7 @@ module Ai
             parameters: {
               name: { type: "string", required: true, description: "Campaign name" },
               description: { type: "string", required: false, description: "Optional campaign description" },
-              configuration: { type: "object", required: false, description: "scope/posture/ordering/keep-going" },
+              configuration: { type: "object", required: false, description: "Campaign configuration. #{::Ai::Campaigns::PlanIncrements::DOCUMENTATION}" },
               decision_authority: { type: "string", required: false, description: "supervised|monitored|trusted|autonomous" },
               stop_conditions: { type: "object", required: false, description: "e.g. { max_failed:, completion_pct: }" }
             }

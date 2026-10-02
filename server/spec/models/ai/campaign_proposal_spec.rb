@@ -12,6 +12,21 @@ RSpec.describe Ai::CampaignProposal, type: :model do
       expect(build(:ai_campaign_proposal, account: account)).to be_valid
     end
 
+    # IMP-fd7e7082b431 — every door that stores a proposal (the tool, REST, discovery) shares this check.
+    it "rejects a malformed plan_increments in its configuration, naming the key" do
+      p = build(:ai_campaign_proposal, account: account, configuration: { "plan_increments" => [ { "title" => "T", "file" => [] } ] })
+
+      expect(p).not_to be_valid
+      expect(p.errors[:configuration].join).to match(/plan_increments\[0\]\.file is not a known key/)
+    end
+
+    it "accepts a well-formed plan, and does not re-judge a stored configuration when another field changes" do
+      p = create(:ai_campaign_proposal, account: account, configuration: { "plan_increments" => [ { "title" => "T", "files" => [ "a.rb" ] } ] })
+      p.update_columns(configuration: { "plan_increments" => [ { "title" => "T", "legacy_key" => 1 } ] })
+
+      expect(p.reload.update(title: "Retitled")).to be(true)
+    end
+
     it "rejects an unknown status" do
       p = build(:ai_campaign_proposal, account: account, status: "bogus")
       expect(p).not_to be_valid

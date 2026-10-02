@@ -36,6 +36,7 @@ module Ai
     validates :suggested_driver, inclusion: { in: SUGGESTED_DRIVERS }, allow_blank: true
     validates :decision_authority, presence: true, inclusion: { in: Ai::Campaign::DECISION_AUTHORITY }
     validates :fingerprint, presence: true, uniqueness: { scope: :account_id }
+    validate :plan_increments_shape, if: :configuration_changed?
 
     before_validation :ensure_fingerprint
 
@@ -177,6 +178,11 @@ module Ai
     end
 
     private
+
+    # IMP-fd7e7082b431 — see Ai::Campaigns::PlanIncrements.
+    def plan_increments_shape
+      Ai::Campaigns::PlanIncrements.problems(configuration).each { |problem| errors.add(:configuration, problem) }
+    end
 
     def ensure_fingerprint
       return if fingerprint.present?

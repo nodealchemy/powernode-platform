@@ -6,6 +6,22 @@ RSpec.describe Ai::Campaign, type: :model do
   let(:account) { create(:account) }
   let(:campaign) { create(:ai_campaign, account: account) }
 
+  # IMP-fd7e7082b431 — the plan is judged when a campaign is created (start / spawn / REST), not on later saves.
+  describe "plan_increments" do
+    it "refuses a malformed plan at creation, naming the key" do
+      built = build(:ai_campaign, account: account, configuration: { "plan_increments" => [ { "title" => "T", "files" => "a.rb" } ] })
+
+      expect(built).not_to be_valid
+      expect(built.errors[:configuration].join).to match(/plan_increments\[0\]\.files must be a list of strings/)
+    end
+
+    it "does not re-judge a plan already stored when the campaign is saved again" do
+      campaign.update_columns(configuration: { "plan_increments" => [ { "title" => "T", "legacy_key" => 1 } ] })
+
+      expect(campaign.reload.update(description: "edited")).to be(true)
+    end
+  end
+
   describe "lifecycle" do
     it "moves created -> active -> paused -> active -> completed" do
       expect(campaign.status).to eq("created")

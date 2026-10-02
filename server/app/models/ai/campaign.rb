@@ -44,6 +44,7 @@ module Ai
     validates :name, presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
     validates :decision_authority, presence: true, inclusion: { in: DECISION_AUTHORITY }
+    validate :plan_increments_shape, on: :create
 
     scope :active, -> { where(status: "active") }
     scope :open, -> { where.not(status: TERMINAL_STATUSES) }
@@ -366,6 +367,14 @@ module Ai
         # campaign's branch — surfaces "rebase needed" + likely conflicts on the dashboard.
         rebase_advisory: (configuration.is_a?(Hash) ? configuration["rebase_advisory"] : nil)
       }
+    end
+
+    private
+
+    # IMP-fd7e7082b431 — see Ai::Campaigns::PlanIncrements. Checked on create only:
+    # a campaign already running keeps the plan it was seeded with.
+    def plan_increments_shape
+      Ai::Campaigns::PlanIncrements.problems(configuration).each { |problem| errors.add(:configuration, problem) }
     end
   end
 end
