@@ -392,7 +392,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.datetime "completed_at", precision: nil
     t.decimal "cost_usd", precision: 10, scale: 4, default: "0.0"
     t.datetime "created_at", null: false
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.jsonb "error_details", default: {}
     t.text "error_message"
     t.jsonb "execution_context", default: {}
@@ -1700,7 +1700,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.integer "completed_nodes", default: 0
     t.datetime "created_at", null: false
     t.jsonb "dag_definition", default: {}
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.text "error_message"
     t.jsonb "execution_plan", default: []
     t.integer "failed_nodes", default: 0
@@ -2395,7 +2395,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.datetime "completed_at"
     t.decimal "cost", precision: 10, scale: 6, default: "0.0"
     t.datetime "created_at", null: false
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.text "error"
     t.jsonb "events", default: []
     t.uuid "execution_trace_id", null: false
@@ -2422,7 +2422,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.uuid "account_id", null: false
     t.datetime "completed_at"
     t.datetime "created_at", null: false
-    t.integer "duration_ms"
+    t.bigint "duration_ms"
     t.text "error"
     t.jsonb "metadata", default: {}
     t.string "name", null: false
