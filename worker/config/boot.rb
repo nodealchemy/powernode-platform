@@ -83,6 +83,7 @@ end
 # audit HTTP call by accident.
 require_relative '../app/services/mcp_security_service'
 require_relative '../app/services/mcp/spawn_audit_reporter'
+require_relative '../app/services/mcp_sandbox_cache_pruner'
 McpSecurityService.audit_reporter = Mcp::SpawnAuditReporter.new
 
 # Load extension worker modules dynamically from extensions/*/extension.json.

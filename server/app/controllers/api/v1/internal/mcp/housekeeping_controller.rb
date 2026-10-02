@@ -16,6 +16,15 @@ module Api
             Rails.logger.error "[Internal::Mcp::Housekeeping] #{e.class}: #{e.message}"
             render_error("MCP housekeeping failed", status: :internal_server_error)
           end
+
+          # GET /api/v1/internal/mcp/sandbox_cache_policy
+          #
+          # What the worker's sandbox cache pruner needs from the database: the
+          # accounts that still exist and the operator's idle age. See
+          # Mcp::SandboxCachePolicy.
+          def sandbox_cache_policy
+            render_success(::Mcp::SandboxCachePolicy.call)
+          end
         end
       end
     end

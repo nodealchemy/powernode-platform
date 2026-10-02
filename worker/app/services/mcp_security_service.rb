@@ -873,11 +873,12 @@ class McpSecurityService
   # (birthday bound ~2^42 accounts); there is no per-host registry to
   # detect one because none is needed at that size.
   #
-  # Cache directories are per account and are NOT garbage-collected here:
-  # each holds only that account's npx/uvx package cache, bounded by what
-  # its own MCP servers install, and is recreated on demand. Reclaiming a
-  # deleted account's directory is an operator action (`rm -rf
-  # /var/cache/private/mcp-stdio-<hash>` on the worker host).
+  # Cache directories are per account. Each holds only that account's
+  # npx/uvx package cache and is recreated on demand, so they are reclaimed
+  # when the account no longer exists or the cache has sat idle past the
+  # operator's age (SiteSetting mcp.stdio.sandbox_cache_max_idle_seconds),
+  # never while a unit is running: see McpSandboxCachePruner, run daily from
+  # Maintenance::McpHousekeepingJob.
   SANDBOX_IDENTITY_PREFIX = 'mcp-stdio-'
   SANDBOX_IDENTITY_HEX_LENGTH = 21
 

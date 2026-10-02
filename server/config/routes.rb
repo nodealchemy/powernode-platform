@@ -170,6 +170,7 @@ Rails.application.routes.draw do
         # MCP OAuth housekeeping — invoked by the worker on a recurring schedule.
         namespace :mcp do
           post :housekeeping, to: "housekeeping#create"
+          get :sandbox_cache_policy, to: "housekeeping#sandbox_cache_policy"
         end
 
         # Metrics tracking for worker jobs

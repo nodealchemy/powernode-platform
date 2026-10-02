@@ -32,4 +32,24 @@ RSpec.describe "Api::V1::Internal::Mcp::Housekeeping", type: :request do
       end
     end
   end
+
+  # IMP-f074ef554781 — what the worker's sandbox cache pruner needs from the DB.
+  describe "GET /api/v1/internal/mcp/sandbox_cache_policy" do
+    it "returns the current account ids and the idle age" do
+      account = create(:account)
+
+      get "/api/v1/internal/mcp/sandbox_cache_policy", headers: service_headers
+
+      expect(response).to have_http_status(:ok)
+      data = JSON.parse(response.body).then { |body| body["data"] || body }
+      expect(data["account_ids"]).to include(account.id)
+      expect(data["max_idle_seconds"]).to eq(30 * 86_400)
+    end
+
+    it "is rejected without worker authentication" do
+      get "/api/v1/internal/mcp/sandbox_cache_policy"
+
+      expect(response).to have_http_status(:unauthorized).or have_http_status(:forbidden)
+    end
+  end
 end
