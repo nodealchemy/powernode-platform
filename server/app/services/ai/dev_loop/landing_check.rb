@@ -24,11 +24,17 @@ module Ai
     # Prefix matching is deliberately absent: an abbreviated sha is ambiguous across
     # repositories and could name someone else's commit.
     #
-    # Scope: this proves the reported commit is on develop, not that it is THIS task's
-    # commit — an executor could report any landed sha. Tying the sha to the task (its key
-    # in the commit or merge row) is a follow-up.
+    # IMP-41fcb0e66a0c — landing alone proves the sha is on develop, not that it is THIS
+    # task's commit (an executor could report any landed sha). When a task_key is given
+    # and the sha is known to have landed, the commit's message is read from the git host
+    # and must name the key (the commit convention is `fix(<area>): <task_key> ...`):
+    #   bound true   the message names the key;
+    #   bound false  the message was read and does NOT name it;
+    #   bound nil    not determined — no task_key, not landed, no repository, or the commit
+    #                could not be read. Nothing is known, so callers must not refuse on it.
+    # The audit rows carry no task key, so the commit message is the only binding there is.
     #
-    # Never raises and never refuses.
+    # Never raises and never refuses; the refusal is the caller's decision.
     class LandingCheck
       TARGET_BRANCH = "develop"
       PAGE_SIZE = 50
@@ -40,20 +46,37 @@ module Ai
       HEX = /\A\h+\z/
 
       UNVERIFIED = "unverified"
+      # Only dev-improve task keys are written into commit messages by convention; other
+      # loops' keys (task_3, audit finding keys) never appear in a commit, so they are not bound.
+      BINDABLE_KEY = /\AIMP-\h{12}\z/i
 
-      Result = Struct.new(:landed, :via, :warning, keyword_init: true)
+      Result = Struct.new(:landed, :via, :warning, :bound, :bound_via, :bound_warning, keyword_init: true)
 
-      def self.call(account:, loop_record:, commit_sha:)
-        new(account: account, loop_record: loop_record, commit_sha: commit_sha).call
+      def self.call(account:, loop_record:, commit_sha:, task_key: nil)
+        new(account: account, loop_record: loop_record, commit_sha: commit_sha, task_key: task_key).call
       end
 
-      def initialize(account:, loop_record:, commit_sha:)
+      def initialize(account:, loop_record:, commit_sha:, task_key: nil)
         @account = account
         @loop_record = loop_record
         @sha = commit_sha.to_s.strip.downcase
+        @task_key = task_key.to_s.strip
       end
 
       def call
+        @started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        result = landing
+        # A sha proven by a dev_merge audit row is not message-bound: the merge machinery
+        # (merge commits, pointer bumps) writes messages without the task key, and the audit
+        # row carries no key either. Accepted gap — recording the key on the row closes it.
+        return result unless result.landed == true && result.via == "git_host" && @task_key.match?(BINDABLE_KEY)
+
+        bind(result)
+      end
+
+      private
+
+      def landing
         if @sha.empty?
           return Result.new(landed: nil, via: "no_commit_sha",
                             warning: "no commit_sha was reported, so the landing of this pass could not be checked")
@@ -73,7 +96,37 @@ module Ai
         reachable_on_host(repositories.first)
       end
 
-      private
+      # Reads the landed commit's message and records whether it names the task key. The key
+      # must stand alone: IMP-0123 is not found inside IMP-01239.
+      def bind(result)
+        repository = @host_repository
+        remaining = HOST_DEADLINE - (Process.clock_gettime(Process::CLOCK_MONOTONIC) - @started)
+        return unbound(result, "commit_unreadable") unless repository && remaining.positive?
+
+        client = ::Devops::Git::ApiClient.for(repository.credential)
+        detail = ::Timeout.timeout(remaining) { client.get_commit(repository.owner, repository.name, @sha) }
+        message = (detail.respond_to?(:[]) && (detail[:message] || detail["message"])).to_s
+        return unbound(result, "commit_unreadable") if message.empty?
+
+        result.bound_via = "commit_message"
+        if message.match?(/(?<![\w-])#{Regexp.escape(@task_key)}(?![\w-])/i)
+          result.bound = true
+        else
+          result.bound = false
+          result.bound_warning = "commit #{@sha} does not reference task #{@task_key} in its commit message, so it " \
+                                 "cannot be this task's commit — report the sha of the commit whose message names #{@task_key}"
+        end
+        result
+      rescue ::Timeout::Error, StandardError => e
+        Rails.logger.warn("[LandingCheck] bind #{e.class}: #{e.message}")
+        unbound(result, "commit_unreadable")
+      end
+
+      def unbound(result, via)
+        result.bound = nil
+        result.bound_via = via
+        result
+      end
 
       def unverified(via, warning)
         Result.new(landed: UNVERIFIED, via: via, warning: "#{warning} — recorded as unverified, not as unlanded")
@@ -91,6 +144,7 @@ module Ai
       end
 
       def reachable_on_host(repository)
+        @host_repository = repository
         client = ::Devops::Git::ApiClient.for(repository.credential)
         found = ::Timeout.timeout(HOST_DEADLINE) { walk(client, repository) }
         return Result.new(landed: true, via: "git_host") if found

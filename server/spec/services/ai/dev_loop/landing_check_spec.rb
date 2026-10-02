@@ -69,6 +69,97 @@ RSpec.describe Ai::DevLoop::LandingCheck do
     end
   end
 
+  describe "binding the sha to the task" do
+    let(:task_key) { "IMP-0123456789ab" }
+
+    def bound_check(**opts)
+      described_class.call(account: account, loop_record: ralph_loop, commit_sha: sha, task_key: task_key, **opts)
+    end
+
+    def commit_detail(message)
+      { sha: sha, message: message, title: message.lines.first.to_s.strip }
+    end
+
+    before do
+      # landed via the git host (the only landing that is message-bound)
+      allow(client).to receive(:list_commits).and_return(commits(sha))
+    end
+
+    it "is bound when the landed commit's message names the task key" do
+      allow(client).to receive(:get_commit).with("owner", "platform", sha)
+                                           .and_return(commit_detail("fix(auth): #{task_key} show the retry time"))
+
+      expect(bound_check).to have_attributes(landed: true, bound: true)
+    end
+
+    it "is NOT bound when the commit is landed but names another task, with a named reason" do
+      allow(client).to receive(:get_commit).and_return(commit_detail("fix(auth): IMP-ffffffffffff something else"))
+
+      result = bound_check
+
+      expect(result).to have_attributes(landed: true, bound: false, bound_via: "commit_message")
+      expect(result.bound_warning).to include(task_key)
+    end
+
+    it "does not take the key as a substring of a longer key" do
+      allow(client).to receive(:get_commit).and_return(commit_detail("fix: #{task_key}9 nope"))
+
+      expect(bound_check.bound).to be false
+    end
+
+    it "is undetermined (nil), never false, when the commit cannot be read" do
+      allow(client).to receive(:get_commit).and_raise(Devops::Git::ApiClient::ApiError, "boom")
+
+      expect(bound_check).to have_attributes(landed: true, bound: nil, bound_via: "commit_unreadable")
+    end
+
+    it "binds a lowercase key and a key in parentheses or followed by punctuation" do
+      allow(client).to receive(:get_commit).and_return(commit_detail("fix(x): (#{task_key.downcase}): done"))
+
+      expect(bound_check.bound).to be true
+    end
+
+    it "is undetermined when the commit read exceeds the remaining deadline" do
+      stub_const("Ai::DevLoop::LandingCheck::HOST_DEADLINE", 0.2)
+      allow(client).to receive(:get_commit) { sleep 2 }
+
+      expect(bound_check).to have_attributes(landed: true, bound: nil, bound_via: "commit_unreadable")
+    end
+
+    it "is undetermined for a non-string message shape" do
+      allow(client).to receive(:get_commit).and_return(["x"])
+
+      expect(bound_check.bound).to be_nil
+    end
+
+    it "does not bind a sha proven by a dev_merge audit row (merge and pointer commits carry no key)" do
+      merge_audit(account: account, merged_sha: sha)
+      expect(client).not_to receive(:get_commit)
+
+      expect(bound_check).to have_attributes(landed: true, via: "dev_merge_audit", bound: nil)
+    end
+
+    it "does not bind loops whose task keys are not IMP keys" do
+      expect(client).not_to receive(:get_commit)
+
+      result = described_class.call(account: account, loop_record: ralph_loop, commit_sha: sha, task_key: "task_3")
+      expect(result).to have_attributes(landed: true, bound: nil)
+    end
+
+    it "is not checked when the sha is not known to have landed" do
+      allow(client).to receive(:list_commits).and_return([])
+      expect(client).not_to receive(:get_commit)
+
+      expect(bound_check).to have_attributes(landed: false, bound: nil)
+    end
+
+    it "is not checked when no task key is given" do
+      expect(client).not_to receive(:get_commit)
+
+      expect(check).to have_attributes(landed: true, bound: nil)
+    end
+  end
+
   describe "an abbreviated sha" do
     it "is never matched by prefix, and is unverified rather than unlanded" do
       merge_audit(account: account, merged_sha: sha)

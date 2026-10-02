@@ -90,6 +90,42 @@ RSpec.describe Ai::Tools::DevLoopTool, "landing guard" do
     end
   end
 
+  context "when the landed sha does not name this task" do
+    before do
+      allow(Ai::DevLoop::LandingCheck).to receive(:call)
+        .and_return(Ai::DevLoop::LandingCheck::Result.new(
+          landed: true, via: "git_host", bound: false, bound_via: "commit_message",
+          bound_warning: "commit #{sha} does not reference task LAND-1 in its message"
+        ))
+    end
+
+    it "refuses the pass with the named reason, and records nothing" do
+      result = complete(commit_sha: sha)
+
+      expect(Ai::DevLoop::LandingCheck).to have_received(:call).with(hash_including(task_key: "LAND-1", commit_sha: sha))
+
+      expect(result[:success]).to be false
+      expect(result[:error]).to match(/does not reference task LAND-1/)
+      expect(ralph_loop.ralph_iterations.count).to eq(0)
+      expect(ralph_loop.ralph_tasks.find_by(task_key: "LAND-1").status).to eq("in_progress")
+    end
+
+    it "does not refuse a blocked or failed report that names the same sha" do
+      result = complete(commit_sha: sha, outcome: "blocked", summary: "waiting on operator")
+
+      expect(result[:success]).to be true
+    end
+  end
+
+  context "when the task binding could not be determined" do
+    it "keeps the pass" do
+      allow(Ai::DevLoop::LandingCheck).to receive(:call)
+        .and_return(Ai::DevLoop::LandingCheck::Result.new(landed: true, via: "git_host", bound: nil, bound_via: "commit_unreadable"))
+
+      expect(complete(commit_sha: sha)[:success]).to be true
+    end
+  end
+
   context "when the landing could not be verified" do
     it "keeps today's verdict and records landed: unverified with a warning" do
       allow(Ai::DevLoop::LandingCheck).to receive(:call)

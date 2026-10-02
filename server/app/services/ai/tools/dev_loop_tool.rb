@@ -79,7 +79,7 @@ module Ai
                                            "error." },
             git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
             commit_sha: { type: "string", required: false,
-                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose full sha the git host answered for and does not have is recorded landed:false, downgraded to attested and warned about; an unresolvable repository, an unreachable host or an abbreviated sha records landed:\"unverified\" and only warns (never refused). It proves the sha is on develop, not that it is this task's commit" },
+                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose full sha the git host answered for and does not have is recorded landed:false, downgraded to attested and warned about; an unresolvable repository, an unreachable host or an abbreviated sha records landed:\"unverified\" and only warns (never refused). A landed sha whose commit message does not name this task's key is refused with the reason (an unreadable commit is never refused)" },
             files_changed: { type: "array", required: false, description: "Paths touched by this task" },
             agent_id: { type: "string", required: false, description: "Platform agent to delegate a task to" },
             await: { type: "boolean", required: false, description: "Block until the delegated agent finishes" },
@@ -170,7 +170,7 @@ module Ai
                                              "meaningful on a passed + verified outcome; ignored otherwise." },
               git_branch: { type: "string", required: false, description: "Branch the work was committed to" },
               commit_sha: { type: "string", required: false,
-                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose full sha the git host answered for and does not have is recorded landed:false, downgraded to attested and warned about; an unresolvable repository, an unreachable host or an abbreviated sha records landed:\"unverified\" and only warns (never refused). It proves the sha is on develop, not that it is this task's commit" },
+                             description: "Commit SHA for the passed task. Checked against dev_merge audit rows and the develop branch on the git host: a pass whose full sha the git host answered for and does not have is recorded landed:false, downgraded to attested and warned about; an unresolvable repository, an unreachable host or an abbreviated sha records landed:\"unverified\" and only warns (never refused). A landed sha whose commit message does not name this task's key is refused with the reason (an unreadable commit is never refused)" },
               files_changed: { type: "array", required: false, description: "Paths touched by this task" },
               agent_execution_id: { type: "string", required: false,
                                     description: "The Ai::AgentExecution that did this work (a Claude Code " \
@@ -880,7 +880,12 @@ module Ai
           # false) is downgraded to attested — it neither counts as checks_passed nor
           # auto-applies its offer. "unverified" (no repository, host down, abbreviated sha)
           # keeps today's verdict and only warns: nothing is known against the pass.
-          landing = landing_verdict(loop_record, params[:commit_sha])
+          landing = landing_verdict(loop_record, params[:commit_sha], task.task_key)
+          # IMP-41fcb0e66a0c — a sha that LANDED but whose commit message does not name this
+          # task is someone else's commit: refused, with the reason. Undetermined (bound nil)
+          # is never refused.
+          return error_result(landing.bound_warning) if landing.bound == false
+
           verification = :attested if landing.landed == false && verification == :verified
         end
 
@@ -1054,8 +1059,8 @@ module Ai
       # IMP-6d060f65ccae. LandingCheck never raises, but this call sits on the
       # completion path, so a bug in it is contained here too: an unverifiable
       # landing records as unverified rather than failing a completion.
-      def landing_verdict(loop_record, commit_sha)
-        ::Ai::DevLoop::LandingCheck.call(account: account, loop_record: loop_record, commit_sha: commit_sha)
+      def landing_verdict(loop_record, commit_sha, task_key = nil)
+        ::Ai::DevLoop::LandingCheck.call(account: account, loop_record: loop_record, commit_sha: commit_sha, task_key: task_key)
       rescue StandardError => e
         Rails.logger.warn("[DevLoopTool] landing check failed for loop #{loop_record.id}: #{e.class}: #{e.message}")
         ::Ai::DevLoop::LandingCheck::Result.new(
