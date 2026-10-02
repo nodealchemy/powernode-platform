@@ -11360,6 +11360,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
     t.check_constraint "state::text = ANY (ARRAY['active'::character varying::text, 'removed'::character varying::text])", name: "system_sudoers_grants_state_enum"
   end
 
+  create_table "system_task_logs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.integer "byte_size", default: 0, null: false
+    t.text "content", default: "", null: false
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.uuid "node_instance_id"
+    t.bigint "original_bytes", default: 0, null: false
+    t.uuid "task_id", null: false
+    t.boolean "truncated", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_system_task_logs_on_account_id"
+    t.index ["expires_at"], name: "index_system_task_logs_on_expires_at"
+    t.index ["node_instance_id"], name: "index_system_task_logs_on_node_instance_id"
+    t.index ["task_id"], name: "index_system_task_logs_on_task_id", unique: true
+  end
+
   create_table "system_tasks", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.uuid "claimed_by_worker_id"
@@ -12725,6 +12742,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_29_121500) do
   add_foreign_key "system_storage_migrations", "users", column: "initiated_by_user_id"
   add_foreign_key "system_sudoers_grants", "system_node_modules", column: "node_module_id", on_delete: :cascade
   add_foreign_key "system_sudoers_grants", "system_service_users", column: "service_user_id", on_delete: :cascade
+  add_foreign_key "system_task_logs", "accounts"
+  add_foreign_key "system_task_logs", "system_tasks", column: "task_id", on_delete: :cascade
   add_foreign_key "system_tasks", "accounts"
   add_foreign_key "system_tasks", "users", column: "initiated_by_id"
   add_foreign_key "system_tasks", "workers", column: "claimed_by_worker_id", on_delete: :nullify

@@ -175,6 +175,7 @@ module Ai
         "system_inspect_correlation" => "Ai::Tools::SystemFleetTool",
         "system_list_tasks" => "Ai::Tools::SystemFleetTool",
         "system_get_task" => "Ai::Tools::SystemFleetTool",
+        "system_get_task_log" => "Ai::Tools::SystemFleetTool",
         "system_cancel_task" => "Ai::Tools::SystemFleetTool",
         "system_abort_task" => "Ai::Tools::SystemFleetTool",
         # Slice 7 — instance pools
