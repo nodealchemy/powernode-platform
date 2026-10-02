@@ -521,3 +521,8 @@ worker/storage/
 
 # ui-smoke generated reports (regenerated each run)
 scripts/ui-smoke/last-report.*
+
+# Platform-memory digest cache + its throttle stamp (IMP-de4ca2d3f7c5) — generated, per-machine
+/.claude/hooks/platform-memory-digest.local.md
+/.claude/hooks/platform-memory-digest.local.stamp
+/.claude/hooks/platform-memory-digest.local.stamp.lock

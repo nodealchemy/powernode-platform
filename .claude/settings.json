@@ -52,6 +52,11 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/claude-agents-sync-apply.sh",
             "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/platform-memory-digest-refresh.sh",
+            "timeout": 5
           }
         ]
       }
