@@ -86,6 +86,23 @@ RSpec.describe Ai::Tools::DevLoopTool, "#delegate_ralph_task" do
     expect(task.reload.status).to eq("failed")
   end
 
+  # IMP-4b2fd4f389d4 — wait_for_task now answers an expired wait as a SUCCESS
+  # carrying done: false (the agent is still running), not as an error. That is
+  # the same "not finished yet" the old error reply meant: the Ralph task must
+  # stay in_progress and report pending, never be recorded failed.
+  it "reports pending, and leaves the task in progress, when the wait expires with the agent still running" do
+    allow(agent_tool).to receive(:execute).with(params: hash_including(action: "spawn_task")).and_return(spawn_ok)
+    allow(agent_tool).to receive(:execute).with(params: hash_including(action: "wait_for_task"))
+      .and_return({ success: true, done: false, timed_out: true, status: "active", task_id: "a2a-123", wait_seconds: 45 })
+
+    result = delegate(await: true)
+
+    expect(result).to include(success: true, delegated: true, awaited: true, outcome: "pending")
+    expect(task.reload.status).to eq("in_progress")
+    expect(ralph_loop.ralph_iterations.count).to eq(0)
+    expect(result[:detail]).to match(/active|still running|timed out/i)
+  end
+
   it "propagates a delegation-authority denial without claiming the work" do
     allow(agent_tool).to receive(:execute).with(params: hash_including(action: "spawn_task"))
       .and_return({ success: false, error: "Delegation denied: budget exceeded" })

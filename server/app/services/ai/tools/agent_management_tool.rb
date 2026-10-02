@@ -29,6 +29,88 @@ module Ai
         "update_agent_trust_score" => "ai.agents.update"
       }.freeze
 
+      # === wait_for_task: bounded long-poll (IMP-4b2fd4f389d4) ===
+      #
+      # Each wait holds one Puma thread, and Puma runs a fixed small pool in one
+      # process (config/puma.rb default 16 threads). Unbounded, a handful of
+      # callers looping on wait_for_task could pin every thread and starve agent
+      # heartbeats, /up and every other MCP call for minutes. So:
+      #
+      #   * one call waits at most WAIT_MAX_SECONDS. Same value and reasoning as
+      #     the system_fleet wait-for long-poll (WAIT_MAX_SECONDS there): a
+      #     conservative margin well under the shortest MCP read timeout anywhere
+      #     in the platform (60s on the outbound legacy-HTTP path), not a
+      #     measured limit. A larger timeout_seconds is clamped, not refused;
+      #   * polling stays at 2s, the same beat as that long-poll;
+      #   * at most WAIT_MAX_PER_ACCOUNT waits per account, so one caller cannot
+      #     crowd out its neighbours, and WAIT_MAX_SERVER_WIDE in all, so many
+      #     callers cannot either. Beyond either, the waiter is REFUSED at once
+      #     with a named reason (reason: too_many_concurrent_waits, scope:
+      #     account|server) and retries, rather than queueing and holding a
+      #     thread anyway.
+      #
+      # These are constants, not ENV: a change to them is a code change with its
+      # reason stated here. The counts are PER RAILS PROCESS, and BOTH limits
+      # multiply by the number of Puma workers (the shipped service config runs
+      # several workers with many threads each, so 4 is a small fraction of its
+      # thread capacity and 2 per account becomes 2 x workers). They are
+      # deliberately conservative: a wait is a convenience over polling
+      # check_task_status, and the sibling system_fleet long-poll has its own,
+      # independent permit pool, so the two together hold at most their sum.
+      # The reply's timeout_seconds of 0 or a non-number means the default cap,
+      # not "check once" (check_task_status is the non-blocking read).
+      WAIT_POLL_SECONDS = 2
+      WAIT_MAX_SECONDS = 45
+      WAIT_MAX_PER_ACCOUNT = 2
+      WAIT_MAX_SERVER_WIDE = 4
+
+      # In-process counting limiter for concurrent waits. try-acquire only: it
+      # never blocks, it answers :ok, :account or :server.
+      class WaitLimiter
+        def initialize
+          @mutex = Mutex.new
+          @per_account = Hash.new(0)
+          @total = 0
+        end
+
+        def acquire(account_id)
+          @mutex.synchronize do
+            return :server if @total >= AgentManagementTool::WAIT_MAX_SERVER_WIDE
+            return :account if @per_account[account_id] >= AgentManagementTool::WAIT_MAX_PER_ACCOUNT
+
+            @per_account[account_id] += 1
+            @total += 1
+            :ok
+          end
+        end
+
+        def release(account_id)
+          @mutex.synchronize do
+            return unless @per_account[account_id].positive?
+
+            @per_account[account_id] -= 1
+            @per_account.delete(account_id) if @per_account[account_id].zero?
+            @total -= 1
+          end
+        end
+
+        def in_use(account_id)
+          @mutex.synchronize { @per_account[account_id] }
+        end
+      end
+
+      # Built when the class loads (eager-loaded in production), not lazily, so
+      # two first calls can never each create their own and split the counts.
+      @wait_limiter = WaitLimiter.new
+
+      class << self
+        attr_reader :wait_limiter
+
+        # Test seam: a fresh limiter with no waits counted.
+        def reset_wait_limiter!
+          @wait_limiter = WaitLimiter.new
+        end
+      end
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
@@ -74,11 +156,14 @@ module Ai
                      refuses: [ "no agent in this account matches agent_id", "the update fails validation" ]
       declare_action "update_agent_trust_score", mutating: true
       declare_action "wait_for_task", mutating: true,
-                     returns: "task_id, status, output, error_message and duration_ms once the task is completed, failed or " \
-                              "cancelled; it re-reads the task every 2 seconds",
+                     returns: "task_id, status, output, error_message, duration_ms and done: true once the task has reached a " \
+                              "terminal status (Ai::A2aTask::TERMINAL_STATUSES); it re-reads the task every #{WAIT_POLL_SECONDS} " \
+                              "seconds. When timeout_seconds (clamped to #{WAIT_MAX_SECONDS}, also the default) passes first it is " \
+                              "still a SUCCESS: done: false, timed_out: true, the last status and wait_seconds; call again to keep waiting",
                      refuses: [
                        "no A2A task in this account has that task_id",
-                       "timeout_seconds (at most 300, default 300) passes first, with the last status in the error"
+                       "the account already has #{WAIT_MAX_PER_ACCOUNT} waits in progress, or the server has #{WAIT_MAX_SERVER_WIDE}: " \
+                       "reason too_many_concurrent_waits with scope account or server, answered at once without waiting"
                      ],
                      see_also: { "check_task_status" => "a single non-blocking read" }
       # HIER-P1C — mutating (it mints an execution row) but NOT autonomy-gated:
@@ -198,10 +283,13 @@ module Ai
             }
           },
           "wait_for_task" => {
-            description: "Poll until a spawned task completes or times out.",
+            description: "Wait for a spawned task to finish, for at most #{WAIT_MAX_SECONDS} seconds per call. A finished task " \
+                         "returns done: true with its result; if the wait runs out the reply is still a success with " \
+                         "done: false, timed_out: true and the last status, so call again to keep waiting. A call is refused " \
+                         "(reason too_many_concurrent_waits) when the account or the server already has the maximum waits in progress.",
             parameters: {
               task_id: { type: "string", required: true, description: "A2A task ID" },
-              timeout_seconds: { type: "integer", required: false, description: "Maximum wait time in seconds (default: 300)" }
+              timeout_seconds: { type: "integer", required: false, description: "Maximum wait for this call in seconds; clamped to #{WAIT_MAX_SECONDS}, which is also the default" }
             }
           },
           "record_agent_execution" => {
@@ -727,32 +815,69 @@ module Ai
       end
 
       def wait_for_task(params)
-        task_id = params[:task_id]
-        timeout = [params[:timeout_seconds].to_i, 300].min
-        timeout = 300 if timeout <= 0
-        deadline = Time.current + timeout.seconds
+        task = find_task_uncached(params[:task_id])
+        return { success: false, error: "Task not found" } unless task
+        return finished_task_result(task) if task.terminal?
 
-        loop do
-          task = account.ai_a2a_tasks.find_by(task_id: task_id)
-          return { success: false, error: "Task not found" } unless task
+        wait_seconds = requested_wait_seconds(params[:timeout_seconds])
+        slot = self.class.wait_limiter.acquire(account.id)
+        return wait_refusal(slot) unless slot == :ok
 
-          if %w[completed failed cancelled].include?(task.status)
-            return {
-              success: true,
-              task_id: task.task_id,
-              status: task.status,
-              output: task.output,
-              error_message: task.error_message,
-              duration_ms: task.duration_ms
-            }
+        begin
+          deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + wait_seconds
+          loop do
+            remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+            break if remaining <= 0
+
+            sleep [ WAIT_POLL_SECONDS, remaining ].min
+            task = find_task_uncached(params[:task_id])
+            return { success: false, error: "Task not found" } unless task
+            return finished_task_result(task) if task.terminal?
           end
-
-          if Time.current >= deadline
-            return { success: false, error: "Timeout waiting for task #{task_id}", status: task.status }
-          end
-
-          sleep 2
+        ensure
+          self.class.wait_limiter.release(account.id)
         end
+
+        # An expired wait is not a failure: the task is simply still running.
+        { success: true, done: false, timed_out: true, task_id: task.task_id, status: task.status,
+          wait_seconds: wait_seconds }
+      end
+
+      # The request's query cache would answer every poll of the same task from
+      # its first read, so a task that finished mid-wait would never be seen.
+      def find_task_uncached(task_id)
+        ::ActiveRecord::Base.uncached { account.ai_a2a_tasks.find_by(task_id: task_id) }
+      end
+
+      def requested_wait_seconds(requested)
+        seconds = requested.to_i
+        seconds = WAIT_MAX_SECONDS if seconds <= 0
+        [ seconds, WAIT_MAX_SECONDS ].min
+      end
+
+      def finished_task_result(task)
+        {
+          success: true,
+          done: true,
+          task_id: task.task_id,
+          status: task.status,
+          output: task.output,
+          error_message: task.error_message,
+          duration_ms: task.duration_ms
+        }
+      end
+
+      def wait_refusal(slot)
+        scope = slot == :server ? "server" : "account"
+        limit = slot == :server ? WAIT_MAX_SERVER_WIDE : WAIT_MAX_PER_ACCOUNT
+        {
+          success: false,
+          reason: "too_many_concurrent_waits",
+          scope: scope,
+          max_concurrent: limit,
+          error: "Too many concurrent waits for this #{scope} (limit #{limit}); each wait holds a server thread. " \
+                 "Poll with check_task_status or retry shortly."
+        }
       end
 
       # Flexible agent lookup: try UUID, then slug, then name match

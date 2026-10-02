@@ -83,7 +83,7 @@ module Ai
             files_changed: { type: "array", required: false, description: "Paths touched by this task" },
             agent_id: { type: "string", required: false, description: "Platform agent to delegate a task to" },
             await: { type: "boolean", required: false, description: "Block until the delegated agent finishes" },
-            timeout: { type: "integer", required: false, description: "Await timeout seconds (max 300)" },
+            timeout: { type: "integer", required: false, description: "Await timeout seconds; wait_for_task caps one wait (45s), so a longer task reports outcome pending: call again or track it with check_task_status" },
             budget_cents: { type: "integer", required: false, description: "Budget for the delegated task" },
             holder: { type: "string", required: false, description: "Driver identity (lease holder) for campaign-loop pulls" },
             claim_if_pending: { type: "boolean", required: false, description: "dev_complete_task: atomically claim a pending task and close it (out-of-band work)" },
@@ -197,7 +197,7 @@ module Ai
               task_key: { type: "string", required: true, description: "Task to delegate" },
               agent_id: { type: "string", required: true, description: "Platform agent to delegate to" },
               await: { type: "boolean", required: false, description: "Block until the agent finishes (default false)" },
-              timeout: { type: "integer", required: false, description: "Await timeout seconds (max 300)" },
+              timeout: { type: "integer", required: false, description: "Await timeout seconds; wait_for_task caps one wait (45s), so a longer task reports outcome pending: call again or track it with check_task_status" },
               budget_cents: { type: "integer", required: false, description: "Budget for the delegated task" }
             }
           },
@@ -1318,9 +1318,15 @@ module Ai
       end
 
       def record_delegated_outcome(loop_record, task, spawn, waited)
-        unless waited[:success]
+        # Not finished yet: a refused or failed wait (success false), or a wait
+        # that expired with the agent still running (success true, done false,
+        # which is how wait_for_task answers once its per-call cap passes).
+        if !waited[:success] || waited[:done] == false
+          detail = waited[:error].presence ||
+                   "wait timed out after #{waited[:wait_seconds]}s; delegated agent still #{waited[:status]}"
           return { success: true, delegated: true, awaited: true, task_key: task.task_key,
-                   a2a_task_id: spawn[:task_id], outcome: "pending", detail: waited[:error] }
+                   a2a_task_id: spawn[:task_id], outcome: "pending", detail: detail,
+                   note: "Call again to keep waiting, or track via check_task_status(#{spawn[:task_id]})." }
         end
 
         outcome = waited[:status] == "completed" ? "passed" : "failed"
