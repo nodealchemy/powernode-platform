@@ -27,7 +27,7 @@ class AuditLogQueryService
   end
 
   SECURITY_ACTIONS = %w[login_failed unauthorized_access permission_denied password_change
-                        account_locked suspicious_activity ip_blocked token_revoked].freeze
+                        account_locked suspicious_activity ip_blocked ip_block_lifted token_revoked].freeze
   FAILED_ACTIONS = %w[login_failed payment_failed operation_failed validation_failed].freeze
   HIGH_RISK_ACTIONS = %w[account_locked ip_blocked unauthorized_access suspicious_activity
                          data_breach_detected admin_override privilege_escalation].freeze

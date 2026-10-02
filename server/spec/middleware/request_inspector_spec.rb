@@ -52,11 +52,25 @@ RSpec.describe RequestInspector do
 
     before { middleware.send(:block_ip, ip) }
 
-    it 'returns 403 with block headers and does not reach the app' do
+    it 'returns 429 with block headers and does not reach the app' do
       status, headers, _body = call(ip: ip)
-      expect(status).to eq(403)
+      expect(status).to eq(429)
       expect(headers['X-Request-Blocked']).to eq('true')
       expect(downstream_called).to be_empty
+    end
+
+    # A blocked operator used to see a bare 403 on POST /api/v1/auth/login and
+    # read it as "my password stopped working". 429 + a machine code + the
+    # remaining seconds lets the frontend say what actually happened.
+    it 'answers with a machine-readable body carrying the code and remaining seconds' do
+      _status, headers, body = call(ip: ip)
+      parsed = JSON.parse(body.join)
+
+      expect(parsed['success']).to be(false)
+      expect(parsed['code']).to eq('ip_blocked')
+      expect(parsed['retry_after_seconds']).to eq(headers['Retry-After'].to_i)
+      expect(parsed['retry_after_seconds']).to be_positive
+      expect(parsed['message']).to include('temporarily blocked')
     end
 
     # Retry-After used to be the hardcoded 3600 on every deployment whose
@@ -80,7 +94,7 @@ RSpec.describe RequestInspector do
 
       status, headers, _body = sibling.call(build_env(ip: ip))
 
-      expect(status).to eq(403)
+      expect(status).to eq(429)
       expect(headers['X-Request-Blocked']).to eq('true')
     end
 
@@ -88,7 +102,7 @@ RSpec.describe RequestInspector do
       Rails.cache.clear
 
       status, = call(ip: ip)
-      expect(status).to eq(403)
+      expect(status).to eq(429)
     end
 
     it 'still serves trusted/health paths even for a blocked IP (bypass precedes block check)' do
@@ -119,7 +133,7 @@ RSpec.describe RequestInspector do
 
     it 'still inspects ordinary API paths for a blocked IP' do
       status, _headers, _body = call(path: '/api/v1/widgets', ip: ip)
-      expect(status).to eq(403)
+      expect(status).to eq(429)
     end
   end
 
@@ -671,7 +685,7 @@ RSpec.describe RequestInspector do
   # improvement pipeline for an hour. The MCP channel is OAuth-authenticated at
   # the controller, so the anonymous BODY heuristics don't apply — but unlike
   # the mTLS trusted_path? prefixes it stays fully rate-checked, UA-checked,
-  # size-checked, and block-ENFORCED (an already-blocked IP still 403s here).
+  # size-checked, and block-ENFORCED (an already-blocked IP still 429s here).
   describe 'authenticated MCP channel body exemption' do
     let(:code_bearing_body) do
       '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"create_improvement",' \
@@ -738,7 +752,7 @@ RSpec.describe RequestInspector do
       env['HTTP_USER_AGENT'] = 'Mozilla/5.0 (X11; Linux x86_64)'
       status, headers, _body = middleware.call(env)
 
-      expect(status).to eq(403)
+      expect(status).to eq(429)
       expect(headers['X-Request-Blocked']).to eq('true')
     end
   end
@@ -789,7 +803,7 @@ RSpec.describe RequestInspector do
     let(:ip) { '203.0.113.99' }
     let(:malicious_query) { 'id=1 UNION SELECT password FROM users' }
 
-    it 'blocks the IP once the suspicious-request threshold is crossed, then 403s' do
+    it 'blocks the IP once the suspicious-request threshold is crossed, then 429s' do
       limit = RequestInspector::THRESHOLDS[:suspicious_request_limit]
 
       limit.times do
@@ -800,7 +814,7 @@ RSpec.describe RequestInspector do
       expect(middleware.send(:blocked?, ip)).to be(true)
 
       status, headers, _body = call(ip: ip, query: malicious_query)
-      expect(status).to eq(403)
+      expect(status).to eq(429)
       expect(headers['X-Request-Blocked']).to eq('true')
     end
 

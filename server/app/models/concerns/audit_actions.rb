@@ -101,6 +101,7 @@ module AuditActions
   SECURITY_ACTIONS = %w[
     security_alert fraud_detection suspicious_activity
     csrf_token_generated jwt_secret_regenerated
+    ip_block_lifted
   ].freeze
 
   # =============================================================================

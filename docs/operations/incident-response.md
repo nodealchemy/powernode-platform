@@ -171,6 +171,16 @@ After remediation, lift the kill switch and monitor `platform.recent_events()` f
 
 ## Security incidents
 
+### Operator locked out by an IP block
+
+Symptom: login (from one address (trusted health/node paths excepted) answers **429** with `X-Request-Blocked: true` and a body `{"code":"ip_blocked","retry_after_seconds":N}`; the UI says "This address is temporarily blocked, retry in N minutes". This is the DDoS inspector (`RequestInspector`), not a bad password. There is deliberately no login exemption, and the admin unblock endpoint is behind login, so recover from the host:
+
+```
+cd server && RAILS_ENV=production bundle exec rails 'security:unblock_ip[<blocked-ip>]'   # run as the app service user, with the app's env (REDIS_URL) loaded
+```
+
+It lifts the block through `Security::IpBlockStore.unblock!`, leaves the offense count standing (so escalation memory is not reset) and writes an `ip_block_lifted` audit row. The reason a request scored (rule and path) is in the Rails log line prefixed `[DDoS]`.
+
 ### Suspected credential leak
 
 1. **Engage kill switch** to prevent further automated actions with the leaked credential.

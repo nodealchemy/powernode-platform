@@ -781,7 +781,7 @@ class RequestInspector
   # Deliberately NARROWER than trusted_path?: only the request-BODY content
   # heuristics are skipped, and only on the MCP message endpoint. Query-string,
   # user-agent, rate, and payload-size checks still run, and an IP that is
-  # already blocked still gets 403 here — this endpoint is reachable from
+  # already blocked still gets 429 here — this endpoint is reachable from
   # outside, so it must keep its DDoS posture. Note the exemption is purely
   # path-based: the middleware does not verify the OAuth token (that stays the
   # controller's job, which 401s before parsing any body), so an anonymous
@@ -799,21 +799,32 @@ class RequestInspector
   # RESPONSES
   # =========================================================================
 
+  # 429, not 403. A 403 here read as "wrong credentials / no permission" to a
+  # blocked operator (POST /api/v1/auth/login 403'd before the sessions
+  # controller ran, so the password looked broken). 429 + Retry-After is the
+  # standard "back off" signal, and the body carries a stable machine code plus
+  # the remaining seconds so clients can say what actually happened. Consumers
+  # key on `code` / X-Request-Blocked, never on the message text.
+  BLOCKED_CODE = "ip_blocked"
+
   def blocked_response(request)
     log_blocked_request(request)
 
+    retry_after = remaining_block_time(request.ip)
     body = {
       success: false,
-      error: "Forbidden",
-      message: "Your IP has been temporarily blocked due to suspicious activity."
+      error: "Too Many Requests",
+      code: BLOCKED_CODE,
+      message: "Your IP has been temporarily blocked due to suspicious activity.",
+      retry_after_seconds: retry_after
     }.to_json
 
     [
-      403,
+      429,
       {
         "Content-Type" => "application/json",
         "X-Request-Blocked" => "true",
-        "Retry-After" => remaining_block_time(request.ip).to_s
+        "Retry-After" => retry_after.to_s
       },
       [ body ]
     ]
