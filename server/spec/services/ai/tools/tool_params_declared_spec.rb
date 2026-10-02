@@ -29,7 +29,11 @@ RSpec.describe "registry tool parameter declarations" do
   ].freeze
 
   # Reads that are not caller input: injected by the platform, or by a binding.
-  PLATFORM_KEYS = %w[action ralph_loop_id].freeze
+  # expected_fingerprints is stamped onto tool_params by
+  # SystemFleetTool#clear_ssh_host_key_gate_context at park time and read only on
+  # the approved replay (which skips the unknown-parameter refusal), so a caller
+  # is never asked to send it.
+  PLATFORM_KEYS = %w[action ralph_loop_id expected_fingerprints].freeze
 
   def declared_keys(klass)
     keys = klass.action_definitions.values.flat_map do |defn|
