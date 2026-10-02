@@ -484,3 +484,22 @@ merely *present* is not trustworthy. Set `DEV_CELL_MCP_PROXY_LOG_PROTOCOL=1`, ca
 off. If the client does not negotiate 2026-07-28, **skip proxy-side denial entirely** and rely on
 the server-side grant plus ask-rules. Do not fall back to body parsing: that reintroduces exactly
 the property this design spends its budget avoiding.
+
+## 14. Effective grant versus stored grant (bootstrap verbs)
+
+An instance principal's stored grant (`granted_mcp_tools`) is not the whole of
+what it may call. `Mcp::Principal#may_invoke?` also serves every verb in
+`Ai::Tools::BootstrapVerbs::ACTIONS` to an instance that already holds a
+non-empty grant: they are the read-only verbs every canonical agent's prompt
+orders it to call, and `get_agent` is step 1 of every canonical skeleton. They
+are derived from that one constant, never listed per instance, and not shown in
+the stored grant. Consequences for anyone reading or narrowing a grant:
+
+- An empty grant stays default-deny; the derivation widens a grant, it never
+  creates one.
+- An instance cannot narrow below the bootstrap set, and re-adding one of its
+  names as a literal pattern is refused as a widening although the instance
+  already holds it.
+- `get_agent` withholds `system_prompt` and `mcp_metadata` from an instance for
+  an account's custom agents; canonical agents (the global row, or an account
+  clone, which keeps the canonical `source_key`) are served in full.

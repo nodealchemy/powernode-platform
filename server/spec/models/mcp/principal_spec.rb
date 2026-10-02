@@ -102,6 +102,76 @@ RSpec.describe Mcp::Principal do
       expect(p.filter_tools([{ "name" => "platform.health" }])).to eq([])
     end
 
+    # IMP-ad2b2b1b3c74 — BootstrapVerbs::ACTIONS is documented as "THE ONE
+    # bootstrap allowlist ... every agent is served", and every canonical
+    # skeleton's step 1 is get_agent. The instance grant is an extension-injected
+    # per-instance list nothing reconciled with that promise, so a narrowed grant
+    # silently dropped get_agent. The grant is derived, not special-cased.
+    describe "bootstrap verbs (derived into a non-empty instance grant)" do
+      let(:bootstrap) { Ai::Tools::BootstrapVerbs::ACTIONS }
+
+      it "serves every BootstrapVerb to an instance whose grant is otherwise narrow" do
+        described_class.tool_grant_resolver = ->(_i) { %w[platform.health] }
+        p = described_class.for_instance_cn("i1")
+
+        bootstrap.each do |action|
+          expect(p.may_invoke?("platform.#{action}")).to be(true), "expected platform.#{action} to be served"
+        end
+        expect(p.filter_tools(bootstrap.map { |a| { "name" => "platform.#{a}" } }).size).to eq(bootstrap.size)
+      end
+
+      it "serves get_agent specifically, the verb every canonical skeleton opens with" do
+        described_class.tool_grant_resolver = ->(_i) { %w[platform.health] }
+
+        expect(described_class.for_instance_cn("i1").may_invoke?("platform.get_agent")).to be(true)
+      end
+
+      it "adds nothing beyond the bootstrap verbs: other tools stay governed by the grant" do
+        described_class.tool_grant_resolver = ->(_i) { %w[platform.health] }
+        p = described_class.for_instance_cn("i1")
+
+        expect(p.may_invoke?("platform.update_agent")).to be(false)
+        expect(p.may_invoke?("platform.create_agent")).to be(false)
+        expect(p.may_invoke?("platform.system_list_instances")).to be(false)
+      end
+
+      it "keeps a default-deny (empty) grant empty: the derivation widens a grant, it never creates one" do
+        described_class.tool_grant_resolver = ->(_i) { [] }
+        p = described_class.for_instance_cn("i1")
+
+        expect(p.granted_tool_patterns).to eq([])
+        expect(p.may_invoke?("platform.get_agent")).to be(false)
+      end
+
+      it "leaves granted_tool_patterns as the literal grant, so explicit-grant checks are unaffected" do
+        described_class.tool_grant_resolver = ->(_i) { %w[platform.health] }
+        p = described_class.for_instance_cn("i1")
+
+        expect(p.granted_tool_patterns).to eq(%w[platform.health])
+        expect(p.may_invoke?("platform.get_agent")).to be(true)
+      end
+
+      it "never derives a destructive-shaped tool into the grant (instances cannot invoke those at all)" do
+        bootstrap.each { |a| expect(described_class.destructive_tool?(a)).to be(false), "#{a} is destroy-shaped" }
+      end
+
+      it "applies the destructive-shape refusal BEFORE the derivation, whatever the set contains" do
+        stub_const("Ai::Tools::BootstrapVerbs::ACTIONS", %w[get_agent delete_agent])
+        described_class.tool_grant_resolver = ->(_i) { %w[platform.health] }
+        p = described_class.for_instance_cn("i1")
+
+        expect(p.may_invoke?("platform.get_agent")).to be(true)
+        expect(p.may_invoke?("platform.delete_agent")).to be(false)
+      end
+
+      it "does not extend the derivation to federation partners" do
+        partner = create(:federation_partner, :active, account: account, allowed_capabilities: [ "platform.health" ])
+        p = described_class.for_federation_partner(partner)
+
+        expect(p.may_invoke?("platform.get_agent")).to be(false)
+      end
+    end
+
     it "instances may invoke tools matching a granted glob pattern" do
       described_class.tool_grant_resolver = ->(_i) { %w[platform.system_*_read platform.health] }
       p = described_class.for_instance_cn("i1")

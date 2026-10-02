@@ -472,6 +472,8 @@ module Ai
           resolve_agent(params[:agent_id])
         end
         return { success: false, error: "Agent not found" } unless agent_record
+
+        redact_prompt = prompt_withheld_from_instance?(agent_record)
         {
           success: true,
           agent: {
@@ -483,12 +485,25 @@ module Ai
             status: agent_record.status,
             agent_type: agent_record.agent_type,
             model: agent_record.model,
-            system_prompt: agent_record.system_prompt,
+            system_prompt: redact_prompt ? nil : agent_record.system_prompt,
             conversation_profile: agent_record.conversation_profile,
-            mcp_metadata: agent_record.mcp_metadata,
+            mcp_metadata: redact_prompt ? nil : agent_record.mcp_metadata,
             execution_stats: execution_stats_for(agent_record)
-          }
+          }.merge(redact_prompt ? { prompt_redacted: true } : {})
         }
+      end
+
+      # IMP-ad2b2b1b3c74 — every instance (mTLS node) principal with a grant is
+      # served get_agent, because step 1 of every canonical skeleton is
+      # get_agent(slug:) and its answer is the agent's system prompt. That must
+      # not turn into a way for a node holding a narrow grant to read an
+      # account's CUSTOM agent prompts, which the instance data-plane closure
+      # (resources/read) exists to prevent. A canonical agent is the global row
+      # (account_id nil) or an account clone of one (Operations#clone_for_account
+      # dups the row, so it keeps the canonical's source_key); a custom agent has
+      # neither. Users are unaffected: their access is the ai.agents.read gate.
+      def prompt_withheld_from_instance?(agent_record)
+        instance_authorized? && agent_record.account_id.present? && agent_record.source_key.blank?
       end
 
       # Executions by executor kind (HIER-P1C item 5): the platform's own runs

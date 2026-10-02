@@ -64,6 +64,60 @@ RSpec.describe Ai::Tools::AgentManagementTool do
       expect(result[:agent][:global]).to be false
     end
 
+    # IMP-ad2b2b1b3c74 — every instance with a grant is now served get_agent (the
+    # step every canonical skeleton opens with). The skeleton needs the CANONICAL
+    # agent's prompt; it must not become a way for a node holding a narrow grant
+    # to read an account's custom agent prompts, which the instance data-plane
+    # closure (instance_mtls_auth_spec) exists to prevent.
+    describe "system_prompt disclosure to an instance (mTLS node) principal" do
+      let(:instance_tool) do
+        described_class.new(account: account, user: nil).tap { |t| t.instance_authorized = true }
+      end
+      let!(:canonical) do
+        create(:ai_agent, :global, is_system: true, name: "Canonical Planner",
+               mcp_metadata: { "system_prompt" => "CANONICAL-PROMPT" }, source_key: "canonical-planner")
+      end
+      let!(:custom) do
+        create(:ai_agent, account: account, name: "Private Helper",
+               mcp_metadata: { "system_prompt" => "TOP-SECRET-CUSTOM-PROMPT", "note" => "internal" }, source_key: nil)
+      end
+
+      it "serves a global canonical's prompt, which is the skeleton's whole purpose" do
+        result = instance_tool.execute(params: { action: "get_agent", slug: canonical.slug })
+
+        expect(result[:agent][:system_prompt]).to eq("CANONICAL-PROMPT")
+        expect(result[:agent]).not_to have_key(:prompt_redacted)
+      end
+
+      it "serves an account clone of a canonical (the clone keeps the canonical's source_key)" do
+        clone = create(:ai_agent, account: account, name: "Canonical Planner (Copy)",
+                       mcp_metadata: { "system_prompt" => "CLONE-PROMPT" }, source_key: "canonical-planner")
+
+        result = instance_tool.execute(params: { action: "get_agent", agent_id: clone.id })
+
+        expect(result[:agent][:system_prompt]).to eq("CLONE-PROMPT")
+      end
+
+      it "withholds the prompt and metadata of an account's custom agent, by id, slug or name" do
+        [ { agent_id: custom.id }, { slug: custom.slug }, { agent_id: custom.name } ].each do |ref|
+          result = instance_tool.execute(params: { action: "get_agent" }.merge(ref))
+
+          expect(result[:success]).to be true
+          expect(result[:agent][:system_prompt]).to be_nil
+          expect(result[:agent][:mcp_metadata]).to be_nil
+          expect(result[:agent][:prompt_redacted]).to be true
+          expect(result.to_s).not_to include("TOP-SECRET-CUSTOM-PROMPT")
+          expect(result[:agent][:name]).to eq("Private Helper")
+        end
+      end
+
+      it "still gives a USER principal with the permission the full payload" do
+        result = tool.execute(params: { action: "get_agent", agent_id: custom.id })
+
+        expect(result[:agent][:system_prompt]).to eq("TOP-SECRET-CUSTOM-PROMPT")
+      end
+    end
+
     it "reports not found for an unknown slug" do
       result = tool.execute(params: { action: "get_agent", slug: "no-such-agent" })
 

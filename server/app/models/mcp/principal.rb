@@ -377,7 +377,10 @@ module Mcp
       name = tool_name.to_s
       return false if self.class.destructive_tool?(name)
 
-      granted_tool_patterns.any? { |p| ::File.fnmatch(p, name, ::File::FNM_EXTGLOB) }
+      granted = granted_tool_patterns
+      return true if granted.any? { |p| ::File.fnmatch(p, name, ::File::FNM_EXTGLOB) }
+
+      bootstrap_derived?(name, granted)
     end
 
     # Filter a tool list (array of {"name"=>...} hashes or strings) to the
@@ -396,6 +399,31 @@ module Mcp
     end
 
     private
+
+    # IMP-ad2b2b1b3c74 — Ai::Tools::BootstrapVerbs::ACTIONS is the platform's
+    # promise that every agent is served the read-only verbs its own prompt
+    # orders it to call (get_agent is step 1 of every canonical skeleton). The
+    # instance grant is an extension-injected, per-instance list that nothing
+    # reconciled with that promise, so a narrowed grant silently dropped them.
+    # They are DERIVED here from the one constant, never listed per instance and
+    # never special-cased, so a verb added to the set is served with no grant
+    # edit.
+    #
+    # Deliberately narrow:
+    #   * instances only (a federation partner's capabilities stay its own);
+    #   * only when the instance HAS a grant — an empty grant is the
+    #     default-deny state, and this widens a grant, it never creates one;
+    #   * in #may_invoke? only, not in #granted_tool_patterns, which stays the
+    #     literal grant for the callers that ask "was this explicitly granted"
+    #     (see SiteSettingTool);
+    #   * the destructive-shape refusal above has already run, and the set is
+    #     read-only by contract (bootstrap_verbs_spec).
+    def bootstrap_derived?(name, granted)
+      return false unless instance?
+      return false if granted.empty?
+
+      ::Ai::Tools::BootstrapVerbs::ACTIONS.any? { |action| name == "platform.#{action}" }
+    end
 
     def tool_name_of(tool)
       tool.is_a?(Hash) ? (tool["name"] || tool[:name]) : tool
