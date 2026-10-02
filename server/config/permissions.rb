@@ -182,6 +182,13 @@ module Permissions
     # separately from creating/editing the server (owner/admin only; the
     # manager and ai_specialist role profiles enumerate write without it).
     "mcp.servers.native_execution" => "Approve a stdio MCP server to run natively, outside the sandbox (core mode only)",
+    # IMP-cdda895b07a8 — also deliberately NOT part of mcp.servers.write, for the
+    # same reason: widening a sandboxed stdio child's reach (allow_network,
+    # allow_extended_commands, an egress allowlist) is an operator decision taken
+    # separately from creating or editing the server (owner and admin splat
+    # RESOURCE_PERMISSIONS; the manager and ai_specialist role profiles enumerate
+    # write without it).
+    "mcp.servers.security_manage" => "Set a stdio MCP server's sandbox capabilities: network access, extended commands and the egress allowlist",
     "mcp.tools.read" => "View MCP tools",
     "mcp.tools.execute" => "Execute MCP tools",
     "mcp.executions.read" => "View MCP tool executions",

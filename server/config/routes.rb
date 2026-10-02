@@ -1271,6 +1271,8 @@ Rails.application.routes.draw do
           # its OWN verbs, never a create/update attribute.
           post :native_execution, to: "mcp_servers#approve_native_execution"
           delete :native_execution, to: "mcp_servers#revoke_native_execution"
+          # IMP-cdda895b07a8 — the stdio sandbox capabilities' one door.
+          patch :security, to: "mcp_servers#update_security"
 
           # OAuth endpoints for MCP server authentication
           scope :oauth, as: :oauth do

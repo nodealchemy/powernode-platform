@@ -4,16 +4,21 @@ class Api::V1::McpServersController < ApplicationController
   include AuditLogging
   include Api::V1::McpServerConfigSerialization
   include Api::V1::McpServerNativeExecutionActions
+  include Api::V1::McpServerSecurityActions
 
   before_action :authenticate_request
-  before_action :require_read_permission, only: [ :index, :show, :health_check ]
+  # update_security answers with the serialized server (config included), so it needs the read
+  # permission as well as its own (IMP-cdda895b07a8).
+  before_action :require_read_permission, only: [ :index, :show, :health_check, :update_security ]
   before_action :require_write_permission, only: [ :create, :update, :destroy, :connect, :disconnect, :discover_tools ]
   # IMP-2c760325c102 — its own permission, deliberately not mcp.servers.write
   # (see config/permissions.rb): the hatch is approved by an operator, in a
   # separate request from whoever created or edited the server.
   before_action :require_native_execution_permission, only: [ :approve_native_execution, :revoke_native_execution ]
+  # IMP-cdda895b07a8 — likewise its own permission (mcp.servers.security_manage).
+  before_action :require_security_manage_permission, only: [ :update_security ]
   before_action :set_mcp_server, only: [ :show, :update, :destroy, :connect, :disconnect, :health_check, :discover_tools,
-                                         :approve_native_execution, :revoke_native_execution ]
+                                         :approve_native_execution, :revoke_native_execution, :update_security ]
   before_action :validate_config_keys, only: [ :create, :update ]
 
   # GET /api/v1/mcp_servers
@@ -319,6 +324,8 @@ class Api::V1::McpServersController < ApplicationController
       config: serialize_mcp_server_config(server),
       # IMP-2c760325c102 — see Api::V1::McpServerNativeExecutionActions.
       native_execution: serialize_native_execution(server),
+      # IMP-cdda895b07a8 — see Api::V1::McpServerSecurityActions.
+      security: serialize_security_capabilities(server),
       created_at: server.created_at,
       updated_at: server.updated_at
     }

@@ -533,11 +533,17 @@ module AuditActions
   #     (revoke also fires automatically when the approved command changes).
   #   mcp.servers.native_execution_spawn — the worker actually ran a child
   #     unsandboxed under that approval.
+  # IMP-cdda895b07a8:
+  #   mcp.servers.security_update — an operator changed a stdio server's sandbox
+  #     capabilities (allow_network, allow_extended_commands, egress_allowlist);
+  #     metadata carries the before and after of those three settings and which
+  #     changed. Never any other capability, never config or env.
   MCP_ACTIONS = %w[
     mcp.servers.read mcp.servers.create mcp.servers.update mcp.servers.delete
     mcp.servers.connect mcp.servers.disconnect mcp.servers.health_check mcp.servers.discover_tools
     mcp.servers.spawn_refused
     mcp.servers.native_execution_approve mcp.servers.native_execution_revoke mcp.servers.native_execution_spawn
+    mcp.servers.security_update
     mcp.tools.read mcp.tools.execute mcp.tools.undeclared_action mcp.tools.canonical_principal_refused
     mcp.tools.sensitive_access
     mcp.executions.read mcp.executions.cancel

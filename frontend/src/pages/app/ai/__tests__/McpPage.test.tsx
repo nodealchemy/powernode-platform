@@ -13,6 +13,9 @@ jest.mock('@/features/ai/mcp/components/McpStudioTab', () => ({ McpStudioTab: ()
 jest.mock('@/features/ai/mcp-server/components/McpSessionsTab', () => ({
   McpSessionsTab: () => <div data-testid="sessions-panel" />,
 }));
+jest.mock('@/features/ai/mcp-server/components/McpSecurityTab', () => ({
+  McpSecurityTab: () => <div data-testid="security-panel" />,
+}));
 
 const ALL = ['mcp.servers.read', 'ai.agents.read'];
 
@@ -27,11 +30,11 @@ const renderAt = (path: string, permissions: string[] = ALL) => {
 };
 
 describe('McpPage (fc-43)', () => {
-  it('is titled MCP and has Servers, Apps, Studio and Sessions', () => {
+  it('is titled MCP and has Servers, Apps, Studio, Sessions and Security', () => {
     renderAt('/app/ai/mcp');
 
     expect(screen.getByRole('heading', { name: 'MCP' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Servers', 'Apps', 'Studio', 'Sessions']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Servers', 'Apps', 'Studio', 'Sessions', 'Security']);
   });
 
   it.each([
@@ -40,6 +43,7 @@ describe('McpPage (fc-43)', () => {
     ['/app/ai/mcp/apps/configure', 'apps-panel'],
     ['/app/ai/mcp/studio', 'studio-panel'],
     ['/app/ai/mcp/sessions', 'sessions-panel'],
+    ['/app/ai/mcp/security', 'security-panel'],
   ])('%s renders its tab', (path, testId) => {
     renderAt(path);
 
@@ -52,6 +56,13 @@ describe('McpPage (fc-43)', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Sessions' }));
 
     await waitFor(() => expect(window.location.pathname).toBe('/app/ai/mcp/sessions'));
+  });
+
+  it('shows the Security tab to mcp.servers.read alone (editing is gated inside it)', () => {
+    renderAt('/app/ai/mcp/security', ['mcp.servers.read']);
+
+    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Servers', 'Studio', 'Security']);
+    expect(screen.getByTestId('security-panel')).toBeInTheDocument();
   });
 
   it('shows only the tabs the viewer may read', () => {

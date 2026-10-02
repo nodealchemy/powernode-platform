@@ -12,3 +12,20 @@ export interface McpSession {
   expires_at: string | null;
   created_at: string;
 }
+
+// IMP-cdda895b07a8 — a stdio MCP server's operator-set sandbox capabilities, as
+// McpServersController serializes them (`security`). Console-only until the
+// PATCH /mcp_servers/:id/security endpoint.
+export interface McpServerSecurity {
+  allow_network: boolean;
+  allow_extended_commands: boolean;
+  egress_allowlist: string[];
+}
+
+export interface McpSecurityServer {
+  id: string;
+  name: string;
+  status: string;
+  command: string | null;
+  security: McpServerSecurity;
+}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Server, AppWindow, Workflow, Activity } from 'lucide-react';
+import { Server, AppWindow, Workflow, Activity, ShieldCheck } from 'lucide-react';
 import { PageContainer, type PageAction } from '@/shared/components/layout/PageContainer';
 import { TabContainer, TabPanel } from '@/shared/components/layout/TabContainer';
 import { usePermissions } from '@/shared/hooks/usePermissions';
@@ -8,17 +8,20 @@ import { McpBrowserContent } from '@/pages/app/ai/McpBrowserPage';
 import { McpAppsContent } from '@/features/ai/mcp-apps';
 import { McpStudioTab } from '@/features/ai/mcp/components/McpStudioTab';
 import { McpSessionsTab } from '@/features/ai/mcp-server/components/McpSessionsTab';
+import { McpSecurityTab } from '@/features/ai/mcp-server/components/McpSecurityTab';
 
 // AI → Platform → MCP (fc-43). These four were tabs of the former
 // "Infrastructure" hub, a name that did not say it held MCP. Each tab is gated
 // like its endpoints: McpServersController (mcp.servers.read, which the
 // studio's topology also reads) and McpAppsController / Mcp::SessionsController
-// (ai.agents.read).
+// (ai.agents.read). Security (IMP-cdda895b07a8) lists the stdio servers' sandbox
+// settings to mcp.servers.read; editing needs mcp.servers.security_manage.
 const tabs = [
   { id: 'servers', label: 'Servers', icon: <Server size={16} />, path: '/', permissions: ['mcp.servers.read'] },
   { id: 'apps', label: 'Apps', icon: <AppWindow size={16} />, path: '/apps', permissions: ['ai.agents.read'] },
   { id: 'studio', label: 'Studio', icon: <Workflow size={16} />, path: '/studio', permissions: ['mcp.servers.read'] },
   { id: 'sessions', label: 'Sessions', icon: <Activity size={16} />, path: '/sessions', permissions: ['ai.agents.read'] },
+  { id: 'security', label: 'Security', icon: <ShieldCheck size={16} />, path: '/security', permissions: ['mcp.servers.read'] },
 ];
 
 export const McpPage: React.FC = () => {
@@ -49,7 +52,7 @@ export const McpPage: React.FC = () => {
   return (
     <PageContainer
       title="MCP"
-      description="Model Context Protocol servers, apps, studio and sessions"
+      description="Model Context Protocol servers, apps, studio, sessions and sandbox security"
       breadcrumbs={breadcrumbs}
       actions={actions}
     >
@@ -65,6 +68,9 @@ export const McpPage: React.FC = () => {
         </TabPanel>
         <TabPanel tabId="sessions" activeTab={activeTab}>
           <McpSessionsTab onActionsReady={handleActionsReady} />
+        </TabPanel>
+        <TabPanel tabId="security" activeTab={activeTab}>
+          <McpSecurityTab />
         </TabPanel>
       </TabContainer>
     </PageContainer>
