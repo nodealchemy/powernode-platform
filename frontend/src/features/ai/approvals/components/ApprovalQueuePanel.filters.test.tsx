@@ -100,7 +100,33 @@ describe('ApprovalQueuePanel filters and order', () => {
     const { container } = renderPanel();
     await screen.findByLabelText('Category');
 
-    expect(shownIds(container)).toEqual(['r1', 'r2', 'r3', 'r4', 'r5', 'r6']);
+    expect(shownIds(container)).toEqual(['r6', 'r1', 'r2', 'r3', 'r4', 'r5']);
+  });
+
+  // IMP-e58a198509db — a request only a person can decide usually blocks an
+  // in-progress task, and was sorted among sensor escalations (it was LAST when
+  // it was newest). It is pinned above the rest, in either order.
+  it('pins what needs a person above everything else, in either order', async () => {
+    const user = userEvent.setup();
+    const { container } = renderPanel();
+    await screen.findByLabelText('Order');
+
+    expect(shownIds(container)[0]).toBe('r6');
+
+    await user.selectOptions(screen.getByLabelText('Order'), 'newest');
+    expect(shownIds(container)).toEqual(['r6', 'r5', 'r4', 'r3', 'r2', 'r1']);
+  });
+
+  it('labels the two groups when both are present, and only then', async () => {
+    const user = userEvent.setup();
+    renderPanel();
+    expect(await screen.findByRole('heading', { name: /Waiting on your own session \(1\)/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /Everything else \(5\)/ })).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Category'), 'system.module_assign');
+
+    expect(screen.queryByRole('heading', { name: /Waiting on your own session/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /Everything else/ })).not.toBeInTheDocument();
   });
 
   it('narrows by category, and says how many each category holds', async () => {
@@ -120,7 +146,7 @@ describe('ApprovalQueuePanel filters and order', () => {
     const severity = await screen.findByLabelText('Severity');
 
     await user.selectOptions(severity, 'high');
-    expect(shownIds(container)).toEqual(['r3', 'r6']);
+    expect(shownIds(container)).toEqual(['r6', 'r3']);
 
     await user.selectOptions(severity, 'none');
     expect(shownIds(container)).toEqual(['r5']);

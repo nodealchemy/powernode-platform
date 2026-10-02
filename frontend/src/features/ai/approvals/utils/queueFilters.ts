@@ -72,11 +72,14 @@ const tally = (values: string[]): QueueFacet[] => {
   return Array.from(counts, ([value, count]) => ({ value, count }));
 };
 
+/** True for a request only a person, in their own session, can decide. */
+export const needsPerson = (request: ApprovalRequest): boolean => request.requires_human_session === true;
+
 /** What the queue holds, counted over the whole (unfiltered) list. */
 export const queueFacets = (requests: ApprovalRequest[]): QueueFacets => ({
   categories: tally(requests.map(approvalCategory).filter(Boolean)).sort(byCountThenName),
   severities: tally(requests.map(approvalSeverity)).sort(bySeverity),
-  needsPerson: requests.filter((request) => request.requires_human_session === true).length,
+  needsPerson: requests.filter(needsPerson).length,
 });
 
 /** The filters a URL carries, unchecked: see effectiveFilters. */
@@ -117,17 +120,23 @@ export const applyQueueFilters = (
     pinnedIds.includes(request.id) ||
     ((filters.category === '' || approvalCategory(request) === filters.category) &&
       (filters.severity === '' || approvalSeverity(request) === filters.severity) &&
-      (!filters.needsPerson || request.requires_human_session === true));
+      (!filters.needsPerson || needsPerson(request)));
   const visible = requests.filter(matches);
-  if (filters.order !== 'newest') return visible;
-  // Newest first by created_at, with the server's position as the tie-break
-  // (it sends oldest first, so a later position is a later request): requests
-  // parked in the same instant keep a definite order.
-  const position = new Map(requests.map((request, index) => [request.id, index]));
-  return [...visible].sort(
-    (a, b) =>
-      Date.parse(b.created_at) - Date.parse(a.created_at) || (position.get(b.id) ?? 0) - (position.get(a.id) ?? 0)
-  );
+  let ordered = visible;
+  if (filters.order === 'newest') {
+    // Newest first by created_at, with the server's position as the tie-break
+    // (it sends oldest first, so a later position is a later request): requests
+    // parked in the same instant keep a definite order.
+    const position = new Map(requests.map((request, index) => [request.id, index]));
+    ordered = [...visible].sort(
+      (a, b) =>
+        Date.parse(b.created_at) - Date.parse(a.created_at) || (position.get(b.id) ?? 0) - (position.get(a.id) ?? 0)
+    );
+  }
+  // A request only a person can decide usually blocks something they are in the
+  // middle of, so it is pinned above the rest (IMP-e58a198509db), each group
+  // keeping the order chosen. The flag is the server's per-row answer.
+  return [...ordered.filter(needsPerson), ...ordered.filter((request) => !needsPerson(request))];
 };
 
 /** The URL's query with the filters written in: only what differs from the default, everything else kept. */

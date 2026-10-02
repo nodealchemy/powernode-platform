@@ -16,6 +16,7 @@ import {
   DEFAULT_FILTERS,
   applyQueueFilters,
   effectiveFilters,
+  needsPerson,
   queueFacets,
   readQueueFilters,
   writeQueueFilters,
@@ -541,6 +542,20 @@ const LiveApprovalQueue: React.FC<{ canDecide: boolean }> = ({ canDecide }) => {
     });
   }, []);
 
+  const pinned = useMemo(() => visible.filter(needsPerson), [visible]);
+  const rest = useMemo(() => visible.filter((request) => !needsPerson(request)), [visible]);
+  const renderCard = (request: ApprovalRequest) => (
+    <ApprovalCard
+      key={request.id}
+      request={request}
+      isExpanded={expandedIds.has(request.id)}
+      onToggle={() => toggleExpand(request.id)}
+      onRevealed={pushReveal}
+      canDecide={canDecide}
+      pushKey={pushKeys[request.id] ?? 0}
+    />
+  );
+
   if (isLoading) {
     return null;
   }
@@ -565,17 +580,17 @@ const LiveApprovalQueue: React.FC<{ canDecide: boolean }> = ({ canDecide }) => {
           </div>
         ) : requests.length > 0 ? (
           <div className="space-y-3">
-            {visible.map((request) => (
-              <ApprovalCard
-                key={request.id}
-                request={request}
-                isExpanded={expandedIds.has(request.id)}
-                onToggle={() => toggleExpand(request.id)}
-                onRevealed={pushReveal}
-                canDecide={canDecide}
-                pushKey={pushKeys[request.id] ?? 0}
-              />
-            ))}
+            {/* Requests only a person can decide are pinned first (applyQueueFilters).
+                The two groups are labelled only when both are present: a lone
+                group needs no heading. */}
+            {pinned.length > 0 && rest.length > 0 && (
+              <h3 className="text-sm font-semibold text-theme-primary">{`Waiting on your own session (${pinned.length})`}</h3>
+            )}
+            {pinned.map(renderCard)}
+            {pinned.length > 0 && rest.length > 0 && (
+              <h3 className="pt-2 text-sm font-semibold text-theme-primary">{`Everything else (${rest.length})`}</h3>
+            )}
+            {rest.map(renderCard)}
           </div>
         ) : (
           <div className="py-6 text-center text-theme-tertiary">

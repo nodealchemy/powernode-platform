@@ -72,6 +72,23 @@ describe('applyQueueFilters', () => {
     ]);
   });
 
+  it('pins a request that needs a person above the rest, keeping each group in the chosen order', () => {
+    const mixed = [
+      req('a', { created_at: '2026-09-20T00:00:00Z' }),
+      req('b', { created_at: '2026-09-21T00:00:00Z', requires_human_session: true }),
+      req('c', { created_at: '2026-09-22T00:00:00Z' }),
+      req('d', { created_at: '2026-09-23T00:00:00Z', requires_human_session: true }),
+    ];
+
+    expect(applyQueueFilters(mixed, DEFAULT_FILTERS).map((r) => r.id)).toEqual(['b', 'd', 'a', 'c']);
+    expect(applyQueueFilters(mixed, { ...DEFAULT_FILTERS, order: 'newest' }).map((r) => r.id)).toEqual([
+      'd',
+      'b',
+      'c',
+      'a',
+    ]);
+  });
+
   it('breaks a created_at tie by the server position, later first', () => {
     const tied = [req('x', { created_at: '2026-09-20T00:00:00Z' }), req('y', { created_at: '2026-09-20T00:00:00Z' })];
 
