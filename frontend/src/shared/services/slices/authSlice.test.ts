@@ -178,6 +178,23 @@ describe('authSlice', () => {
       // Tokens are no longer stored in localStorage (WP8: HttpOnly cookies)
     });
 
+    it('surfaces an IP block as a readable login error, not a generic failure', async () => {
+      const { AxiosError, AxiosHeaders } = await import('axios');
+      const err = new AxiosError('Request failed with status code 429', 'ERR_BAD_REQUEST');
+      err.response = {
+        status: 429,
+        data: { code: 'ip_blocked', retry_after_seconds: 600 },
+        statusText: '',
+        headers: new AxiosHeaders({ 'x-request-blocked': 'true' }),
+        config: { headers: new AxiosHeaders() },
+      };
+      mockedAuthAPI.login.mockRejectedValueOnce(err);
+
+      await store.dispatch(login({ email: 'test@example.com', password: 'pw' }));
+
+      expect(store.getState().auth.error).toBe('This address is temporarily blocked, retry in 10 minutes.');
+    });
+
     it('should handle login failure', async () => {
       const mockError = new Error('Login failed');
       mockedAuthAPI.login.mockRejectedValueOnce(mockError);

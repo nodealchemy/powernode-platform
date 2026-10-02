@@ -145,6 +145,7 @@ export const ErrorCodes = {
   NOT_FOUND: 'NOT_FOUND',
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   RATE_LIMITED: 'RATE_LIMITED',
+  IP_BLOCKED: 'IP_BLOCKED',
   SERVICE_UNAVAILABLE: 'SERVICE_UNAVAILABLE',
   SERVER_ERROR: 'SERVER_ERROR',
 
@@ -179,6 +180,34 @@ export function handleApiError(error: unknown): ApiError {
     message: 'An unexpected error occurred.',
     recoverable: false,
   };
+}
+
+/**
+ * RequestInspector answers an IP-blocked client with 429, the header
+ * `X-Request-Blocked: true` and a body `{ code: 'ip_blocked',
+ * retry_after_seconds }`. Detect it from either signal so a proxy that strips
+ * the body (or the header) still reads as a block rather than generic throttling.
+ */
+export function getIpBlockInfo(error: unknown): { retryAfterSeconds: number | null } | null {
+  if (!axios.isAxiosError(error) || error.response?.status !== 429) return null;
+
+  const data = error.response.data as { code?: string; retry_after_seconds?: number } | undefined;
+  const headers = error.response.headers as Record<string, unknown> | undefined;
+  const flagged = String(headers?.['x-request-blocked'] ?? '').toLowerCase() === 'true';
+  if (data?.code !== 'ip_blocked' && !flagged) return null;
+
+  const fromBody = Number(data?.retry_after_seconds);
+  const fromHeader = Number(headers?.['retry-after']);
+  const seconds = [fromBody, fromHeader].find((n) => Number.isFinite(n) && n > 0);
+  return { retryAfterSeconds: seconds ?? null };
+}
+
+export function formatIpBlockMessage(retryAfterSeconds: number | null): string {
+  if (retryAfterSeconds === null) {
+    return 'This address is temporarily blocked. Please try again later.';
+  }
+  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60));
+  return `This address is temporarily blocked, retry in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`;
 }
 
 /**
@@ -226,13 +255,23 @@ function handleAxiosError(error: AxiosError<{ error?: string; message?: string; 
         statusCode: 422,
       };
 
-    case 429:
+    case 429: {
+      const block = getIpBlockInfo(error);
+      if (block) {
+        return {
+          code: ErrorCodes.IP_BLOCKED,
+          message: formatIpBlockMessage(block.retryAfterSeconds),
+          recoverable: true,
+          statusCode: 429,
+        };
+      }
       return {
         code: ErrorCodes.RATE_LIMITED,
         message: 'Too many requests. Please wait and try again.',
         recoverable: true,
         statusCode: 429,
       };
+    }
 
     case 503:
       return {
@@ -365,6 +404,8 @@ export function logError(error: unknown, context?: Record<string, unknown>): voi
 const errorHandler = {
   // Core error handling
   handleApiError,
+  getIpBlockInfo,
+  formatIpBlockMessage,
   getErrorMessage,
   isRecoverableError,
   isErrorType,

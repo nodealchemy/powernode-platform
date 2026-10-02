@@ -3,6 +3,7 @@ import { authApi, AuthResponse } from '@/features/account/auth/services/authAPI'
 import { impersonationApi } from '@/shared/services/account/impersonationApi';
 import { setAuthDomain, clearAuthDomain } from '@/shared/utils/domainUtils';
 import { getErrorMessage, isErrorWithResponse } from '@/shared/utils/errorHandling';
+import { getIpBlockInfo, formatIpBlockMessage } from '@/shared/services/errorHandler';
 
 export interface User {
   id: string;
@@ -72,9 +73,17 @@ const initialState: AuthState = getInitialState();
 export const login = createAsyncThunk(
   'auth/login',
   async ({ email, password }: { email: string; password: string }) => {
-    const response = await authApi.login({ email, password });
-    // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
-    return response.data.data || response.data;
+    try {
+      const response = await authApi.login({ email, password });
+      // Backend returns {success: true, data: {...}}, we need to unwrap the nested data
+      return response.data.data || response.data;
+    } catch (error) {
+      // An IP block 429s before the sessions controller runs; without this the
+      // operator sees a generic failure and assumes the password is wrong.
+      const block = getIpBlockInfo(error);
+      if (block) throw new Error(formatIpBlockMessage(block.retryAfterSeconds));
+      throw error;
+    }
   }
 );
 
