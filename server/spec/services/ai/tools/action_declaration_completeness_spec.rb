@@ -142,6 +142,11 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 (human-only like system_out_of_band_exec, seeded
   #                                 require_approval; replays through the generic
   #                                 executor so the unit and directive checks re-run)
+  #   system_clear_ssh_host_key     IMP-a41ceb3cdd64  system.instance.ssh_host_key_clear
+  #                                 (human-only like system_apply_unit_dropin, seeded
+  #                                 require_approval; replays through the generic
+  #                                 executor, so SshHostKeyWriter.clear! runs as the
+  #                                 approving person, who is the audited actor)
   #   system_sdwan_rotate_peer_key  IMP-2e7816b5ee95  sdwan.peer_key_rotate
   #                                 (declared require_approval on the SDWAN
   #                                 operator set and its SDWAN Manager twin;
@@ -215,6 +220,7 @@ RSpec.describe "MCP action declaration completeness" do
     system_out_of_band_exec
     system_restart_unit
     system_apply_unit_dropin
+    system_clear_ssh_host_key
     system_sdwan_rotate_peer_key
     system_gitops_register_repository
     set_delegation_policy

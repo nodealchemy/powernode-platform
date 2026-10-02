@@ -98,6 +98,12 @@ module Ai
         # denied outright to every instance principal (*unit_dropin*); without
         # this row the declaration is inert for the same reason as the rows above.
         "system_apply_unit_dropin" => "Ai::Tools::SystemFleetTool",
+        # IMP-a41ceb3cdd64 — clear ONE instance's recorded SSH host key. Human-only
+        # and approval-gated (declare_action, system.instance.ssh_host_key_clear)
+        # and denied outright to every instance principal
+        # (*system_clear_ssh_host_key*); without this row the declaration is
+        # inert for the same reason as the rows above.
+        "system_clear_ssh_host_key" => "Ai::Tools::SystemFleetTool",
         # IMP-b2f80e6d1c65 — operator ops hold (2026-07-27 incident response):
         # had ACTION_PERMISSIONS + dispatch but no registry key, so it was
         # reachable only by smuggling the action into another tool's name.

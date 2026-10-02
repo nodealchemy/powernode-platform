@@ -86,11 +86,12 @@ module Ai
       # HumanSessionPolicy::DESTRUCTIVE_CATEGORY_PATTERNS and
       # Ai::DeferredOperationApprovalContent.destructive_categories: a command
       # on a live host whose effect cannot be observed from here (out-of-band
-      # exec), a unit override that restarts a service (unit drop-in), and
+      # exec), a unit override that restarts a service (unit drop-in), a host-key
+      # clear (a second run would wipe a key the node has since re-recorded), and
       # verbs that rebuild or undo (reprovision destroys persist; replace and
       # rollback act on what the first run left). File.fnmatch patterns.
       NEVER_REDISPATCH_PATTERNS = %w[
-        *out_of_band_exec* *unit_dropin* *reprovision* *replace* *rollback*
+        *out_of_band_exec* *unit_dropin* *ssh_host_key_clear* *reprovision* *replace* *rollback*
       ].freeze
 
       SWEEP_LIMIT = 100

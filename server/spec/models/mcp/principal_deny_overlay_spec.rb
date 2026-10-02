@@ -229,8 +229,13 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # configured remote (gated under dev.merge). An mTLS node cert that could
     # invoke it could land code on the platform's own branches. No broader
     # pattern matches it. Collateral pinned below: exactly one registry key.
+    # 30 since IMP-a41ceb3cdd64 added *system_clear_ssh_host_key* — the governed,
+    # human-only clear of a node's recorded SSH host key (gated under
+    # system.instance.ssh_host_key_clear). Clearing re-opens the window in which a
+    # node's next reported key is trusted, so an instance principal must never aim
+    # it at a peer. Collateral pinned below: exactly one registry key.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(29)
+      expect(patterns.size).to eq(30)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -342,6 +347,16 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
       end
 
       expect(denied).to eq(%w[system_apply_unit_dropin])
+    end
+
+    it "denies exactly system_clear_ssh_host_key with the *system_clear_ssh_host_key* pattern" do
+      expect(patterns).to include("*system_clear_ssh_host_key*")
+
+      denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+        ::File.fnmatch("*system_clear_ssh_host_key*", name, ::File::FNM_EXTGLOB)
+      end
+
+      expect(denied).to eq(%w[system_clear_ssh_host_key])
     end
   end
 

@@ -234,6 +234,13 @@ module Mcp
       # Anchored on the verb's distinctive stem; exactly one registry key
       # matches (principal_deny_overlay_spec pins it).
       #
+      # *system_clear_ssh_host_key* (IMP-a41ceb3cdd64) — clears a node's recorded
+      # SSH host key, re-opening the window in which its next reported key is
+      # trusted and so lowering the trust anchor every platform SSH path and
+      # out-of-band exec verify against. An mTLS node cert that could invoke it
+      # could clear a PEER's key. Substring-anchored on the full verb name;
+      # exactly one registry key matches.
+      #
       # *system_sdwan_rotate_peer_key* (IMP-2e7816b5ee95) — revokes an SDWAN
       # peer's active WireGuard key and generates a new one in place, gated on
       # sdwan.peer_key_rotate. An mTLS node cert that could invoke it could drop
@@ -285,6 +292,7 @@ module Mcp
         *system_out_of_band_exec*
         *system_restart_unit*
         *unit_dropin*
+        *system_clear_ssh_host_key*
         *system_sdwan_rotate_peer_key*
         *dev_merge*
       ].freeze
