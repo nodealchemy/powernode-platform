@@ -21,7 +21,7 @@ const tabs = [
   { id: 'apps', label: 'Apps', icon: <AppWindow size={16} />, path: '/apps', permissions: ['ai.agents.read'] },
   { id: 'studio', label: 'Studio', icon: <Workflow size={16} />, path: '/studio', permissions: ['mcp.servers.read'] },
   { id: 'sessions', label: 'Sessions', icon: <Activity size={16} />, path: '/sessions', permissions: ['ai.agents.read'] },
-  { id: 'security', label: 'Security', icon: <ShieldCheck size={16} />, path: '/security', permissions: ['mcp.servers.read'] },
+  { id: 'security', label: 'MCP security', icon: <ShieldCheck size={16} />, path: '/security', permissions: ['mcp.servers.read'] },
 ];
 
 export const McpPage: React.FC = () => {

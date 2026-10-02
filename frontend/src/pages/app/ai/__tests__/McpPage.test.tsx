@@ -34,7 +34,7 @@ describe('McpPage (fc-43)', () => {
     renderAt('/app/ai/mcp');
 
     expect(screen.getByRole('heading', { name: 'MCP' })).toBeInTheDocument();
-    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Servers', 'Apps', 'Studio', 'Sessions', 'Security']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Servers', 'Apps', 'Studio', 'Sessions', 'MCP security']);
   });
 
   it.each([
@@ -61,7 +61,7 @@ describe('McpPage (fc-43)', () => {
   it('shows the Security tab to mcp.servers.read alone (editing is gated inside it)', () => {
     renderAt('/app/ai/mcp/security', ['mcp.servers.read']);
 
-    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Servers', 'Studio', 'Security']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent?.trim())).toEqual(['Servers', 'Studio', 'MCP security']);
     expect(screen.getByTestId('security-panel')).toBeInTheDocument();
   });
 

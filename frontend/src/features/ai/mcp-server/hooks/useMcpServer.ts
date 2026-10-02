@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
+import { mcpApi } from '@/shared/services/ai/McpApiService';
 import type { McpSession, McpSecurityServer, McpServerSecurity } from '../types';
 
 const MCP_SERVER_KEYS = {
@@ -56,8 +57,7 @@ export function useMcpSecurityServers() {
   return useQuery({
     queryKey: MCP_SERVER_KEYS.security,
     queryFn: async () => {
-      const response = await apiClient.get('/mcp_servers', { params: { connection_type: 'stdio' } });
-      const servers = (response.data?.data?.mcp_servers || []) as RawSecurityServer[];
+      const servers = await mcpApi.getStdioServersRaw<RawSecurityServer>();
       return servers
         .filter((s) => s.connection_type === 'stdio')
         .map<McpSecurityServer>((s) => ({
@@ -77,8 +77,7 @@ export function useUpdateMcpServerSecurity() {
 
   return useMutation({
     mutationFn: async ({ serverId, security }: { serverId: string; security: Partial<McpServerSecurity> }) => {
-      const response = await apiClient.patch(`/mcp_servers/${serverId}/security`, { security });
-      return response.data?.data;
+      return mcpApi.updateServerSecurity<unknown>(serverId, security);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: MCP_SERVER_KEYS.security });

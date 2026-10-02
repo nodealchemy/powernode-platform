@@ -7,10 +7,10 @@ import { McpSecurityTab } from './McpSecurityTab';
 // editable only with mcp.servers.security_manage (a permission, never a role),
 // and the form shows the server's own validation message instead of re-checking.
 
-jest.mock('@/shared/services/apiClient', () => ({
-  apiClient: { get: jest.fn(), patch: jest.fn() },
+jest.mock('@/shared/services/ai/McpApiService', () => ({
+  mcpApi: { getStdioServersRaw: jest.fn(), updateServerSecurity: jest.fn() },
 }));
-import { apiClient } from '@/shared/services/apiClient';
+import { mcpApi } from '@/shared/services/ai/McpApiService';
 
 const servers = [
   {
@@ -36,15 +36,15 @@ const renderTab = (permissions: string[]) =>
 describe('McpSecurityTab', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    (apiClient.get as jest.Mock).mockResolvedValue({ data: { data: { mcp_servers: servers } } });
-    (apiClient.patch as jest.Mock).mockResolvedValue({ data: { data: {} } });
+    (mcpApi.getStdioServersRaw as jest.Mock).mockResolvedValue(servers);
+    (mcpApi.updateServerSecurity as jest.Mock).mockResolvedValue({});
   });
 
   it('asks only for stdio servers and summarizes each one\'s settings', async () => {
     renderTab(['mcp.servers.read']);
 
     expect(await screen.findByText('Filesystem')).toBeInTheDocument();
-    expect(apiClient.get).toHaveBeenCalledWith('/mcp_servers', { params: { connection_type: 'stdio' } });
+    expect(mcpApi.getStdioServersRaw).toHaveBeenCalled();
     expect(screen.getByText(/Network: allowlist \(1\)/)).toBeInTheDocument();
     expect(screen.getByText(/Network: unrestricted/)).toBeInTheDocument();
     expect(screen.getByText(/Extended commands: allowed/)).toBeInTheDocument();
@@ -78,12 +78,10 @@ describe('McpSecurityTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() =>
-      expect(apiClient.patch).toHaveBeenCalledWith('/mcp_servers/s1/security', {
-        security: {
-          allow_network: false,
-          allow_extended_commands: true,
-          egress_allowlist: ['api.example.test', '203.0.113.7', '198.51.100.0/24'],
-        },
+      expect(mcpApi.updateServerSecurity).toHaveBeenCalledWith('s1', {
+        allow_network: false,
+        allow_extended_commands: true,
+        egress_allowlist: ['api.example.test', '203.0.113.7', '198.51.100.0/24'],
       }),
     );
   });
@@ -100,7 +98,7 @@ describe('McpSecurityTab', () => {
   });
 
   it("shows the server's own validation message and keeps the editor open when the save is refused", async () => {
-    (apiClient.patch as jest.Mock).mockRejectedValue({
+    (mcpApi.updateServerSecurity as jest.Mock).mockRejectedValue({
       response: { data: { error: 'egress_allowlist entry "127.0.0.1" falls within a forbidden range' } },
     });
     renderTab(['mcp.servers.read', 'mcp.servers.security_manage']);
@@ -121,11 +119,11 @@ describe('McpSecurityTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(screen.queryByTestId('security-editor-s1')).not.toBeInTheDocument();
-    expect(apiClient.patch).not.toHaveBeenCalled();
+    expect(mcpApi.updateServerSecurity).not.toHaveBeenCalled();
   });
 
   it('says so when there are no stdio servers', async () => {
-    (apiClient.get as jest.Mock).mockResolvedValue({ data: { data: { mcp_servers: [] } } });
+    (mcpApi.getStdioServersRaw as jest.Mock).mockResolvedValue([]);
     renderTab(['mcp.servers.read']);
 
     expect(await screen.findByText('No stdio MCP servers.')).toBeInTheDocument();

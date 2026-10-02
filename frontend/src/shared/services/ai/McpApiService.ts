@@ -25,6 +25,21 @@ class McpApiService extends BaseApiService {
   protected resource = 'mcp_servers';
 
   /**
+   * The account's stdio servers as the API serialises them, for the sandbox
+   * security tab. Raw (the caller owns the row shape) because the tab reads the
+   * `security` capabilities the general server mapping drops.
+   */
+  async getStdioServersRaw<T>(): Promise<T[]> {
+    const response = await this.get<{ mcp_servers?: T[] }>('/mcp_servers?connection_type=stdio');
+    return response.mcp_servers || [];
+  }
+
+  /** Partial update of one server's sandbox capabilities; the server's own validations are the rules. */
+  async updateServerSecurity<T>(serverId: string, security: object): Promise<T> {
+    return this.patch<T>(`/mcp_servers/${serverId}/security`, { security });
+  }
+
+  /**
    * Get all MCP servers with their tools
    */
   async getServers(filters?: McpServerFilters): Promise<{ servers: McpServer[]; tools: McpTool[] }> {
