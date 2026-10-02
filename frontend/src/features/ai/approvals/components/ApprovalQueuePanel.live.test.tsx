@@ -147,6 +147,26 @@ describe('ApprovalQueuePanel — mounted, live (C3b part 2)', () => {
     expect(await screen.findByText('action req-2')).toBeInTheDocument();
   });
 
+  // IMP-2184bd06b98e — the queue can be narrowed, and a push says "this needs
+  // you": the request it names must not be filtered out of the view it lands on.
+  it('shows a request its push announced even when the active filter would hide it', async () => {
+    window.history.pushState({}, '', '/app/ai/control/approvals/queue?category=cat.a');
+    listRows = [
+      row('req-1', { action_category: 'cat.a', action_type: 'cat.a' }),
+      row('req-0', { action_category: 'cat.b', action_type: 'cat.b' }),
+    ];
+    renderPanel();
+    expect(await screen.findByText('cat.a')).toBeInTheDocument();
+    expect(screen.queryByText('cat.b')).not.toBeInTheDocument();
+
+    listRows = [...listRows, row('req-2', { action_category: 'cat.b', action_type: 'action req-2' })];
+    deliver(approvalPush('req-2'));
+
+    expect(await screen.findByText('action req-2')).toBeInTheDocument();
+    expect(screen.queryByText('cat.b')).not.toBeInTheDocument();
+    window.history.pushState({}, '', '/');
+  });
+
   it('an expanded multi-step card shows every step of its chain', async () => {
     listRows = [row('req-1', { current_step: 1, total_steps: 2 })];
     details['req-1'] = twoStepDetail('req-1');

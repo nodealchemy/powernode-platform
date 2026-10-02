@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, Clock, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { Card, CardContent, CardHeader } from '@/shared/components/ui/Card';
@@ -11,6 +11,16 @@ import { useApproveAction, useRejectAction } from '../api/approvalsApi';
 import { useLiveApprovalQueue } from '../hooks/useLiveApprovalQueue';
 import { useApprovalRequestDetail } from '../hooks/useApprovalRequestDetail';
 import { ApprovalChainSteps, ApprovalStepSummary } from './ApprovalChainSteps';
+import { ApprovalQueueFilters } from './ApprovalQueueFilters';
+import {
+  DEFAULT_FILTERS,
+  applyQueueFilters,
+  effectiveFilters,
+  queueFacets,
+  readQueueFilters,
+  writeQueueFilters,
+  type QueueFilters,
+} from '../utils/queueFilters';
 import type { ApprovalChangeCard, ApprovalPresentedValue, ApprovalRequest } from '../types/approval';
 
 // The approval queue (C3b part 2). Approvals keep their own surface by the
@@ -426,8 +436,48 @@ const LiveApprovalQueue: React.FC<{ canDecide: boolean }> = ({ canDecide }) => {
   const { data: approvals, isLoading, lastPush } = useLiveApprovalQueue();
   // A deep link (RemediationTab, the system extension's pending-approval
   // toast) names the request it wants opened via `?request=<id>`.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkRequestId = searchParams.get('request');
+  // The view (category, severity, needs-a-person, order) lives in the URL, so a
+  // link to it is the view; `replace` so each change is not a history entry.
+  const requests = useMemo(() => approvals ?? [], [approvals]);
+  const facets = useMemo(() => queueFacets(requests), [requests]);
+  const filters = useMemo(
+    () => effectiveFilters(readQueueFilters(searchParams), facets),
+    [searchParams, facets]
+  );
+  // The request a push just announced stays visible whatever the filters say:
+  // the operator was told it needs them, and a view that hides it would make the
+  // notification a lie.
+  const pushedRequestId = lastPush?.requestId;
+  const visible = useMemo(
+    () => applyQueueFilters(requests, filters, [deepLinkRequestId, pushedRequestId]),
+    [requests, filters, deepLinkRequestId, pushedRequestId]
+  );
+  // A value the queue no longer holds is ignored for the view (effectiveFilters)
+  // AND removed from the URL: left there it would come back into force the next
+  // time a request of that kind arrived, hiding the rest of the queue with no
+  // control touched.
+  const rawFilters = useMemo(() => readQueueFilters(searchParams), [searchParams]);
+  useEffect(() => {
+    if (isLoading) return;
+    if (
+      rawFilters.category !== filters.category ||
+      rawFilters.severity !== filters.severity ||
+      rawFilters.needsPerson !== filters.needsPerson
+    ) {
+      setSearchParams(writeQueueFilters(searchParams, filters), { replace: true });
+    }
+  }, [isLoading, rawFilters, filters, searchParams, setSearchParams]);
+  const changeFilters = useCallback(
+    (patch: Partial<QueueFilters>) =>
+      setSearchParams(writeQueueFilters(searchParams, { ...filters, ...patch }), { replace: true }),
+    [searchParams, filters, setSearchParams]
+  );
+  const clearFilters = useCallback(
+    () => setSearchParams(writeQueueFilters(searchParams, { ...DEFAULT_FILTERS, order: filters.order }), { replace: true }),
+    [searchParams, filters.order, setSearchParams]
+  );
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   // The last id this effect already expanded, so a re-render for an unrelated
   // reason (a poll tick, a push) does not re-run it — but a genuinely NEW id,
@@ -499,9 +549,23 @@ const LiveApprovalQueue: React.FC<{ canDecide: boolean }> = ({ canDecide }) => {
     <Card>
       <CardHeader title="Approval Queue" />
       <CardContent>
-        {approvals && approvals.length > 0 ? (
+        {requests.length > 0 && (
+          <ApprovalQueueFilters
+            facets={facets}
+            filters={filters}
+            shown={visible.length}
+            total={requests.length}
+            onChange={changeFilters}
+            onClear={clearFilters}
+          />
+        )}
+        {requests.length > 0 && visible.length === 0 ? (
+          <div className="py-6 text-center text-theme-tertiary">
+            <p className="text-sm">No approvals match these filters</p>
+          </div>
+        ) : requests.length > 0 ? (
           <div className="space-y-3">
-            {approvals.map((request) => (
+            {visible.map((request) => (
               <ApprovalCard
                 key={request.id}
                 request={request}
