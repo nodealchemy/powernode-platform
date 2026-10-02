@@ -564,6 +564,37 @@ else
   RESULTS+=("${YELLOW}SKIP${NC} Pattern validation")
 fi
 
+# 3b. Workflow shell syntax (bash -n over every `run:` block). A stray apostrophe
+# in a single-quoted `bash -c '...'` broke every disk-image build for 11 days
+# because nothing parsed workflow shell. Runs for the parent repo's workflows and
+# for each public extension that ships the linter; needs only ruby + bash.
+if [[ "$SKIP_PATTERNS" == "false" ]]; then
+  echo -e "${BLUE}[3b/4] Workflow shell syntax...${NC}"
+  WF_LINT_OK=true
+  WF_LINT_RAN=0
+  for wf_dir in "$PROJECT_ROOT/.gitea/workflows" "$PROJECT_ROOT"/extensions/*/.gitea/workflows; do
+    [[ -d "$wf_dir" ]] || continue
+    wf_root="$(dirname "$(dirname "$wf_dir")")"
+    lint="$PROJECT_ROOT/extensions/system/scripts/ci-lint-workflow-shell.rb"
+    [[ -f "$lint" ]] || continue
+    WF_LINT_RAN=$((WF_LINT_RAN + 1))
+    if ! (cd "$wf_root" && ruby "$lint" "$wf_dir" 2>&1); then
+      WF_LINT_OK=false
+    fi
+  done
+  if [[ "$WF_LINT_OK" == "true" && $WF_LINT_RAN -gt 0 ]]; then
+    RESULTS+=("${GREEN}PASS${NC} Workflow shell syntax ($WF_LINT_RAN workflow dir(s))")
+  elif [[ $WF_LINT_RAN -eq 0 ]]; then
+    RESULTS+=("${YELLOW}SKIP${NC} Workflow shell syntax (linter or workflow dirs not found)")
+  else
+    RESULTS+=("${RED}FAIL${NC} Workflow shell syntax")
+    OVERALL_EXIT=1
+  fi
+  echo ""
+else
+  RESULTS+=("${YELLOW}SKIP${NC} Workflow shell syntax")
+fi
+
 # 4. Secret scanning (gitleaks)
 if [[ "$SKIP_SECRETS" == "false" ]]; then
   echo -e "${BLUE}[4/5] Running secret scanning (gitleaks)...${NC}"
