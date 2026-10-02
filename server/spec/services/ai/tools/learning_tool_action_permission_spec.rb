@@ -89,14 +89,27 @@ RSpec.describe Ai::Tools::LearningTool do
       expect(learning.reload.importance_score.to_f).to eq(0.5)
     end
 
-    it "reinforces for a non-admin user holding ai.memory.write" do
+    it "reinforces for a non-admin user holding ai.memory.write when the learning was injected into their claim" do
       user = user_with_permissions("ai.agents.read", "ai.memory.write", account: account)
       tool = described_class.new(account: account, user: user)
+      create(:ai_ralph_task, :in_progress, ralph_loop: create(:ai_ralph_loop, account: account),
+             metadata: { "claimed_by" => "user:#{user.id}", "injected_learning_ids" => [ learning.id ] })
 
       result = tool.send(:call, action: "reinforce_learning", learning_id: learning.id)
 
       expect(result[:success]).to be(true)
       expect(learning.reload.importance_score.to_f).to be > 0.5
+    end
+
+    it "passes the permission gate for a writer but still refuses a learning that was never injected" do
+      user = user_with_permissions("ai.agents.read", "ai.memory.write", account: account)
+      tool = described_class.new(account: account, user: user)
+
+      result = tool.send(:call, action: "reinforce_learning", learning_id: learning.id)
+
+      expect(result[:success]).to be(false)
+      expect(result[:error]).not_to include("permission denied")
+      expect(learning.reload.importance_score.to_f).to eq(0.5)
     end
   end
 

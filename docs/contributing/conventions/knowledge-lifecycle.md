@@ -23,7 +23,7 @@ The platform runs automated maintenance (see `worker/config/sidekiq.yml`); Claud
 | Documented a procedure | `create_knowledge` (`procedure`) |
 | Found entity relationships | `extract_to_knowledge_graph` |
 | Implemented a reusable capability | `create_skill` |
-| Used a learning successfully / wrongly | `reinforce_learning` / `dispute_learning` |
+| Used an injected learning successfully / wrongly | `reinforce_learning` (only a learning injected into your own claimed task) / `dispute_learning` |
 | Found two conflicting learnings | `resolve_contradiction` |
 | Read useful / outdated shared knowledge | `rate_knowledge` (4-5 / 1-2 + corrected `create_knowledge`) |
 | Encountering a bug | `query_learnings` first — reinforce if found, fix + `create_learning` if not |

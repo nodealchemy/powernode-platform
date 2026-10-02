@@ -109,27 +109,103 @@ RSpec.describe Ai::Tools::LearningTool do
   # (wrongly, then restored) touched by that task, to pin the counters it
   # actually produces.
   describe "reinforce_learning" do
-    it "increments injection_count and positive_outcome_count by one" do
-      result = tool.send(:call, action: "reinforce_learning", learning_id: learning.id)
+    include PermissionTestHelpers
+
+    let(:user) { user_with_permissions("ai.memory.write", account: account) }
+    let(:loop_record) { create(:ai_ralph_loop, account: account) }
+    let!(:task) do
+      create(:ai_ralph_task, :in_progress, ralph_loop: loop_record,
+             metadata: { "claimed_by" => "user:#{user.id}", "injected_learning_ids" => [ learning.id ] })
+    end
+
+    def reinforce(id = learning.id, t = tool)
+      t.send(:call, action: "reinforce_learning", learning_id: id)
+    end
+
+    it "credits a learning injected into the caller's own claim" do
+      result = reinforce
 
       expect(result[:success]).to be true
       learning.reload
-      expect(learning.injection_count).to eq(1)
       expect(learning.positive_outcome_count).to eq(1)
       expect(learning.negative_outcome_count).to eq(0)
     end
 
+    it "does not recount the injection (it was counted when it was handed over)" do
+      expect { reinforce }.not_to(change { learning.reload.injection_count })
+    end
+
     it "boosts importance and returns it" do
-      result = tool.send(:call, action: "reinforce_learning", learning_id: learning.id)
+      result = reinforce
 
       expect(result[:new_importance]).to be > 0.8
       expect(learning.reload.importance_score.to_f).to eq(result[:new_importance])
     end
 
-    it "returns an error for an unknown learning id" do
-      result = tool.send(:call, action: "reinforce_learning", learning_id: SecureRandom.uuid)
+    it "resolves the injection so a later citation cannot credit it twice" do
+      reinforce
+      reinforce_again = reinforce
 
-      expect(result[:success]).to be false
+      expect(reinforce_again[:success]).to be false
+      expect(learning.reload.positive_outcome_count).to eq(1)
+      expect(Array(task.reload.metadata["injected_learning_ids"])).not_to include(learning.id)
+    end
+
+    it "refuses a learning that was never injected into the caller's context, writing nothing" do
+      other = create(:ai_compound_learning, account: account, status: "active", importance_score: 0.5)
+
+      expect { @result = reinforce(other.id) }.not_to(change { other.reload.attributes })
+      expect(@result[:success]).to be false
+      expect(@result[:error]).to match(/injected/i)
+    end
+
+    it "refuses when the injection belongs to another principal's claim" do
+      task.merge_metadata!("claimed_by" => "user:#{SecureRandom.uuid}")
+
+      expect { @result = reinforce }.not_to(change { learning.reload.attributes })
+      expect(@result[:success]).to be false
+    end
+
+    it "refuses when the claim is no longer in progress" do
+      task.update!(status: "passed", iteration_completed_at: Time.current, completed_in_iteration: 1)
+
+      expect { @result = reinforce }.not_to(change { learning.reload.attributes })
+      expect(@result[:success]).to be false
+    end
+
+    it "refuses a claim from another account" do
+      foreign = create(:ai_ralph_loop, account: create(:account))
+      task.update!(ralph_loop: foreign)
+
+      expect { @result = reinforce }.not_to(change { learning.reload.attributes })
+      expect(@result[:success]).to be false
+    end
+
+    it "refuses a caller with no principal to match a claim against" do
+      anonymous = described_class.new(account: account, internal: true)
+
+      expect { @result = reinforce(learning.id, anonymous) }.not_to(change { learning.reload.attributes })
+      expect(@result[:success]).to be false
+    end
+
+    it "does not let a principal-less caller match a claim stamped with a blank owner" do
+      task.merge_metadata!("claimed_by" => "")
+      anonymous = described_class.new(account: account, internal: true)
+
+      expect { @result = reinforce(learning.id, anonymous) }.not_to(change { learning.reload.attributes })
+      expect(@result[:success]).to be false
+    end
+
+    it "refuses a retired learning even when it was injected" do
+      learning.update!(status: "retired")
+
+      expect { @result = reinforce }.not_to(change { learning.reload.attributes })
+      expect(@result[:success]).to be false
+      expect(task.reload.metadata["injected_learning_ids"]).to eq([ learning.id ])
+    end
+
+    it "returns an error for an unknown learning id" do
+      expect(reinforce(SecureRandom.uuid)[:success]).to be false
     end
   end
 

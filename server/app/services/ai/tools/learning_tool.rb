@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class LearningTool < BaseTool
+      include Concerns::ClaimantPrincipal
+
       REQUIRED_PERMISSION = "ai.agents.read"
 
       # === Per-action permission gating (G4) ===
@@ -124,8 +126,9 @@ module Ai
             }
           },
           "reinforce_learning" => {
-            description: "Reinforce a compound learning by recording a positive outcome and boosting importance. " \
-                         "It counts one successful injection outcome and raises importance by 0.05.",
+            description: "Reinforce a compound learning that was injected into your own claimed dev-loop task: " \
+                         "records one positive outcome and raises importance by 0.05. A learning you were not " \
+                         "handed (or already credited) is refused and nothing is written.",
             parameters: {
               learning_id: { type: "string", required: true, description: "Learning ID to reinforce" }
             }
@@ -253,16 +256,60 @@ module Ai
         }
       end
 
+      # Positive credit only for a learning that was INJECTED into the caller's own
+      # context, and at most once per injection (IMP-8a646a44efca). The persisted
+      # record of an injection is the claimed task's metadata["injected_learning_ids"]
+      # (DevLoopTool#iteration_context); it is the same record the dev loop's
+      # citation path (credit_injected_learnings!) intersects. Crediting any id the
+      # caller names is the feedback loop that let a few weakly-similar rows
+      # dominate recall, and only the dev loop persists an injection record, so a
+      # caller with no matching claim is refused rather than credited.
+      #
+      # The injection is counted already (record_injection! at recall), so this
+      # resolves it positively and removes the id from the claim: a later
+      # learnings_used citation cannot credit it a second time.
       def reinforce_learning(params)
         learning = Ai::CompoundLearning.find_by(id: params[:learning_id], account: account)
         return { success: false, error: "Learning not found" } unless learning
 
-        learning.record_injection_outcome!(successful: true)
+        unless learning.status.in?(%w[active verified])
+          return { success: false, error: "Learning is #{learning.status}; only active or verified learnings can be reinforced" }
+        end
+
+        unless resolve_injection!(learning)
+          return { success: false, error: "Learning was not injected into your own claimed task, " \
+                                          "so it cannot be reinforced; cite it in learnings_used when completing the task" }
+        end
+
+        learning.record_positive_outcome!
         learning.boost_importance!(0.05)
 
         { success: true, learning_id: learning.id, new_importance: learning.importance_score.to_f.round(4) }
       rescue StandardError => e
         rescued_error_result(e)
+      end
+
+      # Removes the learning from the caller's in-progress claim's injection record
+      # under the task's row lock; false when the caller has no such record.
+      def resolve_injection!(learning)
+        ref = claimant_ref
+        return false if ref.blank?
+
+        task = Ai::RalphTask.in_progress
+                            .joins(:ralph_loop)
+                            .where(ai_ralph_loops: { account_id: account.id })
+                            .where("ai_ralph_tasks.metadata->>'claimed_by' = ?", ref)
+                            .where("ai_ralph_tasks.metadata->'injected_learning_ids' @> ?::jsonb", [ learning.id ].to_json)
+                            .first
+        return false unless task
+
+        task.with_lock do
+          ids = Array(task.metadata["injected_learning_ids"])
+          next false unless ids.include?(learning.id)
+
+          task.merge_metadata!("injected_learning_ids" => ids - [ learning.id ])
+          true
+        end
       end
 
       def learning_metrics

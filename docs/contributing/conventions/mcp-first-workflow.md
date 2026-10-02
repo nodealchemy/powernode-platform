@@ -20,7 +20,7 @@ The Powernode MCP server (`platform.*` tools) is the **primary knowledge source*
 
 ## During work
 
-- Relying on a learning → `platform.reinforce_learning` (prevents decay)
+- Relying on a learning injected into your claimed task → cite it in `learnings_used` on `dev_complete_task` (or `platform.reinforce_learning` before completing); a learning you were not handed is refused
 - Using shared knowledge → `platform.rate_knowledge` (4-5 helpful, 1-2 outdated)
 - Conflicting learnings → `platform.resolve_contradiction`
 - Cross-cutting change → `platform.search_knowledge_graph`; structure → `platform.code_context_tree`; impact → `platform.code_blast_radius`

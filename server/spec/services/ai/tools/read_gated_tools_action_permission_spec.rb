@@ -287,8 +287,10 @@ RSpec.describe "read-gated MCP tools: per-action authorization" do
       }.to change { ::Ai::CompoundLearning.where(account_id: account.id).count }.by(1)
     end
 
-    it "permits reinforce_learning for a writer and raises importance" do
+    it "permits reinforce_learning for a writer and raises importance (learning injected into their claim)" do
       learning = create(:ai_compound_learning, account: account, importance_score: 0.5)
+      create(:ai_ralph_task, :in_progress, ralph_loop: create(:ai_ralph_loop, account: account),
+             metadata: { "claimed_by" => "user:#{writer.id}", "injected_learning_ids" => [ learning.id ] })
 
       result = run("reinforce_learning", { "learning_id" => learning.id }, user: writer)
 
