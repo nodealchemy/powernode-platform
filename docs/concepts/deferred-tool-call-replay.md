@@ -185,7 +185,10 @@ in-process caller could set; this one requires a real approved row to exist.
 
 Everything above the gate still runs on the replay path — the instance deny overlay,
 `#validate_params!`, `#enforce_guardrails!` and the tool's own `#authorization_error`.
-Only `#run_through_autonomy_gate` is skipped, because it already ran.
+Only `#run_through_autonomy_gate` is skipped, because it already ran. The
+unrecognized-parameter refusal is also skipped on a replay: the call was checked in full
+before it parked, and the gate's context may have stamped platform keys onto it since
+(an instance pool's `replay_baseline`, dev.merge's pinned remotes).
 
 ### What a tool has to write
 

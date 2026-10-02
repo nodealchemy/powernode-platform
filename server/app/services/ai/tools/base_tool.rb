@@ -822,6 +822,11 @@ module Ai
         # Ahead of validation: the refusal is unconditional, so a malformed
         # destroy-shaped call must not come back as a params error instead.
         enforce_instance_deny_overlay!(params)
+        # Before the required-presence check, so a misspelled REQUIRED key is
+        # reported as the typo it is rather than as a missing parameter.
+        refusal = unknown_params_refusal(params)
+        return refusal if refusal
+
         validate_params!(params)
         enforce_guardrails!
 
@@ -1459,6 +1464,17 @@ module Ai
         raise NotImplementedError, "#{self.class.name} must implement #call"
       end
 
+      # How much of a caller-supplied key name an unrecognised-parameter refusal
+      # echoes back, and how many names it lists. The names are the caller's own
+      # text, so they are bounded and stripped of control characters.
+      UNKNOWN_PARAM_ECHO_LIMIT = 64
+      UNKNOWN_PARAM_MAX_LISTED = 10
+      ACCEPTED_PARAM_MAX_LISTED = 40
+
+      # The key the platform itself puts on every call (the registrar injects it
+      # from the registry name); it is never a caller mistake.
+      ALWAYS_ACCEPTED_PARAMS = %w[action].freeze
+
       def validate_params!(params)
         param_def = self.class.definition[:parameters]
         return unless param_def.is_a?(Hash)
@@ -1469,6 +1485,111 @@ module Ai
         required = param_def.select { |_, v| v.is_a?(Hash) && v[:required] }.keys
         missing = required.select { |k| params[k].blank? }
         raise ArgumentError, "Missing required parameters: #{missing.join(', ')}" if missing.any?
+      end
+
+      # Refuses a key the routed action does not declare (IMP-217f4496a0a2).
+      #
+      # Required-presence was the only check, so a misspelled or unsupported
+      # parameter was dropped by the tool body and the call answered success:
+      # nothing told a caller "applied" from "ignored", and a model has no way to
+      # learn its call was partly inert. This is the one shared rejection; every
+      # tool, core or extension, inherits it, so there is deliberately no
+      # per-extension copy.
+      #
+      # A RESULT, like every other refusal (see the undeclared-action refusal in
+      # #execute): an in-process caller that does not rescue ArgumentError would
+      # otherwise take a raise. The text carries only the caller's own key NAMES
+      # (bounded, never their values) and the action's advertised parameter names.
+      #
+      # NOT on an approved replay. A parked call was checked, in full, before it
+      # was parked; the replayed params are that same hash plus whatever the
+      # gate's own context stamped onto it afterwards (an instance pool's
+      # replay_baseline, dev.merge's pinned remotes). Those keys are the
+      # platform's, not the caller's, and refusing them would fail every approval
+      # an operator grants at execution time, when nothing can be corrected.
+      def unknown_params_refusal(params)
+        return nil if approved_replay?
+
+        action = routed_action_name(params)
+        # An action the tool never declared is answered by #execute's undeclared
+        # path (which also records the sighting); a parameter error here would
+        # hide that and list the umbrella's union as if it were this action's.
+        return nil if self.class.declared_action(action).nil?
+
+        unknown = unknown_param_keys(params)
+        return nil if unknown.empty?
+
+        listed = unknown.first(UNKNOWN_PARAM_MAX_LISTED).map { |k| printable_param_name(k) }
+        listed << "(#{unknown.size - UNKNOWN_PARAM_MAX_LISTED} more)" if unknown.size > UNKNOWN_PARAM_MAX_LISTED
+        accepted = accepted_param_keys(action) - ALWAYS_ACCEPTED_PARAMS
+        shown = accepted.first(ACCEPTED_PARAM_MAX_LISTED)
+        shown << "(#{accepted.size - ACCEPTED_PARAM_MAX_LISTED} more)" if accepted.size > ACCEPTED_PARAM_MAX_LISTED
+
+        error_result("Unrecognized parameter(s) for #{action}: #{listed.join(', ')}. Nothing was applied. " \
+                     "Accepted: #{shown.empty? ? 'none' : shown.join(', ')}.")
+      end
+
+      # The supplied key names this action's schema does not declare. Empty when
+      # the tool does not say enough to judge (see #accepted_param_keys).
+      def unknown_param_keys(params)
+        accepted = accepted_param_keys(routed_action_name(params))
+        return [] if accepted.nil?
+
+        raw = params.respond_to?(:to_unsafe_h) ? params.to_unsafe_h : params
+        return [] unless raw.respond_to?(:keys)
+
+        raw.keys.map(&:to_s) - accepted
+      end
+
+      # The names the routed action accepts, from the SAME declaration
+      # tools/list advertises (ParameterSchema), so the contract a caller was
+      # shown is the contract that is enforced. nil means "not enough declared to
+      # reject anything", and the check then stands down rather than fail closed:
+      #
+      # - no per-action entry and a JSON-Schema umbrella (a local tool such as
+      #   Ai::Ralph::RepositoryGitTool lists only `action` and a server-bound id
+      #   there; its per-verb arguments live in its caller's definitions);
+      # - a schema that says additionalProperties: true.
+      #
+      # The umbrella of a flat-declared tool is used only when the action has no
+      # entry of its own, because it is the UNION over every action and would let
+      # a key that is valid for action A through on action B.
+      def accepted_param_keys(action)
+        schemas = per_action_param_schemas(action.to_s)
+        if schemas.empty?
+          umbrella = self.class.definition[:parameters]
+          return nil unless umbrella.is_a?(Hash) && !Ai::Tools::ParameterSchema.complete_schema?(umbrella)
+
+          schemas = [ Ai::Tools::ParameterSchema.build(umbrella) ]
+        end
+
+        return nil if schemas.any? { |schema| schema["additionalProperties"] == true }
+
+        schemas.flat_map { |schema| schema["properties"].keys }.uniq + ALWAYS_ACCEPTED_PARAMS
+      end
+
+      # The built schema of the action's own entry. A tool that routes on a
+      # SHORTENED internal name (KnowledgeGraphTool's "search") declares under the
+      # advertised name ("search_knowledge_graph"), and the registrar injects the
+      # internal one (McpPlatformToolRegistrar::ACTION_ALIASES), so both spellings
+      # are looked up; without that those tools would only ever meet the umbrella.
+      def per_action_param_schemas(action)
+        aliased = ::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.select { |_, internal| internal == action }.keys
+        definitions = self.class.action_definitions
+        ([ action ] + aliased).filter_map do |name|
+          declared = definitions[name]
+          declared = declared[:parameters] if declared.is_a?(Hash)
+          Ai::Tools::ParameterSchema.build(declared) if declared.is_a?(Hash)
+        end
+      end
+
+      # Caller text that ends up in a message a model reads: quoted so a key such
+      # as `x, Accepted: foo` cannot pose as the sentence around it, scrubbed of
+      # invalid bytes, and stripped of control, format and line-separator
+      # characters.
+      def printable_param_name(name)
+        cleaned = name.to_s.scrub("?").gsub(/[[:cntrl:]\p{Cf}\u2028\u2029]/, "?")[0, UNKNOWN_PARAM_ECHO_LIMIT]
+        cleaned.inspect
       end
 
       def enforce_guardrails!

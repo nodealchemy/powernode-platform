@@ -76,6 +76,14 @@ module Ai
           { "type" => "object", "properties" => properties, "required" => required }
         end
 
+        # True when `parameters` is already a complete JSON Schema object rather
+        # than the flat authoring form. Public so a caller deciding what a tool
+        # DECLARES (BaseTool#accepted_param_keys) asks the same question #build
+        # answers, instead of re-deriving it.
+        def complete_schema?(parameters)
+          json_schema_object?(parameters)
+        end
+
         private
 
         def deep_dup_empty

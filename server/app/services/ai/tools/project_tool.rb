@@ -138,7 +138,14 @@ module Ai
                              description: "CPU ceiling, a percentage in (0, 100]. Above this the project is utilization-bound" },
               max_memory_pct: { type: "number", required: false,
                                 description: "Memory ceiling, a percentage in (0, 100]" }
-            }
+            }.merge(
+              # Declared so the by-name refusal below (#refuse_undeclarable) is
+              # reachable: a key outside the schema is refused generically before
+              # the body runs, and the caller would lose the reason.
+              ::Ai::Mission::UNDECLARABLE_TARGETS.to_h do |key, reason|
+                [ key.to_sym, { type: "number", required: false, description: "REFUSED by design: #{reason}" } ]
+              end
+            )
           },
           "project_status" => {
             description: "Get the operational rollup for one project: its missions grouped by status and the ones still in flight. " \

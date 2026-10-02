@@ -25,7 +25,7 @@ RSpec.describe "BaseTool human_only actions (MCP identity plan R2)" do
         {
           name: "spec_human_tool",
           description: "human-only probe",
-          parameters: { action: { type: "string", required: false } }
+          parameters: { action: { type: "string", required: false }, note: { type: "string", required: false } }
         }
       end
 

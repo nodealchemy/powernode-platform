@@ -39,7 +39,9 @@ RSpec.describe "tool-specific gate parks record the originating principal" do
     stub_const("SpecBespokeTool", Class.new(::Ai::Tools::BaseTool) do
       def self.definition
         { name: "spec_bespoke_tool", description: "bespoke-gate probe",
-          parameters: { action: { type: "string", required: false } } }
+          parameters: { action: { type: "string", required: false },
+                        widget_id: { type: "string", required: false },
+                        spoof_as: { type: "string", required: false } } }
       end
 
       # A gate context of its OWN, the shape SdwanTool / SystemFleetTool /

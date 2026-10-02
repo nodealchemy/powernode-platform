@@ -121,11 +121,12 @@ RSpec.describe Ai::Tools::DevMergeTool do
       expect(operation.approval_request.description).to include("origin-owner/platform", "mirror-owner/platform")
     end
 
-    it "writes the pin itself: a caller-supplied pin is overwritten" do
-      parked = merge(_pinned_remotes: { "repository" => [ { "id" => "forged", "full_name" => "x/y" } ] })
+    it "writes the pin itself: a caller-supplied pin is refused outright, and nothing parks" do
+      result = merge(_pinned_remotes: { "repository" => [ { "id" => "forged", "full_name" => "x/y" } ] })
 
-      expect(operation_for(parked).params.dig("tool_params", "_pinned_remotes", "repository").map { |r| r["id"] })
-        .to eq([ repository.id, mirror.id ])
+      expect(result[:success]).to be(false)
+      expect(result[:error]).to include("_pinned_remotes")
+      expect(Ai::DeferredOperation.count).to eq(0)
     end
   end
 

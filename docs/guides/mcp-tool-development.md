@@ -166,6 +166,16 @@ parameters: {
 
 This format auto-derives `required:` from each key's `required` flag and emits a JSON Schema `{ type: "object", properties: { ... }, required: [...] }` shape. `BaseTool.validate_params!` walks this map and raises `ArgumentError, "Missing required parameters: ..."` if any required key is `nil` or blank.
 
+### Unrecognized parameters are refused
+
+`BaseTool#execute` refuses a call that supplies a key the routed action does not declare, with `{ success: false, error: "Unrecognized parameter(s) for <action>: <keys>. Nothing was applied. Accepted: <declared keys>." }`. Before this, a misspelled or unsupported key was dropped by the handler and the call answered success, so a caller could not tell "applied" from "ignored".
+
+- The allowed set is the **per-action** entry in `action_definitions` (the same declaration `tools/list` advertises), plus `action`. The class-level `definition[:parameters]` is used only for an action with no entry of its own, because it is the union over every action.
+- **Declare every key the handler reads.** `spec/services/ai/tools/tool_params_declared_spec.rb` scans each registry tool's source for `params[:key]` reads its declarations omit.
+- A tool whose arguments live in its caller's definitions (a local tool such as `Ai::Ralph::RepositoryGitTool`) declares only a schema-object umbrella and no per-action entry; the check then stands down rather than reject everything. A schema that states `additionalProperties: true` stands down too. Per-action `parameters` otherwise stay in the flat form (`action_definitions_spec`).
+- The refusal is skipped on an **approved replay**: a parked call was checked before it was parked, and the gate's own context may have stamped keys onto it since (see `deferred-tool-call-replay.md`).
+- It reports only the caller's key *names*, never their values.
+
 ### Schema-object format
 
 When you need nested objects, array `items` constraints, or `enum` values, switch to a full JSON Schema:
