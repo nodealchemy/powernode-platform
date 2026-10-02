@@ -727,7 +727,7 @@ class McpSecurityService
   #                    path — never a URL or a bare interpreter name — not
   #                    pinned; only its --with is).
   PACKAGE_LAUNCHER_RULES = {
-    'npx' => {
+    "npx" => {
       boolean_flags: %w[-y --yes --no -q --quiet --no-install --prefer-online --prefer-offline --ignore-existing].freeze,
       value_flags: [].freeze,
       python_flags: [].freeze,
@@ -736,7 +736,7 @@ class McpSecurityService
       pinned: :npm,
       positional: :package
     }.freeze,
-    'bun x' => {
+    "bun x" => {
       boolean_flags: %w[-b --bun].freeze,
       value_flags: [].freeze,
       python_flags: [].freeze,
@@ -745,7 +745,7 @@ class McpSecurityService
       pinned: :npm,
       positional: :package
     }.freeze,
-    'uvx' => {
+    "uvx" => {
       boolean_flags: UV_COMMON_BOOLEAN_FLAGS,
       value_flags: UV_COMMON_VALUE_FLAGS,
       python_flags: %w[-p --python].freeze,
@@ -754,7 +754,7 @@ class McpSecurityService
       pinned: :pypi,
       positional: :package
     }.freeze,
-    'uv run' => {
+    "uv run" => {
       boolean_flags: (UV_COMMON_BOOLEAN_FLAGS + %w[
         --no-project --no-sync --locked --frozen --active --no-active --exact --all-extras --no-all-extras
         --all-groups --no-dev --dev --only-dev --no-default-groups --all-packages --no-editable --script --gui-script
@@ -766,7 +766,7 @@ class McpSecurityService
       pinned: :pypi,
       positional: :script
     }.freeze,
-    'pipx run' => {
+    "pipx run" => {
       boolean_flags: %w[-v --verbose -q --quiet --no-cache --system-site-packages --fetch-missing-python].freeze,
       value_flags: [].freeze,
       python_flags: %w[-p --python].freeze,
@@ -2619,12 +2619,12 @@ class McpSecurityService
 
       args = Array(args).map(&:to_s)
       case launcher
-      when 'npx' then package_launcher_pin_violation('npx', args, PACKAGE_LAUNCHER_RULES['npx'], offset: 0)
-      when 'uvx' then package_launcher_pin_violation('uvx', args, PACKAGE_LAUNCHER_RULES['uvx'], offset: 0)
-      when 'uv' then uv_pin_violation(args)
-      when 'pipx' then pipx_pin_violation(args)
-      when 'bun' then bun_x_pin_violation(args)
-      when 'deno' then deno_specifier_pin_violation(args)
+      when "npx" then package_launcher_pin_violation("npx", args, PACKAGE_LAUNCHER_RULES["npx"], offset: 0)
+      when "uvx" then package_launcher_pin_violation("uvx", args, PACKAGE_LAUNCHER_RULES["uvx"], offset: 0)
+      when "uv" then uv_pin_violation(args)
+      when "pipx" then pipx_pin_violation(args)
+      when "bun" then bun_x_pin_violation(args)
+      when "deno" then deno_specifier_pin_violation(args)
       end
     end
 
@@ -2651,45 +2651,45 @@ class McpSecurityService
       i = 0
       while i < args.length
         arg = args[i]
-        if arg == '--'
+        if arg == "--"
           positional = args[i + 1]
           positional_at = offset + i + 1
           break
         end
-        unless arg.start_with?('-')
+        unless arg.start_with?("-")
           positional = arg
           positional_at = offset + i
           break
         end
 
-        name, attached = arg.split('=', 2)
+        name, attached = arg.split("=", 2)
         # "-p=x" is not a form any of these launchers parse as p + x;
         # refuse it rather than guess. Only long options attach with "=".
-        raise_unknown_launcher_option!(launcher, arg, rules, offset + i) if attached && !name.start_with?('--')
+        raise_unknown_launcher_option!(launcher, arg, rules, offset + i) if attached && !name.start_with?("--")
 
         if rules[:package_flags].include?(name) || rules[:selector_flags].include?(name)
           value = attached || args[i + 1]
-          if value.nil? || value.start_with?('-')
+          if value.nil? || value.start_with?("-")
             raise CommandNotAllowedError.new("#{launcher} option #{name} needs a package spec",
-                                             rule: 'launcher_missing_value', arg_index: offset + i)
+                                             rule: "launcher_missing_value", arg_index: offset + i)
           end
 
-          value.split(',').each { |spec| packages << [ name, spec, offset + i ] }
+          value.split(",").each { |spec| packages << [ name, spec, offset + i ] }
           i += attached ? 1 : 2
         elsif rules[:python_flags].include?(name)
           value = attached || args[i + 1]
           unless value.to_s.match?(LAUNCHER_PYTHON_VERSION_PATTERN)
             raise CommandNotAllowedError.new(
               "#{launcher} option #{name} must name a python version (e.g. 3.12), not an interpreter path or name " \
-              '(the interpreter that runs the package is chosen by the host, not the server config)',
-              rule: 'launcher_python_version', arg_index: offset + i
+              "(the interpreter that runs the package is chosen by the host, not the server config)",
+              rule: "launcher_python_version", arg_index: offset + i
             )
           end
           i += attached ? 1 : 2
         elsif rules[:value_flags].include?(name)
           if attached.nil? && args[i + 1].nil?
             raise CommandNotAllowedError.new("#{launcher} option #{name} needs a value",
-                                             rule: 'launcher_missing_value', arg_index: offset + i)
+                                             rule: "launcher_missing_value", arg_index: offset + i)
           end
 
           i += attached ? 1 : 2
@@ -2716,7 +2716,7 @@ class McpSecurityService
       end
       if positional.nil?
         raise CommandNotAllowedError.new("#{launcher}: no package was given to run",
-                                         rule: 'launcher_missing_package', arg_index: nil)
+                                         rule: "launcher_missing_package", arg_index: nil)
       end
       return nil if pinned_package_spec?(positional, rules[:pinned])
 
@@ -2725,12 +2725,12 @@ class McpSecurityService
 
     def raise_unknown_launcher_option!(launcher, arg, rules, arg_index)
       recognized = (rules[:boolean_flags] + rules[:value_flags] + rules[:python_flags] +
-                    rules[:package_flags] + rules[:selector_flags]).join(' ')
+                    rules[:package_flags] + rules[:selector_flags]).join(" ")
       raise CommandNotAllowedError.new(
         "#{launcher} option #{arg.inspect} is not allowed before the #{rules[:positional]} for stdio MCP servers " \
-        '(an unrecognized option could change which package, registry or configuration is used); options ' \
+        "(an unrecognized option could change which package, registry or configuration is used); options " \
         "recognized there: #{recognized}. Options for the package itself go after it.",
-        rule: 'launcher_option', arg_index: arg_index
+        rule: "launcher_option", arg_index: arg_index
       )
     end
 
@@ -2745,8 +2745,8 @@ class McpSecurityService
 
       raise CommandNotAllowedError.new(
         "#{launcher}: #{positional.inspect} must be a local path (./server.py, /opt/app/server.py) for stdio MCP " \
-        'servers — not a bare script name, a URL, or an interpreter',
-        rule: 'launcher_script_path', arg_index: arg_index
+        "servers — not a bare script name, a URL, or an interpreter",
+        rule: "launcher_script_path", arg_index: arg_index
       )
     end
 
@@ -2756,7 +2756,7 @@ class McpSecurityService
       raise CommandNotAllowedError.new(
         "#{launcher}: with a package selector the positional must be a bin name inside that package " \
         "(lowercase letters, digits, '.', '_', '-'), not #{positional.inspect}",
-        rule: 'launcher_bin_name', arg_index: arg_index
+        rule: "launcher_bin_name", arg_index: arg_index
       )
     end
 
@@ -2765,12 +2765,12 @@ class McpSecurityService
     # skip the launcher grammar entirely. Refused outright: put options
     # after the subcommand, where the grammar sees them.
     def raise_on_launcher_global_option!(launcher, args)
-      return unless args[0].to_s.start_with?('-')
+      return unless args[0].to_s.start_with?("-")
 
       raise CommandNotAllowedError.new(
         "#{launcher}: a global option (#{args[0].inspect}) before the subcommand is not allowed for stdio MCP " \
-        'servers; put options after the subcommand',
-        rule: 'launcher_global_option', arg_index: 0
+        "servers; put options after the subcommand",
+        rule: "launcher_global_option", arg_index: 0
       )
     end
 
@@ -2778,19 +2778,19 @@ class McpSecurityService
     # --with pulls registry packages. Every other uv subcommand is not a
     # launcher (and `uv pip install ...` as a server command just exits).
     def uv_pin_violation(args)
-      raise_on_launcher_global_option!('uv', args)
-      if args[0] == 'tool' && args[1] == 'run'
-        package_launcher_pin_violation('uv tool run', args.drop(2), PACKAGE_LAUNCHER_RULES['uvx'], offset: 2)
-      elsif args[0] == 'run'
-        package_launcher_pin_violation('uv run', args.drop(1), PACKAGE_LAUNCHER_RULES['uv run'], offset: 1)
+      raise_on_launcher_global_option!("uv", args)
+      if args[0] == "tool" && args[1] == "run"
+        package_launcher_pin_violation("uv tool run", args.drop(2), PACKAGE_LAUNCHER_RULES["uvx"], offset: 2)
+      elsif args[0] == "run"
+        package_launcher_pin_violation("uv run", args.drop(1), PACKAGE_LAUNCHER_RULES["uv run"], offset: 1)
       end
     end
 
     def pipx_pin_violation(args)
-      raise_on_launcher_global_option!('pipx', args)
-      return nil unless args[0] == 'run'
+      raise_on_launcher_global_option!("pipx", args)
+      return nil unless args[0] == "run"
 
-      package_launcher_pin_violation('pipx run', args.drop(1), PACKAGE_LAUNCHER_RULES['pipx run'], offset: 1)
+      package_launcher_pin_violation("pipx run", args.drop(1), PACKAGE_LAUNCHER_RULES["pipx run"], offset: 1)
     end
 
     # `bun x <pkg>` is bun's package runner. Its position is found with the
@@ -2798,17 +2798,17 @@ class McpSecurityService
     # unrecognized bun flag before the subcommand) is refused here too, so
     # the save-time gate cannot be more lenient than the spawn-time one.
     def bun_x_pin_violation(args)
-      positional_index, ambiguous = scan_interpreter_flags!(args, INLINE_CODE_RULES_BY_INTERPRETER['bun'], 'bun')
+      positional_index, ambiguous = scan_interpreter_flags!(args, INLINE_CODE_RULES_BY_INTERPRETER["bun"], "bun")
       if ambiguous
         raise CommandNotAllowedError.new(
           'bun: an unrecognized flag appears before the subcommand, so whether this is a "bun x" package launch ' \
-          'cannot be determined, and it is not allowed for stdio MCP servers',
-          rule: 'launcher_option', arg_index: nil
+          "cannot be determined, and it is not allowed for stdio MCP servers",
+          rule: "launcher_option", arg_index: nil
         )
       end
-      return nil unless args[positional_index] == 'x'
+      return nil unless args[positional_index] == "x"
 
-      package_launcher_pin_violation('bun x', args.drop(positional_index + 1), PACKAGE_LAUNCHER_RULES['bun x'],
+      package_launcher_pin_violation("bun x", args.drop(positional_index + 1), PACKAGE_LAUNCHER_RULES["bun x"],
                                      offset: positional_index + 1)
     end
 
@@ -2825,25 +2825,25 @@ class McpSecurityService
     def deno_specifier_pin_violation(args)
       args.each_with_index do |arg, index|
         value = arg
-        if arg.start_with?('-') && arg.include?('=')
-          value = arg.split('=', 2).last
+        if arg.start_with?("-") && arg.include?("=")
+          value = arg.split("=", 2).last
           if value.match?(%r{\A(https?:|data:)}i)
             raise CommandNotAllowedError.new(
               "deno: #{arg.split('=', 2).first} points at a remote URL or an inline data: URL, which is not allowed " \
-              'for stdio MCP servers',
-              rule: 'deno_remote_flag_value', arg_index: index
+              "for stdio MCP servers",
+              rule: "deno_remote_flag_value", arg_index: index
             )
           end
         end
 
-        if value.start_with?('npm:')
+        if value.start_with?("npm:")
           next if value.match?(DENO_NPM_PINNED_SPECIFIER_PATTERN)
 
-          raise_unpinned_package!('deno', value, :npm, via: nil, arg_index: index)
-        elsif value.start_with?('jsr:')
+          raise_unpinned_package!("deno", value, :npm, via: nil, arg_index: index)
+        elsif value.start_with?("jsr:")
           next if value.match?(DENO_JSR_PINNED_SPECIFIER_PATTERN)
 
-          raise_unpinned_package!('deno', value, :jsr, via: nil, arg_index: index)
+          raise_unpinned_package!("deno", value, :jsr, via: nil, arg_index: index)
         end
       end
       nil
@@ -2860,27 +2860,27 @@ class McpSecurityService
 
     def raise_unpinned_package!(launcher, spec, kind, via:, arg_index:)
       raise CommandNotAllowedError.new(unpinned_package_message(launcher, spec, kind, via: via),
-                                       rule: 'package_pin', arg_index: arg_index)
+                                       rule: "package_pin", arg_index: arg_index)
     end
 
     # The actionable refusal: names the launcher, the offending spec (and
     # the option it came through), the exact shape to write it in with the
     # caller's own package name filled in, and what is refused and why.
     def unpinned_package_message(launcher, spec, kind, via:)
-      source = via ? " (via #{via})" : ''
+      source = via ? " (via #{via})" : ""
       case kind
       when :pypi
-        bare = spec.sub(/[\[=@<>~!].*\z/, '')
+        bare = spec.sub(/[\[=@<>~!].*\z/, "")
         shape = "#{bare}==<version> or #{bare}@<version> (e.g. #{bare}==2026.8.18)"
-        refused = 'ranges (>=, ~=, !=, ==1.*), arbitrary equality (===), git/URL/path specs and requirements files'
+        refused = "ranges (>=, ~=, !=, ==1.*), arbitrary equality (===), git/URL/path specs and requirements files"
       when :jsr
-        bare = spec.sub(/(?<=.)@[^@\/]*\z/, '')
+        bare = spec.sub(/(?<=.)@[^@\/]*\z/, "")
         shape = "#{bare}@<major>.<minor>.<patch> (e.g. #{bare}@1.2.3)"
-        refused = 'dist-tags and ranges'
+        refused = "dist-tags and ranges"
       else
-        bare = spec.sub(/(?<=.)@[^@\/]*\z/, '')
+        bare = spec.sub(/(?<=.)@[^@\/]*\z/, "")
         shape = "#{bare}@<major>.<minor>.<patch> (e.g. #{bare}@1.2.3)"
-        refused = 'dist-tags (latest, next), ranges (^, ~, >=, *, x), git/URL/tarball/path specs and npm: aliases'
+        refused = "dist-tags (latest, next), ranges (^, ~, >=, *, x), git/URL/tarball/path specs and npm: aliases"
       end
 
       "#{launcher}: package #{spec.inspect}#{source} is not pinned to an exact version. " \
@@ -2918,9 +2918,9 @@ class McpSecurityService
 
       raise CommandNotAllowedError.new(
         "#{position} #{value.inspect} is a package manager entry point and is not allowed for stdio MCP servers " \
-        '(a package manager run through its interpreter is the same unpinned registry fetch the launcher rule ' \
-        'refuses — spawn the server package directly, pinned)',
-        rule: 'package_manager_entry', arg_index: arg_index
+        "(a package manager run through its interpreter is the same unpinned registry fetch the launcher rule " \
+        "refuses — spawn the server package directly, pinned)",
+        rule: "package_manager_entry", arg_index: arg_index
       )
     end
 
@@ -2929,7 +2929,7 @@ class McpSecurityService
     def executable_argv_positions(interpreter, args)
       # deno/bun: the subcommand grammar is not modelled past the subcommand,
       # so every non-option token (the one after "--" included) is checked.
-      return non_option_argv_positions(args) if interpreter == 'deno' || interpreter == 'bun'
+      return non_option_argv_positions(args) if interpreter == "deno" || interpreter == "bun"
 
       rules = INLINE_CODE_RULES_BY_INTERPRETER[interpreter]
       return non_option_argv_positions(args) unless rules
@@ -2938,7 +2938,7 @@ class McpSecurityService
         positional_index, ambiguous = scan_interpreter_flags!(args, rules, interpreter)
       rescue CommandNotAllowedError => e
         # A flag value already went through the guard: that verdict stands.
-        raise if e.rule == 'package_manager_entry'
+        raise if e.rule == "package_manager_entry"
 
         # Otherwise the scan refused inline code (-e, -c, ...), a SPAWN-time
         # rule (#validate_stdio_args! raises it first there) that must not
@@ -2949,14 +2949,14 @@ class McpSecurityService
       return [] if positional_index >= args.length
 
       value = args[positional_index]
-      if value == '--'
+      if value == "--"
         # POSIX end of options: the scan stops ON the marker, the program is
         # the NEXT token (round 2 blocker 1).
         positional_index += 1
         return [] if positional_index >= args.length
 
         value = args[positional_index]
-      elsif value.start_with?('-')
+      elsif value.start_with?("-")
         # The scan stopped on `python -m <mcp module>`: a module name, not a path.
         return []
       end
@@ -2965,7 +2965,7 @@ class McpSecurityService
     end
 
     def non_option_argv_positions(args)
-      args.each_index.reject { |i| args[i].start_with?('-') }.map { |i| [ i, args[i] ] }
+      args.each_index.reject { |i| args[i].start_with?("-") }.map { |i| [ i, args[i] ] }
     end
 
     # The fail-closed fallback when the positional cannot be told apart from
@@ -2974,9 +2974,9 @@ class McpSecurityService
     # ever refuse an entry point, so over-checking costs nothing.
     def path_like_argv_positions(args)
       args.each_with_index.filter_map do |arg, i|
-        next [ i, arg ] unless arg.start_with?('-')
+        next [ i, arg ] unless arg.start_with?("-")
 
-        attached = arg.start_with?('--') ? arg.split('=', 2)[1] : arg[%r{\.{0,2}/.*\z}]
+        attached = arg.start_with?("--") ? arg.split("=", 2)[1] : arg[%r{\.{0,2}/.*\z}]
         [ i, attached ] if attached && stdio_arg_looks_like_path?(attached)
       end
     end

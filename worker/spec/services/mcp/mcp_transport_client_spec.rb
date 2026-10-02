@@ -293,7 +293,7 @@ RSpec.describe Mcp::McpTransportClient do
     # what the server was actually configured with. This end-to-end spec
     # exercises exactly the server-hash shape the backend now sends.
     it "refuses an extended-only command (uvx) when the server hash carries no capabilities at all" do
-      extended_server = server.merge(command: 'uvx', args: ['mcp-server-git==2026.8.18'])
+      extended_server = server.merge(command: 'uvx', args: [ 'mcp-server-git==2026.8.18' ])
       expect(McpSecurityService).not_to receive(:spawn_stdio)
 
       result = client.execute_stdio_tool(extended_server, tool, parameters)
@@ -304,7 +304,7 @@ RSpec.describe Mcp::McpTransportClient do
 
     it "honors capabilities.allow_extended_commands: true and allows uvx/docker through to spawn_stdio" do
       extended_server = server.merge(
-        command: 'uvx', args: ['mcp-server-git==2026.8.18'], capabilities: { 'allow_extended_commands' => true }
+        command: 'uvx', args: [ 'mcp-server-git==2026.8.18' ], capabilities: { 'allow_extended_commands' => true }
       )
       success_status = instance_double(Process::Status, success?: true, exitstatus: 0)
 
@@ -319,7 +319,7 @@ RSpec.describe Mcp::McpTransportClient do
     end
 
     it "still refuses uvx when capabilities is present but allow_extended_commands is absent/false" do
-      extended_server = server.merge(command: 'uvx', args: ['mcp-server-git==2026.8.18'], capabilities: { 'tools' => true })
+      extended_server = server.merge(command: 'uvx', args: [ 'mcp-server-git==2026.8.18' ], capabilities: { 'tools' => true })
       expect(McpSecurityService).not_to receive(:spawn_stdio)
 
       result = client.execute_stdio_tool(extended_server, tool, parameters)
@@ -479,7 +479,7 @@ RSpec.describe Mcp::McpTransportClient do
 
       expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, native_execution:, **_kwargs|
         expect(native_execution).to be true
-        ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
+        [ '{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status ]
       end
 
       result = client.execute_stdio_request(native_server, mcp_request)
@@ -492,7 +492,7 @@ RSpec.describe Mcp::McpTransportClient do
 
       expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, native_execution:, **_kwargs|
         expect(native_execution).to be false
-        ['{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status]
+        [ '{"jsonrpc":"2.0","id":"req-1","result":{}}', '', success_status ]
       end
 
       result = client.execute_stdio_request(lying_server, mcp_request)

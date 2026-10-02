@@ -312,7 +312,7 @@ RSpec.describe Mcp::McpServerHealthCheckJob, type: :job do
 
           expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, native_execution:, **_kwargs|
             expect(native_execution).to be true
-            ['{}', '', instance_double(Process::Status, success?: true)]
+            [ '{}', '', instance_double(Process::Status, success?: true) ]
           end
 
           job.execute(server_id)

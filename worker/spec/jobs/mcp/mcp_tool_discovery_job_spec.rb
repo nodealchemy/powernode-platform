@@ -292,7 +292,7 @@ RSpec.describe Mcp::McpToolDiscoveryJob, type: :job do
 
           expect(McpSecurityService).to receive(:spawn_stdio) do |_command, _env, _args, stdin_data:, native_execution:, **_kwargs|
             expect(native_execution).to be true
-            ['{"jsonrpc":"2.0","id":"1","result":{"tools":[]}}', '', instance_double(Process::Status, success?: true)]
+            [ '{"jsonrpc":"2.0","id":"1","result":{"tools":[]}}', '', instance_double(Process::Status, success?: true) ]
           end
           expect(job).not_to receive(:log_error)
 
