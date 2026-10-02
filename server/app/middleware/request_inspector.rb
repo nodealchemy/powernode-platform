@@ -10,24 +10,126 @@ class RequestInspector
   # CONFIGURATION
   # =========================================================================
 
+  # SQL building blocks for the sql_injection rules below. All of it is plain
+  # alternation and bounded-by-structure repetition: NO lookaround, backreference
+  # or atomic group, so every rule stays eligible for Ruby 3.2's linear-time
+  # matcher (a spec asserts Regexp.linear_time? for every rule and a 1 MB
+  # adversarial bound). Do not add any of those constructs here: an earlier
+  # negative-lookahead fix disabled linear-time matching and 100KB of "select "
+  # took 43s on a pre-auth path that reads bodies up to 10MB.
+  #
+  # SQL_SEP is one separator: whitespace, a '+' (a space in a raw query string)
+  # or an inline /* comment */ (the classic way to keep keywords apart; the body
+  # tolerates '*' characters so /***/ and /*a*b*/ are separators too).
+  SQL_SEP = %q{(?:[\s+]|/\*(?:[^*]|\*+[^*/])*\*+/)}
+  SQL_NAME = %q{(?:[\w$@#]+|`[^`]*`|"[^"]*"|\[[^\]]*\])}
+  # A possibly schema-qualified name, each part bare or `quoted`, "quoted" or
+  # [bracketed]; '..' (MSSQL db..table) is tolerated.
+  SQL_IDENT = %Q{#{SQL_NAME}(?:\\.+#{SQL_NAME})*}
+  # A parenthesised argument list, one level of nesting deep.
+  SQL_ARGS = %q{\((?:[^()]|\([^()]*\))*\)}
+  # One select-list term: *, a name or function call, or a quoted literal.
+  SQL_TERM = %Q{(?:\\*|#{SQL_IDENT}(?:#{SQL_ARGS})?|'[^']*')}
+  # A select-list item: a term, optionally concatenated with '||', optionally
+  # given an explicit AS alias.
+  SQL_ITEM = %Q{#{SQL_TERM}(?:#{SQL_SEP}*\\|\\|#{SQL_SEP}*#{SQL_TERM})*(?:#{SQL_SEP}+AS#{SQL_SEP}+#{SQL_IDENT})?}
+  # MSSQL's TOP n may precede the list.
+  SQL_TOP = %Q{(?:TOP#{SQL_SEP}*\\(?\\d+\\)?#{SQL_SEP}+)?}
+  # Modifiers that may precede the list.
+  SQL_SELECT_MODIFIER = %Q{(?:(?:ALL|DISTINCT|HIGH_PRIORITY|STRAIGHT_JOIN|SQL_CALC_FOUND_ROWS|SQL_NO_CACHE|SQL_SMALL_RESULT)#{SQL_SEP}+)*}
+  # A select list that is SQL-shaped on its own: a bare star, or a call whose
+  # arguments are not a word ("count(*)", "version()", "sleep(5)", "f('x')"). No
+  # English sentence needs the table slot checked after one of these; "file(s)"
+  # and "item(s)" are prose and take the bare-list path below.
+  SQL_STRONG_LIST = %Q{(?:\\*|#{SQL_IDENT}\\((?:#{SQL_SEP}*|\\*|\\d+|[^()]*['"][^()]*)\\))}
+  # Everything else (one or several words, a comma list) is also what an English
+  # sentence looks like, so that shape must be confirmed by what follows the
+  # table.
+  SQL_BARE_LIST = %Q{#{SQL_ITEM}(?:#{SQL_SEP}*,#{SQL_SEP}*#{SQL_ITEM})*}
+  # A table slot, optionally parenthesised, optionally given an explicit AS alias.
+  SQL_TABLE = %Q{\\(?#{SQL_IDENT}\\)?(?:#{SQL_SEP}+AS#{SQL_SEP}+#{SQL_IDENT})?}
+  # The clause keywords that may follow a table.
+  SQL_CLAUSE = "(?:WHERE|LIMIT|ORDER|GROUP|HAVING|JOIN|INNER|LEFT|RIGHT|NATURAL|CROSS|FULL|OUTER|UNION|EXCEPT|INTERSECT|" \
+               "USING|RETURNING|OFFSET|FETCH|FOR|INTO|PROCEDURE|WINDOW)"
+  # A statement terminator, closing paren, comment marker or closing double
+  # quote (the end of a JSON string value). A single quote is NOT one:
+  # "Bob's account" must not read as a closed string.
+  SQL_TERMINATOR = %q{(?:[;)]|--|#|/\*)}
+  # ...which, directly after the table, may also be that closing quote. After a
+  # one-word ALIAS it may not: {"q":"select one from the list"} is prose with a
+  # table-and-alias lookalike, and only the strict set confirms an alias.
+  SQL_TERMINATOR_OR_QUOTE = %q{(?:[;)"]|--|#|/\*)}
+  # What may follow the table slot of a bare-list SELECT or a DELETE: a
+  # terminator, a clause keyword, a one-word alias followed by either of those,
+  # or the end of the input. Prose puts another ordinary word there ("...from
+  # the list"), which is the whole difference between the two once the keywords
+  # are present.
+  SQL_AFTER_TABLE = "(?:#{SQL_SEP}*#{SQL_TERMINATOR_OR_QUOTE}|#{SQL_SEP}*\\z|#{SQL_SEP}+#{SQL_CLAUSE}\\b|" \
+                    "#{SQL_SEP}+#{SQL_IDENT}(?:#{SQL_SEP}*#{SQL_TERMINATOR}|#{SQL_SEP}+#{SQL_CLAUSE}\\b))"
+  # Same, for a SELECT whose table may also be followed by '&' (the next query
+  # string parameter): the documented prose residue below applies to it.
+  SQL_AFTER_TABLE_QS = "(?:#{SQL_AFTER_TABLE}|#{SQL_SEP}*&)"
+  # What a subquery's SELECT must be followed by to count: a star, a paren, a
+  # digit or quote, or a name that continues as a list, call or FROM.
+  SQL_SUBQUERY_BODY = %Q{(?:#{SQL_SEP}*[(*'\\d]|#{SQL_SEP}+#{SQL_IDENT}(?:#{SQL_SEP}*[,(]|#{SQL_SEP}+FROM\\b))}
+
+  # The rules that require SQL structure (see the sql_injection comment below).
+  # These are the ones scanned in bounded windows by #match_rule?.
+  STRUCTURAL_SQL_RULES = [
+    /\bSELECT#{SQL_SEP}+#{SQL_SELECT_MODIFIER}#{SQL_TOP}#{SQL_STRONG_LIST}#{SQL_SEP}+FROM#{SQL_SEP}*#{SQL_TABLE}/i,
+    /\bSELECT#{SQL_SEP}+#{SQL_SELECT_MODIFIER}#{SQL_TOP}#{SQL_BARE_LIST}#{SQL_SEP}+FROM#{SQL_SEP}*#{SQL_TABLE}#{SQL_AFTER_TABLE_QS}/i,
+    # A parenthesised list straight into a parenthesised table: SELECT(name)FROM(users).
+    /\bSELECT#{SQL_SEP}*#{SQL_ARGS}#{SQL_SEP}*FROM#{SQL_SEP}*\(/i,
+    # A subquery in the FROM slot, the shape of sqlmap's time- and error-based
+    # payloads: "(SELECT 1 FROM (SELECT(SLEEP(5)))a)". Prose has no "from (select".
+    /\bFROM#{SQL_SEP}*\(#{SQL_SEP}*SELECT#{SQL_SUBQUERY_BODY}/i,
+    /\bDELETE#{SQL_SEP}+(?:(?:LOW_PRIORITY|QUICK|IGNORE)#{SQL_SEP}+)*FROM#{SQL_SEP}+#{SQL_TABLE}#{SQL_AFTER_TABLE}/i,
+    /\bINSERT#{SQL_SEP}+(?:(?:LOW_PRIORITY|DELAYED|HIGH_PRIORITY|IGNORE)#{SQL_SEP}+)*INTO#{SQL_SEP}+#{SQL_TABLE}#{SQL_SEP}*(?:#{SQL_ARGS}#{SQL_SEP}*(?:VALUES?|SELECT)\b|VALUES?#{SQL_SEP}*\(|SELECT#{SQL_SEP}+(?:\*|#{SQL_ITEM})#{SQL_SEP}+FROM\b|DEFAULT#{SQL_SEP}+VALUES\b|SET#{SQL_SEP}+#{SQL_IDENT}#{SQL_SEP}*=)/i,
+    /\bUPDATE#{SQL_SEP}+(?:(?:LOW_PRIORITY|IGNORE|ONLY)#{SQL_SEP}+)*#{SQL_IDENT}(?:#{SQL_SEP}+(?:AS#{SQL_SEP}+)?#{SQL_NAME})?#{SQL_SEP}+SET#{SQL_SEP}+#{SQL_IDENT}#{SQL_SEP}*=/i
+  ].freeze
+
+  # The structural SQL rules are large (1-1.6KB of pattern), and even Ruby's
+  # linear-time matcher costs input x pattern size on them (seconds, hundreds of
+  # MB, for 10MB of adversarial whitespace). A per-regexp match timeout was tried
+  # and REJECTED: every Regexp::TimeoutError leaks the matcher's memoization
+  # table (about 200MB at 10MB, never reclaimed), so a handful of large bodies
+  # exhaust the process. Instead the structural rules scan a bounded prefix of
+  # the text in small windows (see #match_rule?), which caps both CPU and memory
+  # per request whatever the input. Accepted residue: a payload that only begins
+  # after SQL_SCAN_LIMIT_BYTES of padding is not seen by the structural rules
+  # (the unchanged UNION/DROP/tautology rules still scan everything).
+  SQL_SCAN_LIMIT_BYTES = 256 * 1024
+  SQL_SCAN_WINDOW_BYTES = 64 * 1024
+  SQL_SCAN_OVERLAP_BYTES = 2 * 1024
+
   # Suspicious patterns that indicate potential attacks
   SUSPICIOUS_PATTERNS = {
     # SQL Injection patterns.
     #
-    # 2026-09-27 hotfix, round 2 (reviewer CHANGES REQUIRED on the round-1
-    # fix): round 1 added a negative lookahead to SELECT...FROM /
-    # DELETE...FROM / INSERT...INTO / UPDATE...SET to stop them firing on
-    # free-text search-param prose ("select a region from the list"). The
-    # reviewer found that lookahead disables Ruby 3.2's linear-time regex
-    # matcher — 100KB of repeated "select " took 43.7s (vs 0.003s at 10KB
-    # for the original rule), and this runs on POST bodies up to 10MB,
-    # pre-auth. REVERTED to the original, unbounded form: the SQL-prose
-    # false positive was never the reported incident (that was the XSS
-    # rule below) and is tracked as a separate follow-up.
+    # IMP-a09101cb2a57. SELECT...FROM, DELETE...FROM, INSERT...INTO and
+    # UPDATE...SET used to match ANY text between their two keywords, so
+    # ordinary English in a free-text param ("select a region from the list",
+    # "update your account and set preferences") scored as sql_injection and fed
+    # the progressive IP block, the same lockout class as the 2026-09-27 XSS
+    # incident. They now require the SQL STRUCTURE around the keywords instead
+    # of trying to exclude prose:
+    #   SELECT <list> FROM <table> <terminator|clause|end>
+    #   DELETE FROM <table> <terminator|clause|end>
+    #   INSERT INTO <table> (columns) | VALUES | SELECT | SET
+    #   UPDATE <table> SET <column> =
+    # A bare "select password from users" is still flagged (it is SQL); an
+    # English sentence has another word after the table slot, so it is not.
+    #
+    # Accepted residue: a prose value that happens to be exactly "select X from
+    # Y" with nothing after it IS this shape and still scores; telling it apart
+    # from SQL would need excluding prose, which this change deliberately does
+    # not do. The UNION...SELECT, DROP...TABLE, tautology and AND/OR rules are
+    # unchanged. History: the 2026-09-27 round-1 negative lookahead was REVERTED
+    # for ReDoS (it disabled the linear-time matcher).
     sql_injection: [
-      /(\bUNION\b.*\bSELECT\b|\bSELECT\b.*\bFROM\b)/i,
-      /(\bDROP\b.*\bTABLE\b|\bDELETE\b.*\bFROM\b)/i,
-      /(\bINSERT\b.*\bINTO\b|\bUPDATE\b.*\bSET\b)/i,
+      /\bUNION\b.*\bSELECT\b/i,
+      *STRUCTURAL_SQL_RULES,
+      /\bDROP\b.*\bTABLE\b/i,
       /(\b1\s*=\s*1\b|\b1\s*=\s*'1'\b)/i,
       /(\bOR\b\s+\d+\s*=\s*\d+|\bAND\b\s+\d+\s*=\s*\d+)/i
     ],
@@ -234,6 +336,40 @@ class RequestInspector
   # INSPECTION METHODS
   # =========================================================================
 
+  # One rule against one text. The unchanged `.*` rules scan the whole text as
+  # before. The STRUCTURAL rules scan a bounded prefix in small overlapping
+  # windows (see SQL_SCAN_LIMIT_BYTES): their cost is input x pattern size, and
+  # a window keeps the matcher's working memory small and freed, where a single
+  # scan over megabytes of adversarial text does not. A window that stops
+  # mid-text is cut at whitespace and ended with a control character, so the
+  # end-of-input alternative (\z) never fires on a cut.
+  def match_rule?(text, pattern)
+    return pattern.match?(text) unless STRUCTURAL_SQL_RULES.include?(pattern)
+
+    each_sql_window(text).any? { |window| pattern.match?(window) }
+  end
+
+  def each_sql_window(text)
+    return [ text ] if text.bytesize <= SQL_SCAN_WINDOW_BYTES
+
+    Enumerator.new do |yielder|
+      limit = [ text.bytesize, SQL_SCAN_LIMIT_BYTES ].min
+      start = 0
+      while start < limit
+        stop = [ start + SQL_SCAN_WINDOW_BYTES, limit ].min
+        chunk = text.byteslice(start, stop - start).to_s.scrub("")
+        last = stop >= limit
+        if !last && (cut = chunk.rindex(/\s/))
+          chunk = chunk[0, cut]
+        end
+        yielder << (last && limit == text.bytesize ? chunk : "#{chunk}\u0001")
+        break if last
+
+        start += [ chunk.bytesize - SQL_SCAN_OVERLAP_BYTES, SQL_SCAN_WINDOW_BYTES / 2 ].max
+      end
+    end
+  end
+
   def inspect_request(request)
     result = {
       suspicious: false,
@@ -274,7 +410,7 @@ class RequestInspector
       next if threat_type == :xss
 
       patterns.each do |pattern|
-        if scrubbed_query.match?(pattern)
+        if match_rule?(scrubbed_query, pattern)
           result[:threats] << { type: threat_type, location: "query_string", pattern: pattern.to_s }
           result[:score] += threat_score(threat_type)
         end
@@ -383,7 +519,7 @@ class RequestInspector
       next if threat_type == :xss
 
       patterns.each do |pattern|
-        if body.match?(pattern)
+        if match_rule?(body, pattern)
           result[:threats] << { type: threat_type, location: "body", pattern: pattern.to_s }
           result[:score] += threat_score(threat_type)
         end

@@ -284,6 +284,178 @@ RSpec.describe RequestInspector do
     end
   end
 
+  # IMP-a09101cb2a57 — the SELECT...FROM / DELETE...FROM / INSERT...INTO /
+  # UPDATE...SET rules matched any text between the two keywords, so ordinary
+  # English in a free-text param ("select a region from the list") scored as
+  # sql_injection and fed the progressive IP block. They now require SQL
+  # STRUCTURE (a select list, a table, a clause or terminator after it) rather
+  # than excluding prose, and every rule must stay on Ruby's linear-time
+  # matcher: an earlier lookahead fix disabled it and 100KB of "select " took
+  # 43s on a pre-auth path that reads bodies up to 10MB.
+  describe 'sql_injection rules require SQL structure, not just keywords' do
+    def sql_flagged?(query)
+      inspect_query(query)[:threats].any? { |t| t[:type] == :sql_injection }
+    end
+
+    def sql_flagged_body?(body)
+      env = Rack::MockRequest.env_for('/api/v1/widgets', method: 'POST', input: body)
+      env['REMOTE_ADDR'] = '203.0.113.7'
+      env['HTTP_USER_AGENT'] = 'Mozilla/5.0 (X11; Linux x86_64)'
+      env['HTTP_ACCEPT'] = 'application/json'
+      middleware.send(:inspect_request, Rack::Request.new(env))[:threats].any? { |t| t[:type] == :sql_injection }
+    end
+
+    PROSE = [
+      'q=select a region from the list',
+      'q=select one from the list',
+      'q=select+a+region+from+the+list',
+      'note=update your account and set preferences',
+      'note=please update the profile and set a new password',
+      'q=delete from the list any item you do not need',
+      'note=insert into the document a short summary',
+      'q=Select an option from the dropdown to filter results',
+      'note=we select items from each category and update the set',
+      'q=Please select file(s) from the list below',
+      'q=Select item(s) from your cart and click remove',
+      'q=select Monday, Tuesday from the calendar',
+      'q=SELECT a, b, c from the above and DELETE from the page',
+      "q=Delete from Bob's account any old items",
+      "q=select items from John's list",
+      'q=choose from (select one) of the following',
+      'q=The value is set from (select) menu',
+      'q=insert into slide select image (jpg)'
+    ].freeze
+
+    INJECTION = [
+      'id=1 SELECT password FROM users',
+      'id=1 SELECT * FROM users',
+      'id=1 select username, password from users where id=1',
+      'id=1 SELECT COUNT(*) FROM users',
+      "id=1'; SELECT password FROM users--",
+      'id=1 SELECT/**/password/**/FROM/**/users',
+      'id=1+SELECT+password+FROM+users',
+      'id=1 DELETE FROM users',
+      'id=1; DELETE FROM users WHERE 1=1',
+      'id=1 INSERT INTO users VALUES(1)',
+      'id=1 INSERT INTO users (name, admin) VALUES (\'x\', 1)',
+      'id=1 INSERT INTO users SELECT * FROM admins',
+      "id=1 UPDATE users SET password='x'",
+      'id=1 UPDATE users SET admin = 1 WHERE id = 2',
+      'id=1 UPDATE public.users SET admin=1',
+      # What sqlmap and the common scanner corpora actually send.
+      "id=1' AND (SELECT 1234 FROM (SELECT(SLEEP(5)))abcd) AND 'x'='x",
+      "id=1' AND (SELECT*FROM(SELECT(SLEEP(5)))a)--",
+      "id=1' AND 1=CONVERT(int,(SELECT TOP 1 table_name FROM information_schema.tables))--",
+      "id=1' AND (SELECT 'a' FROM users WHERE username='administrator')='a",
+      'id=1 SELECT name FROM users u WHERE 1',
+      'id=1 SELECT a AS b FROM t1 WHERE 1',
+      'id=1 SELECT name FROM db.`users` WHERE 1',
+      'id=1 SELECT name FROM "db"."users" WHERE 1',
+      'id=1 SELECT COUNT(a,b(c)) FROM t1',
+      'id=1 SELECT(name)FROM(users)',
+      'id=1 SELECT/***/name/***/FROM/***/users/***/WHERE/***/1',
+      'id=1 INSERT INTO db.`users` VALUE(1)',
+      'id=1 UPDATE users u SET admin=1',
+      "id=1;SELECT username||':'||password FROM users--",
+      '1;SELECT name FROM master..sysdatabases--',
+      'id=1 SELECT version() FROM dual',
+      "id=1 AND (SELECT sleep(5) FROM users)"
+    ].freeze
+
+    PROSE.each do |sample|
+      it "does not flag prose #{sample.inspect}" do
+        result = inspect_query(sample)
+
+        expect(result[:threats].map { |t| t[:type] }).not_to include(:sql_injection)
+        expect(result[:score]).to eq(0), "threats=#{result[:threats].inspect}"
+      end
+
+      it "does not flag the same prose in a POST body #{sample.inspect}" do
+        expect(sql_flagged_body?(%({"q":"#{sample.sub(/\A\w+=/, '')}"}))).to be(false)
+      end
+    end
+
+    INJECTION.each do |sample|
+      it "still flags injection #{sample.inspect}" do
+        expect(sql_flagged?(sample)).to be(true)
+      end
+    end
+
+    # A per-regexp timeout was tried and rejected (each expiry leaks the matcher's
+    # memoization table), so the structural rules scan a bounded prefix in
+    # windows instead.
+    it 'finds a payload that sits deep inside a body larger than one scan window' do
+      padding = 'lorem ipsum dolor ' * 6_000 # ~108KB, past the first 64KB window
+      body = %({"note":"#{padding}", "q":"1 SELECT password FROM users"})
+      expect(sql_flagged_body?(body)).to be(true)
+    end
+
+    it 'does not read a cut window edge as the end of the input' do
+      # "select one from inventory" is flagged at a REAL end of input (the
+      # documented residue); at a window cut it must not be.
+      filler = 'x' * (described_class::SQL_SCAN_WINDOW_BYTES - 22)
+      body = %({"note":"#{filler} select one from inventory and more words after it"})
+      expect(sql_flagged_body?(body)).to be(false)
+    end
+
+    it 'caps the structural scan: a payload past the limit is not seen, and the scan stays fast' do
+      padding = 'a ' * (described_class::SQL_SCAN_LIMIT_BYTES / 2 + 4_096)
+      body = %({"note":"#{padding}", "q":"1 SELECT password FROM users"})
+      elapsed = Benchmark.realtime { sql_flagged_body?(body) }
+
+      expect(elapsed).to be < 2.0
+    end
+
+    it 'bounds 10 MB of adversarial text by CPU and memory' do
+      text = 'select a from t' + (' ' * 10_000_000) + 'x'
+      before = File.read('/proc/self/status')[/VmRSS:\s+(\d+)/, 1].to_i
+      elapsed = Benchmark.realtime do
+        described_class::STRUCTURAL_SQL_RULES.each { |rule| middleware.send(:match_rule?, text, rule) }
+      end
+      after = File.read('/proc/self/status')[/VmRSS:\s+(\d+)/, 1].to_i
+
+      expect(elapsed).to be < 3.0
+      expect(after - before).to be < 400_000 # KB: well under a leak-per-request
+    end
+
+    it 'keeps the UNION...SELECT, DROP...TABLE, tautology and AND/OR number rules unchanged' do
+      [ 'id=1 UNION SELECT NULL', 'id=1; DROP TABLE users', "id=1 OR 1=1", 'id=1 AND 2=2' ].each do |sample|
+        expect(sql_flagged?(sample)).to be(true), "expected #{sample.inspect} to flag"
+      end
+    end
+
+    # Linear-time is a property of the pattern, not of a lucky input: assert it
+    # for EVERY rule in every group, so a lookahead or backreference added to any
+    # of them later fails here instead of in production.
+    it 'every suspicious pattern is eligible for the linear-time matcher' do
+      described_class::SUSPICIOUS_PATTERNS.each do |group, patterns|
+        patterns.each do |pattern|
+          expect(Regexp.linear_time?(pattern)).to be(true), "#{group}: #{pattern.inspect} is not linear-time"
+        end
+      end
+    end
+
+    it 'matches 1 MB of adversarial text in well under a second per sql rule' do
+      shapes = [
+        'select ' * 150_000,
+        'select a,' * 120_000,
+        'select a from ' * 80_000,
+        'update x set ' * 90_000,
+        'insert into ' * 90_000,
+        'delete from ' * 90_000,
+        ('/**/' * 250_000),
+        ('select' + (' ' * 1_000_000)),
+        'select ' + ('a, ' * 330_000)
+      ]
+      shapes.each do |text|
+        described_class::SUSPICIOUS_PATTERNS[:sql_injection].each do |pattern|
+          elapsed = Benchmark.realtime { middleware.send(:match_rule?, text, pattern) }
+          expect(elapsed).to be < 1.0, "#{pattern.inspect} took #{elapsed.round(2)}s on #{text[0, 24].inspect}..."
+        end
+      end
+    end
+  end
+
   # Round 2 (reviewer, finding #1, HIGH): CGI.unescape("%FF") produces a
   # string with an invalid UTF-8 byte; matching a pattern against it used
   # to raise ArgumentError, which escaped inspect_request and was swallowed
