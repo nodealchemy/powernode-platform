@@ -14,6 +14,13 @@ class McpSession < ApplicationRecord
   STATUSES = %w[active expired revoked].freeze
   DEFAULT_TTL = 24.hours
   RECONNECT_GRACE_PERIOD = 10.minutes
+  # A session with no JSON-RPC activity for this long is idle: it no longer
+  # counts as live and is swept to "expired". A connected SSE stream touches
+  # its session every ~5 minutes, so only abandoned sessions go idle. Clients
+  # that initialize per call and never DELETE would otherwise stay active for
+  # the whole 24h TTL. Override in minutes via IDLE_TIMEOUT_SETTING.
+  DEFAULT_IDLE_TIMEOUT = 60.minutes
+  IDLE_TIMEOUT_SETTING = "mcp_session_idle_timeout_minutes"
 
   # Validations
   validates :session_token, presence: true, uniqueness: true
@@ -35,6 +42,9 @@ class McpSession < ApplicationRecord
   scope :for_account, ->(account_id) { where(account_id: account_id) }
   scope :for_user, ->(user_id) { where(user_id: user_id) }
   scope :stale, ->(duration = 1.hour) { where("last_activity_at < ?", duration.ago) }
+  scope :idle, -> { where(status: "active").where("last_activity_at < ?", idle_timeout.ago) }
+  # Complement of idle among active sessions (a row with no recorded activity is not idle).
+  scope :live, -> { active.where("last_activity_at IS NULL OR last_activity_at >= ?", idle_timeout.ago) }
   scope :in_grace_period, -> {
     where(status: "revoked")
       .where("revoked_at > ?", RECONNECT_GRACE_PERIOD.ago)
@@ -45,8 +55,24 @@ class McpSession < ApplicationRecord
   before_validation :set_defaults, on: :create
   after_update :deactivate_agent_on_end, if: -> { saved_change_to_status? && !active? }
 
+  def self.idle_timeout
+    minutes = SiteSetting.get(IDLE_TIMEOUT_SETTING).to_i
+    minutes.positive? ? minutes.minutes : DEFAULT_IDLE_TIMEOUT
+  end
+
+  # Marks idle active sessions in `scope` expired; returns the count.
+  # update_all skips deactivate_agent_on_end, which only logs: MCP client
+  # agents persist across sessions anyway.
+  def self.expire_idle!(scope = all)
+    scope.idle.update_all(status: "expired", updated_at: Time.current)
+  end
+
   # Instance methods
+  # Only an active session can be revoked: revoking an idle-swept (expired)
+  # one would make it reactivatable? and bring it back from the dead.
   def revoke!
+    return false unless status == "active"
+
     update!(status: "revoked", revoked_at: Time.current)
   end
 
@@ -123,43 +149,44 @@ class McpSession < ApplicationRecord
   end
 
   # Bulk cleanup: delete expired sessions older than the given age,
-  # then destroy orphaned MCP client agents (no remaining sessions).
+  # then archive orphaned MCP client agents (no remaining live sessions).
   def self.cleanup_expired!(older_than: 48.hours)
     deleted = where(status: %w[expired revoked])
       .where("expires_at < ?", older_than.ago)
       .delete_all
 
-    # Clean up MCP client agents that have no active or grace-period sessions.
-    # These are leftovers from accumulated reconnections — their sequence numbers
-    # (#3, #4, ...) block lower numbers from being reused.
     cleanup_orphaned_agents! if deleted > 0
 
     deleted
   end
 
-  # Destroys MCP client agents that have no remaining sessions (active or grace-period).
-  # Preserves agents that are members of non-workspace teams (manually configured).
+  # Archives MCP client agents that have no remaining sessions (active or
+  # grace-period) and drops them from workspace teams. Never destroys: an
+  # agent is the client's one persistent identity, and destroying it would
+  # cascade its executions, memories and skills just because the client went
+  # idle. Ai::McpClientIdentityService#find_existing_agent reactivates it on
+  # the next connect. Agents in non-workspace teams (manually configured) are
+  # left untouched. Returns the number archived.
   def self.cleanup_orphaned_agents!
     agents_with_sessions = McpSession
       .where(status: "active").or(McpSession.in_grace_period)
       .where.not(ai_agent_id: nil)
       .select(:ai_agent_id)
 
-    # MCP client agents with no live session binding
     orphaned = Ai::Agent.where(agent_type: "mcp_client", status: "active")
       .where.not(id: agents_with_sessions)
 
+    archived = 0
     orphaned.find_each do |agent|
-      # Preserve agents in non-workspace teams (manually assigned)
       manual_teams = Ai::AgentTeamMember.joins(:team)
         .where(ai_agent_id: agent.id)
         .where.not(ai_agent_teams: { team_type: "workspace" })
       next if manual_teams.exists?
 
-      Ai::McpClientIdentityService.force_deactivate_agent(
-        OpenStruct.new(ai_agent: agent)
-      )
+      Ai::McpClientIdentityService.archive_agent!(agent)
+      archived += 1
     end
+    archived
   end
 
   private

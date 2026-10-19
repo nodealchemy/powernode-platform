@@ -155,6 +155,16 @@ RSpec.describe "MCP Sessions API", type: :request do
       expect(data["status"]).to eq("revoked")
     end
 
+    it "does not revoke a session that already ended" do
+      session.update_columns(status: "expired")
+
+      delete "/api/v1/mcp/sessions/#{session.id}", headers: headers
+
+      expect_success_response
+      expect(json_response_data["status"]).to eq("expired")
+      expect(session.reload.status).to eq("expired")
+    end
+
     it "changes session status to 'revoked'" do
       delete "/api/v1/mcp/sessions/#{session.id}", headers: headers
 

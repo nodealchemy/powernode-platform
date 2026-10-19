@@ -26,9 +26,9 @@ module Api
         # DELETE /api/v1/mcp/sessions/:id
         def destroy
           session = current_account.mcp_sessions.find(params[:id])
-          session.revoke!
+          session.revoke! # no-op unless active
 
-          render_success({ id: session.id, status: "revoked" })
+          render_success({ id: session.id, status: session.status })
         end
 
         private

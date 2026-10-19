@@ -116,6 +116,12 @@ module Api
           params = body["params"] || {}
           message_id = body["id"]
 
+          # session/discover stays reachable: it is the SSE daemon's recovery path.
+          if @ended_session_header && !%w[initialize session/discover].include?(method)
+            render_jsonrpc_error(message_id, -32600, "Session expired or terminated; re-initialize", status: :not_found)
+            return
+          end
+
           # Notifications (no id) get 202 Accepted
           if message_id.nil?
             handle_notification(method, params)
@@ -198,7 +204,10 @@ module Api
         def stream
           session = find_mcp_session
           unless session
-            render json: { error: "Session not found or expired", error_code: "session_invalid" }, status: :bad_request
+            # A known-but-ended session id gets 404 (re-initialize), matching
+            # POST and the transport spec; an unknown or missing id keeps 400.
+            render json: { error: "Session not found or expired", error_code: "session_invalid" },
+                   status: @ended_session_header ? :not_found : :bad_request
             return
           end
 
@@ -321,15 +330,23 @@ module Api
               if revoked_session&.reactivatable?
                 revoked_session.reactivate!
                 session = revoked_session
+              elsif session_owned_by_current_principal?(revoked_session)
+                # Known but ended (idle-swept, TTL-expired, or terminated past
+                # the grace period): `message` answers 404 so the client
+                # re-initializes, per the MCP transport spec. No fallback onto
+                # another live session.
+                @ended_session_header = true
+                return
               end
             end
           end
 
-          # Fallback: find any active session for this user/account/app.
+          # Fallback: find any live session for this user/account/app.
           # Handles requests without Mcp-Session-Id (e.g., first request after
-          # auto-provision) or with an expired/revoked session ID.
+          # auto-provision) or with an expired/revoked session ID. Idle sessions
+          # are left out so a header-less request cannot keep an abandoned one alive.
           if session.nil? && @doorkeeper_token&.application_id.present?
-            session = McpSession.active
+            session = McpSession.live
               .where(user: current_user, account: current_account,
                      oauth_application_id: @doorkeeper_token.application_id)
               .order(created_at: :desc)
@@ -458,12 +475,20 @@ module Api
             return nil
           end
 
-          # Reuse an existing session for this OAuth app instead of creating a new one.
-          # Priority: (1) auto-provisioned sessions (placeholders from session/discover),
-          # (2) stale active sessions (SSE disconnected, daemon dead — last activity > 60s).
-          # This prevents agent identity accumulation on reconnects.
+          # Reuse an existing session for this OAuth app instead of creating a new
+          # one, preferring an auto-provisioned placeholder (from session/discover)
+          # over the newest live session idle for more than 60s. This only limits
+          # session-row churn: the agent identity is shared per (client, user)
+          # regardless (Ai::McpClientIdentityService).
           session = nil
           if @doorkeeper_token&.application_id.present?
+            # Release this client's abandoned sessions first: clients that
+            # initialize per call and never DELETE otherwise leave them active.
+            McpSession.expire_idle!(
+              McpSession.where(user: current_user, account: current_account,
+                               oauth_application_id: @doorkeeper_token.application_id)
+            )
+
             reusable_session = McpSession.active
               .where(user: current_user, account: current_account,
                      oauth_application_id: @doorkeeper_token.application_id)
@@ -546,7 +571,16 @@ module Api
           # Include grace-period sessions so daemons can reclaim their own session
           # after disconnect. The server will call reactivate! automatically when
           # the daemon sends an SSE GET with the revoked session token.
-          scope = McpSession.active.or(McpSession.in_grace_period)
+          if @doorkeeper_token&.application_id.present?
+            # Same sweep as initialize, so auto_provision_mcp_session below
+            # cannot hand back an idle session either.
+            McpSession.expire_idle!(
+              McpSession.where(user: current_user, account: current_account,
+                               oauth_application_id: @doorkeeper_token.application_id)
+            )
+          end
+
+          scope = McpSession.live.or(McpSession.in_grace_period)
             .where(user: current_user, account: current_account)
 
           if @doorkeeper_token&.application_id.present?
@@ -1140,7 +1174,8 @@ module Api
         end
 
         # Self-healing session creation for the dead state where all sessions
-        # expired beyond grace period and agents were destroyed. Called from
+        # expired beyond grace period (the agent itself survives, at most
+        # archived, and is reclaimed by identity resolution). Called from
         # handle_session_discover when no sessions exist for an authenticated client.
         # Creates a new session + agent so the SSE daemon can discover and claim it.
         # When client_instance_id is provided, tags the session so concurrent instances
@@ -1184,11 +1219,9 @@ module Api
             metadata: instance_metadata
           )
 
-          # include_grace_period: true — this IS the recovery flow for a disconnected
-          # client. Allow reuse of agents whose session is in the grace period so the
-          # daemon reclaims its original identity (e.g., "Claude Code (powernode) #1")
-          # instead of creating a new #N+1.
-          resolve_and_link_agent(session, include_grace_period: true)
+          # The identity is shared per (client, user), so the recovering daemon
+          # reclaims its original agent (e.g., "Claude Code (powernode) #1").
+          resolve_and_link_agent(session)
 
           Rails.logger.info(
             "[MCP StreamableHTTP] Auto-provisioned session #{session.id} " \
@@ -1202,17 +1235,14 @@ module Api
 
         # Resolves the MCP client agent and links it to the session inside the
         # same advisory-locked transaction, ensuring atomicity.
-        # @param include_grace_period [Boolean] passed through to identity service;
-        #   true during auto-provisioning to allow reclaiming a temporarily-orphaned agent.
         # @param client_info [Hash] MCP client_info for provider detection.
-        def resolve_and_link_agent(session, include_grace_period: false, client_info: {})
+        def resolve_and_link_agent(session, client_info: {})
           return nil unless @doorkeeper_token
 
           ::Ai::McpClientIdentityService.new(
             account: current_account,
             user: current_user,
             doorkeeper_token: @doorkeeper_token,
-            include_grace_period: include_grace_period,
             client_info: client_info
           ).resolve_agent do |agent|
             session.link_agent!(agent)

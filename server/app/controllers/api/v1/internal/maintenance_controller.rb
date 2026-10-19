@@ -292,21 +292,15 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
     stale_sessions = McpSession.where(status: "active").where("expires_at <= ?", Time.current)
     results[:sessions_expired] = 0
     stale_sessions.find_each { |s| s.update!(status: "expired"); results[:sessions_expired] += 1 }
+    # Also expire sessions idle past McpSession.idle_timeout (still within TTL).
+    results[:sessions_idle_expired] = McpSession.expire_idle!
 
     # 2. Delete old expired/revoked sessions
     results[:sessions_deleted] = McpSession.cleanup_expired!(older_than: 48.hours)
 
-    # 3. Archive orphaned MCP client agents (active but not linked to any active session)
-    active_agent_ids = McpSession.active.or(McpSession.in_grace_period)
-      .where.not(ai_agent_id: nil).pluck(:ai_agent_id)
-    orphaned_agents = Ai::Agent.where(agent_type: "mcp_client", status: "active")
-      .where.not(id: active_agent_ids)
-    results[:agents_archived] = 0
-    orphaned_agents.find_each do |agent|
-      agent.update!(status: "archived")
-      Ai::McpClientIdentityService.remove_from_workspace_teams(agent)
-      results[:agents_archived] += 1
-    end
+    # 3. Archive orphaned MCP client agents (no live session; manual-team
+    #    members kept). Archiving records their workspace seats for revival.
+    results[:agents_archived] = McpSession.cleanup_orphaned_agents!
 
     # 4. Purge Doorkeeper access tokens.
     #    The refresh_token lives on the same row, so deleting an expired-but-recent token destroys

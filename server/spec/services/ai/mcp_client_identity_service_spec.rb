@@ -52,11 +52,13 @@ RSpec.describe Ai::McpClientIdentityService do
       expect(second_agent.id).to eq(first_agent.id)
     end
 
-    it "creates a new agent when existing one is linked to an active session" do
+    # Finding #25: occupancy used to force a fresh "#N" agent per live session,
+    # so a client that never DELETEs minted one agent per initialize. Concurrent
+    # sessions now share the one identity for (client name, user).
+    it "reuses the same agent while another session is active" do
       first_service = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
       first_agent = first_service.resolve_agent
 
-      # Simulate an active session bound to the first agent
       McpSession.create!(
         user: user, account: account, ai_agent_id: first_agent.id,
         status: "active", expires_at: 24.hours.from_now
@@ -65,27 +67,86 @@ RSpec.describe Ai::McpClientIdentityService do
       second_service = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
       second_agent = second_service.resolve_agent
 
-      expect(second_agent.id).not_to eq(first_agent.id)
-      expect(second_agent.name).to eq("Claude Code #2")
-    end
-
-    it "reuses an agent whose only active session is auto-provisioned" do
-      first_service = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
-      first_agent = first_service.resolve_agent
-
-      # Simulate an auto-provisioned session (created by session/discover self-healing)
-      McpSession.create!(
-        user: user, account: account, ai_agent_id: first_agent.id,
-        status: "active", expires_at: 24.hours.from_now,
-        client_info: { "name" => "Claude Code", "version" => "auto-provisioned" }
-      )
-
-      # A real client should reuse the same agent, not create a new one
-      second_service = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
-      second_agent = second_service.resolve_agent
-
       expect(second_agent.id).to eq(first_agent.id)
       expect(second_agent.name).to eq("Claude Code #1")
+    end
+
+    it "keeps one agent across many initialize-per-call sessions that never close" do
+      agents = Array.new(13) do
+        svc = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
+        session = McpSession.create!(user: user, account: account, status: "active", expires_at: 24.hours.from_now)
+        svc.resolve_agent { |a| session.link_agent!(a) }
+      end
+
+      expect(agents.map(&:id).uniq.size).to eq(1)
+      expect(account.ai_agents.where(agent_type: "mcp_client").count).to eq(1)
+      expect(McpSession.active.where(ai_agent_id: agents.first.id).count).to eq(13)
+    end
+
+    it "reuses the agent across OAuth applications registered under the same client name" do
+      first_agent = service.resolve_agent
+
+      # Dynamic client registration mints a new OAuth application per registration.
+      re_registered = create(:oauth_application, :mcp_client, name: "Claude Code")
+      re_token = create(:oauth_access_token, oauth_app: re_registered, resource_owner_id: user.id)
+      second_agent = described_class.new(account: account, user: user, doorkeeper_token: re_token).resolve_agent
+
+      expect(second_agent.id).to eq(first_agent.id)
+    end
+
+    it "does not share an agent between users of the same client" do
+      first_agent = service.resolve_agent
+
+      other_user = create(:user, account: account)
+      other_token = create(:oauth_access_token, oauth_app: oauth_app, resource_owner_id: other_user.id)
+      other_agent = described_class.new(account: account, user: other_user, doorkeeper_token: other_token).resolve_agent
+
+      expect(other_agent.id).not_to eq(first_agent.id)
+      expect(other_agent.creator).to eq(other_user)
+      expect(other_agent.name).to eq("Claude Code #2")
+    end
+
+    it "reactivates an archived agent for the same client instead of minting a new one" do
+      first_agent = service.resolve_agent
+      # The daily auth cleanup archives MCP agents with no live session.
+      first_agent.update!(status: "archived")
+
+      second_agent = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token).resolve_agent
+
+      expect(second_agent.id).to eq(first_agent.id)
+      expect(second_agent.reload.status).to eq("active")
+      expect(account.ai_agents.where(agent_type: "mcp_client").count).to eq(1)
+    end
+
+    it "gets its workspace seat back after a nightly archive, even when another MCP client sits there" do
+      agent = service.resolve_agent
+      workspace = create(:ai_agent_team, :workspace, account: account)
+      workspace.add_member(agent: agent, role: "executor")
+      other_client = create(:ai_agent, :mcp_client, account: account, name: "Cursor #1")
+      workspace.add_member(agent: other_client, role: "executor")
+      McpSession.create!(user: user, account: account, ai_agent_id: other_client.id)
+
+      McpSession.cleanup_orphaned_agents!
+      expect(agent.reload.status).to eq("archived")
+      expect(workspace.members.where(ai_agent_id: agent.id)).not_to exist
+
+      revived = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token).resolve_agent
+
+      expect(revived.id).to eq(agent.id)
+      expect(workspace.members.where(ai_agent_id: agent.id)).to exist
+    end
+
+    it "picks the lowest-numbered active agent when legacy duplicates exist" do
+      metadata = { "oauth_application_id" => oauth_app.id, "oauth_application_name" => "Claude Code",
+                   "created_by_user_id" => user.id }
+      third = create(:ai_agent, :mcp_client, account: account, creator: user, provider: provider,
+                                             name: "Claude Code #3", mcp_metadata: metadata)
+      first = create(:ai_agent, :mcp_client, account: account, creator: user, provider: provider,
+                                             name: "Claude Code #1", mcp_metadata: metadata)
+      first.update_columns(created_at: 1.minute.from_now) # creation order must not decide
+
+      expect(service.resolve_agent.id).to eq(first.id)
+      expect(third.reload.status).to eq("active")
     end
 
     it "reuses an agent whose session was revoked past grace period" do
@@ -106,7 +167,7 @@ RSpec.describe Ai::McpClientIdentityService do
       expect(second_agent.id).to eq(first_agent.id)
     end
 
-    it "does not reuse an agent whose session is revoked but within grace period" do
+    it "reuses an agent whose session is revoked but within grace period" do
       first_service = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
       first_agent = first_service.resolve_agent
 
@@ -116,11 +177,12 @@ RSpec.describe Ai::McpClientIdentityService do
       )
       session.update!(status: "revoked", revoked_at: Time.current)
 
+      # The reconnecting client gets its identity back whether or not the
+      # revoked session is reactivated; no "#2" is minted meanwhile.
       second_service = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
       second_agent = second_service.resolve_agent
 
-      expect(second_agent.id).not_to eq(first_agent.id)
-      expect(second_agent.name).to eq("Claude Code #2")
+      expect(second_agent.id).to eq(first_agent.id)
     end
 
     it "reuses an agent whose session expired" do
@@ -348,11 +410,10 @@ RSpec.describe Ai::McpClientIdentityService do
       expect(agent.name).to eq("Cursor #1")
     end
 
-    it "assigns sequential numbers to concurrent instances" do
+    it "never numbers past #1 for concurrent instances of one client and user" do
       agents = (1..3).map do |_|
         svc = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
         agent = svc.resolve_agent
-        # Bind each agent to an active session so the next iteration sees it as claimed
         McpSession.create!(
           user: user, account: account, ai_agent_id: agent.id,
           status: "active", expires_at: 24.hours.from_now
@@ -360,32 +421,14 @@ RSpec.describe Ai::McpClientIdentityService do
         agent
       end
 
-      expect(agents.map(&:name)).to eq(["Claude Code #1", "Claude Code #2", "Claude Code #3"])
+      expect(agents.map(&:name)).to eq([ "Claude Code #1" ] * 3)
     end
 
-    it "recycles a lower-numbered agent after its session ends past grace period" do
-      # Create agents #1 and #2 with active sessions
-      agents = (1..2).map do |_|
-        svc = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
-        agent = svc.resolve_agent
-        McpSession.create!(
-          user: user, account: account, ai_agent_id: agent.id,
-          status: "active", expires_at: 24.hours.from_now
-        )
-        agent
-      end
+    it "fills the lowest free number when a new identity is needed" do
+      create(:ai_agent, :mcp_client, account: account, name: "Claude Code #1") # another user's identity
+      create(:ai_agent, :mcp_client, account: account, name: "Claude Code #3")
 
-      # Revoke session for agent #1 and move past grace period
-      session = McpSession.where(ai_agent_id: agents[0].id).first
-      session.revoke!
-      session.update_columns(revoked_at: 11.minutes.ago)
-
-      # Next resolve should reuse agent #1 (orphaned past grace), not create #3
-      svc = described_class.new(account: account, user: user, doorkeeper_token: doorkeeper_token)
-      recycled = svc.resolve_agent
-
-      expect(recycled.id).to eq(agents[0].id)
-      expect(recycled.name).to eq("Claude Code #1")
+      expect(service.resolve_agent.name).to eq("Claude Code #2")
     end
   end
 
@@ -420,6 +463,244 @@ RSpec.describe Ai::McpClientIdentityService do
       session.reload
       expect(session.ai_agent_id).to eq(agent.id)
       expect(session.display_name).to eq(agent.name)
+    end
+  end
+
+  # ===========================================================================
+  # Duplicate identities — report, and merge only on explicit confirm
+  # ===========================================================================
+  describe "duplicate agent cleanup" do
+    let(:metadata) do
+      { "oauth_application_id" => oauth_app.id, "oauth_application_name" => "Claude Code",
+        "created_by_user_id" => user.id }
+    end
+
+    def legacy_agent(number, **attrs)
+      create(:ai_agent, :mcp_client, account: account, creator: user, provider: provider,
+                                     name: "Claude Code ##{number}", mcp_metadata: metadata, **attrs)
+    end
+
+    let!(:keeper) { legacy_agent(1) }
+    let!(:duplicates) { (2..6).map { |n| legacy_agent(n) } }
+
+    describe ".duplicate_agents_report" do
+      it "reports count, the first 3 and the last 1 duplicates without deleting anything" do
+        report = described_class.duplicate_agents_report(account: account)
+
+        expect(report[:count]).to eq(5)
+        expect(report[:first].map { |d| d[:name] }).to eq([ "Claude Code #2", "Claude Code #3", "Claude Code #4" ])
+        expect(report[:last][:name]).to eq("Claude Code #6")
+        expect(report[:groups].first).to include(client_name: "Claude Code", user_id: user.id)
+        expect(report[:groups].first[:keeper]).to include(id: keeper.id, name: "Claude Code #1")
+        expect(Ai::Agent.where(id: duplicates.map(&:id)).count).to eq(5)
+      end
+
+      it "counts, per duplicate, every row a merge would drop" do
+        dup = duplicates.first
+        create(:ai_agent_short_term_memory, agent: dup, account: account)
+        create(:ai_agent_skill, agent: dup)
+        create(:ai_agent_budget, agent: dup, account: account)
+        create(:ai_agent_trust_score, agent: dup, account: account)
+        create(:ai_guardrail_config, account: account, agent: dup)
+
+        report = described_class.duplicate_agents_report(account: account)
+        dropped = report[:groups].first[:duplicates].find { |d| d[:id] == dup.id }[:drops]
+
+        # Keyed "table.column"; only non-zero counts are listed.
+        expect(dropped).to eq(
+          "ai_agent_short_term_memories.agent_id" => 1, "ai_agent_skills.ai_agent_id" => 1,
+          "ai_agent_budgets.agent_id" => 1, "ai_agent_trust_scores.agent_id" => 1,
+          "ai_guardrail_configs.ai_agent_id" => 1
+        )
+        expect(report[:first].first[:drops]).to eq(dropped)
+      end
+
+      it "groups by user, so one identity per user is not a duplicate" do
+        other_user = create(:user, account: account)
+        create(:ai_agent, :mcp_client, account: account, creator: other_user, provider: provider,
+                                       name: "Claude Code #7",
+                                       mcp_metadata: metadata.merge("created_by_user_id" => other_user.id))
+
+        report = described_class.duplicate_agents_report(account: account)
+
+        expect(report[:count]).to eq(5)
+        expect(report[:groups].size).to eq(1)
+      end
+
+      it "lists a duplicate with a live session as skipped, not removable" do
+        McpSession.create!(user: user, account: account, ai_agent_id: duplicates.last.id,
+                           status: "active", expires_at: 24.hours.from_now)
+
+        report = described_class.duplicate_agents_report(account: account)
+
+        expect(report[:count]).to eq(4)
+        expect(report[:skipped]).to contain_exactly(include(id: duplicates.last.id, reason: "live_session"))
+      end
+
+      it "lists a duplicate in a manually configured team as skipped" do
+        team = create(:ai_agent_team, account: account)
+        build(:ai_agent_team_member, team: team, agent: duplicates.first).save!(validate: false)
+
+        report = described_class.duplicate_agents_report(account: account)
+
+        expect(report[:skipped]).to contain_exactly(include(id: duplicates.first.id, reason: "manual_team"))
+      end
+    end
+
+    describe ".merge_duplicate_agents!" do
+      it "changes nothing without confirm" do
+        result = described_class.merge_duplicate_agents!(confirm: false, account: account)
+
+        expect(result[:dry_run]).to be(true)
+        expect(result[:merged]).to eq(0)
+        expect(Ai::Agent.where(id: duplicates.map(&:id)).count).to eq(5)
+      end
+
+      it "merges duplicates into the keeper on confirm, keeping their attribution" do
+        dup = duplicates.first
+        execution = create(:ai_agent_execution, account: account, agent: dup, user: user, provider: provider)
+        conversation = create(:ai_conversation, account: account, agent: dup)
+        message = create(:ai_message, conversation: conversation, agent: dup, role: "assistant")
+        expired = McpSession.create!(user: user, account: account, ai_agent_id: dup.id, status: "expired")
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(result[:dry_run]).to be(false)
+        expect(result[:merged]).to eq(5)
+        expect(Ai::Agent.where(id: duplicates.map(&:id))).to be_empty
+        expect(keeper.reload).to be_active
+        expect(execution.reload.ai_agent_id).to eq(keeper.id)
+        expect(conversation.reload.ai_agent_id).to eq(keeper.id)
+        expect(message.reload.ai_agent_id).to eq(keeper.id)
+        expect(expired.reload).to have_attributes(ai_agent_id: keeper.id, display_name: keeper.name)
+      end
+
+      it "rolls back a failed merge, reports it, and leaves the keeper intact" do
+        dup = duplicates.first
+        execution = create(:ai_agent_execution, account: account, agent: dup, user: user, provider: provider)
+        allow_any_instance_of(Ai::Agent).to receive(:destroy!).and_raise(ActiveRecord::RecordNotDestroyed, "blocked")
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(result[:merged]).to eq(0)
+        expect(result[:errors].map { |e| e[:id] }).to match_array(duplicates.map(&:id))
+        expect(result[:errors].first[:error]).to include("blocked")
+        expect(keeper.reload).to be_active
+        expect(Ai::Agent.where(id: duplicates.map(&:id)).count).to eq(5)
+        expect(execution.reload.ai_agent_id).to eq(dup.id)
+      end
+
+      it "hands a duplicate's memory pools to the keeper when the keeper has none" do
+        pool = create(:ai_memory_pool, account: account, pool_type: "agent_private", owner_agent_id: duplicates.first.id,
+                                       data: { "note" => "from dup" })
+
+        described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(pool.reload.owner_agent_id).to eq(keeper.id)
+        expect(Ai::MemoryPool.agent_private.for_agent(keeper.id).active.first).to eq(pool)
+      end
+
+      it "folds a duplicate's private pool into the keeper's own (keeper keys win) and retires it" do
+        keeper_pool = create(:ai_memory_pool, account: account, pool_type: "agent_private", owner_agent_id: keeper.id,
+                                              data: { "shared" => "keeper", "mine" => 1 })
+        dup_pool = create(:ai_memory_pool, account: account, pool_type: "agent_private",
+                                           owner_agent_id: duplicates.first.id,
+                                           data: { "shared" => "dup", "theirs" => 2 })
+
+        described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(keeper_pool.reload.data).to eq("shared" => "keeper", "mine" => 1, "theirs" => 2)
+        expect(dup_pool.reload).to have_attributes(owner_agent_id: keeper.id)
+        expect(dup_pool).to be_expired
+        expect(Ai::MemoryPool.agent_private.for_agent(keeper.id).active).to contain_exactly(keeper_pool)
+      end
+
+      it "repoints the duplicate's work history to the keeper" do
+        dup = duplicates.first
+        shadow = create(:ai_shadow_execution, account: account, agent: dup)
+        evaluation = create(:ai_evaluation_result, account: account, agent: dup)
+        worktree = create(:ai_worktree, account: account, ai_agent: dup)
+        role = create(:ai_team_role, account: account, ai_agent: dup)
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(result[:errors]).to be_empty
+        expect(shadow.reload.agent_id).to eq(keeper.id)
+        expect(evaluation.reload.agent_id).to eq(keeper.id)
+        expect(worktree.reload.ai_agent_id).to eq(keeper.id)
+        expect(role.reload.ai_agent_id).to eq(keeper.id)
+      end
+
+      it "collapses lineages onto the keeper without self-lineage or duplicate pairs" do
+        dup = duplicates.first
+        other = create(:ai_agent, account: account)
+        sibling = create(:ai_agent, account: account)
+        create(:ai_agent_lineage, account: account, parent_agent: keeper, child_agent: dup)   # becomes self
+        create(:ai_agent_lineage, account: account, parent_agent: keeper, child_agent: other) # already there
+        create(:ai_agent_lineage, account: account, parent_agent: dup, child_agent: other)    # would duplicate
+        moved = create(:ai_agent_lineage, account: account, parent_agent: dup, child_agent: sibling)
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(result[:errors]).to be_empty
+        pairs = Ai::AgentLineage.where(parent_agent_id: keeper.id).pluck(:child_agent_id)
+        expect(pairs).to contain_exactly(other.id, sibling.id)
+        expect(moved.reload.parent_agent_id).to eq(keeper.id)
+        expect(Ai::AgentLineage.where("parent_agent_id = child_agent_id")).to be_empty
+      end
+
+      it "moves workspace memberships to the keeper without duplicating them" do
+        shared = create(:ai_agent_team, :workspace, account: account)
+        shared.add_member(agent: keeper, role: "executor")
+        shared.add_member(agent: duplicates.first, role: "executor")
+        only_dup = create(:ai_agent_team, :workspace, account: account)
+        only_dup.add_member(agent: duplicates.second, role: "executor")
+
+        described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(shared.members.where(ai_agent_id: keeper.id).count).to eq(1)
+        expect(only_dup.members.where(ai_agent_id: keeper.id)).to exist
+      end
+
+      it "leaves skipped duplicates in place" do
+        live = duplicates.last
+        McpSession.create!(user: user, account: account, ai_agent_id: live.id,
+                           status: "active", expires_at: 24.hours.from_now)
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(result[:merged]).to eq(4)
+        expect(live.reload).to be_persisted
+      end
+
+      it "treats a duplicate whose session has gone idle as orphaned" do
+        idle = duplicates.last
+        session = McpSession.create!(user: user, account: account, ai_agent_id: idle.id,
+                                     status: "active", expires_at: 24.hours.from_now)
+        session.update_columns(last_activity_at: (McpSession.idle_timeout + 1.minute).ago)
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(result[:merged]).to eq(5)
+        expect(session.reload.ai_agent_id).to eq(keeper.id)
+      end
+    end
+  end
+
+  # ===========================================================================
+  # Every FK to ai_agents must have a merge rule (review: silent cascades/RESTRICTs)
+  # ===========================================================================
+  describe "merge foreign-key coverage" do
+    it "classifies every foreign key that references ai_agents" do
+      connection = ActiveRecord::Base.connection
+      db_fks = connection.tables.flat_map do |table|
+        connection.foreign_keys(table).select { |fk| fk.to_table == "ai_agents" }.map { |fk| [ table, fk.column ] }
+      end
+
+      expect(db_fks).not_to be_empty
+      unclassified = db_fks.uniq - described_class.classified_agent_fks
+      expect(unclassified).to be_empty,
+                              "FKs to ai_agents with no merge rule (repoint, delete or drop): #{unclassified.inspect}"
     end
   end
 end

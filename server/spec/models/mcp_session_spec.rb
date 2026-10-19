@@ -205,6 +205,67 @@ RSpec.describe McpSession, type: :model do
   end
 
   # ===========================================================================
+  # Idle expiry — a session nobody uses stops counting as live (finding #25)
+  # ===========================================================================
+  describe "idle expiry" do
+    def idle_session(idle_for)
+      McpSession.create!(user: user, account: account).tap do |s|
+        s.update_columns(last_activity_at: idle_for.ago)
+      end
+    end
+
+    describe ".idle_timeout" do
+      it "defaults to DEFAULT_IDLE_TIMEOUT" do
+        expect(McpSession.idle_timeout).to eq(McpSession::DEFAULT_IDLE_TIMEOUT)
+        expect(McpSession::DEFAULT_IDLE_TIMEOUT).to eq(60.minutes)
+      end
+
+      it "reads the window in minutes from the site setting" do
+        SiteSetting.set(McpSession::IDLE_TIMEOUT_SETTING, "15", setting_type: "integer")
+        expect(McpSession.idle_timeout).to eq(15.minutes)
+      end
+
+      it "falls back to the default for a non-positive setting" do
+        SiteSetting.set(McpSession::IDLE_TIMEOUT_SETTING, "0", setting_type: "integer")
+        expect(McpSession.idle_timeout).to eq(McpSession::DEFAULT_IDLE_TIMEOUT)
+      end
+    end
+
+    describe ".idle / .live" do
+      it "splits active sessions by last activity against the idle window" do
+        fresh = idle_session(5.minutes)
+        stale = idle_session(61.minutes)
+        revoked = idle_session(2.hours).tap { |s| s.update_columns(status: "revoked") }
+
+        expect(McpSession.idle).to contain_exactly(stale)
+        expect(McpSession.live).to contain_exactly(fresh)
+      end
+    end
+
+    describe ".expire_idle!" do
+      it "expires idle active sessions, leaves fresh ones, and returns the count" do
+        fresh = idle_session(5.minutes)
+        stale = idle_session(61.minutes)
+
+        expect(McpSession.expire_idle!).to eq(1)
+        expect(stale.reload.status).to eq("expired")
+        expect(fresh.reload.status).to eq("active")
+      end
+
+      it "only touches the given scope" do
+        other = idle_session(2.hours)
+        mine = McpSession.create!(user: create(:user, account: account), account: account)
+        mine.update_columns(last_activity_at: 2.hours.ago)
+
+        McpSession.expire_idle!(McpSession.where(user_id: mine.user_id))
+
+        expect(mine.reload.status).to eq("expired")
+        expect(other.reload.status).to eq("active")
+      end
+    end
+  end
+
+  # ===========================================================================
   # Instance Methods
   # ===========================================================================
   describe "#revoke!" do
@@ -218,6 +279,17 @@ RSpec.describe McpSession, type: :model do
         session.revoke!
         expect(session.reload.revoked_at).to be_within(2.seconds).of(Time.current)
       end
+    end
+  end
+
+  describe "#revoke! on an ended session" do
+    it "leaves an idle-swept (expired) session expired and not reactivatable" do
+      session.update_columns(status: "expired")
+
+      session.revoke!
+
+      expect(session.reload.status).to eq("expired")
+      expect(session).not_to be_reactivatable
     end
   end
 
@@ -400,6 +472,32 @@ RSpec.describe McpSession, type: :model do
       mcp_session = McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
 
       mcp_session.touch_activity!
+      expect(agent.reload.status).to eq("active")
+    end
+  end
+
+  # ===========================================================================
+  # cleanup_orphaned_agents! — archives, never destroys (agents persist across
+  # sessions; find_existing_agent reactivates them on reconnect)
+  # ===========================================================================
+  describe ".cleanup_orphaned_agents!" do
+    let(:agent) { create(:ai_agent, :mcp_client, account: account, creator: user) }
+
+    it "archives an MCP client agent with no live session, keeping its id and history" do
+      execution = create(:ai_agent_execution, account: account, agent: agent, user: user)
+      McpSession.create!(user: user, account: account, ai_agent_id: agent.id, status: "expired")
+
+      McpSession.cleanup_orphaned_agents!
+
+      expect(agent.reload.status).to eq("archived")
+      expect(execution.reload.ai_agent_id).to eq(agent.id)
+    end
+
+    it "leaves an agent with an active session alone" do
+      McpSession.create!(user: user, account: account, ai_agent_id: agent.id)
+
+      McpSession.cleanup_orphaned_agents!
+
       expect(agent.reload.status).to eq("active")
     end
   end

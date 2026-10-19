@@ -327,6 +327,103 @@ RSpec.describe "MCP Streamable HTTP", type: :request do
       expect(session.expires_at).to be > Time.current
       expect(session.expires_at).to be <= 25.hours.from_now
     end
+
+    # Finding #25: a client that initializes per call and never DELETEs left
+    # every session active, and each one minted a new "<client> #N" agent.
+    context "when a client initializes repeatedly without closing sessions" do
+      let!(:provider) { create(:ai_provider, account: account, is_active: true) }
+
+      def initialize_session
+        post mcp_endpoint,
+             params: jsonrpc_request(method: "initialize", params: {
+               "protocolVersion" => "2025-11-25", "clientInfo" => { "name" => "headersHelper", "version" => "1" }
+             }),
+             headers: headers
+        McpSession.find_by!(session_token: response.headers["Mcp-Session-Id"])
+      end
+
+      it "binds every session to one stable agent" do
+        sessions = Array.new(4) { initialize_session }
+
+        expect(sessions.map(&:ai_agent_id).uniq.size).to eq(1)
+        expect(account.ai_agents.where(agent_type: "mcp_client").count).to eq(1)
+      end
+
+      it "answers 404 to a POST carrying a session id that was swept to expired" do
+        expired = initialize_session
+        live = initialize_session
+        expired.update_columns(status: "expired")
+        live_activity = live.reload.last_activity_at
+
+        post mcp_endpoint, params: jsonrpc_request(method: "ping"),
+                           headers: headers.merge("Mcp-Session-Id" => expired.session_token)
+
+        expect(response).to have_http_status(:not_found)
+        expect(json_response["error"]["message"]).to match(/session.*(expired|re-initialize)/i)
+        expect(live.reload.last_activity_at).to eq(live_activity)
+      end
+
+      it "still lets the client re-initialize while sending its expired session id" do
+        expired = initialize_session
+        expired.update_columns(status: "expired")
+
+        post mcp_endpoint,
+             params: jsonrpc_request(method: "initialize", params: { "protocolVersion" => "2025-11-25" }),
+             headers: headers.merge("Mcp-Session-Id" => expired.session_token)
+
+        expect(response).to have_http_status(:ok)
+        expect(response.headers["Mcp-Session-Id"]).to be_present
+        expect(response.headers["Mcp-Session-Id"]).not_to eq(expired.session_token)
+      end
+
+      it "answers 404 to an SSE GET carrying a session id that was swept to expired" do
+        expired = initialize_session
+        expired.update_columns(status: "expired")
+
+        get mcp_endpoint, headers: headers.merge("Mcp-Session-Id" => expired.session_token,
+                                                 "Accept" => "text/event-stream")
+
+        expect(response).to have_http_status(:not_found)
+        expect(JSON.parse(response.body)["error_code"]).to eq("session_invalid")
+      end
+
+      it "keeps session/discover reachable under an ended session id and does not list idle sessions" do
+        expired = initialize_session
+        idle = initialize_session
+        live = initialize_session
+        expired.update_columns(status: "expired")
+        idle.update_columns(last_activity_at: (McpSession.idle_timeout + 1.minute).ago)
+
+        post mcp_endpoint, params: jsonrpc_request(method: "session/discover"),
+                           headers: headers.merge("Mcp-Session-Id" => expired.session_token)
+
+        expect(response).to have_http_status(:ok)
+        tokens = json_response.dig("result", "sessions").map { |s| s["session_token"] }
+        expect(tokens).to include(live.session_token)
+        expect(tokens).not_to include(idle.session_token, expired.session_token)
+      end
+
+      it "does not revive an idle session on a header-less POST" do
+        idle = initialize_session
+        stale_at = (McpSession.idle_timeout + 1.minute).ago
+        idle.update_columns(last_activity_at: stale_at)
+
+        post mcp_endpoint, params: jsonrpc_request(method: "ping"), headers: headers
+
+        expect(response).to have_http_status(:ok)
+        expect(idle.reload.last_activity_at).to be_within(1.second).of(stale_at)
+        expect(McpSession.idle).to include(idle)
+      end
+
+      it "expires the caller's idle sessions on initialize" do
+        idle = initialize_session
+        idle.update_columns(last_activity_at: (McpSession.idle_timeout + 1.minute).ago)
+
+        initialize_session
+
+        expect(idle.reload.status).to eq("expired")
+      end
+    end
   end
 
   # ===========================================================================

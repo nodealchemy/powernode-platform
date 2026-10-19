@@ -749,6 +749,55 @@ RSpec.describe 'Api::V1::Internal::Maintenance', type: :request do
         expect(Doorkeeper::AccessToken.exists?(old_revoked.id)).to be(false)
         expect(Doorkeeper::AccessToken.exists?(recent_revoked.id)).to be(true)
       end
+
+      # Review B1: the idle sweep must never feed an agent into a destroy path.
+      it 'keeps an MCP client agent whose only session was idle-expired, under the same id' do
+        mcp_user = create(:user)
+        mcp_account = mcp_user.account
+        agent = create(:ai_agent, :mcp_client, account: mcp_account, creator: mcp_user)
+        execution = create(:ai_agent_execution, account: mcp_account, agent: agent, user: mcp_user)
+        idle = McpSession.create!(user: mcp_user, account: mcp_account, ai_agent_id: agent.id)
+        idle.update_columns(last_activity_at: (McpSession.idle_timeout + 1.minute).ago)
+        # An old expired row makes cleanup_expired! delete > 0 and run cleanup_orphaned_agents!.
+        old = McpSession.create!(user: mcp_user, account: mcp_account, status: 'expired')
+        old.update_columns(expires_at: 3.days.ago)
+
+        post '/api/v1/internal/maintenance/cleanup_auth_artifacts',
+             headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(idle.reload.status).to eq('expired')
+        expect(Ai::Agent.find_by(id: agent.id)).to be_present
+        expect(execution.reload.ai_agent_id).to eq(agent.id)
+      end
+
+      it 'does not archive an orphaned MCP client agent that sits in a manually configured team' do
+        mcp_user = create(:user)
+        agent = create(:ai_agent, :mcp_client, account: mcp_user.account, creator: mcp_user)
+        team = create(:ai_agent_team, account: mcp_user.account)
+        build(:ai_agent_team_member, team: team, agent: agent).save!(validate: false)
+
+        post '/api/v1/internal/maintenance/cleanup_auth_artifacts',
+             headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(agent.reload.status).to eq('active')
+      end
+
+      it 'expires MCP sessions idle past the idle window' do
+        mcp_user = create(:user)
+        idle = McpSession.create!(user: mcp_user, account: mcp_user.account)
+        idle.update_columns(last_activity_at: (McpSession.idle_timeout + 1.minute).ago)
+        fresh = McpSession.create!(user: mcp_user, account: mcp_user.account)
+
+        post '/api/v1/internal/maintenance/cleanup_auth_artifacts',
+             headers: internal_headers, as: :json
+
+        expect_success_response
+        expect(idle.reload.status).to eq('expired')
+        expect(fresh.reload.status).to eq('active')
+        expect(json_response['data']['results']['sessions_idle_expired']).to eq(1)
+      end
     end
 
     context 'without authentication' do
