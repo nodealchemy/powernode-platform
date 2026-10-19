@@ -120,6 +120,14 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     expect(described_class::DENIED_ACTIONS - registered).to be_empty
   end
 
+  it "names only verbs of the platform's own bootstrap floor (each one registered)" do
+    floor = Ai::ClaudeExport::ToolAllowlist::BOOTSTRAP_ACTIONS
+    registered = Ai::Tools::PlatformApiToolRegistry.all_tools.keys.map(&:to_s)
+
+    expect(described_class::BOOTSTRAP_ACTIONS - floor).to be_empty
+    expect(described_class::BOOTSTRAP_ACTIONS - registered).to be_empty
+  end
+
   it "refuses a slug outside the roster" do
     expect { described_class.render("platform-developer") }.to raise_error(KeyError)
   end
@@ -153,8 +161,7 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     end
 
     it "is unchanged when a tool is registered" do
-      tools = Ai::Tools::PlatformApiToolRegistry.all_tools.merge("discover_tools" => "Ai::Tools::ToolCatalogTool",
-                                                                 "brand_new_verb" => "Ai::Tools::ToolCatalogTool")
+      tools = Ai::Tools::PlatformApiToolRegistry.all_tools.merge("brand_new_verb" => "Ai::Tools::ToolCatalogTool")
       allow(Ai::Tools::PlatformApiToolRegistry).to receive(:all_tools).and_return(tools)
 
       expect(rerendered).to eq(baseline)

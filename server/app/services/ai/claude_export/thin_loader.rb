@@ -45,9 +45,9 @@ module Ai
       CODE_BUILTINS = ToolAllowlist::CODE_BUILTINS
 
       # The progressive-disclosure floor. Named here, never derived from the
-      # registry, so a newly registered verb cannot change a committed file;
-      # `discover_tools` (C3) resolves once it is registered and is ignored by
-      # Claude Code until then.
+      # registry, so a newly registered verb cannot change a committed file.
+      # thin_loader_spec holds it to a subset of the platform's own bootstrap
+      # floor (ToolAllowlist::BOOTSTRAP_ACTIONS).
       BOOTSTRAP_ACTIONS = %w[
         get_agent discover_skills get_skill_context describe_tool discover_tools
         search_knowledge query_learnings route_task record_agent_execution
@@ -158,7 +158,7 @@ module Ai
           "2. Skills: call `#{MCP_PREFIX}discover_skills` with your task, then `get_skill_context` (`agent_id` from " \
             "step 1, mode \"manifest\") for the skills you pick; `search_knowledge` (tag `guidance-*`) and " \
             "`query_learnings` give the area's rules.",
-          "3. Tools: load only the verbs those skills name or `#{MCP_PREFIX}discover_tools` returns (when it is registered), and " \
+          "3. Tools: load only the verbs those skills name or `#{MCP_PREFIX}discover_tools` returns, and " \
             "`describe_tool` each before its first call. Never load the whole catalog.",
           "4. Work: the delegating prompt defines the task and what to return. #{role[:duty]} Hand anything " \
             "outside your charter back through `route_task`.",
