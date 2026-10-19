@@ -245,8 +245,14 @@ module Ai
       # pre-commit. Handing it to the one-shot slot is what makes "exactly
       # once" survive deferral — zero reveals, not one, is what redaction
       # alone would produce there.
-      @revealed_result = result_data
-      complete!(::Ai::SensitiveParams.filter(result_data || {}))
+      #
+      # Only a result that HOLDS secret material is revealed: the filter masking
+      # something is the same test that keeps it out of :result. A plain return
+      # (a policy write, a terminate) has nothing to show once, and revealing it
+      # sent every approver through a "shown once — save it now" modal.
+      filtered = ::Ai::SensitiveParams.filter(result_data || {})
+      @revealed_result = result_data if filtered != (result_data || {})
+      complete!(filtered)
       result_data
     rescue StandardError => e
       Rails.logger.error("[DeferredOperation##{id}] execute_now! failed: #{e.class}: #{e.message}")

@@ -154,6 +154,49 @@ RSpec.describe 'Approval decisions reveal a minted secret exactly once', type: :
     end
   end
 
+  # The slot is for MINTED material. An executor whose return holds no
+  # secret-named key (an intervention-policy write, a terminate, a delete) must
+  # not send the approver through a "shown once — save it now" modal.
+  describe 'an approved operation whose result holds no secret' do
+    before do
+      enable_governance.call
+      stub_const('PlainSpecExecutor', Class.new do
+        def self.execute(_params, deferred_operation:)
+          { policy_id: 'policy-7', action_category: 'test.minting_action', created: true }
+        end
+
+        def self.preview(_params, deferred_operation: nil)
+          { summary: 'Create an intervention policy' }
+        end
+      end)
+    end
+
+    let!(:gate_result) do
+      ::Ai::AutonomyGate.evaluate(
+        action_category: 'test.minting_action',
+        executor_class: 'PlainSpecExecutor',
+        params: { attributes: { name: 'plain' } },
+        account: account,
+        requested_by: approver,
+        description: 'Create an intervention policy'
+      )
+    end
+
+    it 'reveals nothing in the approval response' do
+      approve_via_rest!
+
+      expect(response).to have_http_status(:ok)
+      expect(json_response_data['revealed_result']).to be_blank
+    end
+
+    it 'still runs the executor and records its result' do
+      approve_via_rest!
+
+      expect(deferred.reload.status).to eq('completed')
+      expect(deferred.result).to include('policy_id' => 'policy-7')
+    end
+  end
+
   describe 'POST /api/v1/ai/autonomy/approvals/:id/reject' do
     before { enable_governance.call }
 
