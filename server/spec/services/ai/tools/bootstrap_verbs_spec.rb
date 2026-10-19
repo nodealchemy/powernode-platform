@@ -59,6 +59,12 @@ RSpec.describe Ai::Tools::BootstrapVerbs do
     )
   end
 
+  # C3-3: the tier-1 tool lookup of the progressive-disclosure protocol, so an
+  # agent scoped to a few families can still find a verb outside them by intent.
+  it "carries discover_tools, so a scoped agent can find a verb it was not listed" do
+    expect(described_class::ACTIONS).to include("discover_tools")
+  end
+
   it "keeps the exporter's original bootstrap verb, so a Claude Code skeleton can still fetch its own prompt" do
     expect(described_class::ACTIONS).to include("get_agent")
   end

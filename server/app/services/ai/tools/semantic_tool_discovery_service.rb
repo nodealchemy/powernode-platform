@@ -13,13 +13,14 @@ module Ai
       end
 
       # Discover tools by natural language query
-      # Returns ranked list of tool definitions with relevance scores
+      # Returns ranked list of tool definitions with relevance scores.
+      # `limit: nil` returns the whole ranking, for a caller that filters after.
       def discover(query:, capabilities: nil, limit: MAX_RESULTS)
         candidates = collect_all_tools
         candidates = filter_by_capabilities(candidates, capabilities) if capabilities.present?
 
         ranked = rank_by_relevance(query, candidates)
-        ranked.first(limit)
+        limit ? ranked.first(limit) : ranked
       end
 
       # Index all available tools (called by worker job)

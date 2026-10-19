@@ -25,6 +25,8 @@ module Ai
     # route_task is in the set for the same reason the others are: it is the
     # MCP face of Ai::Routing::AgentRouterService, the one router both the
     # Concierge and a Claude Code skeleton delegate through.
+    # discover_tools (C3-3) is how an agent scoped to a few families finds a
+    # verb outside them by intent; describe_tool then loads that verb's schema.
     #
     # READ-ONLY BY CONTRACT. Every entry must be declared `mutating: false`
     # under the name that actually dispatches (McpPlatformToolRegistrar::
@@ -43,6 +45,7 @@ module Ai
         search_knowledge
         query_learnings
         code_semantic_search
+        discover_tools
         describe_tool
         route_task
       ].freeze

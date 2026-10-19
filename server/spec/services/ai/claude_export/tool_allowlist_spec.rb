@@ -94,13 +94,14 @@ RSpec.describe Ai::ClaudeExport::ToolAllowlist do
     # what a DISABLED agent still gets, not a silent one. HIER-P2H took it from
     # three verbs to nine; every one is declared `mutating: false`
     # (bootstrap_verbs_spec) except record_agent_execution, which writes only
-    # this run's own history row.
+    # this run's own history row. C3-3 added discover_tools, declared
+    # `mutating: false` like the rest.
     it "keeps only the bootstrap verbs when platform tools are disabled for the agent" do
       actions = mcp_actions(described_class.for(agent_with(tool_access: { "enabled" => false })))
 
       expect(actions).to contain_exactly(
         "get_agent", "discover_skills", "get_skill_context", "search_knowledge",
-        "query_learnings", "code_semantic_search", "describe_tool", "route_task",
+        "query_learnings", "code_semantic_search", "discover_tools", "describe_tool", "route_task",
         "record_agent_execution"
       )
       expect(actions).to match_array(described_class::BOOTSTRAP_ACTIONS)

@@ -474,6 +474,8 @@ module Ai
         # Tool catalog detail (IMP-7e84ae0ccc91): tools/list is one line per
         # tool; this returns the full entry on demand.
         "describe_tool" => "Ai::Tools::ToolCatalogTool",
+        # C3-3: find a verb by intent; describe_tool then loads its schema.
+        "discover_tools" => "Ai::Tools::ToolDiscoveryTool",
         # Ralph Loop management (autonomous agent duty cycles)
         "list_ralph_loops" => "Ai::Tools::RalphLoopTool",
         "get_ralph_loop" => "Ai::Tools::RalphLoopTool",
