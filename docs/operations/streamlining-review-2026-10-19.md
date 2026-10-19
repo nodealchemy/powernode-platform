@@ -338,11 +338,16 @@ workflow runs `scripts/validate.sh` or specs on `pull_request`), and no branch p
 ### Sequencing
 
 ```
+C13 (action pinning) ──► C9 (first in the dev-loop drain)
 C8 (triage) ──┐
 C1, C2, C9 ───┼──► C3 ──► C4 ──► C7
               │     └────► C5 ──► C6 (catalog + agent docs)
 C6 (1–5) can start at once; C6-6 waits for C4/C5.
 ```
+
+C13 leads the queue (operator, 2026-10-19): the C4 survivors run unattended with the whole-server grant, and
+until a session caller's `action:` is pinned to the invoked tool name their `disallowedTools` list can be
+bypassed through a sibling verb of the same tool class.
 
 ## 8. Filed proposals
 
@@ -363,6 +368,9 @@ from §7.
 | `01a15479-b693-78ac-9e32-c13286a2952c` | C8 Backlog hygiene (operator triage) | — |
 | `01a15479-ebfb-73d8-b3ec-65da99b29840` | C9 Fleet safety: `/.well-known`, hub TLS SANs, reaper (#14–#16) | — |
 | `01a1548d-7c63-7905-83a4-7fabe41b50cc` | C10 PR-based landing for dev-loop and campaign increments | #24 |
+| `01a154d2-ba1c-7688-a175-26c7c08b96cd` | C11 Consolidated Inbox (approvals, proposals, escalations, tasks) | — |
+| `01a15530-2e0c-70d6-b4da-3b3feb683b88` | C12 Agent session bridge (runner replaces the SSE/tmux daemon) | C4-4, C11 |
+| `01a15538-bc4a-7a4f-ae8f-603f3f286712` | C13 Pin MCP tool action to the invoked name for session callers; gate the 58 ungated destroy-shaped verbs | — (precedes C9) |
 
 The 22 `[fresh-install #N]` agent proposals remain as filed; each is referenced by number from C1, C2, C6 or
 C9 and none was duplicated.
