@@ -56,9 +56,15 @@ class WorkerCertManager
   # client side has nothing to chain to. Client cert is still presented;
   # the platform still verifies it. Production should leave this unset
   # (defaults to verify: true).
+  #
+  # In development with no cert on disk (a plain dev host rather than a
+  # dev-cell, which gets agent-provisioned PKI), no client cert is presented:
+  # the worker authenticates via the dev synthetic cert-info header
+  # (DevMtlsHeader). Outside development a missing cert still raises.
   def ssl_options
     return { verify: false } if test_env? && !File.exist?(@cert_path)
     verify_flag = ENV.fetch("WORKER_TLS_VERIFY", "true") != "false"
+    return { verify: verify_flag } if development_env? && !File.exist?(@cert_path)
     {
       client_cert: OpenSSL::X509::Certificate.new(File.read(@cert_path)),
       client_key:  OpenSSL::PKey.read(File.read(@key_path)),
@@ -86,5 +92,13 @@ class WorkerCertManager
   def test_env?
     (defined?(::Rails) && ::Rails.respond_to?(:env) && ::Rails.env.test?) ||
       ENV['RAILS_ENV'] == 'test'
+  end
+
+  # Same gate BackendApiClient#development_env? uses for the dev header, so the
+  # cert is optional exactly where the header replaces it.
+  def development_env?
+    ENV['WORKER_ENV'] == 'development' ||
+      ENV['RAILS_ENV'] == 'development' ||
+      (!ENV['WORKER_ENV'] && !ENV['RAILS_ENV'])
   end
 end

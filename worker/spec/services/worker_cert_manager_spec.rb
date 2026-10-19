@@ -66,6 +66,40 @@ RSpec.describe WorkerCertManager do
       # dir is empty (no node.crt); RAILS_ENV=test
       expect(described_class.new(dir: dir).ssl_options).to eq({ verify: false })
     end
+
+    context 'outside the test env' do
+      # A plain dev host (not a dev-cell) has no agent-provisioned PKI; the
+      # worker authenticates through the dev synthetic cert-info header
+      # (DevMtlsHeader), so a missing cert must not crash it. Outside
+      # development the cert stays mandatory (fail closed).
+      around do |example|
+        saved = ENV.to_h.slice('WORKER_ENV', 'RAILS_ENV')
+        example.run
+      ensure
+        %w[WORKER_ENV RAILS_ENV].each { |k| saved.key?(k) ? ENV[k] = saved[k] : ENV.delete(k) }
+      end
+
+      let(:mgr) { described_class.new(dir: dir) }
+
+      before { allow(mgr).to receive(:test_env?).and_return(false) }
+
+      it 'presents no client cert in development when none is on disk' do
+        ENV['WORKER_ENV'] = 'development'
+        expect(mgr.ssl_options).to eq({ verify: true })
+      end
+
+      it 'still presents the on-disk cert in development when one exists' do
+        ENV['WORKER_ENV'] = 'development'
+        write_cert(dir)
+        expect(mgr.ssl_options[:client_cert]).to be_a(OpenSSL::X509::Certificate)
+      end
+
+      it 'fails closed outside development when no cert is on disk' do
+        ENV['WORKER_ENV'] = 'production'
+        ENV['RAILS_ENV'] = 'production'
+        expect { mgr.ssl_options }.to raise_error(Errno::ENOENT)
+      end
+    end
   end
 
   describe '#common_name / #not_after' do
