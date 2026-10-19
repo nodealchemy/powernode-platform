@@ -2,7 +2,7 @@
 # bootstrap-remotes.sh — enforce the git remote convention on a dev-cell checkout.
 #
 # Convention (mirrors the maintainer dev box):
-#   core (.) + extensions/system : origin = Gitea (git.powernode.net), github = GitHub mirror
+#   core (.) + extensions/system : origin = the private Gitea, github = GitHub mirror
 #   extensions/private/*         : Gitea ONLY — a github remote here is a leak and fails loudly
 #
 # dev-cell-clone.sh creates single-`origin` clones from Gitea; this script adds the
@@ -11,10 +11,21 @@
 # operator to add this host's SSH public key to the GitHub account themselves.
 #
 # Usage: bootstrap-remotes.sh [checkout-base]   (default: ~/work)
+#
+# The Gitea host is deployment configuration, never hard-coded: $POWERNODE_GITEA_HOST
+# when set, else the host of the core checkout's `origin` (dev-cell-clone clones
+# core from Gitea, so that origin IS the Gitea upstream).
 set -euo pipefail
 
 BASE="${1:-${HOME}/work}"
-GITEA_HOST="git.powernode.net"
+# host of a git URL: scp-style user@host:path, or scheme://[user@]host[:port]/path
+url_host() {
+    local u="$1"
+    u="${u#*://}"; u="${u#*@}"
+    u="${u%%/*}"; u="${u%%:*}"
+    printf '%s' "$u"
+}
+GITEA_HOST="${POWERNODE_GITEA_HOST:-$(url_host "$(git -C "${BASE}" remote get-url origin 2>/dev/null || true)")}"
 GITHUB_REMOTE_BASE="git@github.com:nodealchemy"
 
 declare -A MIRRORS=(
@@ -23,6 +34,11 @@ declare -A MIRRORS=(
 )
 
 fail() { echo "ERROR: $*" >&2; exit 1; }
+
+[[ -n "${GITEA_HOST}" ]] \
+    || fail "cannot determine the Gitea host: set POWERNODE_GITEA_HOST or clone core from Gitea into ${BASE}"
+[[ "${GITEA_HOST}" != "github.com" ]] \
+    || fail "${BASE}: origin is GitHub, not the Gitea upstream (set POWERNODE_GITEA_HOST to override)"
 
 for path in "${!MIRRORS[@]}"; do
     repo="${BASE}/${path}"
