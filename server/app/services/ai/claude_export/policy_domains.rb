@@ -10,8 +10,10 @@ module Ai
     # owns the categories (the system extension's autonomy domain pivot); core
     # must not name it (Extension Isolation), so an extension REGISTERS its map
     # here at boot — first match wins, in registration order, exactly like that
-    # pivot — and core falls back to a generic heuristic (the leading family
-    # token after the namespace) for anything unregistered. The heuristic is
+    # pivot. Core registers its own namespaces the same way
+    # (Ai::InterventionPolicies::CorePolicyDomains), first. Anything still
+    # unregistered falls back to a generic heuristic (the leading family token
+    # after the namespace). The heuristic is
     # deliberately coarse: "system.instance_pool_replenish" reads as "instance"
     # until the owning extension registers "instance_pool"; a coarse domain
     # name is still a true routing trigger, a wrong one would not be.
@@ -36,7 +38,8 @@ module Ai
         @registered = []
       end
 
-      # @return [String, nil] nil for blank/wildcard categories
+      # @return [String, nil] nil for a blank category (the "*" default row is
+      #   claimed by core's `governance` domain)
       def domain_for(category)
         name = category.to_s.strip
         return nil if name.empty?

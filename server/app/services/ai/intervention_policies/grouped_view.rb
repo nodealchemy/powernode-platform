@@ -10,7 +10,7 @@ module Ai
     # seeded server-side, and a hardcoded copy drifted to omit 28 of 119 of them
     # (IMP-0874acd5b50c).
     #
-    # Domains are the ones extensions REGISTER with Ai::ClaudeExport::PolicyDomains,
+    # Domains are the ones core and extensions REGISTER with Ai::ClaudeExport::PolicyDomains,
     # first match wins, in registration order. Every registered domain is shipped
     # even when empty, and a row no registered domain claims lands in "other".
     # PolicyDomains' routing heuristic is NOT used: it would invent a domain no

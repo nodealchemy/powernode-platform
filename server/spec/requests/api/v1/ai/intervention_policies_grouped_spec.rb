@@ -30,6 +30,9 @@ RSpec.describe "Api::V1::Ai::InterventionPolicies grouped view and bulk save", t
 
   around do |example|
     saved = Ai::ClaudeExport::PolicyDomains.registered.map { |(d, p)| [ d, p.dup ] }
+    # Start from an empty registry: core's own domains (CorePolicyDomains) claim
+    # dev.* first and would otherwise shadow these spec-only domains.
+    Ai::ClaudeExport::PolicyDomains.reset!
     Ai::ClaudeExport::PolicyDomains.register("spec_dev", %w[dev.])
     Ai::ClaudeExport::PolicyDomains.register("spec_ralph", %w[ralph.])
     example.run
