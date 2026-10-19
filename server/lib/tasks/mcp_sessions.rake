@@ -65,4 +65,41 @@ namespace :mcp do
     puts "  Agents destroyed:      #{agents_destroyed}"
     puts "  Done."
   end
+
+  # Reports MCP client agents duplicated per (account, client name, user) and,
+  # only with CONFIRM=yes, merges them into the lowest-numbered keeper.
+  #   rails mcp:dedupe_client_agents                       # report only
+  #   rails mcp:dedupe_client_agents ACCOUNT_ID=<uuid>     # report one account
+  #   rails mcp:dedupe_client_agents CONFIRM=yes           # merge + delete
+  desc "Report (and with CONFIRM=yes merge) duplicate MCP client agents"
+  task dedupe_client_agents: :environment do
+    account = ENV["ACCOUNT_ID"].present? ? Account.find(ENV["ACCOUNT_ID"]) : nil
+    confirm = ENV["CONFIRM"] == "yes"
+    result = Ai::McpClientIdentityService.merge_duplicate_agents!(confirm: confirm, account: account)
+    label = ->(d) { "#{d[:name]} (#{d[:id]})" }
+    drops = lambda do |d|
+      d[:drops].empty? ? "drops none" : "drops " + d[:drops].map { |k, n| "#{k}=#{n}" }.join(" ")
+    end
+
+    puts "=== MCP Client Agent Duplicates ==="
+    result[:groups].each do |g|
+      puts "  #{g[:client_name]} / user #{g[:user_id]}: keep #{label.call(g[:keeper])}, #{g[:duplicates].size} duplicate(s)"
+    end
+    puts "Duplicates to merge: #{result[:count]}"
+    puts "  first: #{result[:first].map(&label).join(', ')}" if result[:count].positive?
+    puts "  last:  #{label.call(result[:last])}" if result[:count] > 3
+    result[:groups].each do |g|
+      g[:duplicates].reject { |d| d[:skip_reason] }.each { |d| puts "  #{label.call(d)} #{drops.call(d)}" }
+    end
+    result[:skipped].each { |d| puts "  skipped #{label.call(d)}: #{d[:reason]}" }
+
+    if result[:dry_run]
+      puts ""
+      puts "Dry run: nothing changed. Re-run with CONFIRM=yes to merge #{result[:count]} agent(s)."
+    else
+      puts ""
+      puts "Merged #{result[:merged]} agent(s)."
+      result[:errors].each { |e| puts "  FAILED #{e[:name]} (#{e[:id]}): #{e[:error]}" }
+    end
+  end
 end
