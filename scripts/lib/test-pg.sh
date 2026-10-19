@@ -61,3 +61,25 @@ test_pg_env_opt_in() {
   sed -i -E '/^[[:space:]]*(export[[:space:]]+)?DATABASE_PORT[[:space:]]*=/d' "$file"
   printf 'DATABASE_PORT=%s\n' "$port" >> "$file"
 }
+
+# Which bundle does a test-DB prep run under? Private mode is in effect iff at least one private
+# extension is on disk (extensions/private/<slug>/extension.json, the same notion
+# extensions_loader_helper.rb uses). server/Gemfile.private is TRACKED, so its mere presence says nothing.
+#   prints "core"    when no private extension is on disk (the default Gemfile is correct);
+#   prints "private" when one is and the private bundle resolves (`bundle check` under Gemfile.private);
+#   returns 1 with a message when private extensions are on disk but Gemfile.private is missing or its
+#   bundle is not installed: silently falling back to core would build a wrong (private-table-less) DB.
+test_pg_bundle_mode() {
+  local repo="${1:?repo root}" ext
+  ext="$(find "$repo/extensions/private" -mindepth 2 -maxdepth 2 -name extension.json -print -quit 2>/dev/null || true)"
+  if [ -z "$ext" ]; then echo core; return 0; fi
+  if [ ! -f "$repo/server/Gemfile.private" ]; then
+    echo "private extensions are present under extensions/private but server/Gemfile.private is missing" >&2; return 1
+  fi
+  if ! (cd "$repo/server" && BUNDLE_GEMFILE="$repo/server/Gemfile.private" bundle check >/dev/null 2>&1); then
+    echo "private extensions are present under extensions/private but the private bundle is not installed;" >&2
+    echo "  run: cd server && BUNDLE_GEMFILE=Gemfile.private bundle install" >&2
+    return 1
+  fi
+  echo private
+}

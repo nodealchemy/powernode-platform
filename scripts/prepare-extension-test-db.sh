@@ -124,9 +124,14 @@ SERVER="$REPO/server"
 
 export RAILS_ENV=test
 
-# Use the private bundle when present so the engine migrations are on the migration path; otherwise
-# the default bundle (core mode) is correct.
-if [ -f "$SERVER/Gemfile.private" ]; then
+# Use the private bundle ONLY in private mode (private extensions on disk), so the engine migrations are
+# on the migration path; otherwise the default bundle (core mode) is correct. Gemfile.private is tracked,
+# so its presence alone proves nothing. Private extensions without an installed private bundle abort.
+# shellcheck source=lib/test-pg.sh
+. "$REPO/scripts/lib/test-pg.sh"
+BUNDLE_MODE="$(test_pg_bundle_mode "$REPO")" \
+  || { echo "error: [prepare-extension-test-db] refusing to guess the bundle (see above)" >&2; exit 1; }
+if [ "$BUNDLE_MODE" = private ]; then
   export BUNDLE_GEMFILE="$SERVER/Gemfile.private"
 fi
 
@@ -163,8 +168,6 @@ fi
 # the shared one by default, or the optional tmpfs cluster (scripts/test-pg-tmpfs.sh) when Rails' port is
 # that cluster's live socket in TEST_PG_DIR. Any other port aborts rather than let the bare client hit the
 # wrong cluster (the golden refresh drops/re-labels databases, so a mismatch would hit the shared one).
-# shellcheck source=lib/test-pg.sh
-. "$REPO/scripts/lib/test-pg.sh"
 TEST_PG_DIR="${TEST_PG_DIR:-$TEST_PG_DEFAULT_DIR}"
 RAILS_INFO="$(cd "$SERVER" && bin/rails runner 'c = ActiveRecord::Base.connection_db_config; print "\nPNTESTDB\t#{c.database}\t#{c.configuration_hash[:port]}\n"' 2>/dev/null | sed -n 's/^PNTESTDB\t//p' | tail -1 || true)"
 TARGET_DB="" RAILS_PORT=""
