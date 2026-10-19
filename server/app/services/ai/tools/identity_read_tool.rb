@@ -41,6 +41,8 @@ module Ai
     # column is the one that matters and it is omitted — read the comment there
     # before adding it back.
     class IdentityReadTool < BaseTool
+      tool_family "platform"
+
       REQUIRED_PERMISSION = "admin.user.read"
 
       ACTION_PERMISSIONS = {

@@ -12,6 +12,8 @@ module Ai
     # DockerHostTool surface, docker.hosts.manage for the provisioning
     # surface.
     class KubernetesClusterTool < BaseTool
+      tool_family "kubernetes"
+
       # SECURITY (IMP-48abfa2f9e74): this floor used to be "kubernetes.clusters.read", a
       # name that appears ZERO times in config/permissions.rb. User#has_permission?
       # is an exact match on a role_permissions row plus a system.admin

@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class SkillTool < BaseTool
+      tool_family "skills"
+
       REQUIRED_PERMISSION = "ai.skills.read"
 
       # SECURITY (IMP-245d8ae56f8c follow-up): authorization is per ACTION, not

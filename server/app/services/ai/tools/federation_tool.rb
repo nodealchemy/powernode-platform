@@ -15,6 +15,8 @@ module Ai
     # has registered. Registration + the shared secret are operator-configured
     # (FederationController), never minted here.
     class FederationTool < BaseTool
+      tool_family "platform"
+
       REQUIRED_PERMISSION = "ai.federation.invoke"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

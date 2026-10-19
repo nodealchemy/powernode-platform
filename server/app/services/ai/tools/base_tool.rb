@@ -634,11 +634,14 @@ module Ai
         # dispatch — .gated_declaration? stays false, so #execute still calls
         # #call — and exists so a reader of the declaration (.may_park?, the
         # listing tags, the generated contract) knows the call can park.
+        #
+        # `family:` (C3-1) overrides the class's `tool_family` for this one
+        # action; see .family_for. A key of Ai::Tools::ToolFamilies.
         def declare_action(name, mutating:, action_category: nil, executor_class: nil,
                            gate_context: nil, on_proceed: nil, ungated_when: nil,
                            audit: false, destructive: false, human_only: false,
                            limit: nil, paginated: false, returns: nil, refuses: nil, see_also: nil,
-                           gated_in_call: false)
+                           gated_in_call: false, family: nil)
           if destructive && !mutating
             raise ArgumentError,
                   "#{self}.declare_action(#{name.inspect}): destructive: true implies mutating: true " \
@@ -673,12 +676,29 @@ module Ai
             returns: returns,
             refuses: refuses,
             see_also: see_also,
-            gated_in_call: gated_in_call
+            gated_in_call: gated_in_call,
+            family: family&.to_s
           }.freeze
         end
 
         def declared_actions
           @declared_actions ||= {}
+        end
+
+        # The family every action of this tool belongs to unless its declaration
+        # names another (C3-1). With an argument it sets the default; without,
+        # it reads it, inherited from the parent class.
+        def tool_family(family = nil)
+          return @tool_family = family.to_s if family
+
+          @tool_family || (superclass.tool_family if superclass.respond_to?(:tool_family))
+        end
+
+        # The declared family of one action: its declare_action `family:`, else
+        # the class default. nil only for a class that declares neither, which
+        # the family lint rejects.
+        def family_for(action_name)
+          declared_action(action_name)&.[](:family).presence || tool_family
         end
 
         # The structured block a parked call of this tool's shows on its approval

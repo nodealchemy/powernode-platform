@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class LearningTool < BaseTool
+      tool_family "knowledge"
+
       include Concerns::ClaimantPrincipal
 
       REQUIRED_PERMISSION = "ai.agents.read"

@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class ActivityMonitorTool < BaseTool
+      tool_family "notifications"
+
       REQUIRED_PERMISSION = "ai.agents.read"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action
@@ -24,7 +26,7 @@ module Ai
                                           see_also: { "get_system_health" => "24-hour AI-side counts and error rate" }
       declare_action "get_mission_status", mutating: false
       declare_action "get_notifications", mutating: false
-      declare_action "get_system_health", mutating: false,
+      declare_action "get_system_health", mutating: false, family: "platform",
                                           returns: "timestamp, mission counts, active agents and conversations, 24-hour agent " \
                                                    "execution error counts and rate, providers with has_active_credential, and " \
                                                    "pending_notifications (null without a user)",

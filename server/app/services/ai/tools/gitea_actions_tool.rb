@@ -38,6 +38,8 @@ module Ai
     # Reference plan:
     #   docs/plans/wondrous-yawning-anchor.md (Phase 2 — operator-driven CI)
     class GiteaActionsTool < BaseTool
+      tool_family "devops"
+
       REQUIRED_PERMISSION = "devops.ci.write"
 
       ACTIONS = %w[

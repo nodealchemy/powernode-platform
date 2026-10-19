@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class ContainerLogsTool < BaseTool
+      tool_family "agents"
+
       REQUIRED_PERMISSION = "ai.agents.execute"
 
       MAX_LOG_SIZE = 100_000

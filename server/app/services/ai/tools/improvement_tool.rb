@@ -12,6 +12,8 @@ module Ai
     # persistence, fingerprint dedupe, the human-approval gate, core-purity
     # tagging (gate #9), and task promotion.
     class ImprovementTool < BaseTool
+      tool_family "campaigns"
+
       REQUIRED_PERMISSION = "ai.agents.update"
 
       CODE_TYPES = Ai::ImprovementRecommendation::CODE_QUALITY_TYPES

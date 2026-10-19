@@ -32,6 +32,8 @@ module Ai
     # Every serializer below is an ALLOW-LIST, so a column added to either table
     # tomorrow does not appear by default.
     class WebhookReadTool < BaseTool
+      tool_family "platform"
+
       REQUIRED_PERMISSION = "webhook.read"
 
       ACTION_PERMISSIONS = {

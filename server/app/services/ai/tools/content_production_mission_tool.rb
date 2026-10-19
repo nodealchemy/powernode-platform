@@ -12,6 +12,8 @@ module Ai
     # is intentionally NOT exposed here (parked pending a provider/credential
     # decision) — this tool drives the credential-free path end to end.
     class ContentProductionMissionTool < BaseTool
+      tool_family "content"
+
       REQUIRED_PERMISSION = "ai.missions.manage"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

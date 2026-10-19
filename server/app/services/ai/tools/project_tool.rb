@@ -42,6 +42,8 @@ module Ai
     # as the identifier — a slug is a guessable handle, and a cross-tenant read
     # is a repeatedly-filed defect class in this codebase.
     class ProjectTool < BaseTool
+      tool_family "provisioning"
+
       REQUIRED_PERMISSION = "ai.missions.read"
 
       ACTIONS = %w[project_list project_get project_status project_set_slo_targets].freeze

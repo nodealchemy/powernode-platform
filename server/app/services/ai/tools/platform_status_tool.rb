@@ -42,6 +42,8 @@ module Ai
     # §4.1). An agent that saw `unknown` would have to guess whether the
     # platform failed to look or looked and could not tell.
     class PlatformStatusTool < BaseTool
+      tool_family "platform"
+
       REQUIRED_PERMISSION = "platform.status.read"
 
       # The component reads floor on the same read permission — there is no

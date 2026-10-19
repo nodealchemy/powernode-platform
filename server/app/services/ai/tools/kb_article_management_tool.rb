@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class KbArticleManagementTool < BaseTool
+      tool_family "content"
+
       REQUIRED_PERMISSION = "kb.manage"
 
       # Crossing the `published` boundary is a separate act from editing, and

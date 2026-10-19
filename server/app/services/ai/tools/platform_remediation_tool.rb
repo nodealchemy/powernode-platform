@@ -40,6 +40,8 @@ module Ai
     # bounds it instead, and it is enforced on the ungated path where the call
     # actually runs.
     class PlatformRemediationTool < BaseTool
+      tool_family "platform"
+
       # FLOOR — the bar for reaching the class at all. The same permission
       # increment A4's REST door checks for the status plane, so an operator
       # who can see a component on the page can also ask what would be done

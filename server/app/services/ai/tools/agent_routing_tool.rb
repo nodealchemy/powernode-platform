@@ -12,6 +12,8 @@ module Ai
     # committed .claude/agents/powernode/ skeletons carry — so a slug returned
     # here always names a spawnable subagent on a checkout with fresh skeletons.
     class AgentRoutingTool < BaseTool
+      tool_family "agents"
+
       REQUIRED_PERMISSION = "ai.agents.read"
 
       declare_action "route_task", mutating: false

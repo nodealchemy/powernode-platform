@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class ApiReferenceTool < BaseTool
+      tool_family "discovery"
+
       REQUIRED_PERMISSION = "ai.agents.read"
       API_REFERENCE_PATH = Rails.root.join("../docs/reference/api/ai.md")
 

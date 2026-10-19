@@ -5,6 +5,8 @@ module Ai
     # MCP tool for managing Ralph Loops — autonomous agent duty cycles.
     # Provides list, get, pause/resume schedule, and delete operations.
     class RalphLoopTool < BaseTool
+      tool_family "agents"
+
       REQUIRED_PERMISSION = "ai.agents.update"
 
       # === Per-action permission gating (G4 tail) ===

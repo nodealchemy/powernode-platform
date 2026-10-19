@@ -6,6 +6,8 @@ module Ai
     # start a campaign (+ its dedicated dev-loop), check live status (ledger + open questions +
     # decisions + loops), answer a parked question, and stop a campaign.
     class CampaignTool < BaseTool
+      tool_family "campaigns"
+
       include Concerns::CampaignPrincipal
 
       REQUIRED_PERMISSION = "ai.campaigns.manage"

@@ -7,6 +7,8 @@ module Ai
     # work via dev_next_task and report results via dev_complete_task —
     # the platform schedules, tracks, and governs but never pushes work.
     class DevLoopTool < BaseTool
+      tool_family "campaigns"
+
       include Concerns::CampaignPrincipal
       include Concerns::ClaimantPrincipal
 

@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class RepoManagementTool < BaseTool
+      tool_family "devops"
+
       REQUIRED_PERMISSION = "devops.repositories.write"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

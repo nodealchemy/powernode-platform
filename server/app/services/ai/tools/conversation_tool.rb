@@ -5,6 +5,8 @@ module Ai
     # Unified conversation tool — handles workspaces, agent conversations, and concierge interactions.
     # Merges the former WorkspaceTool and ConciergeTool into a single entry point.
     class ConversationTool < BaseTool
+      tool_family "conversations"
+
       include ::Ai::ConversationAiGeneration
 
       REQUIRED_PERMISSION = "ai.conversations.create"

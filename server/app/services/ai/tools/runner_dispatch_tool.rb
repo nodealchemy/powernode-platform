@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class RunnerDispatchTool < BaseTool
+      tool_family "devops"
+
       REQUIRED_PERMISSION = "devops.ci.write"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

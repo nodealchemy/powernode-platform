@@ -1015,6 +1015,29 @@ module Ai
         end
       end
 
+      # The DECLARED family of a registry action (C3-1): the serving class's
+      # BaseTool.family_for, asked under the name the action dispatches as
+      # (McpPlatformToolRegistrar::ACTION_ALIASES), since a per-action override
+      # lives on the declaration. nil when the class does not load or declares
+      # no family.
+      def self.family_for(name)
+        key = name.to_s
+        klass = all_tools[key]&.safe_constantize
+        return nil unless klass.respond_to?(:family_for)
+
+        klass.family_for(McpPlatformToolRegistrar::ACTION_ALIASES.fetch(key, key)).presence
+      end
+
+      # family => sorted registry action names, over .all_tools in
+      # Ai::Tools::ToolFamilies order. Actions with no resolvable family are
+      # left out; the family lint keeps that set empty.
+      def self.families
+        grouped = all_tools.keys.group_by { |name| family_for(name) }
+        ToolFamilies.all.keys.each_with_object({}) do |family, index|
+          index[family] = grouped[family].sort if grouped[family]
+        end
+      end
+
       # Discover tools by natural language query (semantic search)
       def self.discover_tools(query:, account:, capabilities: nil, limit: 10)
         service = SemanticToolDiscoveryService.new(account: account)

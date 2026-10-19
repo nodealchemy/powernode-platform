@@ -33,6 +33,8 @@ module Ai
     # Ai::DataSources::ConfigPortabilityService screens its export manifest
     # with. See #scrub.
     class ProviderReadTool < BaseTool
+      tool_family "platform"
+
       REQUIRED_PERMISSION = "ai.providers.read"
 
       ACTION_PERMISSIONS = {

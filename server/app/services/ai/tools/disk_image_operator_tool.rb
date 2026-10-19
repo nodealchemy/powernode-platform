@@ -60,6 +60,8 @@ module Ai
     #
     # Plan: docs/plans/wondrous-yawning-anchor.md (Phase 2 — operator UX).
     class DiskImageOperatorTool < BaseTool
+      tool_family "devops"
+
       REQUIRED_PERMISSION = "system.platforms.publish_disk_image"
 
       ACTIONS = %w[

@@ -7,6 +7,8 @@ module Ai
     # an operator-configured ElevenLabs credential; shares the AI media-generation
     # permission with image generation.
     class AudioGenerationTool < BaseTool
+      tool_family "content"
+
       REQUIRED_PERMISSION = "ai.image.generate"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

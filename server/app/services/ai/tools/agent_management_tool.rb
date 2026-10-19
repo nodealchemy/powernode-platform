@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class AgentManagementTool < BaseTool
+      tool_family "agents"
+
       REQUIRED_PERMISSION = "ai.agents.execute"
 
       # === Per-action permission gating (G4 tail) ===

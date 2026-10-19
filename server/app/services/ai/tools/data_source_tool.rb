@@ -37,6 +37,8 @@ module Ai
     # finer per-action checks happen inside #call so a single tool can carry read,
     # query, and mutation actions with distinct authorization.
     class DataSourceTool < BaseTool
+      tool_family "data_sources"
+
       REQUIRED_PERMISSION = "ai.data_sources.read"
 
       READ_PERMISSION   = "ai.data_sources.read"

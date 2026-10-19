@@ -36,6 +36,8 @@ module Ai
     # unions all four would have inherited the weakest of the four gates, which
     # is how a read surface becomes a leak.
     class ScheduleReadTool < BaseTool
+      tool_family "platform"
+
       REQUIRED_PERMISSION = "devops.schedules.read"
 
       ACTION_PERMISSIONS = {

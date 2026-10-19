@@ -46,6 +46,8 @@ module Ai
     # can hold a credential, a token or any signing material — those belong in
     # Vault, and this surface has the disclosure sink described above.
     class SiteSettingTool < BaseTool
+      tool_family "platform"
+
       # MUST be a CATALOGUED permission, and must be the rung that actually
       # grants on the REST twin.
       #

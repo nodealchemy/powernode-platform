@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class AgentAutonomyTool < BaseTool
+      tool_family "governance"
+
       # SECURITY (IMP-e8adfcfcab9b): authorization here is per ACTION, not per
       # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
       # McpPlatformToolRegistrar#enforce_permission! opens with
@@ -125,24 +127,24 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "agent_introspect", mutating: false, returns: "the agent, its trust tier and score, its budget, 24-hour execution and failure counts, and its active goal and pending observation counts"
+      declare_action "agent_introspect", mutating: false, family: "agents", returns: "the agent, its trust tier and score, its budget, 24-hour execution and failure counts, and its active goal and pending observation counts"
       declare_action "approve_deferred_operation", mutating: true, destructive: true
-      declare_action "create_agent_goal", mutating: true, returns: "id, title and status", refuses: "the target agent is not found, or the goal fails validation"
-      declare_action "create_proposal", mutating: true, returns: "id, title and status of the proposal", see_also: { "propose_feature" => "a feature suggestion" }
-      declare_action "decompose_goal", mutating: true, returns: "plan_id, goal_id, status, version, cost and duration estimates, and the ordered steps", refuses: "the goal is not found, or decomposition produces no plan"
-      declare_action "discover_claude_sessions", mutating: false, returns: "sessions and count", see_also: { "request_code_change" => "sending a session a code-change request" }
-      declare_action "escalate", mutating: true, returns: "the escalation's id, title, severity and who it went to", see_also: { "report_issue" => "a platform problem that does not block your task" }
-      declare_action "list_agent_goals", mutating: false, limit: 10, returns: "id, title, type, priority, status and progress per goal"
+      declare_action "create_agent_goal", mutating: true, family: "agents", returns: "id, title and status", refuses: "the target agent is not found, or the goal fails validation"
+      declare_action "create_proposal", mutating: true, family: "campaigns", returns: "id, title and status of the proposal", see_also: { "propose_feature" => "a feature suggestion" }
+      declare_action "decompose_goal", mutating: true, family: "agents", returns: "plan_id, goal_id, status, version, cost and duration estimates, and the ordered steps", refuses: "the goal is not found, or decomposition produces no plan"
+      declare_action "discover_claude_sessions", mutating: false, family: "agents", returns: "sessions and count", see_also: { "request_code_change" => "sending a session a code-change request" }
+      declare_action "escalate", mutating: true, family: "notifications", returns: "the escalation's id, title, severity and who it went to", see_also: { "report_issue" => "a platform problem that does not block your task" }
+      declare_action "list_agent_goals", mutating: false, family: "agents", limit: 10, returns: "id, title, type, priority, status and progress per goal"
       declare_action "list_deferred_operations", mutating: false, limit: 100, returns: "count and operations, newest first; 25 unless limit is set"
       declare_action "get_approval_request", mutating: false, returns: "status, decision, decided_by, decided_at, expires_at, expired, requires_human_session, call_origin, action_category, description, the redacted request_data, and the linked deferred operation's status, error_message and redacted params", refuses: "neither or both ids are given, or the id names no request in your account (an instance principal: none recorded as parked by that instance)", see_also: { "list_deferred_operations" => "finding a request by status or agent" }
       declare_action "list_intervention_policies", mutating: false, limit: 100, returns: "count and policies, highest priority first"
-      declare_action "propose_feature", mutating: true, returns: "id, title and status of the proposal", see_also: { "create_proposal" => "a proposal of another type" }
+      declare_action "propose_feature", mutating: true, family: "campaigns", returns: "id, title and status of the proposal", see_also: { "create_proposal" => "a proposal of another type" }
       declare_action "reject_deferred_operation", mutating: true, destructive: true
-      declare_action "report_issue", mutating: true, see_also: { "escalate" => "a problem that blocks your own task" }
-      declare_action "request_code_change", mutating: true, returns: "message_id and the session's agent name", refuses: "no Claude Code session is active, or it has no workspace conversation", see_also: { "discover_claude_sessions" => "checking for a session first" }
-      declare_action "request_feedback", mutating: true, returns: "the notification result", see_also: { "send_proactive_notification" => "a notice that asks for no reply" }
-      declare_action "send_proactive_notification", mutating: true, returns: "the notification result", see_also: { "request_feedback" => "asking the user to respond" }
-      declare_action "update_agent_goal", mutating: true, returns: "id, status and progress", refuses: "the goal is not found"
+      declare_action "report_issue", mutating: true, family: "notifications", see_also: { "escalate" => "a problem that blocks your own task" }
+      declare_action "request_code_change", mutating: true, family: "campaigns", returns: "message_id and the session's agent name", refuses: "no Claude Code session is active, or it has no workspace conversation", see_also: { "discover_claude_sessions" => "checking for a session first" }
+      declare_action "request_feedback", mutating: true, family: "notifications", returns: "the notification result", see_also: { "send_proactive_notification" => "a notice that asks for no reply" }
+      declare_action "send_proactive_notification", mutating: true, family: "notifications", returns: "the notification result", see_also: { "request_feedback" => "asking the user to respond" }
+      declare_action "update_agent_goal", mutating: true, family: "agents", returns: "id, status and progress", refuses: "the goal is not found"
 
       # secreview §21 G4 (self-unmark). An intervention-policy row decides
       # whether an action parks at all, and which requests need a person's own

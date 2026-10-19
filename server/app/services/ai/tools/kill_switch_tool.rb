@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class KillSwitchTool < BaseTool
+      tool_family "governance"
+
       REQUIRED_PERMISSION = "ai.kill_switch.manage"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class ImageGenerationTool < BaseTool
+      tool_family "content"
+
       REQUIRED_PERMISSION = "ai.image.generate"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

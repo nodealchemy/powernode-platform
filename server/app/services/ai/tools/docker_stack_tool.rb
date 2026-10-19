@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class DockerStackTool < BaseTool
+      tool_family "docker"
+
       include Concerns::DockerContextResolvable
 
       # SECURITY (IMP-48abfa2f9e74): this floor used to be "swarm.stacks.read", a

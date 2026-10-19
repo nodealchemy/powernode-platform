@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class DockerContainerTool < BaseTool
+      tool_family "docker"
+
       include Concerns::DockerContextResolvable
 
       # SECURITY (IMP-48abfa2f9e74): this floor used to be "docker.containers.read", a

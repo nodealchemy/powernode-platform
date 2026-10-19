@@ -44,6 +44,8 @@ module Ai
     # caller attests to its results in `gate_attestation`, and they are carried
     # verbatim onto the approval card and into the audit rows.
     class DevMergeTool < BaseTool
+      tool_family "campaigns"
+
       REQUIRED_PERMISSION = "devops.repositories.write"
 
       ACTION = "dev_merge_increment"

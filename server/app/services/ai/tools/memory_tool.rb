@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class MemoryTool < BaseTool
+      tool_family "memory"
+
       REQUIRED_PERMISSION = "ai.agents.read"
 
       # === Per-action permission gating (G4) ===

@@ -34,6 +34,8 @@ module Ai
     # plan runs is the operator's intervention policy's decision, not this
     # tool's.
     class ProvisioningTool < BaseTool
+      tool_family "provisioning"
+
       MISSION_TEMPLATE_NAME = "system_provisioning"
       VALID_DECISIONS = %w[approved rejected modified].freeze
 

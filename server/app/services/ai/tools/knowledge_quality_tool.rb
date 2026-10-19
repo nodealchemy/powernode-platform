@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class KnowledgeQualityTool < BaseTool
+      tool_family "knowledge"
+
       REQUIRED_PERMISSION = "ai.agents.manage"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

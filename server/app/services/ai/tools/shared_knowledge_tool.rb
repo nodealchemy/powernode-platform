@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class SharedKnowledgeTool < BaseTool
+      tool_family "knowledge"
+
       REQUIRED_PERMISSION = "ai.agents.read"
 
       # === Per-action permission gating (G4) ===

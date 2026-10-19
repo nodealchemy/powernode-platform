@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class AgentMemoryManagementTool < BaseTool
+      tool_family "memory"
+
       # SECURITY (IMP-6fbfeff384fa): REQUIRED_PERMISSION was inherited as nil
       # from BaseTool, and McpPlatformToolRegistrar#enforce_permission! opens
       # with `return if required.nil?` — ABOVE the authentication raise and the

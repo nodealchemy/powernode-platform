@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class CodeDiscoveryTool < BaseTool
+      tool_family "code"
+
       include Concerns::CodebaseContextResolvable
 
       REQUIRED_PERMISSION = "ai.agents.read"

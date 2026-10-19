@@ -21,6 +21,8 @@ module Ai
     # the Mcp::Principal destructive-name overlay, so instance principals are
     # denied by name regardless of grants.
     class GitRunnerInventoryTool < BaseTool
+      tool_family "devops"
+
       REQUIRED_PERMISSION = "git.runners.read"
 
       SAMPLE_LIMIT = 4

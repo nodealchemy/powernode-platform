@@ -15,6 +15,8 @@ module Ai
     # split GovernanceTool draws, because an environment's rules ARE the
     # governance of everything placed in it.
     class EnvironmentTool < BaseTool
+      tool_family "devops"
+
       REQUIRED_PERMISSION = "ai.governance.read"
 
       ACTION_PERMISSIONS = {

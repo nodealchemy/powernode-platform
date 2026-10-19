@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class TeamManagementTool < BaseTool
+      tool_family "agents"
+
       REQUIRED_PERMISSION = "ai.agents.execute"
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

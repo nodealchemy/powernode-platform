@@ -33,6 +33,8 @@ module Ai
     # A cap re-implemented here would be a second, weaker cap in front of the
     # real one — and the one an agent could get around by using another door.
     class PlatformInvestigationTool < BaseTool
+      tool_family "platform"
+
       # FLOOR — the same permission the status plane's REST door checks, so an
       # operator who can see a component on the page can ask about it. A
       # different floor would produce a component visible on the screen whose

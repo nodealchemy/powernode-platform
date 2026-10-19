@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class IntegrationHealthTool < BaseTool
+      tool_family "platform"
+
       REQUIRED_PERMISSION = nil # Accessible to all agents
 
       # APO-1a (IMP-1e58753b3b6c) — governance declarations for every action

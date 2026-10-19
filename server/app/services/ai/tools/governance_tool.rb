@@ -3,6 +3,8 @@
 module Ai
   module Tools
     class GovernanceTool < BaseTool
+      tool_family "governance"
+
       # SECURITY (IMP-6fbfeff384fa): authorization here is per ACTION, not per
       # tool. REQUIRED_PERMISSION was inherited as nil from BaseTool, and
       # McpPlatformToolRegistrar#enforce_permission! opens with
