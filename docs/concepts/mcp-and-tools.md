@@ -244,6 +244,31 @@ webhooks leaves no trace of who read what. Being able to tell afterwards who rea
 therefore a property of the REST doors these verbs mirror, not of the verbs themselves — which
 is why rules 1-3 above are the whole of the protection here.
 
+### What bounds a session caller
+
+A Claude Code session reaches the platform as a **user principal** over streamable HTTP.
+What limits it, from the outside in:
+
+1. **Client-side lists** (`tools:` / `disallowedTools:` in a subagent file). Advisory only:
+   they run in the client, so they bound a well-behaved subagent, not an attacker.
+2. **The invoked name is the action that runs.** Every streamable-HTTP door (OAuth session,
+   instance, federation) has its `action:` argument pinned to the tool name it called
+   (`McpPlatformToolRegistrar::ACTION_PINNED_ORIGINS`). This is what makes item 1 meaningful:
+   a denied `platform.delete_agent` cannot be reached as `platform.list_agents` carrying
+   `action: "delete_agent"`. The agent tool-calling loop and skill recipes stay unpinned,
+   because they legitimately select sibling actions; the ActionCable channel dispatches
+   class-level manifests and stays unpinned too.
+3. **Permissions.** The tool's `REQUIRED_PERMISSION` floor and per-action `ACTION_PERMISSIONS`
+   map, checked against the user. A session never holds more than its user.
+4. **AutonomyGate.** Only actions declared with `action_category` + `executor_class` (or
+   `gated_in_call:`) can be parked for approval. `Mcp::Principal#may_invoke?` admits every
+   verb for a user principal, and the destroy-shaped deny overlay
+   (`DESTRUCTIVE_TOOL_PATTERNS`) applies to instance and federation principals only, so an
+   undeclared destroy-shaped verb runs for a session caller as soon as item 3 allows it.
+
+When adding a destroy-shaped verb, declare its gate (item 4): items 1 and 3 alone let an
+unattended session run it.
+
 ### Best practices for tool implementation
 
 ```ruby
