@@ -259,11 +259,12 @@ if Powernode::Seeds.baseline?
   # Per-seed rescue so one failure never aborts the rest of platform seeding
   # (the agent seeds that ship with extensions run via the extension
   # orchestrator below, also baseline; those still require an account, a user
-  # and a provider, which is why Ai::ClaudeExport::AgentSkeletonSync refuses to
-  # sync at all until all three exist — a partial roster is not a roster).
+  # and a provider).
   # `ai_engineering_agents_seed` (HIER-P2B-ENG) adds the Engineering
   # hierarchy's canonicals (Platform Architect, Platform Developer, Release
   # Manager, Documentation Specialist) with their policy rows and chains;
+  # `ai_canonical_agents_seed` (C4) adds the four target canonicals in SHADOW
+  # mode — inactive, no policy rows — beside the ones they will absorb.
   # `platform_skill_assignments_seed` then binds skills to every canonical.
   # `ai_agent_hierarchy_seed` runs after them: it attaches every canonical the
   # seeds above created — the core forest under the core concierge and the
@@ -284,6 +285,7 @@ if Powernode::Seeds.baseline?
     ai_concierge_seed
     autonomy_data_seed
     ai_engineering_agents_seed
+    ai_canonical_agents_seed
     platform_skill_assignments_seed
     ai_agent_hierarchy_seed
     ai_canonical_teams_seed
