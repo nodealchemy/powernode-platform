@@ -344,6 +344,20 @@ Severity: **P1** blocks a working install · **P2** wrong/misleading, workaround
   back to `PATH`, and fail closed when `scripts/validate.sh` is the gate. Covered by the `environment.d` PATH fix (#10)
   only for login sessions, not for hooks started from tools that bypass it.
 
+### 29. CI runners auto-upgraded into a broken version — P1
+
+- **Symptom:** the first push after the install (core run 2018, system run 2017) fails every job within ~12 s,
+  before any project code runs: `git clone --no-checkout https://github.com/actions/checkout … exec: "git":
+  executable file not found in $PATH`. Jobs without a checkout pass.
+- **Cause:** the three Gitea Actions runners moved from act_runner v3.2.0 (last green run, 2026-10-03) to v5.1.0
+  with no change on the platform side. v5 fetches remote actions with the host's `git` binary, which the runner
+  environment lacks; it also logs `docker proxy not started … chown docker.sock: operation not permitted`.
+- **Also:** platform knowledge placed the runners on a hypervisor that does not host them, so locating the runner
+  host took a cluster-wide search and still needed the operator.
+- **Fix:** pin the runner version (or use an image that ships `git`) and turn off auto-update for the runners; record
+  the runner host in deployment knowledge. Longer term, CI preflight could check the runner version and fail with a
+  clear message instead of a mid-step clone error.
+
 ## Install recipe that worked (for the eventual doc fix)
 
 1. Root: apt deps (#12) + `postgresql-16-pgvector` + `redis-server`; create a superuser dev role; `loginctl
