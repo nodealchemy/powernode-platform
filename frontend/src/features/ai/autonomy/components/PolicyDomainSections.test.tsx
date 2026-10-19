@@ -219,6 +219,27 @@ describe('PolicyDomainSections — renders the server\'s rows', () => {
       openSection('Other policies');
       expect(screen.getByText('status_update')).toBeInTheDocument();
     });
+
+    it('labels core\'s own domains after the extensions\' and before the catch-all', async () => {
+      const row = (action_category: string) =>
+        [{ action_category, agent_bucket: 'Manual Operations', policy: 'auto_approve', scope: 'global', agent_id: null }];
+      mockGet.mockResolvedValue(groupedResponse({
+        node_lifecycle: row('system.cert_rotate'),
+        improvement_loop: row('dev.task_claim'),
+        agent_outreach: row('status_update'),
+        other: row('made_up.future_category'),
+      }));
+      await renderSections({});
+
+      expect(sidebarLabels()).toEqual(['Node Lifecycle', 'Development Loop', 'Agent Outreach', 'Other policies']);
+    });
+
+    it('leaves core\'s domains off a namespace-scoped panel', async () => {
+      mockGet.mockResolvedValue(groupedResponse({ node_lifecycle: [], improvement_loop: [], other: [] }));
+      await renderSections();
+
+      expect(screen.queryByRole('button', { name: /Development Loop/ })).not.toBeInTheDocument();
+    });
   });
 
   it('saves every edit in one bulk request, each entry addressed to its own row', async () => {

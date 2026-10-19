@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Settings } from 'lucide-react';
+import { Code2, MessageSquare, Rocket, Scale, Settings } from 'lucide-react';
 import { AutonomyPolicyGroup } from '@/shared/components/autonomy/AutonomyPolicyGroup';
 import { useAutonomyConfig } from '@/shared/hooks/useAutonomyConfig';
 import { featureRegistry, type PolicyDomainPresentation } from '@/shared/services/featureRegistry';
@@ -8,8 +8,8 @@ import { interventionPolicyConfigSource } from '../api/interventionPolicyConfigS
 import { policyBucket } from '../policyBucket';
 
 /**
- * The server's catch-all domain: core's own statics and any category no
- * registered domain claims. GET /ai/intervention_policies/grouped is an
+ * The server's catch-all domain: any category no registered domain (core's or
+ * an extension's) claims. GET /ai/intervention_policies/grouped is an
  * ACCOUNT-WIDE view and ships it populated; a panel scoped to one extension's
  * namespace leaves it out, the unscoped core page shows it last.
  */
@@ -18,9 +18,25 @@ const OTHER_DOMAIN_KEY = 'other';
 const OTHER_PRESENTATION: PolicyDomainPresentation = {
   key: OTHER_DOMAIN_KEY,
   label: 'Other policies',
-  description: 'Core policies, and any category no registered policy domain claims.',
+  description: 'Any category no registered policy domain claims.',
   icon: Settings,
 };
+
+/**
+ * Core's own domains (server: Ai::InterventionPolicies::CorePolicyDomains), in
+ * section order after the extensions' domains. Presentation only — the server
+ * decides which category is in which domain.
+ */
+const CORE_PRESENTATIONS: PolicyDomainPresentation[] = [
+  { key: 'improvement_loop', label: 'Development Loop', icon: Code2,
+    description: 'The improvement loop: task claims, refinements, merges and docs updates.' },
+  { key: 'release', label: 'Releases', icon: Rocket,
+    description: 'Building, deploying, promoting and rolling back the platform.' },
+  { key: 'agent_outreach', label: 'Agent Outreach', icon: MessageSquare,
+    description: 'Messages agents send to people: approvals, proposals, escalations, status updates.' },
+  { key: 'governance', label: 'Governance & Settings', icon: Scale,
+    description: 'Campaign proposals, changes to policies, environments and platform settings, and the account-wide default (*).' },
+];
 
 interface PolicyDomainSectionsProps {
   /**
@@ -103,14 +119,19 @@ function orderedPresentations(serverKeys: string[], namespace?: string): PolicyD
   const ownKeys = new Set(own.map((d) => d.key));
   const presentedKeys = new Set(all.map((d) => d.key));
 
+  const coreKeys = new Set(CORE_PRESENTATIONS.map((d) => d.key));
   const presented = own.filter((d) => serverKeys.includes(d.key));
+  // Core's domains belong to the unscoped page, like the catch-all.
+  const core = namespace === undefined
+    ? CORE_PRESENTATIONS.filter((d) => serverKeys.includes(d.key) && !presentedKeys.has(d.key))
+    : [];
   const unpresented = serverKeys
-    .filter((key) => key !== OTHER_DOMAIN_KEY && !presentedKeys.has(key) && !ownKeys.has(key))
+    .filter((key) => key !== OTHER_DOMAIN_KEY && !presentedKeys.has(key) && !ownKeys.has(key) && !coreKeys.has(key))
     .map((key) => ({ key, label: humanizeDomainKey(key), icon: Settings,
                      description: 'Policies the server groups under this domain.' }));
   const other = namespace === undefined && serverKeys.includes(OTHER_DOMAIN_KEY) ? [OTHER_PRESENTATION] : [];
 
-  return [...presented, ...unpresented, ...other];
+  return [...presented, ...core, ...unpresented, ...other];
 }
 
 /**
