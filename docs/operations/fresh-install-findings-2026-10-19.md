@@ -44,6 +44,7 @@ Severity: **P1** blocks a working install · **P2** wrong/misleading, workaround
 | 22 | P3 | frontend | ProvisioningPage shows a generic "Failed to start a provisioning conversation." and drops the backend's reason |
 | 23 | P2 | agents | The GLOBAL canonical concierge agent is bound to one account's (non-routable) provider |
 | 24 | P2 | gate | `scripts/validate.sh` fails on a clean `develop` checkout (3 checks unrelated to any local change) |
+| 25 | P2 | mcp | Each unclosed MCP session mints a new `<client> #N` agent; idle sessions never expire (13 minted in one day) |
 
 ## Findings
 
@@ -289,6 +290,18 @@ Severity: **P1** blocks a working install · **P2** wrong/misleading, workaround
   (`.claude/agents/powernode/tools` 48009 bytes vs a 47954 budget). A gate that is red at HEAD can't tell a
   contributor whether *their* change broke it.
 - **Proposed fix:** regenerate the skeletons / ledger on `develop`, and make CI block merges that leave the gate red.
+
+### 25. Unclosed MCP sessions mint a new agent each — P2
+
+- **Symptom:** the hub accumulated 13 `Claude Code (headersHelper) #1–#13` agents in one day.
+- **Cause:** `Ai::McpClientIdentityService#find_existing_agent` reuses an agent for the same OAuth application only
+  when no *active* session occupies it. A client that sends `initialize` per call and never sends `DELETE` (a
+  scripted JSON-RPC wrapper used during this install) leaves every session active, so each call mints a new agent;
+  sessions have no idle expiry to release them.
+- **Workaround:** stopped using the wrapper (native MCP client sessions are long-lived). The 13 agents await
+  operator-confirmed cleanup (streamlining campaign C8).
+- **Proposed fix:** expire MCP sessions after an idle window (and treat idle-expired sessions as unoccupied for
+  reuse); cap agents per OAuth application.
 
 ## Install recipe that worked (for the eventual doc fix)
 
