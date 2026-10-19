@@ -15,8 +15,12 @@
 # pre-commit gate, a local run). Once a raise is committed, HEAD holds the raised value
 # and a later run compares against it. Review changes to this file in the diff.
 #
-# Initial values: measured on the tree as of 2026-09-27 (the largest `tools:` list is
-# infrastructure-generalist.md; the roster is 29 files). The skeletons were stale when
-# measured; lower both values after the next regeneration.
-max_tools_per_agent=122
-max_roster_bytes=199871
+# Initial values: measured on the tree as of 2026-09-27 (122 tools in
+# infrastructure-generalist.md; 29 files, 199871 bytes).
+# Lowered 2026-10-19 (streamlining campaign C4): the roster is the four thin loaders
+# (Ai::ClaudeExport::ThinLoader), 16570 bytes including the granted roles'
+# disallowedTools deny list (69 exact names); the largest `tools:` list is
+# platform-engineer.md's fixed bootstrap core, 17 entries. The byte ceiling keeps
+# ~430 bytes of headroom so a wording tweak does not trip the gate.
+max_tools_per_agent=17
+max_roster_bytes=17000

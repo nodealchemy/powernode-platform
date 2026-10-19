@@ -20,8 +20,10 @@ module Ai
     #     per agent as a workaround; the sibling wave-2 seeds did not) and the
     #     explicit-allowed_tools branch of #platform_tool_definitions, which
     #     the exporter has always unioned onto and the bridge did not;
-    #   * Ai::ClaudeExport::ToolAllowlist — the committed Claude Code `tools:`
-    #     allowlist, which unions this set plus its own self-report verb.
+    #   * Ai::ClaudeExport::ToolAllowlist — the account-scope Claude Code
+    #     `tools:` allowlist, which unions this set plus its own self-report verb
+    #     (the committed C4 thin loaders name their own fixed core,
+    #     Ai::ClaudeExport::ThinLoader::BOOTSTRAP_ACTIONS).
     # route_task is in the set for the same reason the others are: it is the
     # MCP face of Ai::Routing::AgentRouterService, the one router both the
     # Concierge and a Claude Code skeleton delegate through.

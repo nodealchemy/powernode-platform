@@ -1,24 +1,20 @@
 #!/bin/bash
-# Guard: .claude/agents/powernode/*.md (the COMMITTED Claude Code skeletons of
-# the platform's CANONICAL agents — global, seeded, is_system) must reflect the
-# canonical agents as `rails claude:sync_agents` renders them today
-# (Ai::ClaudeExport::AgentSkeletonSync: routing description, tools allowlist,
-# delegation section, BASE_GUARDRAILS). A seed change that adds/renames/retiers a
-# canonical agent, or a renderer change, makes this fail until the files are
-# regenerated and committed.
+# Guard: .claude/agents/powernode/*.md (the COMMITTED Claude Code skeletons —
+# since streamlining campaign C4 the thin loaders of the four canonical-roster
+# survivors, Ai::Agents::CanonicalRoster) must match what `rails
+# claude:sync_agents` renders today (Ai::ClaudeExport::ThinLoader). A roster or
+# renderer change makes this fail until the files are regenerated and
+# committed. The thin loaders read no database row, so a seed change cannot.
 #
 # Same shape as check-mcp-catalog-fresh.sh: regenerate with the PUBLIC bundle
 # into a TEMP directory (never the tracked one — this check has no side
 # effects), diff against the committed directory, exit by outcome:
 #   0  fresh         regenerated set == committed set
 #   1  stale         a file differs / is missing / is extra
-#   2  unverifiable  the generator SUCCEEDED and produced NO canonical agent. The
-#                    export reads the development database, and an install whose
-#                    platform agent seeds never ran (fresh clone, reset dev DB)
-#                    holds no canonical row — an EMPTY set is not evidence the
-#                    committed files are stale, but it is not evidence they are
-#                    fresh either, so this is reported as a WARN by
-#                    pattern-validation.sh, never as a PASS.
+#   2  unverifiable  the generator SUCCEEDED and produced NO file. The canonical
+#                    export no longer reads the database, so this now means a
+#                    generator that wrote nothing; it is still reported as a WARN
+#                    by pattern-validation.sh, never as a PASS.
 #   3  broken        the generator itself FAILED (nonzero exit): a renderer
 #                    exception, a pending migration, a bundle failure. This
 #                    MUST NOT collapse into 2 — an unseeded checkout is the
@@ -91,8 +87,8 @@ fi
 regen_count="$(find "$tmp" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l)"
 if [[ "$regen_count" -eq 0 ]]; then
     echo "Claude agent skeleton freshness is UNVERIFIABLE: the export produced no canonical agent." >&2
-    echo "  The development database holds no global, is_system agent (platform agent seeds never ran here)." >&2
-    echo "  Regenerate on a seeded install with: $REGEN_CMD" >&2
+    echo "  The thin loaders could not be rendered (Ai::Agents::CanonicalRoster / ThinLoader failed to load)." >&2
+    echo "  Fix the loader, then regenerate with: $REGEN_CMD" >&2
     finish 2
 fi
 

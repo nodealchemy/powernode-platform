@@ -1,8 +1,9 @@
 # frozen_string_literal: true
 
 namespace :claude do
-  desc "Export platform agents as Claude Code subagent skeletons. Default: the CANONICAL set (global, " \
-       "seeded agents) into .claude/agents/powernode/ (committed; freshness-gated). ACCOUNT_ID=<uuid> " \
+  desc "Export platform agents as Claude Code subagent skeletons. Default: the CANONICAL set (the thin " \
+       "loaders of Ai::Agents::CanonicalRoster; reads no agent row) into .claude/agents/powernode/ " \
+       "(committed; freshness-gated). ACCOUNT_ID=<uuid> " \
        "(or INCLUDE_ACCOUNT=1 for the first account) exports that account's OWN agents instead, into " \
        ".claude/agents/powernode-local/ (gitignored). TARGET_DIR=<path> overrides the output directory."
   task sync_agents: :environment do
@@ -13,7 +14,7 @@ namespace :claude do
     end
 
     if account.nil?
-      puts "Syncing the CANONICAL Claude Code agent set (global seeded agents; set ACCOUNT_ID for an account's own agents)"
+      puts "Syncing the CANONICAL Claude Code agent set (the roster's thin loaders; set ACCOUNT_ID for an account's own agents)"
     else
       puts "Syncing Claude Code agent skeletons for the OWN agents of account: #{account.name} (#{account.id})"
     end
@@ -27,10 +28,6 @@ namespace :claude do
          "#{result.unchanged.size} unchanged, #{result.removed.size} stale removed"
     puts "  written: #{result.written.join(', ')}" if result.written.any?
     puts "  removed: #{result.removed.join(', ')}" if result.removed.any?
-    if account.nil? && result.total.zero?
-      puts "  NOTE: this database holds no canonical (global, is_system) agent — the platform agent seeds " \
-           "have not run here, so nothing was exported."
-    end
   end
 
   desc "Reverse path: read hand-authored Claude Code agent files (a file or directory of .claude/agents/*.md " \

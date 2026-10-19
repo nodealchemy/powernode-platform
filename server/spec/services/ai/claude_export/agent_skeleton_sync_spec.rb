@@ -65,58 +65,81 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
   # own agents) are exported only on explicit request, into a separate ignored
   # directory, so a committed file is never wrong on another install.
   describe "#syncable_agents" do
-    context "canonical scope (no account — the committed set)" do
+    # Streamlining campaign C4: the committed set is the four thin loaders of
+    # Ai::Agents::CanonicalRoster (Ai::ClaudeExport::ThinLoader), whatever the
+    # database holds — no row, skill or registered tool reaches those files, so
+    # the export needs no seeded database and no Claude Code restart follows a
+    # platform edit. The account scope below is unchanged.
+    context "canonical scope (no account — the committed thin loaders)" do
       subject(:service) { described_class.new(target_dir: target_dir) }
 
-      it "includes GLOBAL is_system agents only" do
-        canonical = build_canonical(name: "Canonical Helper")
-        own_agent = create(:ai_agent, account: account, name: "My Own Agent")
-        non_system_global = create(:ai_agent, :global, name: "Ad-hoc Global", is_system: false)
+      let(:roster) { Ai::Agents::CanonicalRoster::SLUGS }
 
-        slugs = service.send(:syncable_agents).map(&:slug)
-
-        expect(slugs).to include(canonical.slug)
-        expect(slugs).not_to include(own_agent.slug)
-        expect(slugs).not_to include(non_system_global.slug)
+      def written_slugs
+        Dir[File.join(target_dir, "*.md")].map { |path| File.basename(path, ".md") }
       end
 
-      it "excludes inactive canonicals" do
-        inactive = build_canonical(name: "Paused Canonical", status: "inactive")
-
-        expect(service.send(:syncable_agents).map(&:slug)).not_to include(inactive.slug)
+      def committed(slug)
+        File.read(File.join(target_dir, "#{slug}.md"))
       end
 
-      it "excludes mcp_client agents (ephemeral CC-session identities, not executable platform agents — " \
-         "AgentToolBridgeService#tools_enabled? draws the same line)" do
-        mcp_client_agent = create(:ai_agent, :global, :mcp_client, is_system: true)
+      it "writes exactly the roster's slugs, each as ThinLoader renders it" do
+        result = service.sync!
 
-        expect(service.send(:syncable_agents).map(&:slug)).not_to include(mcp_client_agent.slug)
+        expect(result.written).to match_array(roster)
+        expect(result.total).to eq(roster.size)
+        expect(written_slugs).to match_array(roster)
+        roster.each { |slug| expect(committed(slug)).to eq(Ai::ClaudeExport::ThinLoader.render(slug)) }
       end
 
-      # Operator decision (2026-09-25): the JSON pipeline workers are called
-      # by services, never delegated to from a Claude Code session, so each
-      # carries mcp_metadata["claude_code_export"] = false from its seed.
-      it "excludes an agent whose claude_code_export flag is false, and keeps one without the flag" do
-        worker = build_canonical(name: "Pipeline Worker", mcp_metadata: { "claude_code_export" => false })
-        opted_in = build_canonical(name: "Opted In", mcp_metadata: { "claude_code_export" => true })
-        plain = build_canonical(name: "Plain Canonical")
-
-        slugs = service.send(:syncable_agents).map(&:slug)
-
-        expect(slugs).not_to include(worker.slug)
-        expect(slugs).to include(opted_in.slug, plain.slug)
-      end
-
-      it "removes the committed skeleton of an agent flagged out of the export" do
-        worker = build_canonical(name: "Pipeline Worker", mcp_metadata: { "claude_code_export" => false })
-        keeper = build_canonical(name: "Keeper Canonical")
-        allow(service).to receive(:trustworthy_roster?).and_return(true)
-        File.write(path_for(worker), "#{described_class::GENERATED_HEADER}\nstale\n")
+      it "ignores every database canonical outside the roster — the legacy ones included" do
+        legacy = build_canonical(name: "Platform Developer", slug: "platform-developer", agent_type: "code_assistant")
+        build_canonical(name: "Opted In", mcp_metadata: { "claude_code_export" => true })
 
         service.sync!
 
-        expect(File.exist?(path_for(worker))).to be(false)
-        expect(File.exist?(path_for(keeper))).to be(true)
+        expect(written_slugs).to match_array(roster)
+        expect(written_slugs).not_to include(legacy.slug)
+      end
+
+      it "removes the legacy generated skeletons as stale, and never a hand-authored file" do
+        legacy = File.join(target_dir, "platform-developer.md")
+        File.write(legacy, "---\nname: platform-developer\n---\n#{described_class::GENERATED_HEADER}\n")
+        hand_authored = File.join(target_dir, "hand-authored.md")
+        File.write(hand_authored, "---\nname: hand-authored\n---\n\nHand-written.\n")
+
+        result = service.sync!
+
+        expect(result.removed).to eq([ "platform-developer" ])
+        expect(File.exist?(legacy)).to be(false)
+        expect(File.exist?(hand_authored)).to be(true)
+      end
+
+      # The old guard refused an empty or partial database because the files
+      # were rendered from its rows; the thin loaders are not, so there is
+      # nothing to protect and an unseeded checkout regenerates the same set.
+      it "writes the same set on a database with no agent and no account with a user" do
+        Ai::Agent.delete_all
+        expect(Account.joins(:users).exists?).to be(false)
+
+        expect(service.sync!.written).to match_array(roster)
+      end
+
+      it "is idempotent, and INVARIANT when a skill, a prompt or a tool is added (the restart contract)" do
+        service.sync!
+        snapshot = roster.to_h { |slug| [ slug, committed(slug) ] }
+
+        engineer = build_canonical(name: "Platform Engineer", slug: "platform-engineer", agent_type: "code_assistant")
+        create(:ai_agent_skill, agent: engineer, skill: create(:ai_skill, :global, slug: "engineer-develop"), is_active: true)
+        engineer.update!(system_prompt: "a new charter")
+        allow(Ai::Tools::PlatformApiToolRegistry).to receive(:all_tools)
+          .and_return(Ai::Tools::PlatformApiToolRegistry.all_tools.merge("brand_new_verb" => "Ai::Tools::ToolCatalogTool"))
+
+        second = service.sync!
+
+        expect(second.written).to eq([])
+        expect(second.unchanged).to match_array(roster)
+        expect(roster.to_h { |slug| [ slug, committed(slug) ] }).to eq(snapshot)
       end
 
       it "targets .claude/agents/powernode by default" do
@@ -142,6 +165,19 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
         slugs = service.send(:syncable_agents).map(&:slug)
 
         expect(slugs).not_to include(inactive_own.slug, other_agent.slug)
+      end
+
+      # Operator decision (2026-09-25): an agent called only by services (the
+      # JSON pipeline workers) carries mcp_metadata["claude_code_export"] = false.
+      # Moved here from the canonical scope, which no longer reads agent rows.
+      it "excludes an agent whose claude_code_export flag is false, and keeps one without the flag" do
+        worker = create(:ai_agent, account: account, name: "Pipeline Worker", mcp_metadata: { "claude_code_export" => false })
+        plain = create(:ai_agent, account: account, name: "Plain Agent")
+
+        slugs = service.send(:syncable_agents).map(&:slug)
+
+        expect(slugs).not_to include(worker.slug)
+        expect(slugs).to include(plain.slug)
       end
 
       it "exports an account clone of a canonical (same slug) as the account's row" do
@@ -178,30 +214,6 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
       end
     end
 
-    # Item 1 (environment independence): a COMMITTED canonical file must render
-    # the same on every install, so in canonical scope the tier comes from the
-    # agent's DECLARED requirement (what the seed states) or its pinned model —
-    # never from resolved_model, which depends on THIS install's providers.
-    it "derives the canonical-scope tier from the declared model_requirements, never from resolved_model" do
-      declared = build_canonical(name: "Declared Reasoner",
-                                 mcp_metadata: { "model_config" => { "model_requirements" => { "tier" => "reasoning" } } })
-      # update_columns: Ai::Agent's auto_resolve_provider_from_model callback
-      # resolves a pinned model through the owning ACCOUNT's providers, which a
-      # global row has none of — the pin is a seed-time fact, not under test here.
-      pinned = build_canonical(name: "Pinned Light")
-      pinned.update_columns(mcp_metadata: { "model_config" => { "model" => "claude-haiku-4-5-20251001" } })
-      bare = build_canonical(name: "Bare Canonical")
-      [ declared, pinned, bare ].each { |a| allow(a).to receive(:resolved_model).and_return("claude-fable-5") }
-      canonical_service = described_class.new(target_dir: target_dir)
-      allow(canonical_service).to receive(:syncable_agents).and_return([ declared, pinned, bare ])
-
-      canonical_service.sync!
-
-      expect(frontmatter_of(content_for(declared))["model"]).to eq("opus")
-      expect(frontmatter_of(content_for(pinned))["model"]).to eq("haiku")
-      expect(frontmatter_of(content_for(bare))["model"]).to eq("sonnet")
-      [ declared, pinned, bare ].each { |a| expect(a).not_to have_received(:resolved_model) }
-    end
 
     it "maps frontier UNCONDITIONALLY to fable even when the platform Fable gate is OFF " \
        "(campaign 019f2163 inc5 directive — CC-side Fable rides the CC entitlement, " \
@@ -630,133 +642,6 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
     end
   end
 
-  # The COMMITTED canonical files are diffed byte-for-byte by
-  # scripts/check-claude-agents-fresh.sh, so nothing account-scoped may reach
-  # them: ai_delegation_policies / ai_intervention_policies / ai_agent_lineages
-  # all carry a NOT NULL account_id, and the seeds key them on the platform
-  # admin account. A canonical render that read them would publish one tenant's
-  # governance configuration and fail the gate on any install with a second
-  # account.
-  describe "canonical scope reads only globally-scoped rows" do
-    subject(:canonical_service) { described_class.new(target_dir: target_dir) }
-
-    let(:other_account) { create(:account) }
-
-    def stub_canonical(agents)
-      allow(canonical_service).to receive(:syncable_agents).and_return(agents)
-    end
-
-    it "renders no delegation policy, whichever account holds one" do
-      agent = build_canonical(name: "Canonical Delegator")
-      create(:ai_delegation_policy, account: account, agent: agent, max_depth: 2,
-             allowed_delegate_types: %w[assistant], inheritance_policy: "moderate")
-      create(:ai_delegation_policy, account: other_account, agent: agent, max_depth: 9,
-             allowed_delegate_types: %w[monitor], inheritance_policy: "permissive")
-      stub_canonical([ agent ])
-
-      canonical_service.sync!
-      content = content_for(agent)
-
-      expect(content).not_to include("May delegate to")
-      expect(content).not_to include("Max delegation depth")
-      expect(content).not_to include("Inheritance:")
-    end
-
-    it "renders no intervention-policy domain in the description" do
-      agent = build_canonical(name: "Canonical Domained", description: "Handles storage.")
-      Ai::InterventionPolicy.create!(account: other_account, agent: agent, scope: "agent",
-                                     action_category: "system.sdwan_create_peer",
-                                     policy: "require_approval", priority: 10)
-      stub_canonical([ agent ])
-
-      canonical_service.sync!
-
-      expect(frontmatter_of(content_for(agent))["description"]).not_to include("sdwan")
-    end
-
-    it "reports to the parent_agent column but never to an account's lineage edge" do
-      parent = build_canonical(name: "Canonical Parent")
-      via_column = build_canonical(name: "Canonical Child By Column", parent_agent: parent)
-      via_lineage = build_canonical(name: "Canonical Child By Lineage")
-      Ai::AgentLineage.create!(account: other_account, parent_agent: parent,
-                               child_agent: via_lineage, spawned_at: Time.current)
-      stub_canonical([ parent, via_column, via_lineage ])
-
-      canonical_service.sync!
-
-      expect(content_for(via_column)).to include("Reports to: `#{parent.slug}`")
-      expect(content_for(via_lineage)).not_to include("Reports to")
-    end
-
-    it "ignores an account's own skill bound to a canonical agent" do
-      agent = build_canonical(name: "Canonical Skilled")
-      global_skill = create(:ai_skill, account: nil, slug: "global-capability", name: "Global Capability")
-      local_skill = create(:ai_skill, account: other_account, slug: "tenant-capability", name: "Tenant Capability")
-      create(:ai_agent_skill, agent: agent, skill: global_skill, is_active: true)
-      create(:ai_agent_skill, agent: agent, skill: local_skill, is_active: true)
-      stub_canonical([ agent ])
-
-      canonical_service.sync!
-      content = content_for(agent)
-
-      expect(content).to include("global-capability")
-      expect(content).not_to include("tenant-capability")
-    end
-
-    # HIER-P2G item 3 — the extension's policy DOMAINS reach the canonical
-    # description through its GLOBAL skills: a seeded executor-backed skill
-    # carries its executor's action category in metadata, and the registered
-    # PolicyDomains table (the system extension registers it at boot, P2F)
-    # names the domain. Global rows only, so the render is the same on every
-    # install; the policy ROWS stay excluded (account data).
-    describe "policy domains derived from global skills" do
-      around do |example|
-        Ai::ClaudeExport::PolicyDomains.register("quarantine", %w[system.quarantine_])
-        example.run
-      ensure
-        Ai::ClaudeExport::PolicyDomains.registered.reject! { |(domain, _)| domain == "quarantine" }
-      end
-
-      def bind_global_skill(agent, slug:, name:, category:)
-        skill = create(:ai_skill, :global, slug: slug, name: name, metadata: { "action_category" => category })
-        create(:ai_agent_skill, agent: agent, skill: skill, is_active: true)
-        skill
-      end
-
-      it "renders a registered domain as a trigger, and feeds it to the sibling ranking" do
-        agent = build_canonical(name: "Canonical Quarantiner", description: "Isolates nodes.")
-        bind_global_skill(agent, slug: "system-quarantine-node", name: "Quarantine Node", category: "system.quarantine_node")
-        neighbour = build_canonical(name: "Canonical Neighbour", description: "Also isolates.")
-        bind_global_skill(neighbour, slug: "system-quarantine-review", name: "Quarantine Review", category: "system.quarantine_review")
-        far = build_canonical(name: "Canonical Far", description: "Writes marketing copy.")
-        bind_global_skill(far, slug: "copywriting", name: "Copywriting", category: "marketing.copy")
-        stub_canonical([ agent, neighbour, far ])
-
-        canonical_service.sync!
-        description = frontmatter_of(content_for(agent))["description"]
-
-        expect(description).to include("involves quarantine;")
-        expect(description).to include("`#{neighbour.slug}`")
-      end
-
-      it "derives nothing from an UNREGISTERED category (no heuristic noise) nor from an account skill" do
-        agent = build_canonical(name: "Canonical Plain", description: "Isolates nodes.")
-        bind_global_skill(agent, slug: "system-attribute-failure", name: "Attribute Failure", category: "system.attribute_failure")
-        tenant = create(:ai_skill, account: other_account, slug: "tenant-quarantine", name: "Tenant Quarantine",
-                                   metadata: { "action_category" => "system.quarantine_tenant" })
-        create(:ai_agent_skill, agent: agent, skill: tenant, is_active: true)
-        stub_canonical([ agent ])
-
-        canonical_service.sync!
-        description = frontmatter_of(content_for(agent))["description"]
-
-        expect(description).not_to include("involves attribute;")
-        expect(description).not_to include("quarantine")
-        expect(description).to include("Attribute Failure")
-      end
-    end
-  end
-
   # allowed_delegate_types is matched against Ai::Agent#agent_type by every
   # reader (Ai::DelegationPolicy#allows_delegate_type?, and the router's pool
   # filter). A row naming skill slugs does not narrow delegation, it refuses all
@@ -824,123 +709,4 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
       expect(File.exist?(hand_authored)).to be true
     end
   end
-  describe "an empty canonical set (unseeded database)" do
-    it "keeps every committed skeleton instead of cleaning up against nothing" do
-      Dir.mktmpdir do |dir|
-        committed = File.join(dir, "fleet-autonomy.md")
-        File.write(committed, "---\nname: fleet-autonomy\n---\n#{described_class::GENERATED_HEADER}\n")
-        ::Ai::Agent.where(account_id: nil).update_all(status: "inactive")
-
-        result = described_class.new(account: nil, target_dir: dir).sync!
-
-        expect(result.total).to eq(0)
-        expect(result.removed).to eq([])
-        expect(File.exist?(committed)).to be(true)
-      end
-    end
-  end
-
-
-  # IMP-6cda93db7f31. The core canonical seeds no longer need an account, but
-  # the agent seeds that ship with extensions still resolve an admin account,
-  # a user in it and a provider and RAISE without them — so a database missing
-  # any of the three holds a PARTIAL canonical set. A partial set is
-  # indistinguishable HERE from a platform that retired the missing agents, so
-  # syncing against it deletes their committed skeletons and rewrites the rest
-  # from rows whose provider is still absent (the model tier then falls back to
-  # the default). Refuse the whole pass, exactly as for the empty set.
-  describe "a partial canonical roster (the account-gated seeds could not run)" do
-    def committed_skeleton(dir, key)
-      path = File.join(dir, "#{key}.md")
-      File.write(path, "---\nname: #{key}\n---\n#{described_class::GENERATED_HEADER}\n")
-      path
-    end
-
-    # Both preconditions below became obsolete with IMP-01a06b99: the
-    # extension's bootstrap_admin_context! no longer raises on a missing
-    # account, user or provider, so its agent seeds write their GLOBAL rows
-    # regardless and a provider-less install holds the WHOLE roster. Verified
-    # on a dev cell: 29 canonical agents with Ai::Provider.count == 0 and
-    # Account.joins(:users).exists? == false. Gating the export on either is
-    # therefore no longer a proxy for "could this database hold the full set?"
-    # — it just blocks a legitimate regeneration, which is the only way a
-    # provider-less install can ever refresh its committed skeletons.
-    it "syncs a provider-less database — a canonical render never reads provider state" do
-      canonical = build_canonical(name: "Fleet Autonomy", slug: "fleet-autonomy")
-      Ai::Agent.global.update_all(ai_provider_id: nil)
-      Ai::Provider.delete_all
-
-      Dir.mktmpdir do |dir|
-        service = described_class.new(account: nil, target_dir: dir)
-        allow(service).to receive(:syncable_agents).and_return([ canonical.reload ])
-
-        result = service.sync!
-
-        expect(result.written).to eq([ "fleet-autonomy" ])
-        expect(File.exist?(File.join(dir, "fleet-autonomy.md"))).to be(true)
-      end
-    end
-
-    # This one still refuses, and the reason is NOT the agent rows — the seeds
-    # write a canonical's global definition without an account. It is the
-    # ACCOUNT-KEYED extras the export renders: `## Delegation` (parent_agent_id,
-    # written by the hierarchy seeds, which resolve an account) and the
-    # fetch-skill-context step (skill bindings). Measured on a dev cell holding
-    # all 29 canonicals but no account with a user, a full regeneration was 38
-    # insertions against 157 deletions — `## Delegation` stripped from all 28
-    # rewritten files, and the extension-developer skill step gone from
-    # platform-developer. Exporting there quietly degrades every skeleton.
-    it "keeps every committed skeleton when no account has a user" do
-      canonical = build_canonical(name: "Fleet Autonomy", slug: "fleet-autonomy")
-      Ai::Agent.global.update_all(creator_id: nil)
-      UserRole.delete_all
-      User.delete_all
-
-      Dir.mktmpdir do |dir|
-        retired = committed_skeleton(dir, "long-gone")
-        service = described_class.new(account: nil, target_dir: dir)
-        allow(service).to receive(:syncable_agents).and_return([ canonical.reload ])
-
-        result = service.sync!
-
-        expect(result.written).to eq([])
-        expect(result.removed).to eq([])
-        expect(File.exist?(retired)).to be(true)
-      end
-    end
-
-    # The one case that still refuses: an EMPTY set is a database whose agent
-    # seeds never ran, not a platform that retired every agent. Cleaning up
-    # there would delete every committed skeleton at once.
-    it "still refuses, and deletes nothing, when the database holds no canonical at all" do
-      Dir.mktmpdir do |dir|
-        retired = committed_skeleton(dir, "long-gone")
-        service = described_class.new(account: nil, target_dir: dir)
-        allow(service).to receive(:syncable_agents).and_return([])
-
-        result = service.sync!
-
-        expect(result.written).to eq([])
-        expect(result.removed).to eq([])
-        expect(File.exist?(retired)).to be(true)
-      end
-    end
-
-    it "syncs normally once an account, a user in it and a provider all exist" do
-      canonical = build_canonical(name: "Fleet Autonomy", slug: "fleet-autonomy")
-
-      Dir.mktmpdir do |dir|
-        retired = committed_skeleton(dir, "long-gone")
-        service = described_class.new(account: nil, target_dir: dir)
-        allow(service).to receive(:syncable_agents).and_return([ canonical ])
-
-        result = service.sync!
-
-        expect(result.written).to eq([ "fleet-autonomy" ])
-        expect(result.removed).to eq([ "long-gone" ])
-        expect(File.exist?(retired)).to be(false)
-      end
-    end
-  end
-
 end

@@ -41,14 +41,17 @@ RSpec.describe "claude:* rake tasks" do
   end
 
   describe "claude:sync_agents" do
-    it "exports the CANONICAL set only by default (no account rows), into TARGET_DIR" do
+    # C4: the canonical default is the roster's thin loaders, never a database
+    # row — neither a legacy-style canonical nor an account's own agent.
+    it "exports the CANONICAL set only by default — the roster's thin loaders — into TARGET_DIR" do
       canonical = create(:ai_agent, :global, is_system: true, name: "Canonical Planner")
       own = create(:ai_agent, account: account, provider: provider, name: "My Local Agent")
 
       run_task("claude:sync_agents", env: { "TARGET_DIR" => target_dir, "ACCOUNT_ID" => nil, "INCLUDE_ACCOUNT" => nil })
 
-      expect(File.exist?(File.join(target_dir, "#{canonical.slug}.md"))).to be true
-      expect(File.exist?(File.join(target_dir, "#{own.slug}.md"))).to be false
+      exported = Dir[File.join(target_dir, "*.md")].map { |path| File.basename(path, ".md") }
+      expect(exported).to match_array(Ai::Agents::CanonicalRoster::SLUGS)
+      expect(exported).not_to include(canonical.slug, own.slug)
     end
 
     it "exports the account's own rows (not the canonicals) when ACCOUNT_ID is given" do

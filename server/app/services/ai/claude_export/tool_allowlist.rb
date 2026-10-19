@@ -3,7 +3,9 @@
 module Ai
   module ClaudeExport
     # THE ONE PLACE that maps a platform agent's tool access to the Claude Code
-    # `tools:` frontmatter allowlist (HIER-P1B item 3).
+    # `tools:` frontmatter allowlist (HIER-P1B item 3) of an ACCOUNT-scope
+    # export; the committed canonical skeletons are C4 thin loaders with a fixed
+    # bootstrap core (ThinLoader) instead.
     #
     # Resolution mirrors AgentToolBridgeService (#platform_tool_definitions +
     # #scope_to_tool_families), in the same order, so the CC counterpart of an

@@ -123,7 +123,8 @@ else
 fi
 echo "Improvement loop: /improve discover → approve → /dev-loop dev-improve (or delegate to a platform agent)."
 # Platform agents as Claude Code subagents: count the committed canonical skeletons
-# (no Rails boot — this hook has a 5 s budget). Regenerate after a seed/renderer change.
+# (no Rails boot — this hook has a 5 s budget). They are the C4 thin loaders, so
+# they change only with Ai::Agents::CanonicalRoster or Ai::ClaudeExport::ThinLoader.
 AGENTS_DIR="$PROJECT_DIR/.claude/agents/powernode"
 agent_count=0
 if [[ -d "$AGENTS_DIR" ]]; then
@@ -135,7 +136,7 @@ if has_verb platform.route_task; then
 else
   echo "  For platform work prefer these subagents over general-purpose."
 fi
-echo "  Regenerate after a seed change: cd server && bundle exec rails claude:sync_agents (gate: scripts/check-claude-agents-fresh.sh)."
+echo "  Code and docs go to platform-engineer, independent review to platform-reviewer. Regenerate after a roster change: cd server && bundle exec rails claude:sync_agents (gate: scripts/check-claude-agents-fresh.sh)."
 if [[ -n "$listing_error" ]]; then
   echo "Could not read the powernode connector's tools/list (${listing_error}), so no platform.* verb is advised above."
   echo "  Check a verb with ToolSearch before relying on it."

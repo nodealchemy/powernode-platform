@@ -3,9 +3,10 @@
 module Ai
   module Routing
     # THE ONE DEFINITION of "routable agent" (HIER-P1B item 10), shared by the
-    # Claude Code exporter (Ai::ClaudeExport::AgentSkeletonSync) and the
-    # platform router (Ai::Routing::AgentRouterService) so both sides route
-    # over — and name — the same set.
+    # platform router (Ai::Routing::AgentRouterService) and the account-scope
+    # Claude Code export (Ai::ClaudeExport::AgentSkeletonSync). The COMMITTED
+    # canonical export is the C4 roster's thin loaders instead, so during the
+    # shadow period the router can name a canonical with no committed skeleton.
     #
     # Routable = active, not an mcp_client identity (those are ephemeral
     # per-session rows auto-created by Ai::McpClientIdentityService, with no
@@ -14,8 +15,8 @@ module Ai
     # same-slug canonical (Ai::Agent.resolve_for's override rule).
     #
     # Three views:
-    #   .canonical         GLOBAL is_system rows — the committed CC export and
-    #                      what "official platform agent" means (canonical rule).
+    #   .canonical         GLOBAL is_system rows — what "official platform agent"
+    #                      means (canonical rule).
     #   .owned_by(account) the account's own rows only (clones + own agents) —
     #                      the local, gitignored CC export.
     #   .for(account_id)   canonical ∪ own, override-aware — what the router

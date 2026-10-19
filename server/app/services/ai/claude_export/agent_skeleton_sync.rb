@@ -2,17 +2,17 @@
 
 module Ai
   module ClaudeExport
-    # NOT the platform-agent seed: this EXPORTS platform Ai::Agent records OUT as Claude Code
+    # NOT the platform-agent seed: this EXPORTS platform agents OUT as Claude Code
     # skeletons; server/db/seeds/claude_agents_seed.rb is the inverse — it seeds PLATFORM agents INTO the DB.
     #
-    # Syncs platform Ai::Agent records to native Claude Code subagent skeletons
-    # (<target_dir>/<slug>.md) so any Claude Code session can `Agent(subagent_type:
-    # "<slug>")` a platform-defined agent. The skeleton is a THIN MCP bootstrap —
-    # it never duplicates the agent's system prompt or skill content. The
-    # platform stays the single source of truth; the file just tells CC where to
-    # fetch it (mcp__powernode__platform_get_agent / platform_get_skill_context)
-    # at spawn time, so edits to the platform agent take effect on the NEXT spawn
-    # with no regeneration needed.
+    # Writes native Claude Code subagent skeletons (<target_dir>/<slug>.md) so
+    # any Claude Code session can `Agent(subagent_type: "<slug>")` a platform
+    # agent. The skeleton is a THIN MCP bootstrap — it never duplicates the
+    # agent's system prompt or skill content. The platform stays the single
+    # source of truth; the file just tells CC where to fetch it
+    # (mcp__powernode__platform_get_agent / platform_get_skill_context) at spawn
+    # time, so edits to the platform agent take effect on the NEXT spawn with no
+    # regeneration needed.
     #
     # ENVIRONMENT-INDEPENDENT (HIER-P1B item 1): the body fetches by SLUG, never
     # by the per-install agent UUID (ops-hub ids != dev ids, so a committed file
@@ -21,18 +21,24 @@ module Ai
     # canonical wins on that install, and the returned `id` is what the skill
     # step feeds to get_skill_context.
     #
-    # TWO SCOPES, TWO DIRECTORIES (canonical rule: official agents are GLOBAL
-    # seeded canonicals and the platform is the source of truth):
-    #   * no account  -> Ai::Routing::RoutableAgents.canonical, written to
-    #                    .claude/agents/powernode/ and COMMITTED (freshness-gated
-    #                    by scripts/check-claude-agents-fresh.sh);
+    # TWO SCOPES, TWO DIRECTORIES:
+    #   * no account  -> the C4 survivors ONLY (Ai::Agents::CanonicalRoster::SLUGS),
+    #                    rendered by ThinLoader, written to .claude/agents/powernode/
+    #                    and COMMITTED (freshness-gated by
+    #                    scripts/check-claude-agents-fresh.sh). Every other
+    #                    generated file there — the legacy canonical skeletons —
+    #                    is removed as stale. ThinLoader reads no database row and
+    #                    no tool registry, so the set is the same on every install,
+    #                    seeded or not, and no platform edit (a skill, a prompt, a
+    #                    registered tool) changes a committed file;
     #   * account:    -> RoutableAgents.owned_by(account) — the account's own
     #                    rows (clones + own agents) ONLY, written to the
-    #                    gitignored .claude/agents/powernode-local/.
+    #                    gitignored .claude/agents/powernode-local/ by the
+    #                    renderer below.
     # A committed canonical file is therefore never wrong on another install,
     # and a local clone never leaks into the public tree.
     #
-    # What each skeleton carries (items 3/4/9): a ROUTING description
+    # What an ACCOUNT-scope skeleton carries (items 3/4/9): a ROUTING description
     # (RoutingDescription — trigger + exclusion, what the CC Agent tool routes
     # on) plus the tier guidance below; a `tools:` allowlist (ToolAllowlist —
     # derived from the agent's tool access the way AgentToolBridgeService scopes
@@ -40,19 +46,13 @@ module Ai
     # lineage parent; and Ai::Agent::BASE_GUARDRAILS verbatim as the always-on
     # floor (the fetched prompt already prepends them natively — the body says so).
     #
-    # CANONICAL SCOPE READS ONLY GLOBALLY-SCOPED ROWS (see #canonical_only?):
-    # delegation policies, intervention policies and lineage edges all carry a
-    # NOT NULL account_id, so they are account data and never reach a COMMITTED
-    # file — the canonical render would otherwise differ per install (and per
-    # account) and publish one tenant's governance configuration. In the
-    # canonical files "Reports to" comes from the agent's own parent_agent_id
-    # column and the routing triggers from the agent's row plus its GLOBAL bound
-    # skills — including the policy DOMAINS those skills' action categories map
-    # to (HIER-P2G, see #domains_by_agent); the gitignored powernode-local/
-    # export reads all four, scoped to the account it was run for.
+    # Delegation policies, intervention policies and lineage edges all carry a
+    # NOT NULL account_id; the account-scope render reads them for the account
+    # it was run for, and none of them can reach a committed file.
     #
-    # Model tier: Ai::ModelTiers.classify(agent.resolved_model) maps to the CC
-    # frontmatter `model:` value. frontier (Fable/Mythos) maps UNCONDITIONALLY to
+    # Model tier: the declared tier (the roster's, for a thin loader), else
+    # Ai::ModelTiers.classify(agent.resolved_model), maps to the CC frontmatter
+    # `model:` value. frontier (Fable/Mythos) maps UNCONDITIONALLY to
     # "fable" — this does NOT consult Ai::FableRouting.enabled_for?/fable_model?
     # gating. That platform-side gate governs whether the PLATFORM may select
     # Fable for its own executions; it says nothing about Claude Code, which
@@ -95,19 +95,22 @@ module Ai
       # all) so re-running with no agent changes produces zero writes.
       def sync!
         FileUtils.mkdir_p(@target_dir)
+        return write_all(::Ai::Agents::CanonicalRoster::SLUGS.to_h { |slug| [ slug, ThinLoader.render(slug) ] }) if canonical_scope?
 
         agents = syncable_agents
-        return refuse_untrustworthy_roster(agents) if canonical_scope? && !trustworthy_roster?(agents)
-
         context = build_context(agents)
+        write_all(agents.to_h { |agent| [ sync_key(agent), render(agent, context) ] })
+      end
+
+      private
+
+      # @param contents [Hash{String => String}] key => rendered file
+      def write_all(contents)
         written = []
         unchanged = []
 
-        agents.each do |agent|
-          key = sync_key(agent)
+        contents.each do |key, content|
           path = @target_dir.join("#{key}.md")
-          content = render(agent, context)
-
           if File.exist?(path) && File.read(path) == content
             unchanged << key
           else
@@ -116,72 +119,21 @@ module Ai
           end
         end
 
-        removed = cleanup_stale(agents.map { |agent| sync_key(agent) })
+        removed = cleanup_stale(contents.keys)
 
-        Result.new(written: written, unchanged: unchanged, removed: removed, total: agents.size)
-      end
-
-      private
-
-      # Is the resolved canonical set the WHOLE roster this database should
-      # hold? Only then does it describe the committed skeletons.
-      #
-      # An EMPTY set is a database that never ran the agent seeds (a fresh dev
-      # cell), not a platform with no agents: cleaning up there would delete
-      # every committed skeleton at once, and the Stop hook runs this after any
-      # seed edit.
-      #
-      # An account holding a user is still required, and it is NOT about the
-      # agent rows themselves. The seeds write a canonical's GLOBAL definition
-      # with no account (IMP-01a06b99), but they skip the ACCOUNT-KEYED extras
-      # until one exists — and the export renders two of them: the `##
-      # Delegation` section (parent_agent_id, written by the hierarchy seeds,
-      # which resolve an account) and the fetch-skill-context step (skill
-      # bindings). Exporting without them silently strips both from every
-      # committed skeleton. Measured on a dev cell holding all 29 canonicals but
-      # no account with a user: a full regeneration came out 38 insertions
-      # against 157 deletions, dropping `## Delegation` from all 28 rewritten
-      # files and the `extension-developer` skill step from platform-developer.
-      #
-      # ::Ai::Provider.exists? was ALSO required and has been dropped: nothing a
-      # canonical render reads consults provider state. #tier_for returns
-      # DEFAULT_TIER for canonical scope BEFORE the resolved_model branch,
-      # precisely so a committed file renders identically on every install, and
-      # the seeds no longer raise without a provider. The old comment here
-      # claimed a provider-less row would drift `model:` off the committed value
-      # via a default-tier fallback; that is not reachable in this scope, and
-      # keeping the clause only blocked the one regeneration a provider-less
-      # install can ever perform.
-      #
-      # Two indexed EXISTS, only in canonical scope. An account-scoped export is
-      # the account's own rows and is trustworthy by construction.
-      def trustworthy_roster?(agents)
-        agents.any? && ::Account.joins(:users).exists?
-      end
-
-      def refuse_untrustworthy_roster(agents)
-        Rails.logger.warn(
-          "[claude:sync_agents] canonical scope resolved #{agents.size} agent(s) on a database that " \
-          "cannot render the whole skeleton (account with a user: " \
-          "#{::Account.joins(:users).exists?}) — leaving #{@target_dir} untouched " \
-          "(unseeded database, or one whose account-keyed agent extras have not been seeded?)"
-        )
-        Result.new(written: [], unchanged: [], removed: [], total: agents.size)
+        Result.new(written: written, unchanged: unchanged, removed: removed, total: contents.size)
       end
 
       def default_target_dir
         Rails.root.join("..", ".claude", "agents", canonical_scope? ? CANONICAL_DIR : LOCAL_DIR)
       end
 
-      # ONE definition of the exportable set, shared with the router
-      # (Ai::Routing::RoutableAgents) so `platform.route_task` names exactly the
-      # subagent_types this file set carries.
-      #
-      # Agents flagged out of the export (EXPORT_FLAG false) are dropped here
-      # only, so the router still names them.
+      # ACCOUNT scope: the account's own routable rows (Ai::Routing::RoutableAgents,
+      # shared with the router). Agents flagged out of the export (EXPORT_FLAG
+      # false) are dropped here only, so the router still names them.
       def syncable_agents
-        agents = canonical_scope? ? ::Ai::Routing::RoutableAgents.canonical : ::Ai::Routing::RoutableAgents.owned_by(@account.id)
-        agents.reject { |agent| agent.mcp_metadata.is_a?(Hash) && agent.mcp_metadata[EXPORT_FLAG] == false }
+        ::Ai::Routing::RoutableAgents.owned_by(@account.id)
+                                     .reject { |agent| agent.mcp_metadata.is_a?(Hash) && agent.mcp_metadata[EXPORT_FLAG] == false }
       end
 
       def sync_key(agent)
@@ -195,7 +147,7 @@ module Ai
       def build_context(agents)
         ids = agents.map(&:id)
         skills = skills_by_agent(ids)
-        domains = domains_by_agent(ids, skills)
+        domains = domains_by_agent(ids)
         {
           skills: skills,
           domains: domains,
@@ -206,75 +158,26 @@ module Ai
         }
       end
 
-      # CANONICAL SCOPE READS ONLY GLOBALLY-SCOPED ROWS.
-      #
-      # A canonical skeleton is COMMITTED and freshness-gated by diff, so it
-      # must render byte-identically on every install (item 1). Any relation
-      # whose rows are account-scoped therefore cannot contribute to it: two
-      # installs — or one install with two accounts — would render different
-      # files and the gate would fail for a reason nobody can fix. The schema
-      # settles which relations those are:
-      #
-      #   ai_agent_skills          NO account_id  -> usable, joined to GLOBAL skills
-      #   ai_agents.parent_agent_id a column on the (global) agent -> usable
-      #   ai_intervention_policies account_id NOT NULL -> account data, EXCLUDED
-      #   ai_delegation_policies   account_id NOT NULL -> account data, EXCLUDED
-      #   ai_agent_lineages        account_id NOT NULL -> account data, EXCLUDED
-      #
-      # There is no such thing as a canonical intervention/delegation/lineage
-      # row (the columns are NOT NULL), and the seeds key them on the platform
-      # admin account (db/seeds/ai_agent_hierarchy_seed.rb: "The delegation rows
-      # are keyed on that SAME account rather than as canonical account_id-NULL
-      # rows"), so an earlier "prefer the global row, else rows.first" fallback
-      # committed one tenant's governance configuration to a public repo. In
-      # ACCOUNT scope (.claude/agents/powernode-local/, gitignored) all four are
-      # read, scoped to that account — that export is per-install by design.
-      def canonical_only?
-        canonical_scope?
-      end
-
       # Active bindings to active skills, one query (mirrors Ai::Agent#skill_slugs,
       # which is a per-record pluck). Whole skill rows: the routing description
-      # reads name/tags, the body lists slugs. Sorted by slug: the rendered
-      # output must be DETERMINISTIC (the freshness gate diffs it byte for byte),
-      # and row order out of an unordered query is not.
-      #
-      # The join table carries no account, so canonical scope restricts to
-      # GLOBAL skills (the seeds create every platform skill global —
-      # db/seeds/ai_skills_seed.rb: "Ai::Skill rows are seeded global"); an
-      # account binding its own skill to a canonical agent must not change the
-      # committed file.
+      # reads name/tags, the body lists slugs. Sorted by slug: re-running with no
+      # change must render the same bytes, and row order out of an unordered
+      # query is not stable.
       def skills_by_agent(ids)
         return {} if ids.empty?
 
-        scope = ::Ai::AgentSkill.where(ai_agent_id: ids, is_active: true)
-                                .joins(:skill).where(ai_skills: { status: "active" })
-        scope = scope.where(ai_skills: { account_id: nil }) if canonical_only?
-        scope.includes(:skill)
-             .each_with_object(Hash.new { |h, k| h[k] = [] }) { |binding, h| h[binding.ai_agent_id] << binding.skill }
-             .transform_values { |skills| skills.sort_by(&:slug) }
+        ::Ai::AgentSkill.where(ai_agent_id: ids, is_active: true)
+                        .joins(:skill).where(ai_skills: { status: "active" })
+                        .includes(:skill)
+                        .each_with_object(Hash.new { |h, k| h[k] = [] }) { |binding, h| h[binding.ai_agent_id] << binding.skill }
+                        .transform_values { |skills| skills.sort_by(&:slug) }
       end
 
       # Policy domains (PolicyDomains — the owning extension registers its
-      # category → domain table at boot).
-      #
-      # ACCOUNT scope: the agent's active intervention-policy categories for
-      # that account. The rows are account data (account_id NOT NULL, see
-      # canonical_only?), so they never reach a canonical file.
-      #
-      # CANONICAL scope (HIER-P2G): the action categories the agent's GLOBAL
-      # bound skills carry in `metadata.action_category` — the seeds stamp each
-      # executor-backed skill with its executor's gate category — mapped
-      # through the REGISTERED domain table only. Global rows, deterministic on
-      # every install, and the domain names are what the extension registered,
-      # so the routing description and the sibling ranking see the extension's
-      # own vocabulary ("storage", "disk image", "topology") rather than a
-      # leading-token guess: the heuristic fallback would turn every unmapped
-      # category into a spurious trigger ("attribute", "fulfill"), so it is
-      # not consulted here.
-      def domains_by_agent(ids, skills_by_agent)
+      # category → domain table at boot) of the agent's active intervention-policy
+      # categories for the account.
+      def domains_by_agent(ids)
         return {} if ids.empty?
-        return domains_from_skills(skills_by_agent) if canonical_only?
 
         ::Ai::InterventionPolicy.where(ai_agent_id: ids, is_active: true, account_id: @account.id)
                                 .distinct.pluck(:ai_agent_id, :action_category)
@@ -282,41 +185,26 @@ module Ai
                                 .transform_values { |rows| PolicyDomains.for_categories(rows.map(&:last).sort) }
       end
 
-      def domains_from_skills(skills_by_agent)
-        registered = PolicyDomains.registered.map(&:first).to_set
-        skills_by_agent.each_with_object({}) do |(agent_id, skills), out|
-          categories = skills.filter_map do |skill|
-            skill.metadata.is_a?(Hash) ? skill.metadata["action_category"].to_s.strip.presence : nil
-          end.uniq.sort
-          domains = PolicyDomains.for_categories(categories).select { |domain| registered.include?(domain) }
-          out[agent_id] = domains if domains.any?
-        end
-      end
-
-      # One policy per agent, the account's own row. ACCOUNT SCOPE ONLY — see
-      # canonical_only?: ai_delegation_policies.account_id is NOT NULL, so no
-      # delegation policy is ever canonical and none may be committed.
+      # One policy per agent, the account's own row (ai_delegation_policies.account_id
+      # is NOT NULL: a delegation policy is account data).
       def delegation_by_agent(ids)
-        return {} if ids.empty? || canonical_only?
+        return {} if ids.empty?
 
         ::Ai::DelegationPolicy.where(agent_id: ids, account_id: @account.id)
                               .order(:created_at, :id).group_by(&:agent_id)
                               .transform_values(&:first)
       end
 
-      # Lineage parent: the agent's own parent_agent_id column (a property of
-      # the global row, so canonical-safe) and — in ACCOUNT scope only — the
-      # account's active Ai::AgentLineage edge as a fallback. Resolved to the
-      # parent's slug for "Reports to".
+      # Lineage parent: the agent's own parent_agent_id column, else the
+      # account's active Ai::AgentLineage edge. Resolved to the parent's slug for
+      # "Reports to".
       def parents_by_agent(agents)
         return {} if agents.empty?
 
         parent_ids = agents.to_h { |agent| [ agent.id, agent.parent_agent_id ] }
-        unless canonical_only?
-          ::Ai::AgentLineage.active.where(child_agent_id: agents.map(&:id), account_id: @account.id)
-                            .order(:spawned_at, :id).pluck(:child_agent_id, :parent_agent_id)
-                            .each { |child_id, parent_id| parent_ids[child_id] ||= parent_id }
-        end
+        ::Ai::AgentLineage.active.where(child_agent_id: agents.map(&:id), account_id: @account.id)
+                          .order(:spawned_at, :id).pluck(:child_agent_id, :parent_agent_id)
+                          .each { |child_id, parent_id| parent_ids[child_id] ||= parent_id }
         parents = ::Ai::Agent.where(id: parent_ids.values.compact.uniq).index_by(&:id)
         parent_ids.transform_values { |parent_id| parent_id && parents[parent_id] }.compact
       end
@@ -342,11 +230,9 @@ module Ai
 
       # Model tier. The agent's DECLARED requirement first
       # (mcp_metadata.model_config.model_requirements.tier — what the seeds
-      # state), then a pinned model's family (model_config.model). Only in
-      # ACCOUNT scope does the install's runtime resolution (resolved_model —
-      # Ai::AgentModelSelector over THIS account's credentialed providers) act
-      # as the fallback: a canonical file is committed and must render the same
-      # on every install, so it never consults provider state (item 1).
+      # state), then a pinned model's family (model_config.model), then the
+      # install's runtime resolution (resolved_model — Ai::AgentModelSelector
+      # over THIS account's credentialed providers).
       def tier_for(agent)
         config = agent.mcp_metadata.is_a?(Hash) ? agent.mcp_metadata["model_config"] : nil
         config = {} unless config.is_a?(Hash)
@@ -356,7 +242,6 @@ module Ai
 
         pinned = config["model"].to_s.presence
         return ::Ai::ModelTiers.classify(pinned) if pinned
-        return ::Ai::ModelTiers::DEFAULT_TIER if canonical_scope?
 
         agent.using_account(@account)
         ::Ai::ModelTiers.classify(agent.resolved_model)

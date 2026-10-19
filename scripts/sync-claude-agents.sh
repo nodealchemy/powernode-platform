@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# sync-claude-agents.sh — regenerate the Claude Code subagent skeletons from
-# platform Ai::Agent records (thin MCP bootstraps; see
+# sync-claude-agents.sh — regenerate the Claude Code subagent skeletons: the
+# canonical set from the C4 roster declaration (Ai::Agents::CanonicalRoster via
+# ThinLoader), an account's own set from its Ai::Agent rows (see
 # server/app/services/ai/claude_export/agent_skeleton_sync.rb).
 #
 # Usage:
