@@ -45,6 +45,7 @@ Severity: **P1** blocks a working install · **P2** wrong/misleading, workaround
 | 23 | P2 | agents | The GLOBAL canonical concierge agent is bound to one account's (non-routable) provider |
 | 24 | P2 | gate | `scripts/validate.sh` fails on a clean `develop` checkout (3 checks unrelated to any local change) |
 | 25 | P2 | mcp | Each unclosed MCP session mints a new `<client> #N` agent; idle sessions never expire (13 minted in one day) |
+| 26 | P2 | fleet | `system_destroy_instance` always fails in core mode: it queries a private-extension billing table |
 
 ## Findings
 
@@ -302,6 +303,21 @@ Severity: **P1** blocks a working install · **P2** wrong/misleading, workaround
   operator-confirmed cleanup (streamlining campaign C8).
 - **Proposed fix:** expire MCP sessions after an idle window (and treat idle-expired sessions as unoccupied for
   reuse); cap agents per OAuth application.
+
+### 26. `system_destroy_instance` is unusable in core mode — P2
+
+- **Symptom:** every call returns "Internal error"; backend log:
+  `PG::UndefinedTable: relation "business_billing_provisioning_usage_records" does not exist`. No rows are deleted.
+- **Cause:** the verb's FK walk (documented as covering `billing_provisioning_usage_records`) unconditionally touches a
+  table that only exists when the private billing extension is installed — a core → private-extension coupling
+  (core-purity) that breaks the one sanctioned way to clear ghost instance rows on a core-mode hub. Because
+  `system_delete_node` refuses on the SDWAN FKs and points operators at this verb, ghost nodes cannot be removed
+  through the platform at all.
+- **Workaround used (hub cleanup 2026-10-19):** guarded delete of the 7 blocking SDWAN rows
+  (`system_sdwan_host_vrf_assignments`, `system_node_instance_peers`) for terminated instances, then
+  `system_delete_node`.
+- **Proposed fix:** walk only tables that exist (or register extension-owned dependents through an extension seam);
+  include `system_sdwan_host_vrf_assignments` / `system_node_instance_peers` in the walk; spec in core mode.
 
 ## Install recipe that worked (for the eventual doc fix)
 
