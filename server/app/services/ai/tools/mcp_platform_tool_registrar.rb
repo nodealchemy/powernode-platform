@@ -8,6 +8,17 @@ module Ai
       # Maps MCP registry keys to internal tool action names where they differ.
       # Most tools use identical registry/action names; only KnowledgeGraphTool
       # uses shortened internal names (e.g. "search" instead of "search_knowledge_graph").
+      # The doors whose calls are held to the invoked tool name whatever the
+      # principal (see .action_pinned_to_name?): the streamable HTTP door, whose
+      # clients see the flattened per-action catalog. The ActionCable channel
+      # dispatches CLASS-level manifests (.build_manifest), so its callers must
+      # supply :action; the agent tool-calling loop and skill recipes pick
+      # sibling actions legitimately. Those stay unpinned.
+      ACTION_PINNED_ORIGINS = [
+        ::Ai::Tools::CallOrigin::MCP_OAUTH, ::Ai::Tools::CallOrigin::MCP_INSTANCE,
+        ::Ai::Tools::CallOrigin::MCP_FEDERATION
+      ].freeze
+
       ACTION_ALIASES = {
         "search_knowledge_graph" => "search",
         "reason_knowledge_graph" => "reason",
@@ -257,10 +268,12 @@ module Ai
           # for a caller with nothing downstream bounding what it runs, it must
           # first be shown to agree with the name authorization cleared.
           if execution_params.key?(:action)
-            if action_pinned_to_name?(user: user, mcp_agent: mcp_agent, instance_authorized: instance_authorized)
+            if action_pinned_to_name?(user: user, mcp_agent: mcp_agent, instance_authorized: instance_authorized,
+                                      origin: origin)
               enforce_action_scope!(tool_name: tool_name, tool_id: tool_id, tool_class: tool_class,
                                     supplied_action: execution_params[:action],
-                                    principal: instance_authorized ? "instance" : "none")
+                                    principal: pin_principal_label(user: user, instance_authorized: instance_authorized,
+                                                                   origin: origin))
             end
           elsif action_dispatched?(tool_class)
             execution_params[:action] = ACTION_ALIASES.fetch(tool_name, tool_name)
@@ -538,7 +551,20 @@ module Ai
         # simply never ran there. Keyed on the principal, an omitted flag now
         # tightens instead of opening a door. (IMP-3024cfb1d850)
         #
-        #   user present     unpinned, and byte-for-byte unchanged. The original
+        #   wire door        PINNED whatever the principal (C13): origin is one
+        #                    of ACTION_PINNED_ORIGINS, i.e. the call came from an
+        #                    external MCP client over streamable HTTP. That
+        #                    client sees the flattened
+        #                    catalog — one tool name per action, and no advertised
+        #                    schema carries an :action parameter — so it never
+        #                    needs to disagree with the name it invoked. The
+        #                    streamable controller passes the session's
+        #                    mcp_client agent alongside the user, so the
+        #                    principal alone cannot tell this door from the agent
+        #                    loop below; the origin can. Without the pin a Claude
+        #                    Code subagent denied a verb by name (disallowedTools)
+        #                    reached it through a sibling of the same class.
+        #   user present     otherwise unpinned. The original
         #                    reasoning was that authorization here is per-CLASS —
         #                    one REQUIRED_PERMISSION covering every sibling action,
         #                    so smuggling a sibling is isomorphic to invoking it by
@@ -560,8 +586,15 @@ module Ai
         #                    for an instance principal the name is all may_invoke?
         #                    ever saw. The invoked name is the only bound left, so
         #                    hold the action to it.
-        def action_pinned_to_name?(user:, mcp_agent:, instance_authorized:)
-          instance_authorized || (user.nil? && mcp_agent.nil?)
+        def action_pinned_to_name?(user:, mcp_agent:, instance_authorized:, origin: nil)
+          instance_authorized || (user.nil? && mcp_agent.nil?) || ACTION_PINNED_ORIGINS.include?(origin)
+        end
+
+        def pin_principal_label(user:, instance_authorized:, origin: nil)
+          return "federation" if origin == ::Ai::Tools::CallOrigin::MCP_FEDERATION
+          return "instance" if instance_authorized
+
+          user ? "user" : "none"
         end
 
         # SECURITY (IMP-e8138c2714fb): make the action that RUNS agree with the
@@ -594,14 +627,17 @@ module Ai
         # action_pinned_to_name? for which callers are held to this, and why a
         # user principal is not.
         # principal: is for the operator reading the log — "instance" (grant-gated
-        # mTLS node) or "none" (a call carrying no principal). It stays OUT of the
+        # mTLS node), "federation" (a federation partner), "user" (a streamable-HTTP call carrying a user, C13) or "none"
+        # (a call carrying no principal). It stays OUT of the
         # exception message on purpose: both entry points must refuse identically,
         # and mcp_protocol_service_action_scope_spec.rb asserts that equality.
         def enforce_action_scope!(tool_name:, tool_id:, tool_class:, supplied_action:, principal: "none")
           return unless action_dispatched?(tool_class)
 
           expected = ACTION_ALIASES.fetch(tool_name, tool_name)
-          return if supplied_action.to_s == expected
+          # The registry key and its alias target denote the same action, so a
+          # caller echoing the invoked name is not smuggling anything.
+          return if [ expected, tool_name ].include?(supplied_action.to_s)
 
           Rails.logger.warn(
             "[McpPlatformTool] Refused out-of-scope action: principal=#{principal} " \

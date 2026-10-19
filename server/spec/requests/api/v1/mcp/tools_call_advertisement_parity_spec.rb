@@ -78,11 +78,13 @@ RSpec.describe "MCP tools/call advertisement parity", type: :request do
     expect(body.dig("result", "isError")).to be(true)
   end
 
-  # The SECOND door to the same defect: for a caller whose action is not pinned
-  # to the tool name, execute_tool lets a supplied :action win over the registry
-  # key, so an advertised name can carry a de-advertised action into the tool.
-  # RED before the fix: DiskImageOperatorTool is constructed with
-  # action=bootstrap_disk_image_ci.
+  # The SECOND door to the same defect: an advertised name carrying a
+  # de-advertised action in :action. On this door the call is now refused
+  # before availability is even asked, because a streamable-HTTP caller's
+  # action is pinned to the invoked name (C13,
+  # McpPlatformToolRegistrar::ACTION_PINNED_ORIGINS). The availability refusal
+  # for the same smuggle on an UNPINNED door (the agent tool-calling loop) is
+  # held in spec/services/ai/tools/mcp_platform_tool_registrar_spec.rb.
   it "refuses a de-advertised action supplied through the :action param" do
     hide_const("System")
     expect(::Ai::Tools::DiskImageOperatorTool).not_to receive(:new)
@@ -90,10 +92,8 @@ RSpec.describe "MCP tools/call advertisement parity", type: :request do
     body = tools_call("platform.provision_ci_worker",
                       { "action" => "bootstrap_disk_image_ci", "owner" => "acme", "repo" => "images" })
 
-    expect(body["error"]).to be_nil, "expected a result envelope, got #{body["error"].inspect}"
-    expect(body.dig("result", "structuredContent", "success")).to be(false)
-    expect(body.dig("result", "structuredContent", "error"))
-      .to match(/not offered by this control plane/)
+    expect(body.dig("error", "message")).to match(/bootstrap_disk_image_ci/)
+    expect(body["result"]).to be_nil
   end
 
   # CONTROL ARM — the refusal is per ACTION, not per CLASS. provision_ci_worker

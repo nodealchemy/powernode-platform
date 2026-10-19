@@ -420,6 +420,137 @@ RSpec.describe Ai::Tools::McpPlatformToolRegistrar do
       end
     end
 
+    # C13 — a call through the streamable HTTP door (OAuth, instance,
+    # federation) comes from an external client that
+    # sees the flattened catalog: one tool name per action, and no advertised
+    # schema carries an :action parameter. Such a client never needs to name a
+    # different action than the tool it invoked, and a Claude Code subagent
+    # whose skeleton denies a verb by name (disallowedTools) must not reach it
+    # through a sibling of the same class. The streamable controller passes the
+    # session's mcp_client agent alongside the user, so the principal alone
+    # cannot tell this door from the agent tool-calling loop: the origin does.
+    # The ActionCable channel stays unpinned: it dispatches CLASS-level
+    # manifests (build_manifest), so its callers must supply :action
+    # (spec/services/mcp_protocol_service_action_scope_spec.rb pins that).
+    context "caller-supplied action scope (MCP wire doors)" do
+      let(:memory_tool) { instance_double(Ai::Tools::MemoryTool) }
+      let(:client_agent) { instance_double(Ai::Agent) }
+
+      before do
+        allow(Ai::Tools::MemoryTool).to receive(:new)
+          .with(account: account, user: user, agent: client_agent).and_return(memory_tool)
+        allow(Ai::Tools::MemoryTool).to receive(:new)
+          .with(account: account, user: user, agent: nil).and_return(memory_tool)
+        allow(memory_tool).to receive(:execute).and_return({ success: true })
+        allow(memory_tool).to receive(:call_origin=)
+        allow(user).to receive(:has_permission?).and_return(true)
+      end
+
+      it "refuses a sibling action smuggled through an OAuth session call" do
+        expect {
+          described_class.execute_tool(
+            "platform.read_shared_memory",
+            params: { "action" => "delete_shared_memory", "key" => "k" },
+            account: account,
+            user: user,
+            mcp_agent: client_agent,
+            origin: Ai::Tools::CallOrigin::MCP_OAUTH
+          )
+        }.to raise_error(::Mcp::ProtocolService::PermissionDeniedError, /delete_shared_memory/)
+
+        expect(memory_tool).not_to have_received(:execute)
+      end
+
+      it "still runs an OAuth session call whose action agrees with the invoked name" do
+        described_class.execute_tool(
+          "platform.read_shared_memory",
+          params: { "action" => "read_shared_memory", "key" => "k" },
+          account: account,
+          user: user,
+          mcp_agent: client_agent,
+          origin: Ai::Tools::CallOrigin::MCP_OAUTH
+        )
+
+        expect(memory_tool).to have_received(:execute)
+      end
+
+      it "still injects the action for an OAuth session call that supplies none" do
+        described_class.execute_tool(
+          "platform.read_shared_memory",
+          params: { "key" => "k" },
+          account: account,
+          user: user,
+          mcp_agent: client_agent,
+          origin: Ai::Tools::CallOrigin::MCP_OAUTH
+        )
+
+        expect(memory_tool).to have_received(:execute) do |args|
+          expect(args[:params][:action]).to eq("read_shared_memory")
+        end
+      end
+
+      it "accepts the registry key itself for an aliased tool (both name the same action)" do
+        kg_tool = instance_double(Ai::Tools::KnowledgeGraphTool)
+        allow(Ai::Tools::KnowledgeGraphTool).to receive(:new)
+          .with(account: account, user: user, agent: client_agent).and_return(kg_tool)
+        allow(kg_tool).to receive(:call_origin=)
+        allow(kg_tool).to receive(:execute).and_return({ success: true })
+
+        described_class.execute_tool(
+          "platform.search_knowledge_graph",
+          params: { "action" => "search_knowledge_graph", "query" => "x" },
+          account: account,
+          user: user,
+          mcp_agent: client_agent,
+          origin: Ai::Tools::CallOrigin::MCP_OAUTH
+        )
+
+        expect(kg_tool).to have_received(:execute)
+      end
+
+      it "leaves the agent tool-calling loop unpinned" do
+        described_class.execute_tool(
+          "platform.read_shared_memory",
+          params: { "action" => "delete_shared_memory", "key" => "k" },
+          account: account,
+          user: user,
+          mcp_agent: client_agent,
+          origin: Ai::Tools::CallOrigin::AGENT_BRIDGE
+        )
+
+        expect(memory_tool).to have_received(:execute) do |args|
+          expect(args[:params][:action]).to eq("delete_shared_memory")
+        end
+      end
+
+      # The availability half for an UNPINNED door: the agent loop's supplied
+      # action wins over the registry key, so .unadvertised_refusal must still
+      # check the action that will run (IMP-128fe17fd8c8).
+      it "still refuses a de-advertised action smuggled on the unpinned agent loop" do
+        hide_const("System")
+        expect(::Ai::Tools::DiskImageOperatorTool).not_to receive(:new)
+
+        result = described_class.execute_tool(
+          "platform.provision_ci_worker",
+          params: { "action" => "bootstrap_disk_image_ci", "owner" => "acme", "repo" => "images" },
+          account: account,
+          user: user,
+          mcp_agent: client_agent,
+          origin: Ai::Tools::CallOrigin::AGENT_BRIDGE
+        )
+
+        expect(result[:success]).to be(false)
+        expect(result[:error]).to match(/not offered by this control plane/)
+      end
+
+      it "pins exactly the wire doors" do
+        expect(described_class::ACTION_PINNED_ORIGINS).to match_array(
+          [ Ai::Tools::CallOrigin::MCP_OAUTH, Ai::Tools::CallOrigin::MCP_INSTANCE,
+            Ai::Tools::CallOrigin::MCP_FEDERATION ]
+        )
+      end
+    end
+
     # IMP-3024cfb1d850 — the fence above was opt-in on instance_authorized, so
     # the OTHER entry point into this method (Mcp::ProtocolService's
     # platform_tool branch, which passes no principal at all) never ran it. The
