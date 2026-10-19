@@ -141,6 +141,9 @@ end
 gem "database_cleaner-active_record", "~> 2.2", group: :test
 gem "shoulda-matchers", "~> 7.0", group: :test
 gem "webmock", "~> 3.25", group: :test
+# Test-suite profiling (FactoryProf/EventProf/RSpecDissect/TagProf) + let_it_be/before_all.
+# Profilers are env-activated (FPROF=1, EVENT_PROF=..., RD_PROF=1, TAG_PROF=type) and inert by default.
+gem "test-prof", "~> 1.4", group: :test
 gem "vcr", "~> 6.3", group: :test
 gem "rspec-json_expectations", "~> 2.2", group: :test
 
