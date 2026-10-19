@@ -28,77 +28,16 @@ namespace :mcp do
     # so the generator can be exercised without writing over the committed catalog.
     output_path = ENV["MCP_TOOL_CATALOG_OUTPUT"].presence || Rails.root.join("..", "docs", "reference", "auto", "mcp-tools.md")
 
-    # Group actions by registry comment categories
-    categories = {
-      "Project & CI/CD" => [],
-      "Agent Management" => [],
-      "Agent Containers" => [],
-      "Team Management" => [],
-      "Workflow Management" => [],
-      "Pipeline Management" => [],
-      "Memory Management" => [],
-      "Knowledge & RAG" => [],
-      "KB Article Management" => [],
-      "Page Management" => [],
-      "Compound Learning" => [],
-      "Shared Knowledge" => [],
-      "Skills" => [],
-      "Knowledge Quality" => [],
-      "Knowledge Graph" => [],
-      "AI Safety & Autonomy" => [],
-      "Workspace & Communication" => [],
-      "Activity Monitoring" => [],
-      "System Health" => [],
-      "Concierge" => [],
-      "Image Generation" => [],
-      "Docker Management" => []
-    }
-
-    # Map tool classes to categories based on registry comments
-    class_to_category = {
-      "Ai::Tools::ProjectInitTool" => "Project & CI/CD",
-      "Ai::Tools::RunnerDispatchTool" => "Project & CI/CD",
-      "Ai::Tools::AgentManagementTool" => "Agent Management",
-      "Ai::Tools::AgentRoutingTool" => "Agent Management",
-      "Ai::Tools::ContainerDeploymentTool" => "Agent Containers",
-      "Ai::Tools::ContainerStatusTool" => "Agent Containers",
-      "Ai::Tools::ContainerLogsTool" => "Agent Containers",
-      "Ai::Tools::ContainerTerminateTool" => "Agent Containers",
-      "Ai::Tools::TeamManagementTool" => "Team Management",
-      "Ai::Tools::WorkflowManagementTool" => "Workflow Management",
-      "Ai::Tools::PipelineManagementTool" => "Pipeline Management",
-      "Ai::Tools::MemoryTool" => "Memory Management",
-      "Ai::Tools::KnowledgeTool" => "Knowledge & RAG",
-      "Ai::Tools::RagManagementTool" => "Knowledge & RAG",
-      "Ai::Tools::ApiReferenceTool" => "Knowledge & RAG",
-      "Ai::Tools::ToolCatalogTool" => "Knowledge & RAG",
-      "Ai::Tools::KbArticleManagementTool" => "KB Article Management",
-      "Ai::Tools::PageManagementTool" => "Page Management",
-      "Ai::Tools::LearningTool" => "Compound Learning",
-      "Ai::Tools::SharedKnowledgeTool" => "Shared Knowledge",
-      "Ai::Tools::SkillTool" => "Skills",
-      "Ai::Tools::KnowledgeQualityTool" => "Knowledge Quality",
-      "Ai::Tools::KnowledgeGraphTool" => "Knowledge Graph",
-      "Ai::Tools::KillSwitchTool" => "AI Safety & Autonomy",
-      "Ai::Tools::AgentAutonomyTool" => "AI Safety & Autonomy",
-      "Ai::Tools::ConversationTool" => "Conversations & Workspaces",
-      "Ai::Tools::ActivityMonitorTool" => "Activity Monitoring",
-      "Ai::Tools::IntegrationHealthTool" => "System Health",
-      "Ai::Tools::ImageGenerationTool" => "Image Generation",
-      "Ai::Tools::DockerContainerTool" => "Docker Management",
-      "Ai::Tools::DockerServiceTool" => "Docker Management",
-      "Ai::Tools::DockerStackTool" => "Docker Management",
-      "Ai::Tools::DockerClusterTool" => "Docker Management",
-      "Ai::Tools::DockerHostTool" => "Docker Management",
-      "Ai::Tools::DockerImageTool" => "Docker Management",
-      "Ai::Tools::DockerNetworkVolumeTool" => "Docker Management",
-      "Ai::Tools::RepoManagementTool" => "Project & CI/CD",
-      "Ai::Tools::AgentMemoryManagementTool" => "Memory Management",
-      "Ai::Tools::GovernanceTool" => "AI Safety & Autonomy",
-      "Ai::Tools::CoordinationTool" => "AI Safety & Autonomy",
-      "Ai::Tools::SelfImprovementTool" => "AI Safety & Autonomy",
-      "Ai::Tools::CampaignTool" => "Improvement Campaigns"
-    }
+    # Sections are the DECLARED tool families (C3-1): each action's
+    # PlatformApiToolRegistry.family_for, headed by its Ai::Tools::ToolFamilies
+    # label and in that vocabulary's order. "Uncategorized" is left only for a
+    # registration that resolves no family (an unloadable or duck-typed class),
+    # which the family lint keeps out of the real registry.
+    categories = Ai::Tools::ToolFamilies.all.to_h { |family, label| ["#{label} (`#{family}`)", []] }
+    category_for = lambda do |action_name|
+      family = Ai::Tools::PlatformApiToolRegistry.family_for(action_name)
+      Ai::Tools::ToolFamilies.known?(family) ? "#{Ai::Tools::ToolFamilies.label(family)} (`#{family}`)" : "Uncategorized"
+    end
 
     # Collect action definitions grouped by category
     tool_classes_seen = Set.new
@@ -176,7 +115,7 @@ namespace :mcp do
     annotations_for = ->(action_name) { annotations_by_name["#{::Mcp::ToolCatalog::PLATFORM_PREFIX}#{action_name}"] }
 
     registry.each do |action_name, class_name|
-      category = class_to_category[class_name] || "Uncategorized"
+      category = category_for.call(action_name)
       categories[category] ||= []
 
       begin
