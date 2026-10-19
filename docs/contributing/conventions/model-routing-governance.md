@@ -142,21 +142,21 @@ discipline on the CC side.
 ## Agent-sync usage
 
 `rake claude:sync_agents` (`server/lib/tasks/claude_sync.rake`, wrapped by
-`scripts/sync-claude-agents.sh`) regenerates the Claude Code subagent skeletons from platform
-`Ai::Agent` records via `Ai::ClaudeExport::AgentSkeletonSync#sync!`. By default it exports the
-**canonical** set (global, seeded agents) to `.claude/agents/powernode/*.md`, which **is
-committed**: the files are slug-keyed and carry no per-install id, so they render the same on
-every install, and `scripts/check-claude-agents-fresh.sh` (via `scripts/pattern-validation.sh`)
-fails the gate when a seed or renderer change leaves them stale. `ACCOUNT_ID=<uuid>` exports an
+`scripts/sync-claude-agents.sh`) regenerates the Claude Code subagent skeletons via
+`Ai::ClaudeExport::AgentSkeletonSync#sync!`. By default it exports the **canonical** set — the
+thin loaders of the four C4 survivors (`Ai::Agents::CanonicalRoster`, rendered by
+`Ai::ClaudeExport::ThinLoader` without reading any agent row) — to `.claude/agents/powernode/*.md`,
+which **is committed**: the files are slug-keyed and carry no per-install id, so they render the
+same on every install, and `scripts/check-claude-agents-fresh.sh` (via
+`scripts/pattern-validation.sh`) fails the gate when a roster or renderer change leaves them stale. `ACCOUNT_ID=<uuid>` exports an
 account's *own* agents (clones, local agents) instead, to the gitignored
 `.claude/agents/powernode-local/`; `TARGET_DIR=<path>` overrides the output directory (mainly
 for tests). Each skeleton is a thin MCP bootstrap that fetches the agent's real system prompt
 and skill context at spawn time (`platform_get_agent` by slug / `platform_get_skill_context`),
 so editing the platform agent takes effect on the next spawn with no regeneration needed.
-Idempotent: unchanged agents produce zero file writes; skeletons whose backing agent is no
-longer syncable are removed (only files carrying the generated-file header are touched). Run
-it after adding/renaming/retiering a platform agent so CC sessions can
-`Agent(subagent_type: "<slug>")` it. The full skeleton contents, the `platform.route_task`
+Idempotent: unchanged agents produce zero file writes; skeletons no longer in the set are
+removed (only files carrying the generated-file header are touched). Run it after changing the
+roster or the renderer; a skill, prompt or tool change on the platform needs no regeneration. The full skeleton contents, the `platform.route_task`
 router shared with the Concierge, and the reverse `claude:import_agents` proposal path are in
 [`guides/use-powernode-from-claude.md`](../../guides/use-powernode-from-claude.md#platform-agents-as-claude-code-subagents).
 
@@ -164,10 +164,9 @@ router shared with the Concierge, and the reverse `claude:import_agents` proposa
 directions and must not be confused. `server/db/seeds/claude_agents_seed.rb` seeds **platform**
 `Ai::Agent` records INTO the database (provider-agnostic reasoning/analysis agents; "claude" in
 the filename is legacy naming — the model is chosen at runtime by `Ai::AgentModelSelector`).
-`Ai::ClaudeExport::AgentSkeletonSync` is the inverse: it **exports** those platform agents OUT of
-the database as generated Claude Code subagent skeletons (committed for canonicals). Seeding creates the records
-the exporter later reads; neither replaces the other, and a change to one is never a change to
-the other.
+`Ai::ClaudeExport::AgentSkeletonSync` is the inverse: it **exports** platform agents OUT as
+generated Claude Code subagent skeletons (committed for the canonical roster). Neither replaces
+the other, and a change to one is never a change to the other.
 
 ## Learning feed-forward usage
 

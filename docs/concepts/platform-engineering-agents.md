@@ -342,11 +342,13 @@ MCP verbs the team is read-only — clone the template to customise. The "System
 
 ## Claude Code subagents
 
-Each Engineering canonical is exported as a Claude Code subagent under
-`.claude/agents/powernode/` (`rails claude:sync_agents`). The Platform Developer's
-skeleton carries `Edit`, `Write` and `Bash` (the `code_assistant` rule in
-`Ai::ClaudeExport::ToolAllowlist`); the Release Manager's does not — it reads, dispatches
-and promotes through platform verbs only.
+Since streamlining campaign C4 the Engineering canonicals have no Claude Code
+skeleton of their own: a session hands code, docs and release work to the
+`platform-engineer` thin loader and review to `platform-reviewer`
+(`.claude/agents/powernode/`, `rails claude:sync_agents`; see
+[Platform agents as Claude Code subagents](../guides/use-powernode-from-claude.md#platform-agents-as-claude-code-subagents)).
+On the platform side nothing moved yet (shadow mode): the agents above keep their
+policies and chains, and the Platform Developer is still the `platform_agent` driver.
 
 ## Related
 
