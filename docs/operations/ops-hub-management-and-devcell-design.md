@@ -19,7 +19,7 @@ ops-hub cannot manage the fleet because **its agent binary predates the
 `protected_egress_hosts` feature**. Verified ✅: image `a60b0a0d`, agent binary dated Jul 19;
 `grep -c protected_egress_hosts` on it returns **0**; the feature shipped 2026-07-21. The setting
 is *already correctly configured* on ops-hub's account
-(`["git.powernode.org", "<pve-host>", "<pve-ip>"]`) and is simply ignored — the live nft
+(`["<gitea-host>", "<pve-host>", "<pve-ip>"]`) and is simply ignored — the live nft
 chain contains only `established,related · lo · dns · its own IP`.
 
 Fixing it requires a boot-image upgrade. That upgrade **would have bricked ops-hub** — its agent

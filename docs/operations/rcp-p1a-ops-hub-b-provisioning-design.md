@@ -190,7 +190,7 @@ pivot-boot builds with no [VGA] recovery path"), whereas `create_vm_instance`/`b
 ```
 disk_image_file_object_id: 019f7a2d-4d60-7478-8960-ddef54fc59d2
 disk_image_git_sha:        a60b0a0d4da8feba5271e6990929da974a836af6
-disk_image_oci_ref:        git.powernode.org/powernode/disk-images/ubuntu-24.04-amd64-uefi:a60b0a0d...
+disk_image_oci_ref:        <gitea-host>/<owner>/disk-images/ubuntu-24.04-amd64-uefi:a60b0a0d...
 disk_image_publication_status: published
 disk_image_built_at:       2026-07-19 11:40:25 UTC
 ```

@@ -110,7 +110,7 @@ The system extension is the most likely to be co-released because its work caden
 
 ## Dual-remote push
 
-The platform parent and the system extension are **dual-remoted**: `origin` is the private Gitea upstream (`git.powernode.net`), and `github` is the public GitHub mirror. Releases push to both.
+The platform parent and the system extension are **dual-remoted**: `origin` is the private Gitea upstream (`<gitea-host>`; the concrete host is deployment knowledge), and `github` is the public GitHub mirror. Releases push to both.
 
 ```bash
 # Parent

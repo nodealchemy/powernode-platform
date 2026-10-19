@@ -292,7 +292,7 @@ decision · **NO** not provable here (and why). "Oracle" is always a positive ob
 
 | # | Capability | Needs | Positive oracle | Status |
 |---|---|---|---|---|
-| H1 | Register → sync → drift proposal → apply (`gitops_register_repository`, `gitops_sync_repository`, `gitops_apply_proposal`, `GitopsDriftSensor`) | a repo on `git.powernode.org` describing a `pg-*` template | a commit changing a module assignment yields one `AgentProposal`; applying it changes the live template and the node's `running_module_digests` on the next refresh | DEV |
+| H1 | Register → sync → drift proposal → apply (`gitops_register_repository`, `gitops_sync_repository`, `gitops_apply_proposal`, `GitopsDriftSensor`) | a repo on the private Gitea (`<gitea-host>`) describing a `pg-*` template | a commit changing a module assignment yields one `AgentProposal`; applying it changes the live template and the node's `running_module_digests` on the next refresh | DEV |
 
 ### I. Supply chain and security
 
@@ -555,7 +555,7 @@ that platform**, behind the fence from §3. Where no such target exists the fami
 | Minimum infrastructure | the existing `Ubuntu Noble` repository (never synced; `package_count 0`); the CI builder pool; a `pg-only` module target; one `pg-*` node |
 | Positive oracle | sync: `last_synced_at` set and `package_count > 0`; package → module: a `NodeModule` row with `ModuleDependency` edges and a build task that completes with a digest; architecture: a non-canonical row round-trips; SBOM/exposure: `create_cve` against a package the `pg-only` module ships yields a `CveExposure` row naming the module version and the `pg-*` node; remediation: `cve_remediation_orchestration` dispatches a rebuild whose new digest appears in the node's `running_module_digests` |
 | RAM | reuses the builder pool and one pooled node: **0 GB additional** |
-| Blast radius | the rebuild publishes a module version; safe only because the module is assigned to `pg-*` templates alone. Repository sync is account-wide but read-only. Mirror: the module source lives on `git.powernode.org`, not the public mirror |
+| Blast radius | the rebuild publishes a module version; safe only because the module is assigned to `pg-*` templates alone. Repository sync is account-wide but read-only. Mirror: the module source lives on the private Gitea (`<gitea-host>`), not the public mirror |
 
 ### 12.5 Module supply chain and release
 
@@ -580,7 +580,7 @@ that platform**, behind the fence from §3. Where no such target exists the fami
 
 | Question | Answer |
 |---|---|
-| Minimum infrastructure | a repository on `git.powernode.org` describing the `pg-*` templates, modules and pool; no extra node |
+| Minimum infrastructure | a repository on the private Gitea (`<gitea-host>`) describing the `pg-*` templates, modules and pool; no extra node |
 | Positive oracle | `gitops_register_repository` row; `gitops_sync_repository` produces a sync run with a non-empty diff and exactly one `AgentProposal`; `GitopsDriftSensor` emits while it is open; `gitops_apply_proposal` changes the live template, and the affected `pg-*` node's `running_module_digests` changes on its next refresh |
 | RAM | **0 GB** |
 | Blast radius | the repository must describe only `pg-*` resources; `DesiredStateValidator` (`services/system/gitops/desired_state_validator.rb`) should refuse a manifest naming a non-`pg-*` template (small increment). Mirror: the repo is on Gitea, not GitHub |

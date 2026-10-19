@@ -341,7 +341,7 @@ Cron expression runs hourly; the agent ingests CVE feeds, matches against the pl
     "default_agent_id": "<remediation_agent_uuid>",
     "scheduling_mode": "event_triggered",
     "max_iterations": 3,
-    "repository_url": "https://git.powernode.org/account/repo.git",
+    "repository_url": "https://<gitea-host>/account/repo.git",
     "branch": "feature/remediation"
   }
 }

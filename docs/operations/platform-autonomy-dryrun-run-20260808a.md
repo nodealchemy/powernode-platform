@@ -209,8 +209,8 @@ One real LLM call through `IntentCaptureService`:
 ### Deploy notes
 
 Core-only both times; `powernode-extension-system` remains unbuildable
-(stage-1.5 Vite, parent clone skew between `git.powernode.org` and
-`git.powernode.net`), so F3's template label is not yet visible at the gate and
+(stage-1.5 Vite, parent clone skew between the private Gitea's two
+hostnames), so F3's template label is not yet visible at the gate and
 core degrades via its `respond_to?` guard.
 
 A verification trap worth recording: after the first deploy the rails process
