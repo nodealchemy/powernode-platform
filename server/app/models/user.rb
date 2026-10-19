@@ -851,10 +851,12 @@ class User < ApplicationRecord
   # here and doubles the bcrypt work on every enable/regenerate for up to 10
   # codes at once; 10 matches this column's actual threat model (operator
   # decision, IMP-99e8e4701150 review M1).
+  # Production stays at 10 (the IMP-99e8e4701150 operator choice); the min()
+  # only lets a lower BCrypt::Engine.cost (the test env's MIN_COST) win.
   BACKUP_CODE_BCRYPT_COST = 10
 
   def hash_backup_codes(codes)
-    codes.map { |code| BCrypt::Password.create(code, cost: BACKUP_CODE_BCRYPT_COST) }
+    codes.map { |code| BCrypt::Password.create(code, cost: [BACKUP_CODE_BCRYPT_COST, BCrypt::Engine.cost].min) }
   end
 
   # Permission-cache invalidation is STRUCTURAL, not a deletion: every input the
