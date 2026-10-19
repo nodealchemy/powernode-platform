@@ -333,6 +333,17 @@ Severity: **P1** blocks a working install · **P2** wrong/misleading, workaround
   same test that keeps secrets out of the persisted `:result`. Spec: an approved operation whose result holds no
   secret returns no `revealed_result`; the minting case is unchanged.
 
+### 28. Pre-commit hook skips the secret scan on a mise install — P2
+
+- **Symptom:** every commit prints `gitleaks not installed - skipping secret scan` and proceeds, although gitleaks
+  8.21.2 is installed through mise (step 2 of the recipe below).
+- **Cause:** git runs hooks with a non-interactive environment that does not activate mise, and the hook only looks
+  for `gitleaks` on `PATH`; a missing scanner is a warning, not a failure.
+- **Workaround:** run `mise exec -- gitleaks git --log-opts="<base>..HEAD"` by hand before pushing.
+- **Fix:** resolve the scanner through `mise which gitleaks` (or `$HOME/.local/share/mise/shims`) before falling
+  back to `PATH`, and fail closed when `scripts/validate.sh` is the gate. Covered by the `environment.d` PATH fix (#10)
+  only for login sessions, not for hooks started from tools that bypass it.
+
 ## Install recipe that worked (for the eventual doc fix)
 
 1. Root: apt deps (#12) + `postgresql-16-pgvector` + `redis-server`; create a superuser dev role; `loginctl
