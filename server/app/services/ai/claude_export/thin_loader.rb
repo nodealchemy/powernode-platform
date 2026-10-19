@@ -33,12 +33,11 @@ module Ai
     #     carries no action_category never reaches AutonomyGate. DENIED_ACTIONS
     #     are those destructive-but-ungated verbs; the granted roles render them
     #     as `disallowedTools:` so an autonomous executor cannot call them by
-    #     name. This is a speed bump, not a boundary: for a user principal the
-    #     caller's `action:` argument wins over the registry key
-    #     (Ai::Tools::McpPlatformToolRegistrar.action_pinned_to_name?), so a listed verb is
-    #     still reachable through another tool of the same class. The real fix
-    #     is server-side (gate wiring, or pinning actions for session callers).
-    #     Drop a name here once its verb is gated server-side.
+    #     name. It holds because a streamable-HTTP call runs the action its
+    #     tool name names (McpPlatformToolRegistrar::ACTION_PINNED_ORIGINS), so
+    #     a listed verb cannot be reached through a sibling tool of its class.
+    #     It is still client-side and advisory: the boundary is the server-side
+    #     gate, so drop a name here once its verb is gated (C13 increment 2).
     module ThinLoader
       MCP_PREFIX = ToolAllowlist::MCP_PREFIX
       SERVER_GRANT = "mcp__powernode__*"
