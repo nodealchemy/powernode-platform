@@ -315,6 +315,26 @@ Depends on: nothing. Should land before C4-5 moves destructive lanes.
 3. `AbandonedInstanceSensor`: provider `running` ⇒ approval reason; suppress the lane while the hub's own instance is silent; persistent-home guests always require approval; snapshot before terminate (#16). Spec: a replay of the 2026-10-15 fixture (fleet-wide heartbeat silence, provider `running`) produces `requires_approval: true`. File: `extensions/system/server/app/services/system/fleet/sensors/abandoned_instance_sensor.rb`.
 4. Seed `system.abandoned_instance_reap` / `system.pool_guest_reap` as `require_approval` (today `auto_approve` at `monitored` on Capacity Manager).
 
+### C10 — PR-based landing for dev-loop and campaign increments (added 2026-10-19)
+Depends on: fresh-install #24 (gate green on `develop`). Complements C9.
+Today increments land through `dev_merge_increment` (parked `dev.merge` approval → worker fast-forwards `develop`,
+pushes every remote, audit row) — governed, but with no diff/review artifact, no CI on the exact candidate (no
+workflow runs `scripts/validate.sh` or specs on `pull_request`), and no branch protection on `develop`.
+1. Gate green on `develop` (#24).
+2. `.gitea/workflows/validate.yml` on `pull_request` → `develop` / `release/*`: `scripts/validate.sh` (+ extension
+   specs) as a required status check.
+3. The driver opens **one PR per increment** (not per task) from the loop/campaign branch via the existing Gitea client
+   (`server/app/services/devops/provider_client.rb`); PR body = task keys, acceptance criteria, gate results. Update the
+   dev-loop / campaign skills and the Platform Developer driver.
+4. `dev_merge_increment` (`server/app/services/ai/tools/dev_merge_tool.rb`, worker `Git::DevMergeIncrementJob`) requires
+   PR approved + check green + head == `expected_source_sha`; merges via the Gitea API so the PR closes as merged; keeps
+   the audit row (now linking the PR); GitHub mirrored after merge.
+5. Gitea branch protection on `develop`, `release/*`, `master` (merge service account only; status check + 1 approval);
+   restore branch-protection guardrails (`Ai::GuardrailConfig`, design doc F3).
+6. Optional `dev.merge` auto-approve for `develop` only when PR approved + green; `release/*` / `master` keep the
+   human-session requirement.
+7. Docs + acceptance: one real increment landed end-to-end through a PR.
+
 ### Sequencing
 
 ```
@@ -342,6 +362,7 @@ from §7.
 | `01a15479-7444-794a-9220-55e415a4df74` | C7 Seed and skill pruning | C4-1, C3-4 |
 | `01a15479-b693-78ac-9e32-c13286a2952c` | C8 Backlog hygiene (operator triage) | — |
 | `01a15479-ebfb-73d8-b3ec-65da99b29840` | C9 Fleet safety: `/.well-known`, hub TLS SANs, reaper (#14–#16) | — |
+| `01a1548d-7c63-7905-83a4-7fabe41b50cc` | C10 PR-based landing for dev-loop and campaign increments | #24 |
 
 The 22 `[fresh-install #N]` agent proposals remain as filed; each is referenced by number from C1, C2, C6 or
 C9 and none was duplicated.
