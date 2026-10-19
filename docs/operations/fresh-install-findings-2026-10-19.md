@@ -46,6 +46,7 @@ Severity: **P1** blocks a working install · **P2** wrong/misleading, workaround
 | 24 | P2 | gate | `scripts/validate.sh` fails on a clean `develop` checkout (3 checks unrelated to any local change) |
 | 25 | P2 | mcp | Each unclosed MCP session mints a new `<client> #N` agent; idle sessions never expire (13 minted in one day) |
 | 26 | P2 | fleet | `system_destroy_instance` always fails in core mode: it queries a private-extension billing table |
+| 27 | P3 | approvals | Every approval ends in a "shown once — save it now" modal, even when nothing secret was minted |
 
 ## Findings
 
@@ -318,6 +319,19 @@ Severity: **P1** blocks a working install · **P2** wrong/misleading, workaround
   `system_delete_node`.
 - **Proposed fix:** walk only tables that exist (or register extension-owned dependents through an extension seam);
   include `system_sdwan_host_vrf_assignments` / `system_node_instance_peers` in the walk; spec in core mode.
+
+### 27. "Shown once" modal after every approval — P3
+
+- **Symptom:** approving an ordinary request (e.g. an intervention-policy write) opens `OneShotRevealModal`
+  ("Approved — shown once … This approval ran an operation that minted new material … Save it now") and demands an
+  acknowledgement click.
+- **Cause:** `Ai::DeferredOperation#execute_now!` put every executor's raw return into the reveal-once slot
+  (`@revealed_result = result_data`); the approve endpoint returns it as `revealed_result` and the queue and bell both
+  open the modal whenever it is non-empty. The slot exists only for executors that MINT secrets (federation
+  acceptance tokens, keys).
+- **Fix (branch feature/reveal-only-secrets):** reveal only when `Ai::SensitiveParams.filter` masked something — the
+  same test that keeps secrets out of the persisted `:result`. Spec: an approved operation whose result holds no
+  secret returns no `revealed_result`; the minting case is unchanged.
 
 ## Install recipe that worked (for the eventual doc fix)
 
