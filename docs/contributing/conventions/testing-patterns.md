@@ -15,6 +15,7 @@ cd frontend && CI=true npm test                      # Frontend (always CI=true)
 
 - Uses `DatabaseCleaner` with `:deletion` strategy — avoids `TRUNCATE` deadlocks between concurrent processes.
 - Do NOT run multiple single-process rspec instances simultaneously on the same database.
+- Optional RAM-backed test Postgres (`scripts/test-pg-tmpfs.sh`, opt in with `prepare-worktree.sh --tmpfs-pg`): see [Testing Guide](../../guides/testing.md#fast-test-database-optional-tmpfs-cluster).
 - Frontend tests (`CI=true npm test`) and TypeScript checks (`npx tsc --noEmit`) are always safe to run concurrently.
 
 ## Patterns Reference

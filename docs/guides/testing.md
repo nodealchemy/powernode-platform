@@ -97,6 +97,50 @@ Run this **before every commit** that touches TypeScript.
 cd server && bundle exec ruby -c app/path/to/file.rb
 ```
 
+### Fast test database (optional tmpfs cluster)
+
+By default test databases live on the shared system Postgres (port 5432), which fsyncs every
+commit; several worktrees preparing or running at once contend for the same disk. An optional,
+unprivileged, test-only PG16 cluster keeps its data directory in RAM (`/dev/shm`) with
+`fsync`, `synchronous_commit` and `full_page_writes` off. Nothing changes for a checkout that
+does not opt in.
+
+```bash
+scripts/test-pg-tmpfs.sh start     # once per boot; idempotent (initdb on first run, port 5433)
+scripts/test-pg-tmpfs.sh status    # exit 0 running, 3 stopped
+scripts/test-pg-tmpfs.sh stop      # keeps the data; `destroy` deletes it
+```
+
+Opt a worktree in with `scripts/prepare-worktree.sh <path> --tmpfs-pg` (or `TEST_PG_TMPFS=1` in the environment; it writes
+`DATABASE_PORT=5433` to `server/.env.test.local` only when the cluster is running), or add that
+line by hand. `database.yml` reads `DATABASE_PORT`, then `PGPORT`, then defaults to 5432. Then build the lane DB
+as usual: `scripts/prepare-extension-test-db.sh`. It asks Rails which database and port it will use
+(the source of truth), aborts if a `DATABASE_PORT` in the environment or dotenv disagrees, and points its
+`psql`/`createdb`/`dropdb` calls at the same cluster. Tmpfs mode is detected from the cluster's live
+unix socket, not from the port number. The global prep I/O lock is kept but is per cluster (a separate
+lock file for the tmpfs port), so tmpfs preps serialise among themselves without queueing behind the
+shared cluster's preps.
+
+- **Data is disposable.** The cluster is crash-unsafe by design and is gone after a reboot (or if
+  `/dev/shm` is cleaned): run `start` again, then re-run `prepare-extension-test-db.sh` for each lane.
+- **Settings** (override with `TEST_PG_DIR`, `TEST_PG_PORT`, `TEST_PG_BIN`): `shared_buffers=256MB`,
+  `max_connections=200`, `max_locks_per_transaction=256` (the suite's cleanup touches hundreds of tables).
+- **RAM:** roughly 100 MB per lane DB plus WAL; four lanes fit well under 4 GB. `start` refuses
+  to initialise with under 3 GB free.
+- **Role.** `powernode` is created as a superuser, matching the shared cluster: the suite needs it
+  (`session_replication_role` in specs, `DISABLE TRIGGER ALL` in DatabaseCleaner). The cluster listens
+  on loopback only, but on a multi-user host any local user can reach that port with the well-known
+  default password, so set `POWERNODE_DATABASE_PASSWORD` there. The prep script connects its own
+  `psql`/`createdb` as `powernode` too (`PGUSER`), so the databases it builds are owned by the app role.
+- **Cleanup.** `prepare-worktree.sh --remove` / `wt.sh` drop the worktree's lane database on port 5432
+  only (they do not read `DATABASE_PORT`), so a tmpfs-opted worktree leaves its lane DB in RAM. Drop it
+  with `dropdb -h "${TEST_PG_DIR:-/dev/shm/powernode-test-pg16}" -p 5433 powernode_test_<lane>`, or `scripts/test-pg-tmpfs.sh destroy`
+  to drop everything.
+- A worktree made with `--isolated-db` copies `database.yml` at creation; one copied before the `port:`
+  line existed needs `port: <%= ENV.fetch("DATABASE_PORT") { ENV.fetch("PGPORT", 5432) } %>` added by hand.
+- `status`, `stop` and `destroy` never touch port 5432. `stop` refuses while a prep script holds
+  its lock unless `--force`.
+
 ### Targeted vs. full suite
 
 The full backend suite is slow. Run only the specs touching the files you changed during development. The full suite runs in CI on every PR.

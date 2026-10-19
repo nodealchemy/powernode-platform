@@ -93,8 +93,7 @@ fi
 # Serialize heavy DB I/O ACROSS ALL worktrees (see header, lock 2). Fixed
 # path (not keyed by repo) so every worktree contends for the same lock.
 # Separate fd (8, not 9) since a single process holds both locks at once.
-GLOBAL_IO_LOCK_FILE="${TMPDIR:-/tmp}/prepare-extension-test-db.GLOBAL-db-io.lock"
-exec 8>"$GLOBAL_IO_LOCK_FILE"
+# GLOBAL_IO_LOCK_FILE / fd 8 are opened below, once the target cluster (hence its port) is known.
 db_io_lock() {
   if ! flock -n 8; then
     echo "[prepare-extension-test-db] waiting for another worktree's DB prep to finish (I/O-serializing lock)..." >&2
@@ -158,6 +157,34 @@ if [ "${#PRIVATE_VERSIONS[@]}" -gt 0 ]; then
   fi
 fi
 
+# Which cluster? RAILS is the source of truth: ask it for the database name and port it will actually use
+# (database.yml + dotenv incl. server/.env.test.local), and abort if a DATABASE_PORT declared in the
+# environment/dotenv disagrees. The bare psql/createdb/dropdb below are then pointed at that same cluster:
+# the shared one by default, or the optional tmpfs cluster (scripts/test-pg-tmpfs.sh) when Rails' port is
+# that cluster's live socket in TEST_PG_DIR. Any other port aborts rather than let the bare client hit the
+# wrong cluster (the golden refresh drops/re-labels databases, so a mismatch would hit the shared one).
+# shellcheck source=lib/test-pg.sh
+. "$REPO/scripts/lib/test-pg.sh"
+TEST_PG_DIR="${TEST_PG_DIR:-$TEST_PG_DEFAULT_DIR}"
+RAILS_INFO="$(cd "$SERVER" && bin/rails runner 'c = ActiveRecord::Base.connection_db_config; print "\nPNTESTDB\t#{c.database}\t#{c.configuration_hash[:port]}\n"' 2>/dev/null | sed -n 's/^PNTESTDB\t//p' | tail -1 || true)"
+TARGET_DB="" RAILS_PORT=""
+if [[ "$RAILS_INFO" == *$'\t'* ]]; then TARGET_DB="${RAILS_INFO%%$'\t'*}"; RAILS_PORT="${RAILS_INFO#*$'\t'}"; fi   # one tagged line; stray runner stdout is ignored
+ENV_PORT="${DATABASE_PORT:-}"
+[ -n "$ENV_PORT" ] || ENV_PORT="$(test_pg_dotenv_port "$SERVER/.env.test.local")"
+CLUSTER="$(test_pg_resolve_cluster "$ENV_PORT" "$RAILS_PORT" "$TEST_PG_DIR")" \
+  || { echo "error: [prepare-extension-test-db] refusing to run against an ambiguous cluster (see above)" >&2; exit 1; }
+GLOBAL_IO_LOCK_FILE="${TMPDIR:-/tmp}/prepare-extension-test-db.GLOBAL-db-io.lock"
+if [ "$CLUSTER" = tmpfs ]; then
+  # PGUSER matters: the bare client would otherwise connect as the OS user and own the golden DB and its
+  # clones, so a later db:drop by the app role (powernode) would fail "must be owner".
+  export PGPORT="$RAILS_PORT" PGHOST="$TEST_PG_DIR" PGUSER="${DATABASE_USER:-powernode}"
+  # Own I/O lock per cluster: tmpfs preps still serialise the non-atomic golden drop/create/COMMENT among
+  # themselves, but never queue behind (or race with) the shared 5432 cluster's preps.
+  GLOBAL_IO_LOCK_FILE="${TMPDIR:-/tmp}/prepare-extension-test-db.GLOBAL-db-io.${RAILS_PORT}.lock"
+  echo "[prepare-extension-test-db] tmpfs test cluster: port $PGPORT, socket $PGHOST"
+fi
+exec 8>"$GLOBAL_IO_LOCK_FILE"
+
 cd "$SERVER"
 
 if [ "${#PRIVATE_VERSIONS[@]}" -eq 0 ]; then
@@ -183,8 +210,7 @@ fi
 # changes (fingerprint = core schema.rb + sorted private migration versions). Fallback to the full
 # build is automatic on any template error; force it with TEST_DB_NO_TEMPLATE=1.
 GOLDEN_DB="powernode_test_golden"
-# Authoritative target DB name from Rails config (matches database.yml; no connection required).
-TARGET_DB="$(bin/rails runner 'print ActiveRecord::Base.connection_db_config.database' 2>/dev/null || true)"
+# TARGET_DB (authoritative, from Rails config) was resolved above together with the cluster.
 FINGERPRINT="fp:$( { cat "$REPO/server/db/schema.rb"; printf '%s\n' "${PRIVATE_VERSIONS[@]}" | sort; } | sha1sum | cut -d' ' -f1)"
 # Read the fingerprint comment off the golden DB without connecting to it (empty if golden absent).
 golden_fp() { psql -tAX -d postgres -c "SELECT shobj_description(oid,'pg_database') FROM pg_database WHERE datname='${GOLDEN_DB}'" 2>/dev/null | tr -d '[:space:]'; }

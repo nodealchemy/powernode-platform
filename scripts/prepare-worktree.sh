@@ -36,6 +36,9 @@
 #   scripts/prepare-worktree.sh <worktree-path> --create [base]  # create it first, then prepare
 #                                                                #   branch = basename(path), off <base> (default: main's current branch)
 #   scripts/prepare-worktree.sh <worktree-path> --remove         # tear down (nested ext worktrees + the worktree)
+#   scripts/prepare-worktree.sh <worktree-path> --tmpfs-pg       # also route this worktree's TEST DB to the optional tmpfs
+#                                                                #   cluster (needs `scripts/test-pg-tmpfs.sh start` first);
+#                                                                #   TEST_PG_TMPFS=1 in the environment does the same
 #
 # Examples:
 #   scripts/prepare-worktree.sh ~/worktrees/my-feature --create develop
@@ -81,12 +84,13 @@ link_one() {
 
 # ---------- args ----------
 TARGET_ARG="$1"; shift
-MODE="prepare"; BASE=""; ISO_DB=""; ISO_PORT=""
+MODE="prepare"; BASE=""; ISO_DB=""; ISO_PORT=""; TMPFS_PG=""; [ "${TEST_PG_TMPFS:-}" != "1" ] || TMPFS_PG=1   # TEST_PG_TMPFS=1 is the env spelling of --tmpfs-pg
 while [ $# -gt 0 ]; do
   case "$1" in
     --create) MODE="create"; shift
               case "${1:-}" in ""|--*) ;; *) BASE="$1"; shift ;; esac ;;
     --remove) MODE="remove"; shift ;;
+    --tmpfs-pg) TMPFS_PG=1; shift ;;
     --isolated-db) ISO_DB="${2:-}"; [ -n "$ISO_DB" ] || die "--isolated-db requires a name (e.g. powernode_dev)"; shift 2
                    case "${1:-}" in ""|--*) ;; *) ISO_PORT="$1"; shift ;; esac ;;
     *) die "unknown option: $1" ;;
@@ -325,6 +329,17 @@ else
     "# Specs here will refuse to run until one is freed (--remove a finished worktree)." > "$ENV_TEST_LOCAL"
   warn "no free redis lane (1-$WT_REDIS_MAX_LANE all in use) — specs in this worktree will refuse to run.
        Collapse a finished worktree, then add its lane here as TEST_REDIS_LANE=<n>."
+fi
+# Opt-in: route the TEST db to the tmpfs cluster (scripts/test-pg-tmpfs.sh). Only when asked AND the
+# cluster is actually running; otherwise warn and leave 5432 (the default) untouched.
+if [ -n "$TMPFS_PG" ]; then
+  # shellcheck source=lib/test-pg.sh
+  . "$SELF_DIR/lib/test-pg.sh"
+  if [ -f "$ENV_TEST_LOCAL" ] && test_pg_env_opt_in "$ENV_TEST_LOCAL"; then
+    ok "server/.env.test.local (DATABASE_PORT=${TEST_PG_PORT:-5433} → tmpfs test cluster)"
+  else
+    warn "--tmpfs-pg: tmpfs cluster is not running — start it with scripts/test-pg-tmpfs.sh start, then re-run this. DATABASE_PORT not set."
+  fi
 fi
 # The isolated test DB is created on first use, NOT here: schema:load on the full
 # schema is slow (minutes), and prepare-worktree is meant to stay fast/offline. The

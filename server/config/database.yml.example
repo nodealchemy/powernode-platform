@@ -9,6 +9,7 @@ default: &default
   encoding: unicode
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 30 } %>
   host: <%= ENV.fetch("DATABASE_HOST") { "localhost" } %>
+  port: <%= ENV.fetch("DATABASE_PORT") { ENV.fetch("PGPORT", 5432) } %>
   username: <%= ENV.fetch("DATABASE_USER") { "powernode" } %>
   password: <%= ENV.fetch("POWERNODE_DATABASE_PASSWORD") { "powernode_dev" } %>
 
