@@ -30,6 +30,10 @@ set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$REPO_ROOT"
+# git exports GIT_DIR (and friends) to hooks. Left set, every `git -C <submodule>` below
+# would query the PARENT repository and report each pointer as missing. From here on, git
+# discovers the repository from the working directory, which is what every call expects.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_PREFIX
 
 PUSH_REMOTE="${PUSH_REMOTE:-}"
 while [[ $# -gt 0 ]]; do

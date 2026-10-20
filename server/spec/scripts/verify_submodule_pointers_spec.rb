@@ -112,6 +112,18 @@ RSpec.describe "scripts/verify-submodule-pointers.sh (IMP-ba424a66188f)" do
     expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
   end
 
+  # git exports GIT_DIR (and friends) to hooks. Without clearing it, every `git -C <submodule>`
+  # call in the checker queries the PARENT repository, so each pointer reads "not found".
+  it "(e) works under the hook environment, where git exports GIT_DIR for the parent" do
+    parent = fixture[:parent]
+    git(parent, "checkout", "-q", "main", env: env)
+    hook_env = env.merge("GIT_DIR" => File.join(parent, ".git"))
+    out, err, st = run_hook(script, parent, line("refs/heads/main", fixture[:good]), hook_env)
+    expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
+    _o, e2, bad = run_hook(script, parent, line("refs/heads/feature", fixture[:bad]), hook_env)
+    expect(bad.exitstatus).to eq(1), e2
+  end
+
   it "falls back to HEAD when no ref lines are supplied (manual invocation)" do
     git(fixture[:parent], "checkout", "-q", "feature", env: env)
     _o, err, st = run_hook(script, fixture[:parent], "", env)
