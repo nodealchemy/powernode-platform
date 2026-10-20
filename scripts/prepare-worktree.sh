@@ -429,7 +429,10 @@ for app in server worker; do
     warn "$app: not satisfied — run 'cd $app && bundle install'"
   fi
 done
-if [ -f "$TARGET/server/Gemfile.private" ]; then
+# server/Gemfile.private is TRACKED, so its presence says nothing: the private bundle only matters when a
+# private extension is actually on disk (same rule as test_pg_bundle_mode; IMP-93a1082345b4).
+if [ -f "$TARGET/server/Gemfile.private" ] \
+   && [ -n "$(find "$TARGET/extensions/private" -mindepth 2 -maxdepth 2 -name extension.json -print -quit 2>/dev/null)" ]; then
   if (cd "$TARGET/server" && BUNDLE_GEMFILE=Gemfile.private bundle check >/dev/null 2>&1); then
     ok "server private bundle: satisfied"
   else
