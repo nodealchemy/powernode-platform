@@ -12,7 +12,10 @@ module VaultCredential
     scope :pending_vault_migration, -> { where(vault_path: nil).where.not(encrypted_credentials: nil) }
 
     # Callbacks
-    after_destroy :cleanup_vault_secret, if: :vault_path?
+    # after COMMIT: the Vault secret is an external side effect that cannot roll
+    # back, so it must not be deleted while the row delete still can (savepoint
+    # retry in an account teardown, a failed outer transaction).
+    after_destroy_commit :cleanup_vault_secret, if: :vault_path?
   end
 
   # Get credentials - prefer Vault, fallback to database

@@ -134,7 +134,15 @@ module FileManagement
     before_create :generate_checksums
     after_create :update_storage_usage
     after_create :queue_processing_jobs
-    after_destroy :remove_from_storage
+    # Strict (erasure) destroys remove the blob INSIDE the transaction so a
+    # refusal rolls the row back. Every other destroy removes it only once the
+    # row deletion has COMMITTED: the blob cannot be restored, so it must not go
+    # while the delete can still roll back (savepoint retry in an account
+    # teardown, a failed outer transaction). The provider is resolved before the
+    # row goes, since the storage may be destroyed in the same transaction.
+    before_destroy :capture_storage_provider, unless: :strict_storage_removal
+    after_destroy :remove_from_storage, if: :strict_storage_removal
+    after_destroy_commit :remove_captured_blob, unless: :strict_storage_removal
     after_destroy :update_storage_usage_on_delete
     before_destroy :check_if_deletable
 
@@ -614,8 +622,25 @@ module FileManagement
       end
     end
 
-    # after_destroy, so it runs after the row DELETE inside the destroy's
-    # transaction: in strict mode a failure here rolls the row back.
+    def capture_storage_provider
+      @captured_storage_provider = storage.storage_provider
+    rescue StandardError => e
+      Rails.logger.error "Failed to resolve storage provider before delete: #{e.message}"
+      @captured_storage_provider = nil
+    end
+
+    def remove_captured_blob
+      provider = @captured_storage_provider
+      return unless provider
+
+      provider.delete_file(self)
+    rescue StandardError => e
+      Rails.logger.error "Failed to delete file from storage: #{e.message}"
+    end
+
+    # Strict mode only (see the callbacks above): an after_destroy, so it runs
+    # after the row DELETE inside the destroy's transaction and a failure here
+    # rolls the row back.
     def remove_from_storage
       # The provider is built inside the rescue: a non-strict destroy whose
       # provider cannot even be constructed logs and proceeds, as it always

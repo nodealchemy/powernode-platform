@@ -35,6 +35,34 @@ RSpec.describe FileManagement::Object, type: :model do
       end
     end
 
+    # M2: the blob is an external side effect, so a non-strict destroy removes it
+    # only once the row deletion has COMMITTED. A rolled-back destroy (a savepoint
+    # retry in an account teardown, a failed outer transaction) leaves the blob.
+    context 'with a non-strict destroy' do
+      let(:provider) { instance_double(StorageProviders::LocalStorage, delete_file: true, initialize_storage: true) }
+
+      before do
+        file_object.reload
+        allow(StorageProviderFactory).to receive(:create).and_return(provider)
+      end
+
+      it 'leaves the blob alone when the destroy is rolled back' do
+        described_class.transaction(requires_new: true) do
+          file_object.destroy!
+          raise ActiveRecord::Rollback
+        end
+
+        expect(provider).not_to have_received(:delete_file)
+        expect(described_class.exists?(file_object.id)).to be true
+      end
+
+      it 'removes the blob once the destroy commits' do
+        described_class.transaction(requires_new: true) { file_object.destroy! }
+
+        expect(provider).to have_received(:delete_file).once
+      end
+    end
+
     it 'carries the provider refusal reason on a strict destroy' do
       provider = instance_double(StorageProviders::LocalStorage, delete_file: false, initialize_storage: true,
                                                                 last_removal_refusal: 'store_not_initialized')
