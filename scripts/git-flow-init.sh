@@ -107,7 +107,7 @@ configure_git_settings() {
     git config commit.template .gitmessage
     
     # Set git-flow configuration
-    git config gitflow.branch.master main
+    git config gitflow.branch.master master
     git config gitflow.branch.develop develop
     git config gitflow.prefix.feature feature/
     git config gitflow.prefix.release release/
@@ -150,9 +150,9 @@ show_usage_instructions() {
     echo "  git flow feature finish ISSUE-feature-name"
     echo ""
     echo -e "${GREEN}Release Process:${NC}"
-    echo "  git flow release start v1.2.0"
+    echo "  git flow release start 1.2.0"
     echo "  # ... final testing and version updates ..."
-    echo "  git flow release finish v1.2.0"
+    echo "  git flow release finish 1.2.0"
     echo ""
     echo -e "${GREEN}Hotfix Process:${NC}"
     echo "  git flow hotfix start 1.2.1"
