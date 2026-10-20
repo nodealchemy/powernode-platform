@@ -22,5 +22,12 @@
 # disallowedTools deny list (69 exact names); the largest `tools:` list is
 # platform-engineer.md's fixed bootstrap core, 17 entries. The byte ceiling keeps
 # ~430 bytes of headroom so a wording tweak does not trip the gate.
-max_tools_per_agent=17
-max_roster_bytes=17000
+# Raised 2026-10-20 (skills-first agents, PRE-2 fix round) as a reviewed decision: a
+# loader without the whole-server grant must list, by exact name, the verbs its
+# skills name, or it cannot call them (ToolSearch only searches inside `tools:`).
+# The concierge lists 24 beyond the 9 bootstrap verbs (37 entries); the reviewer 5
+# read-only code-intelligence/audit verbs. The alternative, a whole-server grant plus
+# a deny list, would cost ~3 KB per agent and give a read-only role a wide surface.
+# Measured: 18305 bytes, largest `tools:` list 37 (powernode-concierge.md).
+max_tools_per_agent=37
+max_roster_bytes=18432
