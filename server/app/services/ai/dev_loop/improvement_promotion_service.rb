@@ -316,9 +316,7 @@ module Ai
       # structurally could not arrive.
       REVIEW_INSTRUCTION =
         "Independent review REQUIRED before committing (this finding is multi-file, touches a " \
-        "sensitive path, or reads as security-relevant): #{LoopGuardrails::REVIEW_WHO_RUNS_IT}. " \
-        "The reviewer reports back to the session or driver — NOT /code-review, which forks its " \
-        "result to the parent session. Bar the reviewer from running rspec; the test DB is shared."
+        "sensitive path, or reads as security-relevant): #{LoopGuardrails::REVIEW_TASK_TAIL}"
 
       def independent_review_required?(_rec, evidence)
         files = Array(evidence["files"])

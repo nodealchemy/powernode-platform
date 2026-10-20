@@ -50,9 +50,20 @@ module Ai
       # the promoted task's acceptance criteria, so they cannot drift.
       REVIEW_WHO_RUNS_IT =
         "the delegating session or the loop driver runs the independent review: it spawns a SYNCHRONOUS UNNAMED " \
-        "subagent to review the diff before the work is committed. If you are a delegated subagent you cannot " \
+        "subagent to review the diff before the work is committed. If you are the loop driver, you run the review " \
+        "yourself, by spawning that subagent. If you are a delegated subagent you cannot " \
         "spawn subagents, so do not self-review and do not skip it: report your diff (branch, base..head, files, " \
         "spec results) for that review and do not commit past it until it comes back"
+
+      # The tail of a promoted task's REQUIRED-review instruction (the head is
+      # "Independent review REQUIRED before committing (<why>): ").
+      REVIEW_TASK_TAIL =
+        "#{REVIEW_WHO_RUNS_IT}. The reviewer reports back to the session or driver — NOT /code-review, which " \
+        "forks its result to the parent session. Bar the reviewer from running rspec; the test DB is shared."
+
+      # The wording a task promoted BEFORE the split carries in its stored
+      # acceptance criteria: the executor was told to spawn the reviewer itself.
+      PREVIOUS_REVIEW_TAIL = /spawn a SYNCHRONOUS UNNAMED subagent to review the diff and report back to you — NOT \/code-review, which forks its result to the parent session\. Bar the reviewer from running rspec; the test DB is shared\./
 
       # The dev-improve guardrail line (also the replacement for its superseded wordings).
       IMPROVE_REVIEW_LINE =
@@ -126,6 +137,17 @@ module Ai
         "a Fable/Mythos refusal itself (one automatic reframe, then an Opus fallback, logged), so do not " \
         "retry it by hand"
       ].freeze
+
+      # Serve a task's acceptance criteria with the CURRENT review instruction. The
+      # criteria are stored text, so a task promoted before the wording changed
+      # still carries the old tail; this rewrites it at serve time (same idea as
+      # SUPERSEDED_MIDDLE for guardrails: no migration, the stored row untouched,
+      # idempotent because the current tail does not match the old pattern).
+      def refresh_review_text(text)
+        return text unless text.is_a?(String) && text.match?(PREVIOUS_REVIEW_TAIL)
+
+        text.sub(PREVIOUS_REVIEW_TAIL) { REVIEW_TASK_TAIL }
+      end
 
       def refresh(persisted)
         middle = Array(persisted) - HEAD - TAIL - RETIRED_SHARED

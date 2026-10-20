@@ -1380,7 +1380,7 @@ module Ai
         [
           "You are executing a delegated dev-loop task. Loop: #{loop_record.name} (branch #{loop_record.branch}).",
           "Task #{task.task_key}: #{task.description}",
-          "Acceptance criteria: #{task.acceptance_criteria}",
+          "Acceptance criteria: #{Ai::DevLoop::LoopGuardrails.refresh_review_text(task.acceptance_criteria)}",
           (meta["files"].present? ? "Files: #{Array(meta['files']).join(', ')}" : nil),
           "Guardrails: #{Ai::DevLoop::LoopGuardrails.refresh(config['guardrails']).join(' | ')}"
         ].compact.join("\n")
@@ -1405,12 +1405,23 @@ module Ai
         loop_record.ralph_tasks.in_progress.reject { |t| claimed_by_holder?(t, holder) }
       end
 
+      # The served task carries the CURRENT review instruction even when its stored
+      # criteria were promoted before the wording changed (refresh_review_text).
+      def serve_review_text(details)
+        return details unless details.is_a?(Hash)
+
+        key = %i[acceptance_criteria].find { |k| details.key?(k) } || (details.key?("acceptance_criteria") ? "acceptance_criteria" : nil)
+        return details unless key
+
+        details.merge(key => Ai::DevLoop::LoopGuardrails.refresh_review_text(details[key]))
+      end
+
       def task_payload(loop_record, task, reclaimed: false)
         config = loop_record.configuration || {}
         {
           success: true,
           reclaimed: reclaimed,
-          task: task.task_details,
+          task: serve_review_text(task.task_details),
           loop: {
             id: loop_record.id,
             name: loop_record.name,

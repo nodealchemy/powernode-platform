@@ -164,6 +164,46 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService, "independent-review tri
     end
   end
 
+  describe "the loop driver is told it runs the review" do
+    it "says so explicitly in the shared wording" do
+      expect(Ai::DevLoop::LoopGuardrails::REVIEW_WHO_RUNS_IT).to match(/if you are the (delegating session or the )?loop driver,? you run the (independent )?review/i)
+    end
+  end
+
+  # The criteria text is stored when a task is promoted, so tasks promoted before
+  # the wording changed carry the old instruction. It is rewritten when the task
+  # is SERVED (SUPERSEDED_MIDDLE style: no migration, idempotent, stored text untouched).
+  describe "pending tasks promoted with the previous instruction" do
+    let(:previous) do
+      "Re-verify the finding holds on current code. Independent review REQUIRED before committing (this finding is " \
+      "multi-file, touches a sensitive path, or reads as security-relevant): spawn a SYNCHRONOUS UNNAMED subagent to " \
+      "review the diff and report back to you — NOT /code-review, which forks its result to the " \
+      "parent session. Bar the reviewer from running rspec; the test DB is shared."
+    end
+
+    it "serves the current instruction in place of the old one, keeping the rest of the brief" do
+      served = Ai::DevLoop::LoopGuardrails.refresh_review_text(previous)
+
+      expect(served).to start_with("Re-verify the finding holds on current code. Independent review REQUIRED before committing")
+      expect(served).to match(/delegated subagent/i)
+      expect(served).not_to include("report back to you")
+    end
+
+    it "is idempotent and leaves current and unrelated text alone" do
+      once = Ai::DevLoop::LoopGuardrails.refresh_review_text(previous)
+
+      expect(Ai::DevLoop::LoopGuardrails.refresh_review_text(once)).to eq(once)
+      expect(Ai::DevLoop::LoopGuardrails.refresh_review_text("Fix the typo.")).to eq("Fix the typo.")
+      expect(Ai::DevLoop::LoopGuardrails.refresh_review_text(nil)).to be_nil
+    end
+
+    it "is applied to the task a dev_next_task claim serves" do
+      expect(Ai::Tools::DevLoopTool.instance_method(:task_payload).source_location).to be_present
+      source = File.read(Rails.root.join("app/services/ai/tools/dev_loop_tool.rb"))
+      expect(source.scan("refresh_review_text").size).to be >= 2
+    end
+  end
+
   describe "the review guardrail line" do
     let(:line) { described_class::GUARDRAILS.find { |g| g.start_with?("Independent review") } }
 
