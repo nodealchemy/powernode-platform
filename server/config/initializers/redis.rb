@@ -42,6 +42,10 @@ module Powernode
     WORKER_CONNECT_TIMEOUT = 2
     WORKER_READ_TIMEOUT = 2
 
+    # See worker_url.
+    WORKER_REDIS_URL_ENV = "POWERNODE_WORKER_REDIS_URL"
+    DEPRECATED_WORKER_REDIS_URL_ENV = "SIDEKIQ_REDIS_URL"
+
     TEST_LANE_STRIDE = 2
     TEST_DATABASE_FLOOR = 3
     # Lanes a default 16-database daemon affords (the worktree lanes). See .max_test_lanes for the
@@ -173,12 +177,24 @@ module Powernode
         isolate_test_database(ENV.fetch("REDIS_URL", "redis://localhost:6379/0"), test_database)
       end
 
+      # The Redis the worker's Sidekiq reads. Precedence:
+      #   1. POWERNODE_WORKER_REDIS_URL — canonical; names the role on both the
+      #      server and the worker side.
+      #   2. SIDEKIQ_REDIS_URL — deprecated alias (System::WorkerJobEnqueuer used
+      #      to read it); honored with a one-time warning.
+      #   3. The general URL with its database rewritten to /1, the canonical
+      #      Sidekiq database (0 general / 1 Sidekiq / 2 ActionCable).
+      # A module-composed hub runs Sidekiq on /0 until the phase-2 layout
+      # migration, and its rails-start.sh exports (1) to say so (IMP-daecbb8a050e).
+      # In the test env every branch is lane-rewritten, so an override cannot
+      # point a spec at a live queue; an override whose database cannot be
+      # located is refused there rather than passed through (outside the
+      # fallback rescue below, so the refusal is not swallowed).
       def worker_url
-        # Worker uses DB 1
-        base = url
-        isolate_test_database(base.sub(/\/\d+\z/, "/1"), test_worker_database)
-      rescue StandardError
-        isolate_test_database("redis://localhost:6379/1", test_worker_database)
+        override = worker_url_override
+        return isolated_worker_override(override) if override
+
+        derived_worker_url
       end
 
       def reconfigure!
@@ -188,6 +204,47 @@ module Powernode
       end
 
       private
+
+      def derived_worker_url
+        isolate_test_database(url.sub(/\/\d+\z/, "/1"), test_worker_database)
+      rescue StandardError
+        isolate_test_database("redis://localhost:6379/1", test_worker_database)
+      end
+
+      # isolate_test_database leaves a URL it cannot place untouched. For an
+      # override in the test env that would fail open (redis://host:6379 with
+      # no /N is DB 0, a live database), so refuse it instead. The dedicated
+      # test daemon replaces the whole URL, so it needs no database to locate.
+      def isolated_worker_override(override)
+        if Rails.env.test? && !test_port && !override.match?(%r{/\d+\z})
+          raise ArgumentError,
+                "#{WORKER_REDIS_URL_ENV}/#{DEPRECATED_WORKER_REDIS_URL_ENV} has no trailing /<db> " \
+                "(got a URL without one, with a trailing slash or a query string), so the test env " \
+                "cannot move it onto this lane's worker database. Give it an explicit /<db>, or unset it."
+        end
+
+        isolate_test_database(override, test_worker_database)
+      end
+
+      def worker_url_override
+        canonical = ENV[WORKER_REDIS_URL_ENV].to_s.strip
+        deprecated = ENV[DEPRECATED_WORKER_REDIS_URL_ENV].to_s.strip
+        warn_deprecated_worker_url_env(ignored: canonical.present?) if deprecated.present?
+
+        canonical.presence || deprecated.presence
+      end
+
+      # Once per process: worker_url runs on every health sweep and enqueue.
+      def warn_deprecated_worker_url_env(ignored:)
+        return if @deprecated_worker_url_env_warned
+
+        @deprecated_worker_url_env_warned = true
+        consequence = ignored ? "it is ignored because #{WORKER_REDIS_URL_ENV} is also set" : "it is still honored for now"
+        Rails.logger&.warn(
+          "[Powernode::Redis] #{DEPRECATED_WORKER_REDIS_URL_ENV} is deprecated; set " \
+          "#{WORKER_REDIS_URL_ENV} instead (#{consequence})."
+        )
+      end
 
       # Rewrite a redis:// URL's database component onto a test-only database.
       #

@@ -268,8 +268,9 @@ module Ai
              "procedure", %w[infrastructure systemd], "architecture"),
 
           sk("Redis database separation",
-             "Worker uses Redis DB 1 (redis://localhost:6379/1). " \
-             "Server uses Redis DB 0 for caching/sessions. Prevents key collisions.",
+             "Canonical layout: DB 0 general (cache/sessions), DB 1 Sidekiq, DB 2 ActionCable. " \
+             "Module-composed hubs still run Sidekiq on DB 0 (layout phase 1); POWERNODE_WORKER_REDIS_URL " \
+             "names the worker DB on both server and worker.",
              "fact", %w[infrastructure redis], "architecture"),
 
           sk("JWT authentication system",

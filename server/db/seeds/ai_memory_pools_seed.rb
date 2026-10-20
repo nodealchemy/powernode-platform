@@ -150,7 +150,7 @@ seed_data = {
                  "then verify with systemctl is-active",
       "manage" => "sudo scripts/systemd/powernode-installer.sh install|status|add-instance",
       "ports" => { "backend" => 3000, "frontend" => 3001, "worker_web" => 4567 },
-      "worker_redis" => "redis://localhost:6379/1 (DB 1 not 0)"
+      "worker_redis" => "canonical redis://localhost:6379/1 (DB 1); module-composed hubs on DB 0 for now — POWERNODE_WORKER_REDIS_URL names it"
     },
     "pgvector" => {
       "summary" => "pgvector + neighbor gem config and gotchas",
