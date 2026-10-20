@@ -54,6 +54,8 @@ Run thousands of unit tests cheaply, hundreds of request/component tests, dozens
 
 ### Backend RSpec
 
+> **Never run rspec in a shell that sourced the unit env** (`~/.config/powernode/backend-default.conf`, `/etc/powernode/*.conf`, or anything exporting `RAILS_ENV=development` / `DATABASE_*`). The suite's `before(:suite)` deletes every row of the database it is connected to. `spec/rails_helper.rb` fails closed: it aborts before Rails loads if `RAILS_ENV`/`RACK_ENV` is set to anything but `test`, and after Rails loads aborts unless `Rails.env.test?` and the database name contains `test` (parallel lanes `powernode_test__p<N>` and `powernode_test_<suffix>` qualify). If you hit that abort, open a clean shell; do not work around it. Covered by `spec/scripts/rails_helper_env_guard_spec.rb`.
+
 ```bash
 cd server
 
