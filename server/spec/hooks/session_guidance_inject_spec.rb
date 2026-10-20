@@ -27,7 +27,7 @@ RSpec.describe ".claude/hooks/session-guidance-inject.sh" do
   let(:project_dir) { Dir.mktmpdir("guidance-project") }
   let(:home_dir) { Dir.mktmpdir("guidance-home") }
 
-  let(:all_verbs) { %w[platform.route_task platform.search_knowledge platform.create_knowledge] }
+  let(:all_verbs) { %w[platform.route_task platform.search_knowledge platform.create_knowledge platform.assemble_task] }
 
   before do
     conv = File.join(project_dir, "docs", "contributing", "conventions")
@@ -122,6 +122,25 @@ RSpec.describe ".claude/hooks/session-guidance-inject.sh" do
     expect(out).to include("(tag guidance-testing-patterns)")
     expect(out).to include("Author them via platform.create_knowledge")
     expect(out).not_to match(/grant gap/i)
+  end
+
+  # Skills-first agents (PRE-2): the assembly protocol line is advice about a verb,
+  # so it is printed only when the connector lists assemble_task.
+  it "prints the assemble_task protocol line when the connector lists assemble_task" do
+    url, = start_listener(all_verbs)
+    out, = run_hook(url: url)
+
+    expect(out).to include("platform.assemble_task")
+    expect(out).to match(/model.*effort.*Agent tool/m)
+    expect(out).to include("assembly_id")
+  end
+
+  it "withholds the assemble_task line, and names the verb as a grant gap, when it is not listed" do
+    url, = start_listener(%w[platform.route_task platform.search_knowledge platform.create_knowledge])
+    out, = run_hook(url: url)
+
+    expect(out).not_to include("Powernode subagents: call platform.assemble_task")
+    expect(out.lines.find { |l| l =~ /grant gap/i }).to include("platform.assemble_task")
   end
 
   it "looks up search_knowledge itself: a listing without it withholds its advice and its tag pointers" do

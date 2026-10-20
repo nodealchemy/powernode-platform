@@ -51,6 +51,7 @@ No file in `docs/contributing/conventions/` and no `global`-scoped guidance know
 | Automation scripts | doc | service-and-ops.md | — |
 | Test execution + multi-agent rules + patterns | doc | testing-patterns.md | — |
 | MCP-first workflow (4 phases) | doc | mcp-first-workflow.md | SessionStart digest |
+| **Claude Code assembly protocol (`assemble_task` before spawning a `powernode/*` subagent; pass model/effort and `assembly_id`)** | core+doc+knowledge | CLAUDE.md + claude-code-assembly.md + `guidance-claude-code-assembly` | `assembly-before-spawn.sh` (advisory PreToolUse hook) + SessionStart digest line (only when the connector lists `assemble_task`); server-side evidence is the assembly row linked by `record_agent_execution` |
 | MCP tool catalog | pointer | reference/auto/mcp-tools.md | auto-generated |
 | Knowledge quality lifecycle + tool evolution | doc | knowledge-lifecycle.md | — |
 | File organization (NEVER save to root) | core+knowledge | CLAUDE.md + `guidance-file-organization` | `pattern-validation.sh` (no stray root files) |

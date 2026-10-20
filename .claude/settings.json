@@ -74,6 +74,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/assembly-before-spawn.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit|MultiEdit|mcp__filesystem__write_file|mcp__filesystem__edit_file",
         "hooks": [
           {

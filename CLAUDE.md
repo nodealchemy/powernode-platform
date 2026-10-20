@@ -105,6 +105,7 @@ Generic key-handling principles — apply to ALL key material. Private-extension
 - **Plan Before Multi-File**: changes touching 3+ files — outline files + data flow, get approval before writing.
 - **Dead Reference Cleanup**: after deleting a file, `grep -r` for references and remove them (scope: orphans your changes created).
 - **Completion Gate**: before reporting work done, run the verification gate — `scripts/validate.sh` (model-agnostic; specs + tsc + pattern-validation + gitleaks) or its targeted subset for what you changed. `/verify` is the Claude-only convenience wrapper; non-Claude executors use the gate directly (also `guidance-verification-gate` + loop guardrails).
+- **Powernode subagents**: `assemble_task` first; pass its `model`/`effort` to the Agent tool and its `assembly_id` in the prompt (`guidance-claude-code-assembly`).
 - **Quality Gates**: `cd frontend && npx tsc --noEmit` after TS; Ruby syntax + related spec after `.rb`; `rails db:seed` after seeds — the authoritative home is the gate `scripts/validate.sh` (run by the pre-commit hook and any committer).
 
 ### Architecture Principles

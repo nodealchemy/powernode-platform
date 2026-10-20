@@ -34,7 +34,7 @@ CONV="$PROJECT_DIR/docs/contributing/conventions"
 # The platform verbs this digest recommends by name. Keep in step with the
 # guarded advice lines below: a verb named in advice but missing here is never
 # checked.
-ADVISED_VERBS=(platform.search_knowledge platform.create_knowledge platform.route_task)
+ADVISED_VERBS=(platform.search_knowledge platform.create_knowledge platform.route_task platform.assemble_task)
 
 # --- which of them the connector lists --------------------------------------
 # 3 s ceiling inside the hook's 5 s budget (a real tools/list is ~0.5-1.3 s).
@@ -137,6 +137,10 @@ else
   echo "  For platform work prefer these subagents over general-purpose."
 fi
 echo "  Code and docs go to platform-engineer, independent review to platform-reviewer. Regenerate after a roster change: cd server && bundle exec rails claude:sync_agents (gate: scripts/check-claude-agents-fresh.sh)."
+# Assembly protocol (skills-first agents): printed only when the connector lists the verb.
+if has_verb platform.assemble_task; then
+  echo "  Powernode subagents: call platform.assemble_task(task, agent_slug, context: \"claude_code\") before spawning one; pass its model/effort to the Agent tool and put its assembly_id in the prompt (docs/contributing/conventions/claude-code-assembly.md)."
+fi
 if [[ -n "$listing_error" ]]; then
   echo "Could not read the powernode connector's tools/list (${listing_error}), so no platform.* verb is advised above."
   echo "  Check a verb with ToolSearch before relying on it."

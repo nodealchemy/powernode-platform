@@ -17,7 +17,7 @@
 # To raise a budget, edit its line in the same change that grows the surface
 # and say why in the commit.
 
-CLAUDE.md                               16640
+CLAUDE.md                               16896
 server/CLAUDE.md                         6144
 frontend/CLAUDE.md                       5120
 worker/CLAUDE.md                         3328
