@@ -80,11 +80,51 @@ RSpec.describe Ai::Skills::SeedGate do
       expect(gate.check!([ read_entry("alpha-skill", %w[search_knowledge record_agent_execution]) ])).to be(true)
     end
 
-    it "allows an approval-parking probe an extension registered, and only that one" do
-      allow(Ai::Skills::Contract).to receive(:read_probe_verbs).and_return(%w[create_knowledge])
+    # A probe is registered by an owner and excuses ONLY that owner's read skills.
+    describe "an extension's registered probe" do
+      let(:probe_tool) { Class.new(Ai::Tools::BaseTool) { declare_action "example_probe", mutating: true } }
 
-      expect(gate.check!([ read_entry("alpha-skill", %w[create_knowledge]) ])).to be(true)
-      expect { gate.check!([ read_entry("alpha-skill", %w[update_knowledge]) ]) }.to raise_error(described_class::GateError, /update_knowledge/)
+      before do
+        stub_const("ExampleProbeTool", probe_tool)
+        stub_const("UndeclaredTool", Class.new)
+        tools = Ai::Tools::PlatformApiToolRegistry.all_tools.merge("example_probe" => "ExampleProbeTool", "example_undeclared" => "UndeclaredTool")
+        allow(Ai::Tools::PlatformApiToolRegistry).to receive(:all_tools).and_return(tools)
+        Ai::Skills::Contract.register_read_probe_verbs(owner: "extensions/example", verbs: %w[example_probe])
+      end
+
+      after { Ai::Skills::Contract.register_read_probe_verbs(owner: "extensions/example", verbs: []) }
+
+      def read_errors(owner, verbs)
+        described_class.new(owner_repo: owner, embedder: orthogonal)
+                       .send(:read_skill_errors, [ read_entry("alpha-skill", verbs).tap { |e| e["metadata"]["owner_repo"] = owner } ])
+      end
+
+      it "excuses the registering owner's own read skill" do
+        expect(read_errors("extensions/example", %w[example_probe])).to eq([])
+      end
+
+      it "does not excuse a core read skill, nor another owner's" do
+        expect(read_errors("core", %w[example_probe]).join).to include("example_probe")
+        expect(read_errors("extensions/other", %w[example_probe]).join).to include("example_probe")
+      end
+
+      it "does not turn the registering owner's other mutating verbs into probes" do
+        expect(read_errors("extensions/example", %w[create_knowledge]).join).to include("create_knowledge")
+      end
+
+      it "still excuses the self-report verb for every owner" do
+        expect(read_errors("extensions/other", %w[record_agent_execution])).to eq([])
+      end
+
+      it "refuses to register a verb outside the owner's own prefix (an extension cannot whitelist a core verb)" do
+        expect { Ai::Skills::Contract.register_read_probe_verbs(owner: "extensions/example", verbs: %w[delete_agent]) }
+          .to raise_error(ArgumentError, /example_.*delete_agent/)
+        expect { Ai::Skills::Contract.register_read_probe_verbs(owner: "core", verbs: %w[example_probe]) }.to raise_error(ArgumentError, /core/)
+      end
+
+      it "fails a read skill naming a registered verb that has no declared action (it cannot be shown to be read-only)" do
+        expect(read_errors("core", %w[example_undeclared]).join).to match(/example_undeclared.*no declared action/)
+      end
     end
 
     it "does not police a skill that declares a mutate gate category" do
@@ -92,14 +132,6 @@ RSpec.describe Ai::Skills::SeedGate do
         x["metadata"]["manifest"].merge!("gate_category" => "mutate", "read_only" => false)
       end
       expect(gate.check!([ e ])).to be(true)
-    end
-
-    it "registers an extension's probe verbs by owner, without core naming them" do
-      Ai::Skills::Contract.register_read_probe_verbs(owner: "extensions/example", verbs: %w[probe_one])
-      expect(Ai::Skills::Contract.read_probe_verbs).to include("probe_one")
-      expect(File.read(Rails.root.join("app/services/ai/skills/contract.rb"))).not_to include("system_inspect_node")
-    ensure
-      Ai::Skills::Contract.register_read_probe_verbs(owner: "extensions/example", verbs: [])
     end
   end
 
@@ -224,7 +256,9 @@ RSpec.describe Ai::Skills::SeedGate do
     let(:extension_verb) { "purityfixture_do_thing" }
 
     before do
-      tools = Ai::Tools::PlatformApiToolRegistry.all_tools.merge(extension_verb => "Object")
+      verb = extension_verb
+      stub_const("PurityFixtureTool", Class.new(Ai::Tools::BaseTool) { declare_action verb, mutating: false })
+      tools = Ai::Tools::PlatformApiToolRegistry.all_tools.merge(extension_verb => "PurityFixtureTool")
       allow(Ai::Tools::PlatformApiToolRegistry).to receive(:all_tools).and_return(tools)
       allow_any_instance_of(described_class).to receive(:extension_slugs).and_wrap_original do |original, *args|
         (original.call(*args) | [ extension_slug ])

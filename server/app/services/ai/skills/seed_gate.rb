@@ -174,11 +174,13 @@ module Ai
 
       # A `read` skill (read_only true, tied by the contract) is what a read-only
       # agent may be assembled with and what verb risk treats as calm, so it must
-      # not name a verb that writes. A verb the registry does not declare is left
-      # to verb_errors.
+      # not name a verb that writes. Allowed despite `mutating: true`: the
+      # contract's self-report verb and the probes THIS owner registered. A verb
+      # with no declared action cannot be shown read-only, so it fails too; a
+      # verb the registry does not know at all is left to verb_errors.
       def read_skill_errors(entries)
         registry = ::Ai::Tools::PlatformApiToolRegistry.all_tools
-        allowed = Contract.read_probe_verbs
+        allowed = Contract.read_probe_verbs(owner_repo)
         entries.flat_map do |entry|
           manifest = entry.dig("metadata", "manifest")
           next [] unless manifest.is_a?(Hash) && manifest["gate_category"] == "read"
@@ -189,9 +191,11 @@ module Ai
             tool = registry[verb]
             tool = tool.safe_constantize if tool.is_a?(String)
             declaration = tool.respond_to?(:declared_action) ? tool.declared_action(::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.fetch(verb, verb)) : nil
-            next unless declaration && declaration[:mutating]
-
-            "#{entry['slug']}: gate_category read but names mutating verb #{verb} (declare the skill mutate, or add a read-only probe to the Contract allowlist)"
+            if declaration.nil?
+              "#{entry['slug']}: gate_category read but verb #{verb} has no declared action, so it cannot be shown read-only"
+            elsif declaration[:mutating]
+              "#{entry['slug']}: gate_category read but names mutating verb #{verb} (declare the skill mutate, or have its owner register a read-only probe)"
+            end
           end
         end
       end

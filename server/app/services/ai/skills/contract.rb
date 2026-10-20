@@ -100,16 +100,27 @@ module Ai
         end
 
         # Extension engines register the read-only, approval-parking probe verbs a
-        # `read` skill of theirs may name. Idempotent; an empty list clears the owner.
+        # `read` skill OF THEIRS may name. Idempotent; an empty list clears the
+        # owner. A verb must carry the owner's own prefix ("extensions/<slug>" ->
+        # "<slug>_", the convention SeedGate's purity check uses), so an
+        # extension can never excuse a core or another owner's verb. Core has no
+        # probes of its own: its one allowance is READ_SKILL_MUTATING_VERBS.
         def register_read_probe_verbs(owner:, verbs:)
-          @registry_mutex.synchronize do
-            @read_probe_verbs[owner.to_s] = Array(verbs).map(&:to_s).freeze
-          end
+          owner = owner.to_s
+          raise ArgumentError, "only an extension (extensions/<slug>) registers read probes, not #{owner.inspect}" unless owner.match?(EXTENSION_OWNER_PATTERN)
+
+          prefix = "#{owner.delete_prefix('extensions/').tr('-', '_')}_"
+          verbs = Array(verbs).map(&:to_s)
+          foreign = verbs.reject { |verb| verb.start_with?(prefix) }
+          raise ArgumentError, "#{owner} may register only verbs starting with #{prefix.inspect}; not #{foreign.join(', ')}" if foreign.any?
+
+          @registry_mutex.synchronize { @read_probe_verbs[owner] = verbs.freeze }
         end
 
-        # @return [Array<String>] every verb a read skill may name despite `mutating: true`
-        def read_probe_verbs
-          @registry_mutex.synchronize { @read_probe_verbs.values.flatten.uniq + READ_SKILL_MUTATING_VERBS }
+        # @param owner [String] the skill's owner_repo
+        # @return [Array<String>] the verbs a read skill of THAT owner may name despite `mutating: true`
+        def read_probe_verbs(owner)
+          @registry_mutex.synchronize { Array(@read_probe_verbs[owner.to_s]) + READ_SKILL_MUTATING_VERBS }
         end
 
         def domains_for(owner)
