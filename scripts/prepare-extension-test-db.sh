@@ -75,10 +75,39 @@
 #
 # Usage:
 #   scripts/prepare-extension-test-db.sh                 # prepare the test DB for THIS checkout/worktree
+#   scripts/prepare-extension-test-db.sh --lanes "__p1 __p2 __p3"
+#                                                        # parallel suite: (re)create powernode_test__p1..__p3 as
+#                                                        # template clones of ONE golden DB. Resolves the cluster
+#                                                        # once, builds golden only if stale, TMPFS CLUSTER ONLY
+#                                                        # (refuses the shared one), lane names strictly __p<digits> or __w<6 hex>p<digits> (a second worktree's namespace).
 #   (the isolated TEST_ENV_NUMBER is read from server/.env.test.local automatically in the test env)
 set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# --lanes "<__p1 __p2 ...>" (space or comma separated): multi-lane mode for the parallel suite.
+LANES=() LANES_GIVEN=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --lanes)
+      shift
+      [ $# -gt 0 ] || { echo "error: --lanes needs a list" >&2; exit 2; }
+      LANES_GIVEN=1
+      IFS=', ' read -r -a LANES <<< "$1"; shift ;;
+    *) echo "error: unknown argument: $1 (only --lanes \"__p1 __p2 ...\" is supported)" >&2; exit 2 ;;
+  esac
+done
+# An empty list is an error, never "no lanes, so prepare the default database": that fallthrough would
+# drop and rebuild whatever TEST_ENV_NUMBER names (a worktree's lane) on a mistyped invocation.
+[ -z "$LANES_GIVEN" ] || [ "${#LANES[@]}" -gt 0 ] || { echo "error: --lanes needs at least one lane (__p1 __p2 ...)" >&2; exit 2; }
+if [ "${#LANES[@]}" -gt 0 ]; then
+  for lane in "${LANES[@]}"; do
+    # Strict on purpose: every name below reaches dropdb. Worktree lanes (2/3/4, _tmpfs, _<slug>) can never match.
+    [[ "$lane" =~ ^__(p|w[0-9a-f]{6}p)[1-9][0-9]*$ ]] || { echo "error: lane '$lane' is not of the form __p<N> or __w<6 hex>p<N>" >&2; exit 2; }
+  done
+  # Rails resolves its cluster/port from the first lane; every lane lives on that same cluster.
+  export TEST_ENV_NUMBER="${LANES[0]}" TEST_REDIS_LANE="${TEST_REDIS_LANE:-0}"
+fi
 
 # Serialize concurrent preps of the SAME checkout (see header, lock 1). Keyed
 # by repo path so distinct worktrees (distinct test DBs) don't contend.
@@ -190,13 +219,19 @@ exec 8>"$GLOBAL_IO_LOCK_FILE"
 
 cd "$SERVER"
 
-if [ "${#PRIVATE_VERSIONS[@]}" -eq 0 ]; then
+if [ "${#LANES[@]}" -gt 0 ] && [ "$CLUSTER" != tmpfs ]; then
+  echo "error: [prepare-extension-test-db] --lanes only runs against the tmpfs test cluster (resolved: $CLUSTER). The shared cluster holds the worktrees' lanes." >&2
+  exit 1
+fi
+
+if [ "${#PRIVATE_VERSIONS[@]}" -eq 0 ] && [ "${#LANES[@]}" -eq 0 ]; then
   # Core mode: load the schema WITHOUT seeding. `db:prepare` runs `db:seed`,
   # and the seed path fails on a fresh core+baseline test DB (RecordInvalid /
   # "Value can't be blank"; agent + skill-binding seeds require a demo admin
   # account that the test DB doesn't have). RSpec builds its own state via
   # factories and needs no seed data, so mirror the private-extension path
   # below: drop → create → schema:load only. (imp 605b follow-on / BUG-I)
+  # The serial core default is deliberately untouched by the parallel work: no golden template here.
   echo "[prepare-extension-test-db] core mode (no private extensions) → schema-load only (no seed)"
   db_io_lock
   bin/rails db:drop db:create db:schema:load
@@ -205,22 +240,26 @@ if [ "${#PRIVATE_VERSIONS[@]}" -eq 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------------------------------
-# Golden-template fast path (throughput). Building a private-ext test DB from scratch
-# (drop/create/schema:load + un-assume + migrate) is the slow, fsync-heavy work that serializes
-# badly across worktrees under the global I/O lock. Instead, build ONE canonical "golden" DB with
-# the full schema, then each worktree's DB is a cheap `CREATE DATABASE ... TEMPLATE` clone (a
-# Postgres block-copy — seconds, not minutes). The golden is rebuilt only when the schema SHAPE
-# changes (fingerprint = core schema.rb + sorted private migration versions). Fallback to the full
-# build is automatic on any template error; force it with TEST_DB_NO_TEMPLATE=1.
-GOLDEN_DB="powernode_test_golden"
+# Golden-template path (throughput): private mode, and --lanes (parallel suite) in either mode. Building a test DB from scratch
+# (drop/create/schema:load, plus un-assume + migrate in private mode) is the slow, fsync-heavy work
+# that serializes badly across worktrees under the global I/O lock. Instead, build ONE canonical
+# "golden" DB with the full schema, then each lane's DB is a cheap `CREATE DATABASE ... TEMPLATE`
+# clone (a Postgres block-copy — seconds, not minutes). The golden is rebuilt only when the schema
+# SHAPE changes (fingerprint = core schema.rb + sorted private migration versions). Fallback to the
+# full build is automatic on any template error; force it with TEST_DB_NO_TEMPLATE=1.
+#
+# --lanes in core mode uses its own golden (powernode_test_golden_core) on the tmpfs cluster only, so it
+# never rebuilds the private-mode golden. Two preps racing to rebuild the SAME golden (concurrent
+# worktrees) is a pre-existing property of the golden design, not addressed here.
+if [ "${#PRIVATE_VERSIONS[@]}" -eq 0 ]; then GOLDEN_DB="powernode_test_golden_core"; else GOLDEN_DB="powernode_test_golden"; fi
 # TARGET_DB (authoritative, from Rails config) was resolved above together with the cluster.
-FINGERPRINT="fp:$( { cat "$REPO/server/db/schema.rb"; printf '%s\n' "${PRIVATE_VERSIONS[@]}" | sort; } | sha1sum | cut -d' ' -f1)"
+FINGERPRINT="fp:$( { cat "$REPO/server/db/schema.rb"; printf '%s\n' ${PRIVATE_VERSIONS[@]+"${PRIVATE_VERSIONS[@]}"} | sort; } | sha1sum | cut -d' ' -f1)"
 # Read the fingerprint comment off the golden DB without connecting to it (empty if golden absent).
 golden_fp() { psql -tAX -d postgres -c "SELECT shobj_description(oid,'pg_database') FROM pg_database WHERE datname='${GOLDEN_DB}'" 2>/dev/null | tr -d '[:space:]'; }
 # SAFETY: the raw dropdb/createdb below bypass Rails' built-in test-env protection, so the golden
 # path is HARD-GATED to names starting with `powernode_test` — it can never drop/clone the live
 # development or production database even if RAILS_ENV or the resolved name were somehow wrong.
-template_ok() { [ -z "${TEST_DB_NO_TEMPLATE:-}" ] && [ -n "$TARGET_DB" ] && [ "$TARGET_DB" != "$GOLDEN_DB" ] && [[ "$TARGET_DB" == powernode_test* ]]; }
+template_ok() { [ -z "${TEST_DB_NO_TEMPLATE:-}" ] && [ -n "$TARGET_DB" ] && [[ "$TARGET_DB" != powernode_test_golden* ]] && [[ "$TARGET_DB" == powernode_test* ]]; }
 clone_from_golden() { # drop TARGET_DB and recreate it as a template clone of golden; nonzero on failure
   db_io_lock
   psql -qX -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${TARGET_DB}' AND pid<>pg_backend_pid()" >/dev/null 2>&1 || true
@@ -230,28 +269,33 @@ clone_from_golden() { # drop TARGET_DB and recreate it as a template clone of go
   return $rc
 }
 
-if template_ok && [ "$(golden_fp)" = "$FINGERPRINT" ]; then
-  echo "[prepare-extension-test-db] golden template is fresh → cloning ${TARGET_DB} (fast path)…"
-  if clone_from_golden; then
-    echo "[prepare-extension-test-db] done — ${TARGET_DB} cloned from ${GOLDEN_DB} (private tables included)."
-    exit 0
+# Build TARGET_DB from scratch. Private mode additionally un-assumes and runs the engine migrations.
+full_build() {
+  if [ "${#PRIVATE_VERSIONS[@]}" -eq 0 ]; then
+    # Core mode: load the schema WITHOUT seeding. `db:prepare` runs `db:seed`, and the seed path
+    # fails on a fresh core+baseline test DB (RecordInvalid / "Value can't be blank"; agent +
+    # skill-binding seeds require a demo admin account that the test DB doesn't have). RSpec builds
+    # its own state via factories and needs no seed data: drop → create → schema:load only.
+    echo "[prepare-extension-test-db] core mode (no private extensions) → schema-load only (no seed)"
+    db_io_lock
+    bin/rails db:drop db:create db:schema:load
+    db_io_unlock
+    return 0
   fi
-  echo "[prepare-extension-test-db] WARNING: template clone failed — falling back to the full build." >&2
-fi
 
-echo "[prepare-extension-test-db] (re)creating TEST database and loading core schema…"
-db_io_lock
-bin/rails db:drop db:create db:schema:load
-db_io_unlock
+  echo "[prepare-extension-test-db] (re)creating TEST database and loading core schema…"
+  db_io_lock
+  bin/rails db:drop db:create db:schema:load
+  db_io_unlock
 
-echo "[prepare-extension-test-db] un-assuming ${#PRIVATE_VERSIONS[@]} private migration version(s) so they run for real…"
-# Delete via the app connection so the right (test) database and credentials are used. Versions
-# are passed through the environment (not ARGV) and the body avoids a top-level `next` ("Can't
-# escape from eval with next" under `rails runner`); `abort` exits non-zero so a failed un-assume
-# can't be silently swallowed and leave the private migrations still assume-migrated.
-PRIVATE_VERSIONS_CSV="$(IFS=,; echo "${PRIVATE_VERSIONS[*]}")"
-export PRIVATE_VERSIONS_CSV
-bin/rails runner "$(cat <<'RUBY'
+  echo "[prepare-extension-test-db] un-assuming ${#PRIVATE_VERSIONS[@]} private migration version(s) so they run for real…"
+  # Delete via the app connection so the right (test) database and credentials are used. Versions
+  # are passed through the environment (not ARGV) and the body avoids a top-level `next` ("Can't
+  # escape from eval with next" under `rails runner`); `abort` exits non-zero so a failed un-assume
+  # can't be silently swallowed and leave the private migrations still assume-migrated.
+  PRIVATE_VERSIONS_CSV="$(IFS=,; echo "${PRIVATE_VERSIONS[*]}")"
+  export PRIVATE_VERSIONS_CSV
+  bin/rails runner "$(cat <<'RUBY'
 versions = ENV.fetch("PRIVATE_VERSIONS_CSV", "").split(",").reject(&:empty?)
 abort("[prepare-extension-test-db] no private migration versions to un-assume") if versions.empty?
 sql = ActiveRecord::Base.sanitize_sql_array(["DELETE FROM schema_migrations WHERE version IN (?)", versions])
@@ -260,34 +304,73 @@ STDERR.puts "[prepare-extension-test-db] removed #{deleted} assume-migrated priv
 RUBY
 )"
 
-echo "[prepare-extension-test-db] running private engine migrations…"
-# The tracked server/db/schema.rb is never written here. The post-migrate auto-dump is disabled
-# everywhere (config/initializers/schema_dump_isolation.rb), and SCHEMA= points any dump that does
-# happen at a throwaway sink. Nothing restores the tracked file afterwards: a `git checkout` of it
-# discarded whatever UNCOMMITTED schema.rb edits the checkout held — in a shared checkout, another
-# session's in-flight migration work (IMP-01a08cc5; guarded by
-# scripts/checks/tests/prepare_extension_test_db_schema_safety_test.sh).
-SCHEMA_DUMP_SINK="$(mktemp "${TMPDIR:-/tmp}/prepare-extension-test-db-schema.XXXXXX.rb")"
-db_io_lock
-SCHEMA="$SCHEMA_DUMP_SINK" bin/rails db:migrate
-db_io_unlock
-rm -f "$SCHEMA_DUMP_SINK"
+  echo "[prepare-extension-test-db] running private engine migrations…"
+  # The tracked server/db/schema.rb is never written here. The post-migrate auto-dump is disabled
+  # everywhere (config/initializers/schema_dump_isolation.rb), and SCHEMA= points any dump that does
+  # happen at a throwaway sink. Nothing restores the tracked file afterwards: a `git checkout` of it
+  # discarded whatever UNCOMMITTED schema.rb edits the checkout held — in a shared checkout, another
+  # session's in-flight migration work (IMP-01a08cc5; guarded by
+  # scripts/checks/tests/prepare_extension_test_db_schema_safety_test.sh).
+  SCHEMA_DUMP_SINK="$(mktemp "${TMPDIR:-/tmp}/prepare-extension-test-db-schema.XXXXXX.rb")"
+  db_io_lock
+  SCHEMA="$SCHEMA_DUMP_SINK" bin/rails db:migrate
+  db_io_unlock
+  rm -f "$SCHEMA_DUMP_SINK"
+}
 
-# Seed/refresh the golden template from the freshly-built target so the NEXT worktree clones instead
+# Seed/refresh the golden template from the freshly-built TARGET_DB so the NEXT prep clones instead
 # of rebuilding. Re-check freshness first: if another worktree already rebuilt golden while we
 # waited, don't redo it. Non-fatal — a failure here only means the next prep does a full build too.
-if template_ok && [ "$(golden_fp)" != "$FINGERPRINT" ]; then
-  echo "[prepare-extension-test-db] refreshing golden template ${GOLDEN_DB} from ${TARGET_DB}…"
-  db_io_lock
-  psql -qX -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${TARGET_DB}' AND pid<>pg_backend_pid()" >/dev/null 2>&1 || true
-  dropdb --if-exists "$GOLDEN_DB" >/dev/null 2>&1
-  if createdb "$GOLDEN_DB" --template="$TARGET_DB" >/dev/null 2>&1; then
-    psql -qX -d postgres -c "COMMENT ON DATABASE ${GOLDEN_DB} IS '${FINGERPRINT}'" >/dev/null 2>&1 \
-      && echo "[prepare-extension-test-db] golden template refreshed (fingerprint ${FINGERPRINT#fp:})."
-  else
-    echo "[prepare-extension-test-db] note: could not refresh golden template (non-fatal)." >&2
+refresh_golden() {
+  if template_ok && [ "$(golden_fp)" != "$FINGERPRINT" ]; then
+    echo "[prepare-extension-test-db] refreshing golden template ${GOLDEN_DB} from ${TARGET_DB}…"
+    db_io_lock
+    psql -qX -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='${TARGET_DB}' AND pid<>pg_backend_pid()" >/dev/null 2>&1 || true
+    dropdb --if-exists "$GOLDEN_DB" >/dev/null 2>&1
+    if createdb "$GOLDEN_DB" --template="$TARGET_DB" >/dev/null 2>&1; then
+      psql -qX -d postgres -c "COMMENT ON DATABASE ${GOLDEN_DB} IS '${FINGERPRINT}'" >/dev/null 2>&1 \
+        && echo "[prepare-extension-test-db] golden template refreshed (fingerprint ${FINGERPRINT#fp:})."
+    else
+      echo "[prepare-extension-test-db] note: could not refresh golden template (non-fatal)." >&2
+    fi
+    db_io_unlock
   fi
-  db_io_unlock
+}
+
+# One DB: clone from a fresh golden, else build in full and refresh golden from it.
+prepare_one() {
+  if template_ok && [ "$(golden_fp)" = "$FINGERPRINT" ]; then
+    echo "[prepare-extension-test-db] golden template is fresh → cloning ${TARGET_DB} (fast path)…"
+    if clone_from_golden; then
+      echo "[prepare-extension-test-db] done — ${TARGET_DB} cloned from ${GOLDEN_DB}."
+      return 0
+    fi
+    echo "[prepare-extension-test-db] WARNING: template clone failed — falling back to the full build." >&2
+  fi
+  full_build
+  refresh_golden
+  echo "[prepare-extension-test-db] done — ${TARGET_DB} built$([ "${#PRIVATE_VERSIONS[@]}" -gt 0 ] && echo ", private-extension tables included")."
+}
+
+if [ "${#LANES[@]}" -eq 0 ]; then
+  prepare_one
+  exit 0
 fi
 
-echo "[prepare-extension-test-db] done — test DB now includes private-extension tables."
+# Multi-lane: Rails (and so TARGET_DB) was resolved ONCE, from the first lane. Make sure golden is fresh
+# (building it through that first lane if not), then every lane is a template clone of it.
+LANE_PREFIX=powernode_test
+[ "$TARGET_DB" = "powernode_test${LANES[0]}" ] \
+  || { echo "error: Rails resolved '$TARGET_DB' for lane ${LANES[0]}; expected powernode_test${LANES[0]}" >&2; exit 1; }
+template_ok || { echo "error: [prepare-extension-test-db] --lanes needs the golden-template path (TEST_DB_NO_TEMPLATE set, or '$TARGET_DB' is not a powernode_test* name)" >&2; exit 1; }
+if [ "$(golden_fp)" != "$FINGERPRINT" ]; then
+  full_build
+  refresh_golden
+  [ "$(golden_fp)" = "$FINGERPRINT" ] || { echo "error: [prepare-extension-test-db] golden template could not be built" >&2; exit 1; }
+fi
+for lane in "${LANES[@]}"; do
+  TARGET_DB="${LANE_PREFIX}${lane}"
+  clone_from_golden || { echo "error: [prepare-extension-test-db] could not clone ${TARGET_DB} from ${GOLDEN_DB}" >&2; exit 1; }
+  echo "[prepare-extension-test-db] lane ${lane}: ${TARGET_DB} cloned from ${GOLDEN_DB}"
+done
+echo "[prepare-extension-test-db] done — ${#LANES[@]} lane(s) ready on port ${PGPORT}."
