@@ -58,7 +58,7 @@ RSpec.describe Ai::Memory::EmbeddingService, type: :service do
       expect(embedding.all? { |v| v.is_a?(Numeric) }).to be true
     end
 
-    it "returns cached embedding when available" do
+    it "returns cached embedding when available", :embedding_cache do
       cached_embedding = Array.new(described_class::EMBEDDING_DIMENSION) { rand(-1.0..1.0) }
       allow(mock_redis).to receive(:get).and_return(cached_embedding.to_json)
 
@@ -67,7 +67,7 @@ RSpec.describe Ai::Memory::EmbeddingService, type: :service do
       expect(embedding).to eq(cached_embedding)
     end
 
-    it "caches generated embeddings in redis" do
+    it "caches generated embeddings in redis", :embedding_cache do
       allow(mock_redis).to receive(:get).and_return(nil)
       expect(mock_redis).to receive(:setex).with(
         anything,
@@ -134,7 +134,7 @@ RSpec.describe Ai::Memory::EmbeddingService, type: :service do
       end
     end
 
-    it "uses cached values when available" do
+    it "uses cached values when available", :embedding_cache do
       cached_embedding = Array.new(described_class::EMBEDDING_DIMENSION) { 0.5 }
       allow(mock_redis).to receive(:get).and_return(nil)
       allow(mock_redis).to receive(:get)
@@ -148,7 +148,7 @@ RSpec.describe Ai::Memory::EmbeddingService, type: :service do
       expect(embeddings[1]).to eq(cached_embedding)
     end
 
-    it "caches each generated embedding" do
+    it "caches each generated embedding", :embedding_cache do
       texts = ["alpha", "beta"]
       expect(mock_redis).to receive(:setex).exactly(2).times
 
