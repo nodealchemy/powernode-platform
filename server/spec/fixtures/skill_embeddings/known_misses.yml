@@ -1,0 +1,24 @@
+# CORE's capability-skill eval misses — core's evals scored against core's own
+# batch only (whether or not an extension is loaded) — on the recorded real embeddings at
+# the production seed cut-off, each with the reason it is accepted for now. The
+# discovery specs fail on any miss NOT listed here and on any listed line that
+# no longer misses (delete it), so this ledger only shrinks. Key: "slug | task".
+# Measured 2026-10-19 with text-embedding-3-small; production numbers come from
+# `rails skills:eval:discovery`.
+"workspace-delegation | Ask the platform engineer in this workspace to fix the failing build": >-
+  Below the cut-off (cosine ~0.34): a short request that names a person and a job but
+  none of the delegation vocabulary. The assembler's facet/agent context is the fix (PRE-2).
+"provisioning-brief-capture | We are a new team and want our own environment: what do you need from us to set it up?": >-
+  Below the cut-off (~0.38): deliberately colloquial paraphrase with no provisioning terms.
+"rails-backend-conventions | Add a JSON column with a default to an existing model": >-
+  Below the cut-off (~0.34) even with a column/default trigger; the long conventions text
+  dilutes a one-line task.
+"test-authoring | Add integration tests and fixtures for a new API endpoint in a Node service": >-
+  Below the cut-off (~0.37); the closest skill is rails-backend-conventions (0.38), which
+  the project facet removes for a Node project.
+"deployment-handoff | The new version is tagged and tested, get it running for our users": >-
+  Below the cut-off (~0.27): a paraphrase with no deploy vocabulary at all ("get it
+  running for our users"). "Deploy my app" and the other positives hit.
+"design-review | Review this finished increment against its acceptance criteria": >-
+  Negative at rank 2 behind the right owner (acceptance-criteria-review): the two review
+  skills share a domain and vocabulary; rank 1 is correct.

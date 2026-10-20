@@ -87,6 +87,71 @@ RSpec.describe Ai::SkillGraph::TraversalService, type: :service do
           expect(entry[:inputs]).to eq([ { "name" => "target_path", "type" => "string", "required" => true, "description" => "" } ])
           expect(entry[:requires_approval]).to be true
         end
+
+        # A KG node outlives its skill's eligibility until the next prune.
+        it "skips a skill that is disabled or no longer active" do
+          allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+          skill.update_columns(is_enabled: false)
+
+          result = service.traverse(task_context: "code review task", mode: :auto)
+          expect(result[:discovered_skills].map { |s| s[:name] }).not_to include("Code Review")
+        end
+      end
+
+      context "with capability facets" do
+        before { allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil) }
+
+        def capability_skill(name, domain:, applies_to:)
+          metadata = { "capability" => name.parameterize, "domain" => domain, "triggers" => { "applies_to" => applies_to } }
+          skill = create(:ai_skill, account: account, name: name, category: "productivity")
+          skill.update_columns(metadata: metadata)
+          create(:ai_knowledge_graph_node, account: account, name: name, entity_type: "skill", node_type: "entity", ai_skill_id: skill.id)
+          skill
+        end
+
+        let!(:repo_skill) { capability_skill("Release Repo", domain: "powernode-platform-dev", applies_to: %w[powernode-platform]) }
+        let!(:generic_skill) { capability_skill("Release Generic", domain: "software-engineering", applies_to: %w[any]) }
+
+        it "filters by project kind, keeping skills that apply to it or to any" do
+          names = service.traverse(task_context: "release work", mode: :auto, project_kind: "website")[:discovered_skills].map { |s| s[:name] }
+          expect(names).to include("Release Generic")
+          expect(names).not_to include("Release Repo")
+        end
+
+        # Neighbours are walked both ways: a generic parent seed must not pull
+        # in a repository-specific child through the child's `refines` edge.
+        context "with a refining child linked to a generic parent" do
+          let!(:child) do
+            capability_skill("Release Repo Child", domain: "powernode-platform-dev", applies_to: %w[powernode-platform]).tap do |s|
+              s.update_columns(metadata: s.metadata.merge("relations" => { "refines" => [ generic_skill.slug ] }))
+            end
+          end
+
+          before do
+            parent_node = Ai::KnowledgeGraphNode.find_by(ai_skill_id: generic_skill.id)
+            child_node = Ai::KnowledgeGraphNode.find_by(ai_skill_id: child.id)
+            Ai::KnowledgeGraphEdge.create!(account: account, source_node: child_node, target_node: parent_node, relation_type: "refines")
+            allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(Array.new(1536, 0.1))
+            parent_node.define_singleton_method(:neighbor_distance) { 0.2 }
+            allow(service).to receive(:find_seed_nodes).and_return([ parent_node ])
+          end
+
+          it "does not pull the child through the graph when no project kind is given" do
+            names = service.traverse(task_context: "release work", mode: :auto)[:discovered_skills].map { |s| s[:name] }
+            expect(names).to include("Release Generic")
+            expect(names).not_to include("Release Repo Child")
+          end
+
+          it "pulls the child when the caller names the child's project kind" do
+            names = service.traverse(task_context: "release work", mode: :auto, project_kind: "powernode-platform")[:discovered_skills].map { |s| s[:name] }
+            expect(names).to include("Release Repo Child")
+          end
+        end
+
+        it "filters by domain ceiling" do
+          names = service.traverse(task_context: "release work", mode: :auto, domains: %w[powernode-platform-dev])[:discovered_skills].map { |s| s[:name] }
+          expect(names).to eq([ "Release Repo" ])
+        end
       end
     end
 

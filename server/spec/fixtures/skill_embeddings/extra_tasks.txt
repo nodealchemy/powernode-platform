@@ -1,0 +1,16 @@
+# Tasks core's capability discovery specs embed directly (beyond each core
+# skill's own evals). Re-record after editing:
+#   rails "skills:eval:record_embeddings[,core]"
+Work a dev-improve task that adds a migration and a spec
+Review this campaign increment against its acceptance criteria
+Help me onboard: I want to set up Powernode for my team
+Add a contact form to a customer's static website
+Set up CI for a customer's Node app
+Speed up a customer's Jest test suite by running it in parallel
+Give each feature of a customer's Rails app its own worktree
+Have three agents work on separate features of a customer's app at the same time
+Run the full test suite fast in parallel
+Deploy my app
+Run the dev-loop with 4 tasks in parallel
+Run the full suite fast
+Clean up merged worktrees
