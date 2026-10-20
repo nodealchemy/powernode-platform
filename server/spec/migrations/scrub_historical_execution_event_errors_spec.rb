@@ -41,6 +41,25 @@ RSpec.describe ScrubHistoricalExecutionEventErrors do
     expect(other.reload.error_message).to include(secret)
   end
 
+  it "leaves no dirty approval_execution row behind" do
+    extra = Array.new(3) { event!(event_type: "approval_execution", error_message: "x password=#{secret} y") }
+
+    run_quietly
+
+    remaining = Ai::ExecutionEvent.where(event_type: "approval_execution").where("error_message LIKE ?", "%#{secret}%")
+    expect(remaining).to be_empty
+    expect(extra.map { |e| e.reload.error_message }).to all(include(Ai::SensitiveParams::MASK))
+  end
+
+  it "retries a batch that cannot get its lock and then raises instead of skipping" do
+    allow(migration).to receive(:say)
+    calls = 0
+    allow(migration).to receive(:lock_and_scrub) { calls += 1; raise ActiveRecord::LockWaitTimeout }
+
+    expect { migration.up }.to raise_error(ActiveRecord::LockWaitTimeout)
+    expect(calls).to eq(described_class::LOCK_ATTEMPTS)
+  end
+
   it "is idempotent: a second run rewrites nothing" do
     run_quietly
 

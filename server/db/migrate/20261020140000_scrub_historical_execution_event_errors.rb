@@ -12,11 +12,19 @@
 # error column and is what the forward path stores.
 #
 # Scoped to event_type "approval_execution" with a non-nil error_message.
-# Batched by primary-key range (1000) with FOR UPDATE SKIP LOCKED, so no batch
-# holds a long lock on a live table and a concurrently locked row is skipped,
-# not waited on. Prints COUNTS only, never what it redacts.
+# Batched by primary-key range (1000), one transaction per batch
+# (disable_ddl_transaction!), each taking a plain FOR UPDATE under a
+# lock_timeout. A row locked by someone else is WAITED on, never skipped: nothing
+# re-runs this migration, so a skipped row would stay unscrubbed for good. A
+# batch that cannot get its locks is retried, and after LOCK_ATTEMPTS the
+# migration RAISES rather than finishing with rows left behind. Prints COUNTS
+# only, never what it redacts.
 class ScrubHistoricalExecutionEventErrors < ActiveRecord::Migration[8.1]
+  disable_ddl_transaction!
+
   BATCH_SIZE = 1_000
+  LOCK_TIMEOUT = "5s"
+  LOCK_ATTEMPTS = 3
   EVENT_TYPE = "approval_execution"
 
   # Minimal table-bound model: a migration must not depend on app models.
@@ -57,9 +65,21 @@ class ScrubHistoricalExecutionEventErrors < ActiveRecord::Migration[8.1]
   end
 
   def scrub_batch(ids)
+    attempts = 0
+    begin
+      attempts += 1
+      lock_and_scrub(ids)
+    rescue ActiveRecord::LockWaitTimeout
+      retry if attempts < LOCK_ATTEMPTS
+      raise
+    end
+  end
+
+  def lock_and_scrub(ids)
     count = 0
     EventRow.transaction do
-      EventRow.where(id: ids).lock("FOR UPDATE SKIP LOCKED").each do |row|
+      connection.execute("SET LOCAL lock_timeout = '#{LOCK_TIMEOUT}'")
+      EventRow.where(id: ids).lock("FOR UPDATE").each do |row|
         filtered = ::Ai::SensitiveParams.filter_text(row.error_message)
         next if filtered == row.error_message
 
