@@ -75,7 +75,7 @@ RSpec.describe "agent_autonomy get_approval_request" do
       expect(result[:success]).to be(true)
       expect(result).to include(
         approval_request_id: approval_request.id, deferred_operation_id: deferred.id,
-        status: "pending", decision: nil, decided_by: nil, decided_at: nil,
+        approval_status: "pending", decision: nil, decided_by: nil, decided_at: nil,
         requires_human_session: false, call_origin: "mcp_oauth", expired: false,
         action_category: "test.gated_action", description: "a gated action awaiting approval"
       )
@@ -97,7 +97,7 @@ RSpec.describe "agent_autonomy get_approval_request" do
 
       result = run({ "approval_request_id" => approval_request.id })
 
-      expect(result).to include(status: "rejected", decision: "rejected")
+      expect(result).to include(approval_status: "rejected", decision: "rejected")
       expect(result[:decided_by]).to eq(id: decider.id, name: decider.full_name)
       expect(result[:decided_at]).to be_present
     end
@@ -107,7 +107,7 @@ RSpec.describe "agent_autonomy get_approval_request" do
 
       result = run({ "approval_request_id" => approval_request.id })
 
-      expect(result).to include(status: "pending", expired: true)
+      expect(result).to include(approval_status: "pending", expired: true)
       expect(approval_request.reload.status).to eq("pending")
     end
 

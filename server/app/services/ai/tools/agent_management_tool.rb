@@ -161,7 +161,7 @@ module Ai
                      returns: "task_id, status, output, error_message, duration_ms and done: true once the task has reached a " \
                               "terminal status (Ai::A2aTask::TERMINAL_STATUSES); it re-reads the task every #{WAIT_POLL_SECONDS} " \
                               "seconds. When timeout_seconds (clamped to #{WAIT_MAX_SECONDS}, also the default) passes first it is " \
-                              "still a SUCCESS: done: false, timed_out: true, the last status and wait_seconds; call again to keep waiting",
+                              "still a SUCCESS: done: false, timed_out: true, last_task_status and wait_seconds; call again to keep waiting",
                      refuses: [
                        "no A2A task in this account has that task_id",
                        "the account already has #{WAIT_MAX_PER_ACCOUNT} waits in progress, or the server has #{WAIT_MAX_SERVER_WIDE}: " \
@@ -287,7 +287,7 @@ module Ai
           "wait_for_task" => {
             description: "Wait for a spawned task to finish, for at most #{WAIT_MAX_SECONDS} seconds per call. A finished task " \
                          "returns done: true with its result; if the wait runs out the reply is still a success with " \
-                         "done: false, timed_out: true and the last status, so call again to keep waiting. A call is refused " \
+                         "done: false, timed_out: true and last_task_status, so call again to keep waiting. A call is refused " \
                          "(reason too_many_concurrent_waits) when the account or the server already has the maximum waits in progress.",
             parameters: {
               task_id: { type: "string", required: true, description: "A2A task ID" },
@@ -841,7 +841,7 @@ module Ai
         end
 
         # An expired wait is not a failure: the task is simply still running.
-        { success: true, done: false, timed_out: true, task_id: task.task_id, status: task.status,
+        { success: true, done: false, timed_out: true, task_id: task.task_id, last_task_status: task.status,
           wait_seconds: wait_seconds }
       end
 

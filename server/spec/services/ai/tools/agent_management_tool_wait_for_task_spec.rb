@@ -49,7 +49,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "#wait_for_task" do
       expect(result[:success]).to be true
       expect(result[:done]).to be false
       expect(result[:timed_out]).to be true
-      expect(result[:status]).to eq("active")
+      expect(result[:last_task_status]).to eq("active")
       expect(result[:task_id]).to eq(running.task_id)
       expect(result).not_to have_key(:error)
     end

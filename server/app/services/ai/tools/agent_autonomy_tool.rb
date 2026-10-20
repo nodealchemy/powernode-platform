@@ -136,7 +136,7 @@ module Ai
       declare_action "escalate", mutating: true, family: "notifications", returns: "the escalation's id, title, severity and who it went to", see_also: { "report_issue" => "a platform problem that does not block your task" }
       declare_action "list_agent_goals", mutating: false, family: "agents", limit: 10, returns: "id, title, type, priority, status and progress per goal"
       declare_action "list_deferred_operations", mutating: false, limit: 100, returns: "count and operations, newest first; 25 unless limit is set"
-      declare_action "get_approval_request", mutating: false, returns: "status, decision, decided_by, decided_at, expires_at, expired, requires_human_session, call_origin, action_category, description, the redacted request_data, and the linked deferred operation's status, error_message and redacted params", refuses: "neither or both ids are given, or the id names no request in your account (an instance principal: none recorded as parked by that instance)", see_also: { "list_deferred_operations" => "finding a request by status or agent" }
+      declare_action "get_approval_request", mutating: false, returns: "approval_status, decision, decided_by, decided_at, expires_at, expired, requires_human_session, call_origin, action_category, description, the redacted request_data, and the linked deferred operation's status, error_message and redacted params", refuses: "neither or both ids are given, or the id names no request in your account (an instance principal: none recorded as parked by that instance)", see_also: { "list_deferred_operations" => "finding a request by status or agent" }
       declare_action "list_intervention_policies", mutating: false, limit: 100, returns: "count and policies, highest priority first"
       declare_action "propose_feature", mutating: true, family: "campaigns", returns: "id, title and status of the proposal", see_also: { "create_proposal" => "a proposal of another type" }
       declare_action "reject_deferred_operation", mutating: true, destructive: true
@@ -356,7 +356,7 @@ module Ai
             }
           },
           "get_approval_request" => {
-            description: "Look up one approval request by its own id or by its deferred operation's id: its status, the decision and who made it, when it expires and whether it already has, whether only a person may decide it, the door it came through, and the linked operation's status and error. The follow-up to a pending envelope. Params and errors are redacted. Pass exactly one id. An id that matches nothing you may see answers not found; an instance principal sees only the requests recorded as parked by that instance.",
+            description: "Look up one approval request by its own id or by its deferred operation's id: its approval_status, the decision and who made it, when it expires and whether it already has, whether only a person may decide it, the door it came through, and the linked operation's status and error. The follow-up to a pending envelope. Params and errors are redacted. Pass exactly one id. An id that matches nothing you may see answers not found; an instance principal sees only the requests recorded as parked by that instance.",
             parameters: {
               approval_request_id: { type: "string", required: false, description: "ApprovalRequest UUID (give this or deferred_operation_id, not both)" },
               deferred_operation_id: { type: "string", required: false, description: "DeferredOperation UUID (give this or approval_request_id, not both)" }
@@ -1148,7 +1148,7 @@ module Ai
           success: true,
           approval_request_id: request&.id,
           deferred_operation_id: operation&.id,
-          status: request&.status,
+          approval_status: request&.status,
           # The last recorded decision. A timeout resolves a request with no
           # decision row, so a rejected request may carry none.
           decision: decision&.decision,
