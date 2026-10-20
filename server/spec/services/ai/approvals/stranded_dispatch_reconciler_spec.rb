@@ -409,6 +409,8 @@ RSpec.describe Ai::Approvals::StrandedDispatchReconciler do
       "out-of-band exec" => [ "system.instance.out_of_band_exec", {} ],
       "a unit drop-in" => [ "system.instance.unit_dropin", {} ],
       "an ssh host key clear" => [ "system.instance.ssh_host_key_clear", {} ],
+      "a bootstrap key reveal" => [ "system.bootstrap_token.reveal", {} ],
+      "a bootstrap key revoke" => [ "system.bootstrap_token.revoke", {} ],
       "a destructive category" => [ "test.resource_delete", {} ],
       "a reap" => [ "system.instance_reap", {} ],
       "a reprovision" => [ "system.instance_reprovision", {} ],

@@ -104,6 +104,14 @@ module Ai
         # (*system_clear_ssh_host_key*); without this row the declaration is
         # inert for the same reason as the rows above.
         "system_clear_ssh_host_key" => "Ai::Tools::SystemFleetTool",
+        # IMP-5c6a03c3b335 (D4) — operator enrolment keys: list (read), revoke
+        # (approval-gated) and reveal (human-only, approval-gated). Revoke and
+        # reveal are denied outright to every instance principal
+        # (*system_revoke_bootstrap_token*, *system_reveal_bootstrap_token*);
+        # without these rows the declarations are inert for the reasons above.
+        "system_list_bootstrap_tokens" => "Ai::Tools::SystemFleetTool",
+        "system_revoke_bootstrap_token" => "Ai::Tools::SystemFleetTool",
+        "system_reveal_bootstrap_token" => "Ai::Tools::SystemFleetTool",
         # IMP-b2f80e6d1c65 — operator ops hold (2026-07-27 incident response):
         # had ACTION_PERMISSIONS + dispatch but no registry key, so it was
         # reachable only by smuggling the action into another tool's name.

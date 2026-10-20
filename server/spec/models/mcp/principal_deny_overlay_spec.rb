@@ -234,8 +234,13 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
     # system.instance.ssh_host_key_clear). Clearing re-opens the window in which a
     # node's next reported key is trusted, so an instance principal must never aim
     # it at a peer. Collateral pinned below: exactly one registry key.
+    # 32 since IMP-5c6a03c3b335 added *system_revoke_bootstrap_token* and
+    # *system_reveal_bootstrap_token* - the governed revoke, and human-only
+    # recovery of the plaintext, of an operator enrolment key. An instance
+    # principal must never aim either at a peer's key. Collateral pinned below:
+    # exactly one registry key each.
     it "matches the known, intentional pattern count exactly" do
-      expect(patterns.size).to eq(30)
+      expect(patterns.size).to eq(32)
     end
 
     # The collateral check itself, kept mechanical: a pattern added later that
@@ -347,6 +352,18 @@ RSpec.describe Mcp::Principal, "destructive-tool deny overlay" do
       end
 
       expect(denied).to eq(%w[system_apply_unit_dropin])
+    end
+
+    %w[system_revoke_bootstrap_token system_reveal_bootstrap_token].each do |verb|
+      it "denies exactly #{verb} with the *#{verb}* pattern" do
+        expect(patterns).to include("*#{verb}*")
+
+        denied = ::Ai::Tools::PlatformApiToolRegistry.all_tools.keys.select do |name|
+          ::File.fnmatch("*#{verb}*", name, ::File::FNM_EXTGLOB)
+        end
+
+        expect(denied).to eq([ verb ])
+      end
     end
 
     it "denies exactly system_clear_ssh_host_key with the *system_clear_ssh_host_key* pattern" do

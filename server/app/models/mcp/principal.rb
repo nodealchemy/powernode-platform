@@ -241,6 +241,13 @@ module Mcp
       # could clear a PEER's key. Substring-anchored on the full verb name;
       # exactly one registry key matches.
       #
+      # *system_revoke_bootstrap_token* and *system_reveal_bootstrap_token*
+      # (IMP-5c6a03c3b335) — kill, or recover the plaintext of, an operator
+      # enrolment key (System::BootstrapToken, purpose operator_key). An mTLS node
+      # cert that could invoke them could revoke a peer's pending enrolment or
+      # read another instance's key. Substring-anchored on the full verb names;
+      # exactly one registry key matches each.
+      #
       # *system_sdwan_rotate_peer_key* (IMP-2e7816b5ee95) — revokes an SDWAN
       # peer's active WireGuard key and generates a new one in place, gated on
       # sdwan.peer_key_rotate. An mTLS node cert that could invoke it could drop
@@ -293,6 +300,8 @@ module Mcp
         *system_restart_unit*
         *unit_dropin*
         *system_clear_ssh_host_key*
+        *system_revoke_bootstrap_token*
+        *system_reveal_bootstrap_token*
         *system_sdwan_rotate_peer_key*
         *dev_merge*
       ].freeze

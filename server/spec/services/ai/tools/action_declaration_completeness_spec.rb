@@ -221,6 +221,8 @@ RSpec.describe "MCP action declaration completeness" do
     system_restart_unit
     system_apply_unit_dropin
     system_clear_ssh_host_key
+    system_revoke_bootstrap_token
+    system_reveal_bootstrap_token
     system_sdwan_rotate_peer_key
     system_gitops_register_repository
     set_delegation_policy
