@@ -51,6 +51,10 @@ module Ai
     TEXT_EXTRA_KEYS = %w[authorization].freeze
 
     URL_USERINFO = %r{([a-z][a-z0-9+.-]*://)[^\s/?#]*@}i
+    # A PEM private key block (RSA/EC/OPENSSH/PGP and plain). The body has no key
+    # beside it to judge by, so it is matched on its armor. A missing END line
+    # fails closed to the end of the text, like an unclosed bracket.
+    PEM_PRIVATE_KEY = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----.*?(?:-----END [A-Z0-9 ]*PRIVATE KEY(?: BLOCK)?-----|\z)/m
     BEARER = /\b(Bearer\s+)\S+/i
     # A `, key=`, `; key:` or `& key=>` that ends an unquoted value.
     VALUE_DELIMITER = /[,;&]\s*[\w.-]+["']?\s*(?:=>|[:=])/
@@ -62,7 +66,7 @@ module Ai
     # acceptance_token_plaintext alike.
     DEFAULT_KEY_PATTERNS = %w[
       token secret password passphrase mnemonic seed_phrase
-      private_key signing_key api_key credential
+      private_key signing_key api_key api-key apikey credential
     ].freeze
 
     # Keys that a pattern WOULD match and that provably hold no material —
@@ -158,6 +162,7 @@ module Ai
         cut = text.length > TEXT_SCAN_WINDOW
         text = drop_cut_token(text[0, TEXT_SCAN_WINDOW]) if cut
 
+        text = text.gsub(PEM_PRIVATE_KEY, MASK)
         masked = mask_keyed_values(text.gsub(URL_USERINFO) { "#{::Regexp.last_match(1)}#{MASK}@" })
         masked = masked.gsub(BEARER) { "#{::Regexp.last_match(1)}#{MASK}" }
         masked << "..." if cut
