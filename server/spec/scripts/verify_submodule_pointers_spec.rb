@@ -1,0 +1,120 @@
+# frozen_string_literal: true
+
+require "spec_helper"
+require "open3"
+require "tmpdir"
+require "fileutils"
+
+# IMP-ba424a66188f — the pre-push pointer gate must verify the gitlinks of the commits
+# being PUSHED (pre-push stdin: `<local ref> <local sha> <remote ref> <remote sha>`), not
+# the checkout's HEAD, and must work from a linked worktree. Everything here runs in temp
+# dirs against a temp bare "submodule remote"; no real remote is touched.
+RSpec.describe "scripts/verify-submodule-pointers.sh (IMP-ba424a66188f)" do
+  root = File.expand_path("../../..", __dir__)
+  script = File.join(root, "scripts", "verify-submodule-pointers.sh")
+  zeros = "0" * 40
+  git_env = {
+    "GIT_AUTHOR_NAME" => "t", "GIT_AUTHOR_EMAIL" => "t@example.invalid",
+    "GIT_COMMITTER_NAME" => "t", "GIT_COMMITTER_EMAIL" => "t@example.invalid",
+    "GIT_CONFIG_GLOBAL" => "/dev/null", "GIT_CONFIG_SYSTEM" => "/dev/null",
+    "GIT_CONFIG_NOSYSTEM" => "1"
+  }.freeze
+
+  def git(dir, *args, env: {})
+    out, err, st = Open3.capture3(env, "git", "-C", dir, *args)
+    raise "git #{args.join(' ')} failed: #{err}" unless st.success?
+
+    out.strip
+  end
+
+  around do |ex|
+    Dir.mktmpdir("verify-pointers") do |tmp|
+      @tmp = tmp
+      ex.run
+    end
+  end
+
+  let(:env) { git_env }
+
+  # Parent with one submodule at extensions/system whose remote is a temp bare repo.
+  #   branch main:    gitlink -> GOOD (pushed to the submodule remote)
+  #   branch feature: gitlink -> BAD  (exists only in the local submodule clone)
+  let(:fixture) do
+    bare = File.join(@tmp, "sub.git")
+    parent = File.join(@tmp, "parent")
+    git(@tmp, "init", "--bare", "-q", "-b", "develop", bare, env: env)
+    FileUtils.mkdir_p(parent)
+    git(parent, "init", "-q", "-b", "main", env: env)
+    sub = File.join(parent, "extensions", "system")
+    git(@tmp, "clone", "-q", bare, sub, env: env)
+    git(sub, "checkout", "-q", "-b", "develop", env: env)
+    File.write(File.join(sub, "a.txt"), "a")
+    git(sub, "add", "a.txt", env: env)
+    git(sub, "commit", "-q", "-m", "good", env: env)
+    good = git(sub, "rev-parse", "HEAD", env: env)
+    git(sub, "push", "-q", "origin", "develop", env: env)
+    File.write(File.join(sub, "b.txt"), "b")
+    git(sub, "add", "b.txt", env: env)
+    git(sub, "commit", "-q", "-m", "bad (unpublished)", env: env)
+    bad = git(sub, "rev-parse", "HEAD", env: env)
+    git(sub, "checkout", "-q", good, env: env)
+
+    File.write(File.join(parent, ".gitmodules"),
+               "[submodule \"extensions/system\"]\n\tpath = extensions/system\n\turl = #{bare}\n")
+    git(parent, "add", ".gitmodules", env: env)
+    git(parent, "update-index", "--add", "--cacheinfo", "160000,#{good},extensions/system", env: env)
+    git(parent, "commit", "-q", "-m", "good pointer", env: env)
+    good_sha = git(parent, "rev-parse", "HEAD", env: env)
+    git(parent, "checkout", "-q", "-b", "feature", env: env)
+    git(parent, "update-index", "--cacheinfo", "160000,#{bad},extensions/system", env: env)
+    git(parent, "commit", "-q", "-m", "bad pointer", env: env)
+    bad_sha = git(parent, "rev-parse", "HEAD", env: env)
+    { parent: parent, good: good_sha, bad: bad_sha }
+  end
+
+  def run_hook(script, cwd, stdin, env)
+    Open3.capture3(env.merge("PUSH_REMOTE" => "origin"), "bash", script, "--remote", "origin",
+                   chdir: cwd, stdin_data: stdin)
+  end
+
+  def line(ref, sha, remote_sha = "0" * 40)
+    "#{ref} #{sha} #{ref} #{remote_sha}\n"
+  end
+
+  it "(a) refuses a non-HEAD ref whose gitlink is missing from the submodule remote, though HEAD is fine" do
+    git(fixture[:parent], "checkout", "-q", "main", env: env) # HEAD good
+    _out, err, st = run_hook(script, fixture[:parent], line("refs/heads/feature", fixture[:bad]), env)
+    expect(st.exitstatus).to eq(1), err
+  end
+
+  it "(b) allows a good pushed ref even when HEAD's gitlink is bad" do
+    git(fixture[:parent], "checkout", "-q", "feature", env: env) # HEAD bad
+    out, err, st = run_hook(script, fixture[:parent], line("refs/heads/main", fixture[:good]), env)
+    expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
+  end
+
+  it "(c) works when pushed from a linked worktree (submodule not initialised there)" do
+    parent = fixture[:parent]
+    wt = File.join(@tmp, "wt")
+    git(parent, "checkout", "-q", "main", env: env)
+    git(parent, "worktree", "add", "-q", wt, "feature", env: env)
+    expect(File.directory?(File.join(wt, "extensions", "system", ".git"))).to be(false)
+
+    _o, e1, bad = run_hook(script, wt, line("refs/heads/feature", fixture[:bad]), env)
+    expect(bad.exitstatus).to eq(1), e1
+    o2, e2, good = run_hook(script, wt, line("refs/heads/main", fixture[:good]), env)
+    expect(good.exitstatus).to eq(0), "#{o2}\n#{e2}"
+  end
+
+  it "(d) ignores a delete push (zero local sha) even when HEAD is bad" do
+    git(fixture[:parent], "checkout", "-q", "feature", env: env)
+    out, err, st = run_hook(script, fixture[:parent], line("(delete)", zeros, fixture[:bad]), env)
+    expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
+  end
+
+  it "falls back to HEAD when no ref lines are supplied (manual invocation)" do
+    git(fixture[:parent], "checkout", "-q", "feature", env: env)
+    _o, err, st = run_hook(script, fixture[:parent], "", env)
+    expect(st.exitstatus).to eq(1), err
+  end
+end
