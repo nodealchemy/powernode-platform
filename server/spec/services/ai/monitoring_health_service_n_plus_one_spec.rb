@@ -2,9 +2,12 @@
 
 require 'rails_helper'
 
-# N+1 guard for IMP-1565a8c93da0: the provider-health methods iterate
+# N+1 guard for IMP-1565a8c93da0: the provider-health check iterates
 # account.ai_providers and touch provider_credentials per row. They must
 # batch-load provider_credentials (one query), not query once per provider.
+# #detailed_provider_health and #test_provider_connections were deleted with the
+# dead health endpoints (8c5847e2b); #check_provider_health is the surviving
+# method that does this iteration.
 # Note: a plain .includes is NOT enough here because the code called
 # `.where(is_active: true).count/.exists?` on the association (which re-queries);
 # the fix pairs .includes with in-Ruby filtering.
@@ -36,13 +39,11 @@ RSpec.describe Ai::MonitoringHealthService do
     end
   end
 
-  it 'batch-loads provider_credentials in #detailed_provider_health (no N+1)' do
-    queries = sql_matching(/provider_credentials/i) { service.detailed_provider_health }
-    expect(queries.size).to be <= 1
-  end
-
-  it 'batch-loads provider_credentials in #test_provider_connections (no N+1)' do
-    queries = sql_matching(/provider_credentials/i) { service.test_provider_connections }
+  it 'batch-loads provider_credentials in #check_provider_health (no N+1)' do
+    result = nil
+    queries = sql_matching(/provider_credentials/i) { result = service.check_provider_health }
+    expect(result[:providers].size).to eq(3)
+    expect(result[:providers]).to all(include(has_credentials: true))
     expect(queries.size).to be <= 1
   end
 end

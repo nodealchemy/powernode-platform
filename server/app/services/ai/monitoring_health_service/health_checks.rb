@@ -28,7 +28,7 @@ module Ai
       end
 
       def check_provider_health
-        providers = account.ai_providers.where(is_active: true)
+        providers = account.ai_providers.where(is_active: true).includes(:provider_credentials)
 
         {
           total_providers: providers.count,
@@ -83,7 +83,7 @@ module Ai
           name: provider.name,
           provider_type: provider.provider_type,
           status: provider.is_active ? "active" : "inactive",
-          has_credentials: provider.provider_credentials.where(is_active: true).exists?,
+          has_credentials: provider.provider_credentials.any?(&:is_active),
           is_healthy: provider_healthy?(provider)
         }
       end
