@@ -516,7 +516,7 @@ module Ai
       update_columns(dispatch_scheduled_at: Time.current)
       ActiveRecord.after_all_transactions_commit { dispatch_to_source! }
     rescue StandardError => e
-      Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
+      Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{redact_text(e.message)}")
       declare_execution_failure!(e) if approved?
     end
 
@@ -589,7 +589,7 @@ module Ai
       declare_dispatch_outcome!(outcome)
       stamp_dispatch_finished!
     rescue StandardError => e
-      Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{e.message}")
+      Rails.logger.error("[ApprovalRequest##{id}] notify_source_of_decision failed: #{redact_text(e.message)}")
       declare_execution_failure!(e)
       stamp_dispatch_finished!
     end
@@ -669,11 +669,20 @@ module Ai
     # raises — the enclosing rescue's contract is that a declaration problem
     # cannot take down the decision itself.
     def declare_execution_outcome!(outcome, error: nil)
-      detail = error ? "#{error.class}: #{error.message}" : nil
+      detail = error ? redact_text("#{error.class}: #{error.message}") : nil
       update_columns(execution_status: outcome, execution_error: detail,
                      updated_at: Time.current)
     rescue StandardError => e
       Rails.logger.error("[ApprovalRequest##{id}] declare_execution_outcome! failed: #{e.message}")
+    end
+
+    # filter_text that cannot raise: these callers sit in never-raise rescue arms
+    # (the dispatch_finished_at stamp comes after them), so a redaction fault
+    # falls back to the placeholder instead of the raw text.
+    def redact_text(text)
+      ::Ai::SensitiveParams.filter_text(text)
+    rescue StandardError
+      EVENT_REDACTION_FAILED
     end
 
     def declare_execution_failure!(error)

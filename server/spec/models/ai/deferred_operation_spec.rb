@@ -654,6 +654,24 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(op.preview[:error]).not_to include('LEAKY-PLAINTEXT')
     end
 
+    describe 'raw replay edges' do
+      it 'refuses to replay a live row whose envelope was stripped and left masked values' do
+        op = make_secret_op
+        described_class.where(id: op.id).update_all(
+          [ "params = ?::jsonb, status = 'approved'", { 'username' => 'alice', 'password' => '[FILTERED]' }.to_json ]
+        )
+
+        expect { described_class.find(op.id).execute_now! }.to raise_error(described_class::SealedParamsError)
+        expect(ReplayRecorder.seen).to be_nil
+      end
+
+      it 'strips a planted envelope key of any key type from the raw replay' do
+        op = described_class.new(account: account, action_category: 'test.act', executor_class: 'ReplayRecorder')
+
+        expect(op.send(:raw_params, { :_sealed_params => 'planted', 'k' => 'v' })).to eq('k' => 'v')
+      end
+    end
+
     describe '.backfill_params_seal extras' do
       def legacy_op(status)
         op = make_op
@@ -690,6 +708,41 @@ RSpec.describe Ai::DeferredOperation, type: :model do
         op.update_columns(status: 'approved')
         op.execute_now!
         expect(ReplayRecorder.seen).to eq(raw)
+      end
+
+      it 'moves envelopes onto the new key so the old key can be dropped' do
+        keys = ->(*list) { ActiveRecord::Encryption::DerivedSecretKeyProvider.new(list) }
+        old_key = 'o' * 32
+        new_key = 'n' * 32
+        op = ActiveRecord::Encryption.with_encryption_context(key_provider: keys.call(old_key)) { make_secret_op }
+
+        ActiveRecord::Encryption.with_encryption_context(key_provider: keys.call(old_key, new_key)) do
+          described_class.backfill_params_seal(dry_run: false, reseal: true)
+        end
+
+        op = described_class.find(op.id)
+        op.update_columns(status: 'approved')
+        ActiveRecord::Encryption.with_encryption_context(key_provider: keys.call(new_key)) do
+          op.execute_now!
+        end
+        expect(ReplayRecorder.seen).to eq(raw)
+      end
+
+      it 'counts an undecryptable envelope as failed and still re-seals the rest, in dry run too' do
+        good = make_secret_op
+        bad = make_secret_op
+        described_class.where(id: bad.id).update_all(
+          [ 'params = ?::jsonb', { 'password' => '[FILTERED]', described_class::SEALED_PARAMS_KEY => 'garbage' }.to_json ]
+        )
+        good_blob = stored_envelope(good)
+
+        dry = described_class.backfill_params_seal(reseal: true)
+        expect(dry).to include(failed: 1, resealed: 1, dry_run: true)
+        expect(stored_envelope(good)).to eq(good_blob)
+
+        applied = described_class.backfill_params_seal(dry_run: false, reseal: true)
+        expect(applied).to include(failed: 1, resealed: 1)
+        expect(stored_envelope(good)).not_to eq(good_blob)
       end
 
       it 'does not re-seal terminal sealed rows' do

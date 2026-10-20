@@ -6,6 +6,10 @@ namespace :ai do
     dry_run = ENV["DRY_RUN"] != "false"
     counts = Ai::DeferredOperation.backfill_params_seal(dry_run: dry_run, reseal: ENV["RESEAL"] == "true")
     puts "deferred operations: sealed=#{counts[:sealed]} masked=#{counts[:masked]} " \
-         "resealed=#{counts[:resealed]} skipped=#{counts[:skipped]} #{dry_run ? '(dry run; DRY_RUN=false to apply)' : '(applied)'}"
+         "resealed=#{counts[:resealed]} failed=#{counts[:failed]} skipped=#{counts[:skipped]} #{dry_run ? '(dry run; DRY_RUN=false to apply)' : '(applied)'}"
+    if counts[:failed].positive?
+      warn "#{counts[:failed]} sealed envelope(s) could not be opened; do not drop the old encryption key"
+      exit 1
+    end
   end
 end

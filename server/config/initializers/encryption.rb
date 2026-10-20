@@ -28,6 +28,7 @@
 #      (Ai::DeferredOperation keeps a sealed envelope inside its params column):
 #      dry run first, `bin/rails ai:backfill_deferred_operation_params RESEAL=true`,
 #      then apply with `DRY_RUN=false`. Skipping this strands live envelopes.
+#      Do NOT proceed to step 4 if the task reports failed > 0 (it exits non-zero).
 #   4. Set env back to just "NEW"; restart. OLD is no longer trusted.
 #
 # (The salt is single-value only — PBKDF2 needs a string.)
@@ -36,8 +37,9 @@ ActiveSupport.on_load(:active_record_encryption) do
   # separated key list (array) or must be a single string.
   #
   #   - primary_key + deterministic_key: array-OK (DerivedSecretKeyProvider
-  #     tries each in order; first is used for new writes). Necessary for
-  #     rotation: env="NEW,OLD" → write with NEW, read with either.
+  #     tries each for reads; the LAST is used for new writes — see
+  #     KeyProvider#encryption_key). Necessary for rotation:
+  #     env="OLD,NEW" → write with NEW, read with either.
   #   - key_derivation_salt: STRING ONLY. It's the salt argument to
   #     PBKDF2 inside KeyGenerator, which would TypeError on Array. If
   #     the env value contains commas (legacy / accidental), take only

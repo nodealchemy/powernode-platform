@@ -321,14 +321,21 @@ module Ai
     # under the current key (run before dropping an old encryption key).
     # Returns the counts.
     def self.backfill_params_seal(dry_run: true, reseal: false)
-      counts = { sealed: 0, masked: 0, skipped: 0, resealed: 0, dry_run: dry_run }
+      counts = { sealed: 0, masked: 0, skipped: 0, resealed: 0, failed: 0, dry_run: dry_run }
       find_each do |op|
         stored = op[:params]
         # Key rotation: ar_encryption:re_encrypt_all cannot reach the envelope,
         # so live sealed rows are re-encrypted under the current key here.
         if reseal && stored.is_a?(Hash) && stored.key?(SEALED_PARAMS_KEY) && LIVE_STATUSES.include?(op.status)
-          counts[:resealed] += 1
-          op.update_columns(params: op.send(:sealed_params_for, op.send(:replay_params))) unless dry_run
+          begin
+            # Decrypts in a dry run too, so an unopenable envelope is reported
+            # before anything is written. One bad row never stops the sweep.
+            fresh = op.send(:sealed_params_for, op.send(:replay_params))
+            op.update_columns(params: fresh) unless dry_run
+            counts[:resealed] += 1
+          rescue SealedParamsError
+            counts[:failed] += 1
+          end
           next
         end
 
@@ -408,7 +415,10 @@ module Ai
     #
     # Rotation: ar_encryption:re_encrypt_all only walks `encrypts` attributes and
     # does not reach this envelope; the previous-keys read fallback still opens
-    # it, and .backfill_params_seal could be extended to re-seal live rows.
+    # it, and .backfill_params_seal(reseal: true) re-encrypts live rows under the
+    # current key (runbook step 3b in config/initializers/encryption.rb). Terminal
+    # sealed rows keep a decryptable envelope until their key is dropped, by
+    # design: nothing replays them, and sealing them is cheaper than a purge.
     def replay_params
       # The instance that opened the gate still holds the caller's own hash, so
       # key types match what an unsealed operation hands over.
@@ -418,9 +428,31 @@ module Ai
       # No envelope: replay the RAW column, never the masked reader. A legacy
       # row (pre-backfill) or one whose keys became sensitive after the operator
       # widened ai_sensitive_param_keys must not replay "[FILTERED]".
-      return stored.is_a?(Hash) ? stored : params unless stored.is_a?(Hash) && stored.key?(SEALED_PARAMS_KEY)
+      return raw_params(stored) unless stored.is_a?(Hash) && stored.key?(SEALED_PARAMS_KEY)
 
       unseal_params(stored[SEALED_PARAMS_KEY])
+    end
+
+    # The raw column minus any envelope key (of any key type). A value that is
+    # exactly the mask means the original was lost (envelope stripped from a live
+    # row): masked values are never replayed.
+    def raw_params(stored)
+      return params unless stored.is_a?(Hash)
+
+      raw = stored.reject { |key, _| key.to_s == SEALED_PARAMS_KEY }
+      if contains_mask?(raw)
+        raise SealedParamsError, "params for #{action_category} hold masked values and no sealed original"
+      end
+
+      raw
+    end
+
+    def contains_mask?(value)
+      case value
+      when Hash then value.each_value.any? { |v| contains_mask?(v) }
+      when Array then value.any? { |v| contains_mask?(v) }
+      else value == ::Ai::SensitiveParams::MASK
+      end
     end
 
     def unseal_params(blob)

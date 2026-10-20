@@ -387,6 +387,23 @@ RSpec.describe Ai::ApprovalRequest, type: :model do
       end
     end
 
+    context 'when the executor raises with a secret-named param in its message (execution_error column)' do
+      it 'stores the message with the value masked' do
+        secret = %w[hunter 2].join
+        stub_const('LeakingPerformer', Class.new do
+          define_singleton_method(:execute) do |_params, deferred_operation:|
+            raise "login failed user=ops; password=#{secret}; attempt=2"
+          end
+        end)
+        req = request_for(gated_operation('LeakingPerformer'))
+
+        req.record_decision!(approver: user, decision: 'approved')
+
+        expect(req.reload.execution_error).not_to include(secret)
+        expect(req.execution_error).to include('login failed')
+      end
+    end
+
     # IMP-3d275689ca7c fix round: the event's redaction runs inside the
     # never-raise rescue arm of the dispatch, so nothing it does may skip the
     # dispatch_finished_at stamp or leave the event unrecorded.
