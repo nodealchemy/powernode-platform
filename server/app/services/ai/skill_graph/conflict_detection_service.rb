@@ -14,6 +14,19 @@ module Ai
 
       attr_reader :account
 
+      # The similarity bands the detectors below flag, as one classification the
+      # capability seed gate (Ai::Skills::SeedGate) shares, so seed time and the
+      # daily scan agree on what a duplicate and an overlap are.
+      #
+      # @return [String, nil] "duplicate", "overlapping" or nil
+      def self.classify_similarity(similarity)
+        return nil if similarity.nil?
+        return "duplicate" if similarity >= DUPLICATE_THRESHOLD
+        return "overlapping" if similarity >= OVERLAP_THRESHOLD_LOW
+
+        nil
+      end
+
       def initialize(account)
         @account = account
       end

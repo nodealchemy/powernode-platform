@@ -179,6 +179,17 @@ module Ai
     # very case where the recipe is the wrong type entirely.
     validate :recipe_structure, if: -> { metadata.is_a?(Hash) && metadata.key?("recipe") }
 
+    # Capability skills (metadata declares a `capability`) are held to the
+    # authoring contract whenever their CONTENT is written — create, seeds, MCP
+    # update and admin edits alike. State-only saves (usage counters,
+    # last_used_at, is_enabled, status) are not re-judged, so recording usage
+    # or toggling a skill never starts raising. A row owned by an extension
+    # that is disabled here is judged without its (unregistered) domain list;
+    # the seed gate (Ai::Skills::SeedGate) is always strict. Rows without a
+    # capability (legacy) are outside the contract until retired.
+    CONTRACT_CONTENT_FIELDS = %w[slug name description category system_prompt metadata tags].freeze
+    validate :capability_contract, if: :capability_contract_applies?
+
     # ==========================================
     # Scopes
     # ==========================================
@@ -528,6 +539,20 @@ module Ai
         # silently breaks resume rather than failing loudly.
         errors.add(:metadata, "recipe step #{idx} is missing 'id'") if step["id"].to_s.strip.empty?
       end
+    end
+
+    def capability_contract_applies?
+      return false unless ::Ai::Skills::Contract.applies_to?(metadata)
+
+      new_record? || CONTRACT_CONTENT_FIELDS.any? { |field| will_save_change_to_attribute?(field) }
+    end
+
+    def capability_contract
+      ::Ai::Skills::Contract.validate(
+        { "slug" => slug, "name" => name, "description" => description,
+          "system_prompt" => system_prompt, "metadata" => metadata },
+        lenient_unregistered_owner: true
+      ).each { |message| errors.add(:metadata, message) }
     end
 
     def recipe?
