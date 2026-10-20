@@ -7,7 +7,76 @@ document is the ranking the later, reviewed conversion slices work from.
 ## Operator decision
 
 S0 (skip `run_account_bootstrap` in the test env by default, with opt-in tagging; `account.rb`
-untouched) was **ADOPTED on 2026-10-19** and is the next slice.
+untouched) was **ADOPTED on 2026-10-19** and is **implemented** (see
+[S0 result](#s0-result-account-bootstrap-skipped-by-default)). Re-measure before choosing S1.
+
+## S0 result: account bootstrap skipped by default
+
+Mechanism: `server/spec/support/account_bootstrap_switch.rb` prepends a gate onto
+`Account#run_account_bootstrap` from spec support only (`app/models/account.rb` is unchanged; the
+gate exists only when `rails_helper` loads `spec/support`). The callback runs only while a
+per-process depth counter is positive. Three ways to turn it on:
+
+- `:account_bootstrap` on an example: an `around(:example)` hook, which also covers its `let!` and
+  `before` hooks;
+- `:account_bootstrap` on a group: config `before(:context)` / `after(:context)` hooks, which also
+  cover `let_it_be` / `before_all` accounts created outside any example;
+- `with_account_bootstrap { ... }` for a block.
+
+Every enable is paired with a disable in an `ensure` or after hook. `ensure_default_environments`
+is not gated and still runs. Direct calls to `System::AccountBootstrapService` are unaffected.
+An unbalanced disable raises. `spec/lib/account_bootstrap_switch_spec.rb` pins all of this (13 examples, green under random order).
+
+Dependency sweep: 19 tags in 16 spec files (2 core, 14 in `extensions/system`). Every tagged
+spec reads the bootstrap's output: the Pro Cloud provider and its regions, or bootstrapped node
+platforms, templates and modules. One more spec, `package_search_service_spec`, only needed the
+platform-wide canonical node architectures that the bootstrap's `ensure_canonical_seed!`
+materialises; it now calls `System::NodeArchitecture.ensure_canonical_seed!` itself instead
+of being tagged.
+
+Specs that only cleared bootstrap rows to get a clean fixture still pass untagged, and their
+clean-up is now a no-op. Those passes were checked for vacuity: a spec that used a bootstrap row
+as its trap would now pass without testing anything. One such case was found and fixed.
+`federation/spawn_provisioner_spec`'s "multiple providers, only one connectable" context relied
+on the bootstrap's older Pro Cloud provider as the dead provider. It is now tagged, and
+reverting the resolver's connectable-provider preference in
+`Federation::SpawnProvisioner#resolve_region` turns it red. Untagged, that mutation passed.
+The remaining bootstrap clean-up code is harmless and is left for a later slice. Verified on
+the lane:
+
+- every file that names the bootstrap or its records, plus the newly tagged files (108 files, 3,207 examples);
+- core `spec/models` plus the accounts, onboarding and environment specs (5,535 examples, 0 failures);
+- the whole `extensions/system` suite (19,149 examples).
+
+The 19,149-example `extensions/system` run ended with 59 failures:
+
+- **43 pre-existing**: they fail the same way with the switch removed.
+- **10 bootstrap dependents**: now tagged and green.
+- **6 order-dependent and unrelated to the bootstrap**: they pass when their files run alone.
+  Five come from a `system.zz_park_principal_fixture` registry entry leaking out of
+  `tool_specific_park_principal_spec` into `governance_gap_sensor_spec`, and one is a
+  `system_canonical_agent_content_spec` stdout check. These are filed as recommendation 01a15830.
+
+Measured on the six heaviest sampled files from (c) (`ai/provider_spec`, `data_sources/query_service_spec`,
+`git/runners_spec`, `git/pipeline_approvals_controller_spec`, `learning/compound_learning_service_spec`,
+`devops/git_webhook_event_spec`: 413 examples), serial, `--order defined`, tmpfs lane. Before and after runs were
+alternated, three of each. Other executors shared the machine (1-min load 3.1-4.3 on 16 cores
+during the runs). An earlier window of CPU-stress contention (load ~36) was avoided.
+
+| Run | Before s (load) | After s (load) |
+|--:|--:|--:|
+| 1 | 254.0 (3.3) | 66.5 (3.1) |
+| 2 | 250.3 (3.1) | 68.3 (3.1) |
+| 3 | 259.3 (3.1) | 70.4 (4.3) |
+| **Mean** | **254.6** | **68.4 (-73 %)** |
+
+SQL events (EventProf `sql.active_record`) fell from 307,714 to 51,922 (-83 %); `factory.create`
+time fell from about 96 % of the run to about 84 %. The examples, failures (0) and factory-create
+counts (1,581) were identical on both sides.
+
+Per create (scratch benchmark, 30 each, 3 runs, load 3.9-7.4, SQL excluding transaction control):
+`create(:account)` takes 24-30 ms and 15 SQL by default vs 181-212 ms and 152 SQL opted in;
+`create(:user)` with an implicit account takes 51-63 ms and 22 SQL vs 197-206 ms and 159 SQL.
 
 ## Summary
 
@@ -145,7 +214,8 @@ The bootstrap callback is `after_create_commit` and does fire inside transaction
 is why a plain `create(:account)` pays it every time. Only about 13 spec files name
 `AccountBootstrapService` or `ensure_defaults_for` explicitly (onboarding controller,
 `ai/environment_spec`, and a dozen system-extension specs); others may depend on its output
-implicitly, which a sweep must establish.
+implicitly. The S0 sweep established it: 16 spec files depend on it, most of them implicitly
+(see [S0 result](#s0-result-account-bootstrap-skipped-by-default)).
 
 ## (c) Top 20 example groups by let/before setup time (let_it_be candidates)
 
@@ -225,7 +295,7 @@ reviewed independently.
 
 | Slice | Content | Files | Expected saving (sample s) | Notes / risk |
 |---|---|--:|--:|---|
-| S0 | **Decision, not code**: skip `run_account_bootstrap` in the test env by default, with an opt-in metadata tag for the ~13 specs that exercise it (spec-support only; no `account.rb` change). Optionally also stub `ensure_default_environments` (a further ~57 s). | 4-6, plus a dependency sweep | up to ~610 (60 % of sample time) | Biggest lever by far, and it changes fixture fidelity: needs operator sign-off and a sweep of `extensions/system`, onboarding and environment specs for implicit dependents. Overlaps every slice below. |
+| S0 | **Done** (adopted 2026-10-19): `run_account_bootstrap` is skipped in the test env by default; the 16 spec files that need it opt in with `:account_bootstrap` (spec support only; no `account.rb` change). `ensure_default_environments` still runs; skipping it too (a further ~57 s) is not part of S0 and goes to the operator as the S1 candidate. | 1 support file + 1 spec + 16 tagged | measured -73 % wall / -83 % SQL on the six heaviest sampled files | See [S0 result](#s0-result-account-bootstrap-skipped-by-default). Overlaps every slice below. |
 | S1 | Factory diet, AI chain: `ai_agent` (0.205 s), `ai_provider` (0.142 s, 1,023 creates) and their credential factories share the parent's account instead of each creating one | 4 | up to ~270 if S0 is not accepted; ~15 if it is | Mechanical; the same `account { parent.account }` pattern applies to the other 168 account-referencing factories in later slices (git/devops, system, supply_chain, sdwan, files/chat, misc, 5-8 files each). |
 | S2 | `provider_spec.rb`: `build_stubbed` for value checks, `let_it_be` for providers, and rework the two 150-provider examples (2 x 26 s) | 1 | ~60 | Single file, largest single-group saving. |
 | S3 | Git request/controller specs: `runners_spec`, `repositories_spec`, `pipeline_approvals_controller_spec`, plus the `devops_git_runner` / `devops_git_repository` / `git_provider_credential` factories | 6 | ~60-80 | Per-create costs of 0.33-0.54 s are the highest in the suite. The 401 examples create 20-23 records for nothing. |
@@ -236,8 +306,8 @@ reviewed independently.
 | S8 | Lint scans: memoise the two heavy scanners (`no_bare_fact_result_keys_spec` 77 s, `shared_model_controllers_spec` 41 s) | 2 | ~118 | Not a factory matter; one-time scan caching. Listed because it is the second-largest single saving in the sample. |
 | S9 | Profile the other 90 % (RSpecDissect only, no EventProf/FPROF, ~2.5 h) and re-rank | 0 | n/a | Needs the lane for the full duration; schedule deliberately. |
 
-Without S0, the order is S1, S8, S2, S3, S4, S5, S7, S6. With S0 adopted, re-measure before
-S1: most of S1's saving disappears, and the ranking of the remaining groups shifts toward the
+Without S0, the order would have been S1, S8, S2, S3, S4, S5, S7, S6. S0 is now in, so
+re-measure before S1: most of S1's saving disappears, and the ranking of the remaining groups shifts toward the
 per-group `let_it_be` candidates in (c).
 
 Conversion rules to carry into each slice: `let_it_be` only for records an example group reads;
@@ -281,4 +351,6 @@ Savings estimates (each an extrapolation from the sample, not a measurement of t
 
 The levers are not additive: most of what `let_it_be` would share is account creation, so once
 bootstrap is skipped its marginal gain shrinks to roughly a third of the stand-alone figure.
-The decision on S0 therefore determines the shape of everything after slice 1.
+The decision on S0 therefore determines the shape of everything after slice 1. S0 is in; the
+measured -73 % on the six heaviest sampled files is in line with these upper bounds, but a full
+re-profile is still needed before the remaining slices are re-ranked.
