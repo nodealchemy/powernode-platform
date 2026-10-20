@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "rails_helper"
-require "benchmark"
 
 # IMP-4b2fd4f389d4 — wait_for_task used to hold a Puma thread for up to 300s in
 # a sleep loop, with no bound on concurrent waiters (a handful of callers could
@@ -27,6 +26,22 @@ RSpec.describe Ai::Tools::AgentManagementTool, "#wait_for_task" do
     stub_const("#{described_class}::WAIT_POLL_SECONDS", 0.05)
   end
 
+  # Drives the wait with a fake monotonic clock that only a (fake) sleep moves,
+  # and returns the list of sleeps taken. An example that asserts how long the
+  # wait lasted reads that list, not elapsed wall time: wall time also counts
+  # the lazy factory setup that runs inside the call (about 1.5s on an idle
+  # box, more than 3s with 16 busy cores), so it failed under load.
+  def fake_wait_clock!
+    now = 0.0
+    sleeps = []
+    allow(tool).to receive(:monotonic_now) { now }
+    allow(tool).to receive(:sleep) do |seconds|
+      sleeps << seconds
+      now += seconds
+    end
+    sleeps
+  end
+
   describe "a wait that runs out" do
     it "is a success with done: false, timed_out: true and the last status, not an error" do
       result = wait(running, timeout_seconds: 1)
@@ -45,24 +60,29 @@ RSpec.describe Ai::Tools::AgentManagementTool, "#wait_for_task" do
       expect(result[:wait_seconds]).to eq(1)
     end
 
-    it "actually waits roughly the requested time and then stops" do
-      elapsed = Benchmark.realtime { wait(running, timeout_seconds: 1) }
+    it "waits exactly the requested time, never sleeping past the deadline, and then stops" do
+      # Binary-exact steps, so the sums below are exact: 0.375 + 0.375 + 0.25.
+      stub_const("#{described_class}::WAIT_POLL_SECONDS", 0.375)
+      sleeps = fake_wait_clock!
 
-      expect(elapsed).to be >= 0.9
-      expect(elapsed).to be < 3.0
+      result = wait(running, timeout_seconds: 1)
+
+      expect(sleeps).to eq([ 0.375, 0.375, 0.25 ]) # the last poll is cut to what remains
+      expect(sleeps.sum).to eq(1)
+      expect(result).to include(done: false, timed_out: true)
     end
   end
 
   describe "the cap on one call's wait" do
     it "clamps a huge timeout_seconds to the server cap instead of holding the thread for it" do
       stub_const("#{described_class}::WAIT_MAX_SECONDS", 1)
+      stub_const("#{described_class}::WAIT_POLL_SECONDS", 0.25)
+      sleeps = fake_wait_clock!
 
-      elapsed = Benchmark.realtime do
-        result = wait(running, timeout_seconds: 9_999)
-        expect(result[:wait_seconds]).to eq(1)
-      end
+      result = wait(running, timeout_seconds: 9_999)
 
-      expect(elapsed).to be < 3.0
+      expect(result[:wait_seconds]).to eq(1)
+      expect(sleeps.sum).to eq(1) # held for the cap, not the 9_999 asked for
     end
 
     it "uses the cap when timeout_seconds is absent or not positive" do
@@ -81,14 +101,15 @@ RSpec.describe Ai::Tools::AgentManagementTool, "#wait_for_task" do
 
   describe "a task that finishes" do
     it "returns at once with done: true and the result, for every terminal status the model defines" do
+      sleeps = fake_wait_clock!
+
       Ai::A2aTask::TERMINAL_STATUSES.each do |status|
         task = create(:ai_a2a_task, account: account, status: status, output: { "result" => "r" },
                                     error_message: (status == "failed" ? "boom" : nil))
 
-        result = nil
-        elapsed = Benchmark.realtime { result = wait(task, timeout_seconds: 30) }
+        result = wait(task, timeout_seconds: 30)
 
-        expect(elapsed).to be < 1.0, "#{status} should not wait"
+        expect(sleeps).to be_empty, "#{status} should not wait"
         expect(result).to include(success: true, done: true, status: status, task_id: task.task_id)
         expect(result[:output]).to eq({ "result" => "r" })
         expect(result[:error_message]).to eq("boom") if status == "failed"
@@ -156,11 +177,11 @@ RSpec.describe Ai::Tools::AgentManagementTool, "#wait_for_task" do
 
     it "refuses the waiter beyond the per-account limit with a named reason, without waiting" do
       2.times { expect(limiter.acquire(account.id)).to eq(:ok) }
+      sleeps = fake_wait_clock!
 
-      result = nil
-      elapsed = Benchmark.realtime { result = wait(running, timeout_seconds: 30) }
+      result = wait(running, timeout_seconds: 30)
 
-      expect(elapsed).to be < 3.0 # refused, not held for the 30s asked for
+      expect(sleeps).to be_empty # refused, not held for the 30s asked for
       expect(result).to include(success: false, reason: "too_many_concurrent_waits", scope: "account")
       expect(result[:max_concurrent]).to eq(2)
       expect(result[:error]).to match(/wait/i)

@@ -826,9 +826,9 @@ module Ai
         return wait_refusal(slot) unless slot == :ok
 
         begin
-          deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + wait_seconds
+          deadline = monotonic_now + wait_seconds
           loop do
-            remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+            remaining = deadline - monotonic_now
             break if remaining <= 0
 
             sleep [ WAIT_POLL_SECONDS, remaining ].min
@@ -843,6 +843,13 @@ module Ai
         # An expired wait is not a failure: the task is simply still running.
         { success: true, done: false, timed_out: true, task_id: task.task_id, status: task.status,
           wait_seconds: wait_seconds }
+      end
+
+      # The wait's clock: monotonic, so a wall-clock jump cannot stretch or cut
+      # a wait short. A method of its own so a spec can drive it with a fake
+      # clock and a fake sleep instead of real time.
+      def monotonic_now
+        Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
 
       # The request's query cache would answer every poll of the same task from
