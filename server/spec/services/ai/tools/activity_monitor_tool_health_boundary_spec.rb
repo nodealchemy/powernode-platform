@@ -44,8 +44,11 @@ RSpec.describe Ai::Tools::ActivityMonitorTool do
     end
 
     it "names the verb that does answer fleet health" do
-      expect(description).to include("platform_maintenance")
-      expect(description).to include("health_check")
+      # IMP-80a353489ba4 split health_check out of platform_maintenance; the
+      # fleet-health verb is now platform_health_check and the description must
+      # not send a model to the merged action that no longer answers it.
+      expect(description).to include("platform_health_check")
+      expect(description).not_to include("platform_maintenance")
     end
   end
 end
