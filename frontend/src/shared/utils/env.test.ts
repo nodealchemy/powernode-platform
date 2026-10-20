@@ -50,29 +50,39 @@ describe('getEnvVar', () => {
 });
 
 describe('getAppVersion', () => {
-  const ORIGINAL = process.env.npm_package_version;
+  // The version comes ONLY from the __BUILD_INFO__ define (vite.config.ts,
+  // fed by POWERNODE_BUILD_INFO_JSON / the checkout's git tags). The old
+  // VITE_APP_VERSION / npm_package_version env vars are not read.
+  const g = globalThis as unknown as { __BUILD_INFO__?: unknown };
+  const ORIGINAL_BUILD_INFO = g.__BUILD_INFO__;
+  const ORIGINAL_NPM = process.env.npm_package_version;
 
   afterEach(() => {
-    if (ORIGINAL === undefined) {
+    if (ORIGINAL_BUILD_INFO === undefined) {
+      delete g.__BUILD_INFO__;
+    } else {
+      g.__BUILD_INFO__ = ORIGINAL_BUILD_INFO;
+    }
+    if (ORIGINAL_NPM === undefined) {
       delete process.env.npm_package_version;
     } else {
-      process.env.npm_package_version = ORIGINAL;
+      process.env.npm_package_version = ORIGINAL_NPM;
     }
   });
 
-  it('returns npm_package_version when set (resolved via the cra key in test mode)', () => {
+  it('returns the __BUILD_INFO__ version when the define exists', () => {
+    g.__BUILD_INFO__ = { version: '0.3.0-dev.12+abc1234', sha: null, short_sha: 'abc1234', branch: 'develop', tag: null, release: false, built_at: null, source: 'git' };
+    expect(getAppVersion()).toBe('0.3.0-dev.12+abc1234');
+  });
+
+  it('falls back to the 0.0.0-dev default when there is no build info', () => {
+    delete g.__BUILD_INFO__;
+    expect(getAppVersion()).toBe('0.0.0-dev');
+  });
+
+  it('ignores npm_package_version (package.json is only written by release.sh)', () => {
+    delete g.__BUILD_INFO__;
     process.env.npm_package_version = '7.8.9';
-    expect(getAppVersion()).toBe('7.8.9');
-  });
-
-  it('falls back to the 0.0.1-dev default when no version env var is present', () => {
-    delete process.env.npm_package_version;
-    expect(getAppVersion()).toBe('0.0.1-dev');
-  });
-
-  it('always returns a non-empty string', () => {
-    const version = getAppVersion();
-    expect(typeof version).toBe('string');
-    expect(version.length).toBeGreaterThan(0);
+    expect(getAppVersion()).toBe('0.0.0-dev');
   });
 });

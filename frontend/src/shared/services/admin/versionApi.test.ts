@@ -278,12 +278,18 @@ describe('versionApi', () => {
   // ---------------------------------------------------------------------------
 
   describe('getFrontendVersion', () => {
-    // getFrontendVersion now delegates to the shared getAppVersion() util. In
-    // the Jest environment that reads process.env.npm_package_version (the
-    // craKey), falling back to the dev default — so we control that env var.
+    // getFrontendVersion delegates to getAppVersion(), which reads only the
+    // __BUILD_INFO__ define (never VITE_APP_VERSION / npm_package_version).
+    const g = globalThis as unknown as { __BUILD_INFO__?: unknown };
+    const ORIGINAL_BUILD_INFO = g.__BUILD_INFO__;
     const ORIGINAL_NPM_VERSION = process.env.npm_package_version;
 
     afterEach(() => {
+      if (ORIGINAL_BUILD_INFO === undefined) {
+        delete g.__BUILD_INFO__;
+      } else {
+        g.__BUILD_INFO__ = ORIGINAL_BUILD_INFO;
+      }
       if (ORIGINAL_NPM_VERSION === undefined) {
         delete process.env.npm_package_version;
       } else {
@@ -291,14 +297,15 @@ describe('versionApi', () => {
       }
     });
 
-    it('returns "0.0.1-dev" when no version env var is present', () => {
-      delete process.env.npm_package_version;
-      expect(versionApi.getFrontendVersion()).toBe('0.0.1-dev');
+    it('returns "0.0.0-dev" when there is no build info', () => {
+      delete g.__BUILD_INFO__;
+      expect(versionApi.getFrontendVersion()).toBe('0.0.0-dev');
     });
 
-    it('reads npm_package_version when present in the environment', () => {
+    it('reads the __BUILD_INFO__ version and ignores npm_package_version', () => {
       process.env.npm_package_version = '5.6.7';
-      expect(versionApi.getFrontendVersion()).toBe('5.6.7');
+      g.__BUILD_INFO__ = { version: '0.4.0', sha: null, short_sha: null, branch: 'master', tag: '0.4.0', release: true, built_at: null, source: 'module-build' };
+      expect(versionApi.getFrontendVersion()).toBe('0.4.0');
     });
 
     it('always returns a non-empty string', () => {

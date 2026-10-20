@@ -111,7 +111,7 @@ export const versionApi = {
     }
   },
 
-  // Get frontend version from the VERSION file (injected at build time).
+  // Get the frontend version (the __BUILD_INFO__ define, resolved from release tags at build time).
   getFrontendVersion(): string {
     return getAppVersion();
   },
@@ -122,16 +122,16 @@ export const versionApi = {
   },
 
   // DISPLAY CONTRACT, shared with Powernode::Version#display_version:
-  //   release build         -> "X.Y.Z"
+  //   release build (exact release tag, built from master's tip) -> "X.Y.Z"
   //   any other known build -> "<7-char sha>"
-  //   no identity at all    -> "X.Y.Z-dev"
+  //   no identity at all    -> "<version>-dev"
   // A server-provided `display` wins so both halves can only ever disagree by
   // the server's own choice.
   displayVersion(info: DisplayableVersion): string {
     if (info.display) return info.display;
     if (info.release) return info.version;
     if (info.short_sha) return info.short_sha;
-    return info.version.endsWith('-dev') ? info.version : `${info.version}-dev`;
+    return info.version.includes('-') ? info.version : `${info.version}-dev`;
   },
 
   // Tooltip text for a build: full sha, branch and tag when known.

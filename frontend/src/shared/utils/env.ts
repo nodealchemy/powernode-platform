@@ -50,12 +50,17 @@ export function getEnvVar(viteKey: string, craKey: string, defaultValue = ''): s
   return (typeof process !== 'undefined' ? process.env[craKey] : undefined) || defaultValue;
 }
 
+/** Version shown when a bundle carries no build identity at all. */
+const DEV_VERSION = '0.0.0-dev';
+
 /**
- * The frontend application version, injected from the VERSION file at build
- * time: `VITE_APP_VERSION` → `npm_package_version` → a dev default.
+ * The frontend application version: the `__BUILD_INFO__` define's `version`
+ * (vite.config.ts bakes it in from POWERNODE_BUILD_INFO_JSON, else computes it
+ * from the checkout's release tags), or `0.0.0-dev` when there is none.
+ * Nothing in the tree hand-maintains a version.
  */
 export function getAppVersion(): string {
-  return getEnvVar('VITE_APP_VERSION', 'npm_package_version', '0.0.1-dev');
+  return getBuildInfo().version;
 }
 
 /** Build identity of this bundle. Mirrors Powernode::Version's BUILD_INFO. */
@@ -73,14 +78,14 @@ export interface BuildInfo {
 /**
  * The bundle's build identity, from the `__BUILD_INFO__` define that
  * vite.config.ts bakes in (the module build feeds it POWERNODE_BUILD_INFO_JSON;
- * a local build uses the checkout's git sha). Under Jest, or in any bundle
+ * a local build derives it from the checkout's release tags). Under Jest, or in any bundle
  * built without the define, there is no identity: the app version with
  * `release: false` and no sha, which the display contract renders as
  * `<version>-dev`.
  */
 export function getBuildInfo(): BuildInfo {
   const fallback: BuildInfo = {
-    version: getAppVersion(), sha: null, short_sha: null, branch: 'unknown',
+    version: DEV_VERSION, sha: null, short_sha: null, branch: 'unknown',
     tag: null, release: false, built_at: null, source: 'local',
   };
   if (typeof __BUILD_INFO__ === 'undefined' || !__BUILD_INFO__) return fallback;

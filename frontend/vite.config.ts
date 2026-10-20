@@ -203,20 +203,27 @@ function getAllowedHosts(): string[] {
 // https://vitejs.dev/config/
 
 // Build identity baked into the bundle as __BUILD_INFO__ (see
-// src/shared/utils/env.ts#getBuildInfo and versionApi.displayVersion). The
-// module build (extensions/system/scripts/module-build/stage15.sh) exports the
-// JSON it wrote for the server as POWERNODE_BUILD_INFO_JSON; a local dev build
-// falls back to the checkout's own git identity, which is never a release.
+// src/shared/utils/env.ts#getBuildInfo and versionApi.displayVersion). Builds
+// that ship (module build, Docker) export the JSON they computed as
+// POWERNODE_BUILD_INFO_JSON; a local dev build computes the version here from
+// the checkout's release tags with the SAME rules as the server's
+// Powernode::Version (server/config/version.rb):
+//   exact tag X.Y.Z                    -> X.Y.Z
+//   branch release/X.Y.Z, hotfix/X.Y.Z -> X.Y.Z-rc.N+sha
+//   otherwise                          -> latest tag, minor+1, patch 0: -dev.N+sha
+//   no tags                            -> 0.0.0-dev.0+sha
+// package.json "version" is written only by scripts/release.sh and never read.
+export function versionFromDescribe(describe: string | null, branch: string | null): string | null {
+  const m = /^(\d+)\.(\d+)\.(\d+)-(\d+)-g([0-9a-f]+)$/.exec((describe ?? '').trim());
+  if (!m) return null;
+  const [, major, minor, patch, ahead, sha] = m;
+  if (Number(ahead) === 0) return `${major}.${minor}.${patch}`;
+  const rel = /^(?:release|hotfix)\/(\d+\.\d+\.\d+)$/.exec(branch ?? '');
+  if (rel) return `${rel[1]}-rc.${ahead}+${sha.slice(0, 7)}`;
+  return `${major}.${Number(minor) + 1}.0-dev.${ahead}+${sha.slice(0, 7)}`;
+}
+
 function resolveBuildInfo(): Record<string, unknown> {
-  const fromBuild = process.env.POWERNODE_BUILD_INFO_JSON;
-  if (fromBuild) {
-    try {
-      const parsed = JSON.parse(fromBuild) as Record<string, unknown>;
-      return { version: packageJson.version, ...parsed };
-    } catch {
-      console.warn('[vite] POWERNODE_BUILD_INFO_JSON is not valid JSON; falling back to git identity');
-    }
-  }
   const git = (args: string): string | null => {
     try {
       return execSync(`git ${args}`, { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim() || null;
@@ -224,12 +231,26 @@ function resolveBuildInfo(): Record<string, unknown> {
       return null;
     }
   };
+  const fromBuild = process.env.POWERNODE_BUILD_INFO_JSON;
+  if (fromBuild) {
+    try {
+      const parsed = JSON.parse(fromBuild) as Record<string, unknown>;
+      if (typeof parsed.version === 'string' && parsed.version) return parsed;
+      const branch = (typeof parsed.branch === 'string' ? parsed.branch : null) ?? git('rev-parse --abbrev-ref HEAD');
+      return { ...parsed, version: versionFromDescribe(git("describe --tags --long --match '[0-9]*.[0-9]*.[0-9]*'"), branch) ?? '0.0.0-dev.0' };
+    } catch {
+      console.warn('[vite] POWERNODE_BUILD_INFO_JSON is not valid JSON; falling back to git identity');
+    }
+  }
   const sha = git('rev-parse HEAD');
+  const branch = git('rev-parse --abbrev-ref HEAD');
   return {
-    version: packageJson.version,
+    version:
+      versionFromDescribe(git("describe --tags --long --match '[0-9]*.[0-9]*.[0-9]*'"), branch) ??
+      (sha ? `0.0.0-dev.0+${sha.slice(0, 7)}` : '0.0.0-dev.0'),
     sha,
     short_sha: sha ? sha.slice(0, 7) : null,
-    branch: git('rev-parse --abbrev-ref HEAD') ?? 'unknown',
+    branch: branch ?? 'unknown',
     tag: null,
     release: false,
     built_at: null,
@@ -461,7 +482,6 @@ export default defineConfig(({ mode }: { mode: string }) => {
     
     define: {
       'process.env.NODE_ENV': JSON.stringify(mode),
-      'process.env.REACT_APP_VERSION': JSON.stringify(packageJson.version),
       '__BUILD_INFO__': JSON.stringify(resolveBuildInfo()),
       // __EXTENSIONS__ reflects extensions effectively active in this build.
       // Disabled extensions are removed so existing `__EXTENSIONS__.includes(slug)`
