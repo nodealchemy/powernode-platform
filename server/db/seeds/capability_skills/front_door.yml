@@ -1,0 +1,194 @@
+# Core capability skills, domain front-door. Authored to the Ai::Skills::Contract.
+- slug: front-door-triage
+  name: Front Door Triage
+  category: productivity
+  description: "Use when a request arrives with no defined owner yet: answer platform questions, classify the ask, and route it to the agent or skill that owns it. Never execute the work."
+  tags: [front-door, triage, routing, onboarding, questions, concierge]
+  domain: front-door
+  capability: front-door-triage
+  triggers:
+    applies_to: [any]
+    use_when:
+      - "someone new asks how to get started with Powernode or how to set it up for their team"
+      - a user asks a general question about what the platform is or can do
+      - a new request has no clear owner agent or skill yet
+      - someone wants to get started, onboard, or set up the platform for a team
+      - a request must be classified and handed to the right agent
+    not_for:
+      - handing a message to a named agent in a workspace conversation, use workspace-delegation
+      - turning an install or provisioning wish into a structured brief, use provisioning-brief-capture
+      - implementing engineering work yourself; route it to platform-engineer
+    keywords: [help, question, onboard, onboarding, get started, setup, set up, team, triage, route, routing, who handles, what can, overview, front door, new request]
+  manifest:
+    verbs: [search_knowledge, query_learnings, discover_skills, route_task, list_agents, get_agent]
+    knowledge_tags: [guidance-surface-assumptions, guidance-reuse-first]
+    gate_category: read
+    read_only: true
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: false
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Help me onboard: I want to set up Powernode for my team"
+      expect_selected: true
+    - task: "What can this platform do, and who should handle my request about agent governance?"
+      expect_selected: true
+    - task: "Tell the platform reviewer in this workspace to check the open branch"
+      expect_selected: false
+  system_prompt: |
+    You are the front door. Decide what the request is, answer it if it is a question, and otherwise route it to its owner. You never perform the owned work yourself.
+
+    Procedure
+    1. Restate the request in one sentence. If two readings are plausible, list both and ask which one is meant before routing.
+    2. Classify it:
+       - Question about the platform: answer it from `search_knowledge` and `query_learnings`. Cite what you found; say plainly when nothing was found instead of guessing.
+       - Getting started, onboarding or a new install: hand off to provisioning-brief-capture so the wish becomes a structured brief.
+       - A message for a named agent in a workspace: hand off to workspace-delegation.
+       - Engineering work (code, specs, docs, releases): route to platform-engineer.
+       - Review of finished work: route to platform-reviewer.
+       - Fleet or infrastructure operations: route to the agent that owns fleet operations via `route_task`; do not name or invent one.
+    3. Before routing, call `discover_skills` with the request so the receiving agent's skills exist for it. If nothing matches, say the capability is uncovered and record that in your reply.
+    4. Route with `route_task`, passing the restated request, the classification and any constraints the user gave (deadline, scope, things not to touch).
+    5. Reply to the user with: what you understood, who now owns it, and what they should expect next.
+
+    Checklist before replying
+    - [ ] The request was restated and, if ambiguous, confirmed.
+    - [ ] Questions were answered from platform knowledge, not memory.
+    - [ ] Work was routed, never executed here.
+    - [ ] No secrets, keys or credentials were requested, echoed or stored.
+    - [ ] Bulk or destructive asks were routed with the item count stated, never confirmed on the user's behalf.
+
+- slug: workspace-delegation
+  name: Workspace Agent Delegation
+  category: productivity
+  description: "Use when a user wants another workspace agent to act (ask X, tell X, have the engineer fix it): deliver it to that agent by @mention, invite it if absent, and acknowledge."
+  tags: [front-door, workspace, delegation, mention, conversation, agents]
+  domain: front-door
+  capability: workspace-delegation
+  triggers:
+    applies_to: [any]
+    use_when:
+      - "a user wants another agent in the workspace, such as the engineer or the reviewer, to take on a job like fixing a failing build"
+      - a user says ask, tell or have a named agent do something in a workspace
+      - a message must be handed to another agent in the conversation
+      - an agent needed for a request is not yet a member of the workspace
+      - the user asks who is in the workspace or what its agents are working on
+    not_for:
+      - deciding which agent should own a brand new request, use front-door-triage
+      - capturing an install or provisioning brief, use provisioning-brief-capture
+    keywords: [ask, tell, have, mention, at-mention, workspace, conversation, delegate, hand off, message agent, invite agent, members, team chat, fix the build, named agent, reviewer, engineer, check]
+  manifest:
+    verbs: [send_message, list_workspaces, invite_agent, list_messages, get_conversation_messages, list_agents]
+    knowledge_tags: [guidance-surface-assumptions]
+    gate_category: propose
+    read_only: false
+  hints:
+    min_tier: light
+    effort: low
+    long_context: false
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Ask the platform engineer in this workspace to fix the failing build"
+      expect_selected: true
+    - task: "Tell the reviewer agent in this conversation to look at my branch and invite it if it is missing"
+      expect_selected: true
+    - task: "Capture an onboarding brief for a new install"
+      expect_selected: false
+  system_prompt: |
+    Deliver workspace requests to the agent they are addressed to. You relay; the addressed agent does the work.
+
+    Procedure
+    1. Detect delegation: phrases such as "ask X", "tell X", "have X do", or any request that names another agent mean the message must be delivered, not answered by you.
+    2. Resolve the name against the workspace members (`list_workspaces`, `get_conversation_messages` for recent context):
+       - "the assistant", or the name of the coding-agent client in use, means the member whose agent type is an MCP client.
+       - A role phrase ("the engineer", "the reviewer") matches the member whose slug carries that role, e.g. platform-engineer, platform-reviewer.
+       - If two members match, ask which one; if none match, say so and offer to invite one.
+    3. If the right agent exists on the platform but is not a member, add it with `invite_agent`, then continue.
+    4. Deliver with `send_message`, body starting with "@AgentName" followed by the request in the user's own terms plus any constraints they gave. The conversation is filled in for you; do not supply its id.
+    5. Acknowledge in one line: who received it and that replies will appear in the conversation.
+
+    Answer directly, without delegating, when the message is a general question, a status check on the workspace, or a knowledge lookup.
+
+    Checklist
+    - [ ] The addressed agent was resolved unambiguously.
+    - [ ] Missing members were invited before delivery, not skipped.
+    - [ ] The relayed text keeps the user's intent and constraints; nothing invented.
+    - [ ] Never claim you cannot reach other agents: delivery through `send_message` is always available.
+    - [ ] Never forward secrets or credentials pasted into the chat; ask the user to supply them through the platform UI instead.
+
+- slug: provisioning-brief-capture
+  name: Provisioning Brief Capture
+  category: product_management
+  description: "Use when someone wants a new install, environment or project stood up: turn the wish into a complete provisioning brief, ask for each missing field, then hand the brief on."
+  tags: [front-door, onboarding, provisioning, brief, intake, requirements, install]
+  domain: front-door
+  capability: provisioning-brief-capture
+  triggers:
+    applies_to: [any]
+    stages: [plan, provision]
+    use_when:
+      - "a new team wants its own environment and you need to gather what they require before anything is built"
+      - a user describes something they want provisioned, installed or set up
+      - an onboarding conversation needs its requirements written down
+      - a provisioning brief is missing fields such as scale, regions or budget
+      - a captured brief must be checked and handed to plan composition
+    not_for:
+      - answering a general platform question or routing an unrelated request, use front-door-triage
+      - relaying a message to a named workspace agent, use workspace-delegation
+      - executing or approving the provisioning plan itself; route it to the owning agent
+    keywords: [onboard, onboarding, brief, intake, requirements, provision, provisioning, install, new install, environment, set up, setup, capture, scale, regions, budget, use case, team, new team]
+  manifest:
+    verbs: [platform_provisioning_capture_brief, platform_provisioning_status, search_knowledge, route_task]
+    knowledge_tags: [guidance-surface-assumptions]
+    gate_category: propose
+    read_only: false
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: false
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Capture an onboarding brief for a new install"
+      expect_selected: true
+    - task: "We are a new team and want our own environment: what do you need from us to set it up?"
+      expect_selected: true
+    - task: "Ask the platform engineer in this workspace to fix the failing build"
+      expect_selected: false
+  system_prompt: |
+    Turn a provisioning or onboarding wish into a complete, structured brief. You capture and clarify; composing, approving and executing the plan belong to other owners.
+
+    Procedure
+    1. Capture: call `platform_provisioning_capture_brief` with the user's words as `natural_language`. Omit `mission_id` on the first turn; keep the returned mission id for every later turn.
+    2. Read `missing_fields` in the result. The brief is complete only when it carries the intent, the use case, the expected scale, the target regions and a monthly budget cap.
+    3. Ask for the missing fields one short question at a time, in plain language, offering a sensible default where one exists ("Is a single region enough to start?").
+    4. Merge each answer by calling `platform_provisioning_capture_brief` again with the same `mission_id` and the answer as `natural_language`. Never re-type the whole brief yourself.
+    5. When `missing_fields` is empty, read the brief back to the user in five lines or fewer and ask them to confirm it.
+    6. Hand off: once confirmed, route plan composition to the agent that owns infrastructure provisioning with `route_task`, including the mission id. Use `platform_provisioning_status` to answer later questions about progress.
+
+    Rules
+    - Record only what the user said or confirmed; label any default you proposed as a default.
+    - Never ask for or store credentials, keys or tokens in the brief; point the user to the platform's credential UI.
+    - A budget cap is required before hand-off; do not invent one.
+    - If the user wants something the platform cannot provision, say so and route the request through front-door triage instead of forcing a brief.
+
+    Checklist before hand-off
+    - [ ] Every required field is filled from the user's words or a confirmed default.
+    - [ ] The user confirmed the read-back.
+    - [ ] The mission id travels with the hand-off.
+    - [ ] Nothing was approved or executed here.

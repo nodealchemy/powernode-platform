@@ -197,6 +197,9 @@ if Powernode::Seeds.baseline?
   puts "\n🧩 Loading AI Skills..."
   safe_load('ai_skills_seed.rb')
 
+  puts "\n🧩 Loading core capability skills..."
+  safe_load('ai_capability_skills_seed.rb')
+
   puts "\n📋 Loading AI Example Templates..."
   safe_load('ai_example_templates_seed.rb')
 
@@ -522,4 +525,15 @@ if Powernode::Seeds.demo?
   puts "   Accounts: #{Account.count}"
   puts "   Users: #{User.count}"
   puts "   Site Settings: #{SiteSetting.count}"
+end
+
+# Capability-skill seed batches fail LOUDLY: each failure was recorded by its
+# seed file (core's or an extension's) before any rescue above could swallow
+# it, and is reported here, last, as a marked error banner. Exit non-zero under
+# POWERNODE_SEED_STRICT=true (the default stays exit-0 so a first-boot
+# `db:seed` in a `set -e` start script cannot brick a hub over a skill gate).
+capability_failures = Ai::Skills::CapabilitySeeder.report_failures!
+if capability_failures.any?
+  Rails.logger.error("[seeds] capability skill seed failed for: #{capability_failures.map { |f| f[:owner_repo] }.join(', ')}")
+  abort("db:seed: capability skill seed failed (POWERNODE_SEED_STRICT=true)") if ENV["POWERNODE_SEED_STRICT"] == "true"
 end

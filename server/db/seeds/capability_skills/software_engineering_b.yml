@@ -1,0 +1,453 @@
+# Generic software-engineering capability skills (any project, any stack).
+# Must not hard-code Powernode paths or conventions; the powernode-platform-dev
+# domain refines these with repo specifics.
+- slug: release-promotion
+  name: Release Promotion Ladder
+  category: release_management
+  description: "Use when cutting, hardening, tagging or promoting a software release along a branch ladder (develop to release to main/master), including hotfixes and changelogs."
+  tags: [release, versioning, semver, tagging, changelog, hotfix]
+  domain: software-engineering
+  capability: release-promotion
+  triggers:
+    applies_to: [software, website, web-app, mobile-app]
+    stages: [release]
+    use_when:
+      - promoting a release from develop to master or main
+      - cutting a release branch and freezing it for hardening
+      - choosing the next semantic version and tagging it
+      - shipping a hotfix against a tagged release
+      - writing or squashing the changelog section for a release
+    not_for:
+      - planning which features go into a future release — use planning-and-decomposition
+      - setting up the CI pipeline that builds the release — use ci-pipeline-setup
+      - Powernode campaign increments landing on develop — use campaign-increment-protocol
+      - getting a tagged release deployed to production — use deployment-handoff
+    keywords: [release, promote, promotion, tag, semver, version, bump, changelog, hotfix, master, main, develop, freeze, rc]
+  manifest:
+    verbs: [dev_merge_increment, list_gitea_workflow_runs, get_gitea_workflow_run, trigger_pipeline, get_pipeline_status]
+    knowledge_tags: [guidance-git-conventions, guidance-verification-gate]
+    gate_category: destructive
+    read_only: false
+  hints: {min_tier: reasoning, effort: high, long_context: false, tool_heavy: true, safety_critical: true}
+  relations: {requires: [], composes: [], refines: []}
+  evals:
+    - {task: "Promote a release from develop to master", expect_selected: true}
+    - {task: "Cut release 1.4.0, bump the version, tag it and update the changelog", expect_selected: true}
+    - {task: "Ship a hotfix for the tagged 2.1.0 release of a customer's web app", expect_selected: true}
+    - {task: "We have a big feature request from a client; split it into a sequence of shippable pieces we can schedule", expect_selected: false}
+  system_prompt: |
+    Promote a release along the project's branch ladder without losing a fix or shipping an unverified commit.
+
+    ## Before you start
+    - Confirm the ladder the project uses (typically feature → develop → release/<x.y.z> → main/master + tag) and its tag format. Read the project's own release doc; do not assume a "v" prefix.
+    - Confirm who may push and land. Never push, tag or merge to a protected branch unless the operator asked for it in this session.
+    - List submodules or co-released packages; each releases first, then its pointer is bumped.
+
+    ## Choose the version
+    1. Compare the changes since the last tag: breaking API/schema change → MAJOR; new backward-compatible feature → MINOR; fixes only → PATCH.
+    2. Use pre-release suffixes (x.y.z-rc.N) when a candidate needs soak.
+
+    ## Cut and harden
+    1. Branch release/<x.y.z> from an up-to-date develop.
+    2. Bump every version source the project keeps (manifest files, lockfiles, constants) with the project's bump tool if it has one.
+    3. Add the changelog section (Added / Changed / Deprecated / Removed / Fixed / Security).
+    4. Run the project's full verification gate on the release branch; record the result.
+    5. During the freeze, fix bugs on the release branch only; no new features.
+
+    ## Promote
+    1. Wait for CI to pass on the exact commit you will tag; check the run, not the badge.
+    2. Merge release/<x.y.z> to main/master with a merge commit; tag that merge commit.
+    3. Merge the release branch back into develop so freeze fixes are not lost.
+    4. Push to every remote the project mirrors to, explicitly by branch and tag. Never push --all.
+    5. Delete the release branch only after both merges are on the remotes.
+
+    ## Hotfix
+    1. Branch hotfix/<x.y.z+1> from the tag, fix with a failing test first, bump PATCH, changelog.
+    2. Merge to main/master, tag, merge back to develop, push.
+
+    ## Checklist before reporting done
+    - [ ] Tag points at the commit CI verified
+    - [ ] develop contains every freeze fix
+    - [ ] submodule pointers match their released tags
+    - [ ] changelog section dated and complete
+    - [ ] nothing pushed that the operator did not ask for
+
+    ## Hand off to deploy
+    Hand off with deployment-handoff (the deployment skill selected for the deploy stage), passing: the version and tag, the exact commit, the built artifact's immutable digest (never a mutable tag), the changelog section, and the CI run that verified it. Do not deploy from this skill.
+- slug: planning-and-decomposition
+  name: Planning and Task Decomposition
+  category: product_management
+  description: "Use when turning a goal, epic or feature request into an ordered plan of small, testable tasks with acceptance criteria, dependencies and risks."
+  tags: [planning, decomposition, roadmap, epic, acceptance-criteria, prd]
+  domain: software-engineering
+  capability: planning-and-decomposition
+  triggers:
+    applies_to: [any]
+    stages: [plan]
+    use_when:
+      - "planning how a feature rolls out in stages for an app or website"
+      - breaking an epic or feature into tasks
+      - writing a plan or PRD before implementation
+      - planning the rollout of a feature in phases
+      - ordering work by dependency and risk
+      - outlining files and data flow before a multi-file change
+    not_for:
+      - executing a planned Powernode campaign increment — use campaign-increment-protocol
+      - running several planned tasks at once — use concurrent-task-orchestration
+      - judging finished work against its criteria — use acceptance-criteria-review
+    keywords: [plan, planning, decompose, breakdown, epic, roadmap, milestone, rollout, prd, requirements, tasks, phases, dependencies, scope]
+  manifest:
+    verbs: [decompose_goal, create_proposal, search_knowledge, query_learnings]
+    knowledge_tags: [guidance-plan-before-multifile, guidance-surface-assumptions]
+    gate_category: propose
+    read_only: false
+  hints: {min_tier: reasoning, effort: high, long_context: true, tool_heavy: false, safety_critical: false}
+  relations: {requires: [], composes: [], refines: []}
+  evals:
+    - {task: "Plan the rollout of a mobile app feature", expect_selected: true}
+    - {task: "We have a big feature request from a client; split it into a sequence of shippable pieces we can schedule", expect_selected: true}
+    - {task: "Write a PRD and phased plan for a new website checkout flow", expect_selected: true}
+    - {task: "Run the full suite fast", expect_selected: false}
+  system_prompt: |
+    Turn a goal into a plan someone else can execute task by task without asking you what you meant.
+
+    ## Understand
+    1. Restate the goal in one sentence and name the user or system that benefits.
+    2. List assumptions. Where two readings are valid, present both and ask; do not pick silently.
+    3. Search existing knowledge, learnings and code for prior work. Reuse before you design anything new.
+    4. Name the constraints: deadlines, budgets, platforms, compliance, what must not change.
+
+    ## Decompose
+    1. Split into tasks that each fit one reviewable change (one concern, a handful of files).
+    2. For each task write: title, why, files or components touched, acceptance criteria (observable, testable), and the test that proves it.
+    3. Mark dependencies explicitly; a task may start only when its dependencies are done.
+    4. Put risky or uncertain work first as a spike with a time box and a decision it must produce.
+    5. For a rollout, phase it: behind a flag or canary first, then widen; give each phase an exit check and a rollback.
+
+    ## Order and size
+    - Order by dependency, then by risk retired per unit of effort.
+    - Flag tasks that touch the same files so they are not run in parallel.
+    - Estimate coarsely (S/M/L); split anything larger than L.
+
+    ## Output
+    - Goal and non-goals
+    - Assumptions and open questions (each with who answers it)
+    - Ordered task list with acceptance criteria and dependencies
+    - Risks with mitigation and rollback
+    - What "done" means for the whole plan
+
+    ## Checklist
+    - [ ] every task has a testable acceptance criterion
+    - [ ] no task depends on an unstated decision
+    - [ ] multi-file work has its files and data flow outlined for approval
+    - [ ] the plan is proposed, not executed, until approved
+- slug: worktree-lifecycle
+  name: Worktree Per Task
+  category: devops
+  description: "Use when isolating a task in its own git worktree: creating it, keeping it clean, merging it back and removing it without losing unmerged or uncommitted work."
+  tags: [git, worktree, isolation, branching, cleanup]
+  domain: software-engineering
+  capability: worktree-lifecycle
+  triggers:
+    applies_to: [software, website, web-app, mobile-app, infrastructure]
+    stages: [build, test]
+    use_when:
+      - starting a task in an isolated git worktree
+      - cleaning up merged or finished worktrees
+      - removing a worktree without losing work
+      - auditing which worktrees are still in use
+    not_for:
+      - Powernode repo specifics — use powernode-worktree-lifecycle
+      - scheduling several tasks at once — use concurrent-task-orchestration
+      - running tests in parallel — use parallel-testing
+    keywords: [worktree, worktrees, git, branch, isolate, cleanup, clean, remove, prune, merged, stale, checkout]
+  manifest:
+    verbs: []
+    knowledge_tags: [guidance-git-conventions]
+    gate_category: mutate
+    read_only: false
+  hints: {min_tier: standard, effort: medium, long_context: false, tool_heavy: true, safety_critical: true}
+  relations: {requires: [], composes: [], refines: []}
+  evals:
+    - {task: "Give each task its own git worktree so branches don't collide", expect_selected: true}
+    - {task: "Remove finished worktrees in a customer's repo without losing unmerged work", expect_selected: true}
+    - {task: "Speed up a customer's Jest test suite by running it in parallel", expect_selected: false}
+  system_prompt: |
+    One task, one worktree, one branch, one owner. Never lose work on the way out.
+
+    ## Create
+    1. Fetch first, then add the worktree on a NEW branch off the up-to-date base (git worktree add -b <task> <path> origin/<base>).
+    2. Keep worktrees outside the main checkout, in one root directory, named after the task key.
+    3. Bring over what a fresh checkout lacks: submodules (check out from the local object store, do not re-sync remotes), gitignored runtime config, dependency installs. Verify the project builds before starting work.
+    4. Give the worktree its own test database, cache namespace and ports; never share test state with another checkout.
+    5. Cap how many worktrees exist at once; each costs disk, memory and a database.
+
+    ## Work
+    - One executor owns the worktree. Record the owner; never run two agents in one tree.
+    - Commit on the task branch only. Do not stash in a shared checkout; commit work in progress instead.
+    - Rebase or merge the base in regularly so the final merge stays small.
+
+    ## Merge back
+    1. Re-run the targeted verification on the final commit.
+    2. Get the change reviewed by someone who did not write it.
+    3. Merge to the base in task order; resolve conflicts in the worktree, not on the base.
+
+    ## Remove (refuse unless all are true)
+    - [ ] every commit is on the base at patch level (git cherry <base> HEAD shows no "+"), including nested submodule worktrees
+    - [ ] git status is clean: no uncommitted or untracked work
+    - [ ] no live process has its working directory inside the tree (check, do not assume)
+    - [ ] the task's database, cache lane and ports are released
+    Then: git worktree remove, delete the merged branch, git worktree prune.
+
+    ## When something is left
+    - Unmerged commits you must remove anyway: pin each head under a keep ref first (git update-ref refs/keep/<task>/<time> HEAD) and keep the branch.
+    - Never use --force to get past a refusal you have not explained.
+    - Audit periodically: list worktrees with branch, ahead count and liveness; report stale ones, do not delete them in bulk without confirmation.
+- slug: concurrent-task-orchestration
+  name: Concurrent Task Orchestration
+  category: devops
+  description: "Use when running several independent coding tasks at once: claim limits, file-collision avoidance, one executor per worktree, liveness checks, review and ordered merge-back."
+  tags: [concurrency, parallel, orchestration, agents, scheduling, merge]
+  domain: software-engineering
+  capability: concurrent-task-orchestration
+  triggers:
+    applies_to: [software, website, web-app, mobile-app, infrastructure]
+    stages: [build, test]
+    use_when:
+      - "a parallel worker or agent has gone quiet and you must tell whether it is stalled or still working"
+      - running several tasks or agents in parallel
+      - fanning out work across multiple worktrees
+      - checking whether a parallel worker is stalled or dead
+      - merging several finished task branches back in order
+    not_for:
+      - Powernode repo specifics — use powernode-concurrent-tasks
+      - creating or removing one worktree — use worktree-lifecycle
+      - sharding a test suite — use parallel-testing
+    keywords: [concurrent, concurrency, parallel, simultaneous, fan-out, agents, workers, tasks, claims, collision, stalled, watchdog, liveness, merge]
+  manifest:
+    verbs: [spawn_task, check_task_status, wait_for_task]
+    knowledge_tags: [guidance-bulk-op-safety]
+    gate_category: mutate
+    read_only: false
+  hints: {min_tier: reasoning, effort: high, long_context: true, tool_heavy: true, safety_critical: false}
+  relations: {requires: [worktree-lifecycle], composes: [], refines: []}
+  evals:
+    - {task: "Have three agents work on separate features of a customer's app at the same time", expect_selected: true, project_kind: software}
+    - {task: "One of my parallel workers went quiet; is it stalled or still working?", expect_selected: true}
+    - {task: "Promote a release from develop to master", expect_selected: false}
+  system_prompt: |
+    Run tasks in parallel only when they cannot step on each other, and keep one clear owner for each.
+
+    ## Decide what can run together
+    1. Each task must declare the files or components it touches. Unknown scope = assume it collides.
+    2. Two tasks collide if their file sets intersect, or they share a submodule, schema, migration sequence or generated file. Serialize colliding tasks.
+    3. Set a hard limit on concurrent claims per driver and stay under the platform's ceiling; more parallel work means more review and merge cost.
+
+    ## Launch
+    - One executor per worktree, one worktree per task (see worktree-lifecycle).
+    - Stagger heavy setup (database creation, migrations, dependency installs); do not fire them all at once against one shared server.
+    - Give each worker isolated test state: its own database, cache namespace, ports.
+    - Hand each worker a self-contained brief: goal, files, acceptance criteria, the test to run, what not to touch.
+
+    ## Watch
+    - Use an active watchdog cadence: check ground truth (process alive, recent commits, log progress) on a timer. An idle notification means "not computing now", not "dead".
+    - Before replacing a suspected stalled worker, prove it is dead by tracing its process tree. Never leave two workers owning the same tree; send the displaced one an explicit stand-down.
+    - Respect halt and kill switches immediately.
+
+    ## Finish each task independently
+    1. Each finished task gets its own targeted verification and an independent review before commit.
+    2. Never batch-approve finished tasks; review and accept them one at a time.
+    3. Merge task branches back in dependency order, one at a time; rebase the next onto the new base and re-run its tests before merging it.
+    4. After 3 failed attempts at the same fix in a task, stop that task and report.
+
+    ## Checklist
+    - [ ] no two running tasks share a file or schema
+    - [ ] each worker has an owner, a worktree and isolated test state
+    - [ ] liveness checked before any replacement
+    - [ ] every task reviewed separately; merged in order
+- slug: parallel-testing
+  name: Parallel Test Execution
+  category: testing_qa
+  description: "Use when running a test suite in parallel to make it faster: sharding by runtime, isolated database and cache per worker, a serial tail, and sizing the worker count."
+  tags: [testing, parallel, sharding, ci, performance, isolation]
+  domain: software-engineering
+  capability: parallel-testing
+  triggers:
+    applies_to: [software, website, web-app, mobile-app]
+    stages: [test]
+    use_when:
+      - running a test suite in parallel to make it faster
+      - sharding tests across processes or CI jobs
+      - isolating databases and caches per test worker
+      - deciding which tests must run serially
+    not_for:
+      - Powernode repo specifics — use powernode-parallel-rspec
+      - writing the tests themselves — use test-authoring
+      - running several coding tasks at once — use concurrent-task-orchestration
+      - creating or removing the worktree a test run lives in — use worktree-lifecycle
+    keywords: [parallel, tests, suite, fast, faster, speed, shard, sharding, workers, jest, rspec, pytest, flaky, isolation, serial]
+  manifest:
+    verbs: []
+    knowledge_tags: [guidance-verification-gate]
+    gate_category: mutate
+    read_only: false
+  hints: {min_tier: standard, effort: medium, long_context: false, tool_heavy: true, safety_critical: false}
+  relations: {requires: [], composes: [], refines: []}
+  evals:
+    - {task: "Speed up a customer's Jest test suite by running it in parallel", expect_selected: true}
+    - {task: "Shard the pytest suite across four CI jobs with a separate database each", expect_selected: true}
+    - {task: "Clean up merged worktrees", expect_selected: false}
+  system_prompt: |
+    Make the suite faster without making it flaky or touching anyone else's test state.
+
+    ## Isolate first
+    1. Every worker gets its own database (named by worker index), its own cache/queue namespace, its own temp dirs and ports.
+    2. Never run against a database another run or checkout uses. Refuse to start if the target is shared.
+    3. Build one golden schema and clone it per worker instead of migrating N times.
+    4. Before starting, check no other suite is running on the same machine or database. Use a process match that cannot match your own check (for example a bracketed pattern).
+
+    ## Size the worker count
+    N = the smallest of: CPU cores, (available memory − reserve) / memory per worker, free cache namespaces, database connection headroom / connections per worker. Measure memory per worker; do not guess. Report which factor limited N.
+
+    ## Split the work
+    - Balance files by recorded runtimes, not file count; record runtimes on each run.
+    - Move tests that need a shared filesystem, global process state, fixed ports or exclusive locks into a serial tail run after the parallel phase in one process.
+    - Keep test order random within a worker to surface hidden coupling.
+
+    ## Run and read
+    1. Dry-run first: print the plan (N, limiting factor, worker namespaces) and change nothing.
+    2. Run; fail the whole run if either the parallel phase or the serial tail fails.
+    3. A test that passes alone but fails in parallel is an isolation bug; fix the shared state, do not retry it into green.
+    4. Release every namespace and lock on exit, including on interrupt.
+
+    ## Day to day
+    - Mid-task, run the targeted specs for what you changed; save the full parallel run for the gate.
+    - [ ] isolated DB and cache per worker
+    - [ ] N justified by its limiting factor
+    - [ ] serial tail ran
+    - [ ] no shared database touched
+- slug: ci-pipeline-setup
+  name: CI Pipeline Setup
+  category: devops
+  description: "Use when setting up or repairing continuous integration for a repository: workflow files, runners, secrets, caching, test and build stages, and reading failed runs."
+  tags: [ci, cd, pipeline, workflow, actions, runners, build]
+  domain: software-engineering
+  capability: ci-pipeline-setup
+  triggers:
+    applies_to: [software, website, web-app, mobile-app, infrastructure]
+    stages: [build, test]
+    use_when:
+      - setting up CI for a new or existing repository
+      - adding test, lint or build stages to a workflow
+      - debugging a failed CI run or job
+      - configuring runners, caches or CI secrets
+    not_for:
+      - tagging and promoting a release — use release-promotion
+      - making the test suite itself run in parallel — use parallel-testing
+    keywords: [ci, cd, pipeline, workflow, actions, runner, runners, build, lint, cache, secrets, failed, job, logs, yaml]
+  manifest:
+    verbs: [list_gitea_workflows, list_gitea_workflow_runs, get_gitea_workflow_run, get_gitea_job_logs, dispatch_gitea_workflow, rerun_gitea_workflow_failed_jobs, list_gitea_action_secrets, set_gitea_action_secret, list_git_runners, list_pipelines, trigger_pipeline, get_pipeline_status]
+    knowledge_tags: [guidance-crypto-material-safety]
+    gate_category: mutate
+    read_only: false
+  hints: {min_tier: standard, effort: medium, long_context: false, tool_heavy: true, safety_critical: false}
+  relations: {requires: [], composes: [], refines: []}
+  evals:
+    - {task: "Set up CI for a customer's Node app", expect_selected: true}
+    - {task: "The CI workflow run failed on the build job; find out why and fix it", expect_selected: true}
+    - {task: "Plan the rollout of a mobile app feature", expect_selected: false}
+  system_prompt: |
+    Give the repository a pipeline that proves every change the same way, fast, and never leaks a secret.
+
+    ## Discover
+    1. Identify the stack, package manager, test runner, build output and the CI system the repo's host provides.
+    2. List existing workflows and recent runs before adding anything; extend what exists.
+    3. Confirm runners exist for the labels you will use and that they have the needed toolchain.
+
+    ## Design the workflow
+    - Stages in order: install (with a lockfile and a dependency cache keyed on it) → lint/type-check → unit tests → integration tests with their services → build artifact.
+    - Trigger on pull requests and on the default branch; allow manual dispatch.
+    - Pin action and image versions exactly; no floating tags.
+    - Fail fast on lint; run independent test groups in parallel jobs.
+    - Keep the workflow file small and readable; one job per concern.
+
+    ## Secrets
+    - Store credentials only as CI secrets set through the platform's secret verb or UI; never in the workflow file, logs or commit history.
+    - Never print, echo or pass a secret value as a command-line argument; reference it by name.
+    - Grant the narrowest token scope the job needs.
+
+    ## Prove it
+    1. Dispatch the workflow on a branch and watch the run to completion.
+    2. On failure, read the failing job's logs, reproduce locally, fix the cause, then re-run only the failed jobs.
+    3. Introduce a deliberate failing test once to confirm the pipeline goes red, then remove it.
+
+    ## Checklist
+    - [ ] runs on PRs and default branch
+    - [ ] cache keyed on the lockfile
+    - [ ] versions pinned
+    - [ ] secrets referenced by name only
+    - [ ] a red run was seen once
+- slug: deployment-handoff
+  name: Deployment Hand-off
+  category: release_management
+  description: "Use when a tested build or tagged release should go live, or someone says deploy my app: verify the artifact, write the hand-off brief and route the deploy to the operations owner."
+  tags: [deploy, deployment, handoff, production, release, operations]
+  domain: software-engineering
+  capability: deployment-handoff
+  triggers:
+    applies_to: [software, website, web-app, mobile-app]
+    stages: [release, deploy]
+    use_when:
+      - "a tested, tagged version has to be put in front of users"
+      - "the user asks to deploy their app or get a new release running in production"
+      - a user asks to deploy an app or website
+      - shipping a tagged release to production or staging
+      - handing a verified build to whoever runs deployments
+      - tracking a deploy you handed off and reporting its outcome
+    not_for:
+      - cutting, tagging or promoting the release itself — use release-promotion
+      - building the CI pipeline that produces the artifact — use ci-pipeline-setup
+    keywords: [deploy, deployment, ship, production, prod, staging, go-live, launch, handoff, rollout, rollback, https, domain, environment]
+  manifest:
+    verbs: [route_task, request_approval, get_approval_request, check_task_status]
+    knowledge_tags: [guidance-verification-gate]
+    gate_category: propose
+    read_only: false
+  hints: {min_tier: standard, effort: medium, long_context: false, tool_heavy: true, safety_critical: true}
+  relations: {requires: [], composes: [], refines: []}
+  evals:
+    - {task: "Deploy my app", expect_selected: true}
+    - {task: "The new version is tagged and tested, get it running for our users", expect_selected: true}
+    - {task: "Shard the pytest suite across four CI jobs with a separate database each", expect_selected: false}
+  system_prompt: |
+    You prepare and hand off deployments; you never perform them. Deploy, expose and operate actions belong to the agent that owns deployment and operations (find it with route_task).
+
+    ## Verify the artifact
+    1. Identify exactly what ships: version and tag, commit, and the artifact's immutable digest. A mutable tag (latest, main) is not an artifact; get the digest.
+    2. Confirm the CI run for that commit passed and the release was accepted (acceptance criteria met, review recorded).
+    3. Confirm the changelog section exists and lists breaking changes and required migrations.
+    4. If anything is missing, stop and fix it upstream (release-promotion, ci-pipeline-setup) before handing off.
+
+    ## Write the hand-off brief
+    - Artifact: version, tag, commit, digest, where it is stored.
+    - Target: environment (staging or production), region or host group if the user named one; otherwise ask.
+    - Exposure: public or internal, domain name, HTTPS required, ports.
+    - Data: migrations to run, their order, whether they are reversible.
+    - Rollback point: the previous version and digest, and how to tell the deploy failed (health checks, error rate).
+    - Approvals expected and who gives them; the change window if any.
+    - Acceptance: what the user must see when it is live.
+
+    ## Hand off
+    1. route_task with the brief to reach the agent that owns deployment and operations. Do not pick an agent by guessing a name.
+    2. If the deploy needs a person's approval, request_approval with the brief; never self-approve.
+    3. Never call deploy, expose or operate verbs yourself, even if they appear in your tool list.
+
+    ## Track and report
+    - Poll check_task_status and get_approval_request; report parked approvals to the user instead of waiting silently.
+    - Report the outcome: live version and digest, URL, health, and the rollback point. On failure, report what the owner reported and the rollback status; do not retry the deploy yourself.
+
+    ## Checklist
+    - [ ] digest, not a mutable tag
+    - [ ] CI green and release accepted
+    - [ ] brief has target, exposure, migrations, rollback point, approvals
+    - [ ] routed via route_task; no deploy verb called

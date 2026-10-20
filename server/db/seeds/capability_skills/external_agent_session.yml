@@ -1,0 +1,64 @@
+# Core capability skills, domain external-agent-session (any coding-agent client driving the platform over MCP). Authored to the Ai::Skills::Contract.
+- slug: external-session-assembly
+  name: Agent Session Assembly
+  category: skill_management
+  description: "Use when an agent starts a task: load its charter, discover and select the right skills, learnings and verbs before working, and record the run when done."
+  tags: [external-agent-session, mcp-client, assembly, bootstrap, skills, loader, subagent, charter]
+  domain: external-agent-session
+  capability: external-session-assembly
+  triggers:
+    applies_to: [any]
+    use_when:
+      - a platform agent or subagent is starting a new task
+      - a session is about to spawn a platform subagent and must brief it
+      - an agent must decide which skills, learnings and verbs to load
+      - a finished run must be recorded against the platform
+    not_for:
+      - deciding which agent should own a request, use front-door-triage
+      - curating the learnings an assembly loads, use learning-curation
+    keywords: [assemble, assembly, bootstrap, external session, mcp client, coding agent, start task, charter, load skills, select skills, discover skills, verbs, tools, subagent, spawn, record execution, loader]
+  manifest:
+    verbs: [get_agent, discover_skills, get_skill_context, search_knowledge, query_learnings, discover_tools, describe_tool, route_task, record_agent_execution]
+    knowledge_tags: [guidance-reuse-first]
+    gate_category: propose
+    read_only: false
+  hints:
+    min_tier: light
+    effort: low
+    long_context: false
+    tool_heavy: true
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "I am a platform subagent starting a task: load my charter and pick the skills and tools I need"
+      expect_selected: true
+    - task: "Brief and spawn a platform reviewer subagent with the right skills, then record its run"
+      expect_selected: true
+    - task: "Verify this learning and dispute the outdated one"
+      expect_selected: false
+  system_prompt: |
+    Assemble before you work: identity first, then skills, then verbs, then the task, then the record. Load a deferred platform verb before its first call; never load the whole catalog.
+
+    Procedure
+    1. Charter: call `get_agent` with your slug. Adopt the returned system prompt and keep the agent id. If the verb is unavailable, do not continue under a generic identity: record the run as failed and stop.
+    2. Skills: call `discover_skills` with the task text. Pick at most five skills whose triggers match the task and whose not_for lines do not exclude it; when two skills claim the same capability, keep the one whose trigger matches more specifically. Call `get_skill_context` with the task for the picked skills' procedures.
+    3. Rules and history: `search_knowledge` for the area's guidance tags (each picked skill lists its knowledge tags) and `query_learnings` for gotchas. Prefer verified, recent learnings; note any you rely on.
+    4. Verbs: load only the verbs the picked skills name in their manifests, or that `discover_tools` returns for an uncovered step. Call `describe_tool` on each before its first call and respect gated or approval-requiring verbs.
+    5. Coverage: if a part of the task matches no skill, say which part, and hand it off with `route_task` or ask, rather than improvising outside your charter.
+    6. Work within the delegating prompt: it defines the task, the boundaries and what to return.
+    7. Record: call `record_agent_execution` with your slug, the model, the outcome (completed, failed or cancelled), duration, token counts, a short task digest with no secrets, and a run key unique to this run so a retry is idempotent.
+
+    When briefing a subagent from a session
+    - Name the agent slug, the task, the acceptance criteria and the files or scope it may touch.
+    - Tell it to run steps 1 to 7 itself; do not paste skill prompts into the brief.
+    - Require it to report what it selected and what it left uncovered.
+
+    Checklist
+    - [ ] Charter loaded and adopted.
+    - [ ] Selected skills fit the task; excluded ones were excluded for a reason.
+    - [ ] Only manifest or discovered verbs were loaded, each described first.
+    - [ ] Uncovered parts were routed or raised, not improvised.
+    - [ ] The run was recorded exactly once.

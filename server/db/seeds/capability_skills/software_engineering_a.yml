@@ -1,0 +1,152 @@
+# Core capability skills — domain: software-engineering (part A).
+# GENERIC: applies to any project or stack. Must not hard-code Powernode paths,
+# scripts or conventions. Procedure and checklists only; no deployment-local
+# facts, counts or ids.
+
+- slug: test-authoring
+  name: Test Authoring and Red-Green Proof
+  category: testing_qa
+  description: "Use when writing automated tests in any stack: a failing test that reproduces a bug, unit and integration tests, fixtures, idempotency checks, proving red then green."
+  tags: [testing, test-first, unit-tests, integration-tests, fixtures, red-green]
+  domain: software-engineering
+  capability: test-authoring
+  triggers:
+    use_when:
+      - "adding integration tests, fixtures or a regression test for an API endpoint or service"
+      - "a bug fix needs a failing test that reproduces it before the fix"
+      - "new code needs unit, integration, request or component tests"
+      - "a data seed, migration or setup script must be proven idempotent by running it twice"
+      - "a flaky or vacuous test must be made deterministic and meaningful"
+    not_for:
+      - "running a large suite fast across parallel workers — use parallel-testing"
+      - "setting up the CI pipeline that runs the tests — use ci-pipeline-setup"
+      - "judging whether finished work meets its acceptance criteria — use acceptance-criteria-review"
+    keywords: [test, tests, spec, unit test, integration test, failing, red, green, fixture, factory, mock, reproduce, bug, regression, idempotent, flaky, pytest, jest, rspec]
+    applies_to: [software, website, web-app, mobile-app, infrastructure]
+    stages: [test]
+  manifest:
+    verbs: [query_learnings, code_semantic_search, code_file_skeleton, code_identifier_search]
+    knowledge_tags: [guidance-testing-patterns, guidance-verification-gate]
+    gate_category: read
+    read_only: true
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: false
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Write a failing spec that reproduces this bug before fixing it"
+      expect_selected: true
+    - task: "Write failing tests for a bug in a customer's Django app"
+      expect_selected: true
+    - task: "Add integration tests and fixtures for a new API endpoint in a Node service"
+      expect_selected: true
+    - task: "Run the full suite fast across parallel lanes"
+      expect_selected: false
+  system_prompt: |
+    # Test authoring and red-green proof
+
+    ## Locate first
+    1. Find the code under test and its existing tests (`code_semantic_search`, `code_identifier_search`, or the project's test directory). Extend an existing test file before creating a new one.
+    2. Learn the project's test stack from its own config and docs: runner, fixture or factory library, helpers, how a single test is run. Follow it; do not introduce a second framework.
+    3. `query_learnings` for the area: known flaky setups and stubs the suite already relies on.
+
+    ## Write the test
+    - One behaviour per test; the name states the expected behaviour, not the implementation.
+    - Bug fix: reproduce the reported symptom through the public entry point (function, endpoint, command, component), not a private helper.
+    - Reuse existing fixtures and factories; build only the data the behaviour needs.
+    - Stub at the boundary (network, clock, queues, third-party APIs); never stub the unit under test.
+    - Deterministic: freeze time, seed randomness, sort before comparing, no reliance on test order.
+    - Idempotency: run the seed, migration or setup twice from a clean state and assert the second run changes nothing (same rows, same keys, same counts).
+    - UI: query by accessible role or a stable test id, not by styling.
+
+    ## Prove it
+    1. Run the new test before the fix and confirm it FAILS for the stated reason (read the failure message, not just the count).
+    2. Apply the fix; run again and confirm it PASSES.
+    3. Run the nearest existing tests for the touched code.
+    4. Run targeted tests (one file or one case) while iterating. Before running against a database, confirm it is the isolated test database and that no other test process is using it.
+
+    ## Checklist before reporting
+    - [ ] red observed, failure line quoted
+    - [ ] green observed, test count stated
+    - [ ] nearest existing tests still green
+    - [ ] no new skipped or pending tests hiding a failure
+    - [ ] no mock that makes the test pass vacuously
+
+    ## Stop rules
+    - The bug cannot be reproduced in a test → report what was tried; do not fix blind.
+    - 3 failed attempts at the same setup → stop and ask.
+
+- slug: docs-truth-maintenance
+  name: Documentation Truth Maintenance
+  category: documentation
+  description: "Use when docs must match the code in any project: fixing stale references, regenerating generated docs, propagating a change into guides, READMEs and knowledge."
+  tags: [docs, documentation, readme, accuracy, references, knowledge]
+  domain: software-engineering
+  capability: docs-truth-maintenance
+  triggers:
+    use_when:
+      - "a code change makes a guide, README or reference doc inaccurate"
+      - "a doc names a file, command, flag, endpoint or setting that no longer exists"
+      - "generated reference docs are out of date and must be regenerated"
+      - "a knowledge entry copied from a doc has drifted from the doc"
+    not_for:
+      - "curating learnings, verifying or disputing them — use learning-curation"
+      - "organizing knowledge entries and sourcing research — use knowledge-curation"
+      - "writing release notes as part of a release — use release-promotion"
+    keywords: [docs, documentation, guide, readme, stale, outdated, reference, generated docs, changelog, markdown, accuracy, drift, propagate, broken link, rename]
+    applies_to: [any]
+    stages: [build, release]
+  manifest:
+    verbs: [code_identifier_search, code_semantic_search, search_knowledge, update_knowledge, rate_knowledge]
+    knowledge_tags: [guidance-file-organization, guidance-deployment-knowledge, guidance-dead-reference-cleanup]
+    gate_category: mutate
+    read_only: false
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: true
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Update the guides after renaming a script so no doc references the old name"
+      expect_selected: true
+    - task: "Fix the stale README and API docs in a customer's web app after an endpoint rename"
+      expect_selected: true
+    - task: "Verify or dispute a batch of learnings"
+      expect_selected: false
+  system_prompt: |
+    # Documentation truth maintenance
+
+    ## Find every stale claim
+    1. List what changed: files, commands, flags, endpoints, settings, behaviour.
+    2. Search for each across the project's docs, READMEs, contributor and agent instruction files, and inline help text (`code_identifier_search` or grep), and across the knowledge store (`search_knowledge`) for entries copied from those docs.
+    3. Verify each hit against the current code before editing; a doc claim is true only if the code says so today.
+
+    ## Fix in the right home
+    - Follow the project's documentation layout; do not drop new docs at the repository root unless the project does that.
+    - Generated docs (API references, tool catalogs, CLI help) are regenerated with the project's generator, never hand-edited.
+    - Deployment-local facts (hostnames, addresses, machine ids, credentials, operator details) never go in tracked docs; use placeholders and keep real values in deployment-scoped knowledge.
+    - Change only what is now false; do not rewrite surrounding prose.
+
+    ## Propagate
+    1. Update the doc.
+    2. Update the knowledge entry that mirrors it (`update_knowledge`); rate an outdated one low (`rate_knowledge`) when you cannot fix it.
+    3. Remove references to anything your change deleted, limited to orphans your change created.
+
+    ## Verify
+    - Re-search for the old name: no hits outside history and changelogs.
+    - Every link and path in the changed docs resolves.
+    - The project's doc or lint checks pass with no new findings.
+
+    ## Report
+    List each doc changed with the false claim and the corrected one; list any claim you could not verify.

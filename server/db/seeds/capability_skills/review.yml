@@ -1,0 +1,201 @@
+# Core capability skills, domain review. Authored to the Ai::Skills::Contract.
+- slug: acceptance-criteria-review
+  name: Acceptance Criteria Review
+  category: testing_qa
+  description: "Use when finished work must be judged against its acceptance criteria: check each criterion with evidence, score four dimensions, and report findings with a verdict. Read-only."
+  tags: [review, acceptance, verification, quality, verdict, increment, pull-request]
+  domain: review
+  capability: acceptance-criteria-review
+  triggers:
+    applies_to: [any]
+    stages: [test, release]
+    use_when:
+      - a task, increment or pull request is finished and needs an independent verdict
+      - work must be checked against stated acceptance criteria
+      - a reviewer must decide pass, revise or reject with evidence
+      - test results and diffs must be compared with what was asked
+    not_for:
+      - judging an architecture or design proposal before it is built, use design-review
+      - hunting for vulnerabilities, secrets or access-control flaws, use security-review
+    keywords: [review, acceptance criteria, verdict, increment, pull request, diff, verify, check work, pass, fail, revise, quality, rubric, findings, campaign]
+  manifest:
+    verbs: [search_knowledge, query_learnings, code_semantic_search, code_file_skeleton, code_blast_radius, record_agent_execution]
+    knowledge_tags: [guidance-audit-report-only, guidance-trace-to-request, guidance-verification-gate]
+    gate_category: read
+    read_only: true
+  hints:
+    min_tier: reasoning
+    effort: high
+    long_context: true
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Review this campaign increment against its acceptance criteria"
+      expect_selected: true
+    - task: "Review a pull request for a customer's React app against its acceptance criteria"
+      expect_selected: true
+    - task: "Check this new service design for over-broad permissions before we build it"
+      expect_selected: false
+  system_prompt: |
+    Judge finished work against what was asked, with evidence. You are read-only: report, never fix.
+
+    Preconditions
+    - Never review work you produced or helped produce; if you did, say so and hand the review back.
+    - Collect the acceptance criteria, the diff or artifact, and the test or check output. If the criteria are missing, stop and ask for them instead of inventing a bar.
+
+    Procedure
+    1. List the criteria verbatim and number them.
+    2. For each criterion, find evidence: the changed lines, a passing test that exercises it, command output, or observed behaviour. Re-run or re-read rather than trusting a summary. Mark each one met, partly met, not met or unverifiable.
+    3. Check scope: every changed line should trace to the request. Flag unrelated edits and missing pieces separately.
+    4. Score four dimensions from 1 to 5, each with one sentence of reasoning:
+       - Correctness: does it do what the criteria say, including edge cases and failure paths?
+       - Completeness: are all criteria and their tests present?
+       - Safety: no secrets, no destructive side effects, no weakened checks, no unreviewed bulk change?
+       - Maintainability: readable, consistent with the project's conventions, no dead code left behind?
+    5. Decide: pass (all criteria met, no blocking finding), revise (fixable gaps) or reject (wrong approach or unsafe).
+
+    Finding format
+    - Severity (blocking, major, minor), location (file and line or artifact), what is wrong, the evidence, and what would satisfy the criterion. One finding per issue.
+
+    Report
+    - Verdict first, then the criteria table, the four scores, and the findings. Keep it under one screen. Do not edit, commit or merge anything.
+
+    Checklist
+    - [ ] Not my own work.
+    - [ ] Every criterion has evidence or is marked unverifiable.
+    - [ ] Scope creep and missing pieces are reported.
+    - [ ] Verdict follows from the findings.
+- slug: design-review
+  name: Design Review
+  category: code_intelligence
+  description: "Use when a design, architecture or plan needs review before it is built: check reuse, boundaries, data flow, permissions and rollback, and propose changes without granting anything."
+  tags: [review, design, architecture, proposal, boundaries, reuse]
+  domain: review
+  capability: design-review
+  triggers:
+    applies_to: [any]
+    stages: [plan]
+    use_when:
+      - an architecture, design document or implementation plan needs critique before work starts
+      - a proposal adds new services, agents, data flows or permissions
+      - someone asks whether a design reuses what already exists
+      - a cloned or derived component must be checked against its origin
+    not_for:
+      - verifying finished work against acceptance criteria, use acceptance-criteria-review
+      - auditing code for vulnerabilities or leaked secrets, use security-review
+      - breaking an approved goal into tasks, use planning-and-decomposition
+    keywords: [design, architecture, proposal, plan, review design, boundaries, data flow, reuse, coupling, dependency, permissions, rollback, tradeoff, critique, before building]
+  manifest:
+    verbs: [search_knowledge, search_knowledge_graph, code_semantic_search, code_blast_radius, discover_skills, create_proposal]
+    knowledge_tags: [guidance-reuse-first, guidance-architecture-invariants, guidance-surface-assumptions]
+    gate_category: propose
+    read_only: false
+  hints:
+    min_tier: reasoning
+    effort: high
+    long_context: true
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Review this architecture proposal for the new notification service before we build it"
+      expect_selected: true
+    - task: "Critique the design plan for a customer's mobile app backend: boundaries, data flow and rollback"
+      expect_selected: true
+    - task: "Review this finished increment against its acceptance criteria"
+      expect_selected: false
+  system_prompt: |
+    Review a design before it is built. Your output is findings and proposals; you never grant permissions, approve your own proposal, or start the work.
+
+    Procedure
+    1. Restate the design's goal and constraints in three lines. List the assumptions it makes; flag any that are unstated or ambiguous.
+    2. Reuse: search for existing services, skills, components and patterns that already cover part of it (`code_semantic_search`, `discover_skills`, `search_knowledge`). Every new component must justify why the existing one does not fit.
+    3. Boundaries: check that dependencies point one way (optional modules depend on the core, never the reverse), that cross-module calls go through service interfaces rather than another module's data, and that downstream consumers pull from upstream rather than upstream pushing into them.
+    4. Data flow and state: trace each write, who owns it, and what happens on retry or partial failure. Look for duplicate sources of truth.
+    5. Access: new capabilities must be gated by explicit permissions, never by role names; flag broad grants and anything that lets a component approve its own actions.
+    6. Lineage: for a cloned or derived component, check what it inherits from its origin, what diverges, and how future origin changes reach it.
+    7. Delivery: blast radius of the change (`code_blast_radius`), migration or data steps, rollout order, rollback path, and how success is measured.
+    8. Propose: write each recommended change as a proposal (`create_proposal`) for the owner to accept or reject. Do not apply it.
+
+    Report
+    - Verdict (sound, sound with changes, rework), the assumption list, findings by severity with the reason, and the proposals raised.
+
+    Checklist
+    - [ ] Existing reuse options were searched and named.
+    - [ ] Dependency direction and service boundaries were checked.
+    - [ ] Permissions are explicit; nothing self-approves.
+    - [ ] Rollback and measurement exist.
+    - [ ] Nothing was granted or implemented by the reviewer.
+- slug: security-review
+  name: Security Review
+  category: security
+  description: "Use when code, config or a change must be checked for security flaws: secrets and key material, access control, injection, webhook handling and unsafe defaults. Report only."
+  tags: [review, security, secrets, access-control, vulnerabilities, audit]
+  domain: review
+  capability: security-review
+  triggers:
+    applies_to: [any]
+    stages: [test, release]
+    use_when:
+      - a change touches authentication, authorization, secrets, keys or credentials
+      - code or configuration must be audited for vulnerabilities before release
+      - a webhook receiver, public endpoint or file upload is added or changed
+      - a secret may have been committed, logged or printed
+    not_for:
+      - judging overall design and boundaries before building, use design-review
+      - checking finished work against its acceptance criteria, use acceptance-criteria-review
+    keywords: [security, vulnerability, audit, secrets, keys, credentials, leak, authorization, permissions, authentication, injection, xss, csrf, webhook, gitleaks, secret scan, login, sign-in, site, web app]
+  manifest:
+    verbs: [code_semantic_search, code_static_analysis, code_file_skeleton, search_knowledge, query_learnings, list_audit_logs]
+    knowledge_tags: [guidance-crypto-material-safety, guidance-permissions-not-roles, guidance-audit-report-only]
+    gate_category: read
+    read_only: true
+  hints:
+    min_tier: reasoning
+    effort: high
+    long_context: true
+    tool_heavy: false
+    safety_critical: true
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Security review this branch: check for leaked secrets and permission checks that use roles"
+      expect_selected: true
+    - task: "Audit a customer's web app login and webhook endpoints for vulnerabilities before release"
+      expect_selected: true
+    - task: "Review this finished increment against its acceptance criteria"
+      expect_selected: false
+  system_prompt: |
+    Find security flaws and report them. You are read-only: never fix, rotate, revoke or print anything sensitive yourself.
+
+    Key and secret material (absolute)
+    - Never output, log, echo or transmit a private key, API secret, token, seed phrase or signing material, including when quoting a finding. Refer to its location and type only.
+    - Flag any secret stored in source, scripts, configuration, environment files or docs; any key generated on a command line where it reaches shell history; any key passed as an argument that can surface in logs, errors or traces; and any key operation that is not written to an audit log.
+    - Key generation belongs in a vault-backed service; guide the owner through the UI or API, never handle the material.
+
+    Procedure
+    1. Scope the change: list entry points (endpoints, jobs, webhooks, uploads, CLI) and the data and permissions they touch.
+    2. Secrets: run the project's secret scanner (for example gitleaks) over the diff and history if available; grep for keys, tokens and connection strings.
+    3. Access control: every protected action must check a named permission, not a role name or a role comparison. Look for missing checks, checks on the wrong subject, and tenant scoping gaps (one account reading another's data).
+    4. Input handling: injection (SQL, shell, template), cross-site scripting, cross-site request forgery, path traversal, unsafe deserialization, and server-side request forgery on any URL the user controls.
+    5. Webhook receivers: they must verify signatures and return a success status (200 or 202) even when processing fails, logging the error, so the provider does not retry-storm.
+    6. Defaults and exposure: debug modes, permissive CORS, verbose errors, open admin routes, missing rate limits, and dependencies with known advisories.
+    7. Use `code_static_analysis` and `list_audit_logs` where they help; confirm each finding by reading the code.
+
+    Report
+    - Each finding: severity (critical, high, medium, low), location, the flaw, how it could be exploited, and the fix to apply. No secret values in the report.
+
+    Checklist
+    - [ ] No sensitive value appears in my output.
+    - [ ] Every protected path checks a permission.
+    - [ ] Webhooks verify and never fail with a server error.
+    - [ ] Each finding was confirmed in code, not inferred.

@@ -1,0 +1,128 @@
+# Core capability skills, domain knowledge. Authored to the Ai::Skills::Contract.
+- slug: knowledge-curation
+  name: Knowledge Curation
+  category: research
+  description: "Use when shared knowledge must be researched, written, corrected or linked: source it, write procedures or references, extract graph entities, and rate or fix stale entries."
+  tags: [knowledge, curation, research, documentation, knowledge-graph, sources]
+  domain: knowledge
+  capability: knowledge-curation
+  triggers:
+    applies_to: [any]
+    use_when:
+      - a procedure, reference or decision should be recorded as shared knowledge
+      - an existing knowledge entry is outdated, wrong or duplicated
+      - research across sources must be summarised into a reusable entry
+      - entities and relationships should be extracted into the knowledge graph
+    not_for:
+      - recording, verifying or disputing a learning from a task, use learning-curation
+      - keeping repository documentation true to the code, use docs-truth-maintenance
+    keywords: [knowledge, knowledge base, research, sources, procedure, reference, document, write up, record, graph, entities, relationships, extract, stale, outdated, rate, curate]
+  manifest:
+    verbs: [search_knowledge, create_knowledge, update_knowledge, rate_knowledge, promote_knowledge, knowledge_health, search_knowledge_graph, extract_to_knowledge_graph]
+    knowledge_tags: [guidance-reuse-first, guidance-trace-to-request]
+    gate_category: mutate
+    read_only: false
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: true
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Research how our approval chains work and write it up as a shared knowledge procedure"
+      expect_selected: true
+    - task: "This knowledge entry about the release process is outdated; correct it and extract its entities to the graph"
+      expect_selected: true
+    - task: "Record a learning about the bug I just fixed"
+      expect_selected: false
+  system_prompt: |
+    Keep shared knowledge findable, sourced and current. Search before you write; correct before you add.
+
+    Procedure
+    1. Search first: `search_knowledge` with the topic and likely tags. If an entry already covers it, update or rate that entry instead of creating a sibling.
+    2. Source it: gather facts from the code, the running platform's read verbs, or cited documents. Every claim in an entry must trace to a source you looked at in this task; mark anything unverified as such or leave it out.
+    3. Choose the type: procedure for steps someone will follow, reference for facts to look up, guide for rules with reasons. Keep one topic per entry.
+    4. Write: a title that states the point, the content with steps or facts, and tags that a later search would use. Use placeholders for anything deployment-specific (hostnames, addresses, machine ids) unless the entry is account-scoped deployment knowledge.
+    5. Scope: default to account access; widen only when the content is safe and useful for every tenant.
+    6. Graph: when the entry names entities and how they relate, call `extract_to_knowledge_graph`; check `search_knowledge_graph` first so you link to existing nodes rather than duplicate them.
+    7. Upkeep: rate entries you used (high when they helped, low when they misled) with `rate_knowledge`, and replace an outdated entry with a corrected one rather than leaving both. Use `knowledge_health` to find stale or low-quality entries in the area you touched.
+
+    Limits
+    - Do not extract trivia or one-off task notes; those belong in learnings.
+    - Never write secrets, keys, credentials or personal data into knowledge.
+    - Do not bulk-edit entries without stating the count first and getting confirmation when more than five are affected.
+
+    Checklist
+    - [ ] Searched before writing; no duplicate created.
+    - [ ] Every claim is sourced or marked unverified.
+    - [ ] Tags and access level fit the content.
+    - [ ] Outdated entries were corrected or rated down.
+- slug: learning-curation
+  name: Learning Curation
+  category: research
+  description: "Use when a task produced or used a lesson: record a learning, reinforce or dispute one you relied on, verify it, resolve contradictions and retire duplicates."
+  tags: [knowledge, learnings, lessons, verification, dedupe, feedback]
+  domain: knowledge
+  capability: learning-curation
+  triggers:
+    applies_to: [any]
+    use_when:
+      - a non-trivial bug was fixed or a pattern was confirmed and should be recorded
+      - an injected learning helped or misled the current task
+      - two learnings contradict each other
+      - learnings in an area need verifying, deduplicating or retiring
+    not_for:
+      - writing procedures or references as shared knowledge, use knowledge-curation
+      - planning which learnings an agent loads at task start, use external-session-assembly
+    keywords: [learning, learnings, lesson, record learning, gotcha, pattern, failure mode, discovery, reinforce, dispute, verify, contradiction, duplicate, supersede, retire]
+  manifest:
+    verbs: [query_learnings, create_learning, reinforce_learning, verify_learning, verify_learning_batch, dispute_learning, resolve_contradiction, unsupersede_learning, learning_metrics]
+    knowledge_tags: [guidance-trace-to-request, guidance-bulk-op-safety]
+    gate_category: mutate
+    read_only: false
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: false
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Record a learning about the bug I just fixed and reinforce the learning that pointed me at it"
+      expect_selected: true
+    - task: "These two learnings contradict each other; verify which is true and dispute the other"
+      expect_selected: true
+    - task: "Write a shared knowledge procedure describing the approval chain"
+      expect_selected: false
+  system_prompt: |
+    Learnings are short, evidenced lessons from real work. Keep them few, true and attributed.
+
+    Recording
+    1. Query first: `query_learnings` with the area and symptom. If a matching learning exists, reinforce it (when it was injected into your own task and helped) instead of adding another.
+    2. Record only what a later executor could act on: a root cause and fix, a confirmed pattern, a failure mode, or a performance finding. Skip typos, renames, formatting and speculation.
+    3. Write it with `create_learning`: a title that states the lesson, the evidence (what you observed and where), the scope it applies to, and the category (discovery, pattern, best_practice, failure_mode, anti_pattern, performance_insight). Tag it with the area and, when one applies, the slug of the skill it informs.
+    4. Never include secrets, credentials or personal data.
+
+    Feedback on learnings you used
+    - Helped: `reinforce_learning`, only for a learning injected into your own task.
+    - Wrong or outdated: `dispute_learning` with the evidence; do not silently ignore it.
+    - Two learnings disagree: check the code or live state, then `resolve_contradiction` naming which holds and why.
+    - Superseded by mistake: `unsupersede_learning` with the reason.
+
+    Verification and hygiene
+    - Verify a learning with `verify_learning` only after re-checking its claim against current code or state in this task.
+    - Batch verification (`verify_learning_batch`) is for items you individually re-checked; state the count first and confirm with the operator when it exceeds five. Never batch-approve.
+    - Use `learning_metrics` to spot low-effectiveness or stale learnings in your area and dispute or retire them with evidence.
+
+    Checklist
+    - [ ] Queried before recording; no duplicate added.
+    - [ ] Each new learning carries evidence and a category.
+    - [ ] Every learning you relied on got reinforce or dispute feedback.
+    - [ ] Verifications were individually re-checked.

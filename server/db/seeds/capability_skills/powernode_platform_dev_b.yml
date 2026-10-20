@@ -1,0 +1,250 @@
+# Powernode-platform-dev capability skills: the repo-specific procedures that
+# refine the generic software-engineering skills. May name Powernode scripts.
+- slug: campaign-increment-protocol
+  name: Campaign Increment Protocol
+  category: code_intelligence
+  description: "Use when driving a Powernode campaign: claiming the driver lease, executing one increment test-first on the campaign branch, recording it and parking questions."
+  tags: [campaign, increment, dev-loop, autonomy, powernode]
+  domain: powernode-platform-dev
+  capability: campaign-increment-protocol
+  triggers:
+    applies_to: [powernode-platform]
+    stages: [plan, build]
+    use_when:
+      - executing the next increment of a Powernode campaign
+      - claiming or releasing a campaign's driver lease
+      - recording a finished campaign increment
+      - parking a blocking question on a campaign
+      - checking whether a campaign branch needs a rebase onto develop
+    not_for:
+      - writing the plan or breakdown for new work — use planning-and-decomposition
+      - running several campaign tasks at once — use powernode-concurrent-tasks
+      - landing a release on master — use release-promotion
+    keywords: [campaign, increment, lease, driver, claim, record, park, question, decision, authority, rebase, branch, stage, autodev]
+  manifest:
+    verbs: [campaign_status, campaign_claim, campaign_release, campaign_record_increment, campaign_answer_question, campaign_check_rebase, campaign_list_proposals, dev_next_task, dev_complete_task, search_knowledge, query_learnings, create_learning]
+    knowledge_tags: [guidance-autonomous-campaigns, guidance-verification-gate, guidance-git-conventions, guidance-submodule-safety]
+    gate_category: mutate
+    read_only: false
+  hints: {min_tier: standard, effort: high, long_context: true, tool_heavy: true, safety_critical: false}
+  relations: {requires: [], composes: [], refines: []}
+  evals:
+    - {task: "Execute the next increment of the campaign and record it", expect_selected: true, project_kind: powernode-platform}
+    - {task: "Claim the campaign driver lease and resume the campaign branch", expect_selected: true, project_kind: powernode-platform}
+    - {task: "Plan the rollout of a mobile app feature", expect_selected: false}
+  system_prompt: |
+    Drive one campaign increment end to end, inside the campaign's decision authority, and leave a record the operator can review.
+
+    ## Start
+    1. campaign_status: read scope, posture, decision authority, stop conditions, open parked questions and the increment spec.
+    2. campaign_claim before driving. If another driver holds the lease, back off; never double-drive the campaign/<id> branch.
+    3. Check the branch: `git rev-parse --show-toplevel` and `git branch --show-current` in core AND in each touched submodule. Run campaign_check_rebase; forward-merge develop when behind.
+    4. Recall: search_knowledge tags guidance-*, query_learnings for the area, and the increment's referenced design. Reuse before building.
+
+    ## Execute (one increment per run)
+    1. State assumptions. Ambiguity above your authority (live credential, irreversible external action, business-policy value) is parked as a question, not guessed; continue other in-scope work or stop cleanly.
+    2. Outline files and data flow for multi-file work before writing.
+    3. Red first: write the failing spec, run it on the isolated test lane, see it fail for the right reason.
+    4. Make the minimal change that turns it green; revert anything that does not trace to the increment.
+    5. Core never names an extension; extension work commits inside the submodule first, then the parent bumps the pointer.
+    6. Run the targeted gate: related specs, `ruby -c`/`bash -n`, tsc for TS, and `scripts/pattern-validation.sh` from the repo root. Add no new hits.
+    7. After 3 failed attempts at the same fix, stop and report.
+
+    ## Commit and record
+    - Stage-only: commit on the campaign branch only when the operator or campaign posture asks; never push or land without being told.
+    - Staged commits by concern; no AI attribution in messages.
+    - Hand the diff to an independent reviewer before it is considered done.
+    - campaign_record_increment with the task key, outcome, files and evidence (red and green counts reported separately).
+    - create_learning for any reusable discovery.
+    - campaign_release when you stop driving.
+
+    ## Never
+    - Batch-approve offers, permission grants or auto-discovered changes.
+    - Run `git submodule sync` on public submodules.
+    - Touch the shared 5432 test databases or the dev database from a test.
+- slug: powernode-worktree-lifecycle
+  name: Powernode Worktree Lanes
+  category: devops
+  description: "Use when creating, auditing or removing Powernode worktrees with scripts/wt.sh and prepare-worktree.sh: lanes, isolated test DBs, extension worktrees and safe teardown."
+  tags: [worktree, wt.sh, lanes, powernode, cleanup, isolation]
+  domain: powernode-platform-dev
+  capability: powernode-worktree-lifecycle
+  triggers:
+    applies_to: [powernode-platform]
+    stages: [build, test]
+    use_when:
+      - creating a Powernode worktree for a dev-improve task
+      - cleaning up merged Powernode worktrees
+      - auditing worktrees, lanes and their liveness
+      - preparing a worktree with an isolated test database or tmpfs Postgres
+    not_for:
+      - a non-Powernode project — use worktree-lifecycle
+      - running several dev-loop tasks at once — use powernode-concurrent-tasks
+      - running the rspec suite in parallel — use powernode-parallel-rspec
+    keywords: [worktree, worktrees, wt.sh, prepare-worktree, lane, lanes, ledger, audit, remove, cleanup, merged, strand, tmpfs, WORKTREE_MAX]
+  manifest:
+    verbs: [dev_list_tasks]
+    knowledge_tags: [guidance-git-conventions, guidance-submodule-safety]
+    gate_category: mutate
+    read_only: false
+  hints: {min_tier: standard, effort: medium, long_context: false, tool_heavy: true, safety_critical: true}
+  relations: {requires: [], composes: [], refines: [worktree-lifecycle]}
+  evals:
+    - {task: "Clean up merged worktrees", expect_selected: true, project_kind: powernode-platform}
+    - {task: "My branch is merged; tidy away its checkout and test lane without losing anything", expect_selected: true, project_kind: powernode-platform}
+    - {task: "Create a worktree for the next dev-improve task with its own test database", expect_selected: true, project_kind: powernode-platform}
+    - {task: "Remove finished worktrees in a customer's repo without losing unmerged work", expect_selected: false}
+  system_prompt: |
+    Use the repo's worktree tooling; it already enforces the never-lose-work rules. Do not hand-roll git worktree commands for task lanes.
+
+    ## Create
+    1. `scripts/wt.sh create <key> [--base <ref>]` makes <root>/<key> on branch <key> off origin/<base> (default develop). It reserves the lowest free Redis lane from the locked ledger, symlinks the bundle, copies bundle config, prepares the isolated test DB (`powernode_test<suffix>`; `--no-db` skips it) and switches branch <key> in every public extension worktree.
+    2. It calls `scripts/prepare-worktree.sh`, which checks extensions out from the local object store (never `git submodule sync`/`update`), copies files-only private extensions, links gitignored configs and node_modules, and writes `server/.env.test.local` with a unique TEST_ENV_NUMBER and the lane.
+    3. Add `--tmpfs-pg` to prepare-worktree.sh (or TEST_PG_TMPFS=1) to route the test DB to the tmpfs cluster; start it first with `scripts/test-pg-tmpfs.sh start`.
+    4. WORKTREE_MAX (default 4) caps active worktrees; raise it only for a deliberate fan-out. Lanes run out at WT_MAX_LANE; free one with `wt.sh audit` + remove.
+
+    ## Work
+    - Extensions land detached at the pinned commit; branch them before committing.
+    - Commit inside each submodule first, then bump the pointer in the parent. Never commit extension files from the parent.
+
+    ## Audit
+    `scripts/wt.sh audit` lists each worktree's branch, lane, ledger state, live processes inside it, and ahead counts for core and each extension against origin/develop. Read it before removing anything.
+
+    ## Remove
+    `scripts/wt.sh remove <path>` refuses while:
+    - any commit in core or a nested extension worktree is not on origin/develop at patch level (git cherry);
+    - another process has its cwd inside the tree (the caller's own chain is ignored);
+    - there is uncommitted or untracked work in core, a nested extension worktree, or a files-only private copy that differs from main.
+    On success it drops the lane's test DB by name (only an isolated lane DB nobody else uses), removes the worktrees, releases the lane and deletes merged branches.
+
+    ## Overrides — only with a stated reason
+    - `--strand-ok`: removes anyway but pins every head under refs/keep/<worktree>/<time> and keeps the branches.
+    - `--discard-dirty` / `--busy-ok`: only after you have inspected the dirty files or the live processes and confirmed they are disposable. Check liveness with `scripts/check-worktree-liveness.sh <path>`.
+
+    ## Caution
+    A known defect in wt.sh's audit/remove path is open. Before trusting a "clean" verdict on a worktree that matters, confirm by hand: `git -C <wt> cherry origin/develop HEAD`, `git -C <wt> status --porcelain`, and the same in each extension worktree.
+
+    ## Bulk cleanup
+    State the count first; more than 5 worktrees needs explicit confirmation (show the first 3 and the last 1). Remove one at a time and read each refusal.
+- slug: powernode-concurrent-tasks
+  name: Powernode Parallel Dev-Loop
+  category: devops
+  description: "Use when running several Powernode dev-loop or campaign tasks at once: max_concurrent_claims, the file-collision guard, one executor per worktree, liveness and ordered merge-back."
+  tags: [dev-loop, concurrency, parallel, claims, campaign, powernode]
+  domain: powernode-platform-dev
+  capability: powernode-concurrent-tasks
+  triggers:
+    applies_to: [powernode-platform]
+    stages: [build, test]
+    use_when:
+      - running the dev-loop with several tasks in parallel
+      - raising max_concurrent_claims on a dev-improve or campaign loop
+      - checking whether a parallel dev-loop executor is stalled
+      - merging several finished dev-loop task branches back
+    not_for:
+      - a non-Powernode project — use concurrent-task-orchestration
+      - creating or removing the worktrees themselves — use powernode-worktree-lifecycle
+      - running the rspec suite in parallel — use powernode-parallel-rspec
+      - working one dev-loop task end to end — use dev-loop-execution
+    keywords: [dev-loop, parallel, concurrent, tasks, claims, max_concurrent_claims, collision, dev-improve, executors, drain, liveness, watchdog, stalled, merge]
+  manifest:
+    verbs: [dev_next_task, dev_complete_task, dev_list_tasks, dev_update_task, dev_requeue_task, get_ralph_loop, update_ralph_loop, kill_switch_status, emergency_halt]
+    knowledge_tags: [guidance-autonomous-campaigns, guidance-bulk-op-safety, guidance-verification-gate]
+    gate_category: mutate
+    read_only: false
+  hints: {min_tier: reasoning, effort: high, long_context: true, tool_heavy: true, safety_critical: false}
+  relations: {requires: [powernode-worktree-lifecycle], composes: [], refines: [concurrent-task-orchestration]}
+  evals:
+    - {task: "Run the dev-loop with 4 tasks in parallel", expect_selected: true, project_kind: powernode-platform}
+    - {task: "Raise max_concurrent_claims on the dev-improve loop and drain several tasks at once", expect_selected: true, project_kind: powernode-platform}
+    - {task: "Have three agents work on separate features of a customer's app at the same time", expect_selected: false, project_kind: software}
+  system_prompt: |
+    Parallel dev-loop drains are safe only when the claim guards, the worktrees and the review all hold.
+
+    ## Configure the loop
+    1. get_ralph_loop: read `max_concurrent_claims` (default 1). update_ralph_loop sets it; the ceiling is 4 and values outside 1..4 are refused.
+    2. Above 1, dev_next_task refuses a task whose `metadata.files` intersect another in-flight claim, and treats a task with no files as colliding. Make sure seeded tasks declare their files. Two tasks touching the same private extension collide even when their files differ.
+    3. A "max_concurrent_claims_reached" or "file_collision" reply is a stop signal for that slot, not an error to retry around.
+
+    ## Fan out
+    - One executor per worktree, one worktree per claimed task (`scripts/wt.sh create <key>`); never two executors in one tree.
+    - Pass each executor its task key and holder; it claims by name, never takes the queue head for another executor.
+    - Stagger DB-heavy setup. `prepare-extension-test-db.sh` serializes disk-heavy steps across worktrees with a global lock; still start them a few at a time.
+    - Each worktree has its own test DB and Redis lane; use the tmpfs lane for test runs.
+
+    ## Watch (per docs/contributing/conventions/autonomous-campaigns.md)
+    - Watchdog on a cadence: check commits, logs and processes, not idle notifications.
+    - Before replacing a stalled executor, run `scripts/check-worktree-liveness.sh <worktree>`: exit 0 clear, 1 own-session activity, 2 foreign or unknown activity (review before acting).
+    - One owner, ever: send an explicit stand-down to a displaced executor.
+    - Honour kill_switch_status and emergency_halt immediately.
+
+    ## Finish
+    1. Each task: targeted specs + `scripts/pattern-validation.sh` from the repo root, then an independent review of that task alone before commit.
+    2. dev_complete_task per task with its own evidence; never batch-complete or batch-approve.
+    3. Merge task branches back in dependency order, one at a time; re-run the next task's specs after each merge.
+    4. Remove each worktree with `scripts/wt.sh remove` once merged.
+    5. Return max_concurrent_claims to 1 when the parallel drain ends.
+- slug: powernode-parallel-rspec
+  name: Powernode Parallel RSpec
+  category: testing_qa
+  description: "Use when running Powernode's rspec suite fast or on an isolated lane: parallel-rspec.sh sizing, tmpfs Postgres, the test Redis lanes and the never-5432 rule."
+  tags: [rspec, parallel, tmpfs, redis, lanes, powernode, testing]
+  domain: powernode-platform-dev
+  capability: powernode-parallel-rspec
+  triggers:
+    applies_to: [powernode-platform]
+    stages: [test]
+    use_when:
+      - running the full Powernode suite fast
+      - running targeted specs on an isolated tmpfs test lane
+      - sizing a parallel rspec run and reading its limiting factor
+      - preparing lane test databases for parallel runs
+    not_for:
+      - a non-Powernode project — use parallel-testing
+      - writing the specs themselves — use test-authoring
+      - running several dev-loop tasks at once — use powernode-concurrent-tasks
+      - creating or preparing the worktree itself — use powernode-worktree-lifecycle
+    keywords: [rspec, suite, full, fast, parallel, tmpfs, postgres, redis, lane, lanes, "5433", parallel-rspec, specs, serial, tail]
+  manifest:
+    verbs: []
+    knowledge_tags: [guidance-testing-patterns, guidance-verification-gate]
+    gate_category: mutate
+    read_only: false
+  hints: {min_tier: standard, effort: medium, long_context: false, tool_heavy: true, safety_critical: false}
+  relations: {requires: [], composes: [], refines: [parallel-testing]}
+  evals:
+    - {task: "Run the full suite fast", expect_selected: true, project_kind: powernode-platform}
+    - {task: "The Powernode spec run takes forever; split it across workers on the RAM database", expect_selected: true, project_kind: powernode-platform}
+    - {task: "Run these rspec files on the isolated tmpfs lane", expect_selected: true, project_kind: powernode-platform}
+    - {task: "Speed up a customer's Jest test suite by running it in parallel", expect_selected: false}
+  system_prompt: |
+    Test only on the throwaway infrastructure built for it; never on the shared cluster.
+
+    ## Rules
+    - Never run specs against the shared 5432 cluster's lane databases or the dev database.
+    - Before any run, check for another rspec: `pgrep -af '[b]in/rspec'` (the bracket keeps the check from matching itself). One writer per lane.
+    - Mid-task, run targeted spec files. Save the full suite for the gate.
+
+    ## Infrastructure
+    1. `scripts/test-pg-tmpfs.sh status|start` — RAM-backed, crash-unsafe test cluster (default port 5433; 5432 is refused). Lost on reboot; rebuildable only.
+    2. `scripts/test-redis.sh status|start` — dedicated test Redis (default port 6380, 64 databases, no persistence); the shared daemon is never touched.
+    3. Lane DBs: `DATABASE_PORT=5433 scripts/prepare-extension-test-db.sh --lanes "__p1 __p2"` clones one golden DB per lane (tmpfs cluster only); re-run after schema changes.
+
+    ## Targeted run on one lane
+    From server/: `DATABASE_PORT=5433 TEST_ENV_NUMBER=<lane> TEST_REDIS_PORT=6380 TEST_REDIS_DATABASES=64 TEST_REDIS_LANE=<n> bundle exec rspec <files>`.
+
+    ## Full suite fast
+    1. `DATABASE_PORT=5433 scripts/parallel-rspec.sh --check` prints the plan: N, its limiting factor, the lane prefix and the Redis range. Change nothing yet.
+    2. N = min(cores, memory, free Redis lanes, Postgres connection headroom), read live. Memory uses measured per-process RSS plus a reserve; override with PARALLEL_RSS_MB, PARALLEL_MEM_RESERVE_MB, PARALLEL_PG_CONNS, or force -n N (still capped by free lanes).
+    3. `--dry-run` prints the commands. Then run it; with no paths it covers server/spec plus the public extensions' specs.
+    4. Files are balanced by recorded runtimes. Specs listed in `scripts/parallel-serial-tail.txt` run afterwards in one process on lane 1; `--no-tail` skips them for measurement only. Exit is non-zero if either phase failed.
+
+    ## Lanes and sharing
+    - The main checkout uses prefix `__p`; any other worktree `__w<6 hex>p`; PARALLEL_LANE_PREFIX accepts only those shapes. One prefix runs at a time.
+    - Redis lanes are claimed from a ledger in the test Redis dir and released on exit; a concurrent run is sized to the lanes still free and refuses at 0.
+
+    ## Known limit
+    N does not yet account for current machine load from other work; check load first and pass a smaller -n when the host is busy.
+
+    ## Reading failures
+    A spec that fails only in parallel is shared state; fix the isolation, do not rerun it green. Report red and green counts.

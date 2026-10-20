@@ -1,0 +1,471 @@
+# Core capability skills — domain: powernode-platform-dev (part A).
+# Powernode-specific: these may name Powernode paths, scripts and CLAUDE.md rules.
+# Procedure and checklists only; no deployment-local facts, counts or ids.
+
+- slug: dev-loop-execution
+  name: Dev-Loop Task Execution
+  category: code_intelligence
+  description: 'Use when working one claimed dev-improve or campaign task end to end: re-verify the claim, red spec first, minimal fix, verify, commit on the loop branch, report.'
+  tags:
+  - dev-loop
+  - ralph-loop
+  - dev-improve
+  - task-execution
+  - finding-routing
+  domain: powernode-platform-dev
+  capability: dev-loop-execution
+  triggers:
+    use_when:
+    - a dev-improve or campaign loop task has been claimed and must be driven to a reported outcome
+    - a dev-loop finding must be routed as an improvement, an issue or an escalation
+    - a claimed task needs its finding re-verified against current code before any change
+    - a task outcome (passed, failed, blocked, skipped) must be reported with evidence
+    not_for:
+    - writing or shaping the failing spec itself — use test-authoring
+    - running several loop tasks at once across worktrees — use powernode-concurrent-tasks
+    - creating, auditing or removing the worktree — use powernode-worktree-lifecycle
+    - a campaign increment's proposal, approval and merge protocol — use campaign-increment-protocol
+    keywords:
+    - dev-loop
+    - dev-improve
+    - task
+    - claim
+    - finding
+    - improvement
+    - issue
+    - escalate
+    - outcome
+    - loop branch
+    - commit
+    - red first
+    - migration
+    - spec
+    - fix
+    - report
+    applies_to:
+    - powernode-platform
+    stages:
+    - build
+    - test
+  manifest:
+    verbs:
+    - dev_next_task
+    - dev_complete_task
+    - dev_update_task
+    - dev_list_tasks
+    - query_learnings
+    - code_file_skeleton
+    - code_blast_radius
+    - create_improvement
+    - report_issue
+    - escalate
+    - create_learning
+    knowledge_tags:
+    - guidance-dev-loop-verification
+    - guidance-verification-gate
+    - guidance-trace-to-request
+    - guidance-git-conventions
+    - guidance-submodule-safety
+    gate_category: mutate
+    read_only: false
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: false
+    tool_heavy: true
+    safety_critical: false
+  relations:
+    requires:
+    - test-authoring
+    composes: []
+    refines: []
+  evals:
+  - task: Work a dev-improve task that adds a migration and a spec
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: 'Route a dev-loop finding: improvement, issue or escalate'
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: Claim the next dev-improve task, fix it red-first and report the outcome
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: Clean up merged worktrees after the drain
+    expect_selected: false
+  - task: Set up CI for a customer's Node app
+    expect_selected: false
+  system_prompt: |
+    # Dev-loop task execution
+
+    ## Before you change anything
+    1. Hold exactly one claimed task. If `dev_next_task` returned `halted` or `queue_empty`, report that and stop.
+    2. Read the task: key, acceptance criteria, `metadata.files`, `metadata.repro`, loop guardrails. `reclaimed: true` means resume: inspect the worktree and loop branch for partial work first.
+    3. Re-verify the claim against current code. Findings rot.
+       - `query_learnings` for the area; `code_file_skeleton` / `code_blast_radius` on the named files; read only the relevant sections.
+       - Never run a mutating repro against a live database; reproduce inside a spec on the test DB.
+       - Claim no longer holds → report `passed` with the evidence that it is already resolved. Do not invent work.
+
+    ## Do the work
+    4. Confirm the repo before any git step: `git rev-parse --show-toplevel`. Work on the loop branch named by the loop, never on develop or master.
+    5. Red first: write the failing spec that reproduces the finding, run it, and confirm it fails for the stated reason.
+    6. Minimal fix that traces to the acceptance criteria. No adjacent improvements, no placeholders. Changes touching 3+ files: outline files and data flow first.
+    7. Verify: the new spec green, the nearest existing spec file for touched code green, `npx tsc --noEmit` when frontend files changed, Ruby syntax on touched `.rb` files. Targeted specs only, never the full suite mid-loop.
+
+    ## Commit (only when the loop or operator asks for commits)
+    - One commit per passed task, message `fix(<area>): <task_key> <summary>`.
+    - Extension files: commit inside the submodule first; stage specific paths, never `git add -A`; no pointer bump mid-loop.
+    - Never push. No AI attribution lines.
+    - When acceptance criteria require independent review, stop before committing and hand the diff to the driver for review; never self-review.
+
+    ## Route findings you discover on the way
+    - In scope of this task → fix it here.
+    - Real but out of scope, code-level and actionable → `create_improvement` with file, symptom and suggested check.
+    - A defect that needs an owner decision or affects users → `report_issue`.
+    - Architecture fork, permission or policy question, or a decision only the operator can make → `escalate` (or report `blocked` with the options laid out). Never guess an operator decision.
+
+    ## Report
+    Call `dev_complete_task` with: `outcome` (passed | failed | blocked | skipped), `summary` written for the operator, `check_results` (spec files and results), `files_changed`, `git_branch`, `commit_sha` for a pass, `learnings_used` (ids you actually applied), and one `learning` only if the task taught something non-obvious.
+
+    ## Stop rules
+    - 3 failed attempts at the same fix → report `failed` with what was tried. No fourth approach.
+    - Scope expansion or genuine design fork → report `blocked`.
+    - Kill switch or halt at any point → stop, change nothing more, report where the task was left.
+- slug: rails-backend-conventions
+  name: Rails API Backend Conventions
+  category: database_ops
+  description: 'Use when changing Rails API code in server/: models, migrations, services, controllers, seeds, permissions and the server/worker boundary.'
+  tags:
+  - rails
+  - backend
+  - migrations
+  - models
+  - services
+  - controllers
+  - seeds
+  - database
+  domain: powernode-platform-dev
+  capability: rails-backend-conventions
+  triggers:
+    use_when:
+    - "adding a column, a default value or an index to an existing model's table"
+    - adding or changing a model, association or migration in the Rails API
+    - writing a service, controller or MCP tool action on the server
+    - changing seeds, UUID primary keys, JSON column defaults or indexes
+    - a permission check or the server/worker boundary is involved
+    not_for:
+    - React or TypeScript changes in frontend/ — use frontend-conventions
+    - code that must live inside an extension or cross its boundary — use extension-development
+    - the failing spec for the change — use test-authoring
+    keywords:
+    - rails
+    - backend
+    - server
+    - model
+    - migration
+    - schema
+    - service
+    - controller
+    - seed
+    - uuid
+    - association
+    - index
+    - permission
+    - database
+    - activerecord
+    - json column
+    - add a migration
+    - dev-improve
+    applies_to:
+    - powernode-platform
+    stages:
+    - build
+  manifest:
+    verbs:
+    - code_semantic_search
+    - code_blast_radius
+    - code_file_skeleton
+    - search_knowledge_graph
+    - query_learnings
+    - migration_status
+    knowledge_tags:
+    - guidance-backend-patterns
+    - guidance-migrations-and-seeds
+    - guidance-permissions-not-roles
+    - guidance-service-boundaries
+    - guidance-reuse-first
+    gate_category: read
+    read_only: true
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: false
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+  - task: Add a migration and a new model association in the Rails API
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: Add a new Rails service and controller endpoint with a permission check
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: Add a JSON column with a default to an existing model
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: Fix a hardcoded color in a React page
+    expect_selected: false
+  - task: Add a model and migration to a customer's Django app
+    expect_selected: false
+    project_kind: software
+  system_prompt: |
+    # Rails API backend conventions
+
+    ## Before writing
+    1. Reuse first: `code_semantic_search` for an existing service, concern or registry seam; `search_knowledge_graph` for the entity relationships; `query_learnings` for gotchas in the area.
+    2. `code_blast_radius` before renaming or moving any shared symbol.
+    3. Changes touching 3+ files: outline the files and data flow and get approval first.
+
+    ## Models and migrations
+    - Every table: `id: :uuid` with the `uuidv7()` default; Ruby-side ids via `UUID7.generate`, never `SecureRandom.uuid`.
+    - `t.references` already creates the index; customise it inline (`index: { unique: true }`), never a separate `add_index` for a reference column.
+    - Namespaced associations pair `class_name: "Ai::Thing"` with `foreign_key: "ai_thing_id"` (namespace prefix on the FK).
+    - JSON attributes use lambda defaults: `default: -> { {} }`.
+    - Regenerate `schema.rb` in core mode only; it must contain only core and public extension tables.
+    - Iterating associations: `.includes(...)` — no bare `.all` followed by relation access.
+    - A deploy that must stay migration-free: use existing columns or metadata and confirm the fields exist first.
+
+    ## Services and controllers
+    - `# frozen_string_literal: true` in every Ruby file; `Rails.logger` only.
+    - Controllers in `Api::V1`, inherit ApplicationController, respond with `render_success` / `render_error`, stay under the size limit by moving query logic to services.
+    - Permissions: `current_user.has_permission?('name')`; never `permissions.include?` and never roles.
+    - Cross-namespace calls go through a service interface, not another namespace's models.
+    - Inbound webhooks return 200/202 on processing errors, never 500.
+    - Never create job classes in `server/app/jobs/` and never add Sidekiq to the server Gemfile; background work goes to the worker over the HTTP API.
+
+    ## Seeds
+    - `db/seeds.rb` is an orchestrator; a new core seed file needs an explicit load line there.
+    - Idempotent: complete on the first run, a no-op on the second; upsert on a stable natural key; version and counter columns create-only.
+    - One writer at a time against a database.
+
+    ## Verify
+    - Ruby syntax on touched files; the related spec green; `migration_status` when migrations changed.
+    - Run `scripts/validate.sh` or its targeted subset before reporting done.
+
+    ## Stop rules
+    - A change would make core depend on an extension → stop and route it through a seam.
+    - 3 failed attempts at the same fix → stop and ask.
+- slug: frontend-conventions
+  name: React Frontend Conventions
+  category: code_intelligence
+  description: 'Use when changing the React TypeScript frontend: pages, components, hooks, theme classes, permission checks, imports, logging and tsc.'
+  tags:
+  - react
+  - typescript
+  - frontend
+  - ui
+  - theme
+  - components
+  domain: powernode-platform-dev
+  capability: frontend-conventions
+  triggers:
+    use_when:
+    - "adding a React page, component or button that is shown only with a permission"
+    - adding or changing a React page, component or hook in frontend/
+    - styling with theme classes or fixing a hardcoded color
+    - gating UI on a permission
+    - fixing TypeScript errors, any types, console logging or import paths
+    not_for:
+    - Rails API or database changes — use rails-backend-conventions
+    - mounting extension UI into core slots — use extension-development
+    - writing the component test itself — use test-authoring
+    keywords:
+    - react
+    - typescript
+    - frontend
+    - component
+    - page
+    - hook
+    - theme
+    - tailwind
+    - tsc
+    - ui
+    - permission
+    - import alias
+    - navigation
+    - notification
+    - jsx
+    applies_to:
+    - powernode-platform
+    stages:
+    - build
+  manifest:
+    verbs:
+    - code_semantic_search
+    - code_file_skeleton
+    - query_learnings
+    - search_knowledge
+    knowledge_tags:
+    - guidance-frontend-patterns
+    - guidance-permissions-not-roles
+    gate_category: read
+    read_only: true
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: false
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+  - task: Add a new React page with a permission-gated action button
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: Replace hardcoded Tailwind colors with theme classes and fix tsc errors
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: Add a migration for a new backend table
+    expect_selected: false
+  - task: Build a landing page for a customer's marketing website
+    expect_selected: false
+  system_prompt: |
+    # React frontend conventions
+
+    ## Before writing
+    1. `code_semantic_search` for an existing component, hook or shared primitive; reuse before creating.
+    2. `query_learnings` for the feature area (state, forms, data fetching patterns).
+    3. Check the shared UI primitives before adding a local one.
+
+    ## Rules
+    - Access control by permissions only: `currentUser?.permissions?.includes('x.y')`. Never roles, never `user.role`.
+    - Theme classes only (`bg-theme-*`, `text-theme-*`); no hardcoded colors.
+    - Page actions live in the PageContainer, not inside page content.
+    - Flat navigation: no submenus.
+    - Global notifications only; no local success or error banners.
+    - Cross-feature imports through `@/shared/` and `@/features/`; no deep relative imports.
+    - No `console.log`: use the shared logger. No `any`: type it properly.
+    - New interactive elements get a `data-testid`.
+    - Extension UI is mounted through the feature registry, never imported directly into core.
+
+    ## Steps
+    1. Make the minimal change that traces to the request.
+    2. Run `cd frontend && npx tsc --noEmit` after any TypeScript change; fix every new error.
+    3. Run the related Jest test with `CI=true npm test -- <path>`; add one when behaviour changed.
+    4. Check the edit-time hook warnings (color, any, console, permission) and resolve them rather than baselining them.
+
+    ## Checklist before reporting
+    - [ ] tsc clean
+    - [ ] related test green
+    - [ ] no role-based checks, hardcoded colors, `any` or `console.log` introduced
+    - [ ] permissions used match ones the backend actually enforces
+
+    ## Stop rules
+    - 3 failed attempts at the same fix → stop and ask.
+- slug: extension-development
+  name: Extension Boundary Development
+  category: code_intelligence
+  description: 'Use when building inside an extension under extensions/ or touching the core/extension seam: registries, seeds, submodule commits, purity.'
+  tags:
+  - extensions
+  - submodules
+  - core-purity
+  - seams
+  - engine
+  domain: powernode-platform-dev
+  capability: extension-development
+  triggers:
+    use_when:
+    - adding models, tables, permissions, seeds or tools inside an extension
+    - core needs a capability that an extension provides, so a generic seam is required
+    - committing changes that span the core repo and an extension submodule
+    - a core purity or extension isolation check fails
+    not_for:
+    - ordinary Rails API changes inside core — use rails-backend-conventions
+    - ordinary React changes inside core — use frontend-conventions
+    - releasing or bumping published versions — use release-promotion
+    keywords:
+    - extension
+    - submodule
+    - engine
+    - seam
+    - registry
+    - core purity
+    - isolation
+    - pointer bump
+    - core mode
+    - table prefix
+    - register
+    - plugin
+    applies_to:
+    - powernode-platform
+    stages:
+    - build
+  manifest:
+    verbs:
+    - code_blast_radius
+    - code_semantic_search
+    - code_context_tree
+    - search_knowledge
+    knowledge_tags:
+    - guidance-extension-isolation
+    - guidance-extension-db-contributions
+    - guidance-submodule-safety
+    - guidance-architecture-invariants
+    gate_category: read
+    read_only: true
+  hints:
+    min_tier: standard
+    effort: high
+    long_context: false
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+  - task: Add a seed and a permission to an extension without core depending on it
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: Commit a change that spans core and an extension submodule
+    expect_selected: true
+    project_kind: powernode-platform
+  - task: Fix a role check in a frontend page
+    expect_selected: false
+  - task: Write a WordPress plugin for a customer site
+    expect_selected: false
+  system_prompt: |
+    # Extension boundary development
+
+    ## The invariant
+    Core never depends on an extension: no extension namespace, path or import alias in core source, seeds or prompts. Extensions depend on core. One extension never references another.
+
+    ## Before writing
+    1. Decide the owner: the repo that owns the capability owns the code, seeds, verbs and agents. Core-mode installs must still work without it.
+    2. `code_semantic_search` for an existing core seam (registries for permissions, roles, audit actions, skill domains and categories, tools, seeds, frontend slots, bridges).
+    3. No seam fits → design a generic one in core that names no extension, and let the extension register into it at boot.
+
+    ## Inside the extension
+    - Tables carry the extension's table prefix; migrations live in the extension's `server/db/migrate/` in its band.
+    - Permissions, roles and audit tokens are registered from the engine, prefixed with the extension's namespace.
+    - Seeds run from the extension's seed orchestrator, are idempotent, and are listed explicitly (no globbing of smoke or example files).
+    - Frontend pages mount through the feature registry and are gated on the extension being present.
+
+    ## Commits
+    1. Survey both: `git status` in core and `git -C extensions/<name> status`.
+    2. Before every add or commit: `git rev-parse --show-toplevel` and `git branch --show-current`.
+    3. Commit inside the submodule first, then bump the pointer in core as a separate commit.
+    4. Never commit extension files from the parent. Never run `git submodule sync` on the public submodules.
+
+    ## Verify both modes
+    - Extension specs run from core `server/` with a relative path to the extension spec.
+    - Core purity hook and `scripts/pattern-validation.sh` extension-isolation check stay clean (no new baseline entries).
+    - Seeds, zeitwerk and permission checks pass with the extension enabled and absent.
+
+    ## Stop rules
+    - The only working shape makes core name the extension → stop and ask for a seam decision.
+    - 3 failed attempts → stop and ask.

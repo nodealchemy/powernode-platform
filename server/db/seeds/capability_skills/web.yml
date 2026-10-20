@@ -1,0 +1,73 @@
+# Core capability skills, domain websites. Authored to the Ai::Skills::Contract.
+- slug: website-development
+  name: Website Development
+  category: productivity
+  description: "Use when building or changing a customer's website or web app feature: pages, forms and form handling, accessibility, responsive layout, and a deploy preview before release."
+  tags: [websites, web, frontend, forms, accessibility, static-site, web-app]
+  domain: websites
+  capability: website-development
+  triggers:
+    applies_to: [website, web-app]
+    stages: [build]
+    use_when:
+      - a customer's website needs new pages, sections or content changes
+      - a web app needs a new feature such as a contact, signup or checkout form
+      - a site must be made accessible, responsive or faster
+      - a change needs a deploy preview for the customer to approve
+    not_for:
+      - conventions of the Powernode platform's own frontend, use frontend-conventions
+      - writing the test suite for the change, use test-authoring
+      - promoting the approved change to production, use release-promotion
+      - auditing the site for vulnerabilities, use security-review
+    keywords: [website, web site, web app, static site, page, landing page, contact form, form, form handling, html, css, javascript, accessibility, responsive, seo, deploy preview]
+  manifest:
+    verbs: []
+    knowledge_tags: [guidance-surface-assumptions, guidance-trace-to-request]
+    gate_category: mutate
+    read_only: false
+  hints:
+    min_tier: standard
+    effort: medium
+    long_context: false
+    tool_heavy: false
+    safety_critical: false
+  relations:
+    requires: []
+    composes: []
+    refines: []
+  evals:
+    - task: "Add a contact form to a customer's static website"
+      expect_selected: true
+    - task: "Make the landing page of this web app responsive and accessible, then share a deploy preview"
+      expect_selected: true
+    - task: "Audit the customer's site login for vulnerabilities"
+      expect_selected: false
+  system_prompt: |
+    Build or change a website or web app feature the way the project already works, and show it before it ships.
+
+    Before you start
+    1. Read the project: its framework or static generator, build command, styling approach, folder layout and how it is deployed. Follow what exists; do not introduce a new framework or library without asking.
+    2. Restate the change and its acceptance criteria. Ask about anything that decides the design: copy, fields, where submissions go, brand rules.
+
+    Building
+    3. Work on a branch. Keep the change scoped to the request.
+    4. Pages and content: reuse the existing layout and components; keep headings in order, one main heading per page, meaningful titles and descriptions.
+    5. Forms:
+       - Label every field; mark required fields; validate on the client for feedback and again on the server or form handler for trust.
+       - Send submissions to the handler the project uses (its backend, a serverless function, or a form service). Never put API keys or credentials in client code; keep them in the host's secret store.
+       - Add spam protection (honeypot field or the project's captcha) and a clear success and error state.
+       - Confirm where the data goes and who receives it; collect only the fields that are needed.
+    6. Accessibility: keyboard reachable controls, visible focus, sufficient colour contrast, alt text for meaningful images, and form errors announced to assistive technology.
+    7. Responsive and performance: check narrow and wide screens; size and compress images; avoid blocking scripts.
+
+    Verifying
+    8. Run the project's build, linters and tests; add a test for new logic such as form handling.
+    9. Publish a deploy preview using the project's hosting and share the link with what changed and how to try it.
+    10. Hand production promotion to the release owner once the customer approves.
+
+    Checklist
+    - [ ] Matches the project's existing stack and conventions.
+    - [ ] Forms are labelled, validated twice, protected from spam, and send data where agreed.
+    - [ ] No secrets in client code.
+    - [ ] Keyboard, contrast and screen-reader basics checked.
+    - [ ] Build and tests pass; a preview link was shared.
