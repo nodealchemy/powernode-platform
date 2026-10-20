@@ -232,20 +232,21 @@ class Rack::Attack
     config[limit_type.to_sym] || 999_999
   end
 
+  # Request path as the router sees it: repeated slashes squeezed, any trailing
+  # format suffix (anything Rails' `(.:format)` accepts: [^/.?]+, so .json-x, .j%73on,
+  # .json;x and non-ASCII too) and trailing slashes removed. Rails
+  # routes accept `(.:format)` and squeeze `//`, so /enroll.xml and //enroll reach
+  # the same controller action and must hit the same exact-path throttle rule and
+  # safelist carve-out.
+  def self.canonical_path(request)
+    request.path.to_s.squeeze("/").sub(%r{/+\z}, "").sub(%r{\.[^/.?]+\z}, "").sub(%r{/+\z}, "")
+  end
+
   # IMP-99e8e4701150 review M1. Matches the two 2FA "re-authentication" writes
   # — disabling 2FA and regenerating backup codes — which both accept a
   # TOTP/backup code from an ALREADY-authenticated session. `auth_2fa_by_ip`
   # below only matches POST, so it never saw DELETE /two_factor/disable at
   # all; a wrong-code guess there was unthrottled by IP or by user.
-  # Request path as the router sees it: repeated slashes squeezed, any trailing
-  # format suffix (.json, .xml, .txt, ...) and trailing slashes removed. Rails
-  # routes accept `(.:format)` and squeeze `//`, so /enroll.xml and //enroll reach
-  # the same controller action and must hit the same exact-path throttle rule and
-  # safelist carve-out.
-  def self.canonical_path(request)
-    request.path.to_s.squeeze("/").sub(%r{/+\z}, "").sub(/\.\w+\z/, "").sub(%r{/+\z}, "")
-  end
-
   def self.two_factor_reauth_path?(request)
     (request.path.end_with?("/two_factor/disable") && request.delete?) ||
       (request.path.end_with?("/two_factor/regenerate_backup_codes") && request.post?)
