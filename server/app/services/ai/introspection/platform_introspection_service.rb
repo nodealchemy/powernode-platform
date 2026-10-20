@@ -99,7 +99,7 @@ module Ai
             duration_ms: event.duration_ms,
             cost_usd: event.cost_usd&.to_f,
             error_class: event.error_class,
-            error_message: event.error_message,
+            error_message: ::Ai::SensitiveParams.filter_text(event.error_message),
             created_at: event.created_at
           }
         end

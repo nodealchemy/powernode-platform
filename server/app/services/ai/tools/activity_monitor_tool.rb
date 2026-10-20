@@ -381,7 +381,7 @@ module Ai
           source_id: event.source_id,
           event_type: event.event_type,
           error_class: event.error_class,
-          error_message: event.error_message&.truncate(500),
+          error_message: ::Ai::SensitiveParams.filter_text(event.error_message)&.truncate(500),
           created_at: event.created_at&.iso8601
         }
       end

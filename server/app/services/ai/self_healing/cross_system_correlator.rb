@@ -56,7 +56,7 @@ module Ai
             source_type: event.source_type,
             source_id: event.source_id,
             error_class: event.error_class,
-            error_message: event.error_message,
+            error_message: ::Ai::SensitiveParams.filter_text(event.error_message),
             occurred_at: event.created_at
           }
         end
