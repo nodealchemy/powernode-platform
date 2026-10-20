@@ -173,6 +173,12 @@ RSpec.describe "MCP tool schema fidelity (IMP-e809396f9eda)" do
   describe "Ai::Tools::BaseTool::PENDING_RESULT_PROPERTIES" do
     let(:tool_class) do
       Class.new(Ai::Tools::BaseTool) do
+        # A park records which action it routed (park_principal_stamp -> routed_action_name),
+        # which falls back to the tool's own definition name; every real tool declares one.
+        def self.definition
+          { name: "spec_pending_shape_probe" }
+        end
+
         private
 
         def probe_gate_context(_params)
