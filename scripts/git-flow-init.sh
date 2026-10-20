@@ -113,7 +113,7 @@ configure_git_settings() {
     git config gitflow.prefix.release release/
     git config gitflow.prefix.hotfix hotfix/
     git config gitflow.prefix.support support/
-    git config gitflow.prefix.versiontag v
+    git config gitflow.prefix.versiontag ""
     
     # Configure conventional commits hook (if available)
     if [ -d ".git/hooks" ]; then
@@ -138,30 +138,6 @@ EOF
     echo -e "${GREEN}✓ Git settings configured${NC}"
 }
 
-# Create initial version tag if none exists
-create_initial_tag() {
-    cd "$PROJECT_ROOT"
-    
-    # Check if any tags exist
-    if ! git tag -l | grep -q .; then
-        echo -e "${BLUE}Creating initial version tag...${NC}"
-        
-        # Create initial tag
-        git tag -a 0.0.1-dev -m "Initial development version
-
-Features:
-- Project foundation established
-- Git-flow workflow configured
-- Semantic versioning enforced
-- Development environment ready"
-
-        echo -e "${GREEN}✓ Initial tag 0.0.1-dev created${NC}"
-        echo -e "${YELLOW}Push the tag with: git push --tags${NC}"
-    else
-        echo -e "${YELLOW}⚠ Version tags already exist${NC}"
-    fi
-}
-
 # Display git-flow usage instructions
 show_usage_instructions() {
     echo ""
@@ -179,14 +155,14 @@ show_usage_instructions() {
     echo "  git flow release finish v1.2.0"
     echo ""
     echo -e "${GREEN}Hotfix Process:${NC}"
-    echo "  git flow hotfix start v1.2.1-critical-fix"
+    echo "  git flow hotfix start 1.2.1"
     echo "  # ... fix critical issue ..."
-    echo "  git flow hotfix finish v1.2.1-critical-fix"
+    echo "  git flow hotfix finish 1.2.1"
     echo ""
     echo -e "${GREEN}Version Management:${NC}"
-    echo "  ./scripts/version-bump.sh minor    # Bump minor version"
-    echo "  ./scripts/version-bump.sh patch    # Bump patch version"
-    echo "  ./scripts/version-bump.sh alpha    # Create alpha release"
+    echo "  git flow release start X.Y.Z       # then, on release/X.Y.Z:"
+    echo "  ./scripts/release.sh X.Y.Z         # stamps versions, merges, tags, pushes (the release)"
+    echo "  (versions come from release tags X.Y.Z, no \"v\" prefix; there is no VERSION file)"
     echo ""
     echo -e "${YELLOW}Branch Protection:${NC}"
     echo "  - main: Requires 2 PR reviews, all tests pass"
@@ -215,7 +191,6 @@ main() {
     init_git_flow
     configure_git_settings
     setup_branch_protection
-    create_initial_tag
     show_usage_instructions
     
     echo ""

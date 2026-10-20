@@ -17,11 +17,11 @@ OUTPUT_FILE="docs/reference/auto/pattern-usage-statistics.md"
 echo -e "${BLUE}Generating Pattern Usage Statistics...${NC}"
 
 # Create the output file
-cat > "$OUTPUT_FILE" << 'EOF'
+cat > "$OUTPUT_FILE" << EOF
 # Pattern Usage Statistics
 
 **Generated**: $(date)  
-**Platform Version**: $(cat VERSION 2>/dev/null || echo 'Unknown')
+**Platform Version**: $(git describe --tags --match '[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || echo 'Unknown')
 
 This document provides comprehensive statistics about architectural pattern usage across the Powernode platform.
 

@@ -8,7 +8,7 @@
 	release = release/
 	hotfix = hotfix/
 	support = support/
-	versiontag = v
+	versiontag =
 
 [gitflow "path"]
 	hooks = .git/hooks

@@ -33,11 +33,8 @@ fi
 PORT="${PORT:-3001}"
 HOST="${HOST:-0.0.0.0}"
 
-# Read app version from VERSION file if not already set
-if [[ -z "${VITE_APP_VERSION:-}" ]] && [[ -f "VERSION" ]]; then
-    VITE_APP_VERSION="$(cat VERSION)"
-fi
-
-export PORT HOST VITE_APP_VERSION
+# The app version is derived from release tags by vite.config.ts
+# (POWERNODE_BUILD_INFO_JSON, else git describe); nothing to read here.
+export PORT HOST
 
 exec npm start

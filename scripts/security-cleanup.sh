@@ -137,9 +137,6 @@ EOF
 
     # Frontend .env.example
     cat > frontend/.env.example << 'EOF'
-# Application Version
-REACT_APP_VERSION=0.0.2
-
 # API Configuration
 REACT_APP_API_BASE_URL=http://localhost:3000/api/v1
 REACT_APP_WS_BASE_URL=ws://localhost:3000/cable

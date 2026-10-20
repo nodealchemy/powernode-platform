@@ -14,7 +14,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}=== Powernode Platform Pattern Compliance Audit ===${NC}"
 echo "Date: $(date)"
-echo "Platform Version: $(cat VERSION 2>/dev/null || echo 'Unknown')"
+echo "Platform Version: $(git describe --tags --match '[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || echo 'Unknown')"
 echo ""
 
 # Initialize counters
@@ -1551,10 +1551,10 @@ echo -e "${BLUE}## File Organization${NC}"
 # (worktree checkout) are allowlisted for live/worktree parity.
 root_file_allowlist=" \
   CHANGELOG.md CLAUDE.md CLAUDE.local.md CODE_OF_CONDUCT.md CONTRIBUTING.md \
-  GOVERNANCE.md LICENSE Makefile README.md ROADMAP.md SECURITY.md VERSION \
+  GOVERNANCE.md LICENSE Makefile README.md ROADMAP.md SECURITY.md \
   extensions_loader_helper.rb package.json package-lock.json playwright.config.ts \
   .commitlintrc.json .env.example .git .gitflow .gitignore .gitleaks.toml \
-  .gitmessage .gitmodules .releaserc.json "
+  .gitmessage .gitmodules "
 total_checks=$((total_checks + 1))
 echo -n "Checking: No stray files at repo root (file-organization guard)... "
 stray_root_files=""
