@@ -39,7 +39,7 @@ RSpec.describe TrackedWorkerLlmClient, "global agent attribution", type: :servic
   let(:response) do
     instance_double(
       "WorkerLlmResponse",
-      content: "ok", prompt_tokens: 10, completion_tokens: 5, cached_tokens: 0,
+      content: "ok", prompt_tokens: 10, completion_tokens: 5, cached_tokens: 0, cache_creation_tokens: 0, finish_reason: "stop",
       total_tokens: 15, model: "gpt-4o-mini", provider: "openai"
     )
   end
