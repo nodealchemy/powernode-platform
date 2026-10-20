@@ -20,6 +20,9 @@ RSpec.describe "Redis test-database lane isolation" do
   # the variable however it likes, and a stub would pin the reading mechanism
   # instead of the behaviour.
   def with_env(values)
+    # Hermetic against a parallel run: these two select the dedicated test daemon (IMP-7e1c8b0f4849)
+    # and would otherwise change what "the default daemon" examples below resolve to.
+    values = { "TEST_REDIS_PORT" => nil, "TEST_REDIS_DATABASES" => nil }.merge(values)
     previous = values.keys.to_h { |k| [ k, ENV.key?(k) ? ENV[k] : :absent ] }
     values.each { |k, v| v.nil? ? ENV.delete(k) : ENV[k] = v }
     yield
@@ -127,6 +130,71 @@ RSpec.describe "Redis test-database lane isolation" do
     end
   ensure
     Powernode::Redis.reconfigure!
+  end
+
+  # IMP-7e1c8b0f4849 — the dedicated parallel test daemon (scripts/test-redis.sh). It is opt-in
+  # through two variables, and with both unset nothing above changes by a byte.
+  describe "dedicated test daemon (TEST_REDIS_PORT / TEST_REDIS_DATABASES)" do
+    def with_daemon(lane, databases: "64", port: "6380")
+      with_env("TEST_ENV_NUMBER" => "_p#{lane + 1}", "TEST_REDIS_LANE" => lane.to_s,
+               "TEST_REDIS_PORT" => port, "TEST_REDIS_DATABASES" => databases) { yield }
+    end
+
+    it "leaves the default daemon exactly as it was when neither variable is set" do
+      with_env("TEST_ENV_NUMBER" => nil, "TEST_REDIS_LANE" => nil) do
+        expect(Powernode::Redis.test_port).to be_nil
+        expect(Powernode::Redis.test_databases).to eq(16)
+        expect(Powernode::Redis.max_test_lanes).to eq(Powernode::Redis::MAX_TEST_LANES)
+        expect(Powernode::Redis.url).not_to include("6380")
+      end
+    end
+
+    it "points every URL at the loopback daemon and shifts lane 0 to the top of its range" do
+      with_daemon(0) do
+        expect(Powernode::Redis.url).to eq("redis://127.0.0.1:6380/63")
+        expect(Powernode::Redis.worker_url).to eq("redis://127.0.0.1:6380/62")
+      end
+    end
+
+    it "affords (databases - 6) / 2 + 1 lanes (30 on 64 databases), with no pair overlapping and none on 0/1/2" do
+      with_daemon(0) do
+        expect(Powernode::Redis.max_test_lanes).to eq(30)
+        pairs = (0...30).map do |lane|
+          with_daemon(lane) { [ Powernode::Redis.test_database, Powernode::Redis.test_worker_database ] }
+        end
+        flat = pairs.flatten
+        expect(flat.uniq.size).to eq(flat.size)
+        expect(flat.min).to be >= 3
+      end
+    end
+
+    it "refuses the first lane past the daemon's range" do
+      with_daemon(30) do
+        expect { Powernode::Redis.test_database }.to raise_error(ArgumentError, /lane/)
+      end
+    end
+
+    it "refuses a database count below the default and a malformed port" do
+      with_daemon(0, databases: "8") { expect { Powernode::Redis.test_database }.to raise_error(ArgumentError, /TEST_REDIS_DATABASES/) }
+      with_daemon(0, port: "63x80") { expect { Powernode::Redis.url }.to raise_error(ArgumentError, /TEST_REDIS_PORT/) }
+    end
+
+    it "ignores TEST_REDIS_PORT outside the test env (TLS and the configured URL are never dropped there)" do
+      with_daemon(0) do
+        original = Rails.instance_variable_get(:@_env)
+        begin
+          Rails.instance_variable_set(:@_env, ActiveSupport::StringInquirer.new("development"))
+          expect(Powernode::Redis.test_port).to be_nil
+          expect(Powernode::Redis.send(:isolate_test_database, "rediss://h:1/0", 15)).to eq("rediss://h:1/0")
+        ensure
+          Rails.instance_variable_set(:@_env, original)
+        end
+      end
+    end
+
+    it "refuses the shared daemon's port 6379" do
+      with_daemon(0, port: "6379") { expect { Powernode::Redis.test_port }.to raise_error(ArgumentError, /6379/) }
+    end
   end
 
   it "connects the running suite to the database its own lane resolves to" do

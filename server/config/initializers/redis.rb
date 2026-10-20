@@ -44,7 +44,21 @@ module Powernode
 
     TEST_LANE_STRIDE = 2
     TEST_DATABASE_FLOOR = 3
+    # Lanes a default 16-database daemon affords (the worktree lanes). See .max_test_lanes for the
+    # figure on a daemon with more databases.
     MAX_TEST_LANES = ((TEST_WORKER_DATABASE - TEST_DATABASE_FLOOR) / TEST_LANE_STRIDE) + 1
+
+    # Opt-in dedicated test daemon (scripts/test-redis.sh), used by the parallel suite
+    # (scripts/parallel-rspec.sh). Both default to "unset", which keeps every serial and worktree
+    # run byte-identical: the application's configured daemon, 16 databases, the lanes above.
+    #
+    #   TEST_REDIS_PORT       loopback port of the dedicated daemon. When set, every test URL is
+    #                         rebuilt as redis://127.0.0.1:<port>/<db> (that daemon has no password
+    #                         and no TLS, so the application's credentials are not sent to it).
+    #   TEST_REDIS_DATABASES  how many logical databases that daemon was started with (`databases`).
+    #                         Lane 0 takes the top pair (count-1, count-2), so a bigger daemon means
+    #                         more lanes without ever overlapping the 15/14 pair of the shared one.
+    DEFAULT_TEST_REDIS_DATABASES = TEST_DATABASE + 1
 
     class << self
       # The lane this process belongs to.
@@ -72,7 +86,7 @@ module Powernode
         if declared.present?
           raise ArgumentError,
                 "TEST_REDIS_LANE=#{declared.inspect} is not a lane number. Set it to an " \
-                "integer in 0..#{MAX_TEST_LANES - 1}, or unset it in the bare checkout."
+                "integer in 0..#{max_test_lanes - 1}, or unset it in the bare checkout."
         end
         return 0 if ENV["TEST_ENV_NUMBER"].to_s.strip.empty?
 
@@ -80,8 +94,48 @@ module Powernode
               "TEST_ENV_NUMBER=#{ENV['TEST_ENV_NUMBER'].inspect} gives this process its own " \
               "postgres database but no redis lane, so it would share redis database " \
               "#{TEST_DATABASE} with every other lane and flush their keys at :suite. Declare " \
-              "TEST_REDIS_LANE=<0..#{MAX_TEST_LANES - 1}> (unique among concurrent lanes) in " \
+              "TEST_REDIS_LANE=<0..#{max_test_lanes - 1}> (unique among concurrent lanes) in " \
               "server/.env.test.local. scripts/prepare-worktree.sh writes one for new worktrees."
+      end
+
+      # Logical databases the daemon behind the test URLs has. 16 unless TEST_REDIS_DATABASES says
+      # otherwise; a smaller figure than the default is refused, because the 15/14 pair of lane 0
+      # would then not exist.
+      def test_databases
+        declared = ENV["TEST_REDIS_DATABASES"].to_s.strip
+        return DEFAULT_TEST_REDIS_DATABASES if declared.empty?
+
+        count = declared.match?(/\A\d+\z/) ? Integer(declared, 10) : 0
+        if count < DEFAULT_TEST_REDIS_DATABASES
+          raise ArgumentError,
+                "TEST_REDIS_DATABASES=#{declared.inspect} is not a database count of at least " \
+                "#{DEFAULT_TEST_REDIS_DATABASES}. Set it to the `databases` value of the test daemon."
+        end
+        count
+      end
+
+      # Port of the dedicated test daemon, or nil when the application's own daemon is used.
+      # Only ever honoured in the test env: an exported TEST_REDIS_PORT must not redirect (or strip TLS
+      # from) the connection of a dev or production process.
+      def test_port
+        return nil unless Rails.env.test?
+
+        declared = ENV["TEST_REDIS_PORT"].to_s.strip
+        return nil if declared.empty?
+        unless declared.match?(/\A[1-9]\d{0,4}\z/)
+          raise ArgumentError, "TEST_REDIS_PORT=#{declared.inspect} is not a TCP port number."
+        end
+        if declared == "6379"
+          raise ArgumentError, "TEST_REDIS_PORT=6379 is the shared daemon; use the dedicated test daemon (scripts/test-redis.sh)."
+        end
+
+        Integer(declared, 10)
+      end
+
+      # Lanes this process's test daemon affords (6 on a default 16-database one).
+      def max_test_lanes
+        top_worker = TEST_WORKER_DATABASE + (test_databases - DEFAULT_TEST_REDIS_DATABASES)
+        ((top_worker - TEST_DATABASE_FLOOR) / TEST_LANE_STRIDE) + 1
       end
 
       def test_database
@@ -161,18 +215,23 @@ module Powernode
         return base unless Rails.env.test?
 
         lane = test_lane
-        if lane >= MAX_TEST_LANES
+        if lane >= max_test_lanes
           raise ArgumentError,
                 "TEST_ENV_NUMBER=#{ENV['TEST_ENV_NUMBER'].inspect} is lane #{lane}, but only lanes " \
-                "0..#{MAX_TEST_LANES - 1} have a redis database of their own (0/1/2 belong to the " \
+                "0..#{max_test_lanes - 1} have a redis database of their own (0/1/2 belong to the " \
                 "application). Run fewer lanes, or give each lane its own redis."
         end
 
-        base - (lane * TEST_LANE_STRIDE)
+        # A bigger daemon (TEST_REDIS_DATABASES) lifts the whole lane-0 pair by its extra databases.
+        base + (test_databases - DEFAULT_TEST_REDIS_DATABASES) - (lane * TEST_LANE_STRIDE)
       end
 
       def isolate_test_database(url_str, database)
         return url_str unless Rails.env.test?
+
+        # The dedicated test daemon (TEST_REDIS_PORT) replaces the whole URL: it has its own port,
+        # no password and no TLS, so nothing about the application's configured daemon applies.
+        return "redis://127.0.0.1:#{test_port}/#{database}" if test_port
         return url_str if url_str.blank?
 
         url_str.sub(%r{/\d+\z}, "/#{database}")
@@ -199,7 +258,7 @@ module Powernode
         opts[:connect_timeout] = config["connect_timeout"] if config["connect_timeout"]
         opts[:read_timeout] = config["read_timeout"] if config["read_timeout"]
         opts[:write_timeout] = config["write_timeout"] if config["write_timeout"]
-        opts[:ssl] = config["ssl"] if config["ssl"]
+        opts[:ssl] = config["ssl"] if config["ssl"] && !test_port
         opts
       rescue StandardError
         { url: isolate_test_database(ENV.fetch("REDIS_URL", "redis://localhost:6379/0"), test_database) }
