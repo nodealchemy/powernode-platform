@@ -24,7 +24,11 @@ RSpec.describe Ai::Executors::DeferredToolCall do
         {
           name: "spec_replay_tool",
           description: "Replay seam probe",
-          parameters: { action: { type: "string", required: false } }
+          parameters: {
+            action: { type: "string", required: false },
+            operation_id: { type: "string", required: false },
+            name_prefix: { type: "string", required: false }
+          }
         }
       end
 
