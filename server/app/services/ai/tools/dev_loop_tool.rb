@@ -1331,7 +1331,7 @@ module Ai
         # which is how wait_for_task answers once its per-call cap passes).
         if !waited[:success] || waited[:done] == false
           detail = waited[:error].presence ||
-                   "wait timed out after #{waited[:wait_seconds]}s; delegated agent still #{waited[:status]}"
+                   "wait timed out after #{waited[:wait_seconds]}s; delegated agent still #{waited[:last_task_status]}"
           return { success: true, delegated: true, awaited: true, task_key: task.task_key,
                    a2a_task_id: spawn[:task_id], outcome: "pending", detail: detail,
                    note: "Call again to keep waiting, or track via check_task_status(#{spawn[:task_id]})." }

@@ -93,14 +93,14 @@ RSpec.describe Ai::Tools::DevLoopTool, "#delegate_ralph_task" do
   it "reports pending, and leaves the task in progress, when the wait expires with the agent still running" do
     allow(agent_tool).to receive(:execute).with(params: hash_including(action: "spawn_task")).and_return(spawn_ok)
     allow(agent_tool).to receive(:execute).with(params: hash_including(action: "wait_for_task"))
-      .and_return({ success: true, done: false, timed_out: true, status: "active", task_id: "a2a-123", wait_seconds: 45 })
+      .and_return({ success: true, done: false, timed_out: true, last_task_status: "active", task_id: "a2a-123", wait_seconds: 45 })
 
     result = delegate(await: true)
 
     expect(result).to include(success: true, delegated: true, awaited: true, outcome: "pending")
     expect(task.reload.status).to eq("in_progress")
     expect(ralph_loop.ralph_iterations.count).to eq(0)
-    expect(result[:detail]).to match(/active|still running|timed out/i)
+    expect(result[:detail]).to eq("wait timed out after 45s; delegated agent still active")
   end
 
   it "propagates a delegation-authority denial without claiming the work" do
