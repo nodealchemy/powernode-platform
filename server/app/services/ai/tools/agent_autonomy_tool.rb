@@ -356,7 +356,7 @@ module Ai
             }
           },
           "get_approval_request" => {
-            description: "Look up one approval request by its own id or by its deferred operation's id: its approval_status, the decision and who made it, when it expires and whether it already has, whether only a person may decide it, the door it came through, and the linked operation's status and error. The follow-up to a pending envelope. Params and errors are redacted. Pass exactly one id. An id that matches nothing you may see answers not found; an instance principal sees only the requests recorded as parked by that instance.",
+            description: "Look up one approval request by its own id or by its deferred operation's id. It returns the approval_status, the decision and who made it, when it expires and whether it already has, whether only a person may decide it, the door it came through, and the linked operation's status and error. The follow-up to a pending envelope. Params and errors are redacted. Pass exactly one id. An id that matches nothing you may see answers not found; an instance principal sees only the requests recorded as parked by that instance.",
             parameters: {
               approval_request_id: { type: "string", required: false, description: "ApprovalRequest UUID (give this or deferred_operation_id, not both)" },
               deferred_operation_id: { type: "string", required: false, description: "DeferredOperation UUID (give this or approval_request_id, not both)" }
