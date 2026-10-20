@@ -72,9 +72,12 @@ jobs:
           resp="$(curl -fsS -m 180 -X POST "${MCP_URL}" -H 'Content-Type: application/json' \
             -H "Authorization: Bearer ${MCP_TOKEN}" -d "${body}")"
           text="$(printf '%s' "${resp}" | jq -r '.result.content[0].text // .error.message // empty')"
-          printf '%s\n' "${text}" | head -c 2000
-          if [ "$(printf '%s' "${resp}" | jq -r '(.error != null) or (.result.isError == true)')" = "true" ]; then
-            echo "::error::module build dispatch failed (see the response above)"; exit 1
+          # Truncate from a file: `printf | head -c` can SIGPIPE under pipefail.
+          out_file="$(mktemp)"
+          printf '%s\n' "${text}" > "${out_file}"
+          head -c 2000 "${out_file}"
+          if [ "$(printf '%s' "${resp}" | jq -r '(.error != null) or (.result == null) or (.result.isError == true)')" = "true" ]; then
+            echo "::error::module build dispatch failed or returned no result (see the response above)"; exit 1
           fi
           # An approval-gated dispatch returns {pending: true, deferred_operation_id} and plans NOTHING.
           if [ "$(printf '%s' "${text}" | jq -r '.pending // .data.pending // false' 2>/dev/null || echo false)" = "true" ]; then
