@@ -55,6 +55,14 @@ module Ai
     # The plane the operation was gated against (Environment campaign, incr. 3).
     belongs_to :environment, class_name: "Ai::Environment", optional: true
 
+    # Reserved key in the params column holding the sealed original of a
+    # secret-bearing params hash (IMP-3d10c3c9439e). Never visible through the
+    # `params` reader.
+    SEALED_PARAMS_KEY = "_sealed_params"
+    SEAL_PURPOSE = "ai/deferred_operation/params"
+
+    before_create :seal_secret_params
+
     validates :action_category, presence: true
     validates :executor_class,  presence: true
     validates :status, presence: true, inclusion: { in: STATUSES }
@@ -224,7 +232,7 @@ module Ai
       approve! if pending?
       start_execution!
       assert_source_within_account!
-      result_data = executor_constant.execute(params, deferred_operation: self)
+      result_data = executor_constant.execute(replay_params, deferred_operation: self)
       # Raw to the caller, redacted to the row. An executor that MINTS secret
       # material (federation propose mints a single-use acceptance token) is
       # contracted to reveal it exactly once — Ai::GatedActions renders this
@@ -281,6 +289,16 @@ module Ai
       value
     end
 
+    # The params as every reader sees them: secret-looking values masked and
+    # the sealed envelope hidden. The original is only ever reachable through
+    # #replay_params, on the executor-replay path.
+    def params
+      stored = super
+      return stored unless stored.is_a?(Hash) && stored.key?(SEALED_PARAMS_KEY)
+
+      stored.except(SEALED_PARAMS_KEY)
+    end
+
     def executor_constant
       @executor_constant ||= executor_class.constantize
     end
@@ -329,6 +347,52 @@ module Ai
     end
 
     private
+
+    # Reveal-on-replay for the params, the counterpart of the reveal-once
+    # handling of :result above. The gate hands over caller-supplied params that
+    # may carry secrets; the column keeps only the masked view plus the original
+    # sealed with the app's key derivation, and the executor, which replays its
+    # own params, is the only reader that gets the original back. A failed
+    # unseal raises rather than replaying masked values.
+    def replay_params
+      # The instance that opened the gate still holds the caller's own hash, so
+      # key types match what an unsealed operation hands over.
+      return @unsealed_params if @unsealed_params
+
+      sealed = self[:params].is_a?(Hash) ? self[:params][SEALED_PARAMS_KEY] : nil
+      return params if sealed.blank?
+
+      JSON.parse(params_encryptor.decrypt_and_verify(sealed, purpose: seal_purpose))
+    end
+
+    def seal_secret_params
+      raw = self[:params]
+      raw = raw.to_unsafe_h if raw.respond_to?(:to_unsafe_h)
+      return unless raw.is_a?(Hash)
+
+      # Whatever its key type: a caller-planted envelope must never survive.
+      raw = raw.reject { |key, _| key.to_s == SEALED_PARAMS_KEY }
+      masked = ::Ai::SensitiveParams.filter(raw)
+      if masked == raw
+        self[:params] = raw
+        return
+      end
+
+      sealed = params_encryptor.encrypt_and_sign(raw.to_json, purpose: seal_purpose)
+      @unsealed_params = raw
+      self[:params] = masked.merge(SEALED_PARAMS_KEY => sealed)
+    end
+
+    # Bound to the operation's own account, executor and action so a sealed
+    # blob lifted from another row will not open here.
+    def seal_purpose
+      "#{SEAL_PURPOSE}/#{account_id}/#{executor_class}/#{action_category}"
+    end
+
+    def params_encryptor
+      key = Rails.application.key_generator.generate_key(SEAL_PURPOSE, ActiveSupport::MessageEncryptor.key_len)
+      ActiveSupport::MessageEncryptor.new(key, serializer: JSON)
+    end
 
     # Re-anchor the recorded source to THIS operation's account immediately
     # before the executor runs. The gate stores caller-supplied params verbatim

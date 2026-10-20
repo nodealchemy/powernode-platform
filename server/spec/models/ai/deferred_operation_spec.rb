@@ -429,4 +429,82 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(persisted.status).to eq('completed')
     end
   end
+
+  describe 'secret material in the gated params (IMP-3d10c3c9439e)' do
+    let(:secret) { 'HUNTER2-PLAINTEXT-PASSWORD' }
+    let(:raw) { { 'username' => 'alice', 'password' => secret, 'opts' => { 'api_key' => 'KEY-PLAINTEXT-1' } } }
+
+    before do
+      stub_const('ReplayRecorder', Class.new do
+        class << self
+          attr_accessor :seen
+        end
+
+        def self.execute(params, deferred_operation:)
+          self.seen = params
+          { success: true }
+        end
+      end)
+    end
+
+    def make_secret_op
+      described_class.create!(account: account, action_category: 'test.act',
+                              executor_class: 'ReplayRecorder', params: raw)
+    end
+
+    it 'never leaves plaintext in the persisted params column' do
+      op = make_secret_op
+
+      stored = described_class.connection.select_value(
+        "SELECT params::text FROM ai_deferred_operations WHERE id = '#{op.id}'"
+      )
+      expect(stored).not_to include(secret)
+      expect(stored).not_to include('KEY-PLAINTEXT-1')
+    end
+
+    it 'serves a redacted params reader that keeps non-secret context' do
+      persisted = described_class.find(make_secret_op.id)
+
+      expect(persisted.params['username']).to eq('alice')
+      expect(persisted.params['password']).to eq('[FILTERED]')
+      expect(persisted.params.dig('opts', 'api_key')).to eq('[FILTERED]')
+      expect(persisted.params.to_json).not_to include(secret)
+    end
+
+    it 'does not hand the plaintext to an executor preview' do
+      seen = nil
+      stub_const('PreviewRecorder', Class.new do
+        define_singleton_method(:execute) { |_p, deferred_operation:| {} }
+        define_singleton_method(:preview) { |p, deferred_operation: nil| seen = p; { summary: 's' } }
+      end)
+      op = described_class.create!(account: account, action_category: 'test.act',
+                                   executor_class: 'PreviewRecorder', params: raw)
+
+      described_class.find(op.id).preview
+      expect(seen.to_json).not_to include(secret)
+    end
+
+    it 'replays the original plaintext to the executor after a reload (approval path)' do
+      op = described_class.find(make_secret_op.id)
+
+      op.execute_now!
+
+      expect(ReplayRecorder.seen['password']).to eq(secret)
+      expect(ReplayRecorder.seen.dig('opts', 'api_key')).to eq('KEY-PLAINTEXT-1')
+      expect(ReplayRecorder.seen.keys).not_to include('_sealed_params')
+    end
+
+    it 'discards a caller-planted envelope, whatever its key type' do
+      op = described_class.create!(account: account, action_category: 'test.act',
+                                   executor_class: 'ReplayRecorder', params: { _sealed_params: 'forged', 'k' => 'v' })
+
+      described_class.find(op.id).execute_now!
+      expect(ReplayRecorder.seen).to eq('k' => 'v')
+    end
+
+    it 'leaves params without secret material untouched' do
+      op = make_op
+      expect(described_class.find(op.id).params).to eq('k' => 'v')
+    end
+  end
 end

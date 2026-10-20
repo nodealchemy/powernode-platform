@@ -33,6 +33,38 @@ RSpec.describe Ai::AutonomyGate do
     }
   end
 
+  describe 'secret-bearing params (IMP-3d10c3c9439e)' do
+    let(:secret) { 'HUNTER2-PLAINTEXT-PASSWORD' }
+
+    it 'does not persist the plaintext in the deferred operation params' do
+      Ai::InterventionPolicy.create!(
+        account: account, action_category: 'test.action',
+        scope: 'global', policy: 'require_approval', priority: 5, is_active: true
+      )
+
+      result = described_class.evaluate(**base_args, params: { user: 'alice', password: secret })
+
+      op = result.deferred_operation
+      stored = Ai::DeferredOperation.connection.select_value(
+        "SELECT params::text FROM ai_deferred_operations WHERE id = '#{op.id}'"
+      )
+      expect(stored).not_to include(secret)
+      expect(Ai::DeferredOperation.find(op.id).params).to include('user' => 'alice', 'password' => '[FILTERED]')
+    end
+
+    it 'still hands the real params to the executor when auto-approved' do
+      Ai::InterventionPolicy.create!(
+        account: account, action_category: 'test.action',
+        scope: 'global', policy: 'auto_approve', priority: 5, is_active: true
+      )
+
+      result = described_class.evaluate(**base_args, params: { user: 'alice', password: secret })
+
+      expect(result.result.dig(:data, :ran_with)).to include('password' => secret)
+      expect(Ai::DeferredOperation.find(result.deferred_operation.id).params.to_json).not_to include(secret)
+    end
+  end
+
   describe '.evaluate' do
     context 'when policy resolves to auto_approve' do
       before do
@@ -309,13 +341,13 @@ RSpec.describe Ai::AutonomyGate do
           )
         end
 
-        # No approval request exists on this branch, so params are the only copy
-        # — and the executor must still get the real value inline.
-        it 'hands the executor the raw secret and stores it unredacted for the replay' do
+        # The executor must still get the real value inline, but the row keeps
+        # only the masked view (IMP-3d10c3c9439e).
+        it 'hands the executor the raw secret and keeps the row redacted' do
           op = described_class.evaluate(**secret_args).deferred_operation
 
           expect(captured.last['acceptance_token']).to eq(plaintext)
-          expect(op.reload.params['acceptance_token']).to eq(plaintext)
+          expect(op.reload.params['acceptance_token']).to eq('[FILTERED]')
         end
       end
     end
