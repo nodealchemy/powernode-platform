@@ -23,7 +23,7 @@ filed as `[fresh-install #N]` proposals), knowledge `incident:dev-cell-reaped-20
 | 1 | **now** | **No working database backup.** The nightly `daily_database_backup` has left 20 `database_backups` rows in `pending` (12 in Sep, 8 in Oct; none ever completed). The only dump on disk is a manual one from 2026-09-26 (3.0 GB, root-owned). | Take a hypervisor snapshot/`vzdump` of `<hub-vmid>` today, then fix the worker backup path (§13, option B). |
 | 2 | **now** | **The control plane was down ~10 of the last 14 days.** Fleet-tick gaps: 10-06 (15 h), 10-07→10-08 (20 h), 10-09→10-15 (5 d 8 h), 10-15→10-19 (4 d 2 h). Current boot 09:28Z today. Cause is not visible from an unprivileged shell. | Pull the journal via QGA and re-arm the external watchdog (§2). |
 | 3 | **now** | **The scheduled platform-health sweep has been silent since 2026-09-19 21:25Z** (1,051 snapshots up to then, zero after). The worker job ticks every 5 min but the server skips every tick with `no_bound_agent_clone` because the `platform-health-monitor` global agent is missing (also reported by GovernanceGapSensor). All 10 platform-subsystem component rows sat at `SnapshotStale` for 30 days and produced 4,150 "X is degraded" notifications. | Seed the missing canonical agent (code/seed path) and, until then, run `system_platform_health_check` manually (§4). |
-| 4 | **now** | **Server and worker disagree on the Sidekiq Redis DB.** Sidekiq registers in Redis DB 0; the server derives its "worker Redis" as DB 1 (`server/config/initializers/redis.rb:122-128`). Result: the `Sidekiq` core component has read `down` since 2026-09-26 (false), and any server-side enqueue lands in DB 1 where nothing consumes it (1 stranded `SystemPackageRepositorySyncJob` from 08-22). | Set `SIDEKIQ_REDIS_URL` on the Rails unit to DB 0 (root via QGA) (§3). |
+| 4 | **now** | **Server and worker disagree on the Sidekiq Redis DB.** Sidekiq registers in Redis DB 0; the server derives its "worker Redis" as DB 1 (`Powernode::Redis.worker_url` in `server/config/initializers/redis.rb`). Result: the `Sidekiq` core component has read `down` since 2026-09-26 (false), and any server-side enqueue lands in DB 1 where nothing consumes it (1 stranded `SystemPackageRepositorySyncJob` from 08-22). | Deploy the IMP-daecbb8a050e fix (hub-backend exports `POWERNODE_WORKER_REDIS_URL` at DB 0), then drain DB 1 (§3.3, §17-D). Setting `SIDEKIQ_REDIS_URL` alone does **not** fix the probe. |
 | 5 | **now** | Hub `System clock synchronized: no`, no NTP service. mTLS, JWT and ACME all depend on time. | Verify chrony/timesyncd in the hub image; add to the boot checks (§14). |
 | 6 | **this week** | **Noise:** 20,910 unread notifications (20,868 dismissable), 39 open governance reports re-minted every 6 h with no dedupe, 8,924 expired approval requests, ~17–47k fleet events/day from a handful of standing sensors on subjects that no longer exist or are stopped test VMs. | Approve the cleanup plan in §10 (stop-the-source first, then bulk dismiss). |
 | 7 | **this week** | 17 pending approvals, 16 of which expire 1–4 h after minting and are re-minted next tick; 3 are destructive reaps of stopped dev VMs. | Decide the 7 stale live instances once (§6, §8). |
@@ -163,16 +163,35 @@ Everything except the `Git::PipelineSyncJob` 404s and the Gitea DNS failures is 
 - `redis-cli info keyspace`: DB 0 = 4,221 keys (Sidekiq: `processes`, `queues`, `dead`, `schedules`, …);
   DB 1 = 2 keys (`queues` = {system}, `queue:system` with **1 job**, `SystemPackageRepositorySyncJob`, enqueued
   2026-08-22 04:45Z, never consumed).
-- Worker: `worker/config/application.rb:83` uses `REDIS_URL` (the module config evidently points it at DB 0).
-- Server: `server/config/initializers/redis.rb:122-128` — `worker_url` = server URL with the trailing DB index
-  replaced by `/1`, overridable by `SIDEKIQ_REDIS_URL` then `POWERNODE_WORKER_REDIS_URL`
-  (`System::WorkerJobEnqueuer.worker_redis_url`).
+- Worker: `worker/config/application.rb:85` used `REDIS_URL` (now `POWERNODE_WORKER_REDIS_URL` first, then `REDIS_URL`) (the module config evidently points it at DB 0).
+- Server, at the time of this review: two separate resolutions, both landing on DB 1 on the hub.
+  - `Powernode::Redis.worker_url` (`server/config/initializers/redis.rb`) took the server URL and replaced its
+    trailing DB index with `/1`. It had **no** env override. It is used by the core `sidekiq` check
+    (`Platform::Health::CoreChecks`), job metrics and `CompositeHealthProbe#probe_sidekiq`.
+  - `System::WorkerJobEnqueuer.worker_redis_url` read `SIDEKIQ_REDIS_URL`, then `POWERNODE_WORKER_REDIS_URL`,
+    then defaulted to `redis://localhost:6379/1`.
+
+  So `SIDEKIQ_REDIS_URL` would have redirected the enqueuer only. The probe would still have read DB 1 and
+  reported `down`. (An earlier draft of this section said `worker_url` was overridable by those variables, which
+  was wrong.)
 - `System::Platform::CompositeHealthProbe#probe_sidekiq` (`composite_health_probe.rb:366-383`) reads
   `processes` from that DB 1 client → `process_count: 0` → `down` since 2026-09-26 05:10Z (component
   `last_transition_at`), 121 "Sidekiq is down"/"Redis is degraded" alerts.
 - Consequence beyond the false alert: any server-originated enqueue (package repository sync, and whatever else
   uses `WorkerJobEnqueuer`) is silently lost. Only one stranded job is visible, so the path is rarely used, but it
   is a correctness bug on the hub.
+
+**Fix (IMP-daecbb8a050e, layout phase 1, no data movement).** The canonical layout is 0 general / 1 Sidekiq /
+2 cable / 3+ test lanes.
+- `POWERNODE_WORKER_REDIS_URL` is the canonical override, with `SIDEKIQ_REDIS_URL` as a deprecated alias that
+  logs a one-time warning. `Powernode::Redis.worker_url` honors them before the `/1` derivation.
+- `WorkerJobEnqueuer` now resolves through `worker_url`, so every server path agrees.
+- hub-backend's `rails-start.sh` and `powernode-rails-exec` export
+  `POWERNODE_WORKER_REDIS_URL=redis://<redis-host>:6379/0` (the hub's interim Sidekiq DB) every boot, as a
+  default.
+- The worker also reads `POWERNODE_WORKER_REDIS_URL` before `REDIS_URL`.
+- Pinned by `extensions/system/server/spec/integration/system/hub_redis_db_layout_spec.rb`.
+- Phase 2 moves the hub's queues to `/1`.
 
 Options → §17 item D.
 
@@ -380,7 +399,7 @@ transaction, with the SELECT shown first).
 | S4 | 3 stopped/draining CI builders (`…-23da` `01a021cf-13ea…` since 08-21 with 38,250 drift ticks; `…-dbbb` `01a09dcc-05d1…`; `…-7d37` `01a10d86-dedc…`) and 1 "rebooting" since 09-12 (`…-09df` `01a096c4-0818…`): 26 refused `module_assign` dispatches/day, 4 `held`/`progressing` component rows | Terminate the 4 pool leftovers, **4 instances** (first 3 `01a021cf-13ea…`, `01a096c4-0818…`, `01a09dcc-05d1…`; last `01a10d86-dedc…`). Check provider power state first (`system_instance_hold_status`), C9: these are ephemeral pool members, no persistent data. | pool keeps target 1 | MCP `system_terminate_instance {instance_id}` ×4 (may require approval) | no |
 | S5 | `module_promotion_ready` ×10 (2,440 events/day) and 30 expired `module_promote_to_live` approvals | **Operator decision**: (a) promote the 10 versions into `prod` (`system_promote_module_version {environment:"prod", module_id}` ×10, each gated), or (b) if no prod nodes exist yet, set the `prod` plane to follow publishes (`environment_update {environment:"prod", auto_promote_on_publish:true}`) so the sensor has no pinned rung to compare | — | MCP | no |
 | S6 | Hub `boot_image_drift` (278 events/day, 10 expired `node_boot_image_drift` approvals) | **Operator decision, C9-sensitive**: `system_upgrade_boot_image {instance_id: <hub instance>}` reboots the **control plane** into the promoted UKI — schedule it, snapshot first; alternative: re-promote the currently booted disk image so promoted == booted | — | MCP (destructive) | no (but plan downtime) |
-| S7 | `Sidekiq is down` / `Redis|Postgres is degraded` alerts (121+121+1) and the false core-service verdict | Set `SIDEKIQ_REDIS_URL=redis://127.0.0.1:6379/0` in the Rails unit environment (`/persist/powernode-rails/backend-default.conf`), restart the rails unit; verify `probe_sidekiq` → `process_count 1`. Also drain the one stranded job in DB 1 (`redis-cli -n 1 lrange queue:system 0 -1` to see its class, then decide to re-enqueue or `DEL`). | — | **QGA** (root-only file + unit restart); the module-config path is a hub-backend manifest/env change + redeploy | yes |
+| S7 | `Sidekiq is down` / `Redis\|Postgres is degraded` alerts (121+121+1) and the false core-service verdict | Deploy the IMP-daecbb8a050e hub-backend fix and restart the discovered rails unit (`systemctl list-units 'powernode-*-rails.service'`); verify `probe_sidekiq` → `process_count 1`. (`SIDEKIQ_REDIS_URL` alone does not reach the probe; see §3.3.) Also drain the one stranded job in DB 1 (`redis-cli -n 1 lrange queue:system 0 -1` to see its class, then decide to re-enqueue or `DEL`). | — | **QGA** (root-only file + unit restart); the module-config path is a hub-backend manifest/env change + redeploy | yes |
 | S8 | 20,868 stale unread notifications | After S1–S7 (so the sources stop re-creating them): dismiss. There is no per-type bulk verb; `dismiss_all_notifications` is **all** active notifications for the user — it would also take the 25 `[fresh-install]` proposals and 17 live approval cards. Options: (a) mark the 25+17 as handled first, then `dismiss_all_notifications`; (b) psql write by type. Counts and ids: **8,946** approval_required with non-pending request (first `019f77bf-6852-7666-b6cf-e3856f0067c7`, `019f77c5-d14b-7cbe-8c9a-a680800093e0`, `019f77cb-4fae-7e85-b7c2-0b72e418a8a0`; last `01a1539c-7a29-773b-908d-4962ca5f887b`); **4,976** system_alert created before 2026-10-19 14:04Z (first `01a09708-ae25…`, `01a09716-6468…`, `01a09750-d351…`; last `01a1545e-b664…`); **5,776** agent_status_update (first `01a0744d-1742…`, `01a0744d-17c1…`, `01a0744d-18be…`; last `01a1547b-da5f…`); **1,157** agent_escalation (first `01a0748f-e67c…`, `01a074c3-3129…`, `01a07526-0aed…`; last `01a1545d-9eb6…`); **13** ai_plan_review. | — | MCP `mark_all_notifications_read` / `dismiss_all_notifications` (no filter) or psql write `UPDATE notifications SET dismissed_at=now(), read_at=now() WHERE notification_type=... AND ...` | no |
 | S9 | 39 open governance reports (30 resource_abuse / 5 policy_violation / 4 anomaly, 6-hourly from 09-17 to 09-30; subjects Platform Developer, Release Manager, SDWAN Manager, Platform Architect) | Source already stopped (last report 09-30; `AiGovernanceScanJob` has 2 dead entries, 09-30 is the last day it produced anything — verify it is still scheduled: it is in `schedules`). Resolve the 39 as `dismissed` with a note "duplicate of standing condition; dedupe pending", **39 rows** (first `01a0b086-885d-7f6f-bcf9-f00babfd4854`, `01a0b1d0-1e3a-7e89-aa2f-40ae73d394b5`, `01a0b1d0-1fad-781e-b24a-737dcf04aa1b`; last `01a0f22f-9ce5-7b9a-aa03-99e66358976f`). | — | MCP `resolve_governance_report {report_id, resolution_status:"dismissed", notes}` ×39 | no |
 | S10 | 8,924 expired approval requests (`rejected`) and 2,678 stale signal states | Archive/prune (C8). No MCP verb; `archive_by_predicate` / `hard_delete_archived` exist for other models — check whether they accept `Ai::ApprovalRequest`. Otherwise psql delete in batches after a dump. | — | MCP or psql write | no |
@@ -404,7 +423,7 @@ Expected effect of S1–S6 on event volume: removes ≈5,300 of today's ≈9,990
 | K8 | `Platform::Status::Escalation`: cap re-notifications per row (e.g. 1/day after the first) | `server/app/services/platform/status/escalation.rb:67-68` | C8 |
 | K9 | Signal-state aging (delete rows unseen for N days) and approval-request archival | new job | C8 |
 | K10 | Reaper hardening: provider `running` ⇒ approval; suppress while the hub's own instance is silent; dev-cell/persistent-home templates always approve; snapshot before terminate | `abandoned_instance_sensor.rb:114-138, 231` | **`[fresh-install #16]`**, C9 |
-| K11 | Server/worker Redis DB default alignment (make the server default to the worker's actual DB, or fail the probe loudly) | `server/config/initializers/redis.rb:122-128` | new |
+| K11 | Server/worker Redis DB default alignment (make the server default to the worker's actual DB, or fail the probe loudly) | `Powernode::Redis.worker_url` (`server/config/initializers/redis.rb`) | IMP-daecbb8a050e (phase 1) |
 | K12 | `database_backups` left `pending`: make the worker mark `failed` with the error, and surface it as a component | `worker/app/jobs/maintenance/database_backup_job.rb` | new, **P1** |
 | K13 | `/.well-known` routing, TLS SAN, schema.rb lag, MCP session agents | — | `[fresh-install #14, #15, #7, #25]` |
 
@@ -551,14 +570,18 @@ Legend: **Root** = needs root via QGA on `<pve-host>`; **Approval** = operator a
    stop reading `not_measured` (needs the SiteSetting write path — `site_setting_set` MCP verb exists).
 
 ### D. Server/worker Redis DB mismatch (now)
-1. **`SIDEKIQ_REDIS_URL=redis://127.0.0.1:6379/0`** in the Rails unit env, restart rails (≈30 s `/up` 502).
-   Verify `probe_sidekiq.process_count == 1`. Risk: 30 s API outage; blast radius hub only. Reversible: remove the
-   line. **Root. Recommended.**
+1. **Deploy the IMP-daecbb8a050e fix** (§3.3): hub-backend exports `POWERNODE_WORKER_REDIS_URL` at DB 0, and the
+   server's `worker_url` and `WorkerJobEnqueuer` honor it. Restart the discovered rails unit (≈30 s `/up` 502).
+   Verify `probe_sidekiq.process_count == 1`. Risk: 30 s API outage; blast radius hub only. Reversible: redeploy
+   the previous module version. **Recommended.**
+   - The originally proposed `SIDEKIQ_REDIS_URL=redis://127.0.0.1:6379/0` in the Rails unit env would only have
+     fixed `WorkerJobEnqueuer`. The probe ignored it, so it is **not** a fix on its own. After the fix it is a
+     deprecated alias, and `POWERNODE_WORKER_REDIS_URL` wins over it.
 2. Alternatively set the worker's `REDIS_URL` to `/1` — **not recommended**: it abandons the live Sidekiq state
    (schedules, dead set) in DB 0.
 3. Drain DB 1 `queue:system` (1 job): re-enqueue the package sync via `system_sync_package_repository` (MCP) and
    `redis-cli -n 1 DEL queue:system queues`. Reversible: n/a. No root.
-4. Code: K11.
+4. Code: K11, done as IMP-daecbb8a050e (phase 1). Phase 2 moves the hub's Sidekiq to DB 1.
 
 ### E. Clock not synchronized (now)
 1. Check the image for `systemd-timesyncd`/chrony and the hypervisor's `kvm-clock`; enable NTP against the

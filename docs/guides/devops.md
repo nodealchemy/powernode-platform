@@ -132,7 +132,8 @@ The systemd templated units read `<service>-<instance>.conf` to populate environ
 | `RAILS_ENV` | `development` | Rails environment |
 | `PORT` | `3000` | Server port |
 | `DATABASE_URL` | (from database.yml) | PostgreSQL connection string |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis (cache + ActionCable) |
+| `REDIS_URL` | `redis://localhost:6379/0` | Redis (general: cache and app state) |
+| `POWERNODE_WORKER_REDIS_URL` | (unset: `REDIS_URL` on DB 1) | The worker's Sidekiq Redis, which the server enqueues into and health-checks. `SIDEKIQ_REDIS_URL` is a deprecated alias (logs a warning). |
 | `SECRET_KEY_BASE` | (generated) | Rails secret |
 | `JWT_SECRET_KEY` | (generated) | JWT signing key (the app reads `JWT_SECRET_KEY`, not `JWT_SECRET`) |
 | `JWT_EXPIRATION` | `24` | JWT expiry (hours) |
@@ -144,6 +145,7 @@ The systemd templated units read `<service>-<instance>.conf` to populate environ
 |---|---|---|
 | `WORKER_ENV` | `development` | Worker environment |
 | `REDIS_URL` | `redis://localhost:6379/1` | Redis (Sidekiq DB) |
+| `POWERNODE_WORKER_REDIS_URL` | (unset) | When set, used instead of `REDIS_URL` for Sidekiq, so one variable names the role on both sides |
 | `WORKER_CONCURRENCY` | `5` | Sidekiq threads |
 | `BACKEND_API_URL` | `http://localhost:3000` | Backend API URL |
 | `WORKER_API_TOKEN` | (configured) | Service-to-service auth |
@@ -160,8 +162,25 @@ The systemd templated units read `<service>-<instance>.conf` to populate environ
 
 | DB | Use |
 |---|---|
-| 0 | Rails cache, ActionCable |
+| 0 | General: Rails cache and app state |
 | 1 | Sidekiq queues + job data |
+| 2 | ActionCable |
+| 3+ | Test lanes (`RAILS_ENV=test` only; see `server/config/initializers/redis.rb`) |
+
+The server and the worker must agree on the Sidekiq database. If they don't, jobs
+the server enqueues are never run and the Sidekiq health check reports "down"
+because it finds no processes. Installer hosts follow the table above: the worker's
+`REDIS_URL` is `/1` and the server derives `/1` from its own `REDIS_URL`. To
+point both at a different database, set `POWERNODE_WORKER_REDIS_URL` for both
+services.
+
+**Interim state on module-composed hubs (layout phase 1).** Hub Sidekiq still runs
+on **DB 0**, because the first-boot secrets file sets the worker's `REDIS_URL` to
+`/0`. hub-backend's `rails-start.sh` (and `powernode-rails-exec`) export
+`POWERNODE_WORKER_REDIS_URL=redis://<redis-host>:6379/0` on every boot, so the
+server follows the worker there. Phase 2 moves the hub's queues to `/1` and changes
+both sides together. Until then, a hub has its general and Sidekiq data in one
+database.
 
 ### Key configuration files
 
