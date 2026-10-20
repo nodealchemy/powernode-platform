@@ -8,15 +8,39 @@ Powernode releases follow a Git-Flow-derived workflow: features land on `develop
 
 ## Table of Contents
 
+- [Where versions come from](#where-versions-come-from)
 - [Branch model](#branch-model)
 - [Semantic versioning](#semantic-versioning)
 - [Tag naming](#tag-naming)
-- [Step-by-step: cutting a release](#step-by-step-cutting-a-release)
-- [Submodule coordination](#submodule-coordination)
+- [Cutting a release](#cutting-a-release)
+- [What release.sh does](#what-releasesh-does)
+- [Per-runtime version sources](#per-runtime-version-sources)
 - [Dual-remote push](#dual-remote-push)
 - [Hotfixes](#hotfixes)
 - [Changelog](#changelog)
+- [History note: 0.3.0 appears twice](#history-note-030-appears-twice)
 - [Common mistakes](#common-mistakes)
+
+## Where versions come from
+
+**Nothing in the tree hand-maintains a version.** There is no `VERSION` file, no `version.rb`,
+no `extension.json` `version`. Every version is derived from, or stamped at release time by,
+the release tag (`X.Y.Z`, no `v`). Running `scripts/release.sh X.Y.Z` **is** the release.
+
+| Build | Version | Example |
+|-------|---------|---------|
+| Exact tag `X.Y.Z` | `X.Y.Z` | `0.3.0` |
+| On `release/X.Y.Z` or `hotfix/X.Y.Z` | `X.Y.Z-rc.N+sha` | `0.3.0-rc.4+a1b2c3d` |
+| Anything else (develop, features) | latest tag with minor+1, patch 0: `-dev.N+sha` | `0.3.0-dev.137+a1b2c3d` |
+| No tags reachable | `0.0.0-dev.0+sha` (with a warning) | `0.0.0-dev.0+a1b2c3d` |
+
+`N` is the number of commits since the latest tag; `sha` is the 7-character commit.
+
+**Display contract** (unchanged): a *release* build shows `X.Y.Z`; every other build shows the
+7-char sha. A build is a release only when it is an **exact tag AND the tip of `master`**.
+
+The only files that carry a version string are written by `release.sh` alone: each extension
+gemspec (`spec.version`, Bundler needs a literal) and the root and `frontend/` `package.json`.
 
 ## Branch model
 
@@ -32,13 +56,15 @@ Promotion path: `feature/*` → `develop` → `release/x.y.z` → `master` (tag)
 
 ## Semantic versioning
 
-We use [semver](https://semver.org/) — `MAJOR.MINOR.PATCH`:
+We use [semver](https://semver.org/) -- `MAJOR.MINOR.PATCH`:
 
-- **MAJOR** — incompatible API or schema changes that require operator action.
-- **MINOR** — backward-compatible new features.
-- **PATCH** — backward-compatible bug fixes.
+- **MAJOR** -- incompatible API or schema changes that require operator action.
+- **MINOR** -- backward-compatible new features.
+- **PATCH** -- backward-compatible bug fixes.
 
-Pre-release suffixes are allowed for release candidates: `0.3.0-rc.1`, `0.3.0-rc.2`, then `0.3.0`.
+Release candidates are not tagged: the `release/X.Y.Z` branch builds report `X.Y.Z-rc.N+sha`.
+Federation compares `major.minor.patch` only (an N-1 minor window) and always sends the plain
+`X.Y.Z` core, never a prerelease string.
 
 ## Tag naming
 
@@ -46,7 +72,6 @@ Pre-release suffixes are allowed for release candidates: `0.3.0-rc.1`, `0.3.0-rc
 
 ```
 0.2.0         # GOOD
-0.2.0-rc.1    # GOOD
 v0.2.0        # WRONG — do not create
 release-0.2.0 # WRONG — do not create
 ```
@@ -55,58 +80,53 @@ Release branches mirror the tag: `release/0.2.0`, not `release/v0.2.0`.
 
 This is non-negotiable. Tooling that scrapes tags assumes the bare-semver format, and `v`-prefixed tags break the changelog generator and Gitea release-publishing automation.
 
-## Step-by-step: cutting a release
+## Cutting a release
 
 ```bash
-# 1. From an up-to-date develop, cut the release branch
-git checkout develop
-git pull origin develop
-git checkout -b release/0.3.0
+# 1. Cut release/X.Y.Z from develop in the parent AND in every submodule
+#    (all trees clean, all on release/X.Y.Z).
+git checkout -b release/0.3.0 develop
+git submodule foreach 'git checkout -b release/0.3.0 develop'
 
-# 2. Bump version constants (Gemfile.lock, package.json, etc.)
-# 3. Update CHANGELOG.md with the new section
-# 4. Open a PR from release/0.3.0 against develop for review
-#    (or push the branch directly and announce in your release channel)
-
-# 5. Run the full validation suite locally
+# 2. Update CHANGELOG.md, run the full gate, fix bugs on the release branch.
 ./scripts/validate.sh
 
-# 6. During the freeze, fix bugs DIRECTLY on the release branch
-git commit -m "fix(scope): describe the fix"
-git push origin release/0.3.0
-git push github release/0.3.0
+# 3. Rehearse: validates everything and prints the plan, changes nothing.
+./scripts/release.sh 0.3.0 --dry-run
 
-# 7. When the release is verified, merge to master and tag
-git checkout master
-git merge --no-ff release/0.3.0
-git tag 0.3.0
-git push origin master --tags
-git push github master --tags
+# 4. Release.
+./scripts/release.sh 0.3.0
 
-# 8. Merge release branch back to develop so the fixes don't get lost
-git checkout develop
-git merge --no-ff release/0.3.0
-git push origin develop
-git push github develop
-
-# 9. Delete the release branch
-git branch -d release/0.3.0
-git push origin --delete release/0.3.0
-git push github --delete release/0.3.0
+# 5. Mirror to GitHub (release.sh pushes to origin only).
+git push github master develop 0.3.0
 ```
 
-## Submodule coordination
+Pushing the tag triggers `.gitea/workflows/release.yml`, which builds the docker images and
+dispatches the module build with the tag; both compute the version from the tag.
 
-The platform parent contains submodules. A release that includes submodule changes follows this order:
+## What release.sh does
 
-1. Inside the affected submodule, run that submodule's own release flow and tag.
-2. Push the submodule release tag to its remotes.
-3. Update the parent's submodule pointer (`git add extensions/<name>`) on the parent's `release/x.y.z` branch.
-4. Continue the parent release as usual.
+1. **Asserts** a clean tree, branch `release/X.Y.Z` (or `hotfix/X.Y.Z`), and no `X.Y.Z` tag (local or on the remote) in the parent or any submodule.
+2. **Stamps** every extension gemspec, runs `bundle lock` in `server/` (so `Gemfile.lock` follows), and `npm version X.Y.Z --no-git-tag-version` in the root and `frontend/` (this also corrects the lockfiles).
+3. **Commits** inside each submodule, then the parent, one commit per concern.
+4. **Merges** `release/X.Y.Z` into `master` with `--no-ff` (submodules first, so the parent records their merge commits), tags `X.Y.Z` on `master` and on each submodule's `master`, and pushes the tags.
+5. **Back-merges** to `develop` (submodules, then the parent) and pushes.
 
-If a submodule does not have changes, it does not need a release — leave the pointer alone.
+`--dry-run` performs the assertions for real and only prints steps 2-5.
 
-The system extension is the most likely to be co-released because its work cadence is closely coupled with the parent platform. Marketing, supply-chain, and business typically release independently.
+## Per-runtime version sources
+
+| Runtime | Source (in order) |
+|---------|-------------------|
+| Server (`Powernode::Version`, `server/config/version.rb`) | `BUILD_INFO.json` -> `git describe --tags --long --match '[0-9]*.[0-9]*.[0-9]*'` (dev only) -> `0.0.0-dev.0` |
+| Worker (`worker/config/build_version.rb`) | the same chain; the worker cannot require server code |
+| Frontend (`__BUILD_INFO__`) | `POWERNODE_BUILD_INFO_JSON` -> `vite.config.ts` computes it locally with the same describe logic -> `0.0.0-dev` |
+| Docker images | `ARG POWERNODE_BUILD_INFO_JSON`, computed by `scripts/compute-build-info.sh` in the workflow, written to `BUILD_INFO.json` in the image |
+| Module build (`stage15.sh`) | derived from the `ls-remote` refs of the shallow parent clone (exact tag, else max tag with minor+1; `N` by deepening to the tag), written to `BUILD_INFO.json` |
+| Go agent | `-X main.Version=X.Y.Z` on a release build, otherwise date-sha; `make` uses `git describe --match '[0-9]*.[0-9]*.[0-9]*'` |
+| Extensions | the registry reports the platform version; no per-extension version |
+
+`BUILD_INFO.json` is git-ignored.
 
 ## Dual-remote push
 
@@ -128,29 +148,17 @@ The marketing and supply-chain extensions are also dual-remoted. The business ex
 
 ## Hotfixes
 
-When a tagged release needs an urgent fix:
-
 ```bash
-# 1. Branch from the tag
+# 1. Branch from the tag (builds report X.Y.Z-rc.N+sha)
 git checkout 0.3.0
 git checkout -b hotfix/0.3.1
+git submodule foreach 'git checkout -b hotfix/0.3.1'   # as needed
 
 # 2. Apply the fix, run the suite
 ./scripts/validate.sh
 
-# 3. Bump patch version + CHANGELOG entry
-# 4. Merge to master and tag
-git checkout master
-git merge --no-ff hotfix/0.3.1
-git tag 0.3.1
-git push origin master --tags
-git push github master --tags
-
-# 5. Merge back to develop
-git checkout develop
-git merge --no-ff hotfix/0.3.1
-git push origin develop
-git push github develop
+# 3. Release it from the hotfix branch (release.sh accepts release/X.Y.Z or hotfix/X.Y.Z).
+./scripts/release.sh 0.3.1
 ```
 
 ## Changelog
@@ -183,6 +191,14 @@ Each release section has:
 
 Pre-release entries (`0.3.0-rc.1`) get their own section that gets squashed into the final release section once it tags.
 
+## History note: 0.3.0 appears twice
+
+`master` already carries untagged `0.3.0` / `0.3.1` merges from before this scheme (the old
+`VERSION` file said `0.3.1`). The first release under the scheme is `0.3.0`, cut by the
+operator on a stable `master`, so "0.3.0" will appear twice in history: the old untagged merges
+and the real tagged release. Only the tag is authoritative. The existing tags are `0.0.1`,
+`0.0.2`, `0.1.0` and `0.2.0`; no baseline tag is created before then.
+
 ## Common mistakes
 
 | Mistake | Consequence |
@@ -190,7 +206,8 @@ Pre-release entries (`0.3.0-rc.1`) get their own section that gets squashed into
 | Prefixing tags with `v` | Breaks the changelog generator and release automation |
 | Merging `release/*` to `master` without merging back to `develop` | Fixes are lost on the next minor cut |
 | Pushing to only one remote of a dual-remoted repo | One mirror lags — push to both `origin` (Gitea) and `github` (GitHub) |
-| Forgetting to bump the parent's submodule pointer after a coupled submodule release | Parent release ships against the previous submodule SHA |
+| Hand-editing a version anywhere | It is overwritten or contradicted by the tag; only `release.sh` writes versions |
+| Running `release.sh` with a dirty tree or off `release/X.Y.Z` | It refuses; fix the tree or branch |
 | Releasing on a Friday afternoon | Predictable consequences |
 
 ---

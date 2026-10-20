@@ -83,8 +83,8 @@ Repository scripts live under `scripts/` at the project root. Subdirectories gro
 
 | Script | Description |
 |--------|-------------|
-| `version-bump.sh` | Bump version numbers across the project |
-| `version-manager.sh` | Version management utilities |
+| `release.sh` | Cut a release from `release/X.Y.Z`: stamp versions, merge, tag, push (see [release process](../contributing/release-process.md)) |
+| `compute-build-info.sh` | Print BUILD_INFO.json (version derived from release tags) for CI image builds |
 
 ## Testing
 
