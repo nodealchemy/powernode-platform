@@ -682,7 +682,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
       )
     end
 
-    context "use_case → role module mapping" do
+    context "use_case → role module mapping", :account_bootstrap do
       it "maps use_case=discord_bot → nodejs-runtime and appends deploy_app_code" do
         nodejs = make_node_module("nodejs-runtime")
         brief_with_repo = brief.merge(
@@ -797,7 +797,7 @@ RSpec.describe Ai::Provisioning::PlanComposerService, type: :service do
     # so once a collision is in the baseline every later assignment is obliged
     # to treat it as acceptable, and TemplateExpansionService then ships it to
     # real nodes.
-    context "composition conflicts on the default template" do
+    context "composition conflicts on the default template", :account_bootstrap do
       let!(:runtime_category) do
         ::System::NodeModuleCategory.create!(
           account: account, name: "Runtime", variety: "instance", position: 2

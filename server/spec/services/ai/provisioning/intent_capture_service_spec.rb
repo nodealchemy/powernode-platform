@@ -242,7 +242,7 @@ RSpec.describe Ai::Provisioning::IntentCaptureService, type: :service do
         expect(result[:brief]["preferred_provider"]).to eq("aws")
       end
 
-      it "build_brief_prompt enumerates the account's configured providers as a closed set" do
+      it "build_brief_prompt enumerates the account's configured providers as a closed set", :account_bootstrap do
         # The account factory bootstraps a "Pro Cloud" provider (M1 self-serve),
         # so this account has a catalog and the prompt must enumerate IT — not
         # the generic cloud vocabulary, whose open-ended identifiers are what
