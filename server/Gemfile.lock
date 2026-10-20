@@ -462,6 +462,8 @@ GEM
     os (1.1.4)
     ostruct (0.6.3)
     parallel (1.28.0)
+    parallel_tests (4.10.1)
+      parallel
     parser (3.3.11.1)
       ast (~> 2.4.1)
       racc
@@ -764,6 +766,7 @@ DEPENDENCIES
   opentelemetry-instrumentation-rails (~> 0.31)
   opentelemetry-instrumentation-redis (~> 0.25)
   opentelemetry-sdk (~> 1.4)
+  parallel_tests (~> 4.9)
   paypal-sdk-rest
   pg (~> 1.1)
   powernode_marketing!
@@ -976,6 +979,7 @@ CHECKSUMS
   os (1.1.4) sha256=57816d6a334e7bd6aed048f4b0308226c5fb027433b67d90a9ab435f35108d3f
   ostruct (0.6.3) sha256=95a2ed4a4bd1d190784e666b47b2d3f078e4a9efda2fccf18f84ddc6538ed912
   parallel (1.28.0) sha256=33e6de1484baf2524792d178b0913fc8eb94c628d6cfe45599ad4458c638c970
+  parallel_tests (4.10.1) sha256=df05458c691462b210f7a41fc2651d4e4e8a881e8190e6d1e122c92c07735d70
   parser (3.3.11.1) sha256=d17ace7aabe3e72c3cc94043714be27cc6f852f104d81aa284c2281aecc65d54
   path_expander (2.0.1) sha256=2de201164bff4719cc4d0b3767286e9977cc832a59c4d70abab571ec86cb41e4
   paypal-sdk-rest (1.7.6) sha256=7af231eed2f4827c60af719026096b1065f2a1a9b84d8b861fff92dd2c787036

@@ -144,6 +144,11 @@ gem "webmock", "~> 3.25", group: :test
 # Test-suite profiling (FactoryProf/EventProf/RSpecDissect/TagProf) + let_it_be/before_all.
 # Profilers are env-activated (FPROF=1, EVENT_PROF=..., RD_PROF=1, TAG_PROF=type) and inert by default.
 gem "test-prof", "~> 1.4", group: :test
+# Opt-in parallel RSpec (scripts/parallel-rspec.sh): one DB + one Redis lane per process, file
+# balancing from runtime logs. require: false on purpose: Bundler.require would load its Railtie, whose
+# parallel:drop/create/setup/prepare tasks drop powernode_test and powernode_test2..N on whatever cluster
+# DATABASE_PORT resolves (the shared one included). The binaries and the formatters load by path.
+gem "parallel_tests", "~> 4.9", group: :test, require: false
 gem "vcr", "~> 6.3", group: :test
 gem "rspec-json_expectations", "~> 2.2", group: :test
 
