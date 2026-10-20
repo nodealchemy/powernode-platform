@@ -14,9 +14,10 @@ PowernodeWorker.application.logger.info(
   "stdio MCP concurrency cap: #{Mcp::StdioConcurrencyLimiter.instance.limit} per process"
 )
 
-# Read version from VERSION file
-VERSION_FILE = File.expand_path('VERSION', __dir__)
-WORKER_VERSION = File.exist?(VERSION_FILE) ? File.read(VERSION_FILE).strip : '0.0.1-dev'
+# Version comes from release tags: BUILD_INFO.json, then git describe, then a
+# fallback (config/build_version.rb; same rules as the server's Powernode::Version).
+require_relative 'config/build_version'
+WORKER_VERSION = PowernodeWorker::BuildVersion.current
 
 # API endpoint (jobs, embeddings, LLM)
 map '/api/v1' do
