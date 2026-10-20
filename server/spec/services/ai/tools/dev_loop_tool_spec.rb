@@ -985,15 +985,18 @@ RSpec.describe Ai::Tools::DevLoopTool do
     # asserted five dev.* categories were registered; four of them were dead
     # vocabulary — dev.pull_task / dev.complete_task superseded by the seeded
     # dev.task_claim / dev.task_complete, and dev.commit_to_branch / dev.merge
-    # with no seed, no gate and no reference in the tree. Asserting only
+    # with no seed, no gate and no reference in the tree (dev.merge later returned WITH a gate). Asserting only
     # PRESENCE is what let them accumulate, so the absent half is asserted too:
     # re-adding a name nothing mints reds this example.
+    #
+    # dev.merge was dead then and is live now: Ai::Tools::DevMergeTool gates
+    # dev_merge_increment under it (ACTION_CATEGORY), so it moves to the live half.
     it "registers the live dev.* intervention categories and no dead ones" do
-      %w[dev.multi_file_change dev.task_claim dev.task_complete].each do |cat|
+      %w[dev.multi_file_change dev.task_claim dev.task_complete dev.merge].each do |cat|
         expect(Ai::InterventionPolicy.category_registered?(cat)).to be(true), "expected #{cat} registered"
       end
 
-      %w[dev.pull_task dev.complete_task dev.commit_to_branch dev.merge].each do |cat|
+      %w[dev.pull_task dev.complete_task dev.commit_to_branch].each do |cat|
         expect(Ai::InterventionPolicy.category_registered?(cat)).to be(false),
                "#{cat} is registered but nothing seeds or resolves it"
       end
