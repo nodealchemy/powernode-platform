@@ -131,7 +131,9 @@ RSpec.describe "scripts/pre-critic-gate.sh" do
   end
 
   def gate(*args, env: {}, path: nil, script_root: nil)
-    full = { "PATH" => path || "#{@stubs}:/usr/local/bin:/usr/bin:/bin:#{File.dirname(RbConfig.ruby)}",
+    # the interpreter rspec runs under comes first: the gate shells out to `ruby` with this process's RUBYOPT/BUNDLE_GEMFILE
+    # (bundler/setup), which a different system ruby earlier on PATH cannot load
+    full = { "PATH" => path || "#{@stubs}:#{File.dirname(RbConfig.ruby)}:/usr/local/bin:/usr/bin:/bin",
              "FAKE_RUBOCOP_JSON" => File.join(@dir, "clean.json"), "POWERNODE_LOCAL_CONFIG" => "none" }.merge(env)
     root = script_root || @repo
     out, err, st = Open3.capture3(full, File.join(root, "scripts/pre-critic-gate.sh"), *args, chdir: root)
