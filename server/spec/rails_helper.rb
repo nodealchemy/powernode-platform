@@ -2,10 +2,34 @@
 
 # This file is copied to spec/ when you run 'rails generate rspec:install'
 require 'spec_helper'
-ENV['RAILS_ENV'] ||= 'test'
+
+# Fail closed BEFORE Rails loads (IMP-d40a58733850). An executor once sourced the unit env
+# (RAILS_ENV=development + DATABASE_*) and ran rspec in the same shell; `||=` kept development
+# and before(:suite) deleted every row of the dev database. Only an unset var may default to test.
+%w[RAILS_ENV RACK_ENV].each do |var|
+  value = ENV[var]
+  next if value.nil? || value.empty? # unset (or blank) defaults to test below
+  next if value == 'test'
+
+  abort("[rails_helper] rspec refuses #{var}=#{value}; run in a clean shell " \
+        "(do not source ~/.config/powernode/* or /etc/powernode/*.conf before rspec).")
+end
+ENV['RAILS_ENV'] = 'test'
 require_relative '../config/environment'
 # Prevent database truncation if the environment is production
 abort("The Rails environment is running in production mode!") if Rails.env.production?
+
+# Fail closed AFTER Rails loads, before ANY database work (pending-migration check, suite
+# cleaner). Reading connection_db_config does not connect; a DATABASE_URL is already parsed
+# into its database name. Parallel lanes (powernode_test__p<N>, powernode_test_<suffix>) match.
+unless Rails.env.test?
+  abort("[rails_helper] rspec refuses Rails.env=#{Rails.env}; run in a clean shell.")
+end
+guard_db = ActiveRecord::Base.connection_db_config.database.to_s
+unless guard_db.match?(/test/)
+  abort("[rails_helper] rspec refuses database #{guard_db.inspect}: its name does not contain " \
+        "\"test\". Run in a clean shell (no sourced unit env / DATABASE_URL).")
+end
 # Uncomment the line below in case you have `--require rails_helper` in the `.rspec` file
 # that will avoid rails generators crashing because migrations haven't been run yet
 # return unless Rails.env.test?
