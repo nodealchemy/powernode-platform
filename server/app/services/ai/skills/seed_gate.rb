@@ -14,7 +14,11 @@ module Ai
     #                  active capability skill owns a capability; a slug is not
     #                  taken by a legacy or other-owner GLOBAL row. Account rows
     #                  never block (see #warnings).
-    #   3. Verbs     — every manifest verb is a registered platform tool.
+    #   3. Verbs     — every manifest verb is a registered platform tool, and a
+    #                  skill that attests gate_category read names no verb whose
+    #                  declaration is `mutating: true` (except the explicit
+    #                  Contract allowlist: the self-report verb and the
+    #                  read-only probes an extension registers).
     #   4. Relations — targets exist (batch or seeded), and cross only where
     #                  isolation allows (core → core; extension → core or itself);
     #                  a target an operator retired is skipped with a warning.
@@ -74,6 +78,7 @@ module Ai
         errors.concat(identity_errors(entries))
         errors.concat(collision_errors(entries))
         errors.concat(verb_errors(entries))
+        errors.concat(read_skill_errors(entries))
         errors.concat(relation_errors(entries))
         errors.concat(purity_errors(entries))
         errors.concat(similarity_errors(entries))
@@ -164,6 +169,30 @@ module Ai
         entries.flat_map do |entry|
           Array(entry.dig("metadata", "manifest", "verbs")).reject { |v| registered.key?(v.to_s) }
                                                            .map { |v| "#{entry['slug']}: manifest verb #{v} is not a registered platform tool" }
+        end
+      end
+
+      # A `read` skill (read_only true, tied by the contract) is what a read-only
+      # agent may be assembled with and what verb risk treats as calm, so it must
+      # not name a verb that writes. A verb the registry does not declare is left
+      # to verb_errors.
+      def read_skill_errors(entries)
+        registry = ::Ai::Tools::PlatformApiToolRegistry.all_tools
+        allowed = Contract.read_probe_verbs
+        entries.flat_map do |entry|
+          manifest = entry.dig("metadata", "manifest")
+          next [] unless manifest.is_a?(Hash) && manifest["gate_category"] == "read"
+
+          Array(manifest["verbs"]).map(&:to_s).uniq.filter_map do |verb|
+            next if allowed.include?(verb) || !registry.key?(verb)
+
+            tool = registry[verb]
+            tool = tool.safe_constantize if tool.is_a?(String)
+            declaration = tool.respond_to?(:declared_action) ? tool.declared_action(::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.fetch(verb, verb)) : nil
+            next unless declaration && declaration[:mutating]
+
+            "#{entry['slug']}: gate_category read but names mutating verb #{verb} (declare the skill mutate, or add a read-only probe to the Contract allowlist)"
+          end
         end
       end
 

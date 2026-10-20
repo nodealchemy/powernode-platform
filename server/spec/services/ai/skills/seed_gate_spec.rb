@@ -63,6 +63,46 @@ RSpec.describe Ai::Skills::SeedGate do
     end
   end
 
+  # A skill that attests gate_category read (and read_only true, which the
+  # contract ties to it) must not name a verb that WRITES. The explicit,
+  # commented allowlist is Ai::Skills::Contract::READ_SKILL_MUTATING_VERBS
+  # (record_agent_execution: the self-report every agent ends with) plus the
+  # approval-parking probes an extension registers (register_read_probe_verbs).
+  describe "a read skill names no mutating verb" do
+    def read_entry(slug, verbs) = entry(slug).tap { |e| e["metadata"]["manifest"]["verbs"] = verbs }
+
+    it "rejects a gate_category read skill that names a mutating verb" do
+      expect { gate.check!([ read_entry("alpha-skill", %w[search_knowledge create_knowledge]) ]) }
+        .to raise_error(described_class::GateError, /alpha-skill: gate_category read but names mutating verb create_knowledge/)
+    end
+
+    it "allows the self-report verb on a read skill" do
+      expect(gate.check!([ read_entry("alpha-skill", %w[search_knowledge record_agent_execution]) ])).to be(true)
+    end
+
+    it "allows an approval-parking probe an extension registered, and only that one" do
+      allow(Ai::Skills::Contract).to receive(:read_probe_verbs).and_return(%w[create_knowledge])
+
+      expect(gate.check!([ read_entry("alpha-skill", %w[create_knowledge]) ])).to be(true)
+      expect { gate.check!([ read_entry("alpha-skill", %w[update_knowledge]) ]) }.to raise_error(described_class::GateError, /update_knowledge/)
+    end
+
+    it "does not police a skill that declares a mutate gate category" do
+      e = read_entry("alpha-skill", %w[create_knowledge]).tap do |x|
+        x["metadata"]["manifest"].merge!("gate_category" => "mutate", "read_only" => false)
+      end
+      expect(gate.check!([ e ])).to be(true)
+    end
+
+    it "registers an extension's probe verbs by owner, without core naming them" do
+      Ai::Skills::Contract.register_read_probe_verbs(owner: "extensions/example", verbs: %w[probe_one])
+      expect(Ai::Skills::Contract.read_probe_verbs).to include("probe_one")
+      expect(File.read(Rails.root.join("app/services/ai/skills/contract.rb"))).not_to include("system_inspect_node")
+    ensure
+      Ai::Skills::Contract.register_read_probe_verbs(owner: "extensions/example", verbs: [])
+    end
+  end
+
   describe "identity" do
     it "rejects two owners of one capability in a batch" do
       b = entry("beta-skill").tap { |e| e["metadata"]["capability"] = "alpha-skill" }

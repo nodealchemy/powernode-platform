@@ -79,7 +79,15 @@ module Ai
         parallel-rspec\.sh | prepare-worktree\.sh | test-pg-tmpfs\.sh | test-redis\.sh
       }x
 
+      # Verbs a gate_category-read skill may name although their declaration is
+      # `mutating: true`. Explicit and short on purpose: the self-report verb every
+      # agent ends a run with records history and acts on nothing. An extension
+      # adds its own approval-parking, read-only probes through
+      # register_read_probe_verbs (core never names them).
+      READ_SKILL_MUTATING_VERBS = %w[record_agent_execution].freeze
+
       @registered_domains = {}
+      @read_probe_verbs = {}
       @registry_mutex = Mutex.new
 
       class << self
@@ -89,6 +97,19 @@ module Ai
           @registry_mutex.synchronize do
             @registered_domains[owner.to_s] = (Array(@registered_domains[owner.to_s]) | Array(domains).map(&:to_s)).freeze
           end
+        end
+
+        # Extension engines register the read-only, approval-parking probe verbs a
+        # `read` skill of theirs may name. Idempotent; an empty list clears the owner.
+        def register_read_probe_verbs(owner:, verbs:)
+          @registry_mutex.synchronize do
+            @read_probe_verbs[owner.to_s] = Array(verbs).map(&:to_s).freeze
+          end
+        end
+
+        # @return [Array<String>] every verb a read skill may name despite `mutating: true`
+        def read_probe_verbs
+          @registry_mutex.synchronize { @read_probe_verbs.values.flatten.uniq + READ_SKILL_MUTATING_VERBS }
         end
 
         def domains_for(owner)
