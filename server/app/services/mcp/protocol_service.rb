@@ -76,7 +76,7 @@ module Mcp
         capabilities: server_capabilities,
         serverInfo: {
           name: "Powernode AI Platform",
-          version: Rails.application.config.version || "1.0.0"
+          version: Powernode::Version.current
         }
       }
     )
@@ -97,7 +97,7 @@ module Mcp
       "timestamp" => Time.current.iso8601,
       "server_info" => {
         "name" => "Powernode MCP Server",
-        "version" => Rails.application.config.version || "1.0.0"
+        "version" => Powernode::Version.current
       }
     }
   end

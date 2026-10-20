@@ -27,7 +27,8 @@ module Powernode
       #
       # @param slug [String, Symbol] extension slug (e.g. "business")
       # @param engine [Class] the Rails::Engine subclass
-      # @param version [String, nil]
+      # @param version [String, nil] ignored: every extension ships with the platform and
+      #   reports the platform version (Powernode::Version.current), set from release tags.
       # @param features_module [Module, nil] responds to `available?(feature, account:)`,
       #   returning nil for features it does not own (license/tier/flag decision otherwise)
       # @param capabilities [Array<Symbol,String>] declarative capability slugs this extension
@@ -38,7 +39,7 @@ module Powernode
         root = engine.respond_to?(:root) ? engine.root.to_s : ""
         extensions[slug.to_s] = {
           engine: engine,
-          version: version,
+          version: Powernode::Version.current,
           features_module: features_module,
           capabilities: Array(capabilities).map(&:to_sym).freeze,
           providers: providers.to_h.transform_keys(&:to_sym).freeze,

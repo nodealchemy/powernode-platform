@@ -22,7 +22,7 @@ module AdminSettings
               name: meta["name"] || slug.titleize,
               description: meta["description"],
               icon: meta["icon"],
-              version: meta["version"],
+              version: Powernode::Version.current,
               author: meta["author"],
               homepage: meta["homepage"],
               capabilities: meta["capabilities"] || [],

@@ -37,6 +37,12 @@ RSpec.describe Powernode::ExtensionRegistry do
   end
 
   describe ".register" do
+    it "reports the platform version for every extension (no per-extension version)" do
+      described_class.register(slug: "demo", engine: :engine, version: "9.9.9")
+
+      expect(described_class.all["demo"][:version]).to eq(Powernode::Version.current)
+    end
+
     it "stores capabilities symbolized and frozen" do
       described_class.register(slug: "demo", engine: :engine, capabilities: %w[alpha beta])
 

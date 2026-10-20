@@ -116,7 +116,7 @@ module Shared
         slug = manifest["slug"].presence || dir.basename.to_s
         {
           slug: slug,
-          version: manifest["version"],
+          version: Powernode::Version.current,
           enabled: extension_enabled?(slug)
         }
       end

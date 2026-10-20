@@ -71,7 +71,7 @@ module Api
           },
           version: {
             api: "v1",
-            app: "0.0.2"
+            app: Powernode::Version.current
           }
         }
       end

@@ -105,7 +105,6 @@ Every extension MUST have an `extension.json` at its root:
 {
   "name": "Marketing",
   "slug": "marketing",
-  "version": "0.1.0",
   "description": "Marketing campaigns, content calendar, email lists, social media, campaign analytics.",
   "author": "Your Name",
   "homepage": "https://example.com",
@@ -258,7 +257,6 @@ Declare **capabilities** (presence) and **providers** (behavior) in your engine'
 Powernode::ExtensionRegistry.register(
   slug: 'myext',
   engine: Myext::Engine,
-  version: Myext::VERSION,
   features_module: Myext::Features,        # optional: licensed/account-scoped availability
   capabilities: %i[campaigns analytics],   # presence: core asks capability_present?(:campaigns)
   providers: {                             # behavior: core resolves provider(:key); nil ⇒ core default

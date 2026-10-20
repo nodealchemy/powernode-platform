@@ -182,7 +182,7 @@ class McpChannel < ApplicationCable::Channel
         timestamp: Time.current.iso8601,
         server_info: {
           name: "Powernode MCP Server",
-          version: Rails.application.config.version || "1.0.0"
+          version: Powernode::Version.current
         }
       }
     })

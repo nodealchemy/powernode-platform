@@ -23,8 +23,8 @@ if ENV["SENTRY_DSN"].present?
     # Breadcrumbs configuration
     config.breadcrumbs_logger = [ :active_support_logger, :http_logger ]
 
-    # Release tracking (use git SHA or version)
-    config.release = ENV.fetch("APP_VERSION") { `git rev-parse HEAD`.strip rescue "unknown" }
+    # Release tracking (resolved from release tags; see config/version.rb)
+    config.release = Powernode::Version.current
 
     # Server name for identification
     config.server_name = ENV.fetch("HOSTNAME") { Socket.gethostname rescue "unknown" }

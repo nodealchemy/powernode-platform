@@ -32,7 +32,7 @@ module Mcp
         capabilities: client_capabilities,
         clientInfo: {
           name: "Powernode Server",
-          version: "1.0.0"
+          version: Powernode::Version.current
         }
       }
     )

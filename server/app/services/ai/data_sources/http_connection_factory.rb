@@ -300,11 +300,7 @@ module Ai
         end
 
         def app_version
-          if Rails.application.config.respond_to?(:version) && Rails.application.config.version.present?
-            Rails.application.config.version
-          else
-            "1.0.0"
-          end
+          Powernode::Version.current
         end
 
         # Contact URI advertised in the User-Agent so remote operators can reach

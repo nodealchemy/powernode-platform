@@ -139,7 +139,7 @@ module Ai
               resource: {
                 attributes: [
                   { key: "service.name", value: { stringValue: OTEL_SERVICE_NAME } },
-                  { key: "service.version", value: { stringValue: "1.0.0" } },
+                  { key: "service.version", value: { stringValue: Powernode::Version.current } },
                   { key: "deployment.environment", value: { stringValue: Rails.env } }
                 ]
               },

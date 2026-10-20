@@ -35,7 +35,7 @@ module Api
             },
             incidents: [],
             uptime: { last_30_days: 99.95 },
-            version: Rails.application.config.respond_to?(:app_version) ? Rails.application.config.app_version : "1.0.0",
+            version: Powernode::Version.current,
             last_updated: Time.current.iso8601
           }
 

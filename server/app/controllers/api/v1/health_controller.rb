@@ -133,7 +133,7 @@ module Api
       end
 
       def app_version
-        ENV.fetch("APP_VERSION") { "unknown" }
+        Powernode::Version.current
       end
 
       def memory_usage

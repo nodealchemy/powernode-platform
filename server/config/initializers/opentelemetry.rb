@@ -25,7 +25,7 @@ if ENV["OTEL_ENABLED"] == "true"
 
   OpenTelemetry::SDK.configure do |c|
     c.service_name = ENV.fetch("OTEL_SERVICE_NAME", "powernode-backend")
-    c.service_version = ENV.fetch("OTEL_SERVICE_VERSION", "0.1.0")
+    c.service_version = ENV.fetch("OTEL_SERVICE_VERSION") { Powernode::Version.current }
 
     # Auto-instrument Rails, ActiveRecord, HTTP, Redis, Rack, PG
     c.use_all(

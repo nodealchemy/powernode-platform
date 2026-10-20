@@ -3291,8 +3291,6 @@ Rails.application.routes.draw do
 
   # Root route for API
   root to: proc {
-    version = File.exist?(Rails.root.join("..", "VERSION")) ?
-              File.read(Rails.root.join("..", "VERSION")).strip : "0.0.1"
-    [ 200, {}, [ "Powernode API - Version #{version}" ] ]
+    [ 200, {}, [ "Powernode API - Version #{Powernode::Version.current}" ] ]
   }
 end
