@@ -237,11 +237,13 @@ class Rack::Attack
   # TOTP/backup code from an ALREADY-authenticated session. `auth_2fa_by_ip`
   # below only matches POST, so it never saw DELETE /two_factor/disable at
   # all; a wrong-code guess there was unthrottled by IP or by user.
-  # Request path with a format suffix and trailing slashes removed, so
-  # /enroll.json and /enroll/ cannot slip past an exact-path throttle rule or
-  # safelist carve-out while still routing to the same controller action.
+  # Request path as the router sees it: repeated slashes squeezed, any trailing
+  # format suffix (.json, .xml, .txt, ...) and trailing slashes removed. Rails
+  # routes accept `(.:format)` and squeeze `//`, so /enroll.xml and //enroll reach
+  # the same controller action and must hit the same exact-path throttle rule and
+  # safelist carve-out.
   def self.canonical_path(request)
-    request.path.to_s.sub(%r{/+\z}, "").sub(/\.json\z/, "").sub(%r{/+\z}, "")
+    request.path.to_s.squeeze("/").sub(%r{/+\z}, "").sub(/\.\w+\z/, "").sub(%r{/+\z}, "")
   end
 
   def self.two_factor_reauth_path?(request)
