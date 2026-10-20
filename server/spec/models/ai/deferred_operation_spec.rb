@@ -71,6 +71,28 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(op.result).to include('performed' => true)
     end
 
+    it 'masks a secret quoted in the error and message strings of a failed envelope' do
+      secret = %w[hunter 2].join
+      stub_const('FailedEnvelopeExecutor', Class.new do
+        define_singleton_method(:execute) do |_params, deferred_operation:|
+          { success: false, error: "db password=#{secret} rejected", message: "token: #{secret}", code: 7 }
+        end
+      end)
+      op = described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'FailedEnvelopeExecutor', params: {}
+      )
+
+      op.execute_now!
+
+      result = op.reload.result
+      expect(result['error']).to include('[FILTERED]')
+      expect(result.to_json).not_to include(secret)
+      expect(result['success']).to be(false)
+      expect(result['code']).to eq(7)
+      expect(op.status).to eq('completed')
+    end
+
     it 'transitions to failed on executor exception' do
       stub_const('FailingExecutor', Class.new do
         def self.execute(_params, deferred_operation:)

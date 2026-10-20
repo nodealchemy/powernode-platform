@@ -75,6 +75,21 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner, "parked approvals" do
     allow(runner).to receive(:resolve_executor).with("provision_full_stack").and_return(fake_executor_class)
   end
 
+  describe "an executor that fails inline with a secret in its error" do
+    it "keeps the secret out of result_summary and the announce payload" do
+      secret = %w[hunter 2].join
+      fake_executor_class.execute_result = { success: false, error: "db password=#{secret} rejected" }
+      broadcasts = []
+      allow(MissionChannel).to receive(:broadcast_mission_event) { |*args, **kwargs| broadcasts << [ args, kwargs ] }
+
+      runner.execute_step!(step1)
+
+      expect(step1.result_summary.to_s).not_to include(secret)
+      expect(step1.result_summary.to_s).to include(Ai::SensitiveParams::MASK)
+      expect(broadcasts.to_json).not_to include(secret)
+    end
+  end
+
   describe "a step whose executor parks an approval" do
     it "does NOT mark the step completed" do
       runner.execute_step!(step1)
@@ -280,6 +295,28 @@ RSpec.describe Ai::Provisioning::SkillCompositionRunner, "parked approvals" do
       expect(summary).to include("password=#{Ai::SensitiveParams::MASK}; attempt=2")
       expect(broadcasts).not_to be_empty
       expect(broadcasts.to_json).not_to include(secret)
+    end
+
+    # IMP-f8e6bbc5e3bb: the persisted envelope is returned verbatim, so its
+    # `error` string reached result_summary, the broadcast and ai_messages raw.
+    it "redacts a secret-named value inside a persisted failed envelope's error" do
+      secret = %w[hunter 2].join
+      operation.update!(status: "completed",
+                        result: { "success" => false, "error" => "db password=#{secret} rejected" })
+      broadcasts = []
+      allow(MissionChannel).to receive(:broadcast_mission_event) { |*args, **kwargs| broadcasts << [ args, kwargs ] }
+      messages = []
+      allow(conversation).to receive(:add_system_message) { |*args, **kw| messages << [ args, kw ] }
+
+      described_class.resume_parked_step(deferred_operation: operation)
+
+      step = parked_step.reload
+      expect(step.status).to eq("failed")
+      expect(step.result_summary.to_s).not_to include(secret)
+      expect(step.result_summary.to_s).to include(Ai::SensitiveParams::MASK)
+      expect(broadcasts).not_to be_empty
+      expect(broadcasts.to_json).not_to include(secret)
+      expect(messages.to_json).not_to include(secret)
     end
 
     it "records the executor's data, not the envelope around it" do
