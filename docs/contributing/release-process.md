@@ -15,7 +15,7 @@ Powernode releases follow a Git-Flow-derived workflow: features land on `develop
 - [Cutting a release](#cutting-a-release)
 - [What release.sh does](#what-releasesh-does)
 - [Per-runtime version sources](#per-runtime-version-sources)
-- [Dual-remote push](#dual-remote-push)
+- [Remotes](#remotes)
 - [Hotfixes](#hotfixes)
 - [Changelog](#changelog)
 - [History note: 0.3.0 appears twice](#history-note-030-appears-twice)
@@ -40,7 +40,17 @@ the release tag (`X.Y.Z`, no `v`). Running `scripts/release.sh X.Y.Z` **is** the
 7-char sha. A build is a release only when it is an **exact tag AND the tip of `master`**.
 
 The only files that carry a version string are written by `release.sh` alone: each extension
-gemspec (`spec.version`, Bundler needs a literal) and the root and `frontend/` `package.json`.
+gemspec (`spec.version`, Bundler needs a literal) and the root and `frontend/` `package.json`
+(and their lockfiles). Between releases the `package.json` files hold the placeholder `0.0.0`;
+the gemspecs stay at `0.1.0` (changing them would churn `server/Gemfile.lock` and break
+frozen-mode boots), and `release.sh` overwrites all of them. Nobody edits these by hand.
+
+**A `0.0.0` build must never be deployed.** `0.0.0-dev.0` means no release tag was reachable
+(a shallow clone without tags, or a failed tag lookup). Federation compares `major.minor.patch`,
+so such a node is incompatible with every peer. CI refuses to build one: `docker-build.yml`
+fails when the computed version starts with `0.0.0`, and the module build fails when it cannot
+list the core remote's refs. The runtime resolver only logs a warning, so check `/api/v1/version`
+after a local or unusual build.
 
 ## Branch model
 
@@ -97,22 +107,23 @@ git submodule foreach 'git checkout -b release/0.3.0 develop'
 # 4. Release.
 ./scripts/release.sh 0.3.0
 
-# 5. Mirror to GitHub (release.sh pushes to origin only).
-git push github master develop 0.3.0
 ```
+
+`release.sh` pushes every repo to every configured remote, so there is no manual mirror step.
 
 Pushing the tag triggers `.gitea/workflows/release.yml`, which builds the docker images and
 dispatches the module build with the tag; both compute the version from the tag.
 
 ## What release.sh does
 
-1. **Asserts** a clean tree, branch `release/X.Y.Z` (or `hotfix/X.Y.Z`), and no `X.Y.Z` tag (local or on the remote) in the parent or any submodule.
-2. **Stamps** every extension gemspec, runs `bundle lock` in `server/` (so `Gemfile.lock` follows), and `npm version X.Y.Z --no-git-tag-version` in the root and `frontend/` (this also corrects the lockfiles).
-3. **Commits** inside each submodule, then the parent, one commit per concern.
-4. **Merges** `release/X.Y.Z` into `master` with `--no-ff` (submodules first, so the parent records their merge commits), tags `X.Y.Z` on `master` and on each submodule's `master`, and pushes the tags.
-5. **Back-merges** to `develop` (submodules, then the parent) and pushes.
+1. **Fetches** every remote of every repo and **asserts**: clean trees, branch `release/X.Y.Z` (or `hotfix/X.Y.Z`), no `X.Y.Z` tag on **any** remote (an unreachable remote aborts), and local `master` / `develop` equal to the remote tips.
+2. **Does all local work first.** Submodules: stamp the gemspec, commit, merge `--no-ff` into `master`, tag `X.Y.Z`, back-merge into `develop`. Parent: `bundle lock` in `server/`, `npm version X.Y.Z --no-git-tag-version` in the root and `frontend/` (this also corrects the lockfiles), one commit per concern, merge `--no-ff` into `master`, tag, back-merge into `develop`. A back-merge conflict that touches only submodule gitlinks is resolved by taking the submodule's `develop` tip; any other conflict aborts (nothing has been pushed yet).
+3. **Runs the parent gate** (`scripts/validate.sh`, on top of the commit hooks) before anything is pushed.
+4. **Pushes at the very end**: submodules first, then the parent; branches first, then the tag; every repo to every configured remote, **gitea first** (the tag push to gitea fires `release.yml`).
 
-`--dry-run` performs the assertions for real and only prints steps 2-5.
+If a push fails, the script prints the exact commands to resume. Re-running `scripts/release.sh X.Y.Z` is safe: it detects the local tag and commits and only pushes what is missing.
+
+`--dry-run` performs step 1 for real (including the fetch) and only prints steps 2-4.
 
 ## Per-runtime version sources
 
@@ -123,28 +134,27 @@ dispatches the module build with the tag; both compute the version from the tag.
 | Frontend (`__BUILD_INFO__`) | `POWERNODE_BUILD_INFO_JSON` -> `vite.config.ts` computes it locally with the same describe logic -> `0.0.0-dev` |
 | Docker images | `ARG POWERNODE_BUILD_INFO_JSON`, computed by `scripts/compute-build-info.sh` in the workflow, written to `BUILD_INFO.json` in the image |
 | Module build (`stage15.sh`) | derived from the `ls-remote` refs of the shallow parent clone (exact tag, else max tag with minor+1; `N` by deepening to the tag), written to `BUILD_INFO.json` |
-| Go agent | `-X main.Version=X.Y.Z` on a release build, otherwise date-sha; `make` uses `git describe --match '[0-9]*.[0-9]*.[0-9]*'` |
+| Go agent | `main.Version` stays `date-sha12` for every build (the fleet's `SmbRotationPreflight` parses that shape); the platform version rides separately in `main.PlatformVersion` |
 | Extensions | the registry reports the platform version; no per-extension version |
 
 `BUILD_INFO.json` is git-ignored.
 
-## Dual-remote push
+## Remotes
 
-The platform parent and the system extension are **dual-remoted**: `origin` is the private Gitea upstream (`<gitea-host>`; the concrete host is deployment knowledge), and `github` is the public GitHub mirror. Releases push to both.
+The remote names differ per repo, so the script does not assume `origin`:
 
-```bash
-# Parent
-git push origin master --tags
-git push github master --tags
+| Repo | Remotes |
+|------|---------|
+| Platform parent, `extensions/system` | `gitea` (the private Gitea upstream; host is deployment knowledge) and `origin` (the public GitHub mirror) |
+| `extensions/marketing`, `extensions/supply-chain` | `origin` only (GitHub) |
 
-# System extension (from inside extensions/system/)
-git push origin master --tags
-git push github master --tags
-```
+By default `release.sh` pushes each repo to every one of `gitea` and `origin` that it has, `gitea`
+first. Override with `RELEASE_REMOTES="gitea origin"`. The existing-tag check queries all of them.
+The tag must reach `gitea`: that push triggers `release.yml`, and the module build derives the
+version from the tags it can list there.
 
-`git push --all` is dangerous on these repos because it can push unintended branches; always be explicit.
-
-The marketing and supply-chain extensions are also dual-remoted. The business extension is private only and pushes to `origin` exclusively.
+`git push --all` is dangerous on these repos because it can push unintended branches; the
+script always pushes explicit refs. The business extension is private only.
 
 ## Hotfixes
 
@@ -205,7 +215,7 @@ and the real tagged release. Only the tag is authoritative. The existing tags ar
 |---------|-------------|
 | Prefixing tags with `v` | Breaks the changelog generator and release automation |
 | Merging `release/*` to `master` without merging back to `develop` | Fixes are lost on the next minor cut |
-| Pushing to only one remote of a dual-remoted repo | One mirror lags — push to both `origin` (Gitea) and `github` (GitHub) |
+| Pushing to only one remote of a dual-remoted repo | A mirror lags, or `gitea` never sees the tag so `release.yml` never fires. `release.sh` pushes to all of them |
 | Hand-editing a version anywhere | It is overwritten or contradicted by the tag; only `release.sh` writes versions |
 | Running `release.sh` with a dirty tree or off `release/X.Y.Z` | It refuses; fix the tree or branch |
 | Releasing on a Friday afternoon | Predictable consequences |
