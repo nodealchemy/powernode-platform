@@ -8,10 +8,15 @@ RSpec.describe Ai::Memory::RouterService, type: :service do
   let(:provider) { create(:ai_provider, account: account) }
   let(:agent) { create(:ai_agent, account: account, creator: user, provider: provider) }
   let(:session_id) { SecureRandom.uuid }
-  # hset/hdel are exercised by MCP tool-health registration when the :ai_agent
-  # factory builds an agent (Mcp::RegistryService#persist_health_status) — the
-  # stubbed client must tolerate them so agent creation doesn't raise.
-  let(:redis_double) { double("Redis", get: nil, setex: true, del: 1, scan_each: nil, hset: true, hdel: 1) }
+  # hset/expire (inside a MULTI) and hdel are exercised by MCP tool-health
+  # registration when the :ai_agent factory builds an agent
+  # (Mcp::RegistryService#write_mirror) — the stubbed client must tolerate them
+  # so agent creation doesn't raise.
+  let(:redis_double) do
+    double("Redis", get: nil, setex: true, del: 1, scan_each: nil, hset: true, expire: true, hdel: 1).tap do |redis|
+      allow(redis).to receive(:multi).and_yield(redis)
+    end
+  end
 
   subject(:service) { described_class.new(account: account, agent: agent) }
 

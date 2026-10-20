@@ -13,8 +13,11 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
     allow(mock_redis).to receive(:get).and_return(nil)
     allow(mock_redis).to receive(:set)
     allow(mock_redis).to receive(:setex)
-    # MCP tool-health registration during :ai_agent factory creation persists to a Redis hash
+    # MCP tool-health registration during :ai_agent factory creation persists to a Redis hash,
+    # as HSET + EXPIRE inside a MULTI (Mcp::RegistryService#write_mirror)
+    allow(mock_redis).to receive(:multi).and_yield(mock_redis)
     allow(mock_redis).to receive(:hset)
+    allow(mock_redis).to receive(:expire)
     allow(mock_redis).to receive(:hdel)
   end
 

@@ -15,6 +15,21 @@ module Mcp
   TOOL_LIST_CACHE_TTL = 1.hour
   CAPABILITY_SEARCH_CACHE_TTL = 1.hour
 
+  # Lifetime of the `mcp:registry:<scope>` / `mcp:health:<scope>` Redis hashes,
+  # refreshed on every write (IMP-3fdaa94f6327). They used to have none, so an
+  # account's pair outlived the account and the global pair only grew.
+  #
+  # Sizing. Nothing reads these hashes back (see "Persistence" below: every
+  # instance rebuilds from ai_agents, and a fresh instance never consults Redis),
+  # so expiry cannot lose state anyone depends on. There is no heartbeat either:
+  # they are rewritten whenever a RegistryService is constructed, which
+  # #load_existing_tools does for every active agent (mark_tool_healthy), on
+  # each MCP session (Mcp::ProtocolService, McpChannel), each agent
+  # create/update/destroy, and each registrar run. A day is far above that
+  # cadence for any account in use, and bounds an idle or abandoned account's
+  # keys to a day rather than forever.
+  REDIS_MIRROR_TTL = 24.hours
+
   attr_accessor :account
 
   def initialize(account: nil)
@@ -183,6 +198,23 @@ module Mcp
 
       matching_tools
     end
+  end
+
+  # Delete an account's Redis mirror hashes. Called from account teardown
+  # (Account::Termination reaching "completed"). The account's agents stay
+  # active, so a later registry construction for it writes the keys again;
+  # REDIS_MIRROR_TTL bounds those, and anything else that misses this purge.
+  def self.purge_account!(account_id)
+    return if account_id.blank?
+
+    Powernode::Redis.client.del(redis_key("registry", account_id), redis_key("health", account_id))
+  rescue StandardError => e
+    Rails.logger.warn "[MCP_REGISTRY] Failed to purge Redis keys for account #{account_id}: #{e.class}: #{e.message}"
+    nil
+  end
+
+  def self.redis_key(kind, account_id)
+    "mcp:#{kind}:#{account_id || 'global'}"
   end
 
   # Invalidate registry caches. Structural (CacheVersioning), not pattern
@@ -485,9 +517,7 @@ module Mcp
     @tools[tool_id] = manifest
 
     # Persist to Redis if available
-    if @redis
-      @redis.hset("mcp:registry:#{@account&.id || 'global'}", tool_id, manifest.to_json)
-    end
+    write_mirror("registry", tool_id, manifest.to_json) if @redis
 
     # Persist to database
     persist_tool_to_database(tool_id, manifest)
@@ -498,7 +528,7 @@ module Mcp
 
     # Remove from Redis
     if @redis
-      @redis.hdel("mcp:registry:#{@account&.id || 'global'}", tool_id)
+      @redis.hdel(self.class.redis_key("registry", @account&.id), tool_id)
     end
 
     # Remove from database
@@ -710,8 +740,17 @@ module Mcp
 
   def persist_health_status(tool_id, health_status)
     # Persist to Redis if available
-    if @redis
-      @redis.hset("mcp:health:#{@account&.id || 'global'}", tool_id, health_status.to_json)
+    write_mirror("health", tool_id, health_status.to_json) if @redis
+  end
+
+  # HSET and its EXPIRE in one MULTI, so the field never lands without the TTL
+  # being refreshed alongside it. @redis is Powernode::Redis.client, a plain
+  # Redis client (not Rails.cache.redis, which is a ConnectionPool).
+  def write_mirror(kind, field, value)
+    key = self.class.redis_key(kind, @account&.id)
+    @redis.multi do |tx|
+      tx.hset(key, field, value)
+      tx.expire(key, REDIS_MIRROR_TTL.to_i)
     end
   end
 

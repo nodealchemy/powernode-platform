@@ -42,6 +42,7 @@ class Account::Termination < ApplicationRecord
     after_create :log_termination_requested
     after_create :notify_account_users
     after_update :handle_status_change
+    after_update_commit :purge_account_redis_state, if: -> { saved_change_to_status? && status == "completed" }
 
     # Class methods
     def self.initiate(account:, requested_by:, reason: nil, request_data_export: false)
@@ -241,6 +242,15 @@ class Account::Termination < ApplicationRecord
       when "cancelled"
         account.update!(status: "active")
       end
+    end
+
+    # Both completion paths reach this: #complete! and the worker's PATCH through
+    # Api::V1::Internal::AccountTerminationsController (a plain update!).
+    # Per-account Redis state outlives the account otherwise (IMP-3fdaa94f6327).
+    # After commit, so the Redis round trip neither holds the transaction open
+    # nor runs for a completion that rolls back.
+    def purge_account_redis_state
+      ::Mcp::RegistryService.purge_account!(account_id)
     end
 
     def notify_account_users
