@@ -8,7 +8,7 @@ module Ai
       is_a has_a part_of related_to depends_on
       created_by used_by located_in similar_to
       causes precedes follows custom
-      requires enhances composes succeeds uses
+      requires enhances composes succeeds refines uses
       imports calls defines inherits implements contains
       references
     ].freeze
@@ -29,7 +29,7 @@ module Ai
     scope :by_relation, ->(type) { where(relation_type: type) }
     scope :bidirectional_edges, -> { where(bidirectional: true) }
     scope :for_node, ->(node_id) { where("source_node_id = ? OR target_node_id = ?", node_id, node_id) }
-    scope :skill_relations, -> { where(relation_type: %w[requires enhances composes succeeds]) }
+    scope :skill_relations, -> { where(relation_type: %w[requires enhances composes succeeds refines]) }
 
     # Get the opposite node from a given node perspective
     def opposite_node(from_node_id)

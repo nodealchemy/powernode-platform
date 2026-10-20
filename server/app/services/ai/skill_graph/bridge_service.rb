@@ -3,7 +3,10 @@
 module Ai
   module SkillGraph
     class BridgeService
-      SKILL_RELATION_TYPES = %w[requires enhances composes succeeds uses].freeze
+      # `refines`: a child skill specialises its parent (the child wins when its
+      # trigger matches). Capability skills relate only by requires / composes /
+      # refines; enhances / succeeds remain for legacy edges until retirement.
+      SKILL_RELATION_TYPES = %w[requires enhances composes succeeds refines uses].freeze
 
       # Entity types whose nodes belong to another producer that finds them BY
       # entity_type — adopting one silently removes it from that reader.
@@ -112,6 +115,7 @@ module Ai
       def sync_all_skills
         skills = Ai::Skill.for_account(account.id).active
         results = { synced: 0, failed: 0 }
+        with_relations = []
 
         skills.find_each do |skill|
           if sync_skill(skill)
@@ -119,10 +123,45 @@ module Ai
           else
             results[:failed] += 1
           end
+          with_relations << skill if declared_relations(skill).any?
         end
+
+        relation_failures = sync_capability_relations(with_relations)
+        results[:relation_failures] = relation_failures.size if relation_failures.any?
 
         Rails.logger.info "[SkillGraph::BridgeService] Bulk sync complete: #{results.inspect}"
         results
+      end
+
+      # The requires / composes / refines edges capability skills declare in
+      # metadata.relations, created in THIS account's graph when absent. Seeds
+      # call it after syncing nodes, and #sync_all_skills calls it too, so an
+      # account created after seeding gets the edges as well as the nodes. A
+      # target that is not active (retired by an operator) is skipped.
+      #
+      # Targets, nodes and existing edges are loaded once per call (no
+      # per-relation lookups). A target that is not seeded at all, or whose node
+      # is missing in this account, is a recorded failure.
+      #
+      # @return [Array<String>] failures (missing targets or nodes, edge errors)
+      def sync_capability_relations(skills)
+        pairs = skills.flat_map do |skill|
+          declared_relations(skill).flat_map { |type, targets| Array(targets).map { |slug| [ skill, type, slug ] } }
+        end
+        return [] if pairs.empty?
+
+        targets = Ai::Skill.global.where(slug: pairs.map(&:last).uniq).index_by(&:slug)
+        skill_ids = (pairs.map { |skill, _, _| skill.id } + targets.values.map(&:id)).uniq
+        nodes = account.ai_knowledge_graph_nodes.skill_nodes.active.where(ai_skill_id: skill_ids).index_by(&:ai_skill_id)
+        existing = account.ai_knowledge_graph_edges.active
+                          .where(source_node_id: nodes.values.map(&:id), relation_type: pairs.map { |_, type, _| type }.uniq)
+                          .pluck(:source_node_id, :target_node_id, :relation_type).to_set
+
+        pairs.filter_map do |skill, type, slug|
+          capability_edge_failure(skill, type, slug, targets[slug], nodes, existing)
+        rescue StandardError => e
+          "#{skill.slug} #{type} #{slug}: #{e.class}: #{e.message}"
+        end
       end
 
       # Create a KG edge between two skill nodes
@@ -202,6 +241,30 @@ module Ai
       end
 
       private
+
+      def declared_relations(skill)
+        return {} unless ::Ai::Skills::Contract.applies_to?(skill.metadata)
+
+        relations = skill.metadata["relations"]
+        relations.is_a?(Hash) ? relations : {}
+      end
+
+      # Creates one declared edge when absent. Returns a failure string, or nil
+      # when the edge exists, was created, or its target was retired (skipped).
+      def capability_edge_failure(skill, type, slug, target, nodes, existing)
+        return "#{skill.slug} #{type} #{slug}: target is not seeded" if target.nil?
+        return nil unless target.status == "active"
+
+        source_node = nodes[skill.id]
+        target_node = nodes[target.id]
+        return "#{skill.slug} #{type} #{slug}: missing graph node for #{source_node ? slug : skill.slug}" unless source_node && target_node
+        return nil if existing.include?([ source_node.id, target_node.id, type ])
+
+        graph_service.create_edge(source: source_node, target: target_node, relation_type: type, weight: 1.0, confidence: 1.0,
+                                  metadata: { source_skill_id: skill.id, target_skill_id: target.id })
+        existing << [ source_node.id, target_node.id, type ]
+        nil
+      end
 
       # ai_knowledge_graph_nodes carries a SECOND partial-unique index over active
       # rows — (account_id, name, node_type) — besides the (account_id,
@@ -396,12 +459,47 @@ module Ai
       end
 
       def build_embedding_text(skill)
-        parts = [skill.name]
+        self.class.embedding_text_for(skill)
+      end
+
+      public
+
+      # The text a skill node is embedded from — discovery ranks on it.
+      #
+      # A capability skill (Ai::Skills::Contract) embeds its name, description
+      # and selection triggers — use_when and keywords — so a task phrased the
+      # way users phrase it lands on the skill that owns it. Its category,
+      # tags and project/stage facets are left out: the facets are applied as
+      # filters, and the extra fields only dilute the vector (measured on the
+      # provider embedding, owner similarity rose and fewer tasks fell under the
+      # seed cut-off without them). not_for is deliberately NOT embedded:
+      # boundary text names the sibling's work, and embedding it would pull
+      # exactly those tasks toward this skill.
+      #
+      # A row without the contract (legacy) embeds the same text as before.
+      # Class-level so the seed gate can compare skills before they are saved.
+      def self.embedding_text_for(skill)
+        triggers = skill.metadata.is_a?(Hash) ? skill.metadata["triggers"] : nil
+        return capability_embedding_text(skill, triggers) if ::Ai::Skills::Contract.applies_to?(skill.metadata) && triggers.is_a?(Hash)
+
+        parts = [ skill.name ]
         parts << skill.description if skill.description.present?
         parts << "category: #{skill.category}" if skill.category.present?
         parts << "tags: #{skill.tags.join(', ')}" if skill.tags.present? && skill.tags.any?
         parts.join(" | ")
       end
+
+      def self.capability_embedding_text(skill, triggers)
+        use_when = Array(triggers["use_when"]).select { |t| t.is_a?(String) }
+        keywords = Array(triggers["keywords"]).select { |t| t.is_a?(String) }
+        parts = [ skill.name ]
+        parts << skill.description if skill.description.present?
+        parts << "use when: #{use_when.join('; ')}" if use_when.any?
+        parts << "keywords: #{keywords.join(', ')}" if keywords.any?
+        parts.join(" | ")
+      end
+
+      private
 
       def build_skill_properties(skill)
         {

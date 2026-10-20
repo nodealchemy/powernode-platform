@@ -160,12 +160,9 @@ module Ai
       embedding = embedding_service.generate(text)
       return [] if embedding.blank?
 
-      candidates = @account.ai_knowledge_graph_nodes
-                           .skill_nodes
-                           .active
-                           .with_embeddings
-                           .nearest_neighbors(:embedding, embedding, distance: "cosine")
-                           .first(ROUTER_TOP_K)
+      candidates = routable_skill_nodes
+                   .nearest_neighbors(:embedding, embedding, distance: "cosine")
+                   .first(ROUTER_TOP_K)
 
       # Filter by router's looser threshold + keep only nodes that map to
       # an active skill row (KG nodes can outlive their skills temporarily).
@@ -184,6 +181,29 @@ module Ai
 
     def embedding_service
       @embedding_service ||= ::Ai::Memory::EmbeddingService.new(account: @account)
+    end
+
+    # Skill nodes the router may pick from. Capability skills
+    # (Ai::Skills::Contract: metadata declares a `capability`) without an
+    # executor are excluded IN SQL, before the nearest-neighbour LIMIT: the
+    # assembler selects them, not this router, and any number of them ranked
+    # first must neither suppress a legacy direct invoke or delegation nor
+    # crowd the legacy candidates out of the top K. The INNER JOIN also drops,
+    # before the LIMIT, nodes whose ai_skill_id is nil or points at a deleted
+    # skill — they used to take a top-K slot and then be discarded below — a
+    # deliberate improvement. A capability skill that DOES name an
+    # executor_class stays routable.
+    #
+    # PRE-2 NOTE: this ignores agent bindings. Once capability skills are bound
+    # to agents (or routing is rewired onto the assembler in P1), they must
+    # become routable again — revisit this predicate then.
+    def routable_skill_nodes
+      @account.ai_knowledge_graph_nodes
+              .skill_nodes
+              .active
+              .with_embeddings
+              .joins("INNER JOIN ai_skills ON ai_skills.id = ai_knowledge_graph_nodes.ai_skill_id")
+              .where("NOT (ai_skills.metadata ? 'capability') OR COALESCE(ai_skills.metadata->>'executor_class', '') <> ''")
     end
 
     # Rule 1: invoke a skill directly when the top-ranked candidate is a

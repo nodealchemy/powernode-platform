@@ -3,7 +3,7 @@
 module Ai
   module SkillGraph
     class TraversalService
-      SKILL_RELATION_TYPES = %w[requires enhances composes succeeds].freeze
+      SKILL_RELATION_TYPES = %w[requires enhances composes succeeds refines].freeze
       MAX_DEPTH = 3
       DEFAULT_TOKEN_BUDGET = 2000
       SEED_DISTANCE_THRESHOLD = 0.6
@@ -16,10 +16,20 @@ module Ai
         @account = account
       end
 
-      # Dual-mode traversal entry point
-      def traverse(task_context: nil, agent: nil, mode: :auto, token_budget: DEFAULT_TOKEN_BUDGET)
+      # Dual-mode traversal entry point.
+      #
+      # Optional selection facets (auto mode only), both read off a capability
+      # skill's contract metadata (Ai::Skills::Contract):
+      #   project_kind: keep only skills whose triggers.applies_to lists it or
+      #                 "any" — so a skill for this platform's own repository is
+      #                 not picked for a user's project, and vice versa.
+      #   domains:      keep only skills in these domains (an agent's ceiling).
+      # A skill that declares no facet (legacy) passes both filters.
+      def traverse(task_context: nil, agent: nil, mode: :auto, token_budget: DEFAULT_TOKEN_BUDGET,
+                   project_kind: nil, domains: nil)
         case mode.to_sym
         when :auto
+          @facet_filter = { project_kind: project_kind.presence&.to_s, domains: Array(domains).map(&:to_s).presence }
           auto_traverse(task_context: task_context, agent: agent, token_budget: token_budget)
         when :manifest
           manifest_traverse(agent: agent)
@@ -162,7 +172,7 @@ module Ai
           score = similarity
 
           skill = Ai::Skill.find_by(id: seed.ai_skill_id)
-          next unless skill
+          next unless selectable?(skill)
           next if excluded_skill_ids.include?(skill.id)
 
           entry = build_skill_entry(skill, seed, score, 0)
@@ -196,10 +206,17 @@ module Ai
             # Content bonus if neighbor has description
             score += CONTENT_BONUS if neighbor[:description].present?
 
+            # A skill reached THROUGH a seed never outranks that seed: with
+            # requires/composes/refines edges seeded, the content bonus let a
+            # depth-1 neighbour (0.85·s + 0.1) beat the matching skill itself
+            # whenever s < 0.67, so the graph re-ordered what the task matched.
+            score = [ score, seed_similarity - (0.001 * depth) ].min
+
             node_record = account.ai_knowledge_graph_nodes.find_by(id: neighbor[:id])
             skill = Ai::Skill.find_by(id: node_record&.ai_skill_id)
-            next unless skill
+            next unless selectable?(skill)
             next if excluded_skill_ids.include?(skill.id)
+            next unless expandable_refinement?(skill)
 
             entry = build_skill_entry(skill, node_record, score, depth)
             entry_tokens = estimate_entry_tokens(entry)
@@ -210,8 +227,46 @@ module Ai
           end
         end
 
-        # Return sorted by score desc
-        discovered.values.sort_by { |e| -e[:score] }
+        # Return sorted by score desc, one side of each refinement pair only.
+        ranked = discovered.values.sort_by { |e| -e[:score] }
+        metadata = Ai::Skill.where(id: ranked.map { |e| e[:skill_id] }).pluck(:id, :metadata).to_h
+        ::Ai::Skills::SelectionFacets.resolve_refinements(ranked, (@facet_filter || {})[:project_kind]) do |entry|
+          [ entry[:slug], metadata[entry[:skill_id]] ]
+        end
+      end
+
+      # A KG node can outlive its skill's eligibility (a disabled or retired row
+      # keeps its node until the next prune), so selection re-checks the row.
+      def selectable?(skill)
+        return false unless skill && skill.status == "active" && skill.is_enabled
+
+        facets_match?(skill)
+      end
+
+      # Graph neighbours are found in both directions, so a generic parent seed
+      # would otherwise pull in every child that `refines` it — e.g. a
+      # repository-specific refinement surfacing for a customer's task. A
+      # refining child is pulled THROUGH the graph only when the caller named a
+      # project kind the child applies to; it can still be matched directly.
+      def expandable_refinement?(skill)
+        meta = skill.metadata.is_a?(Hash) ? skill.metadata : {}
+        return true if Array(meta.dig("relations", "refines")).empty?
+
+        kind = (@facet_filter || {})[:project_kind]
+        return false if kind.nil?
+
+        ::Ai::Skills::SelectionFacets.applies?(meta, kind)
+      end
+
+      def facets_match?(skill)
+        filter = @facet_filter || {}
+        meta = skill.metadata.is_a?(Hash) ? skill.metadata : {}
+        return true unless ::Ai::Skills::Contract.applies_to?(meta)
+
+        if filter[:domains] && !filter[:domains].include?(meta["domain"].to_s)
+          return false
+        end
+        ::Ai::Skills::SelectionFacets.applies?(meta, filter[:project_kind])
       end
 
       def build_skill_entry(skill, node, score, depth)
