@@ -148,7 +148,7 @@ cat > "$GIT_HOOKS_DIR/pre-push" << 'PUSH_HOOK_EOF'
 # Powernode Platform - Pre-push Gate
 #
 # Runs two checks before allowing push:
-#   1. Submodule pointer integrity — every submodule pointer in HEAD must
+#   1. Submodule pointer integrity — every submodule pointer in the pushed commits (stdin) must
 #      be reachable on the same remote we're pushing the parent to.
 #      Catches the "publish-before-pointer" failure mode that broke
 #      build-platform-modules CI on 2026-05-24 (supply-chain pointer
