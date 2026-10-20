@@ -8,14 +8,18 @@ class Account < ApplicationRecord
     self
   end
 
-  # Mark the account as tearing down for the whole dependent: cascade (see
-  # Account.tearing_down?). Prepended so it wraps every dependent callback.
-  around_destroy :mark_tearing_down, prepend: true
+  # Account teardown (see #run_account_teardown): runs BEFORE every built-in
+  # dependent: callback, so the order of the has_many declarations (core or
+  # extension decorators) cannot matter. `users` and `audit_logs` are declared
+  # WITHOUT a dependent option on purpose: they are destroyed/deleted by the
+  # teardown, after every other dependent and in that order.
+  around_destroy :run_account_teardown, prepend: true
+  before_destroy :refuse_teardown_if_guarded, prepend: true
 
   # Associations
   has_many :invitations, dependent: :destroy
   has_many :account_delegations, class_name: "Account::Delegation", dependent: :destroy
-  has_many :audit_logs, dependent: :destroy
+  has_many :audit_logs
   has_many :webhook_events, dependent: :destroy
   has_many :workers, dependent: :destroy
   has_many :api_keys, dependent: :destroy
@@ -251,14 +255,11 @@ class Account < ApplicationRecord
     def system_provider_credentials = []
   end
 
-  # Account teardown order: `dependent: :destroy` callbacks run in declaration
-  # order, and many account-owned rows (agents, conversations, executions, API
-  # keys, created_by_id columns...) hold FKs to users with ON DELETE RESTRICT or
-  # no on_delete. Users must therefore be destroyed AFTER every core dependent
-  # above, so this is deliberately the LAST `dependent:` association. Keep it
-  # last; declare new account-owned `dependent: :destroy` associations above it.
-  # (Extension decorators declare theirs after this, so they run after users.)
-  has_many :users, dependent: :destroy
+  # Destroyed by #run_account_teardown after every other dependent (many
+  # account-owned rows hold RESTRICT / no-on_delete FKs to users). No
+  # `dependent:` here: a declaration-order callback would run too early for
+  # extension associations declared later.
+  has_many :users
 
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }
@@ -322,6 +323,35 @@ class Account < ApplicationRecord
   # bucketing) live with the resolver, Ai::Provisioning::PlanComposerService.
   DEFAULT_SDWAN_NETWORK_SETTING = "default_sdwan_network_id"
 
+  # --- Account teardown seam -------------------------------------------------
+  # Account teardown marker. Row-level guards that protect a record during
+  # normal operation (e.g. "cannot delete the only default credential") must
+  # yield while the whole account is being destroyed; they ask
+  # `Account.tearing_down?(account_id)`. Execution-state local, keyed by account
+  # id, and cleared in an ensure so a failed destroy leaves the guards intact.
+  def self.tearing_down?(account_id)
+    account_id.present? && teardown_ids.include?(account_id)
+  end
+
+  def self.teardown_ids
+    ActiveSupport::IsolatedExecutionState[:account_teardown_ids] ||= []
+  end
+
+  # Pre-flight refusals, run before the teardown has any side effect. An
+  # extension registers one from a to_prepare block (the list is a class-level
+  # ivar and a reload wipes it), like register_reserved_setting_key. The block
+  # receives the account and returns nil/false/[] to allow, or a String / Array
+  # of Strings (reasons) to refuse; a refusal makes `destroy` return false.
+  def self.teardown_guards
+    @teardown_guards ||= []
+  end
+
+  def self.register_teardown_guard(&block)
+    raise ArgumentError, "a teardown guard needs a block" unless block
+
+    teardown_guards << block
+  end
+
   # Keys of #settings that an owner (an extension included) has RESERVED against
   # account-level writes: key => reason. #settings is merged from a caller-supplied
   # hash by every account-settings writer (PUT /api/v1/settings, the accounts
@@ -334,19 +364,6 @@ class Account < ApplicationRecord
   # already holds one is not blocked: only adding it or changing its value is.
   # That is how a migration clears residue, and it does not make an old value
   # suddenly un-saveable.
-  # Account teardown marker. Row-level guards that protect a record during
-  # normal operation (e.g. "cannot delete the only default credential") must
-  # yield while the whole account is being destroyed; they ask
-  # `Account.tearing_down?(account_id)`. Thread-local, keyed by account id, and
-  # cleared in an ensure so a failed destroy leaves the guards intact.
-  def self.tearing_down?(account_id)
-    account_id.present? && teardown_ids.include?(account_id)
-  end
-
-  def self.teardown_ids
-    Thread.current[:account_teardown_ids] ||= []
-  end
-
   def self.reserved_setting_keys
     @reserved_setting_keys ||= {}
   end
@@ -552,6 +569,62 @@ class Account < ApplicationRecord
 
   private
 
+  # Teardown, inside the destroy transaction and BEFORE any built-in dependent
+  # callback (this is a prepended around_destroy; the code before `yield` is
+  # the only place users can still be destroyed — after `yield` the account row
+  # is already deleted). Order:
+  #   0. (refuse_teardown_if_guarded, a before_destroy that runs first)
+  #      pre-flight guards: registered ones + restrict_with_* associations —
+  #      a refusal aborts before ANY side effect
+  #   1. mark tearing down (yields the "only default credential" style guards)
+  #   3. every reflected dependent: :destroy / :delete_all / :nullify
+  #      association except users/audit_logs (core and extensions alike)
+  #   4. destroy the users
+  #   5. delete the audit rows last, so nothing written during teardown remains
+  #   6. yield (the account row itself)
+  def run_account_teardown
+    self.class.teardown_ids << id
+    begin
+      teardown_reflected_dependents
+      users.destroy_all
+      # Not `audit_logs.delete_all`: on a has_many without a dependent option
+      # that NULLIFIES account_id (NOT NULL) instead of deleting the rows.
+      AuditLog.where(account_id: id).delete_all
+      yield
+    ensure
+      idx = self.class.teardown_ids.index(id)
+      self.class.teardown_ids.delete_at(idx) if idx
+    end
+  end
+
+  # Pre-flight (before_destroy, prepended so it halts before the teardown
+  # marker and every side effect): a refusal makes `destroy` return false.
+  def refuse_teardown_if_guarded
+    teardown_refusals.each { |reason| errors.add(:base, reason) }
+    throw :abort if errors.any?
+  end
+
+  def teardown_refusals
+    reasons = self.class.reflect_on_all_associations
+                  .select { |r| %i[restrict_with_error restrict_with_exception].include?(r.options[:dependent]) }
+                  .select { |r| association(r.name).reader.then { |v| v.respond_to?(:exists?) ? v.exists? : v.present? } }
+                  .map { |r| "Cannot delete account with existing #{r.name.to_s.humanize.downcase}" }
+    self.class.teardown_guards.each { |guard| reasons.concat(Array(guard.call(self)).compact) }
+    reasons
+  end
+
+  def teardown_reflected_dependents
+    self.class.reflect_on_all_associations
+        .select { |r| %i[destroy delete_all nullify].include?(r.options[:dependent]) }
+        .reject { |r| %i[users audit_logs].include?(r.name) }
+        .each { |r| association(r.name).handle_dependency }
+  end
+
+  # An account's own deletion audit row would reference the account whose row
+  # is about to be deleted (audit_logs.account_id has no on_delete), so the
+  # account's destroy is the one record that never audits itself.
+  def log_record_deletion; end
+
   def settings_free_of_reserved_keys
     return if self.class.reserved_setting_keys.empty?
 
@@ -572,13 +645,6 @@ class Account < ApplicationRecord
   # M1 Self-Serve: bootstrap System extension state per-account. Wrapped
   # in rescue so a transient failure (e.g., system extension disabled)
   # doesn't roll back account creation — surface via monitoring instead.
-  def mark_tearing_down
-    self.class.teardown_ids << id
-    yield
-  ensure
-    self.class.teardown_ids.delete_at(self.class.teardown_ids.index(id) || self.class.teardown_ids.length)
-  end
-
   def ensure_default_environments
     Ai::Environment.ensure_defaults_for!(self)
   rescue StandardError => e

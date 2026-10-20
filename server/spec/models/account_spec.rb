@@ -6,10 +6,11 @@ RSpec.describe Account, type: :model do
   let(:account) { build(:account) }
 
   describe "associations" do
-    it { should have_many(:users).dependent(:destroy) }
+    # users / audit_logs are removed by Account#run_account_teardown, not a dependent: callback
+    it { should have_many(:users) }
     it { should have_many(:invitations).dependent(:destroy) }
     it { should have_many(:account_delegations).dependent(:destroy) }
-    it { should have_many(:audit_logs).dependent(:destroy) }
+    it { should have_many(:audit_logs) }
     it { should have_many(:webhook_events).dependent(:destroy) }
     # Billing/revenue associations (subscription, payment_methods, invoices,
     # payments, revenue_snapshots) are added by the business extension's
@@ -203,6 +204,25 @@ RSpec.describe Account, type: :model do
   end
 
   describe "#destroy! (account teardown)" do
+    let(:user_referencing_rows) do
+      [
+        [:ai_conversation, :user],
+        [:ai_agent_execution, :user],
+        [:api_key, :created_by],
+        [:ai_knowledge_base, :created_by],
+        [:ai_mission, :created_by],
+        [:ai_approval_chain, :created_by],
+        [:ai_compliance_policy, :created_by],
+        [:ai_sandbox, :created_by],
+        [:ai_team_template, :created_by],
+        [:ai_devops_template, :created_by],
+        [:ai_mock_response, :created_by],
+        [:ai_data_connector, :created_by],
+        [:ai_ab_test, :created_by],
+        [:ai_performance_benchmark, :created_by]
+      ]
+    end
+
     it "removes an account with its default environment and an agent created by one of its users" do
       account = create(:account)
       Ai::Environment.ensure_defaults_for!(account)
@@ -223,23 +243,16 @@ RSpec.describe Account, type: :model do
 
     # Every account-owned row that references one of the account's users via an
     # FK without ON DELETE CASCADE/NULLIFY must be gone before the user is.
-    # [factory, user attribute]
-    USER_REFERENCING_ROWS = [
-      [:ai_conversation, :user],
-      [:ai_agent_execution, :user],
-      [:api_key, :created_by],
-      [:ai_knowledge_base, :created_by],
-      [:ai_mission, :created_by],
-      [:ai_approval_chain, :created_by],
-      [:ai_compliance_policy, :created_by],
-      [:ai_sandbox, :created_by],
-      [:ai_team_template, :created_by],
-      [:ai_devops_template, :created_by],
-      [:ai_mock_response, :created_by],
-      [:ai_data_connector, :created_by],
-      [:ai_ab_test, :created_by],
-      [:ai_performance_benchmark, :created_by]
-    ].freeze
+    it "removes account-owned rows that reference the account's users" do
+      account = create(:account)
+      user = create(:user, account: account)
+      rows = user_referencing_rows.map { |factory, attr| create(factory, account: account, attr => user) }
+
+      expect { account.destroy! }.not_to raise_error
+
+      rows.each { |row| expect(row.class.exists?(row.id)).to be(false), "#{row.class} survived" }
+      expect(User.exists?(user.id)).to be false
+    end
 
     it "removes the only default provider credentials (their guards yield to account teardown)" do
       account = create(:account)
@@ -255,22 +268,69 @@ RSpec.describe Account, type: :model do
     it "still protects the only default credential outside account teardown" do
       account = create(:account)
       git_cred = create(:git_provider_credential, account: account, is_default: true)
+      ai_cred = create(:ai_provider_credential, account: account, is_default: true)
 
       expect(git_cred.destroy).to be false
+      expect(ai_cred.destroy).to be false
       expect(Devops::GitProviderCredential.exists?(git_cred.id)).to be true
+      expect(Ai::ProviderCredential.exists?(ai_cred.id)).to be true
     end
 
-    it "removes account-owned rows that reference the account's users" do
+    it "destroys an account whose records write deletion audit rows (Auditable logging on)" do
       account = create(:account)
-      user = create(:user, account: account)
-      rows = USER_REFERENCING_ROWS.map do |factory, attr|
-        create(factory, account: account, attr => user)
+      Ai::Environment.ensure_defaults_for!(account)
+      agent = create(:ai_agent, account: account)
+      create(:git_provider_credential, account: account, is_default: true)
+      create(:ai_provider_credential, account: account, is_default: true)
+      create(:api_key, account: account, created_by: agent.creator)
+
+      Auditable.with_logging do
+        AuditLog.log_action(action: "login", resource: account, account: account, source: "system")
+        expect { account.destroy! }.not_to raise_error
       end
 
-      expect { account.destroy! }.not_to raise_error
+      expect(Account.exists?(account.id)).to be false
+      expect(AuditLog.where(account_id: account.id)).to be_empty
+    end
 
-      rows.each { |row| expect(row.class.exists?(row.id)).to be(false), "#{row.class} survived" }
-      expect(User.exists?(user.id)).to be false
+    it "keeps users and audit_logs out of the dependent: callback order" do
+      %i[users audit_logs].each do |name|
+        expect(Account.reflect_on_association(name).options[:dependent]).to be_nil
+      end
+    end
+
+    it "leaves no teardown marker behind after a refused destroy" do
+      account = create(:account)
+      Account.register_teardown_guard { |_acct| "refused by spec" }
+      begin
+        expect(account.destroy).to be false
+        expect(Account.exists?(account.id)).to be true
+        expect(Account.teardown_ids).to be_empty
+      ensure
+        Account.teardown_guards.pop
+      end
+    end
+
+    it "leaves no teardown marker behind after a failed (rolled back) destroy" do
+      account = create(:account)
+      create(:user, account: account)
+      allow_any_instance_of(User).to receive(:destroy).and_raise(ActiveRecord::StatementInvalid, "boom")
+      expect { account.destroy }.to raise_error(ActiveRecord::StatementInvalid)
+      expect(Account.teardown_ids).to be_empty
+      expect(Account.exists?(account.id)).to be true
+    end
+
+    it "does not run side effects when a teardown guard refuses" do
+      account = create(:account)
+      agent = create(:ai_agent, account: account)
+      Account.register_teardown_guard { |_acct| "refused by spec" }
+      begin
+        expect(account.destroy).to be false
+        expect(account.errors[:base]).to include("refused by spec")
+        expect(Ai::Agent.exists?(agent.id)).to be true
+      ensure
+        Account.teardown_guards.pop
+      end
     end
   end
 end
