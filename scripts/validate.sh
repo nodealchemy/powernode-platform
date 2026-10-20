@@ -64,6 +64,11 @@ for arg in "$@"; do
       echo "  4. Secret scanning (gitleaks)"
       echo "  5. Claude context budget (scripts/claude-context-budget.txt)"
       echo ""
+      echo "Environment:"
+      echo "  VALIDATE_PARALLEL=N|auto Run the PLATFORM spec pass through scripts/parallel-rspec.sh (N processes, or sized"
+      echo "                           from the machine). Needs the tmpfs test cluster (DATABASE_PORT=5433); refuses otherwise."
+      echo "                           Default is serial. Extension passes stay serial."
+      echo ""
       echo "Options:"
       echo "  --skip-tests             Skip ALL RSpec specs (platform and extensions)"
       echo "  --skip-extension-specs   Run platform specs only (plus the ~20s route-parity lint) — prints a loud warning."
@@ -107,6 +112,27 @@ else
   exit 1
 fi
 
+# Platform (server/spec) pass. Serial by default. VALIDATE_PARALLEL=N (or "auto") opts in to
+# scripts/parallel-rspec.sh: N processes (auto = sized from the machine), one Postgres database and one
+# Redis lane each, on the tmpfs test cluster — which it requires (DATABASE_PORT, see
+# docs/guides/testing.md) and otherwise REFUSES rather than falling back to serial, so a typo can never
+# silently change what was run. The extension passes below stay serial either way.
+platform_specs() {
+  if [[ -z "${VALIDATE_PARALLEL:-}" ]]; then
+    (cd "$PROJECT_ROOT/server" && bundle exec rspec --format progress 2>&1)
+    return
+  fi
+  local n_args=()
+  if [[ "$VALIDATE_PARALLEL" =~ ^[1-9][0-9]*$ ]]; then
+    n_args=(-n "$VALIDATE_PARALLEL")
+  elif [[ "$VALIDATE_PARALLEL" != "auto" ]]; then
+    echo -e "${RED}  └─ VALIDATE_PARALLEL must be a positive integer or 'auto', got: $VALIDATE_PARALLEL${NC}"
+    return 1
+  fi
+  echo -e "${BLUE}  └─ VALIDATE_PARALLEL=$VALIDATE_PARALLEL: platform specs via scripts/parallel-rspec.sh${NC}"
+  BUNDLE_GEMFILE="$PROJECT_ROOT/server/Gemfile" "$SCRIPT_DIR/parallel-rspec.sh" "${n_args[@]}" -- spec 2>&1
+}
+
 # 1. Backend RSpec tests
 if [[ "$SKIP_TESTS" == "false" ]]; then
   echo -e "${BLUE}[1/5] Running backend specs...${NC}"
@@ -114,7 +140,7 @@ if [[ "$SKIP_TESTS" == "false" ]]; then
 
   # Platform specs. `bundle exec rspec` uses RSpec's default pattern
   # spec/**/*_spec.rb RELATIVE TO THE CWD, so this covers server/spec ONLY.
-  if [[ -n "$VALIDATE_SELFTEST_SKIP_RSPEC" ]] || (cd "$PROJECT_ROOT/server" && bundle exec rspec --format progress 2>&1); then
+  if [[ -n "$VALIDATE_SELFTEST_SKIP_RSPEC" ]] || platform_specs; then
     :
   else
     echo -e "${RED}  └─ platform server/spec failed${NC}"

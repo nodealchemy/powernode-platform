@@ -1,0 +1,39 @@
+# Specs that scripts/parallel-rspec.sh does NOT run inside the parallel phase. They run afterwards, in
+# one process, on lane __p1 (<prefix>1) (the "serial tail"). One repo-relative path per line; # starts a comment.
+#
+# A spec belongs here when it touches state that N processes SHARE even though each process has its own
+# Postgres database and Redis lane: a fixed path under the checkout's tmp/ (the working directory is
+# one for every process), or a database strategy that is expensive or order-sensitive. No spec is edited
+# to get here; moving a file out means making it parallel-safe first. server/spec/lint/
+# parallel_serial_tail_spec.rb fails when a spec matching one of the rules below is missing from this list.
+#
+# --- DatabaseCleaner :truncation (`truncation: true`, `type: :performance`, `:integration` tags) --------
+# Per-DB these cannot deadlock one another, but each example truncates every table of its lane's DB, and
+# the strategy exists to serve threads that need COMMITTED data: keep them away from the balanced phase.
+server/spec/lib/tasks/ai_learning_bulk_spec.rb
+server/spec/models/user_factory_role_scope_spec.rb
+server/spec/services/platform/status/account_lock_spec.rb
+#
+# --- fixed-name paths under Rails.root/tmp (rm_rf / mkdir_p / write of a name every process would pick) ---
+# Whole-directory removal of a shared name by one process while another is writing into it.
+server/spec/integration/file_management_flow_spec.rb
+server/spec/integration/file_lifecycle_e2e_spec.rb
+server/spec/integration/file_permission_access_spec.rb
+server/spec/integration/reports_async_flow_spec.rb
+server/spec/integration/delegated_task_git_actuation_spec.rb
+server/spec/models/report_request_spec.rb
+server/spec/requests/api/v1/reports_spec.rb
+server/spec/requests/api/v1/internal/reports_spec.rb
+server/spec/requests/api/v1/privacy_spec.rb
+server/spec/services/storage_providers/local_storage_spec.rb
+server/spec/services/storage_providers/nfs_storage_spec.rb
+server/spec/services/storage_providers/smb_storage_spec.rb
+# rm_rf of a configured storage root that defaults to the fixed /tmp/test_storage.
+server/spec/services/file_storage_service_spec.rb
+# Asserts tmp/commits holds no "commit-*" orphans: any concurrent commit in another process is one.
+extensions/system/server/spec/services/system/module_commit_service_spec.rb
+#
+# --- shared files outside tmp/ ---------------------------------------------------------------------------
+# Rewrites and deletes the REAL config/extensions_state.json (Shared::ExtensionStateStore reads it in every
+# process) and writes malformed JSON into it on purpose.
+server/spec/lib/extensions_loader_helper_spec.rb
