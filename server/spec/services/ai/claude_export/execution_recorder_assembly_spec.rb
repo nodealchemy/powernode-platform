@@ -61,6 +61,19 @@ RSpec.describe Ai::ClaudeExport::ExecutionRecorder, "with an assembly_id" do
     expect(Ai::AgentExecution.where(id: first[:id]).count).to eq(1)
   end
 
+  it "credits an assembly once: a second execution with the same assembly_id writes no usage record and does not relink" do
+    first = report
+    second = nil
+    expect { second = report(run_key: "sess-2:platform-engineer:20261020T010000Z") }.not_to change(Ai::SkillUsageRecord, :count)
+
+    expect(second[:id]).not_to eq(first[:id])
+    expect(second[:skills_credited]).to eq(0)
+    expect(assembly.reload.agent_execution_id).to eq(first[:id])
+    # …and a retry of the FIRST run stays idempotent (still credited, still no new rows).
+    expect { report }.not_to change(Ai::SkillUsageRecord, :count)
+    expect(report[:skills_credited]).to eq(2)
+  end
+
   it "skips a selected skill that no longer exists instead of failing the report" do
     skill_b.destroy!
 

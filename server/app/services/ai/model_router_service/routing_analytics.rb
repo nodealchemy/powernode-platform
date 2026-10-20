@@ -22,7 +22,7 @@ module Ai
 
       # Analyze potential cost savings
       def analyze_cost_savings(time_range: 30.days)
-        decisions = Ai::RoutingDecision.for_account(@account)
+        decisions = Ai::RoutingDecision.for_account(@account).excluding_assemblies
                                         .where("created_at >= ?", time_range.ago)
                                         .where.not(actual_cost_usd: nil)
 
@@ -54,7 +54,7 @@ module Ai
         recommendations = []
 
         # Analyze recent routing decisions
-        recent_decisions = Ai::RoutingDecision.for_account(@account)
+        recent_decisions = Ai::RoutingDecision.for_account(@account).excluding_assemblies
                                                .recent(7.days)
                                                .where.not(actual_cost_usd: nil)
 

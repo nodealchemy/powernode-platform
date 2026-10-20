@@ -61,6 +61,25 @@ RSpec.describe Ai::Assembly::Service, type: :service do
       expect(result[:skills].find { |s| s[:slug] == required }[:via]).to eq("requires")
     end
 
+    it "gives a read-only role only read-only skills: a mutating skill is neither a candidate nor pulled in by `requires`" do
+      reviewer = Ai::Agents::CanonicalRoster.fetch("platform-reviewer")
+      expect(reviewer[:role][:read_only]).to be(true)
+      mutating = Ai::Skill.global.where(Arel.sql("metadata->'manifest'->>'read_only' = 'false'"))
+                          .find { |s| reviewer[:domains].include?(s.metadata["domain"]) }
+      readonly = Ai::Skill.global.find_by!(slug: "acceptance-criteria-review")
+      expect(mutating).to be_present
+      readonly.update_columns(metadata: readonly.metadata.merge("relations" => (readonly.metadata["relations"] || {}).merge("requires" => [ mutating.slug ])))
+      allow_any_instance_of(Ai::SkillGraph::TraversalService).to receive(:traverse).and_return(
+        discovered_skills: [ { skill_id: readonly.id, slug: readonly.slug, score: 0.9, depth: 0 }, { skill_id: mutating.id, slug: mutating.slug, score: 0.8, depth: 0 } ]
+      )
+
+      result = assemble("anything", agent_slug: "platform-reviewer")
+
+      expect(slugs_of(result)).to eq([ "acceptance-criteria-review" ])
+      engineer = assemble("anything", agent_slug: "platform-engineer")
+      expect(slugs_of(engineer)).to include(mutating.slug)
+    end
+
     it "reports an uncovered task instead of guessing, and falls back to the roster tier" do
       result = assemble("bake a chocolate cake with raspberries for grandma")
 

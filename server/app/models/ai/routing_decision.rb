@@ -46,6 +46,9 @@ module Ai
     scope :with_savings, -> { where("savings_usd > 0") }
     scope :recent, ->(period = 24.hours) { where("created_at >= ?", period.ago) }
     scope :for_account, ->(account) { where(account: account) }
+    # A task assembly (assemble_task) is a record of what a run was assembled from,
+    # not a routing choice: routing analytics leave it out.
+    scope :excluding_assemblies, -> { where.not(request_type: "task_assembly") }
     scope :for_provider, ->(provider) { where(selected_provider: provider) }
     scope :by_strategy, ->(strategy) { where(strategy_used: strategy) }
 
@@ -131,7 +134,7 @@ module Ai
 
     # Class method: Calculate aggregate stats for a period
     def self.stats_for_period(account:, period: 24.hours)
-      decisions = for_account(account).recent(period)
+      decisions = for_account(account).excluding_assemblies.recent(period)
 
       total = decisions.count
       successful = decisions.successful.count

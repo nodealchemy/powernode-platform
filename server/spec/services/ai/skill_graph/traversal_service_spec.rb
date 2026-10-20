@@ -50,6 +50,20 @@ RSpec.describe Ai::SkillGraph::TraversalService, type: :service do
           expect(result[:discovered_skills].map { |s| s[:name] }).to include("Code Review")
         end
 
+        # Keyword-fallback seeds are plain nodes with no neighbor_distance; expanding
+        # one through a graph edge must not raise (it did, when the embedding
+        # provider was down and a seed had a linked neighbour).
+        it "expands a keyword-fallback seed through its edges without a vector distance" do
+          allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
+          other = create(:ai_skill, account: account, name: "Lint Helper", category: "productivity", system_prompt: "You lint")
+          other_node = create(:ai_knowledge_graph_node, account: account, name: "Lint Helper", entity_type: "skill", node_type: "entity", ai_skill_id: other.id)
+          Ai::KnowledgeGraphEdge.create!(account: account, source_node: node, target_node: other_node, relation_type: "requires")
+
+          result = nil
+          expect { result = service.traverse(task_context: "code review task", mode: :auto) }.not_to raise_error
+          expect(result[:discovered_skills].map { |s| s[:name] }).to include("Code Review")
+        end
+
         it "excludes skills already attached to the given agent, since those are already fully injected into the agent's system prompt" do
           allow_any_instance_of(Ai::Memory::EmbeddingService).to receive(:generate).and_return(nil)
 

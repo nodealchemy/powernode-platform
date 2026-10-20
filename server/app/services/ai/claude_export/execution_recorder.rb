@@ -299,10 +299,14 @@ module Ai
       # retry of the same run finds every usage row and adds none.
       # @return [Integer] the skills credited by this execution (new or existing)
       def credit_assembly(assembly, execution, target, report)
-        if assembly.agent_execution_id.nil?
-          assembly.update!(agent_execution_id: execution.id)
-          record_assembly_outcome(assembly, report)
-        end
+        # Claim the assembly atomically: only the first execution to report it
+        # links it and credits its skills. A retry of that same run (same
+        # execution) re-enters here and stays idempotent; a SECOND run with the
+        # same assembly_id is recorded as a run but credits nothing.
+        claimed = ::Ai::RoutingDecision.where(id: assembly.id, agent_execution_id: nil).update_all(agent_execution_id: execution.id, updated_at: Time.current) == 1
+        assembly.reload
+        record_assembly_outcome(assembly, report) if claimed
+        return 0 unless assembly.agent_execution_id == execution.id
 
         slugs = Array(assembly.request_metadata["selected"]).filter_map { |entry| entry["slug"].presence }.uniq
         skills = ::Ai::Skill.for_account(account.id).where(slug: slugs).account_override_first.to_a.uniq(&:slug)

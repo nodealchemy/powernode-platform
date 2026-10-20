@@ -167,7 +167,7 @@ module Ai
 
         # Score and add seeds first
         seeds.each do |seed|
-          nd = seed.respond_to?(:neighbor_distance) ? seed.neighbor_distance : nil
+          nd = seed.try(:neighbor_distance)
           similarity = nd ? (1.0 - nd) : 0.8
           score = similarity
 
@@ -199,7 +199,7 @@ module Ai
             next unless neighbor[:entity_type] == "skill"
 
             # Score: seed_similarity × depth_penalty + content_bonus
-            seed_similarity = seed.respond_to?(:neighbor_distance) ? (1.0 - seed.neighbor_distance) : 0.8
+            seed_similarity = seed.try(:neighbor_distance) ? (1.0 - seed.neighbor_distance) : 0.8
             depth = neighbor[:depth] || 1
             score = seed_similarity * (1.0 - DEPTH_PENALTY * depth)
 

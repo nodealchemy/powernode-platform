@@ -11,10 +11,13 @@ module Ai
     #
     # In the bootstrap floor (Ai::Tools::BootstrapVerbs): every agent and every
     # thin loader has it. Declared `mutating: false` because it acts on no
-    # platform resource — its only write is its own assembly record (an
-    # idempotent audit row on ai_routing_decisions, request_type
-    # "task_assembly"), the same standing as the route_task decision it sits
-    # beside. Read-gated on ai.agents.read.
+    # platform resource — its only write is its own assembly record, a row on
+    # ai_routing_decisions (request_type "task_assembly"; one per fresh call, a
+    # fetch by assembly_id writes none). It is NOT a routing choice, so the
+    # routing analytics exclude it (Ai::RoutingDecision.excluding_assemblies).
+    # route_task, by contrast, persists nothing. The honest annotation would be
+    # "writes only its own record"; readOnlyHint is true so the verb can sit in
+    # the bootstrap floor. Read-gated on ai.agents.read.
     class AssemblyTool < BaseTool
       tool_family "agents"
 

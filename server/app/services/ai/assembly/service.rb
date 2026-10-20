@@ -11,7 +11,10 @@ module Ai
     #               triggers) inside the agent's DOMAIN CEILING, direct matches
     #               only, best five; then the `requires` closure of those five
     #               (a required skill rides along whatever its domain — it is the
-    #               selected skill's own dependency — and is marked via: requires);
+    #               selected skill's own dependency — and is marked via: requires).
+    #               A read-only role (roster role[:read_only]) is only ever handed
+    #               skills that are manifest.read_only: others are not candidates
+    #               and a required one is dropped;
     #   floors      the roster tier is the floor and nothing lowers it. Two
     #               independent raisers, max wins: the selected skills'
     #               hints (min_tier, effort) and VERB RISK (any manifest verb
@@ -94,11 +97,13 @@ module Ai
                                                   .sort_by { |entry| -entry[:score].to_f }.first(MAX_SKILLS)
         rows = ::Ai::Skill.where(id: direct.map { |entry| entry[:skill_id] }).index_by(&:id)
         selected = direct.filter_map { |entry| rows[entry[:skill_id]]&.then { |row| skill_hash(row, entry[:score], nil) } }
-        selected + required_closure(selected)
+        read_only = spec[:role][:read_only]
+        selected = selected.select { |skill| read_only_skill?(skill) } if read_only
+        selected + required_closure(selected, read_only: read_only)
       end
 
       # The `requires` closure of the selected skills, breadth first, each skill once.
-      def required_closure(selected)
+      def required_closure(selected, read_only: false)
         seen = selected.map { |s| s[:slug] }
         queue = selected.flat_map { |s| required_slugs(s[:metadata]) }
         added = []
@@ -110,10 +115,19 @@ module Ai
           row = ::Ai::Skill.for_account(account.id).active.enabled.account_override_first.find_by(slug: slug)
           next unless row
 
-          added << skill_hash(row, nil, "requires")
+          skill = skill_hash(row, nil, "requires")
+          # A read-only role is never handed a skill that writes, not even one a
+          # read-only skill requires: the dependency is dropped.
+          next if read_only && !read_only_skill?(skill)
+
+          added << skill
           queue.concat(required_slugs(row.metadata))
         end
         added
+      end
+
+      def read_only_skill?(skill)
+        skill[:manifest]["read_only"] == true
       end
 
       def required_slugs(metadata)

@@ -29,8 +29,11 @@ module Ai
     # Concierge and a Claude Code skeleton delegate through.
     # assemble_task (skills-first agents, PRE-2) is the first thing an agent does
     # with a task: the skills, learnings and verb lists that own it, and the
-    # tier / model / effort to run at. It is declared `mutating: false` — its
-    # only write is its own idempotent assembly record, it acts on nothing.
+    # tier / model / effort to run at. It is declared `mutating: false` although a
+    # fresh call writes one assembly row (ai_routing_decisions, request_type
+    # "task_assembly", excluded from the routing analytics): it acts on no
+    # platform resource, and the set's spec asserts the declaration, not the
+    # absence of every write.
     # discover_tools (C3-3) is how an agent scoped to a few families finds a
     # verb outside them by intent; describe_tool then loads that verb's schema.
     #
