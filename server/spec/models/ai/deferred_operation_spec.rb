@@ -548,13 +548,19 @@ RSpec.describe Ai::DeferredOperation, type: :model do
 
       legacy = described_class.find(op.id)
       expect(legacy.params).to eq('username' => 'alice', 'password' => '[FILTERED]')
-      expect(legacy.preview).to be_a(Hash)
+      previewed = nil
+      stub_const('LegacyPreviewer', Class.new do
+        define_singleton_method(:preview) { |p, deferred_operation: nil| previewed = p; { summary: 's' } }
+      end)
+      legacy.update_columns(executor_class: 'LegacyPreviewer')
+      legacy.reload.preview
+      expect(previewed).to eq('username' => 'alice', 'password' => '[FILTERED]')
     end
 
     it 'raises an explicit error when the envelope is missing its payload' do
       op = make_secret_op
       described_class.where(id: op.id).update_all([ "params = ?::jsonb, status = 'approved'", { 'password' => '[FILTERED]', described_class::SEALED_PARAMS_KEY => '' }.to_json ])
-      # blank envelope is treated as unsealed: the masked values must NOT replay
+      # a present-but-blank envelope must raise: masked values must NOT replay
       expect { described_class.find(op.id).execute_now! }
         .to raise_error(described_class::SealedParamsError)
     end
@@ -603,6 +609,95 @@ RSpec.describe Ai::DeferredOperation, type: :model do
 
       expect { op.execute_now! }.to raise_error(RuntimeError)
       expect(logged.join).not_to include('LEAKY-PLAINTEXT')
+    end
+
+    describe 'replaying rows that carry no envelope' do
+      def unsealed_op(params, status: 'approved')
+        op = make_op
+        described_class.where(id: op.id).update_all([ 'params = ?::jsonb, status = ?', params.to_json, status ])
+        described_class.where(id: op.id).update_all(executor_class: 'ReplayRecorder')
+        described_class.find(op.id)
+      end
+
+      it 'replays the raw column of a legacy plaintext row, not the masked view' do
+        unsealed_op(raw).execute_now!
+
+        expect(ReplayRecorder.seen).to eq(raw)
+      end
+
+      it 'replays the raw value when the operator later widens the sensitive keys' do
+        op = unsealed_op({ 'custom_field' => 'real-value' })
+        allow(SiteSetting).to receive(:get).and_call_original
+        allow(SiteSetting).to receive(:get).with('ai_sensitive_param_keys').and_return([ 'custom_field' ])
+
+        op.execute_now!
+        expect(ReplayRecorder.seen).to eq('custom_field' => 'real-value')
+      end
+    end
+
+    it 'filters the exception text persisted by fail!' do
+      op = make_op(status: 'approved')
+      op.fail!(RuntimeError.new('boom password=LEAKY-PLAINTEXT'))
+
+      expect(op.reload.error_message).not_to include('LEAKY-PLAINTEXT')
+    end
+
+    it 'filters the preview failure text' do
+      stub_const('BadPreviewer', Class.new do
+        def self.preview(_params, deferred_operation: nil)
+          raise 'bad password=LEAKY-PLAINTEXT'
+        end
+      end)
+      op = described_class.create!(account: account, action_category: 'test.act',
+                                   executor_class: 'BadPreviewer', params: {})
+
+      expect(op.preview[:error]).not_to include('LEAKY-PLAINTEXT')
+    end
+
+    describe '.backfill_params_seal extras' do
+      def legacy_op(status)
+        op = make_op
+        described_class.where(id: op.id).update_all([ 'params = ?::jsonb, status = ?', raw.to_json, status ])
+        op
+      end
+
+      it 'is a no-op on a second applied run' do
+        legacy_op('pending')
+        legacy_op('completed')
+        described_class.backfill_params_seal(dry_run: false)
+
+        expect(described_class.backfill_params_seal(dry_run: false)).to include(sealed: 0, masked: 0)
+      end
+
+      it 'seals an executing row' do
+        op = legacy_op('executing')
+        described_class.backfill_params_seal(dry_run: false)
+
+        expect(described_class.find(op.id)[:params]).to have_key(described_class::SEALED_PARAMS_KEY)
+      end
+
+      it 're-seals live sealed rows under the current key, dry run by default' do
+        op = make_secret_op
+        before_blob = stored_envelope(op)
+
+        counts = described_class.backfill_params_seal(reseal: true)
+        expect(counts).to include(resealed: 1, dry_run: true)
+        expect(stored_envelope(op)).to eq(before_blob)
+
+        described_class.backfill_params_seal(dry_run: false, reseal: true)
+        expect(stored_envelope(op)).not_to eq(before_blob)
+        op = described_class.find(op.id)
+        op.update_columns(status: 'approved')
+        op.execute_now!
+        expect(ReplayRecorder.seen).to eq(raw)
+      end
+
+      it 'does not re-seal terminal sealed rows' do
+        op = make_secret_op
+        op.update_columns(status: 'completed')
+
+        expect(described_class.backfill_params_seal(reseal: true)).to include(resealed: 0)
+      end
     end
 
     describe '.backfill_params_seal' do

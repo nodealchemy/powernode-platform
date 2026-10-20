@@ -52,6 +52,35 @@ RSpec.describe Ai::AutonomyGate do
       expect(Ai::DeferredOperation.find(op.id).params).to include('user' => 'alice', 'password' => '[FILTERED]')
     end
 
+    it 'blocks non-Hash params instead of storing them raw' do
+      Ai::InterventionPolicy.create!(
+        account: account, action_category: 'test.action',
+        scope: 'global', policy: 'auto_approve', priority: 5, is_active: true
+      )
+
+      result = described_class.evaluate(**base_args, params: [ { password: secret } ])
+
+      expect(result.decision).to eq(:blocked)
+      expect(Ai::DeferredOperation.where(account: account).count).to eq(0)
+    end
+
+    it 'does not echo secret text from an executor exception in the returned error' do
+      stub_const('LeakyExecutor', Class.new do
+        def self.execute(_params, deferred_operation:)
+          raise 'failed with password=LEAKY-PLAINTEXT'
+        end
+      end)
+      Ai::InterventionPolicy.create!(
+        account: account, action_category: 'test.action',
+        scope: 'global', policy: 'auto_approve', priority: 5, is_active: true
+      )
+
+      result = described_class.evaluate(**base_args, executor_class: 'LeakyExecutor')
+
+      expect(result.decision).to eq(:blocked)
+      expect(result.error).not_to include('LEAKY-PLAINTEXT')
+    end
+
     it 'still hands the real params to the executor when auto-approved' do
       Ai::InterventionPolicy.create!(
         account: account, action_category: 'test.action',

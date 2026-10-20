@@ -143,7 +143,7 @@ module Ai
     rescue StandardError => e
       Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: " \
                          "#{::Ai::SensitiveParams.filter_text(e.message)}")
-      Result.new(decision: :blocked, error: "Gate evaluation failed: #{e.message}", exception: e)
+      Result.new(decision: :blocked, error: "Gate evaluation failed: #{::Ai::SensitiveParams.filter_text(e.message)}", exception: e)
     end
 
     private

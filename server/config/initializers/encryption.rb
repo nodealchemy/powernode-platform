@@ -24,6 +24,10 @@
 #      NEW last (active write key).
 #   2. Restart backend.
 #   3. Run `bin/rails ar_encryption:re_encrypt_all` — writes use NEW.
+#   3b. Re-seal gated-operation params, which re_encrypt_all does NOT reach
+#      (Ai::DeferredOperation keeps a sealed envelope inside its params column):
+#      dry run first, `bin/rails ai:backfill_deferred_operation_params RESEAL=true`,
+#      then apply with `DRY_RUN=false`. Skipping this strands live envelopes.
 #   4. Set env back to just "NEW"; restart. OLD is no longer trusted.
 #
 # (The salt is single-value only — PBKDF2 needs a string.)

@@ -119,7 +119,8 @@ module Ai
       event :fail do
         transitions from: %i[approved executing], to: :failed
         before do |error = nil|
-          self.error_message = error.is_a?(Exception) ? "#{error.class}: #{error.message}" : error.to_s
+          text = error.is_a?(Exception) ? "#{error.class}: #{error.message}" : error.to_s
+          self.error_message = ::Ai::SensitiveParams.filter_text(text)
           self.executed_at ||= Time.current
         end
       end
@@ -219,7 +220,7 @@ module Ai
       ::Ai::Provisioning::SkillCompositionRunner.resume_parked_step(deferred_operation: self)
     rescue StandardError => e
       Rails.logger.error(
-        "[DeferredOperation##{id}] composed-plan release failed: #{e.class}: #{e.message}"
+        "[DeferredOperation##{id}] composed-plan release failed: #{e.class}: #{::Ai::SensitiveParams.filter_text(e.message)}"
       )
       nil
     end
@@ -316,11 +317,21 @@ module Ai
     # Dry-run-by-default backfill for rows written before the gate sealed
     # params (IMP-3d10c3c9439e). Live rows (an executor may still replay them)
     # are sealed and masked; terminal rows are masked only. Rows already
-    # carrying an envelope are skipped. Returns the counts.
-    def self.backfill_params_seal(dry_run: true)
-      counts = { sealed: 0, masked: 0, skipped: 0, dry_run: dry_run }
+    # carrying an envelope are skipped, unless `reseal` re-encrypts the live ones
+    # under the current key (run before dropping an old encryption key).
+    # Returns the counts.
+    def self.backfill_params_seal(dry_run: true, reseal: false)
+      counts = { sealed: 0, masked: 0, skipped: 0, resealed: 0, dry_run: dry_run }
       find_each do |op|
         stored = op[:params]
+        # Key rotation: ar_encryption:re_encrypt_all cannot reach the envelope,
+        # so live sealed rows are re-encrypted under the current key here.
+        if reseal && stored.is_a?(Hash) && stored.key?(SEALED_PARAMS_KEY) && LIVE_STATUSES.include?(op.status)
+          counts[:resealed] += 1
+          op.update_columns(params: op.send(:sealed_params_for, op.send(:replay_params))) unless dry_run
+          next
+        end
+
         unless stored.is_a?(Hash) && !stored.key?(SEALED_PARAMS_KEY) &&
                ::Ai::SensitiveParams.filter(stored) != stored
           counts[:skipped] += 1
@@ -382,7 +393,7 @@ module Ai
 
       executor_constant.preview(params, deferred_operation: PreviewContext.new(account))
     rescue StandardError => e
-      { summary: action_category, error: "preview failed: #{e.message}" }
+      { summary: action_category, error: "preview failed: #{::Ai::SensitiveParams.filter_text(e.message)}" }
     end
 
     private
@@ -404,7 +415,10 @@ module Ai
       return @unsealed_params if @unsealed_params
 
       stored = self[:params]
-      return params unless stored.is_a?(Hash) && stored.key?(SEALED_PARAMS_KEY)
+      # No envelope: replay the RAW column, never the masked reader. A legacy
+      # row (pre-backfill) or one whose keys became sensitive after the operator
+      # widened ai_sensitive_param_keys must not replay "[FILTERED]".
+      return stored.is_a?(Hash) ? stored : params unless stored.is_a?(Hash) && stored.key?(SEALED_PARAMS_KEY)
 
       unseal_params(stored[SEALED_PARAMS_KEY])
     end
@@ -454,7 +468,9 @@ module Ai
     # The stored form: masked view plus the sealed original. The binding context
     # rides INSIDE the ciphertext and is checked after decrypt. The row id is
     # not part of it: the id is assigned by the database default at INSERT, after
-    # this runs.
+    # this runs. Consequence, stated plainly: an envelope copied between two rows
+    # with the SAME account, executor and action category is accepted. That takes
+    # database write access, which already lets an attacker rewrite params.
     def sealed_params_for(raw)
       envelope = { context: seal_context, params: raw }.to_json
       ::Ai::SensitiveParams.filter(raw).merge(
