@@ -237,6 +237,13 @@ class Rack::Attack
   # TOTP/backup code from an ALREADY-authenticated session. `auth_2fa_by_ip`
   # below only matches POST, so it never saw DELETE /two_factor/disable at
   # all; a wrong-code guess there was unthrottled by IP or by user.
+  # Request path with a format suffix and trailing slashes removed, so
+  # /enroll.json and /enroll/ cannot slip past an exact-path throttle rule or
+  # safelist carve-out while still routing to the same controller action.
+  def self.canonical_path(request)
+    request.path.to_s.sub(%r{/+\z}, "").sub(/\.json\z/, "").sub(%r{/+\z}, "")
+  end
+
   def self.two_factor_reauth_path?(request)
     (request.path.end_with?("/two_factor/disable") && request.delete?) ||
       (request.path.end_with?("/two_factor/regenerate_backup_codes") && request.post?)
@@ -258,7 +265,19 @@ class Rack::Attack
   # the claim endpoint never trip it — the throttle spec opts in by
   # stubbing get_rate_limit.
   throttle("system_node_claim_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("node_claim_attempts_per_minute", Rails.env.test? ? 999_999 : 20) : 999_999 }, period: 1.minute) do |request|
-    client_ip(request) if request.path == "/api/v1/system/node_api/claim" && request.post?
+    client_ip(request) if canonical_path(request) == "/api/v1/system/node_api/claim" && request.post?
+  end
+
+  # Anonymous enrolment (POST /api/v1/system/node_api/enroll), IMP-02a42b90598b
+  # (Provisioning D13). Authenticated only by a single-use bootstrap token, so
+  # like /claim it must not ride the node_api safelist: a per-IP cap bounds key
+  # guessing and CA-signing load. A 429 is retryable for the agent. The sibling
+  # /enroll/refresh stays safelisted: it requires the instance's CURRENT mTLS
+  # cert (not anonymous) and capping it would starve a fleet behind one NAT of
+  # its own cert rotation. Same test-env fallback as the claim rule above
+  # (extensions/system enroll_throttle_spec.rb opts in by stubbing).
+  throttle("system_node_enroll_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("node_enroll_attempts_per_minute", Rails.env.test? ? 999_999 : 20) : 999_999 }, period: 1.minute) do |request|
+    client_ip(request) if canonical_path(request) == "/api/v1/system/node_api/enroll" && request.post?
   end
 
   # 2FA re-auth (disable / regenerate_backup_codes) — IMP-99e8e4701150 review
@@ -542,12 +561,15 @@ class Rack::Attack
   # higher fleet sizes (an account's own agents starved by its own tier).
   # Worker-api callers (POST /worker_api/*) have the same property.
   safelist("powernode_node_api") do |request|
-    path = request.path.to_s
+    path = canonical_path(request)
     # The anonymous device-claim endpoint has no credential at this point in
     # the device lifecycle, so the mTLS/JWT rationale above does NOT apply to
     # it. Keep it OUT of the safelist so the dedicated throttle below can cap
     # unbounded UnclaimedDevice creation. See audit 2026-06-09 finding F6-03.
     next false if path == "/api/v1/system/node_api/claim"
+    # Same for anonymous enrolment (bootstrap token only); see
+    # system_node_enroll_by_ip. /enroll/refresh (mTLS) stays safelisted.
+    next false if path == "/api/v1/system/node_api/enroll"
 
     path.start_with?("/api/v1/system/node_api/") ||
       path.start_with?("/api/v1/system/worker_api/") ||
