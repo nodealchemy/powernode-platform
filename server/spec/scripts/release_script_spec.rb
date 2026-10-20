@@ -65,9 +65,13 @@ RSpec.describe "scripts/release.sh" do
     git(@parent, "submodule", "add", "-q", ext_origin, "extensions/ext")
     git(@parent, "commit", "-q", "-m", "add ext")
     git(@parent, "remote", "add", "origin", par_origin)
+    @par_gitea = File.join(@root, "parent-gitea.git")
+    sh!("git", "init", "-q", "--bare", "-b", "master", @par_gitea, chdir: @root)
+    git(@parent, "remote", "add", "gitea", @par_gitea)
     git(@parent, "tag", "0.2.0")
     git(@parent, "branch", "develop")
-    git(@parent, "push", "-q", "origin", "master", "develop", "--tags")
+    [ "origin", "gitea" ].each { |r| git(@parent, "push", "-q", r, "master", "develop", "--tags") }
+    @par_origin = par_origin
 
     sub = File.join(@parent, "extensions/ext")
     git(sub, "checkout", "-q", "-b", "develop")
@@ -172,6 +176,121 @@ RSpec.describe "scripts/release.sh" do
     it "carries no AI attribution in any commit it made" do
       log = git(@parent, "log", "--format=%B", "0.2.0..master")
       expect(log).not_to match(/co-authored-by|generated with|claude/i)
+    end
+  end
+
+  def remote_tag(bare, tag) = git(bare, "tag", "-l", tag)
+
+  describe "remotes" do
+    it "pushes the parent to every configured remote (gitea first) and the origin-only submodule to origin" do
+      st, out = release("0.3.0")
+      expect(st).to be_success, out
+      master = git(@parent, "rev-parse", "master")
+      expect(git(@par_gitea, "rev-parse", "refs/tags/0.3.0^{commit}")).to eq(master)
+      expect(git(@par_origin, "rev-parse", "refs/tags/0.3.0^{commit}")).to eq(master)
+      expect(git(@par_gitea, "rev-parse", "master")).to eq(master)
+      expect(out.index("gitea")).to be < out.index("origin")
+      expect(remote_tag(File.join(@root, "ext.git"), "0.3.0")).to eq("0.3.0")
+    end
+
+    it "queries every remote for an existing tag" do
+      git(@parent, "tag", "0.3.0")
+      git(@parent, "push", "-q", "gitea", "refs/tags/0.3.0")
+      git(@parent, "tag", "-d", "0.3.0")
+      st, out = release("0.3.0")
+      expect(st).not_to be_success
+      expect(out).to match(/tag 0\.3\.0 already exists.*gitea/i)
+    end
+
+    it "honours RELEASE_REMOTES" do
+      out = nil
+      st, out = Open3.capture3(git_env.merge("RELEASE_REMOTES" => "origin"), "bash", script, "0.3.0", chdir: @parent).then { |o, e, status| [ status, o + e ] }
+      expect(st).to be_success, out
+      expect(remote_tag(@par_origin, "0.3.0")).to eq("0.3.0")
+      expect(remote_tag(@par_gitea, "0.3.0")).to be_empty
+    end
+
+    it "aborts when a remote is unreachable" do
+      git(@parent, "remote", "set-url", "gitea", File.join(@root, "nowhere.git"))
+      st, out = release("0.3.0")
+      expect(st).not_to be_success
+      expect(out).to match(/gitea/)
+      expect(git(@parent, "tag", "-l", "0.3.0")).to be_empty
+    end
+
+    it "refuses when local master is not the remote tip" do
+      other = File.join(@root, "other")
+      sh!("git", "clone", "-q", @par_gitea, other, chdir: @root)
+      File.write(File.join(other, "late.txt"), "x")
+      git(other, "add", "-A"); git(other, "commit", "-q", "-m", "late")
+      git(other, "push", "-q", "origin", "master")
+      st, out = release("0.3.0")
+      expect(st).not_to be_success
+      expect(out).to match(/master.*(differs|equal|tip)/i)
+    end
+  end
+
+  describe "partial failure and resume" do
+    it "does all local work first, prints resume instructions on a failed push, and a re-run completes without redoing work" do
+      git(@parent, "config", "remote.gitea.pushurl", File.join(@root, "readonly-nowhere.git"))
+      st, out = release("0.3.0")
+      expect(st).not_to be_success
+      expect(out).to match(/resume/i)
+      expect(out).to match(/scripts\/release\.sh 0\.3\.0/)
+      # local work is complete: merged, tagged, back-merged
+      expect(git(@parent, "tag", "-l", "0.3.0")).to eq("0.3.0")
+      expect(git(@parent, "merge-base", "--is-ancestor", "master", "develop")).to eq("")
+      expect(git(@par_gitea, "tag", "-l", "0.3.0")).to be_empty
+      count = git(@parent, "rev-list", "--count", "develop")
+
+      git(@parent, "config", "--unset", "remote.gitea.pushurl")
+      st, out = release("0.3.0")
+      expect(st).to be_success, out
+      expect(git(@parent, "rev-list", "--count", "develop")).to eq(count)
+      expect(git(@par_gitea, "tag", "-l", "0.3.0")).to eq("0.3.0")
+      expect(git(@par_origin, "tag", "-l", "0.3.0")).to eq("0.3.0")
+      expect(git(@par_gitea, "rev-parse", "develop")).to eq(git(@parent, "rev-parse", "develop"))
+    end
+  end
+
+  describe "back-merge conflicts" do
+    def advance_develop_pointer
+      sub = File.join(@parent, "extensions/ext")
+      git(@parent, "checkout", "-q", "develop")
+      git(sub, "checkout", "-q", "develop")
+      File.write(File.join(sub, "late.txt"), "late")
+      git(sub, "add", "-A"); git(sub, "commit", "-q", "-m", "late ext change")
+      git(sub, "push", "-q", "origin", "develop")
+      git(@parent, "add", "extensions/ext"); git(@parent, "commit", "-q", "-m", "bump ext on develop")
+      %w[origin gitea].each { |r| git(@parent, "push", "-q", r, "develop") }
+      git(sub, "checkout", "-q", "release/0.3.0")
+      git(@parent, "checkout", "-q", "release/0.3.0")
+    end
+
+    it "resolves a gitlink-only conflict by taking the submodule's develop tip" do
+      advance_develop_pointer
+      st, out = release("0.3.0")
+      expect(st).to be_success, out
+      sub = File.join(@parent, "extensions/ext")
+      git(@parent, "checkout", "-q", "develop")
+      expect(git(@parent, "ls-tree", "develop", "extensions/ext").split[2]).to eq(git(sub, "rev-parse", "develop"))
+      expect(git(sub, "ls-tree", "-r", "--name-only", "develop")).to include("late.txt")
+      expect(git(@parent, "status", "--porcelain", "--ignore-submodules=all")).to be_empty
+    end
+
+    it "aborts on any non-gitlink conflict, before pushing anything" do
+      git(@parent, "checkout", "-q", "develop")
+      pkg = File.join(@parent, "package.json")
+      File.write(pkg, File.read(pkg).sub('"0.2.0"', '"0.2.5"'))
+      git(@parent, "commit", "-q", "-am", "develop edits the version line")
+      %w[origin gitea].each { |r| git(@parent, "push", "-q", r, "develop") }
+      git(@parent, "checkout", "-q", "release/0.3.0")
+      st, out = release("0.3.0")
+      expect(st).not_to be_success
+      expect(out).to match(/non-gitlink conflict/i)
+      expect(git(@parent, "status", "--porcelain", "--ignore-submodules=all")).to be_empty
+      expect(git(@par_gitea, "tag", "-l", "0.3.0")).to be_empty
+      expect(git(@par_origin, "tag", "-l", "0.3.0")).to be_empty
     end
   end
 end
