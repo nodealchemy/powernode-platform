@@ -16,6 +16,11 @@ RSpec.describe Security::SecretStore, ".purge_account" do
     allow(vault).to receive(:delete_secret)
   end
 
+  it "requires an account id" do
+    expect { described_class.purge_account(account_id: " ") }.to raise_error(ArgumentError)
+    expect { described_class.purge_account(account_id: nil) }.to raise_error(ArgumentError)
+  end
+
   context "with the database backend" do
     it "does nothing (the DB rows go with the account's dependents)" do
       expect(described_class.purge_account(account_id: account.id)).to eq(0)
@@ -47,6 +52,16 @@ RSpec.describe Security::SecretStore, ".purge_account" do
       other.destroy!
 
       expect(vault).to have_received(:list_secrets).with("powernode/secret-store/#{other.id}")
+    end
+
+    it "logs a purge failure at error level with the account id and error class only" do
+      allow(vault).to receive(:list_secrets).and_raise(Security::VaultClient::ConnectionError, "token s3cr3t rejected")
+      allow(Rails.logger).to receive(:error)
+
+      account.destroy!
+
+      expect(Rails.logger).to have_received(:error)
+        .with("[Account.teardown] secret store purge FAILED for account #{account.id}: Security::VaultClient::ConnectionError")
     end
 
     it "does not purge when the destroy is refused or rolled back" do

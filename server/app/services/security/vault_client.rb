@@ -134,8 +134,9 @@ module Security
       check_circuit_breaker!
 
       with_retry do
-        result = @client.logical.list(path)
-        result&.data&.[](:keys) || []
+        # The vault gem's Logical#list returns the key Array itself ([] for a
+        # missing path), not a Secret.
+        @client.logical.list(path) || []
       end
     rescue Vault::HTTPConnectionError, Vault::HTTPError => e
       record_failure(nil)

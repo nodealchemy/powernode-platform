@@ -682,7 +682,8 @@ class Account < ApplicationRecord
     count = Security::SecretStore.purge_account(account_id: id)
     Rails.logger.info("[Account.teardown] purged #{count} secret store entries for account #{id}") if count.positive?
   rescue StandardError => e
-    Rails.logger.warn("[Account.teardown] secret store purge failed for account #{id}: #{e.class}")
+    # Visible, never values: the account id and the error class only.
+    Rails.logger.error("[Account.teardown] secret store purge FAILED for account #{id}: #{e.class}")
   end
 
   # Pre-flight (before_destroy, prepended so it halts before the teardown

@@ -317,4 +317,29 @@ RSpec.describe Security::VaultClient do
       expect(client.read_secret(path, key: :password, cache: false)).to eq("s3cret")
     end
   end
+
+  # vault-0.20.1's Vault::Logical#list returns the key ARRAY itself (an empty one
+  # for a missing path), not a Secret -- the old `result&.data&.[](:keys)` raised
+  # NoMethodError on every call.
+  describe "#list_secrets" do
+    let(:logical) { instance_double(Vault::Logical) }
+
+    subject(:client) do
+      described_class.new(token: "spec-token").tap do |c|
+        c.instance_variable_set(:@client, instance_double(Vault::Client, logical: logical))
+      end
+    end
+
+    it "returns the keys Vault::Logical#list yields" do
+      allow(logical).to receive(:list).with("powernode/secret-store/1").and_return(["email/", "api_key"])
+
+      expect(client.list_secrets("powernode/secret-store/1")).to eq(["email/", "api_key"])
+    end
+
+    it "returns [] when the gem returns nothing" do
+      allow(logical).to receive(:list).and_return(nil)
+
+      expect(client.list_secrets("powernode/secret-store/missing")).to eq([])
+    end
+  end
 end

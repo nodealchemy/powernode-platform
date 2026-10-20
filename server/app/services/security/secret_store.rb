@@ -46,6 +46,7 @@ module Security
       # for the database backend, whose rows (Security::Secret) go with the
       # account. Raises BackendUnavailable if Vault is selected but unreachable.
       def purge_account(account_id:)
+        raise ArgumentError, "purge_account needs an account_id" if account_id.blank?
         return 0 unless backend == :vault
 
         active_backend.purge_account(account_id)
@@ -118,6 +119,9 @@ module Security
           "powernode/secret-store/#{account_id}"
         end
 
+        # The secret-store path has no `<mount>/data/` segment, so it is only
+        # coherent with a KV v1 mount (see vault-test-instance.md); on KV v1 the
+        # DELETE below is already a hard delete and LIST works on the path as is.
         # Walks the account's KV tree (folders are listed with a trailing "/")
         # and deletes each leaf. Returns the number of entries deleted.
         def purge_account(account_id)
