@@ -909,6 +909,14 @@ module Ai
       end
 
       def result_error(result)
+        # The one choke point for every door an executor's raw error text can
+        # reach result_summary, MissionChannel and ai_messages through (a
+        # persisted failed envelope, an inline failure, a parked replay): the
+        # key-based filter cannot see inside a string (IMP-f8e6bbc5e3bb).
+        ::Ai::SensitiveParams.filter_text(raw_result_error(result))
+      end
+
+      def raw_result_error(result)
         return result.message if result.is_a?(Exception)
         return nil unless result.respond_to?(:[])
         result[:error] || result["error"] || result[:message] || result["message"]

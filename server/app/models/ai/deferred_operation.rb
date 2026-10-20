@@ -269,7 +269,7 @@ module Ai
       # sent every approver through a "shown once — save it now" modal.
       filtered = ::Ai::SensitiveParams.filter(result_data || {})
       @revealed_result = result_data if filtered != (result_data || {})
-      complete!(filtered)
+      complete!(filter_envelope_text(filtered))
       result_data
     rescue StandardError => e
       Rails.logger.error("[DeferredOperation##{id}] execute_now! failed: #{e.class}: " \
@@ -404,6 +404,18 @@ module Ai
     end
 
     private
+
+    # The key-based filter cannot see inside a string, and an executor's failed
+    # envelope carries free text under `error`/`message` that can quote the very
+    # params it masks (IMP-f8e6bbc5e3bb). Only those two top-level string
+    # members are rewritten; the envelope's shape is untouched.
+    def filter_envelope_text(filtered)
+      return filtered unless filtered.is_a?(Hash)
+
+      filtered.to_h do |key, value|
+        [ key, %w[error message].include?(key.to_s) && value.is_a?(String) ? ::Ai::SensitiveParams.filter_text(value) : value ]
+      end
+    end
 
     # Reveal-on-replay for the params, the counterpart of the reveal-once
     # handling of :result above. The gate hands over caller-supplied params that
