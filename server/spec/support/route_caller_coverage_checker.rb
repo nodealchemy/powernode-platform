@@ -99,8 +99,23 @@ module RouteCallerCoverageChecker
       # Not worker/app/controllers: those declare the worker's OWN endpoints
       # (`['POST', '/api/v1/jobs']`), which are not calls to this server.
       "worker/app/jobs",
-      "worker/app/services"
-    ] + PRIVATE_EXTENSION_NAMES.map { |name| "extensions/private/#{name}/server/app/services" } + AGENT_DIRS
+      "worker/app/services",
+      # An extension ships its own Sidekiq jobs, and they call this server the
+      # same way core's do (`server_post("/api/v1/...")`) — e.g. a reaper job
+      # that POSTs to its extension's worker_api route.
+      "extensions/system/worker/app/jobs",
+      "extensions/system/worker/app/services",
+      "extensions/marketing/worker/app/jobs",
+      "extensions/marketing/worker/app/services",
+      "extensions/supply-chain/worker/app/jobs",
+      "extensions/supply-chain/worker/app/services"
+    ] + PRIVATE_EXTENSION_NAMES.flat_map { |name|
+      %W[
+        extensions/private/#{name}/server/app/services
+        extensions/private/#{name}/worker/app/jobs
+        extensions/private/#{name}/worker/app/services
+      ]
+    } + AGENT_DIRS
   ).freeze
 
   FRONTEND_EXTS = %w[.ts .tsx].freeze
@@ -177,7 +192,7 @@ module RouteCallerCoverageChecker
     # (from `text` itself, then from `known_bases`). The corpus scan applies
     # the same resolution per file; this is its unit-testable form.
     def literal_caller_in?(path, text, known_bases: {})
-      resolved = resolve_base_paths(strip_import_lines(text), known_bases)
+      resolved = resolve_base_paths(join_concatenated_literals(strip_import_lines(text)), known_bases)
       resolved.match?(contiguous_regex(path_segments(path)))
     end
 
@@ -226,7 +241,7 @@ module RouteCallerCoverageChecker
           next if file.include?("/node_modules/")
           next unless keep_file.call(file)
 
-          text = strip_import_lines(File.read(file))
+          text = join_concatenated_literals(strip_import_lines(File.read(file)))
           text = strip_comment_lines(text) if strip_comments
           sources[file] = text
         rescue StandardError
@@ -239,6 +254,17 @@ module RouteCallerCoverageChecker
         tokens = text.scan(QUOTED_TOKEN).map { |_quote, body| body }.to_set
         { text: text, tokens: tokens, api_hint: API_CALL_HINT.match?(text) }
       end
+    end
+
+    # `"/api/v1/x/" + id + "/log"` (Go, JS) is one path built from two literals
+    # and a variable; read it as the `"/api/v1/x/${id}/log"` template literal
+    # the contiguous matcher already understands. Only a literal, a bare
+    # identifier or call, and another literal join, so prose or arithmetic
+    # between two strings is left alone.
+    CONCATENATED_LITERALS = /(['"`])[ \t]*\+[ \t]*[A-Za-z_][\w.]*(?:\([^()\n]*\))?[ \t]*\+[ \t]*\1/.freeze
+
+    def join_concatenated_literals(text)
+      text.gsub(CONCATENATED_LITERALS, "${x}")
     end
 
     def strip_import_lines(text)

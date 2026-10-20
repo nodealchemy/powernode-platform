@@ -25,7 +25,7 @@ RSpec.describe "Route caller coverage", type: :routing do
   # One-way ratchet: pinned to the baseline's EXACT size. A shrink (a route
   # gets a caller, or is deleted) must lower this in the same diff, so the
   # freed slot can never be silently re-spent; growing it is never an option.
-  MAX_BASELINE_SIZE = 450
+  MAX_BASELINE_SIZE = 431
   # controller#action => human reason it is legitimately caller-less from
   # OUR OWN code's point of view. Every entry here is a receiver: the request
   # originates from a third party (a git/registry provider, a spawned agent
@@ -178,6 +178,21 @@ RSpec.describe "Route caller coverage", type: :routing do
       TS
 
       expect(literal_caller?("/api/v1/ai/monitoring/health/detailed", text)).to be(true)
+    end
+
+    it "counts a path built by concatenating literals around a variable" do
+      go = 'return "/api/v1/system/node_api/status/tasks/" + taskID + "/log"'
+      js = "return api.post('/tasks/' + taskId + '/log');"
+
+      expect(literal_caller?("/api/v1/system/node_api/status/tasks/:id/log", go)).to be(true)
+      expect(literal_caller?("/api/v1/tasks/:id/log", js)).to be(true)
+    end
+
+    it "does not credit a concatenation onto a different path" do
+      go = 'return "/api/v1/system/node_api/status/tasks/" + taskID + "/log"'
+
+      expect(literal_caller?("/api/v1/system/node_api/status/tasks/:id/other", go)).to be(false)
+      expect(literal_caller?("/api/v1/tasks/:id/log", go)).to be(false)
     end
 
     it "resolves an inherited base-path variable from the corpus-wide map" do
