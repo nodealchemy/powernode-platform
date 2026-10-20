@@ -141,7 +141,8 @@ module Ai
                                     call_origin: call_origin)
       end
     rescue StandardError => e
-      Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: #{e.message}")
+      Rails.logger.error("[AutonomyGate] evaluate(#{action_category}) failed: #{e.class}: " \
+                         "#{::Ai::SensitiveParams.filter_text(e.message)}")
       Result.new(decision: :blocked, error: "Gate evaluation failed: #{e.message}", exception: e)
     end
 
@@ -242,12 +243,12 @@ module Ai
           },
           environment_escalation: escalation,
           blast_radius: blast_radius,
-          # Redacted copy, not the stored one. The operation keeps plaintext in
-          # its own params because the executor replays them after approval;
-          # request_data exists only to be READ, by an approval audience wider
-          # than the permission that authorised the call. This is the single
-          # boundary every gated call site crosses, so every producer of
-          # secret-bearing params is covered here rather than one at a time.
+          # Redacted copy. The operation's own params are redacted too now
+          # (Ai::DeferredOperation seals the original for the executor replay),
+          # but request_data is still built here from the masked reader so the
+          # two copies can never drift. This is the single boundary every gated
+          # call site crosses, so every producer of secret-bearing params is
+          # covered here rather than one at a time.
           params: ::Ai::SensitiveParams.filter(deferred.params),
           agent_id: deferred.ai_agent_id,
           agent_name: deferred.ai_agent&.name,

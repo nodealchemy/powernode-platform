@@ -4,10 +4,12 @@ module Ai
   # The one place that decides what "secret" means for material riding through
   # `Ai::AutonomyGate`.
   #
-  # A gated operation's params are caller-supplied and stored verbatim: the
-  # executor replays them after approval, so a single-use federation acceptance
-  # token genuinely has to survive at rest for the handshake to complete. What
-  # must not survive is the COPY. The gate mirrors params into
+  # A gated operation's params are caller-supplied and the executor replays
+  # them after approval, so a single-use federation acceptance token genuinely
+  # has to survive for the handshake to complete. It survives only SEALED:
+  # Ai::DeferredOperation stores the masked view in its params column plus the
+  # original encrypted under the ActiveRecord encryption keys, and only the
+  # executor replay unseals it. The gate also mirrors params into
   # `Ai::ApprovalRequest#request_data`, and four read endpoints serialize that
   # copy — or the operation's own params — to an audience defined by the
   # approval permissions rather than by whatever permission authorised the

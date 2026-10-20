@@ -59,9 +59,17 @@ module Ai
     # secret-bearing params hash (IMP-3d10c3c9439e). Never visible through the
     # `params` reader.
     SEALED_PARAMS_KEY = "_sealed_params"
-    SEAL_PURPOSE = "ai/deferred_operation/params"
+
+    # Raised on replay when the sealed original cannot be produced: a missing
+    # or blank envelope, one that will not decrypt, or one sealed for a
+    # different operation. The executor is never run with masked values.
+    class SealedParamsError < StandardError; end
+
+    # Statuses whose params an executor can still replay.
+    LIVE_STATUSES = %w[pending approved executing].freeze
 
     before_create :seal_secret_params
+    validate :params_must_be_a_hash
 
     validates :action_category, presence: true
     validates :executor_class,  presence: true
@@ -263,9 +271,13 @@ module Ai
       complete!(filtered)
       result_data
     rescue StandardError => e
-      Rails.logger.error("[DeferredOperation##{id}] execute_now! failed: #{e.class}: #{e.message}")
+      Rails.logger.error("[DeferredOperation##{id}] execute_now! failed: #{e.class}: " \
+                         "#{::Ai::SensitiveParams.filter_text(e.message)}")
       fail!(e) if may_fail?
       raise
+    ensure
+      # The caller's original must not outlive the replay on this instance.
+      @unsealed_params = nil
     end
 
     # Reveal-once handoff for an executor that MINTS secret material
@@ -292,11 +304,38 @@ module Ai
     # The params as every reader sees them: secret-looking values masked and
     # the sealed envelope hidden. The original is only ever reachable through
     # #replay_params, on the executor-replay path.
+    # Filtered on every read, not only at write, so a row stored before sealing
+    # existed (plaintext in the column) is masked too. Idempotent on masked values.
     def params
       stored = super
-      return stored unless stored.is_a?(Hash) && stored.key?(SEALED_PARAMS_KEY)
+      return stored unless stored.is_a?(Hash)
 
-      stored.except(SEALED_PARAMS_KEY)
+      ::Ai::SensitiveParams.filter(stored.except(SEALED_PARAMS_KEY))
+    end
+
+    # Dry-run-by-default backfill for rows written before the gate sealed
+    # params (IMP-3d10c3c9439e). Live rows (an executor may still replay them)
+    # are sealed and masked; terminal rows are masked only. Rows already
+    # carrying an envelope are skipped. Returns the counts.
+    def self.backfill_params_seal(dry_run: true)
+      counts = { sealed: 0, masked: 0, skipped: 0, dry_run: dry_run }
+      find_each do |op|
+        stored = op[:params]
+        unless stored.is_a?(Hash) && !stored.key?(SEALED_PARAMS_KEY) &&
+               ::Ai::SensitiveParams.filter(stored) != stored
+          counts[:skipped] += 1
+          next
+        end
+
+        if LIVE_STATUSES.include?(op.status)
+          counts[:sealed] += 1
+          op.update_columns(params: op.send(:sealed_params_for, stored)) unless dry_run
+        else
+          counts[:masked] += 1
+          op.update_columns(params: ::Ai::SensitiveParams.filter(stored)) unless dry_run
+        end
+      end
+      counts
     end
 
     def executor_constant
@@ -351,18 +390,49 @@ module Ai
     # Reveal-on-replay for the params, the counterpart of the reveal-once
     # handling of :result above. The gate hands over caller-supplied params that
     # may carry secrets; the column keeps only the masked view plus the original
-    # sealed with the app's key derivation, and the executor, which replays its
-    # own params, is the only reader that gets the original back. A failed
-    # unseal raises rather than replaying masked values.
+    # sealed with ActiveRecord::Encryption (the house keys, so the documented
+    # rotation applies), and the executor, which replays its own params, is the
+    # only reader that gets the original back. Anything that stops the original
+    # being produced raises SealedParamsError: masked values are never replayed.
+    #
+    # Rotation: ar_encryption:re_encrypt_all only walks `encrypts` attributes and
+    # does not reach this envelope; the previous-keys read fallback still opens
+    # it, and .backfill_params_seal could be extended to re-seal live rows.
     def replay_params
       # The instance that opened the gate still holds the caller's own hash, so
       # key types match what an unsealed operation hands over.
       return @unsealed_params if @unsealed_params
 
-      sealed = self[:params].is_a?(Hash) ? self[:params][SEALED_PARAMS_KEY] : nil
-      return params if sealed.blank?
+      stored = self[:params]
+      return params unless stored.is_a?(Hash) && stored.key?(SEALED_PARAMS_KEY)
 
-      JSON.parse(params_encryptor.decrypt_and_verify(sealed, purpose: seal_purpose))
+      unseal_params(stored[SEALED_PARAMS_KEY])
+    end
+
+    def unseal_params(blob)
+      raise SealedParamsError, "sealed params for #{action_category} are missing" if blob.blank?
+
+      plain = ::ActiveRecord::Encryption.encryptor.decrypt(blob)
+      raise SealedParamsError, "sealed params for #{action_category} are empty" if plain.blank?
+
+      envelope = JSON.parse(plain)
+      unless envelope.is_a?(Hash) && envelope["context"] == seal_context
+        raise SealedParamsError, "sealed params for #{action_category} do not match this operation's context"
+      end
+
+      envelope.fetch("params")
+    rescue SealedParamsError
+      raise
+    rescue StandardError
+      # Class only: a decrypt error's message can carry key material.
+      raise SealedParamsError, "sealed params for #{action_category} could not be opened"
+    end
+
+    def params_must_be_a_hash
+      raw = self[:params]
+      return if raw.nil? || raw.is_a?(Hash) || raw.respond_to?(:to_unsafe_h)
+
+      errors.add(:params, "must be a Hash")
     end
 
     def seal_secret_params
@@ -372,26 +442,29 @@ module Ai
 
       # Whatever its key type: a caller-planted envelope must never survive.
       raw = raw.reject { |key, _| key.to_s == SEALED_PARAMS_KEY }
-      masked = ::Ai::SensitiveParams.filter(raw)
-      if masked == raw
+      if ::Ai::SensitiveParams.filter(raw) == raw
         self[:params] = raw
         return
       end
 
-      sealed = params_encryptor.encrypt_and_sign(raw.to_json, purpose: seal_purpose)
       @unsealed_params = raw
-      self[:params] = masked.merge(SEALED_PARAMS_KEY => sealed)
+      self[:params] = sealed_params_for(raw)
     end
 
-    # Bound to the operation's own account, executor and action so a sealed
-    # blob lifted from another row will not open here.
-    def seal_purpose
-      "#{SEAL_PURPOSE}/#{account_id}/#{executor_class}/#{action_category}"
+    # The stored form: masked view plus the sealed original. The binding context
+    # rides INSIDE the ciphertext and is checked after decrypt. The row id is
+    # not part of it: the id is assigned by the database default at INSERT, after
+    # this runs.
+    def sealed_params_for(raw)
+      envelope = { context: seal_context, params: raw }.to_json
+      ::Ai::SensitiveParams.filter(raw).merge(
+        SEALED_PARAMS_KEY => ::ActiveRecord::Encryption.encryptor.encrypt(envelope)
+      )
     end
 
-    def params_encryptor
-      key = Rails.application.key_generator.generate_key(SEAL_PURPOSE, ActiveSupport::MessageEncryptor.key_len)
-      ActiveSupport::MessageEncryptor.new(key, serializer: JSON)
+    def seal_context
+      { "account_id" => account_id.to_s, "executor_class" => executor_class.to_s,
+        "action_category" => action_category.to_s }
     end
 
     # Re-anchor the recorded source to THIS operation's account immediately

@@ -481,6 +481,7 @@ RSpec.describe Ai::DeferredOperation, type: :model do
                                    executor_class: 'PreviewRecorder', params: raw)
 
       described_class.find(op.id).preview
+      expect(seen).to include('username' => 'alice')
       expect(seen.to_json).not_to include(secret)
     end
 
@@ -505,6 +506,131 @@ RSpec.describe Ai::DeferredOperation, type: :model do
     it 'leaves params without secret material untouched' do
       op = make_op
       expect(described_class.find(op.id).params).to eq('k' => 'v')
+    end
+  end
+
+  describe 'sealing under the house key (IMP-3d10c3c9439e follow-up)' do
+    let(:secret) { 'HUNTER2-PLAINTEXT-PASSWORD' }
+    let(:raw) { { 'username' => 'alice', 'password' => secret } }
+
+    before do
+      stub_const('ReplayRecorder', Class.new do
+        class << self
+          attr_accessor :seen
+        end
+
+        def self.execute(params, deferred_operation:)
+          self.seen = params
+          { success: true }
+        end
+      end)
+    end
+
+    def make_secret_op(params = raw)
+      described_class.create!(account: account, action_category: 'test.act',
+                              executor_class: 'ReplayRecorder', params: params)
+    end
+
+    def stored_envelope(op)
+      described_class.find(op.id)[:params][described_class::SEALED_PARAMS_KEY]
+    end
+
+    it 'seals with ActiveRecord::Encryption, so key rotation applies' do
+      blob = stored_envelope(make_secret_op)
+
+      plain = ActiveRecord::Encryption.encryptor.decrypt(blob)
+      expect(JSON.parse(plain).fetch('params')).to eq(raw)
+    end
+
+    it 'masks a legacy row that was written before sealing existed' do
+      op = make_op
+      described_class.where(id: op.id).update_all([ 'params = ?::jsonb', raw.to_json ])
+
+      legacy = described_class.find(op.id)
+      expect(legacy.params).to eq('username' => 'alice', 'password' => '[FILTERED]')
+      expect(legacy.preview).to be_a(Hash)
+    end
+
+    it 'raises an explicit error when the envelope is missing its payload' do
+      op = make_secret_op
+      described_class.where(id: op.id).update_all([ "params = ?::jsonb, status = 'approved'", { 'password' => '[FILTERED]', described_class::SEALED_PARAMS_KEY => '' }.to_json ])
+      # blank envelope is treated as unsealed: the masked values must NOT replay
+      expect { described_class.find(op.id).execute_now! }
+        .to raise_error(described_class::SealedParamsError)
+    end
+
+    it 'raises an explicit error when the envelope was sealed for another operation' do
+      other = described_class.create!(account: account, action_category: 'other.act',
+                                      executor_class: 'ReplayRecorder', params: raw)
+      op = make_secret_op
+      described_class.where(id: op.id).update_all([ "params = ?::jsonb, status = 'approved'", { 'password' => '[FILTERED]', described_class::SEALED_PARAMS_KEY => stored_envelope(other) }.to_json ])
+
+      expect { described_class.find(op.id).execute_now! }
+        .to raise_error(described_class::SealedParamsError, /context/)
+      expect(ReplayRecorder.seen).to be_nil
+    end
+
+    it 'raises an explicit error for an undecryptable envelope' do
+      op = make_secret_op
+      described_class.where(id: op.id).update_all([ "params = ?::jsonb, status = 'approved'", { 'password' => '[FILTERED]', described_class::SEALED_PARAMS_KEY => 'garbage' }.to_json ])
+
+      expect { described_class.find(op.id).execute_now! }
+        .to raise_error(described_class::SealedParamsError)
+    end
+
+    it 'drops the in-memory original once the executor has run' do
+      op = make_secret_op
+      op.execute_now!
+
+      expect(op.instance_variable_get(:@unsealed_params)).to be_nil
+    end
+
+    it 'refuses non-Hash params rather than storing them raw' do
+      expect { make_secret_op([{ 'password' => secret }]) }
+        .to raise_error(ActiveRecord::RecordInvalid, /Params/)
+    end
+
+    it 'filters executor exception text before logging it' do
+      stub_const('RaisingPerformer', Class.new do
+        def self.execute(_params, deferred_operation:)
+          raise "boom password=#{'LEAKY-PLAINTEXT'}"
+        end
+      end)
+      op = described_class.create!(account: account, action_category: 'test.act',
+                                   executor_class: 'RaisingPerformer', params: {})
+      logged = []
+      allow(Rails.logger).to receive(:error) { |msg| logged << msg }
+
+      expect { op.execute_now! }.to raise_error(RuntimeError)
+      expect(logged.join).not_to include('LEAKY-PLAINTEXT')
+    end
+
+    describe '.backfill_params_seal' do
+      def legacy_op(status)
+        op = make_op
+        described_class.where(id: op.id).update_all([ 'params = ?::jsonb, status = ?', raw.to_json, status ])
+        op
+      end
+
+      it 'is a dry run by default and reports counts without writing' do
+        legacy_op('pending')
+        legacy_op('completed')
+
+        counts = described_class.backfill_params_seal
+        expect(counts).to include(sealed: 1, masked: 1, dry_run: true)
+        expect(described_class.pluck(:params).to_json).to include(secret)
+      end
+
+      it 'seals live rows and only masks terminal ones when applied' do
+        live = legacy_op('pending')
+        done = legacy_op('completed')
+
+        described_class.backfill_params_seal(dry_run: false)
+
+        expect(described_class.pluck(:params).to_json).not_to include(secret)
+        expect(described_class.find(live.id).send(:replay_params)).to eq(raw)
+        expect(described_class.find(done.id)[:params]).not_to have_key(described_class::SEALED_PARAMS_KEY)
+      end
     end
   end
 end
