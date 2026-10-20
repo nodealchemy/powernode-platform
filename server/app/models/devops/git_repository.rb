@@ -16,6 +16,7 @@ module Devops
     belongs_to :account
     belongs_to :provider, class_name: "Devops::Provider", foreign_key: "devops_provider_id", optional: true
     has_many :webhook_events, class_name: "Devops::GitWebhookEvent", foreign_key: "git_repository_id", dependent: :destroy
+    has_many :ai_knowledge_bases, class_name: "Ai::KnowledgeBase", foreign_key: "git_repository_id", dependent: :nullify
     has_many :pipelines, class_name: "Devops::GitPipeline", foreign_key: "git_repository_id", dependent: :destroy
     has_many :pipeline_schedules, class_name: "Devops::GitPipelineSchedule", foreign_key: "git_repository_id", dependent: :destroy
     has_many :runners, class_name: "Devops::GitRunner", foreign_key: "git_repository_id", dependent: :destroy

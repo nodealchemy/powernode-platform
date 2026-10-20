@@ -151,7 +151,7 @@ module Ai
     has_many :conflicts_as_b, class_name: "Ai::SkillConflict", foreign_key: "skill_b_id", dependent: :nullify
     has_many :compositions_as_composite, class_name: "Ai::SkillComposition", foreign_key: "composite_skill_id", dependent: :destroy
     has_many :component_skills, through: :compositions_as_composite, source: :component_skill
-    has_many :compositions_as_component, class_name: "Ai::SkillComposition", foreign_key: "component_skill_id", dependent: :nullify
+    has_many :compositions_as_component, class_name: "Ai::SkillComposition", foreign_key: "component_skill_id", dependent: :destroy
     has_many :recipe_runs, class_name: "Ai::SkillRecipeRun", foreign_key: "ai_skill_id", dependent: :destroy
 
     # ==========================================

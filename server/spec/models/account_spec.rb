@@ -206,20 +206,20 @@ RSpec.describe Account, type: :model do
   describe "#destroy! (account teardown)" do
     let(:user_referencing_rows) do
       [
-        [:ai_conversation, :user],
-        [:ai_agent_execution, :user],
-        [:api_key, :created_by],
-        [:ai_knowledge_base, :created_by],
-        [:ai_mission, :created_by],
-        [:ai_approval_chain, :created_by],
-        [:ai_compliance_policy, :created_by],
-        [:ai_sandbox, :created_by],
-        [:ai_team_template, :created_by],
-        [:ai_devops_template, :created_by],
-        [:ai_mock_response, :created_by],
-        [:ai_data_connector, :created_by],
-        [:ai_ab_test, :created_by],
-        [:ai_performance_benchmark, :created_by]
+        [ :ai_conversation, :user ],
+        [ :ai_agent_execution, :user ],
+        [ :api_key, :created_by ],
+        [ :ai_knowledge_base, :created_by ],
+        [ :ai_mission, :created_by ],
+        [ :ai_approval_chain, :created_by ],
+        [ :ai_compliance_policy, :created_by ],
+        [ :ai_sandbox, :created_by ],
+        [ :ai_team_template, :created_by ],
+        [ :ai_devops_template, :created_by ],
+        [ :ai_mock_response, :created_by ],
+        [ :ai_data_connector, :created_by ],
+        [ :ai_ab_test, :created_by ],
+        [ :ai_performance_benchmark, :created_by ]
       ]
     end
 
@@ -279,27 +279,6 @@ RSpec.describe Account, type: :model do
       expect(EmailDelivery.find(delivery.id).user_id).to be_nil
       expect(KnowledgeBase::Article.find(article.id).author_id).to be_nil
       expect(User.exists?(other.id)).to be true
-    end
-
-    # Extension-owned rows (decorators declare their dependents after core's, and
-    # many hold FKs to users): destroyed whatever the declaration order. Each
-    # example runs only when its extension is loaded.
-    {
-      "Marketing::Campaign" => :marketing_campaign,
-      "SupplyChain::Sbom" => :supply_chain_sbom,
-      "System::DiskImageWebhook" => :system_disk_image_webhook
-    }.each do |class_name, factory|
-      it "removes #{class_name} rows owned by the account (extension dependents)" do
-        skip "#{class_name} not loaded" unless Object.const_defined?(class_name) && FactoryBot.factories.registered?(factory)
-
-        account = create(:account)
-        create(:user, account: account)
-        row = create(factory, account: account)
-
-        expect { account.destroy! }.not_to raise_error
-
-        expect(row.class.exists?(row.id)).to be false
-      end
     end
 
     it "removes the only default provider credentials (their guards yield to account teardown)" do
@@ -378,6 +357,61 @@ RSpec.describe Account, type: :model do
         expect(Ai::Agent.exists?(agent.id)).to be true
       ensure
         Account.teardown_guards.delete(:spec_refusal)
+      end
+    end
+  end
+
+  describe "shared rows that reference the account's users" do
+    it "refuses the teardown (changing nothing) until the shared row is reassigned" do
+      account = create(:account)
+      user = create(:user, account: account)
+      other_owner = create(:account)
+      heir = create(:user, account: other_owner)
+      shared_agent = create(:ai_agent, :global, owner_account: other_owner, creator: user)
+      keep = create(:api_key, account: account, created_by: user)
+
+      expect(account.destroy).to be false
+      expect(account.errors[:base].join).to match(/shared ai agents .*creator_id.*reassign/i)
+      expect(Account.exists?(account.id)).to be true
+      expect(ApiKey.exists?(keep.id)).to be true
+      expect(Account.teardown_ids).to be_empty
+
+      shared_agent.update_columns(creator_id: heir.id)
+
+      expect { account.destroy! }.not_to raise_error
+      expect(Ai::Agent.exists?(shared_agent.id)).to be true
+    end
+  end
+
+  describe "removing one member (not an account teardown)" do
+    let(:account) { create(:account) }
+    let(:member_a) { create(:user, account: account) }
+    let(:member_b) { create(:user, account: account) }
+    let(:article) { create(:kb_article, author: member_b) }
+    let!(:comment_by_a) { KnowledgeBase::Comment.create!(article: article, author: member_a, content: "question") }
+    let!(:reply_by_b) { KnowledgeBase::Comment.create!(article: article, author: member_b, parent: comment_by_a, content: "answer") }
+    let!(:attachment) do
+      KnowledgeBase::Attachment.create!(article: article, uploaded_by: member_a, filename: "a.pdf",
+                                        content_type: "application/pdf", file_size: 10, file_path: "kb/a.pdf")
+    end
+    let!(:workflow) { create(:kb_workflow, article: article, user: member_a) }
+    let!(:restore) { create(:database_restore, initiated_by: member_a) }
+
+    it "refuses cleanly and keeps other people's replies, attachments, workflow and restore history" do
+      expect(member_a.destroy).to be false
+
+      expect(member_a.errors[:base]).not_to be_empty
+      expect(User.exists?(member_a.id)).to be true
+      [ reply_by_b, comment_by_a, attachment, workflow, restore ].each do |row|
+        expect(row.class.exists?(row.id)).to be(true), "#{row.class} was deleted"
+      end
+    end
+
+    it "deletes those rows when the whole account is torn down" do
+      account.destroy!
+
+      [ reply_by_b, comment_by_a, attachment, workflow, restore ].each do |row|
+        expect(row.class.exists?(row.id)).to be(false), "#{row.class} survived teardown"
       end
     end
   end

@@ -15,6 +15,9 @@ class Account < ApplicationRecord
   # teardown, after every other dependent and in that order.
   around_destroy :run_account_teardown, prepend: true
   before_destroy :refuse_teardown_if_guarded, prepend: true
+  # Vault KV entries have no DB row, so they are purged only once the deletion
+  # has committed (a Vault delete cannot be rolled back).
+  after_destroy_commit :purge_secret_store_entries
 
   # Associations
   has_many :invitations, dependent: :destroy
@@ -260,6 +263,7 @@ class Account < ApplicationRecord
   # for leaf log/event tables with no callbacks and no inbound FKs. Roles are
   # included because the DB cascades them but their role_permissions do not.
   has_many :roles, dependent: :destroy
+  has_many :ai_file_locks, class_name: "Ai::FileLock", dependent: :destroy
   has_many :account_terminations, class_name: "Account::Termination", dependent: :destroy
   has_many :ai_agent_identities, class_name: "Ai::AgentIdentity", dependent: :destroy
   has_many :ai_agent_model_performances, class_name: "Ai::AgentModelPerformance", dependent: :destroy
@@ -390,10 +394,43 @@ class Account < ApplicationRecord
     @teardown_guards ||= {}
   end
 
-  def self.register_teardown_guard(key = nil, &block)
+  # `covers:` lists the [table, column] pairs the guard makes safe by refusing
+  # while such rows exist; the FK coverage spec treats them as covered.
+  def self.register_teardown_guard(key = nil, covers: [], &block)
     raise ArgumentError, "a teardown guard needs a block" unless block
 
-    teardown_guards[key || block] = block
+    guard_key = key || block
+    teardown_guards[guard_key] = block
+    teardown_guard_covers[guard_key] = covers.map { |t, c| [ t.to_s, c.to_s ] }
+  end
+
+  def self.teardown_guard_covers
+    @teardown_guard_covers ||= {}
+  end
+
+  # FK columns onto users from tables that ALSO hold shared rows (account_id
+  # NULL) and that nothing on User deletes/nullifies by that column. Account-
+  # owned rows are removed by the account's own dependents, but a SHARED row
+  # (e.g. a platform-wide repository) created by one of the account's users
+  # would block deleting that user with a raw FK error. The teardown refuses
+  # instead, telling the operator to reassign those rows first. Computed from
+  # the schema once; a schema change needs a restart anyway.
+  def self.shared_user_reference_edges
+    @shared_user_reference_edges ||= begin
+      conn = connection
+      handled = User.reflect_on_all_associations
+                    .select { |r| %i[destroy delete_all nullify restrict_with_error restrict_with_exception].include?(r.options[:dependent]) }
+                    .filter_map { |r| (k = (r.klass rescue nil)) && [ k.table_name, r.foreign_key.to_s ] }
+      conn.tables.flat_map { |t| conn.foreign_keys(t) }
+          .select { |f| f.to_table == "users" && !%i[cascade nullify].include?(f.on_delete) }
+          .select { |f| conn.columns(f.from_table).any? { |c| c.name == "account_id" && c.null } }
+          .map { |f| [ f.from_table, f.column.to_s ] }
+          .reject { |edge| handled.include?(edge) }
+    end
+  end
+
+  def self.teardown_guard_coverage
+    teardown_guard_covers.values.flatten(1)
   end
 
   # Keys of #settings that an owner (an extension included) has RESERVED against
@@ -641,11 +678,34 @@ class Account < ApplicationRecord
     end
   end
 
+  def purge_secret_store_entries
+    count = Security::SecretStore.purge_account(account_id: id)
+    Rails.logger.info("[Account.teardown] purged #{count} secret store entries for account #{id}") if count.positive?
+  rescue StandardError => e
+    Rails.logger.warn("[Account.teardown] secret store purge failed for account #{id}: #{e.class}")
+  end
+
   # Pre-flight (before_destroy, prepended so it halts before the teardown
   # marker and every side effect): a refusal makes `destroy` return false.
   def refuse_teardown_if_guarded
-    teardown_refusals.each { |reason| errors.add(:base, reason) }
-    throw :abort if errors.any?
+    reasons = teardown_refusals
+    reasons.each { |reason| errors.add(:base, reason) }
+    throw :abort if reasons.any?
+  end
+
+  def shared_row_refusals
+    user_ids = users.pluck(:id)
+    return [] if user_ids.empty?
+
+    conn = self.class.connection
+    self.class.shared_user_reference_edges.filter_map do |table, column|
+      tbl = Arel::Table.new(table)
+      query = tbl.project(Arel.sql("1")).where(tbl[:account_id].eq(nil).and(tbl[column].in(user_ids))).take(1)
+      next unless conn.select_value(query.to_sql).present?
+
+      "Cannot delete account: shared #{table.humanize.downcase} (no owning account) still reference its users " \
+        "via #{column}; reassign them first"
+    end
   end
 
   def teardown_refusals
@@ -653,31 +713,40 @@ class Account < ApplicationRecord
                   .select { |r| %i[restrict_with_error restrict_with_exception].include?(r.options[:dependent]) }
                   .select { |r| association(r.name).reader.then { |v| v.respond_to?(:exists?) ? v.exists? : v.present? } }
                   .map { |r| "Cannot delete account with existing #{r.name.to_s.humanize.downcase}" }
+    reasons.concat(shared_row_refusals)
     self.class.teardown_guards.each_value { |guard| reasons.concat(Array(guard.call(self)).compact) }
     reasons
   end
 
-  # Runs every reflected dependent (core and extension) whatever its
-  # declaration order. Tables reference each other (agents <- goals, ...), so
-  # a dependent that hits a foreign key / refusing guard is rolled back to its
-  # savepoint and retried after the others; passes repeat while any progress is
-  # made, and the first error is raised when none is.
+  # Runs every teardown step (core and extension) whatever its declaration
+  # order. Steps are the reflected dependents plus the rows that restrict a
+  # single user's removal (User `restrict_with_*` associations): removing ONE
+  # member must refuse, but tearing the whole account down deletes them.
+  # Tables reference each other (agents <- goals, ...), so a step that hits a
+  # foreign key / refusing guard is rolled back to its savepoint and retried
+  # after the others; passes repeat while any progress is made, and the first
+  # error is raised when none is.
   def teardown_reflected_dependents
-    pending = self.class.reflect_on_all_associations
-                  .select { |r| %i[destroy delete_all nullify].include?(r.options[:dependent]) }
-                  .reject { |r| %i[users audit_logs].include?(r.name) }
-                  .map(&:name)
-    until pending.empty?
+    steps = self.class.reflect_on_all_associations
+                .select { |r| %i[destroy delete_all nullify].include?(r.options[:dependent]) }
+                .reject { |r| %i[users audit_logs].include?(r.name) }
+                .to_h { |r| [ r.name, -> { association(r.name).handle_dependency } ] }
+    user_ids = users.pluck(:id)
+    User.reflect_on_all_associations
+        .select { |r| %i[restrict_with_error restrict_with_exception].include?(r.options[:dependent]) }
+        .each { |r| steps[:"user_#{r.name}"] = -> { r.klass.where(r.foreign_key => user_ids).destroy_all } }
+
+    until steps.empty?
       failures = {}
-      pending.each do |name|
-        self.class.transaction(requires_new: true) { association(name).handle_dependency }
+      steps.each do |name, step|
+        self.class.transaction(requires_new: true) { step.call }
       rescue ActiveRecord::InvalidForeignKey, ActiveRecord::RecordNotDestroyed => e
-        association(name).reset
+        association(name).reset if self.class.reflect_on_association(name)
         failures[name] = e
       end
-      raise failures.values.first if failures.size == pending.size
+      raise failures.values.first if failures.size == steps.size
 
-      pending = failures.keys
+      steps = steps.slice(*failures.keys)
     end
   end
 

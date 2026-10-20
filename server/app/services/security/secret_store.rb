@@ -40,6 +40,17 @@ module Security
         active_backend.delete(account: account, scope: scope, key: key)
       end
 
+      # Account teardown: with the vault backend an account's entries exist ONLY
+      # in Vault KV (no DB row), so the dependents cannot reach them. Deletes
+      # every entry under the account's path and returns how many. A no-op (0)
+      # for the database backend, whose rows (Security::Secret) go with the
+      # account. Raises BackendUnavailable if Vault is selected but unreachable.
+      def purge_account(account_id:)
+        return 0 unless backend == :vault
+
+        active_backend.purge_account(account_id)
+      end
+
       private
 
       def active_backend
@@ -100,7 +111,30 @@ module Security
         end
 
         def path_for(account, scope, key)
-          "powernode/secret-store/#{account&.id}/#{scope}/#{key}"
+          "#{account_prefix(account&.id)}/#{scope}/#{key}"
+        end
+
+        def account_prefix(account_id)
+          "powernode/secret-store/#{account_id}"
+        end
+
+        # Walks the account's KV tree (folders are listed with a trailing "/")
+        # and deletes each leaf. Returns the number of entries deleted.
+        def purge_account(account_id)
+          purge_tree(account_prefix(account_id))
+        end
+
+        def purge_tree(path)
+          client = Security::VaultClient.instance
+          client.list_secrets(path).sum do |entry|
+            child = "#{path}/#{entry.to_s.chomp('/')}"
+            if entry.to_s.end_with?("/")
+              purge_tree(child)
+            else
+              client.delete_secret(child)
+              1
+            end
+          end
         end
       end
     end
