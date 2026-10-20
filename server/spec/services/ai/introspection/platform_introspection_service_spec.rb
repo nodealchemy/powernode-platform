@@ -256,4 +256,22 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
       expect(described_class::CACHE_TTL).to eq(5.minutes)
     end
   end
+
+  describe "#recent_events error text (IMP-dbabbea6f81c)" do
+    let(:secret) { %w[hunter 2].join }
+    let!(:event) do
+      Ai::ExecutionEvent.create!(
+        account: account, source_type: "Ai::ApprovalRequest", source_id: SecureRandom.uuid,
+        event_type: "approval_execution", status: "failed", error_class: "RuntimeError",
+        error_message: "login failed password=#{secret}"
+      )
+    end
+
+    it "does not serve a secret quoted in a pre-fix row's error_message" do
+      output = service.recent_events
+
+      expect(output.to_json).not_to include(secret)
+      expect(output.to_json).to include(Ai::SensitiveParams::MASK)
+    end
+  end
 end

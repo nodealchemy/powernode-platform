@@ -436,4 +436,22 @@ RSpec.describe Ai::SelfHealing::CrossSystemCorrelator, type: :service do
       expect(service.send(:causal_candidate?, failure, event)).to be_falsey
     end
   end
+
+  describe 'AI failure feed error text (IMP-dbabbea6f81c)' do
+    let(:secret) { %w[hunter 2].join }
+
+    it 'does not serve a secret quoted in a pre-fix row error_message' do
+      Ai::ExecutionEvent.create!(
+        account: account, source_type: 'Ai::ApprovalRequest', source_id: SecureRandom.uuid,
+        event_type: 'approval_execution', status: 'failed', error_class: 'RuntimeError',
+        error_message: "login failed password=#{secret}"
+      )
+
+      failures = service.send(:recent_ai_failures, 1.hour)
+
+      expect(failures).not_to be_empty
+      expect(failures.to_json).not_to include(secret)
+      expect(failures.to_json).to include(Ai::SensitiveParams::MASK)
+    end
+  end
 end
