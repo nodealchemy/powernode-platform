@@ -336,7 +336,7 @@ gate applies.
 global canonicals beside the agents they will absorb, **inactive** and with no
 policy row: the legacy canonicals keep running the platform — lanes, policies,
 approval chains, the `platform_agent` driver below — and `platform.route_task`
-still ranks them. When it names one, spawn the survivor whose `absorbs:` lists it.
+still ranks them. When it names one, spawn the roster agent that covers that area.
 
 **Freshness.** `scripts/check-claude-agents-fresh.sh` (run by
 `scripts/pattern-validation.sh`) regenerates into a temp directory and diffs. Since
@@ -348,8 +348,11 @@ cd server && env -u BUNDLE_GEMFILE POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0 POWERN
   bundle exec rails claude:sync_agents      # or: scripts/sync-claude-agents.sh
 ```
 
-`scripts/claude-agents-size-ceilings.txt` caps the roster (17 tools per agent,
-9710 bytes); the ceilings only go down.
+`scripts/claude-agents-size-ceilings.txt` caps the roster (37 tools per agent,
+18432 bytes in total). The ceilings only go down; they were raised once, in a
+reviewed commit, because a loader without the whole-server grant must list by exact
+name the verbs its skills name (the concierge lists them; ToolSearch searches only
+inside `tools:`). Lower them in the same commit when the roster shrinks.
 
 **Your own agents.** Only the roster is committed. `ACCOUNT_ID=<uuid> rails
 claude:sync_agents` exports an account's *own* agents (clones and local agents)
