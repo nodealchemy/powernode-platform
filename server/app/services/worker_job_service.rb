@@ -196,9 +196,8 @@ class WorkerJobService
           "user_id" => user_id,
           "input" => input,
           "context" => context,
-          "account_id" => account_id,
-          "execution_id" => execution_id
-        }.compact ],
+          "account_id" => account_id
+        }.merge({ "execution_id" => execution_id }.compact) ],
         "queue" => "ai_agents",
         "options" => { "retry" => 3 }
       })
