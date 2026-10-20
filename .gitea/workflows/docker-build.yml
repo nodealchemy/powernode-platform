@@ -70,7 +70,13 @@ jobs:
 
       - name: Compute build info
         id: buildinfo
-        run: echo "json=$(scripts/compute-build-info.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          json="$(scripts/compute-build-info.sh)"
+          version="$(printf '%s' "$json" | jq -r .version)"
+          case "$version" in
+            0.0.0*) echo "::error::computed version ${version} (no reachable release tag): refusing to build; a 0.0.0 build is incompatible with federation peers"; exit 1 ;;
+          esac
+          echo "json=${json}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Gitea Container Registry
         run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
@@ -95,7 +101,13 @@ jobs:
 
       - name: Compute build info
         id: buildinfo
-        run: echo "json=$(scripts/compute-build-info.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          json="$(scripts/compute-build-info.sh)"
+          version="$(printf '%s' "$json" | jq -r .version)"
+          case "$version" in
+            0.0.0*) echo "::error::computed version ${version} (no reachable release tag): refusing to build; a 0.0.0 build is incompatible with federation peers"; exit 1 ;;
+          esac
+          echo "json=${json}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Gitea Container Registry
         run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
@@ -122,7 +134,13 @@ jobs:
 
       - name: Compute build info
         id: buildinfo
-        run: echo "json=$(scripts/compute-build-info.sh)" >> "$GITHUB_OUTPUT"
+        run: |
+          json="$(scripts/compute-build-info.sh)"
+          version="$(printf '%s' "$json" | jq -r .version)"
+          case "$version" in
+            0.0.0*) echo "::error::computed version ${version} (no reachable release tag): refusing to build; a 0.0.0 build is incompatible with federation peers"; exit 1 ;;
+          esac
+          echo "json=${json}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Gitea Container Registry
         run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin

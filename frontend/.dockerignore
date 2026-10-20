@@ -44,3 +44,6 @@ docs/
 *.swo
 *~
 .DS_Store
+
+# Build identity is written at image build time; never bake in a stale local file
+BUILD_INFO.json

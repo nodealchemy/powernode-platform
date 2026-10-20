@@ -41,3 +41,6 @@ node_modules/
 *.swp
 *.swo
 *~
+
+# Build identity is written at image build time; never bake in a stale local file
+BUILD_INFO.json

@@ -32,6 +32,7 @@ jobs:
           git fetch --no-tags origin master:refs/remotes/origin/master || true
           json="$(scripts/compute-build-info.sh --branch master)"
           echo "$json"
+          case "$(printf '%s' "$json" | jq -r .version)" in 0.0.0*) echo "::error::refusing a 0.0.0 build"; exit 1 ;; esac
           [ "$(printf '%s' "$json" | jq -r .version)" = "${VERSION}" ] || { echo "::error::computed version does not equal tag ${VERSION}"; exit 1; }
           echo "json=${json}" >> "$GITHUB_OUTPUT"
 
@@ -67,7 +68,17 @@ jobs:
           body="$(jq -n --arg sha "${TAG_SHA}" --arg repo "${SOURCE_REPO}" \
             '{jsonrpc:"2.0", id:1, method:"tools/call", params:{name:"platform.system_dispatch_module_build_batch",
               arguments:{base_sha:$sha, head_sha:$sha, force_all:true, trigger:"manual", source_repo:$repo}}}')"
+          echo "::add-mask::${MCP_TOKEN}"
           resp="$(curl -fsS -m 180 -X POST "${MCP_URL}" -H 'Content-Type: application/json' \
             -H "Authorization: Bearer ${MCP_TOKEN}" -d "${body}")"
-          echo "${resp}" | jq -r '.result.content[0].text // .error.message' | head -c 2000
-          echo "${resp}" | jq -e '.error == null' >/dev/null
+          text="$(printf '%s' "${resp}" | jq -r '.result.content[0].text // .error.message // empty')"
+          printf '%s\n' "${text}" | head -c 2000
+          if [ "$(printf '%s' "${resp}" | jq -r '(.error != null) or (.result.isError == true)')" = "true" ]; then
+            echo "::error::module build dispatch failed (see the response above)"; exit 1
+          fi
+          # An approval-gated dispatch returns {pending: true, deferred_operation_id} and plans NOTHING.
+          if [ "$(printf '%s' "${text}" | jq -r '.pending // .data.pending // false' 2>/dev/null || echo false)" = "true" ]; then
+            opid="$(printf '%s' "${text}" | jq -r '.deferred_operation_id // .data.deferred_operation_id // "unknown"')"
+            echo "::error::module build dispatch needs operator approval and was NOT dispatched (deferred_operation_id: ${opid}); approve it, then re-run this job"
+            exit 1
+          fi
