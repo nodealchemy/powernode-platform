@@ -299,6 +299,63 @@ RSpec.describe Ai::SensitiveParams do
     it 'fails closed when a bracket is closed by the wrong kind' do
       expect(described_class.filter_text(%(api_key: [#{s1}} #{s2}))).not_to include(s1, s2)
     end
+
+    describe 'hyphenated and concatenated api key names' do
+      let(:fake) { 'abc123fakevalue' }
+
+      it 'masks x-api-key, apikey= and api-key: forms' do
+        ['x-api-key: ', 'X-Api-Key: ', 'apikey=', 'api-key: ', 'API-KEY=', '"apikey"=>"'].each do |lead|
+          result = described_class.filter_text("#{lead}#{fake}")
+          expect(result).to include(described_class::MASK), lead
+          expect(result).not_to include(fake), lead
+        end
+      end
+
+      it 'masks the hash keys api-key and apikey but keeps api_key_name legible' do
+        filtered = described_class.filter('api-key' => fake, 'apikey' => fake, 'api_key_name' => 'ci key')
+
+        expect(filtered['api-key']).to eq('[FILTERED]')
+        expect(filtered['apikey']).to eq('[FILTERED]')
+        expect(filtered['api_key_name']).to eq('ci key')
+      end
+    end
+
+    describe 'PEM private key blocks' do
+      let(:label) { 'PRIVATE' + ' KEY' }
+      let(:begin_line) { "-----BEGIN #{label}-----" }
+      let(:end_line) { "-----END #{label}-----" }
+      let(:body) { %w[FAKEBODYLINEONE1234 FAKEBODYLINETWO5678] }
+
+      it 'masks the whole block' do
+        result = described_class.filter_text("before\n#{begin_line}\n#{body.join("\n")}\n#{end_line}\nafter")
+
+        expect(result).not_to include(*body)
+        expect(result).to include(described_class::MASK)
+        expect(result).to start_with('before').and end_with('after')
+      end
+
+      it 'masks typed blocks such as RSA and OPENSSH' do
+        %w[RSA OPENSSH EC].each do |type|
+          text = "-----BEGIN #{type} #{label}-----\n#{body.first}\n-----END #{type} #{label}-----"
+          expect(described_class.filter_text(text)).not_to include(body.first), type
+        end
+      end
+
+      it 'fails closed to the end of the text when the END line is missing' do
+        result = described_class.filter_text("err\n#{begin_line}\n#{body.join("\n")}\ntrailing")
+
+        expect(result).not_to include(*body)
+        expect(result).not_to include('trailing')
+      end
+
+      it 'leaves no key body prefix when truncation would have cut the block' do
+        long = "#{'x' * 100} #{begin_line}\n#{'FAKEKEYBODY' * 100}\n#{end_line}"
+        result = described_class.filter_text(long)
+
+        expect(result).not_to include('FAKEKEYBODY')
+        expect(result.length).to be <= described_class::TEXT_LIMIT
+      end
+    end
   end
 
   describe '.key_patterns' do
