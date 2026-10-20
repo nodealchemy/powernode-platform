@@ -241,7 +241,6 @@ These endpoints are available when the `business` extension is loaded; in core m
 | `/subscriptions` | GET/POST | List/create subscriptions |
 | `/subscriptions/{id}` | GET/PATCH/DELETE | Subscription CRUD |
 | `/plans` | GET | List plans |
-| `/public/plans` | GET | Public plan list (no auth) |
 | `/plans/{id}` | GET | Plan details |
 
 ### Payment Gateways (extension-gated)

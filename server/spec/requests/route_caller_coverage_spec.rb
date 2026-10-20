@@ -74,6 +74,22 @@ RSpec.describe "Route caller coverage", type: :routing do
     "api/v1/admin_settings#regenerate_jwt_secret" => {
       offer: "01a0d68f",
       reason: "fc-21 deleted its only frontend caller; whether the endpoint goes too is the operator's call."
+    },
+    "api/v1/mcp_servers#approve_native_execution" => {
+      offer: "01a1588a",
+      reason: "Intentional operator-only REST door (no MCP tool, no UI by design); operator decision record 01a1588a-e8ef-7d91-9652-770704a2be12: kept caller-less."
+    },
+    "api/v1/mcp_servers#revoke_native_execution" => {
+      offer: "01a1588a",
+      reason: "Intentional operator-only REST door (no MCP tool, no UI by design); operator decision record 01a1588a-e8ef-7d91-9652-770704a2be12: kept caller-less."
+    },
+    "api/v1/system/node_instances#out_of_band_exec" => {
+      offer: "01a1588a",
+      reason: "Intentional human-gated REST door beside the system_out_of_band_exec MCP tool; operator decision record 01a1588a-e8ef-7d91-9652-770704a2be12: kept caller-less."
+    },
+    "api/v1/reports#templates" => {
+      offer: "01a1588a",
+      reason: "Designed report-type descriptor endpoint whose consumer is outside core; operator decision record 01a1588a-e8ef-7d91-9652-770704a2be12: kept."
     }
   }.freeze
 

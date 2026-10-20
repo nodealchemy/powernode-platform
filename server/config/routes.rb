@@ -97,7 +97,6 @@ Rails.application.routes.draw do
       get "extensions/ui", to: "extensions#ui"
 
       # Public endpoints (no authentication required)
-      get "public/plans", to: "plans#public_index"
       get "public/footer", to: "site_settings#public_footer"
 
       # Public status page endpoints
