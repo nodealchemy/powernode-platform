@@ -28,7 +28,7 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
 
   it "reads each agent's role from its roster spec (no second table to drift)" do
     expect(described_class.constants).not_to include(:ROLES)
-    roster.slugs.each { |slug| expect(role_of(slug).keys).to match_array(%i[code shell server_grant duty]), slug }
+    roster.slugs.each { |slug| expect(role_of(slug).keys).to match_array(%i[code shell server_grant read_only verbs duty]), slug }
   end
 
   roster.slugs.each do |slug|
@@ -47,7 +47,8 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
       end
 
       it "lists only the bootstrap core in `tools:`" do
-        core = %w[Read Grep Glob ToolSearch Edit Write Bash] + bootstrap + [ described_class::SERVER_GRANT ]
+        core = %w[Read Grep Glob ToolSearch Edit Write Bash] + bootstrap + [ described_class::SERVER_GRANT ] +
+               role_of(slug)[:verbs].map { |verb| mcp.call(verb) }
 
         expect(tools_of(content) - core).to be_empty
         expect(tools_of(content)).to include("Read", "Grep", "Glob", "ToolSearch", *bootstrap)
@@ -86,8 +87,10 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     # The reviewer checks commits (git log/show/diff, tests in a temp dir), so it has Bash; its charter keeps it read-only.
     expect(reviewer).to include("Bash")
     expect(reviewer).not_to include("Edit", "Write", described_class::SERVER_GRANT)
-    expect(tools_of(described_class.render("powernode-concierge"))).not_to include("Edit", "Write", "Bash")
-    expect(tools_of(described_class.render("fleet-operator"))).not_to include("Edit", "Write", "Bash")
+    # Every registered role without code/shell (core's concierge, an extension's operator): no Edit/Write/Bash.
+    roster.slugs.reject { |slug| role_of(slug)[:code] || role_of(slug)[:shell] }.each do |slug|
+      expect(tools_of(described_class.render(slug))).not_to include("Edit", "Write", "Bash"), slug
+    end
   end
 
   # Mcp::Principal#may_invoke? admits every verb for a session principal, so the

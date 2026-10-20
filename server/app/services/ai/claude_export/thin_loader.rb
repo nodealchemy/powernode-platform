@@ -127,7 +127,7 @@ module Ai
         else
           READ_BUILTINS
         end
-        builtins + BOOTSTRAP_ACTIONS.map { |action| "#{MCP_PREFIX}#{action}" } + (role[:server_grant] ? [ SERVER_GRANT ] : [])
+        builtins + (BOOTSTRAP_ACTIONS + role[:verbs]).map { |action| "#{MCP_PREFIX}#{action}" } + (role[:server_grant] ? [ SERVER_GRANT ] : [])
       end
 
       def disallowed_tools_for(role)

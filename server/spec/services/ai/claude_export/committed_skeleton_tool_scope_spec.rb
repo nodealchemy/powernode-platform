@@ -42,7 +42,11 @@ RSpec.describe "committed Claude Code agent skeletons (thin loaders)" do
     core = %w[Read Grep Glob ToolSearch Edit Write Bash] +
            loader::BOOTSTRAP_ACTIONS.map { |action| "#{loader::MCP_PREFIX}#{action}" } + [ loader::SERVER_GRANT ]
 
-    extra = skeletons.transform_values { |content| tools_line.call(content) - core }.reject { |_, names| names.empty? }
+    # A role without the whole-server grant lists the verbs its skills name, by exact name (roster role[:verbs]).
+    extra = skeletons.to_h do |slug, content|
+      granted = Ai::Agents::CanonicalRoster.fetch(slug)[:role][:verbs].map { |verb| "#{loader::MCP_PREFIX}#{verb}" }
+      [ slug, tools_line.call(content) - core - granted ]
+    end.reject { |_, names| names.empty? }
     expect(extra).to be_empty, "outside the bootstrap core: #{extra.inspect}"
   end
 

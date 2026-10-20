@@ -20,7 +20,11 @@ module Ai
     #   skeleton frontmatter alike), tier (light|standard|reasoning|frontier — the
     #   roster FLOOR; assembly only raises it), domains (the skill-domain ceiling),
     #   role { code: Edit/Write/Bash, shell: Bash alone, server_grant: the
-    #   whole-server MCP grant, duty: the skeleton's one duty sentence },
+    #   whole-server MCP grant, read_only: the role may only be assembled with
+    #   read-only skills (manifest.read_only), verbs: the exact verbs a role
+    #   WITHOUT the whole-server grant may call beyond the bootstrap floor —
+    #   those its assemblable skills name (loader_verb_coverage_spec keeps the two
+    #   in step) — and duty: the skeleton's one duty sentence },
     #   charter (the assembly prompt, at most MAX_CHARTER_LINES lines: identity,
     #   assembly protocol, role duty, escalation rule, report rule — no domain
     #   knowledge; domain knowledge is skills), posture { trust:, chain_approvers: }
@@ -32,7 +36,7 @@ module Ai
       CORE_OWNER = "core"
       TIERS = %w[light standard reasoning frontier].freeze
       REQUIRED_KEYS = %i[name agent_type description tier domains role charter].freeze
-      ROLE_KEYS = %i[code shell server_grant duty].freeze
+      ROLE_KEYS = %i[code shell server_grant read_only verbs duty].freeze
       MAX_CHARTER_LINES = 25
 
       class DuplicateSlug < StandardError; end
@@ -77,11 +81,13 @@ module Ai
 
           role = spec[:role].to_h.symbolize_keys
           raise ArgumentError, "#{slug}: role needs #{ROLE_KEYS.join(', ')}" unless (ROLE_KEYS - role.keys).empty?
+          raise ArgumentError, "#{slug}: role verbs must be a list of verb names" unless role[:verbs].is_a?(Array)
+          raise ArgumentError, "#{slug}: a role with the whole-server grant lists no explicit verbs" if role[:server_grant] && role[:verbs].any?
 
           lines = spec[:charter].to_s.lines.count { |l| l.strip.present? }
           raise ArgumentError, "#{slug}: charter is #{lines} lines (max #{MAX_CHARTER_LINES})" if lines > MAX_CHARTER_LINES
 
-          spec.merge(role: role.freeze, posture: (spec[:posture] || {}).freeze, tier: spec[:tier].to_s, domains: spec[:domains].map(&:to_s).freeze)
+          spec.merge(role: role.merge(verbs: role[:verbs].map(&:to_s).freeze).freeze, posture: (spec[:posture] || {}).freeze, tier: spec[:tier].to_s, domains: spec[:domains].map(&:to_s).freeze)
         end
       end
 
@@ -135,7 +141,15 @@ module Ai
                        "review task: answers questions about the platform, onboards, captures provisioning " \
                        "briefs, and routes the work to the agent or skill that owns it.",
           domains: %w[front-door knowledge external-agent-session],
-          role: { code: false, shell: false, server_grant: false,
+          role: { code: false, shell: false, server_grant: false, read_only: false,
+                  # Exactly the verbs the front-door, knowledge and external-session skills name.
+                  verbs: %w[
+                    create_knowledge create_learning dispute_learning extract_to_knowledge_graph get_conversation_messages
+                    get_skill_context invite_agent knowledge_health learning_metrics list_agents list_messages
+                    list_workspaces platform_provisioning_capture_brief platform_provisioning_status promote_knowledge
+                    rate_knowledge reinforce_learning resolve_contradiction search_knowledge_graph send_message
+                    unsupersede_learning update_knowledge verify_learning verify_learning_batch
+                  ],
                   duty: "Answer and route: never execute fleet or code writes yourself." },
           charter: assembly_charter(
             identity: "You are the **Powernode Concierge**, the platform's front door: you answer questions, " \
@@ -159,7 +173,7 @@ module Ai
                        "increments, keep docs truthful, cut and promote releases, and research or curate what " \
                        "lands in the repo. It builds and releases; it never deploys.",
           domains: ::Ai::Skills::Contract::CORE_DOMAINS - %w[front-door],
-          role: { code: true, shell: true, server_grant: true,
+          role: { code: true, shell: true, server_grant: true, read_only: false, verbs: [],
                   duty: "Edit only in the worktree and branch the prompt names, red first, and commit only when it says so." },
           charter: assembly_charter(
             identity: "You are the **Platform Engineer**, a general software engineer: you change code, specs, docs " \
@@ -185,7 +199,9 @@ module Ai
                        "increment, a doc change or an autonomy decision — judged against its acceptance " \
                        "criteria. Never reviews work it produced.",
           domains: %w[review knowledge],
-          role: { code: false, shell: true, server_grant: false,
+          role: { code: false, shell: true, server_grant: false, read_only: true,
+                  # Read-only verbs only (the review skills that are manifest.read_only name these).
+                  verbs: %w[code_blast_radius code_file_skeleton code_semantic_search code_static_analysis list_audit_logs],
                   duty: "You are read-only: never edit, commit or call a mutating verb, and never review work you " \
                         "produced. Your shell is for CHECKING: read-only git (log, show, diff, status), grep, " \
                         "tests in a temp directory; no command that mutates the repository or the platform." },

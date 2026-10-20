@@ -13,7 +13,7 @@ RSpec.describe Ai::Agents::CanonicalRoster do
   def spec_for(slug, **overrides)
     base = {
       name: slug.titleize, agent_type: "assistant", tier: "standard", description: "Does #{slug}.",
-      domains: %w[knowledge], role: { code: false, shell: false, server_grant: false, duty: "Do the duty." },
+      domains: %w[knowledge], role: { code: false, shell: false, server_grant: false, read_only: false, verbs: [], duty: "Do the duty." },
       charter: "You are #{slug}.", posture: {}
     }
     base.merge(overrides)
@@ -45,7 +45,7 @@ RSpec.describe Ai::Agents::CanonicalRoster do
         spec = described_class.fetch(slug)
         expect(spec.keys).to include(:name, :agent_type, :tier, :description, :domains, :role, :charter, :posture)
         expect(spec[:domains]).to all(be_a(String)).and(be_present)
-        expect(spec[:role].keys).to match_array(%i[code shell server_grant duty])
+        expect(spec[:role].keys).to match_array(%i[code shell server_grant read_only verbs duty])
       end
     end
 
@@ -60,6 +60,14 @@ RSpec.describe Ai::Agents::CanonicalRoster do
       expect(reviewer[:role]).to include(code: false, shell: true)
       expect(reviewer[:charter]).to match(/read-only git/i)
       expect(reviewer[:charter]).to match(/never edit, commit/i)
+    end
+
+    it "makes the reviewer read-only with an explicit verb list, and the concierge an explicit list too (no whole-server grant)" do
+      expect(described_class.fetch("platform-reviewer")[:role]).to include(read_only: true, server_grant: false)
+      expect(described_class.fetch("platform-reviewer")[:role][:verbs]).to include("code_semantic_search", "list_audit_logs")
+      expect(described_class.fetch("powernode-concierge")[:role]).to include(read_only: false, server_grant: false)
+      expect(described_class.fetch("powernode-concierge")[:role][:verbs]).to include("list_agents", "platform_provisioning_capture_brief")
+      expect(described_class.fetch("platform-engineer")[:role]).to include(read_only: false, server_grant: true)
     end
 
     it "keeps the domain ceilings of the design: concierge, engineer and reviewer" do
@@ -86,9 +94,9 @@ RSpec.describe Ai::Agents::CanonicalRoster do
   describe "the registry" do
     it "registers a spec under a slug and owner and yields it from #each, in registration order" do
       registry = with_registry("a-one" => spec_for("a-one"))
-      registry.register("b-two", spec_for("b-two"), owner: "extensions/system")
+      registry.register("b-two", spec_for("b-two"), owner: "extensions/example")
 
-      expect(described_class.each.map { |slug, _spec, owner| [ slug, owner ] }).to eq([ %w[a-one core], %w[b-two extensions/system] ])
+      expect(described_class.each.map { |slug, _spec, owner| [ slug, owner ] }).to eq([ %w[a-one core], %w[b-two extensions/example] ])
       expect(described_class.slugs).to eq(%w[a-one b-two])
       expect(described_class.fetch("b-two")[:name]).to eq("B Two")
       expect(described_class.include?("a-one")).to be(true)
@@ -96,9 +104,9 @@ RSpec.describe Ai::Agents::CanonicalRoster do
 
     it "filters #each by owner" do
       registry = with_registry("a-one" => spec_for("a-one"))
-      registry.register("b-two", spec_for("b-two"), owner: "extensions/system")
+      registry.register("b-two", spec_for("b-two"), owner: "extensions/example")
 
-      expect(described_class.each(owner: "extensions/system").map { |slug, *| slug }).to eq(%w[b-two])
+      expect(described_class.each(owner: "extensions/example").map { |slug, *| slug }).to eq(%w[b-two])
     end
 
     it "re-registering the same slug from the same owner replaces it (a code reload re-runs the engine hook)" do
@@ -112,7 +120,7 @@ RSpec.describe Ai::Agents::CanonicalRoster do
     it "refuses a slug already owned by another owner" do
       registry = with_registry("a-one" => spec_for("a-one"))
 
-      expect { registry.register("a-one", spec_for("a-one"), owner: "extensions/system") }
+      expect { registry.register("a-one", spec_for("a-one"), owner: "extensions/example") }
         .to raise_error(described_class::DuplicateSlug, /a-one/)
     end
 
