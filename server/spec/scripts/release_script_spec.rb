@@ -215,6 +215,7 @@ RSpec.describe "scripts/release.sh" do
       st, out = release("0.3.0")
       expect(st).not_to be_success
       expect(out).to match(/gitea/)
+      expect(out).to match(/nowhere\.git/), "the fetch error must be shown"
       expect(git(@parent, "tag", "-l", "0.3.0")).to be_empty
     end
 
@@ -291,6 +292,57 @@ RSpec.describe "scripts/release.sh" do
       expect(git(@parent, "status", "--porcelain", "--ignore-submodules=all")).to be_empty
       expect(git(@par_gitea, "tag", "-l", "0.3.0")).to be_empty
       expect(git(@par_origin, "tag", "-l", "0.3.0")).to be_empty
+    end
+  end
+
+  describe "the gate" do
+    def add_gate(bad:)
+      FileUtils.mkdir_p(File.join(@parent, "scripts"))
+      File.write(File.join(@parent, "scripts/validate.sh"), "#!/usr/bin/env bash\n[ ! -e GATE_BAD ]\n")
+      FileUtils.chmod(0o755, File.join(@parent, "scripts/validate.sh"))
+      File.write(File.join(@parent, "GATE_BAD"), "x") if bad
+      git(@parent, "add", "-A"); git(@parent, "commit", "-q", "-m", "add gate")
+    end
+
+    it "validates the stamped release head BEFORE any merge or tag; a fix on the release branch then tags the fixed content" do
+      add_gate(bad: true)
+      master_before = git(@parent, "rev-parse", "master")
+      st, out = release("0.3.0")
+      expect(st).not_to be_success
+      expect(out).to match(/validate\.sh failed/)
+      expect(git(@parent, "tag", "-l", "0.3.0")).to be_empty
+      expect(git(File.join(@parent, "extensions/ext"), "tag", "-l", "0.3.0")).to be_empty
+      expect(git(@parent, "rev-parse", "master")).to eq(master_before)
+      expect(git(@parent, "rev-parse", "--abbrev-ref", "HEAD")).to eq("release/0.3.0")
+
+      git(@parent, "rm", "-q", "GATE_BAD"); git(@parent, "commit", "-q", "-m", "fix gate")
+      st, out = release("0.3.0")
+      expect(st).to be_success, out
+      expect(git(@parent, "ls-tree", "--name-only", "0.3.0")).not_to include("GATE_BAD")
+      expect(git(@par_gitea, "tag", "-l", "0.3.0")).to eq("0.3.0")
+    end
+
+    it "warns loudly when the gate is skipped or absent" do
+      st, out = release("0.3.0")
+      expect(st).to be_success, out
+      expect(out).to match(/WARNING.*gate/i)
+    end
+  end
+
+  describe "a hotfix resume" do
+    it "finds hotfix/X.Y.Z from the ref even though the first run left the parent on develop" do
+      [ @parent, File.join(@parent, "extensions/ext") ].each { |d| git(d, "branch", "-m", "release/0.3.0", "hotfix/0.3.1") }
+      git(@parent, "config", "remote.gitea.pushurl", File.join(@root, "readonly-nowhere.git"))
+      st, out = release("0.3.1")
+      expect(st).not_to be_success
+      expect(out).to match(/resume/i)
+      expect(git(@parent, "rev-parse", "--abbrev-ref", "HEAD")).to eq("develop")
+
+      git(@parent, "config", "--unset", "remote.gitea.pushurl")
+      st, out = release("0.3.1")
+      expect(st).to be_success, out
+      expect(git(@par_gitea, "tag", "-l", "0.3.1")).to eq("0.3.1")
+      expect(git(@par_origin, "tag", "-l", "0.3.1")).to eq("0.3.1")
     end
   end
 end

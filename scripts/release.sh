@@ -19,7 +19,11 @@
 #      develop (a conflict that touches only submodule gitlinks is resolved by
 #      taking the submodule's develop tip; any other conflict aborts), then
 #      point the gitlinks at the submodules' develop tips.
-#   3. Gate: scripts/validate.sh in the parent (the commit hooks already ran).
+#   3. Gate: scripts/validate.sh on the STAMPED RELEASE HEAD (submodules at their
+#      release heads), after stamping but BEFORE any merge to master or any tag.
+#      A failure leaves nothing merged or tagged; fix on the release branch and
+#      re-run. Skipped with a WARNING under RELEASE_SKIP_VALIDATE=1 or when
+#      scripts/validate.sh is not executable.
 #   4. Push, submodules first then the parent; branches first, then the tag;
 #      every repo to EVERY configured remote, gitea first.
 #
@@ -54,9 +58,20 @@ for arg in "$@"; do
 done
 [ -n "$VERSION" ] || usage
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "version must be X.Y.Z with no \"v\" prefix (got '$VERSION')"
-BRANCH="release/$VERSION"
-# A hotfix is released from hotfix/X.Y.Z instead.
-if [ "$(git rev-parse --abbrev-ref HEAD 2>/dev/null)" = "hotfix/$VERSION" ]; then BRANCH="hotfix/$VERSION"; fi
+# The release branch is release/X.Y.Z or hotfix/X.Y.Z. Detect it from which ref
+# EXISTS (not from the checkout: an interrupted run leaves the parent on develop).
+has_rel=0; has_hot=0
+git rev-parse -q --verify "refs/heads/release/$VERSION" >/dev/null && has_rel=1
+git rev-parse -q --verify "refs/heads/hotfix/$VERSION" >/dev/null && has_hot=1
+cur_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+if [ "$has_rel" = 1 ] && [ "$has_hot" = 1 ]; then
+  case "$cur_branch" in
+    "release/$VERSION"|"hotfix/$VERSION") BRANCH="$cur_branch" ;;
+    *) die "both release/$VERSION and hotfix/$VERSION exist; check out the one to release" ;;
+  esac
+elif [ "$has_hot" = 1 ]; then BRANCH="hotfix/$VERSION"
+else BRANCH="release/$VERSION"
+fi
 
 ROOT="$(git rev-parse --show-toplevel)" || die "not inside a git repository"
 cd "$ROOT"
@@ -99,11 +114,11 @@ for s in "${SUBS[@]+"${SUBS[@]}"}"; do REPOS+=("$ROOT/$s"); LABELS+=("submodule 
 RESUMED=()
 
 check_repo() {
-  local dir="$1" label="$2" idx="$3" r b code lsout local_sha remote_sha cur remotes
+  local dir="$1" label="$2" idx="$3" r b code lsout local_sha remote_sha cur remotes fetch_err
   remotes="$(remotes_of "$dir")"
 
   for r in $remotes; do
-    git -C "$dir" fetch -q --no-tags "$r" 2>/dev/null || die "cannot fetch remote '$r' of $label (unreachable?)"
+    fetch_err="$(git -C "$dir" fetch -q --no-tags "$r" 2>&1)" || die "cannot fetch remote '$r' of $label (unreachable?): $fetch_err"
   done
 
   # An existing tag on ANY remote blocks a fresh release. ls-remote --exit-code:
@@ -181,7 +196,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   done
   plan "parent: commit 'chore(release): pin extensions and lock at $VERSION' and 'chore(release): stamp package versions $VERSION'"
   plan "parent: merge --no-ff $BRANCH into $MASTER; tag $VERSION; back-merge into $DEVELOP (gitlink-only conflicts take the submodule develop tip); point gitlinks at develop tips"
-  if [ -x scripts/validate.sh ]; then plan "gate: scripts/validate.sh"; fi
+  if [ -x scripts/validate.sh ]; then plan "gate (on the stamped release head, before any merge or tag): scripts/validate.sh"; else plan "WARNING: the gate would be skipped (no executable scripts/validate.sh)"; fi
   for s in "${SUBS[@]+"${SUBS[@]}"}"; do plan "push $s -> $(remotes_of "$ROOT/$s"): $MASTER $DEVELOP, then tag $VERSION"; done
   plan "push parent -> $(remotes_of "$ROOT"): $MASTER $DEVELOP, then tag $VERSION"
   plan "dry-run complete: $VERSION would be released as above"
@@ -202,6 +217,7 @@ stamp_gemspecs() {
   done < <(find "$1" -maxdepth 3 -name '*.gemspec' -not -path '*/node_modules/*' 2>/dev/null)
 }
 
+# 2a. Stamp on the RELEASE HEADS (no merge, no tag yet), so the gate sees the content to be tagged.
 for idx in "${!SUBS[@]}"; do
   s="${SUBS[$idx]}"; dir="$ROOT/$s"; i=$((idx + 1))
   if [ "${RESUMED[$i]}" != "1" ]; then
@@ -209,15 +225,6 @@ for idx in "${!SUBS[@]}"; do
     if [ -n "$(git -C "$dir" status --porcelain)" ]; then
       git -C "$dir" add -u
       git -C "$dir" commit -q -m "chore(release): stamp gemspec version $VERSION"
-    fi
-    merge_to "$dir" "$MASTER" "$BRANCH" "Merge $BRANCH into $MASTER"
-    git -C "$dir" tag "$VERSION"
-  fi
-  if ! git -C "$dir" merge-base --is-ancestor "$MASTER" "$DEVELOP"; then
-    git -C "$dir" checkout -q "$DEVELOP"
-    if ! git -C "$dir" merge -q --no-ff "$MASTER" -m "Merge $MASTER ($VERSION) back into $DEVELOP"; then
-      git -C "$dir" merge --abort 2>/dev/null || true
-      die "back-merge of $MASTER into $DEVELOP failed in submodule $s (conflict); nothing was pushed. Resolve by hand, then re-run scripts/release.sh $VERSION"
     fi
   fi
 done
@@ -227,8 +234,6 @@ if [ "${RESUMED[0]}" != "1" ]; then
   for pkg in . frontend; do
     if [ -f "$pkg/package.json" ]; then (cd "$pkg" && npm version "$VERSION" --no-git-tag-version --allow-same-version >/dev/null); fi
   done
-  # The release pins the TAGGED master merge commits of the submodules.
-  for s in "${SUBS[@]+"${SUBS[@]}"}"; do git -C "$ROOT/$s" checkout -q "$VERSION"; done
   pins=("${SUBS[@]+"${SUBS[@]}"}")
   if [ -f server/Gemfile.lock ]; then pins+=(server/Gemfile.lock); fi
   if [ "${#pins[@]}" -gt 0 ] && [ -n "$(git status --porcelain -- "${pins[@]}")" ]; then
@@ -243,7 +248,45 @@ if [ "${RESUMED[0]}" != "1" ]; then
     git add -- "${pkgs[@]}"
     git commit -q -m "chore(release): stamp package versions $VERSION"
   fi
-  [ -z "$(git status --porcelain --ignore-submodules=all)" ] || die "parent tree unexpectedly dirty after stamping; aborting before merge"
+  [ -z "$(git status --porcelain --ignore-submodules=all)" ] || die "parent tree unexpectedly dirty after stamping; aborting before the gate"
+
+  # ---- 3. gate: on the stamped release head, submodules at their release heads,
+  # BEFORE any merge to master or any tag. On failure nothing is merged or tagged:
+  # fix on the release branch and re-run (a clean fresh run).
+  if [ "${RELEASE_SKIP_VALIDATE:-0}" = "1" ]; then
+    echo "release.sh: WARNING: the validation gate is SKIPPED (RELEASE_SKIP_VALIDATE=1); $VERSION is released unvalidated" >&2
+  elif [ ! -x scripts/validate.sh ]; then
+    echo "release.sh: WARNING: the validation gate is SKIPPED (scripts/validate.sh is missing or not executable); $VERSION is released unvalidated" >&2
+  else
+    say "running the parent gate on the release head: scripts/validate.sh"
+    scripts/validate.sh || die "scripts/validate.sh failed on the release head; nothing was merged, tagged or pushed. Fix it on $BRANCH, then re-run scripts/release.sh $VERSION"
+  fi
+fi
+
+# ---- 2b. merge, tag, back-merge (local only) ----------------------------------
+for idx in "${!SUBS[@]}"; do
+  s="${SUBS[$idx]}"; dir="$ROOT/$s"; i=$((idx + 1))
+  if [ "${RESUMED[$i]}" != "1" ]; then
+    merge_to "$dir" "$MASTER" "$BRANCH" "Merge $BRANCH into $MASTER"
+    git -C "$dir" tag "$VERSION"
+  fi
+  if ! git -C "$dir" merge-base --is-ancestor "$MASTER" "$DEVELOP"; then
+    git -C "$dir" checkout -q "$DEVELOP"
+    if ! git -C "$dir" merge -q --no-ff "$MASTER" -m "Merge $MASTER ($VERSION) back into $DEVELOP"; then
+      git -C "$dir" merge --abort 2>/dev/null || true
+      die "back-merge of $MASTER into $DEVELOP failed in submodule $s (conflict); nothing was pushed. Resolve by hand, then re-run scripts/release.sh $VERSION"
+    fi
+  fi
+done
+
+if [ "${RESUMED[0]}" != "1" ]; then
+  # The release pins the TAGGED master merge commits of the submodules.
+  for s in "${SUBS[@]+"${SUBS[@]}"}"; do git -C "$ROOT/$s" checkout -q "$VERSION"; done
+  if [ "${#SUBS[@]}" -gt 0 ] && [ -n "$(git status --porcelain -- "${SUBS[@]}")" ]; then
+    git add -- "${SUBS[@]}"
+    git commit -q -m "chore(release): pin extensions at their tagged $VERSION commits"
+  fi
+  [ -z "$(git status --porcelain --ignore-submodules=all)" ] || die "parent tree unexpectedly dirty before the merge; aborting"
   merge_to "$ROOT" "$MASTER" "$BRANCH" "Merge $BRANCH into $MASTER"
   git tag "$VERSION"
 fi
@@ -279,13 +322,7 @@ if [ "${#SUBS[@]}" -gt 0 ] && [ -n "$(git status --porcelain -- "${SUBS[@]}")" ]
   git commit -q -m "chore(release): point extensions at $DEVELOP after the $VERSION back-merge"
 fi
 
-# ---- 3. gate ----------------------------------------------------------------
-if [ "${RELEASE_SKIP_VALIDATE:-0}" != "1" ] && [ -x scripts/validate.sh ]; then
-  say "running the parent gate: scripts/validate.sh"
-  scripts/validate.sh || die "scripts/validate.sh failed; nothing was pushed. Fix it, then re-run scripts/release.sh $VERSION (local work is kept)"
-fi
-
-# ---- 4. push (submodules first, then parent; branches, then the tag) --------
+# ---- 4. push (submodules first, then parent; one atomic push per repo and remote) --------
 push_failed() {
   local label="$1" r="$2" s rr
   {
@@ -296,11 +333,11 @@ push_failed() {
     echo "Or push by hand, submodules first, branches before the tag:"
     for s in "${SUBS[@]+"${SUBS[@]}"}"; do
       for rr in $(remotes_of "$ROOT/$s"); do
-        echo "  git -C $ROOT/$s push $rr $MASTER $DEVELOP && git -C $ROOT/$s push $rr refs/tags/$VERSION"
+        echo "  git -C $ROOT/$s push --atomic $rr $MASTER $DEVELOP refs/tags/$VERSION"
       done
     done
     for rr in $(remotes_of "$ROOT"); do
-      echo "  git -C $ROOT push $rr $MASTER $DEVELOP && git -C $ROOT push $rr refs/tags/$VERSION"
+      echo "  git -C $ROOT push --atomic $rr $MASTER $DEVELOP refs/tags/$VERSION"
     done
   } >&2
   exit 1
@@ -310,8 +347,7 @@ push_repo() {
   local dir="$1" label="$2" r
   for r in $(remotes_of "$dir"); do
     say "pushing $label to $r"
-    git -C "$dir" push -q "$r" "$MASTER" "$DEVELOP" || push_failed "$label" "$r"
-    git -C "$dir" push -q "$r" "refs/tags/$VERSION" || push_failed "$label" "$r"
+    git -C "$dir" push -q --atomic "$r" "$MASTER" "$DEVELOP" "refs/tags/$VERSION" || push_failed "$label" "$r"
   done
 }
 
