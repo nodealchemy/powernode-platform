@@ -163,7 +163,10 @@ cat > "$GIT_HOOKS_DIR/pre-push" << 'PUSH_HOOK_EOF'
 PUSH_REMOTE="${1:-origin}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+# Run the checkers from the checkout being pushed (a linked worktree resolves to its own
+# tree), not from the main checkout that owns .git/hooks: the main checkout may sit on another
+# branch with an older checker. Fall back to the hooks dir's parent outside a work tree.
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || (cd "$SCRIPT_DIR/../.." && pwd))"
 
 # --- Submodule pointer check -------------------------------------------------
 POINTER_CHECKER="$PROJECT_ROOT/scripts/verify-submodule-pointers.sh"
