@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_02_070000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_20_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8676,18 +8676,24 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_070000) do
     t.datetime "consumed_at"
     t.string "consumed_from_ip"
     t.datetime "created_at", null: false
+    t.uuid "created_by_id"
     t.datetime "expires_at", null: false
     t.string "intended_subject", null: false
     t.uuid "node_id", null: false
     t.uuid "node_instance_id"
     t.text "purpose"
+    t.datetime "revoked_at"
+    t.uuid "revoked_by_id"
     t.boolean "single_use", default: true, null: false
     t.string "token_hash", null: false
     t.datetime "updated_at", null: false
     t.index ["consumed_at"], name: "index_system_bootstrap_tokens_on_consumed_at"
+    t.index ["created_by_id"], name: "index_system_bootstrap_tokens_on_created_by_id"
     t.index ["expires_at"], name: "index_system_bootstrap_tokens_on_expires_at"
     t.index ["node_id"], name: "index_system_bootstrap_tokens_on_node_id"
     t.index ["node_instance_id"], name: "index_system_bootstrap_tokens_on_node_instance_id"
+    t.index ["revoked_at"], name: "index_system_bootstrap_tokens_on_revoked_at"
+    t.index ["revoked_by_id"], name: "index_system_bootstrap_tokens_on_revoked_by_id"
     t.index ["token_hash"], name: "index_system_bootstrap_tokens_on_token_hash", unique: true
   end
 
@@ -12504,6 +12510,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_02_070000) do
   add_foreign_key "system_acme_dns_credentials", "accounts", on_delete: :cascade
   add_foreign_key "system_bootstrap_tokens", "system_node_instances", column: "node_instance_id", on_delete: :nullify
   add_foreign_key "system_bootstrap_tokens", "system_nodes", column: "node_id", on_delete: :cascade
+  add_foreign_key "system_bootstrap_tokens", "users", column: "created_by_id", on_delete: :nullify
+  add_foreign_key "system_bootstrap_tokens", "users", column: "revoked_by_id", on_delete: :nullify
   add_foreign_key "system_cve_exposures", "system_cves", column: "cve_id"
   add_foreign_key "system_cve_exposures", "system_node_module_versions", column: "node_module_version_id"
   add_foreign_key "system_disk_image_publications", "accounts"
