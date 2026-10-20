@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_20_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_20_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -8693,6 +8693,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_120000) do
     t.index ["expires_at"], name: "index_system_bootstrap_tokens_on_expires_at"
     t.index ["node_id"], name: "index_system_bootstrap_tokens_on_node_id"
     t.index ["node_instance_id"], name: "index_system_bootstrap_tokens_on_node_instance_id"
+    t.index ["node_instance_id"], name: "index_system_bootstrap_tokens_one_open_operator_key", unique: true, where: "((purpose = 'operator_key'::text) AND (consumed_at IS NULL) AND (revoked_at IS NULL))"
     t.index ["revoked_at"], name: "index_system_bootstrap_tokens_on_revoked_at"
     t.index ["revoked_by_id"], name: "index_system_bootstrap_tokens_on_revoked_by_id"
     t.index ["token_hash"], name: "index_system_bootstrap_tokens_on_token_hash", unique: true
