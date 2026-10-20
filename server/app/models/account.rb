@@ -8,6 +8,12 @@ class Account < ApplicationRecord
     self
   end
 
+  # Account teardown: ai_agents.creator_id is ON DELETE RESTRICT (an account-scoped
+  # agent must keep a creator, chk_ai_agents_account_rows_need_creator_and_provider),
+  # so the account's agents must go BEFORE its users. dependent: callbacks run in
+  # declaration order and `users` is declared first, hence this prepended hook.
+  before_destroy :destroy_ai_agents_before_users, prepend: true
+
   # Associations
   has_many :users, dependent: :destroy
   has_many :invitations, dependent: :destroy
@@ -547,6 +553,10 @@ class Account < ApplicationRecord
   # M1 Self-Serve: bootstrap System extension state per-account. Wrapped
   # in rescue so a transient failure (e.g., system extension disabled)
   # doesn't roll back account creation — surface via monitoring instead.
+  def destroy_ai_agents_before_users
+    ai_agents.find_each(&:destroy!)
+  end
+
   def ensure_default_environments
     Ai::Environment.ensure_defaults_for!(self)
   rescue StandardError => e

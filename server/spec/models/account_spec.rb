@@ -201,4 +201,24 @@ RSpec.describe Account, type: :model do
       expect(account.default_sdwan_network_setting).to be_nil
     end
   end
+
+  describe "#destroy! (account teardown)" do
+    it "removes an account with its default environment and an agent created by one of its users" do
+      account = create(:account)
+      Ai::Environment.ensure_defaults_for!(account)
+      agent = create(:ai_agent, account: account)
+      creator = agent.creator
+      project = create(:ai_project, account: account, environment: Ai::Environment.default_for(account))
+      env_ids = account.environments.pluck(:id)
+      expect(env_ids).not_to be_empty
+
+      expect { account.destroy! }.not_to raise_error
+
+      expect(Account.exists?(account.id)).to be false
+      expect(Ai::Environment.where(id: env_ids)).to be_empty
+      expect(Ai::Agent.exists?(agent.id)).to be false
+      expect(User.exists?(creator.id)).to be false
+      expect(Ai::Project.exists?(project.id)).to be false
+    end
+  end
 end
