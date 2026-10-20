@@ -1,0 +1,73 @@
+name: Release
+
+# Runs when scripts/release.sh pushes an X.Y.Z tag (no "v" prefix). The tag IS
+# the version: both builds below derive it from the tag, nothing reads a VERSION
+# file (there is none). See docs/contributing/release-process.md.
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  REGISTRY: ${{ secrets.REGISTRY_HOST }}
+  VERSION: ${{ gitea.ref_name }}
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [server, worker, frontend]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history + tags
+
+      - name: Compute build info
+        id: buildinfo
+        run: |
+          # An exact X.Y.Z tag on master's tip: version=X.Y.Z, release=true.
+          git fetch --no-tags origin master:refs/remotes/origin/master || true
+          json="$(scripts/compute-build-info.sh --branch master)"
+          echo "$json"
+          [ "$(printf '%s' "$json" | jq -r .version)" = "${VERSION}" ] || { echo "::error::computed version does not equal tag ${VERSION}"; exit 1; }
+          echo "json=${json}" >> "$GITHUB_OUTPUT"
+
+      - name: Login to Gitea Container Registry
+        run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
+
+      - name: Build and push ${{ matrix.component }} image
+        run: |
+          image="${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-${{ matrix.component }}"
+          extra=""
+          if [ "${{ matrix.component }}" = "frontend" ]; then extra='--build-arg VITE_API_URL= --build-arg VITE_WS_URL='; fi
+          # shellcheck disable=SC2086
+          docker build -t "${image}:${VERSION}" $extra \
+            --build-arg POWERNODE_BUILD_INFO_JSON='${{ steps.buildinfo.outputs.json }}' \
+            -f ${{ matrix.component }}/Dockerfile ${{ matrix.component }}/
+          docker push "${image}:${VERSION}"
+
+  module-build:
+    # Dispatches the platform's native module build (force_all) for the tagged
+    # commit. stage15.sh derives the version from the tag's ls-remote refs, so
+    # the modules report X.Y.Z and release=true.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch module build batch for the tag
+        env:
+          MCP_URL: ${{ secrets.POWERNODE_MCP_URL }}
+          MCP_TOKEN: ${{ secrets.POWERNODE_MCP_TOKEN }}
+          TAG_SHA: ${{ gitea.sha }}
+          SOURCE_REPO: ${{ gitea.repository }}
+        run: |
+          set -euo pipefail
+          [ -n "${MCP_URL}" ] && [ -n "${MCP_TOKEN}" ] || { echo "::error::POWERNODE_MCP_URL / POWERNODE_MCP_TOKEN secrets are not set"; exit 1; }
+          body="$(jq -n --arg sha "${TAG_SHA}" --arg repo "${SOURCE_REPO}" \
+            '{jsonrpc:"2.0", id:1, method:"tools/call", params:{name:"platform.system_dispatch_module_build_batch",
+              arguments:{base_sha:$sha, head_sha:$sha, force_all:true, trigger:"manual", source_repo:$repo}}}')"
+          resp="$(curl -fsS -m 180 -X POST "${MCP_URL}" -H 'Content-Type: application/json' \
+            -H "Authorization: Bearer ${MCP_TOKEN}" -d "${body}")"
+          echo "${resp}" | jq -r '.result.content[0].text // .error.message' | head -c 2000
+          echo "${resp}" | jq -e '.error == null' >/dev/null

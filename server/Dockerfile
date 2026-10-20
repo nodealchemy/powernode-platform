@@ -48,6 +48,10 @@ RUN BUNDLE_FROZEN=false bundle install && \
 # Copy application code
 COPY . .
 
+# Build identity (version, sha, branch, tag) -- written at build time from release tags
+ARG POWERNODE_BUILD_INFO_JSON=""
+RUN if [ -n "$POWERNODE_BUILD_INFO_JSON" ]; then printf '%s' "$POWERNODE_BUILD_INFO_JSON" > BUILD_INFO.json; fi
+
 # Ensure database.yml exists (gitignored locally, absent in CI checkout)
 RUN cp -n config/database.yml.example config/database.yml 2>/dev/null || true
 

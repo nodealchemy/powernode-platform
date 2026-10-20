@@ -18,6 +18,10 @@ COPY . .
 # Build arguments for environment configuration
 ARG VITE_API_URL
 ARG VITE_WS_URL
+# Build identity (version, sha, branch, tag) computed from release tags by the CI workflow;
+# vite.config.ts bakes it into the bundle as __BUILD_INFO__.
+ARG POWERNODE_BUILD_INFO_JSON=""
+ENV POWERNODE_BUILD_INFO_JSON=$POWERNODE_BUILD_INFO_JSON
 ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_WS_URL=${VITE_WS_URL}
 

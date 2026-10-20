@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Image tag (e.g. dev-latest, 0.2.0)'
+        description: 'Image tag (e.g. dev-latest, 0.2.0). Release tags are built by release.yml.'
         required: false
         default: 'dev-latest'
   push:
@@ -65,12 +65,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history + tags: the version is derived from release tags
+
+      - name: Compute build info
+        id: buildinfo
+        run: echo "json=$(scripts/compute-build-info.sh)" >> "$GITHUB_OUTPUT"
 
       - name: Login to Gitea Container Registry
         run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
 
       - name: Build backend image
-        run: docker build -t ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-backend:${{ env.IMAGE_TAG }} -f server/Dockerfile server/
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-backend:${{ env.IMAGE_TAG }} \
+            --build-arg POWERNODE_BUILD_INFO_JSON='${{ steps.buildinfo.outputs.json }}' \
+            -f server/Dockerfile server/
 
       - name: Push backend image
         run: docker push ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-backend:${{ env.IMAGE_TAG }}
@@ -80,6 +90,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history + tags: the version is derived from release tags
+
+      - name: Compute build info
+        id: buildinfo
+        run: echo "json=$(scripts/compute-build-info.sh)" >> "$GITHUB_OUTPUT"
 
       - name: Login to Gitea Container Registry
         run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
@@ -90,6 +106,7 @@ jobs:
             -t ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-frontend:${{ env.IMAGE_TAG }} \
             --build-arg VITE_API_URL="" \
             --build-arg VITE_WS_URL="" \
+            --build-arg POWERNODE_BUILD_INFO_JSON='${{ steps.buildinfo.outputs.json }}' \
             -f frontend/Dockerfile frontend/
 
       - name: Push frontend image
@@ -100,12 +117,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history + tags: the version is derived from release tags
+
+      - name: Compute build info
+        id: buildinfo
+        run: echo "json=$(scripts/compute-build-info.sh)" >> "$GITHUB_OUTPUT"
 
       - name: Login to Gitea Container Registry
         run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ secrets.REGISTRY_USER }} --password-stdin
 
       - name: Build worker image
-        run: docker build -t ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-worker:${{ env.IMAGE_TAG }} -f worker/Dockerfile worker/
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-worker:${{ env.IMAGE_TAG }} \
+            --build-arg POWERNODE_BUILD_INFO_JSON='${{ steps.buildinfo.outputs.json }}' \
+            -f worker/Dockerfile worker/
 
       - name: Push worker image
         run: docker push ${{ env.REGISTRY }}/${{ gitea.repository_owner }}/powernode-worker:${{ env.IMAGE_TAG }}

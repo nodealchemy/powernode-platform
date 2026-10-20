@@ -526,3 +526,6 @@ scripts/ui-smoke/last-report.*
 /.claude/hooks/platform-memory-digest.local.md
 /.claude/hooks/platform-memory-digest.local.stamp
 /.claude/hooks/platform-memory-digest.local.stamp.lock
+
+# Build identity written at build time (module build / Docker build)
+BUILD_INFO.json
