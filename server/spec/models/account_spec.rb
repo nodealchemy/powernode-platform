@@ -217,8 +217,60 @@ RSpec.describe Account, type: :model do
       expect(Account.exists?(account.id)).to be false
       expect(Ai::Environment.where(id: env_ids)).to be_empty
       expect(Ai::Agent.exists?(agent.id)).to be false
-      expect(User.exists?(creator.id)).to be false
       expect(Ai::Project.exists?(project.id)).to be false
+      expect(User.exists?(creator.id)).to be false
+    end
+
+    # Every account-owned row that references one of the account's users via an
+    # FK without ON DELETE CASCADE/NULLIFY must be gone before the user is.
+    # [factory, user attribute]
+    USER_REFERENCING_ROWS = [
+      [:ai_conversation, :user],
+      [:ai_agent_execution, :user],
+      [:api_key, :created_by],
+      [:ai_knowledge_base, :created_by],
+      [:ai_mission, :created_by],
+      [:ai_approval_chain, :created_by],
+      [:ai_compliance_policy, :created_by],
+      [:ai_sandbox, :created_by],
+      [:ai_team_template, :created_by],
+      [:ai_devops_template, :created_by],
+      [:ai_mock_response, :created_by],
+      [:ai_data_connector, :created_by],
+      [:ai_ab_test, :created_by],
+      [:ai_performance_benchmark, :created_by]
+    ].freeze
+
+    it "removes the only default provider credentials (their guards yield to account teardown)" do
+      account = create(:account)
+      git_cred = create(:git_provider_credential, account: account, is_default: true)
+      ai_cred = create(:ai_provider_credential, account: account, is_default: true)
+
+      expect { account.destroy! }.not_to raise_error
+
+      expect(Devops::GitProviderCredential.exists?(git_cred.id)).to be false
+      expect(Ai::ProviderCredential.exists?(ai_cred.id)).to be false
+    end
+
+    it "still protects the only default credential outside account teardown" do
+      account = create(:account)
+      git_cred = create(:git_provider_credential, account: account, is_default: true)
+
+      expect(git_cred.destroy).to be false
+      expect(Devops::GitProviderCredential.exists?(git_cred.id)).to be true
+    end
+
+    it "removes account-owned rows that reference the account's users" do
+      account = create(:account)
+      user = create(:user, account: account)
+      rows = USER_REFERENCING_ROWS.map do |factory, attr|
+        create(factory, account: account, attr => user)
+      end
+
+      expect { account.destroy! }.not_to raise_error
+
+      rows.each { |row| expect(row.class.exists?(row.id)).to be(false), "#{row.class} survived" }
+      expect(User.exists?(user.id)).to be false
     end
   end
 end

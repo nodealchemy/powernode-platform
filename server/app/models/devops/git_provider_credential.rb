@@ -249,6 +249,8 @@ module Devops
     end
 
     def prevent_destroy_if_default_and_only
+      return if Account.tearing_down?(account_id)
+
       if is_default? && account.git_provider_credentials.for_provider(git_provider_id).count == 1
         errors.add(:base, "Cannot delete the only credential for this provider")
         throw :abort

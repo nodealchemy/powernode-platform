@@ -8,14 +8,11 @@ class Account < ApplicationRecord
     self
   end
 
-  # Account teardown: ai_agents.creator_id is ON DELETE RESTRICT (an account-scoped
-  # agent must keep a creator, chk_ai_agents_account_rows_need_creator_and_provider),
-  # so the account's agents must go BEFORE its users. dependent: callbacks run in
-  # declaration order and `users` is declared first, hence this prepended hook.
-  before_destroy :destroy_ai_agents_before_users, prepend: true
+  # Mark the account as tearing down for the whole dependent: cascade (see
+  # Account.tearing_down?). Prepended so it wraps every dependent callback.
+  around_destroy :mark_tearing_down, prepend: true
 
   # Associations
-  has_many :users, dependent: :destroy
   has_many :invitations, dependent: :destroy
   has_many :account_delegations, class_name: "Account::Delegation", dependent: :destroy
   has_many :audit_logs, dependent: :destroy
@@ -254,6 +251,15 @@ class Account < ApplicationRecord
     def system_provider_credentials = []
   end
 
+  # Account teardown order: `dependent: :destroy` callbacks run in declaration
+  # order, and many account-owned rows (agents, conversations, executions, API
+  # keys, created_by_id columns...) hold FKs to users with ON DELETE RESTRICT or
+  # no on_delete. Users must therefore be destroyed AFTER every core dependent
+  # above, so this is deliberately the LAST `dependent:` association. Keep it
+  # last; declare new account-owned `dependent: :destroy` associations above it.
+  # (Extension decorators declare theirs after this, so they run after users.)
+  has_many :users, dependent: :destroy
+
   # Validations
   validates :name, presence: true, length: { minimum: 2, maximum: 100 }
   validates :subdomain, format: { with: /\A[a-z0-9\-]+\z/, message: "can only contain lowercase letters, numbers, and hyphens" },
@@ -328,6 +334,19 @@ class Account < ApplicationRecord
   # already holds one is not blocked: only adding it or changing its value is.
   # That is how a migration clears residue, and it does not make an old value
   # suddenly un-saveable.
+  # Account teardown marker. Row-level guards that protect a record during
+  # normal operation (e.g. "cannot delete the only default credential") must
+  # yield while the whole account is being destroyed; they ask
+  # `Account.tearing_down?(account_id)`. Thread-local, keyed by account id, and
+  # cleared in an ensure so a failed destroy leaves the guards intact.
+  def self.tearing_down?(account_id)
+    account_id.present? && teardown_ids.include?(account_id)
+  end
+
+  def self.teardown_ids
+    Thread.current[:account_teardown_ids] ||= []
+  end
+
   def self.reserved_setting_keys
     @reserved_setting_keys ||= {}
   end
@@ -553,8 +572,11 @@ class Account < ApplicationRecord
   # M1 Self-Serve: bootstrap System extension state per-account. Wrapped
   # in rescue so a transient failure (e.g., system extension disabled)
   # doesn't roll back account creation — surface via monitoring instead.
-  def destroy_ai_agents_before_users
-    ai_agents.find_each(&:destroy!)
+  def mark_tearing_down
+    self.class.teardown_ids << id
+    yield
+  ensure
+    self.class.teardown_ids.delete_at(self.class.teardown_ids.index(id) || self.class.teardown_ids.length)
   end
 
   def ensure_default_environments
