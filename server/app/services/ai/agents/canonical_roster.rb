@@ -142,13 +142,14 @@ module Ai
                        "briefs, and routes the work to the agent or skill that owns it.",
           domains: %w[front-door knowledge external-agent-session],
           role: { code: false, shell: false, server_grant: false, read_only: false,
-                  # Exactly the verbs the front-door, knowledge and external-session skills name.
+                  # Exactly the verbs the front-door, knowledge (read and contribute) and
+                  # external-session skills name. The curation verbs live in skills of the
+                  # knowledge-curation domain, outside this role's ceiling.
                   verbs: %w[
-                    create_knowledge create_learning dispute_learning extract_to_knowledge_graph get_conversation_messages
-                    get_skill_context invite_agent knowledge_health learning_metrics list_agents list_messages
-                    list_workspaces platform_provisioning_capture_brief platform_provisioning_status promote_knowledge
-                    rate_knowledge reinforce_learning resolve_contradiction search_knowledge_graph send_message
-                    unsupersede_learning update_knowledge verify_learning verify_learning_batch
+                    create_knowledge create_learning dispute_learning get_conversation_messages get_skill_context
+                    invite_agent knowledge_health learning_metrics list_agents list_messages list_workspaces
+                    platform_provisioning_capture_brief platform_provisioning_status rate_knowledge reinforce_learning
+                    search_knowledge_graph send_message
                   ],
                   duty: "Answer and route: never execute fleet or code writes yourself." },
           charter: assembly_charter(

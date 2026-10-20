@@ -36,7 +36,7 @@ module Ai
       # only. websites/web-apps/mobile-apps are project-type domains reserved for
       # skills not all authored yet.
       CORE_DOMAINS = %w[
-        front-door external-agent-session knowledge review
+        front-door external-agent-session knowledge knowledge-curation review
         software-engineering powernode-platform-dev
         websites web-apps mobile-apps
       ].freeze

@@ -70,6 +70,26 @@ RSpec.describe Ai::Agents::CanonicalRoster do
       expect(described_class.fetch("platform-engineer")[:role]).to include(read_only: false, server_grant: true)
     end
 
+    # The concierge may contribute (additive, attributable) but not curate: the
+    # curation verbs live in skills of a domain outside its ceiling, which the
+    # engineer's ceiling keeps. Done in the SKILLS, not the grant.
+    it "keeps the concierge to additive writes; the curation verbs stay with the engineer" do
+      additive = %w[create_knowledge create_learning rate_knowledge reinforce_learning dispute_learning
+                    platform_provisioning_capture_brief send_message invite_agent]
+      curation = %w[promote_knowledge update_knowledge resolve_contradiction unsupersede_learning verify_learning
+                    verify_learning_batch extract_to_knowledge_graph]
+      concierge = described_class.fetch("powernode-concierge")
+      entries = Ai::Skills::CapabilitySeeder.load_entries(Rails.root.join("db", "seeds", "capability_skills"))
+      verbs_in = ->(domains) { entries.select { |e| domains.include?(e["domain"]) }.flat_map { |e| e["manifest"]["verbs"] } }
+
+      expect(concierge[:role][:verbs]).to include(*additive)
+      expect(concierge[:role][:verbs] & curation).to be_empty
+      expect(verbs_in.call(concierge[:domains]) & curation).to be_empty
+      expect(Ai::Skills::Contract::CORE_DOMAINS).to include("knowledge-curation")
+      expect(concierge[:domains]).not_to include("knowledge-curation")
+      expect(curation - verbs_in.call(described_class.fetch("platform-engineer")[:domains])).to be_empty
+    end
+
     it "keeps the domain ceilings of the design: concierge, engineer and reviewer" do
       expect(described_class.fetch("powernode-concierge")[:domains]).to match_array(%w[front-door knowledge external-agent-session])
       expect(described_class.fetch("platform-reviewer")[:domains]).to match_array(%w[review knowledge])

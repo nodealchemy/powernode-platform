@@ -348,7 +348,7 @@ cd server && env -u BUNDLE_GEMFILE POWERNODE_INCLUDE_PRIVATE_EXTENSIONS=0 POWERN
   bundle exec rails claude:sync_agents      # or: scripts/sync-claude-agents.sh
 ```
 
-`scripts/claude-agents-size-ceilings.txt` caps the roster (37 tools per agent,
+`scripts/claude-agents-size-ceilings.txt` caps the roster (30 tools per agent,
 18432 bytes in total). The ceilings only go down; they were raised once, in a
 reviewed commit, because a loader without the whole-server grant must list by exact
 name the verbs its skills name (the concierge lists them; ToolSearch searches only

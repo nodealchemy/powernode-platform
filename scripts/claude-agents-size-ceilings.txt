@@ -28,6 +28,8 @@
 # The concierge lists 24 beyond the 9 bootstrap verbs (37 entries); the reviewer 5
 # read-only code-intelligence/audit verbs. The alternative, a whole-server grant plus
 # a deny list, would cost ~3 KB per agent and give a read-only role a wide surface.
-# Measured: 18305 bytes, largest `tools:` list 37 (powernode-concierge.md).
-max_tools_per_agent=37
+# Measured then: 18305 bytes, largest list 37. Lowered the same day to 30 tools (the concierge
+# lost its curation verbs: they moved to skills outside its domain ceiling); the byte
+# ceiling stays at the raised value.
+max_tools_per_agent=30
 max_roster_bytes=18432
