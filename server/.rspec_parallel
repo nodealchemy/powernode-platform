@@ -1,2 +1,7 @@
 --require spec_helper
+--require ./spec/parallel_lane_env.rb
+--require parallel_tests/rspec/runtime_logger
+--require parallel_tests/rspec/failures_logger
 --format progress
+--format ParallelTests::RSpec::RuntimeLogger --out tmp/parallel_runtime_rspec.log
+--format ParallelTests::RSpec::FailuresLogger --out tmp/parallel_failures.log

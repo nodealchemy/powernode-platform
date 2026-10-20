@@ -140,13 +140,16 @@ RSpec.configure do |config|
   # block legitimate CI runs.
   DatabaseCleaner.allow_remote_database_url = true
   config.before(:suite) do
-    # Under parallel_tests, databases are already clean (parallel:prepare runs
-    # db:purge + db:schema:load) and permissions are seeded by parallel:seed_permissions.
-    # Skip the heavy truncation to avoid PG::OutOfMemory from max_locks_per_transaction.
-    # Use deletion instead of truncation for initial cleanup.
-    # TRUNCATE requires AccessExclusiveLock which deadlocks with
-    # AccessShareLock held by concurrent rspec processes running tests.
-    # DELETE only needs RowExclusiveLock, avoiding deadlocks entirely.
+    # Initial cleanup of THIS process's database. Deletion, not truncation, to avoid PG::OutOfMemory
+    # from max_locks_per_transaction; TRUNCATE also needs an AccessExclusiveLock, which deadlocks
+    # against the AccessShareLock another rspec process holds on the same database. DELETE only needs
+    # RowExclusiveLock.
+    #
+    # Everything in this hook is per database (the deletes, Role.sync_from_config!) or per Redis lane
+    # (the flush below), so it is safe under the opt-in parallel run (scripts/parallel-rspec.sh), where
+    # every process owns a database of its own (powernode_test__p<N>) and a lane of its own. Two
+    # processes on the SAME database are what is unsafe: a transient role_permissions FK violation
+    # right here. See docs/guides/testing.md, "Parallel runs".
     retries = 0
     begin
       # Clear join tables first to avoid FK violations during deletion
