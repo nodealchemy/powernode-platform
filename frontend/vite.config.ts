@@ -243,7 +243,8 @@ function resolveBuildInfo(): Record<string, unknown> {
     }
   }
   const sha = git('rev-parse HEAD');
-  const branch = git('rev-parse --abbrev-ref HEAD');
+  const rawBranch = git('rev-parse --abbrev-ref HEAD');
+  const branch = rawBranch === 'HEAD' ? null : rawBranch; // detached HEAD is not a branch
   return {
     version:
       versionFromDescribe(git("describe --tags --long --match '[0-9]*.[0-9]*.[0-9]*'"), branch) ??

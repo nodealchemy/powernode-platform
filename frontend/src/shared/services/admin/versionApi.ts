@@ -28,6 +28,8 @@ export interface DisplayableVersion {
   display?: string;
   short_sha?: string | null;
   release?: boolean;
+  tag?: string | null;
+  git_tag?: string | null;
 }
 
 export interface FullVersionInfo extends VersionInfo {
@@ -129,7 +131,8 @@ export const versionApi = {
   // the server's own choice.
   displayVersion(info: DisplayableVersion): string {
     if (info.display) return info.display;
-    if (info.release) return info.version;
+    // A release must also carry an exact tag equal to the version (consistency check).
+    if (info.release && (info.tag ?? info.git_tag) === info.version) return info.version;
     if (info.short_sha) return info.short_sha;
     return info.version.includes('-') ? info.version : `${info.version}-dev`;
   },

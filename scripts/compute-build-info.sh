@@ -25,6 +25,8 @@ while [ $# -gt 0 ]; do
 done
 [ -n "$branch" ] || branch="${GITHUB_REF_NAME:-${GITEA_REF_NAME:-}}"
 [ -n "$branch" ] || branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+# A detached HEAD prints the literal "HEAD", which is not a branch.
+[ "$branch" != "HEAD" ] || branch="unknown"
 
 sha="$(git rev-parse --verify HEAD)"
 short="${sha:0:7}"

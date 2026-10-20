@@ -153,4 +153,19 @@ RSpec.describe Powernode::Version do
                               release: false, built_at: "2026-09-03T16:00:00Z")
     end
   end
+
+  it "reports git_branch 'unknown' (not 'HEAD') on a detached HEAD" do
+    with_env(no_info) do
+      allow(described_class).to receive(:git_output).with("rev-parse --abbrev-ref HEAD").and_return("HEAD")
+      expect(described_class.git_branch).to eq("unknown")
+    end
+  end
+
+  it "does not treat a detached HEAD as a branch when resolving the version" do
+    with_env(no_info) do
+      allow(described_class).to receive(:git_output).with("describe --tags --long --match '[0-9]*.[0-9]*.[0-9]*'").and_return("0.2.0-4-gabc1234")
+      allow(described_class).to receive(:git_output).with("rev-parse --abbrev-ref HEAD").and_return("HEAD")
+      expect(described_class.current).to eq("0.3.0-dev.4+abc1234")
+    end
+  end
 end

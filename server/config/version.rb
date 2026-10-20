@@ -30,8 +30,10 @@ module Powernode
   #   release build         -> "X.Y.Z"      (exact X.Y.Z tag, built from master's tip)
   #   any other known build -> "<7-char sha>"
   #   no identity at all    -> "0.0.0-dev"
-  # `release` is re-derived here from tag == version rather than trusted from
-  # the file, so a stale or hand-edited BUILD_INFO cannot promote itself.
+  # `release` is consistency-checked here (tag == version) rather than trusted
+  # from the file alone, so a stale or inconsistent BUILD_INFO cannot promote
+  # itself. (BUILD_INFO is not tamper-proof: anyone who can write it can set
+  # both fields.)
   class Version
     BUILD_INFO_FILE = File.expand_path("../BUILD_INFO.json", __dir__)
     RELEASE_TAG     = /\A\d+\.\d+\.\d+\z/
@@ -114,9 +116,11 @@ module Powernode
       end
 
       def git_branch
-        @git_branch ||= build_info["branch"].to_s.presence ||
-                        git_output("rev-parse --abbrev-ref HEAD") ||
-                        UNKNOWN
+        @git_branch ||= begin
+          branch = build_info["branch"].to_s.presence || git_output("rev-parse --abbrev-ref HEAD")
+          # A detached HEAD prints the literal "HEAD", which is not a branch.
+          branch.nil? || branch == "HEAD" ? UNKNOWN : branch
+        end
       end
 
       # What the UI shows. See the DISPLAY CONTRACT above.

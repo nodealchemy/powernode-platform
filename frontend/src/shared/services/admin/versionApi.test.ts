@@ -321,7 +321,7 @@ describe('versionApi', () => {
 
   describe('displayVersion', () => {
     it('returns the version for a release build', () => {
-      expect(versionApi.displayVersion({ version: '1.2.3', short_sha: 'abcdef0', release: true })).toBe('1.2.3');
+      expect(versionApi.displayVersion({ version: '1.2.3', tag: '1.2.3', short_sha: 'abcdef0', release: true })).toBe('1.2.3');
     });
 
     it('returns the short sha for an incremental build', () => {
@@ -330,6 +330,12 @@ describe('versionApi', () => {
 
     it('prefers a server-provided display string when present', () => {
       expect(versionApi.displayVersion({ version: '1.2.3', display: 'fedcba9', short_sha: 'abcdef0', release: false })).toBe('fedcba9');
+    });
+
+    it('only shows the version for a release whose tag equals the version', () => {
+      expect(versionApi.displayVersion({ version: '1.2.3', tag: '1.2.3', release: true, short_sha: 'abc1234' })).toBe('1.2.3');
+      expect(versionApi.displayVersion({ version: '1.2.3', tag: '9.9.9', release: true, short_sha: 'abc1234' })).toBe('abc1234');
+      expect(versionApi.displayVersion({ version: '1.2.3', tag: null, release: true, short_sha: 'abc1234' })).toBe('abc1234');
     });
 
     it('returns <version>-dev when no sha is known', () => {

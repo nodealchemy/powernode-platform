@@ -89,4 +89,14 @@ RSpec.describe "scripts/compute-build-info.sh" do
     info = compute(@dir, "--branch", "develop")
     expect(info).to include("version" => "0.2.0", "tag" => "0.2.0", "release" => false)
   end
+
+  it "reports branch 'unknown' on a detached HEAD" do
+    commit(@dir, "a")
+    git(@dir, "tag", "0.2.0")
+    commit(@dir, "b")
+    git(@dir, "checkout", "-q", "--detach")
+    info = compute(@dir)
+    expect(info["branch"]).to eq("unknown")
+    expect(info["version"]).to eq("0.3.0-dev.1+#{info['short_sha']}")
+  end
 end
