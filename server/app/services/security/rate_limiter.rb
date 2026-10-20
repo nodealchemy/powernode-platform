@@ -37,6 +37,24 @@ module Security
       api_default: { limit: 100, window: 60 }
     }.freeze
 
+    # INCR and the window's EXPIRE in one atomic script (IMP-3fdaa94f6327).
+    # This used to be INCR, then a separate EXPIRE only when the count was 1:
+    # losing that one EXPIRE left a counter with no TTL, and a client past the
+    # limit stayed limited forever.
+    #
+    # Window semantics are unchanged: a fixed window that starts at the first
+    # request and is never extended by later ones. The TTL is set only when the
+    # key has none (TTL -1), which is the count == 1 case and also heals a
+    # counter an older process left without one. Lua rather than EXPIRE ... NX,
+    # which needs Redis 7.0; this runs on any Redis with EVAL.
+    INCREMENT_SCRIPT = <<~LUA
+      local count = redis.call("INCR", KEYS[1])
+      if redis.call("TTL", KEYS[1]) == -1 then
+        redis.call("EXPIRE", KEYS[1], ARGV[1])
+      end
+      return count
+    LUA
+
     class << self
       # Check and increment rate limit
       def check!(key:, category: :api_default, account_id: nil, custom_limit: nil)
@@ -102,9 +120,7 @@ module Security
       end
 
       def increment(key, window)
-        count = redis.incr(key)
-        redis.expire(key, window) if count == 1
-        count
+        redis.eval(INCREMENT_SCRIPT, keys: [ key ], argv: [ window.to_i ])
       end
 
       def redis
