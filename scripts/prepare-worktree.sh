@@ -57,7 +57,8 @@ info() { printf '%s==>%s %s\n' "$C_INFO" "$C_RST" "$*"; }
 ok()   { printf '  %s✓%s %s\n' "$C_OK" "$C_RST" "$*"; }
 warn() { printf '  %s!%s %s\n' "$C_WARN" "$C_RST" "$*"; }
 skip() { printf '  %s·%s %s\n' "$C_DIM" "$C_RST" "$*"; }
-die()  { printf '%serror:%s %s\n' "$C_ERR" "$C_RST" "$*" >&2; exit 1; }
+# WT_REPORT_FILE: set by scripts/wt.sh, so it knows this error was already reported and adds no second line.
+die()  { [ ! -f "${WT_REPORT_FILE:-}" ] || printf 1 >"$WT_REPORT_FILE" 2>/dev/null || true; printf '%serror:%s %s\n' "$C_ERR" "$C_RST" "$*" >&2; exit 1; }
 
 case "${1:-}" in
   -h|--help|"") sed -n '2,42p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
@@ -113,7 +114,14 @@ if [ "$MODE" = "remove" ]; then
   info "removing worktree ${C_DIM}$TARGET${C_RST}"
   for p in "${SUBPATHS[@]}"; do
     if [ -e "$TARGET/$p" ] && git -C "$TARGET/$p" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-      git -C "$MAIN/$p" worktree remove --force "$TARGET/$p" 2>/dev/null && ok "removed extension worktree $p" || warn "could not remove $p"
+      if [ -d "$TARGET/$p/.git" ]; then
+        # A separate clone (its own .git directory), not a worktree of $MAIN/$p: nothing to unregister there.
+        skip "$p is a separate clone, not a worktree of $MAIN/$p; it is removed with its parent directory"
+      elif p_err="$(git -C "$MAIN/$p" worktree remove --force "$TARGET/$p" 2>&1)"; then
+        ok "removed extension worktree $p"
+      else
+        warn "could not remove extension worktree $p: ${p_err:-git worktree remove failed} (its directory goes with the parent)"
+      fi
     fi
   done
   git -C "$MAIN" worktree remove --force "$TARGET" 2>/dev/null && ok "removed $TARGET" || { rm -rf "$TARGET"; warn "force-removed dir (was not a registered worktree)"; }

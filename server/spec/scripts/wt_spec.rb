@@ -340,7 +340,7 @@ RSpec.describe "scripts/wt.sh" do
       expect(code).to eq(0), err
       expect(File.exist?(path)).to be false
       keep = sh!("git", "-C", File.join(@main, "extensions/widgets"), "for-each-ref", "--format=%(objectname) %(refname)", "refs/keep/")
-      expect(keep).to match(%r{\A#{ext_sha} refs/keep/imp-e1/\d{8}T\d{6}\z})
+      expect(keep).to match(%r{\A#{ext_sha} refs/keep/imp-e1/\d{8}T\d{6}-\d+\z})
       expect(sh!("git", "-C", @main, "for-each-ref", "--format=%(objectname)", "refs/keep/")).to eq(core_sha)
       expect(sh!("git", "-C", File.join(@main, "extensions/widgets"), "cat-file", "-t", ext_sha)).to eq("commit")
     end
