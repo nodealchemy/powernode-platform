@@ -254,6 +254,54 @@ RSpec.describe Account, type: :model do
       expect(User.exists?(user.id)).to be false
     end
 
+    it "removes compliance, report, KB and token rows that reference the account or its users" do
+      account = create(:account)
+      user = create(:user, account: account)
+      other = create(:user, account: create(:account))
+      rows = [
+        create(:user_consent, user: user, account: account),
+        create(:scheduled_report, account: account, created_by_id: user.id),
+        create(:blacklisted_token, user: user),
+        create(:data_management_export_request, account: account, user: user),
+        create(:data_management_deletion_request, account: account, user: user),
+        create(:ai_skill, account: account),
+        create(:ai_shared_knowledge, account: account, created_by: user)
+      ]
+      backup = create(:database_backup, created_by: user)
+      delivery = create(:email_delivery, user: user)
+      article = create(:kb_article, author: user)
+
+      expect { account.destroy! }.not_to raise_error
+
+      rows.each { |row| expect(row.class.exists?(row.id)).to be(false), "#{row.class} survived" }
+      # Rows that merely REFERENCE the user (nullable column) are kept, unlinked.
+      expect(Database::Backup.find(backup.id).created_by_id).to be_nil
+      expect(EmailDelivery.find(delivery.id).user_id).to be_nil
+      expect(KnowledgeBase::Article.find(article.id).author_id).to be_nil
+      expect(User.exists?(other.id)).to be true
+    end
+
+    # Extension-owned rows (decorators declare their dependents after core's, and
+    # many hold FKs to users): destroyed whatever the declaration order. Each
+    # example runs only when its extension is loaded.
+    {
+      "Marketing::Campaign" => :marketing_campaign,
+      "SupplyChain::Sbom" => :supply_chain_sbom,
+      "System::DiskImageWebhook" => :system_disk_image_webhook
+    }.each do |class_name, factory|
+      it "removes #{class_name} rows owned by the account (extension dependents)" do
+        skip "#{class_name} not loaded" unless Object.const_defined?(class_name) && FactoryBot.factories.registered?(factory)
+
+        account = create(:account)
+        create(:user, account: account)
+        row = create(factory, account: account)
+
+        expect { account.destroy! }.not_to raise_error
+
+        expect(row.class.exists?(row.id)).to be false
+      end
+    end
+
     it "removes the only default provider credentials (their guards yield to account teardown)" do
       account = create(:account)
       git_cred = create(:git_provider_credential, account: account, is_default: true)
@@ -301,13 +349,13 @@ RSpec.describe Account, type: :model do
 
     it "leaves no teardown marker behind after a refused destroy" do
       account = create(:account)
-      Account.register_teardown_guard { |_acct| "refused by spec" }
+      Account.register_teardown_guard(:spec_refusal) { |_acct| "refused by spec" }
       begin
         expect(account.destroy).to be false
         expect(Account.exists?(account.id)).to be true
         expect(Account.teardown_ids).to be_empty
       ensure
-        Account.teardown_guards.pop
+        Account.teardown_guards.delete(:spec_refusal)
       end
     end
 
@@ -323,13 +371,13 @@ RSpec.describe Account, type: :model do
     it "does not run side effects when a teardown guard refuses" do
       account = create(:account)
       agent = create(:ai_agent, account: account)
-      Account.register_teardown_guard { |_acct| "refused by spec" }
+      Account.register_teardown_guard(:spec_refusal) { |_acct| "refused by spec" }
       begin
         expect(account.destroy).to be false
         expect(account.errors[:base]).to include("refused by spec")
         expect(Ai::Agent.exists?(agent.id)).to be true
       ensure
-        Account.teardown_guards.pop
+        Account.teardown_guards.delete(:spec_refusal)
       end
     end
   end

@@ -98,6 +98,20 @@ class User < ApplicationRecord
   has_many :notifications, dependent: :destroy
   has_many :user_tokens, dependent: :destroy
   has_many :mcp_sessions, dependent: :destroy
+  # Rows that reference a user but are not owned by the user's account (no
+  # account_id), so Account teardown cannot reach them any other way. NOT NULL
+  # columns => the row is the user's and goes with them; nullable => kept.
+  has_many :blacklisted_tokens, dependent: :delete_all
+  has_many :database_restores, class_name: "Database::Restore", foreign_key: "initiated_by_id", dependent: :destroy
+  has_many :database_backups, class_name: "Database::Backup", foreign_key: "created_by_id", dependent: :nullify
+  has_many :email_deliveries, dependent: :nullify
+  has_many :kb_article_views, class_name: "KnowledgeBase::ArticleView", dependent: :nullify
+  has_many :kb_authored_articles, class_name: "KnowledgeBase::Article", foreign_key: "author_id", dependent: :nullify
+  has_many :kb_edited_articles, class_name: "KnowledgeBase::Article", foreign_key: "last_edited_by_id", dependent: :nullify
+  has_many :kb_attachments, class_name: "KnowledgeBase::Attachment", foreign_key: "uploaded_by_id", dependent: :destroy
+  has_many :kb_comments, class_name: "KnowledgeBase::Comment", foreign_key: "author_id", dependent: :destroy
+  has_many :kb_workflows, class_name: "KnowledgeBase::Workflow", dependent: :destroy
+  has_many :ai_context_entries, class_name: "Ai::ContextEntry", foreign_key: "created_by_user_id", dependent: :nullify
 
   # Serialization
   serialize :preferences, coder: JSON

@@ -292,6 +292,8 @@ module Ai
                optional: true
 
     has_many :approvals, class_name: "Ai::MissionApproval", foreign_key: "mission_id", dependent: :destroy
+    has_many :provisioning_code_deployments, class_name: "Ai::ProvisioningCodeDeployment",
+                                             foreign_key: "mission_id", dependent: :destroy
 
     # ==================== Validations ====================
     validates :name, presence: true, length: { maximum: 255 }

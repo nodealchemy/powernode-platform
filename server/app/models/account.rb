@@ -255,6 +255,48 @@ class Account < ApplicationRecord
     def system_provider_credentials = []
   end
 
+  # Account-owned rows that carry an account_id FK with no ON DELETE: removed by
+  # the account teardown (see #run_account_teardown). delete_all is used only
+  # for leaf log/event tables with no callbacks and no inbound FKs. Roles are
+  # included because the DB cascades them but their role_permissions do not.
+  has_many :roles, dependent: :destroy
+  has_many :account_terminations, class_name: "Account::Termination", dependent: :destroy
+  has_many :ai_agent_identities, class_name: "Ai::AgentIdentity", dependent: :destroy
+  has_many :ai_agent_model_performances, class_name: "Ai::AgentModelPerformance", dependent: :destroy
+  has_many :ai_agent_privilege_policies, class_name: "Ai::AgentPrivilegePolicy", dependent: :destroy
+  has_many :ai_agent_templates, class_name: "Ai::AgentTemplate", dependent: :destroy
+  has_many :ai_agui_events, class_name: "Ai::AguiEvent", dependent: :delete_all
+  has_many :ai_agui_sessions, class_name: "Ai::AguiSession", dependent: :destroy
+  has_many :ai_behavioral_fingerprints, class_name: "Ai::BehavioralFingerprint", dependent: :destroy
+  has_many :ai_circuit_breakers, class_name: "Ai::CircuitBreaker", dependent: :destroy
+  has_many :ai_compound_learnings, class_name: "Ai::CompoundLearning", dependent: :destroy
+  has_many :ai_context_access_logs, class_name: "Ai::ContextAccessLog", dependent: :delete_all
+  has_many :ai_delegation_policies, class_name: "Ai::DelegationPolicy", dependent: :destroy
+  has_many :ai_encrypted_messages, class_name: "Ai::EncryptedMessage", dependent: :delete_all
+  has_many :ai_evaluation_results, class_name: "Ai::EvaluationResult", dependent: :destroy
+  has_many :ai_execution_events, class_name: "Ai::ExecutionEvent", dependent: :delete_all
+  has_many :ai_execution_traces, class_name: "Ai::ExecutionTrace", dependent: :destroy
+  has_many :ai_mcp_app_instances, class_name: "Ai::McpAppInstance", dependent: :destroy
+  has_many :ai_mcp_apps, class_name: "Ai::McpApp", dependent: :destroy
+  has_many :ai_persistent_contexts, class_name: "Ai::PersistentContext", dependent: :destroy
+  has_many :ai_quarantine_records, class_name: "Ai::QuarantineRecord", dependent: :destroy
+  has_many :ai_remediation_logs, class_name: "Ai::RemediationLog", dependent: :delete_all
+  has_many :ai_role_profiles, class_name: "Ai::RoleProfile", dependent: :destroy
+  has_many :ai_security_audit_trails, class_name: "Ai::SecurityAuditTrail", dependent: :delete_all
+  has_many :ai_shared_knowledges, class_name: "Ai::SharedKnowledge", dependent: :destroy
+  has_many :ai_skill_recipe_runs, class_name: "Ai::SkillRecipeRun", dependent: :destroy
+  has_many :ai_skills, class_name: "Ai::Skill", dependent: :destroy
+  has_many :ai_task_complexity_assessments, class_name: "Ai::TaskComplexityAssessment", dependent: :destroy
+  has_many :data_deletion_requests, class_name: "DataManagement::DeletionRequest", dependent: :destroy
+  has_many :data_export_requests, class_name: "DataManagement::ExportRequest", dependent: :destroy
+  has_many :data_retention_policies, class_name: "DataManagement::RetentionPolicy", dependent: :destroy
+  has_many :devops_port_allocations, class_name: "Devops::PortAllocation", dependent: :destroy
+  has_many :knowledge_base_articles, class_name: "KnowledgeBase::Article", dependent: :destroy
+  has_many :scheduled_reports, class_name: "ScheduledReport", dependent: :destroy
+  has_many :security_secrets, class_name: "Security::Secret", dependent: :destroy
+  has_many :terms_acceptances, class_name: "TermsAcceptance", dependent: :destroy
+  has_many :user_consents, class_name: "UserConsent", dependent: :destroy
+
   # Destroyed by #run_account_teardown after every other dependent (many
   # account-owned rows hold RESTRICT / no-on_delete FKs to users). No
   # `dependent:` here: a declaration-order callback would run too early for
@@ -342,14 +384,16 @@ class Account < ApplicationRecord
   # ivar and a reload wipes it), like register_reserved_setting_key. The block
   # receives the account and returns nil/false/[] to allow, or a String / Array
   # of Strings (reasons) to refuse; a refusal makes `destroy` return false.
+  # Registering under the same key again REPLACES the guard (a to_prepare block
+  # re-runs on every reload without piling up duplicates).
   def self.teardown_guards
-    @teardown_guards ||= []
+    @teardown_guards ||= {}
   end
 
-  def self.register_teardown_guard(&block)
+  def self.register_teardown_guard(key = nil, &block)
     raise ArgumentError, "a teardown guard needs a block" unless block
 
-    teardown_guards << block
+    teardown_guards[key || block] = block
   end
 
   # Keys of #settings that an owner (an extension included) has RESERVED against
@@ -609,15 +653,32 @@ class Account < ApplicationRecord
                   .select { |r| %i[restrict_with_error restrict_with_exception].include?(r.options[:dependent]) }
                   .select { |r| association(r.name).reader.then { |v| v.respond_to?(:exists?) ? v.exists? : v.present? } }
                   .map { |r| "Cannot delete account with existing #{r.name.to_s.humanize.downcase}" }
-    self.class.teardown_guards.each { |guard| reasons.concat(Array(guard.call(self)).compact) }
+    self.class.teardown_guards.each_value { |guard| reasons.concat(Array(guard.call(self)).compact) }
     reasons
   end
 
+  # Runs every reflected dependent (core and extension) whatever its
+  # declaration order. Tables reference each other (agents <- goals, ...), so
+  # a dependent that hits a foreign key / refusing guard is rolled back to its
+  # savepoint and retried after the others; passes repeat while any progress is
+  # made, and the first error is raised when none is.
   def teardown_reflected_dependents
-    self.class.reflect_on_all_associations
-        .select { |r| %i[destroy delete_all nullify].include?(r.options[:dependent]) }
-        .reject { |r| %i[users audit_logs].include?(r.name) }
-        .each { |r| association(r.name).handle_dependency }
+    pending = self.class.reflect_on_all_associations
+                  .select { |r| %i[destroy delete_all nullify].include?(r.options[:dependent]) }
+                  .reject { |r| %i[users audit_logs].include?(r.name) }
+                  .map(&:name)
+    until pending.empty?
+      failures = {}
+      pending.each do |name|
+        self.class.transaction(requires_new: true) { association(name).handle_dependency }
+      rescue ActiveRecord::InvalidForeignKey, ActiveRecord::RecordNotDestroyed => e
+        association(name).reset
+        failures[name] = e
+      end
+      raise failures.values.first if failures.size == pending.size
+
+      pending = failures.keys
+    end
   end
 
   # An account's own deletion audit row would reference the account whose row

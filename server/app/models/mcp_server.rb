@@ -18,6 +18,8 @@ class McpServer < ApplicationRecord
   # Associations
   # ==========================================
   has_many :mcp_tools, dependent: :destroy
+  has_and_belongs_to_many :ai_skills, class_name: "Ai::Skill", join_table: "ai_skills_mcp_servers",
+                                      foreign_key: "mcp_server_id", association_foreign_key: "ai_skill_id"
 
   # IMP-bf72723ef161 — a per-server egress allowlist (capabilities['egress_allowlist'],
   # an array of IP/CIDR/hostname strings) narrows what a sandboxed stdio MCP
