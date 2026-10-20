@@ -411,9 +411,10 @@ class Account < ApplicationRecord
   # FK columns onto users from tables that ALSO hold shared rows (account_id
   # NULL) and that nothing on User deletes/nullifies by that column. Account-
   # owned rows are removed by the account's own dependents, but a SHARED row
-  # (e.g. a platform-wide repository) created by one of the account's users
-  # would block deleting that user with a raw FK error. The teardown refuses
-  # instead, telling the operator to reassign those rows first. Computed from
+  # (e.g. a platform-wide agent or repository) created by one of the account's
+  # users would block deleting that user with a raw FK error. A nullable
+  # attribution column is nullified; a NOT NULL one makes the teardown refuse,
+  # telling the operator to reassign those rows first. Computed from
   # the schema once; a schema change needs a restart anyway.
   def self.shared_user_reference_edges
     @shared_user_reference_edges ||= begin
@@ -426,7 +427,18 @@ class Account < ApplicationRecord
           .select { |f| conn.columns(f.from_table).any? { |c| c.name == "account_id" && c.null } }
           .map { |f| [ f.from_table, f.column.to_s ] }
           .reject { |edge| handled.include?(edge) }
+          .map { |table, column| [ table, column, conn.columns(table).find { |c| c.name == column }.null ] }
     end
+  end
+
+  # Shared rows' NULLABLE attribution columns are nullified by the teardown ...
+  def self.shared_user_nullable_edges
+    shared_user_reference_edges.select { |_t, _c, nullable| nullable }.map { |t, c, _| [ t, c ] }
+  end
+
+  # ... and a NOT NULL one cannot be, so the teardown refuses while such rows exist.
+  def self.shared_user_required_edges
+    shared_user_reference_edges.reject { |_t, _c, nullable| nullable }.map { |t, c, _| [ t, c ] }
   end
 
   def self.teardown_guard_coverage
@@ -699,7 +711,7 @@ class Account < ApplicationRecord
     return [] if user_ids.empty?
 
     conn = self.class.connection
-    self.class.shared_user_reference_edges.filter_map do |table, column|
+    self.class.shared_user_required_edges.filter_map do |table, column|
       tbl = Arel::Table.new(table)
       query = tbl.project(Arel.sql("1")).where(tbl[:account_id].eq(nil).and(tbl[column].in(user_ids))).take(1)
       next unless conn.select_value(query.to_sql).present?
@@ -719,6 +731,11 @@ class Account < ApplicationRecord
     reasons
   end
 
+  # The ONLY User associations that restrict removing a single member and that
+  # the account teardown deletes first (a spec fails if User gains another
+  # restrict_with_* association that is not consciously listed here).
+  TEARDOWN_USER_RESTRICTED_ASSOCIATIONS = %i[database_restores kb_attachments kb_comments kb_workflows].freeze
+
   # Runs every teardown step (core and extension) whatever its declaration
   # order. Steps are the reflected dependents plus the rows that restrict a
   # single user's removal (User `restrict_with_*` associations): removing ONE
@@ -733,9 +750,21 @@ class Account < ApplicationRecord
                 .reject { |r| %i[users audit_logs].include?(r.name) }
                 .to_h { |r| [ r.name, -> { association(r.name).handle_dependency } ] }
     user_ids = users.pluck(:id)
-    User.reflect_on_all_associations
-        .select { |r| %i[restrict_with_error restrict_with_exception].include?(r.options[:dependent]) }
-        .each { |r| steps[:"user_#{r.name}"] = -> { r.klass.where(r.foreign_key => user_ids).destroy_all } }
+    TEARDOWN_USER_RESTRICTED_ASSOCIATIONS.map { |name| User.reflect_on_association(name) }.each do |r|
+      steps[:"user_#{r.name}"] = lambda do
+        reparent_foreign_replies(user_ids) if r.klass == KnowledgeBase::Comment
+        r.klass.where(r.foreign_key => user_ids).destroy_all
+      end
+    end
+    self.class.shared_user_nullable_edges.each do |table, column|
+      steps[:"shared_#{table}_#{column}"] = lambda do
+        tbl = Arel::Table.new(table)
+        self.class.connection.update(
+          Arel::UpdateManager.new.table(tbl).set([ [ tbl[column], nil ] ])
+                             .where(tbl[:account_id].eq(nil).and(tbl[column].in(user_ids))).to_sql
+        )
+      end
+    end
 
     until steps.empty?
       failures = {}
@@ -749,6 +778,14 @@ class Account < ApplicationRecord
 
       steps = steps.slice(*failures.keys)
     end
+  end
+
+  # Comments are destroyed with their replies (dependent: :destroy); a reply by
+  # a user OUTSIDE this account on a shared article must survive, so detach it
+  # to top level first (parent_id is nullable).
+  def reparent_foreign_replies(user_ids)
+    mine = KnowledgeBase::Comment.where(author_id: user_ids).select(:id)
+    KnowledgeBase::Comment.where(parent_id: mine).where.not(author_id: user_ids).update_all(parent_id: nil)
   end
 
   # An account's own deletion audit row would reference the account whose row

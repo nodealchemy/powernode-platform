@@ -82,7 +82,7 @@ module Ai
     has_many :messages, class_name: "Ai::Message", foreign_key: "ai_agent_id", dependent: :destroy
     has_many :agent_skills, class_name: "Ai::AgentSkill", foreign_key: "ai_agent_id", dependent: :destroy
     has_many :sourced_agent_templates, class_name: "Ai::AgentTemplate", foreign_key: "source_agent_id", dependent: :nullify
-    has_many :code_review_comments, class_name: "Ai::CodeReviewComment", foreign_key: "agent_id", dependent: :destroy
+    has_many :code_review_comments, class_name: "Ai::CodeReviewComment", foreign_key: "agent_id", dependent: :nullify
     has_many :delegation_policies, class_name: "Ai::DelegationPolicy", foreign_key: "agent_id", dependent: :destroy
     has_many :skills, class_name: "Ai::Skill", through: :agent_skills, source: :skill
 

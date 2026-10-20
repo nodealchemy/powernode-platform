@@ -115,6 +115,8 @@ class User < ApplicationRecord
   has_many :kb_comments, class_name: "KnowledgeBase::Comment", foreign_key: "author_id", dependent: :restrict_with_error
   has_many :kb_workflows, class_name: "KnowledgeBase::Workflow", dependent: :restrict_with_error
   has_many :ai_context_entries, class_name: "Ai::ContextEntry", foreign_key: "created_by_user_id", dependent: :nullify
+  has_many :uploaded_ai_documents, class_name: "Ai::Document", foreign_key: "uploaded_by_id", dependent: :nullify
+  has_many :granted_user_roles, class_name: "UserRole", foreign_key: "granted_by_id", dependent: :nullify
 
   # Serialization
   serialize :preferences, coder: JSON

@@ -45,7 +45,8 @@ RSpec.describe "Account teardown FK coverage" do
     nullified = Set.new      # [table, column]
     row_deleted = Set.new    # [table, column] deleted by exactly that column
     guarded_tables = Set.new
-    restricted = Set.new     # [table, column] behind a restrict_with_* association
+    restricted = Set.new     # [table, column] behind a restrict_with_* on Account or User
+    owners = {}              # table => tables whose rows delete it (dependent: destroy/delete_all)
     # Account#run_account_teardown destroys the users and deletes the audit rows itself.
     row_deleted << %w[users account_id] << %w[audit_logs account_id]
     queue = [ Account, User ]
@@ -55,7 +56,10 @@ RSpec.describe "Account teardown FK coverage" do
       next unless seen.add?(model)
 
       # A HABTM join table is cleaned by Rails when the owner row is destroyed.
-      model.reflect_on_all_associations(:has_and_belongs_to_many).each { |r| deleted << r.join_table }
+      model.reflect_on_all_associations(:has_and_belongs_to_many).each do |r|
+        deleted << r.join_table
+        [ r.foreign_key, r.association_foreign_key ].each { |col| row_deleted << [ r.join_table, col.to_s ] }
+      end
       model.reflect_on_all_associations.each do |r|
         next if r.options[:through]
 
@@ -64,6 +68,7 @@ RSpec.describe "Account teardown FK coverage" do
         case r.options[:dependent]
         when :destroy, :delete_all
           deleted << k.table_name
+          (owners[k.table_name] ||= Set.new) << model.table_name
           row_deleted << [ k.table_name, fk ]
           queue << k if r.options[:dependent] == :destroy
         when :nullify then nullified << [ k.table_name, fk ]
@@ -71,7 +76,9 @@ RSpec.describe "Account teardown FK coverage" do
           guarded_tables << k.table_name if model == Account
           # A restricted association refuses cleanly (no raw FK error); on User it is
           # also the set of rows Account#run_account_teardown deletes first.
-          restricted << [ k.table_name, fk ]
+          # Only a restrict on Account or User is a PRE-FLIGHT refusal (it fires before
+          # the teardown has any side effect); a nested one fires mid-cascade.
+          restricted << [ k.table_name, fk ] if [ Account, User ].include?(model)
           row_deleted << [ k.table_name, fk ] if model == User
         end
       end
@@ -81,16 +88,29 @@ RSpec.describe "Account teardown FK coverage" do
       more = fks.select { |f| deleted.include?(f.to_table) && f.on_delete == :cascade && !deleted.include?(f.from_table) }
       break if more.empty?
 
-      more.each { |f| deleted << f.from_table }
+      more.each do |f|
+        deleted << f.from_table
+        (owners[f.from_table] ||= Set.new) << f.to_table
+      end
     end
     { deleted: deleted, nullified: nullified, row_deleted: row_deleted,
-      guarded_tables: guarded_tables, restricted: restricted, fks: fks }
+      guarded_tables: guarded_tables, restricted: restricted, owners: owners, fks: fks }
   end
 
-  # A table that also holds shared rows (nullable account_id): deleting "the
-  # account's" rows is only a PARTIAL deletion of it.
-  def partial_table?(table)
-    ActiveRecord::Base.connection.columns(table).any? { |col| col.name == "account_id" && col.null }
+  # Is EVERY row of the table removed once its owners' rows are? True when each
+  # row carries a NOT NULL account_id, or the table has no account_id and every
+  # association that deletes it hangs under a tenant-complete owner. A nullable
+  # account_id (shared rows) -- or a child of such a shared table -- is only
+  # PARTLY deleted, so its other outbound references need their own coverage.
+  def tenant_complete?(table, facts, visiting = Set.new)
+    return true if %w[accounts users].include?(table)
+    return false unless visiting.add?(table)
+
+    account_col = ActiveRecord::Base.connection.columns(table).find { |col| col.name == "account_id" }
+    return !account_col.null if account_col
+
+    parents = facts[:owners][table].to_a
+    parents.any? && parents.all? { |parent| parent == table || tenant_complete?(parent, facts, visiting.dup) }
   end
 
   def covered?(fk, facts)
@@ -101,10 +121,10 @@ RSpec.describe "Account teardown FK coverage" do
     return true if Account.teardown_guard_coverage.any? { |gt, gc| gt == t && (gc == "*" || gc == c) }
     return true if facts[:nullified].include?([ t, c ]) && column_nullable?(t, c)
     return true if facts[:row_deleted].include?([ t, c ])
-    return true if Account.shared_user_reference_edges.include?([ t, c ]) # refused while shared rows exist
+    return true if Account.shared_user_reference_edges.any? { |st, sc, _| st == t && sc == c } # nullified / refused
     # Deleted through some association and EVERY row belongs to an account (or
     # hangs under an account-owned parent): all of its outbound references go.
-    return true if facts[:deleted].include?(t) && !partial_table?(t)
+    return true if facts[:deleted].include?(t) && tenant_complete?(t, facts)
 
     false
   end
@@ -121,5 +141,15 @@ RSpec.describe "Account teardown FK coverage" do
     facts = teardown_closure
     bad = facts[:nullified].reject { |t, c| !ActiveRecord::Base.connection.table_exists?(t) || column_nullable?(t, c) }
     expect(bad).to eq([])
+  end
+
+  # The teardown deletes User's restricted rows first; a NEW restrict_with_*
+  # association on User must be a conscious decision (add it to the allow-list
+  # in Account, and decide what the teardown does with its rows).
+  it "knows every restrict_with_* association on User" do
+    restricting = User.reflect_on_all_associations
+                      .select { |r| %i[restrict_with_error restrict_with_exception].include?(r.options[:dependent]) }
+                      .map(&:name)
+    expect(restricting.sort).to eq(Account::TEARDOWN_USER_RESTRICTED_ASSOCIATIONS.sort)
   end
 end

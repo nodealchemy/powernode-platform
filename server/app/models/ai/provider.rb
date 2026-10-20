@@ -21,6 +21,11 @@ module Ai
     # No `has_many :credentials`: that name is Provider::Configurable#credentials
     # (the active credential's decrypted hash), which shadowed the association's
     # reader (IMP-01a08cd0). Query the relation through provider_credentials.
+    # A SHARED agent (account_id NULL) never runs on this provider -- what runs is
+    # the account's clone -- so deleting the provider just detaches it. Declared
+    # BEFORE the restrict below so it clears first.
+    has_many :shared_agents, -> { where(account_id: nil) }, class_name: "Ai::Agent",
+                                                              foreign_key: "ai_provider_id", dependent: :nullify
     has_many :agents, class_name: "Ai::Agent", foreign_key: "ai_provider_id", dependent: :restrict_with_error
     has_many :agent_executions, class_name: "Ai::AgentExecution", foreign_key: "ai_provider_id", dependent: :restrict_with_error
     has_many :conversations, class_name: "Ai::Conversation", foreign_key: "ai_provider_id", dependent: :restrict_with_error

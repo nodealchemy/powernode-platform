@@ -362,24 +362,44 @@ RSpec.describe Account, type: :model do
   end
 
   describe "shared rows that reference the account's users" do
-    it "refuses the teardown (changing nothing) until the shared row is reassigned" do
+    it "nullifies nullable attribution columns of shared (account-less) rows and keeps the rows" do
       account = create(:account)
       user = create(:user, account: account)
-      other_owner = create(:account)
-      heir = create(:user, account: other_owner)
-      shared_agent = create(:ai_agent, :global, owner_account: other_owner, creator: user)
-      keep = create(:api_key, account: account, created_by: user)
+      shared_agent = create(:ai_agent, :global, owner_account: create(:account), creator: user)
+
+      expect { account.destroy! }.not_to raise_error
+
+      expect(Ai::Agent.find(shared_agent.id).creator_id).to be_nil
+      expect(User.exists?(user.id)).to be false
+    end
+
+    it "refuses (changing nothing) while a NOT NULL column of a shared row still points at a user" do
+      account = create(:account)
+      user = create(:user, account: account)
+      key = create(:api_key, account: account, created_by: user)
+      allow(Account).to receive(:shared_user_required_edges).and_return([ %w[ai_agents creator_id] ])
+      create(:ai_agent, :global, owner_account: create(:account), creator: user)
 
       expect(account.destroy).to be false
       expect(account.errors[:base].join).to match(/shared ai agents .*creator_id.*reassign/i)
-      expect(Account.exists?(account.id)).to be true
-      expect(ApiKey.exists?(keep.id)).to be true
+      expect(ApiKey.exists?(key.id)).to be true
       expect(Account.teardown_ids).to be_empty
+    end
+  end
 
-      shared_agent.update_columns(creator_id: heir.id)
+  describe "account teardown and replies from other accounts" do
+    it "keeps another account's reply to a deleted comment, re-parented to top level" do
+      account = create(:account)
+      author = create(:user, account: account)
+      outsider = create(:user, account: create(:account))
+      article = create(:kb_article, author: outsider)
+      comment = KnowledgeBase::Comment.create!(article: article, author: author, content: "question")
+      reply = KnowledgeBase::Comment.create!(article: article, author: outsider, parent: comment, content: "answer")
 
-      expect { account.destroy! }.not_to raise_error
-      expect(Ai::Agent.exists?(shared_agent.id)).to be true
+      account.destroy!
+
+      expect(KnowledgeBase::Comment.exists?(comment.id)).to be false
+      expect(KnowledgeBase::Comment.find(reply.id).parent_id).to be_nil
     end
   end
 
