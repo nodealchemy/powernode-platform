@@ -57,9 +57,10 @@
 # isolated, low-concurrency thread pool, so long-running codebase index/prune
 # jobs never head-of-line-block the queues above.
 
-# Redis configuration
+# Redis configuration. POWERNODE_WORKER_REDIS_URL first, then REDIS_URL, as in
+# config/application.rb (IMP-daecbb8a050e).
 :redis:
-  url: <%= ENV.fetch('REDIS_URL', 'redis://localhost:6379/1') %>
+  url: <%= ENV['POWERNODE_WORKER_REDIS_URL'].to_s.strip.empty? ? ENV.fetch('REDIS_URL', 'redis://localhost:6379/1') : ENV['POWERNODE_WORKER_REDIS_URL'] %>
   size: <%= ENV.fetch('WORKER_CONCURRENCY', '25').to_i + 5 %>
   network_timeout: 5
   pool_timeout: 5
