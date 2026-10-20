@@ -141,6 +141,66 @@ shared cluster's preps.
 - `status`, `stop` and `destroy` never touch port 5432. `stop` refuses while a prep script holds
   its lock unless `--force`.
 
+### Parallel runs (opt-in)
+
+`scripts/parallel-rspec.sh` runs `server/spec` plus the public extensions' specs
+(`extensions/{system,marketing,supply-chain}/server/spec`) in N processes. **Every process owns a Postgres
+database (`powernode_test__p1`..`__pN`) and a Redis lane**, which is what makes it safe where "two rspec
+processes at once" is not: nothing is shared but the filesystem. A plain `bundle exec rspec`, a worktree
+lane and CI never see any of it.
+
+```bash
+scripts/test-pg-tmpfs.sh start                 # the parallel run refuses the shared 5432 cluster
+DATABASE_PORT=5433 scripts/parallel-rspec.sh   # starts the test Redis, preps lanes, runs, then the serial tail
+DATABASE_PORT=5433 scripts/parallel-rspec.sh --check          # guard + the N it would use; starts nothing (it prunes dead entries in, and may create, the lane ledger)
+DATABASE_PORT=5433 scripts/parallel-rspec.sh -n 4 -- spec/models   # fixed N, chosen paths
+DATABASE_PORT=5433 VALIDATE_PARALLEL=auto scripts/validate.sh      # platform spec pass of the gate (extensions stay serial)
+```
+
+- **Lanes.** `parallel_tests` numbers its processes `""`, `2`, `3`...; those would land on the worktrees'
+  `powernode_test2/3/4`. `spec/parallel_lane_env.rb` (loaded by `server/.rspec_parallel` before Rails)
+  renames each process to `TEST_ENV_NUMBER=__pK` and `TEST_REDIS_LANE=TEST_REDIS_LANE_BASE+K-1`. It does nothing unless
+  `parallel_tests` started the process, and it refuses a missing or `5432` `DATABASE_PORT` and a missing
+  `TEST_REDIS_PORT`.
+- **Redis.** The shared daemon has 16 databases = 6 lanes, which worktrees hold. `scripts/test-redis.sh`
+  runs a second, loopback-only, no-persistence daemon (default port 6380, 64 databases = 30 lanes;
+  `start|stop|status`, data under `/dev/shm/powernode-test-redis`). The suite finds it through
+  `TEST_REDIS_PORT` / `TEST_REDIS_DATABASES` (`config/initializers/redis.rb`); unset, nothing changes.
+  The shared Redis is never touched.
+- **DB prep.** `prepare-extension-test-db.sh --lanes "__p1 __p2 ..."` resolves the cluster once, builds a
+  golden template if its fingerprint is stale (`--lanes` in core mode has its own golden, `powernode_test_golden_core`, tmpfs cluster only; the serial core default is unchanged; two preps racing to rebuild one golden is a pre-existing property of the design), then every
+  lane is a `CREATE DATABASE ... TEMPLATE` clone under the per-cluster lock: about 5 s for 8 lanes, versus
+  8-10 s per lane before. Lane names are validated as `__p<N>` or `__w<6 hex>p<N>` before anything reaches `dropdb`.
+- **How many processes.** Computed live, no fixed cap: `N = min(cores, (MemAvailable - reserve) / per-process
+  memory, free Redis lanes, (max_connections - 3 - in use) / connections per process)`; the limiting factor
+  is printed. Defaults (all overridable): `PARALLEL_RSS_MB=2000` (measured steady peak ~1 GB per process after ~8k examples, growing ~65 MB per 1k examples; a one-off transient of 6.8 GB was seen in a single process, so this is a planning figure, not a ceiling),
+  `PARALLEL_DB_MB=80` (per-process memory in the formula is RSS + DB MB), `PARALLEL_MEM_RESERVE_MB=2048` (the effective reserve is at least 7000 + the test Redis maxmemory: one process's observed transient spike plus Redis), `PARALLEL_PG_CONNS=4` (measured: 14 connections for 8 processes, ~1.75 each). `-n N` / `PARALLEL_N`
+  overrides (still capped by Redis lanes). `MemAvailable` is read at start, so more RAM raises N. A bound that computes to 0 (memory below the reserve, Postgres unreachable) is a refusal, never one process anyway.
+- **Worktrees.** Each checkout has its own lane namespace: the main checkout `__p` (databases
+  `powernode_test__p1..N`), any other git worktree `__w<6 hex of sha1(path)>p`; `PARALLEL_LANE_PREFIX` overrides
+  (only those two shapes are accepted, since lane names reach `dropdb`). Redis lanes are claimed as a contiguous
+  range from a ledger (`<TEST_REDIS_DIR>/lanes.ledger`, released on exit, dead pids pruned). A 64-database
+  daemon has 30 lanes, shared by every concurrent run: a second run is sized to the lanes still free (N shrinks,
+  "redis" becomes the limiting factor) and refuses to start at 0, so two full-width runs cannot overlap (30 lanes
+  = two 15-process runs, or sixteen plus fourteen). Raise `TEST_REDIS_DATABASES` for more. One prefix runs once at
+  a time. `--check` prints the namespace and the Redis range.
+- **Redis memory.** `scripts/test-redis.sh` sets `maxmemory` to ~10% of RAM (min 2 GB, `TEST_REDIS_MAXMEMORY_MB`),
+  `noeviction`: a full run peaks near 1.5 GB (embedding-cache keys), and an OOM error must stay loud.
+- **Serial tail.** `scripts/parallel-serial-tail.txt` lists specs that share state across processes
+  (`truncation: true`, fixed names under `Rails.root/tmp`, the real `config/extensions_state.json`). They run
+  afterwards in one process on lane `__p1`. `spec/lint/parallel_serial_tail_spec.rb` fails when a new spec
+  matching those shapes is not listed.
+- **Signals.** The wrapper runs each phase as its own process group (`setsid`) and traps INT, TERM, HUP and QUIT:
+  it TERMs the whole group, waits for it, escalates to KILL if the group ignores TERM for `PARALLEL_KILL_AFTER`
+  seconds (default 30), and only then releases the Redis ledger. `setsid` is required.
+- **Balancing and output.** Files are balanced by recorded runtimes (`server/tmp/parallel_runtime_rspec.log`,
+  rewritten by each full run; the first run balances by file size. A subset run (explicit paths) keeps and restores the full log, and files missing from a log are tolerated via `--allowed-missing 100`). Failures are collected in
+  `server/tmp/parallel_failures.log` and `server/tmp/serial_tail_failures.log`; exit status is non-zero when
+  either phase failed. CI keeps its own 6 file-balanced shards and is unchanged.
+- **After a reboot** `/dev/shm` is empty: `scripts/test-pg-tmpfs.sh start`; the wrapper restarts the test Redis
+  and rebuilds the lanes itself.
+- **Tuning knobs** `PARALLEL_STATS=<file>` samples per-process RSS, `MemAvailable` and PG connections every 5 s.
+
 ### Targeted vs. full suite
 
 The full backend suite is slow. Run only the specs touching the files you changed during development. The full suite runs in CI on every PR.
@@ -542,7 +602,7 @@ Failing tests get filed as platform issues with the test number prefixed (e.g., 
 The test database uses `DatabaseCleaner` with the `:deletion` strategy — this avoids `TRUNCATE` deadlocks between concurrent processes. Consequences:
 
 - **You can** run frontend tests (`CI=true npm test`) and TypeScript checks concurrently with backend specs.
-- **You cannot** run multiple single-process rspec instances simultaneously on the same database. Use the parallel test gem if you need parallel rspec.
+- **You cannot** run multiple rspec processes simultaneously on the SAME database (`TRUNCATE`/`DELETE` deadlocks, and a transient `role_permissions` FK violation in `before(:suite)`). One process per database is fine: see [Parallel runs](#parallel-runs-opt-in) for N processes that each own a database and a Redis lane.
 - **Worker job specs** run in Sidekiq test mode and don't touch the real database — safe to parallelize.
 
 ### Test data hygiene
