@@ -37,6 +37,7 @@ are out of scope here. Platform (non-system) actions the harness reports as unkn
 |--------|-----|------|
 | `cost_analysis` | `docs/operations/incident-response.md` | Real MCP action exposed by the running server (present in the live tool list as `platform.cost_analysis`); not matched by the static `check-mcp-actions.sh` grep of `platform_api_tool_registry.rb`. Treat as an expected unknown — the documented usage is correct. |
 | `recent_events` | `docs/operations/incident-response.md` | Real MCP action exposed by the running server (`platform.recent_events`); same static-grep limitation. Treat as an expected unknown. |
+| `health` | `docs/operations/streamlining-review-2026-10-19.md` | Real MCP action exposed by the running server (`platform.health`); same static-grep limitation. Treat as an expected unknown. |
 
 If the platform's `check-mcp-actions.sh` flags a non-system action that
 should be aspirational rather than fixed in the docs, add a row in the
