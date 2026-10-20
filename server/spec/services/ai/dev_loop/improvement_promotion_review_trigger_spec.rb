@@ -139,7 +139,7 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService, "independent-review tri
 
     it "routes to a synchronous unnamed subagent so the result reaches the executor" do
       expect(criteria).to include("SYNCHRONOUS UNNAMED subagent")
-      expect(criteria).to include("report back to you")
+      expect(criteria).to match(/reports? back/)
     end
 
     it "explicitly steers away from /code-review, which forks to the parent session" do
@@ -149,6 +149,49 @@ RSpec.describe Ai::DevLoop::ImprovementPromotionService, "independent-review tri
 
     it "bars the reviewer from rspec, because the test DB is shared" do
       expect(criteria).to include("Bar the reviewer from running rspec")
+    end
+
+    # A delegated subagent (platform-engineer) has no tool to spawn a reviewer:
+    # subagents cannot spawn subagents. The review stays REQUIRED; only who runs
+    # it moves to the delegating session or driver.
+    it "keeps the review REQUIRED but moves who runs it when the executor is a delegated subagent" do
+      expect(criteria).to include("Independent review REQUIRED")
+      expect(criteria).to match(/delegated subagent/i)
+      expect(criteria).to match(/cannot spawn/i)
+      expect(criteria).to match(/report your diff/i)
+      expect(criteria).to match(/delegating session or (the )?(loop )?driver runs the independent review/i)
+      expect(criteria).to match(/do not (self-review|review it yourself|skip)/i)
+    end
+  end
+
+  describe "the review guardrail line" do
+    let(:line) { described_class::GUARDRAILS.find { |g| g.start_with?("Independent review") } }
+
+    it "carries the same split: the session or driver spawns the reviewer, a delegated subagent reports its diff" do
+      expect(line).to include("SYNCHRONOUS UNNAMED subagent")
+      expect(line).to match(/delegated subagent/i)
+      expect(line).to match(/cannot spawn/i)
+      expect(line).to match(/report your diff/i)
+      expect(line).to match(/delegating session or (the )?(loop )?driver runs the independent review/i)
+      expect(line).to include("don't trust spec-green alone")
+      expect(line).to include("Bar the reviewer from running rspec")
+    end
+
+    it "replaces the previous wording in an already-created loop's persisted snapshot" do
+      previous = "Independent review, WHEN THE TASK'S ACCEPTANCE CRITERIA ASK FOR IT: spawn a " \
+                 "SYNCHRONOUS UNNAMED subagent to review the diff before committing (don't trust " \
+                 "spec-green alone). Do NOT use /code-review — a slash-forked skill routes its result " \
+                 "to the PARENT session, not to you, so you pay for a review you cannot read. A " \
+                 "teammate also cannot spawn named or background agents; the synchronous unnamed form " \
+                 "is the one that reports back. Bar the reviewer from running rspec — the test DB is " \
+                 "shared and concurrent runs deadlock"
+      snapshot = [ *Ai::DevLoop::LoopGuardrails::HEAD, previous, "Some loop-specific rule", *Ai::DevLoop::LoopGuardrails::TAIL ]
+
+      refreshed = Ai::DevLoop::LoopGuardrails.refresh(snapshot)
+
+      expect(refreshed).not_to include(previous)
+      expect(refreshed.join(" ")).to match(/delegated subagent/i)
+      expect(refreshed).to include("Some loop-specific rule")
     end
   end
 end

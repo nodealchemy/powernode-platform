@@ -12,7 +12,7 @@ module Ai
       DEFAULT_GUARDRAILS = LoopGuardrails.compose(
         "Re-verify the finding against current code BEFORE changing anything (findings rot)",
         "Write a failing test reproducing the finding FIRST; confirm it is red",
-        "Independent review of the diff before committing (don't trust green alone)",
+        LoopGuardrails::CAMPAIGN_REVIEW_LINE,
         "Commit only to the campaign branch — never develop/master, never push"
       )
 

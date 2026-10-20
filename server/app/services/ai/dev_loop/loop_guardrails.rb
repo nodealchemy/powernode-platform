@@ -41,6 +41,31 @@ module Ai
         "When you brief or prompt a Fable/Mythos agent, state the goal and constraints rather than step-by-step instructions (search_knowledge tag:guidance-frontier-model-compliance). The platform handles a Fable/Mythos refusal itself (one automatic reframe, then an Opus fallback, logged), so do not retry it by hand"
       ].freeze
 
+      # WHO runs the independent review (the review itself stays required where a
+      # task asks for it). A delegated subagent — the platform-engineer a session or
+      # the loop driver spawns — has no tool to spawn another subagent, so told to
+      # "spawn a reviewer" it either failed or reviewed its own work. The delegating
+      # session or the loop driver runs the review; the executor reports its diff.
+      # One wording, shared by the dev-improve guardrail line, the campaign line and
+      # the promoted task's acceptance criteria, so they cannot drift.
+      REVIEW_WHO_RUNS_IT =
+        "the delegating session or the loop driver runs the independent review: it spawns a SYNCHRONOUS UNNAMED " \
+        "subagent to review the diff before the work is committed. If you are a delegated subagent you cannot " \
+        "spawn subagents, so do not self-review and do not skip it: report your diff (branch, base..head, files, " \
+        "spec results) for that review and do not commit past it until it comes back"
+
+      # The dev-improve guardrail line (also the replacement for its superseded wordings).
+      IMPROVE_REVIEW_LINE =
+        "Independent review, WHEN THE TASK'S ACCEPTANCE CRITERIA ASK FOR IT (then it is REQUIRED): " \
+        "#{REVIEW_WHO_RUNS_IT} (don't trust spec-green alone). Do NOT use /code-review — a slash-forked skill " \
+        "routes its result to the PARENT session, not to the one who invoked it, so the review is paid for and " \
+        "unread. A teammate also cannot spawn named or background agents; the synchronous unnamed form is the " \
+        "one that reports back. Bar the reviewer from running rspec — the test DB is shared and concurrent runs deadlock"
+
+      # The campaign loop's line.
+      CAMPAIGN_REVIEW_LINE =
+        "Independent review of the diff before committing (don't trust green alone): #{REVIEW_WHO_RUNS_IT}"
+
       module_function
 
       # Compose a loop's guardrail list: shared head + this loop's task-specific
@@ -79,14 +104,11 @@ module Ai
       # removal: dropping the line would leave existing loops with no review
       # guidance at all, which is a worse failure than stale guidance.
       SUPERSEDED_MIDDLE = {
-        %r{Independent review:.*?/code-review}i =>
-          "Independent review, WHEN THE TASK'S ACCEPTANCE CRITERIA ASK FOR IT: spawn a " \
-          "SYNCHRONOUS UNNAMED subagent to review the diff before committing (don't trust " \
-          "spec-green alone). Do NOT use /code-review — a slash-forked skill routes its result " \
-          "to the PARENT session, not to you, so you pay for a review you cannot read. A " \
-          "teammate also cannot spawn named or background agents; the synchronous unnamed form " \
-          "is the one that reports back. Bar the reviewer from running rspec — the test DB is " \
-          "shared and concurrent runs deadlock"
+        %r{Independent review:.*?/code-review}i => IMPROVE_REVIEW_LINE,
+        # The wording that told EVERY executor to spawn the reviewer itself, which
+        # a delegated subagent cannot do.
+        %r{Independent review, WHEN THE TASK'S ACCEPTANCE CRITERIA ASK FOR IT: spawn a SYNCHRONOUS UNNAMED}i => IMPROVE_REVIEW_LINE,
+        %r{\AIndependent review of the diff before committing \(don't trust green alone\)\z}i => CAMPAIGN_REVIEW_LINE
       }.freeze
 
       # Former exact wordings of HEAD/TAIL lines. A persisted snapshot still

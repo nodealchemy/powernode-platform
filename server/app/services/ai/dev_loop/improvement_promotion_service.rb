@@ -27,7 +27,7 @@ module Ai
       GUARDRAILS = LoopGuardrails.compose(
         "Re-verify the finding against current code BEFORE changing anything (findings rot)",
         "Write a failing spec reproducing the finding FIRST; confirm it is red",
-        "Independent review, WHEN THE TASK'S ACCEPTANCE CRITERIA ASK FOR IT: spawn a SYNCHRONOUS UNNAMED subagent to review the diff before committing (don't trust spec-green alone). Do NOT use /code-review — a slash-forked skill routes its result to the PARENT session, not to you, so you pay for a review you cannot read. A teammate also cannot spawn named or background agents; the synchronous unnamed form is the one that reports back. Bar the reviewer from running rspec — the test DB is shared and concurrent runs deadlock",
+        LoopGuardrails::IMPROVE_REVIEW_LINE,
         "Never introduce a core->extension dependency or a private-extension name into a core file",
         "Commit only to the loop branch — never develop/master, never push"
       )
@@ -307,7 +307,8 @@ module Ai
         | token | secret | key[\s_]material | bypass | escalat | leak
       /xi
 
-      # Routed to a SYNCHRONOUS UNNAMED subagent deliberately. A slash-forked
+      # Routed to a SYNCHRONOUS UNNAMED subagent, spawned by the delegating session or
+      # the loop driver (a delegated subagent cannot spawn one), deliberately. A slash-forked
       # /code-review delivers its result to the PARENT session rather than to the
       # executor that invoked it, so the mandated review was being paid for in full
       # and delivered to an address the executor could not read — observed three
@@ -315,9 +316,9 @@ module Ai
       # structurally could not arrive.
       REVIEW_INSTRUCTION =
         "Independent review REQUIRED before committing (this finding is multi-file, touches a " \
-        "sensitive path, or reads as security-relevant): spawn a SYNCHRONOUS UNNAMED subagent to " \
-        "review the diff and report back to you — NOT /code-review, which forks its result to the " \
-        "parent session. Bar the reviewer from running rspec; the test DB is shared."
+        "sensitive path, or reads as security-relevant): #{LoopGuardrails::REVIEW_WHO_RUNS_IT}. " \
+        "The reviewer reports back to the session or driver — NOT /code-review, which forks its " \
+        "result to the parent session. Bar the reviewer from running rspec; the test DB is shared."
 
       def independent_review_required?(_rec, evidence)
         files = Array(evidence["files"])
