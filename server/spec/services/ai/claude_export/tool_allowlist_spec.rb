@@ -100,7 +100,7 @@ RSpec.describe Ai::ClaudeExport::ToolAllowlist do
       actions = mcp_actions(described_class.for(agent_with(tool_access: { "enabled" => false })))
 
       expect(actions).to contain_exactly(
-        "get_agent", "discover_skills", "get_skill_context", "search_knowledge",
+        "get_agent", "assemble_task", "discover_skills", "get_skill_context", "search_knowledge",
         "query_learnings", "code_semantic_search", "discover_tools", "describe_tool", "route_task",
         "record_agent_execution"
       )

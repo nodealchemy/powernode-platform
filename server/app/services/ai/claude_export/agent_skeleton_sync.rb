@@ -22,7 +22,7 @@ module Ai
     # step feeds to get_skill_context.
     #
     # TWO SCOPES, TWO DIRECTORIES:
-    #   * no account  -> the C4 survivors ONLY (Ai::Agents::CanonicalRoster::SLUGS),
+    #   * no account  -> the C4 survivors ONLY (Ai::Agents::CanonicalRoster.slugs),
     #                    rendered by ThinLoader, written to .claude/agents/powernode/
     #                    and COMMITTED (freshness-gated by
     #                    scripts/check-claude-agents-fresh.sh). Every other
@@ -95,7 +95,7 @@ module Ai
       # all) so re-running with no agent changes produces zero writes.
       def sync!
         FileUtils.mkdir_p(@target_dir)
-        return write_all(::Ai::Agents::CanonicalRoster::SLUGS.to_h { |slug| [ slug, ThinLoader.render(slug) ] }) if canonical_scope?
+        return write_all(::Ai::Agents::CanonicalRoster.slugs.to_h { |slug| [ slug, ThinLoader.render(slug) ] }) if canonical_scope?
 
         agents = syncable_agents
         context = build_context(agents)

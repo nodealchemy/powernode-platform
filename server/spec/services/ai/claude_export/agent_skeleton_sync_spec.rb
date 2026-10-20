@@ -73,7 +73,7 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
     context "canonical scope (no account — the committed thin loaders)" do
       subject(:service) { described_class.new(target_dir: target_dir) }
 
-      let(:roster) { Ai::Agents::CanonicalRoster::SLUGS }
+      let(:roster) { Ai::Agents::CanonicalRoster.slugs }
 
       def written_slugs
         Dir[File.join(target_dir, "*.md")].map { |path| File.basename(path, ".md") }
@@ -90,6 +90,20 @@ RSpec.describe Ai::ClaudeExport::AgentSkeletonSync, type: :service do
         expect(result.total).to eq(roster.size)
         expect(written_slugs).to match_array(roster)
         roster.each { |slug| expect(committed(slug)).to eq(Ai::ClaudeExport::ThinLoader.render(slug)) }
+      end
+
+      it "exports exactly core's three, and removes a stale extension skeleton, when no extension registered an agent (core mode)" do
+        core_only = Ai::Agents::CanonicalRoster::Registry.new
+        Ai::Agents::CanonicalRoster.each(owner: Ai::Agents::CanonicalRoster::CORE_OWNER) { |slug, spec, owner| core_only.register(slug, spec, owner: owner) }
+        allow(Ai::Agents::CanonicalRoster).to receive(:registry).and_return(core_only)
+        stale = File.join(target_dir, "fleet-operator.md")
+        File.write(stale, "---\nname: fleet-operator\n---\n#{described_class::GENERATED_HEADER}\n")
+
+        result = service.sync!
+
+        expect(written_slugs).to match_array(%w[powernode-concierge platform-engineer platform-reviewer])
+        expect(result.removed).to eq([ "fleet-operator" ])
+        expect(File.exist?(stale)).to be(false)
       end
 
       it "ignores every database canonical outside the roster — the legacy ones included" do

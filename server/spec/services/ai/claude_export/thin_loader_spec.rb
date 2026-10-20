@@ -24,18 +24,21 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
   let(:mcp) { ->(action) { "mcp__powernode__platform_#{action}" } }
   let(:bootstrap) { described_class::BOOTSTRAP_ACTIONS.map { |action| mcp.call(action) } }
 
-  it "declares a role for exactly the roster's slugs" do
-    expect(described_class::ROLES.keys).to match_array(roster::SLUGS)
+  def role_of(slug) = Ai::Agents::CanonicalRoster.fetch(slug)[:role]
+
+  it "reads each agent's role from its roster spec (no second table to drift)" do
+    expect(described_class.constants).not_to include(:ROLES)
+    roster.slugs.each { |slug| expect(role_of(slug).keys).to match_array(%i[code shell server_grant duty]), slug }
   end
 
-  roster::SLUGS.each do |slug|
+  roster.slugs.each do |slug|
     describe slug do
       let(:content) { described_class.render(slug) }
 
       it "carries name, the roster's routing description and model — and nothing else — in its frontmatter" do
         fm = frontmatter_of(content)
 
-        granted = described_class::ROLES.fetch(slug)[:server_grant]
+        granted = role_of(slug)[:server_grant]
         expect(fm.keys).to eq(%w[name description model tools] + (granted ? %w[disallowedTools] : []))
         expect(fm["name"]).to eq(slug)
         expect(fm["description"]).to eq(roster.fetch(slug)[:description])
@@ -56,12 +59,12 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
         expect(content.bytesize).to be <= described_class::MAX_BYTES
       end
 
-      it "bootstraps by slug: charter, skills, tools on demand, the work, then the self-report" do
+      it "bootstraps by slug: charter, assembly, tools on demand, the work, then the self-report" do
         body = content.split(/^---$/, 3).last
         order = [
           "mcp__powernode__platform_get_agent` with `slug: \"#{slug}\"`",
-          "mcp__powernode__platform_discover_skills",
-          "mcp__powernode__platform_discover_tools",
+          "mcp__powernode__platform_assemble_task",
+          "describe_tool",
           "mcp__powernode__platform_record_agent_execution` with `agent_slug: \"#{slug}\"`"
         ]
 
@@ -75,12 +78,14 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     end
   end
 
-  it "gives Edit/Write/Bash and the whole-server grant to the engineer, and keeps the reviewer read-only" do
+  it "gives Edit/Write/Bash and the whole-server grant to the engineer, and keeps the reviewer to a shell without Edit/Write" do
     engineer = tools_of(described_class.render("platform-engineer"))
     reviewer = tools_of(described_class.render("platform-reviewer"))
 
     expect(engineer).to include("Edit", "Write", "Bash", described_class::SERVER_GRANT)
-    expect(reviewer).not_to include("Edit", "Write", "Bash", described_class::SERVER_GRANT)
+    # The reviewer checks commits (git log/show/diff, tests in a temp dir), so it has Bash; its charter keeps it read-only.
+    expect(reviewer).to include("Bash")
+    expect(reviewer).not_to include("Edit", "Write", described_class::SERVER_GRANT)
     expect(tools_of(described_class.render("powernode-concierge"))).not_to include("Edit", "Write", "Bash")
     expect(tools_of(described_class.render("fleet-operator"))).not_to include("Edit", "Write", "Bash")
   end
@@ -91,9 +96,9 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
   it "denies the ungated destructive verbs to every role holding the whole-server grant" do
     denied = described_class::DENIED_ACTIONS.map { |action| "#{Ai::ClaudeExport::ToolAllowlist::MCP_PREFIX}#{action}" }
 
-    described_class::ROLES.each do |slug, role|
+    roster.slugs.each do |slug|
       fm = frontmatter_of(described_class.render(slug))
-      if role[:server_grant]
+      if role_of(slug)[:server_grant]
         expect(fm["disallowedTools"].split(",").map(&:strip)).to match_array(denied), slug
       else
         expect(fm).not_to have_key("disallowedTools"), slug
@@ -128,18 +133,44 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     expect(described_class::BOOTSTRAP_ACTIONS - registered).to be_empty
   end
 
+  describe "the assembly bootstrap" do
+    roster.slugs.each do |slug|
+      it "#{slug}: step 2 is assemble_task (with the assembly_id from the prompt), step 5 passes assembly_id, no manifest mode" do
+        content = described_class.render(slug)
+        body = content.split(/^---$/, 3).last
+
+        expect(body).to include("mcp__powernode__platform_assemble_task")
+        expect(body).to match(/`assembly_id` from your prompt/)
+        expect(body).to match(/record_agent_execution.*`assembly_id`/m)
+        expect(body).not_to include("manifest")
+        expect(body).not_to include("get_skill_context")
+        expect(tools_of(content)).to include("mcp__powernode__platform_assemble_task")
+      end
+
+      it "#{slug}: a missing get_agent row tells the driver exactly what to do" do
+        body = described_class.render(slug).split(/^---$/, 3).last
+
+        expect(body).to include("do not proceed under a generic identity")
+        expect(body).to include("not seeded on this connector")
+        expect(body).to include("phase-1 step 5")
+        expect(body).to include("general-purpose")
+        expect(body).to include('outcome: "failed"')
+      end
+    end
+  end
+
   it "refuses a slug outside the roster" do
     expect { described_class.render("platform-developer") }.to raise_error(KeyError)
   end
 
   # THE RESTART CONTRACT. Nothing a platform edit can change reaches the file.
   describe "invariance" do
-    let(:baseline) { roster::SLUGS.to_h { |slug| [ slug, described_class.render(slug) ] } }
-    let(:rerendered) { roster::SLUGS.to_h { |slug| [ slug, described_class.render(slug) ] } }
+    let(:baseline) { roster.slugs.to_h { |slug| [ slug, described_class.render(slug) ] } }
+    let(:rerendered) { roster.slugs.to_h { |slug| [ slug, described_class.render(slug) ] } }
 
     before do
       baseline
-      roster::SLUGS.each do |slug|
+      roster.slugs.each do |slug|
         spec = roster.fetch(slug)
         create(:ai_agent, :global, is_system: true, slug: slug, name: spec[:name], agent_type: spec[:agent_type])
       end
@@ -153,7 +184,7 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     end
 
     it "is unchanged when a survivor's prompt or description is edited" do
-      Ai::Agent.global.where(slug: roster::SLUGS).find_each do |agent|
+      Ai::Agent.global.where(slug: roster.slugs).find_each do |agent|
         agent.update!(system_prompt: "an operator's new charter", description: "Something else entirely.")
       end
 

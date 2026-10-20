@@ -50,7 +50,7 @@ RSpec.describe "claude:* rake tasks" do
       run_task("claude:sync_agents", env: { "TARGET_DIR" => target_dir, "ACCOUNT_ID" => nil, "INCLUDE_ACCOUNT" => nil })
 
       exported = Dir[File.join(target_dir, "*.md")].map { |path| File.basename(path, ".md") }
-      expect(exported).to match_array(Ai::Agents::CanonicalRoster::SLUGS)
+      expect(exported).to match_array(Ai::Agents::CanonicalRoster.slugs)
       expect(exported).not_to include(canonical.slug, own.slug)
     end
 

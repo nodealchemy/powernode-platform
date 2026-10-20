@@ -310,7 +310,8 @@ module Ai
               tokens: { type: "object", required: false, description: "{ input: <total input tokens, cache reads and writes included>, output: <completion tokens>, cache_read: <input tokens read from the prompt cache>, cache_creation: <input tokens written to it> }" },
               cost_usd: { type: "number", required: false, description: "Cost in USD when known; else priced from the platform's own model pricing (0 when none is synced)" },
               task_digest: { type: "string", required: false, description: "≤ 500 chars describing the task; redacted through the platform's PII path before it is stored" },
-              run_key: { type: "string", required: true, description: "Idempotency key: the Claude Code session id + the subagent run id (the SubagentStop hook and the skeleton's self-report use the same key so the platform sees one row)" }
+              run_key: { type: "string", required: true, description: "Idempotency key: the Claude Code session id + the subagent run id (the SubagentStop hook and the skeleton's self-report use the same key so the platform sees one row)" },
+              assembly_id: { type: "string", required: false, description: "The assembly_id assemble_task returned for this run: links that assembly to the execution and credits its skills (one usage record per selected skill). Must be this account's assembly for this agent_slug." }
             }
           }
         }

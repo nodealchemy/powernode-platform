@@ -591,6 +591,7 @@ module Ai
         "record_agent_execution" => "Ai::Tools::AgentManagementTool",
         # Task -> agent routing (one router for MCP and the Concierge; read-only)
         "route_task" => "Ai::Tools::AgentRoutingTool",
+        "assemble_task" => "Ai::Tools::AssemblyTool",
         # Team management
         "create_team" => "Ai::Tools::TeamManagementTool",
         "add_team_member" => "Ai::Tools::TeamManagementTool",

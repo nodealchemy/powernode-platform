@@ -27,6 +27,10 @@ module Ai
     # route_task is in the set for the same reason the others are: it is the
     # MCP face of Ai::Routing::AgentRouterService, the one router both the
     # Concierge and a Claude Code skeleton delegate through.
+    # assemble_task (skills-first agents, PRE-2) is the first thing an agent does
+    # with a task: the skills, learnings and verb lists that own it, and the
+    # tier / model / effort to run at. It is declared `mutating: false` — its
+    # only write is its own idempotent assembly record, it acts on nothing.
     # discover_tools (C3-3) is how an agent scoped to a few families finds a
     # verb outside them by intent; describe_tool then loads that verb's schema.
     #
@@ -42,6 +46,7 @@ module Ai
     module BootstrapVerbs
       ACTIONS = %w[
         get_agent
+        assemble_task
         discover_skills
         get_skill_context
         search_knowledge

@@ -23,7 +23,7 @@ RSpec.describe "committed Claude Code agent skeletons (thin loaders)" do
   loader = Ai::ClaudeExport::ThinLoader
 
   it "is exactly the four survivors' skeletons" do
-    expect(skeletons.keys).to match_array(Ai::Agents::CanonicalRoster::SLUGS)
+    expect(skeletons.keys).to match_array(Ai::Agents::CanonicalRoster.slugs)
   end
 
   it "matches what `rails claude:sync_agents` renders today (regenerate and commit if not)" do
@@ -50,7 +50,7 @@ RSpec.describe "committed Claude Code agent skeletons (thin loaders)" do
     ceilings = File.readlines(ceilings_file).grep(/\A\w+=\d+/).to_h { |line| line.strip.split("=") }.transform_values(&:to_i)
 
     expect(ceilings["max_tools_per_agent"]).to eq(skeletons.values.map { |content| tools_line.call(content).size }.max)
-    expect(ceilings["max_roster_bytes"]).to be <= Ai::Agents::CanonicalRoster::SLUGS.size * loader::MAX_BYTES
+    expect(ceilings["max_roster_bytes"]).to be <= Ai::Agents::CanonicalRoster.slugs.size * loader::MAX_BYTES
     expect(skeletons.values.sum(&:bytesize)).to be <= ceilings["max_roster_bytes"]
   end
 end

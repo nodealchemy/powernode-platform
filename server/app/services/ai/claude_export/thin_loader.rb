@@ -9,12 +9,13 @@ module Ai
     # still need a re-sync and a committed diff whenever that data moved, and the
     # platform row would stop being the single source of truth. #render is
     # therefore a pure function of the roster
-    # declaration and ROLES — it reads no database row and no tool registry —
+    # declaration (its tier, description and role) — it reads no database row and no tool registry —
     # and the body tells the subagent to fetch the rest by slug at spawn time
     # (docs/operations/streamlining-review-2026-10-19.md §4.4).
     #
     # `tools:` is a FIXED bootstrap core:
-    #   * Read/Grep/Glob for everyone; Edit/Write/Bash for the engineer only;
+    #   * Read/Grep/Glob for everyone; Edit/Write/Bash for a role that changes code
+    #     (the engineer); Bash alone for a role that only checks work (the reviewer);
     #   * ToolSearch: with MCP tool search on (the Claude Code default) every
     #     MCP tool reaches a subagent DEFERRED, its schema loaded on demand
     #     through ToolSearch — a subagent without it cannot call even the
@@ -43,13 +44,17 @@ module Ai
       SERVER_GRANT = "mcp__powernode__*"
       READ_BUILTINS = %w[Read Grep Glob ToolSearch].freeze
       CODE_BUILTINS = ToolAllowlist::CODE_BUILTINS
+      # A role that CHECKS work but never changes it (the reviewer: read-only git,
+      # grep, tests in a temp dir) gets a shell and no Edit/Write; its charter, not
+      # the tool list, keeps the shell read-only.
+      SHELL_BUILTINS = %w[Bash].freeze
 
       # The progressive-disclosure floor. Named here, never derived from the
       # registry, so a newly registered verb cannot change a committed file.
       # thin_loader_spec holds it to a subset of the platform's own bootstrap
       # floor (ToolAllowlist::BOOTSTRAP_ACTIONS).
       BOOTSTRAP_ACTIONS = %w[
-        get_agent discover_skills get_skill_context describe_tool discover_tools
+        get_agent assemble_task discover_skills describe_tool discover_tools
         search_knowledge query_learnings route_task record_agent_execution
       ].freeze
 
@@ -95,32 +100,13 @@ module Ai
       MAX_LINES = 24
       MAX_BYTES = 6_500
 
-      ROLES = {
-        "powernode-concierge" => {
-          code: false, server_grant: false,
-          duty: "Answer and route: never execute fleet or code writes yourself."
-        },
-        "platform-engineer" => {
-          code: true, server_grant: true,
-          duty: "Edit only in the worktree and branch the prompt names, red first, and commit only when it says so."
-        },
-        "fleet-operator" => {
-          code: false, server_grant: true,
-          duty: "Act only through the platform's gated verbs; report a parked action, never work around it."
-        },
-        "platform-reviewer" => {
-          code: false, server_grant: false,
-          duty: "You are read-only: never edit, commit or call a mutating verb, and never review work you produced."
-        }
-      }.freeze
-
       module_function
 
       # @param slug [String] a roster slug; any other raises KeyError
       # @return [String] the skeleton file's full content
       def render(slug)
         spec = ::Ai::Agents::CanonicalRoster.fetch(slug)
-        role = ROLES.fetch(slug)
+        role = spec.fetch(:role)
         frontmatter = {
           "name" => slug,
           "description" => spec[:description],
@@ -134,7 +120,13 @@ module Ai
       end
 
       def tools_for(role)
-        builtins = role[:code] ? READ_BUILTINS + CODE_BUILTINS : READ_BUILTINS
+        builtins = if role[:code]
+          READ_BUILTINS + CODE_BUILTINS
+        elsif role[:shell]
+          READ_BUILTINS + SHELL_BUILTINS
+        else
+          READ_BUILTINS
+        end
         builtins + BOOTSTRAP_ACTIONS.map { |action| "#{MCP_PREFIX}#{action}" } + (role[:server_grant] ? [ SERVER_GRANT ] : [])
       end
 
@@ -153,20 +145,20 @@ module Ai
             "`mcp__powernode__*` verb with ToolSearch (`select:<name>`) before its first call.",
           "",
           "1. Charter: call `#{MCP_PREFIX}get_agent` with `slug: \"#{slug}\"`, adopt the returned `system_prompt` " \
-            "and keep its `id`. If the verb is unavailable, do not proceed under a generic identity: say so, run " \
-            "step 5 with `outcome: \"failed\"`, and stop.",
-          "2. Skills: call `#{MCP_PREFIX}discover_skills` with your task, then `get_skill_context` (`agent_id` from " \
-            "step 1, mode \"manifest\") for the skills you pick; `search_knowledge` (tag `guidance-*`) and " \
-            "`query_learnings` give the area's rules.",
-          "3. Tools: load only the verbs those skills name or `#{MCP_PREFIX}discover_tools` returns, and " \
-            "`describe_tool` each before its first call. Never load the whole catalog.",
+            "and keep its `id`. If the verb is unavailable or finds no agent, do not proceed under a generic " \
+            "identity: it is not seeded on this connector, so tell the driver to run phase-1 step 5 or use a " \
+            "general-purpose agent; run step 5 with `outcome: \"failed\"` and stop.",
+          "2. Assemble: call `#{MCP_PREFIX}assemble_task` with the `assembly_id` from your prompt (none: your task, " \
+            "`agent_slug: \"#{slug}\"`, `context: \"claude_code\"`); adopt the returned skills, learnings and verb lists.",
+          "3. Tools: load only the verbs those skills name (or `discover_tools` returns); `describe_tool` each " \
+            "before its first call. Never load the whole catalog.",
           "4. Work: the delegating prompt defines the task and what to return. #{role[:duty]} Hand anything " \
             "outside your charter back through `route_task`.",
           "5. Report: before returning, call `#{MCP_PREFIX}record_agent_execution` with `agent_slug: \"#{slug}\"`, " \
             "`model`, `outcome` (completed | failed | cancelled), `duration_ms`, `tokens` ({ input, output }), a " \
-            "`task_digest` (at most 500 characters, no secrets) and " \
-            "`run_key: \"<$CLAUDE_CODE_SESSION_ID>:#{slug}:<UTC start time as YYYYMMDDTHHMMSSZ>\"`. It records " \
-            "history only and is idempotent on run_key."
+            "`task_digest` (at most 500 characters, no secrets), the `assembly_id` and " \
+            "`run_key: \"<$CLAUDE_CODE_SESSION_ID>:#{slug}:<UTC start time as YYYYMMDDTHHMMSSZ>\"`. It is " \
+            "idempotent on run_key."
         ].join("\n")
       end
     end

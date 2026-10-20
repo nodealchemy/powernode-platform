@@ -37,6 +37,15 @@ module Ai
     # ai.agents.execute holder, and that grant must not mint provider rows, so
     # a missing scope is refused by name (MissingProviderScope) instead.
     #
+    # ASSEMBLY (skills-first agents, PRE-2). A report carrying the assembly_id a
+    # session got from assemble_task links that assembly's Ai::RoutingDecision to
+    # the execution (agent_execution_id; the first execution to claim it wins) and
+    # writes ONE Ai::SkillUsageRecord per selected skill that still exists, on the
+    # target agent and the execution, so a Claude Code run credits the skills it
+    # used. The assembly must be this account's, a "task_assembly" decision, made
+    # for the agent being reported — anything else is refused BEFORE a row is
+    # written. Idempotent with the run: a retry finds each usage row and adds none.
+    #
     # BOUNDARY RULE (item 3): a Claude Code run counts toward model statistics
     # and the trust score and NEVER toward autonomy budgets, consent ceilings
     # or approval accounting. Cost is written at create time, and
@@ -76,19 +85,22 @@ module Ai
       def record(params)
         report = normalize(params)
         target = resolve_target(report[:agent_slug])
+        assembly = resolve_assembly(report[:assembly_id], target)
         provider = provider_for
         digest = redacted_digest(report[:task_digest])
 
         execution_id = execution_id_for(report[:run_key])
         execution = ::Ai::AgentExecution.find_by(execution_id: execution_id)
         created = execution.nil?
+        credited = 0
 
         ::Ai::AgentExecution.transaction do
           execution ||= mint(target, provider, report, digest, execution_id)
           finish(execution, report, digest)
+          credited = assembly ? credit_assembly(assembly, execution, target, report) : 0
         end
 
-        summary(execution, target, provider, report, created)
+        summary(execution, target, provider, report, created, assembly, credited)
       end
 
       private
@@ -125,7 +137,8 @@ module Ai
           cache_creation_tokens: cache_creation,
           cost_usd: params[:cost_usd].presence && [ params[:cost_usd].to_f, 0.0 ].max,
           task_digest: params[:task_digest].to_s,
-          run_key: run_key
+          run_key: run_key,
+          assembly_id: params[:assembly_id].to_s.strip.presence
         }
       end
 
@@ -143,6 +156,25 @@ module Ai
         end
 
         target
+      end
+
+      # The Ai::RoutingDecision assemble_task persisted, or nil when the report
+      # names none. Refused unless it is this account's task assembly for the
+      # agent being reported.
+      def resolve_assembly(assembly_id, target)
+        return nil if assembly_id.blank?
+
+        assembly = if assembly_id.match?(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/)
+          ::Ai::RoutingDecision.find_by(id: assembly_id, account_id: account.id, request_type: ::Ai::Assembly::Service::REQUEST_TYPE)
+        end
+        raise Refusal, "No task assembly #{assembly_id} for this account (assemble_task returns the assembly_id)" unless assembly
+
+        assembled_for = assembly.request_metadata["agent_slug"]
+        if assembled_for != target.slug
+          raise Refusal, "Assembly #{assembly_id} was made for #{assembled_for}, not #{target.slug}; pass the assembly_id of this agent's own assemble_task"
+        end
+
+        assembly
       end
 
       def provider_for
@@ -260,6 +292,41 @@ module Ai
         execution.update!(attrs)
       end
 
+      USAGE_OUTCOMES = { "completed" => "success", "failed" => "failure", "cancelled" => "partial" }.freeze
+
+      # Link the assembly to the execution and credit its skills. The first
+      # execution to claim an assembly links it (and fills in its outcome); a
+      # retry of the same run finds every usage row and adds none.
+      # @return [Integer] the skills credited by this execution (new or existing)
+      def credit_assembly(assembly, execution, target, report)
+        if assembly.agent_execution_id.nil?
+          assembly.update!(agent_execution_id: execution.id)
+          record_assembly_outcome(assembly, report)
+        end
+
+        slugs = Array(assembly.request_metadata["selected"]).filter_map { |entry| entry["slug"].presence }.uniq
+        skills = ::Ai::Skill.for_account(account.id).where(slug: slugs).account_override_first.to_a.uniq(&:slug)
+        skills.count do |skill|
+          usage = ::Ai::SkillUsageRecord.find_or_initialize_by(account_id: account.id, ai_skill_id: skill.id, execution_id: execution.id)
+          next true unless usage.new_record?
+
+          usage.update!(
+            ai_agent_id: target.id, execution_type: "Ai::AgentExecution", outcome: USAGE_OUTCOMES.fetch(execution.status, "partial"),
+            duration_ms: report[:duration_ms],
+            metadata: { "source" => SOURCE, "assembly_id" => assembly.id, "run_key" => report[:run_key] }
+          )
+          true
+        end
+      end
+
+      def record_assembly_outcome(assembly, report)
+        outcome = { "completed" => "succeeded", "failed" => "failed" }[report[:outcome]]
+        return unless outcome
+
+        assembly.record_outcome!(outcome: outcome, cost_usd: cost_for(report), latency_ms: report[:duration_ms],
+                                 tokens_used: report[:input_tokens] + report[:output_tokens], latency_seam: "agent_execution")
+      end
+
       def error_message_for(outcome)
         case outcome
         when "failed" then "Claude Code run reported failed"
@@ -282,8 +349,10 @@ module Ai
         )
       end
 
-      def summary(execution, target, provider, report, created)
+      def summary(execution, target, provider, report, created, assembly = nil, credited = 0)
         {
+          assembly_id: assembly&.id,
+          skills_credited: credited,
           id: execution.id,
           execution_id: execution.execution_id,
           created: created,
