@@ -235,6 +235,185 @@ RSpec.describe "parallel RSpec wrapper (scripts/parallel-rspec.sh)" do
       expect(st).not_to be_success
       expect(err).to match(/at least 16/)
     end
+
+    # IMP-44c8b73cad75 — the daemon is shared by every lane of every concurrent run, so one client's
+    # FLUSHALL / CONFIG SET / SHUTDOWN is every other run's problem. ACL rules, not rename-command.
+    it "denies the instance-wide and admin commands to the default user through ACL rules" do
+      out, _e, st = Open3.capture3(redis, "--print-conf")
+      expect(st).to be_success
+      user = out.lines.grep(/^user default /)
+      expect(user.size).to eq(1)
+      rule = user.first.split
+      expect(rule).to include("on", "nopass", "~*", "&*", "+@all")
+      %w[-flushall -debug -monitor -shutdown -config|set -config|rewrite -config|resetstat -acl -module
+         -replicaof -slaveof -swapdb -save -bgsave -client|kill -client|pause -move -migrate].each do |deny|
+        expect(rule).to include(deny), "expected the default user to carry #{deny}"
+      end
+      %w[-flushdb -info -config|get -client -scan -keys -select -@all].each do |kept|
+        expect(rule).not_to include(kept), "#{kept} must stay allowed"
+      end
+      expect(out).not_to match(/^rename-command/)
+    end
+
+    it "prints no password, plaintext or hashed (stop needs none: it signals the verified pid)" do
+      out, _e, st = Open3.capture3(redis, "--print-conf")
+      expect(st).to be_success
+      out.lines.grep(/^user /).each do |line|
+        expect(line.split).not_to include(a_string_matching(/\A[>#<!]/)), "credential token in: #{line}"
+      end
+      expect(out).not_to match(/^requirepass/)
+    end
+  end
+
+  describe "scripts/test-redis.sh ACL guard (throwaway daemon)" do
+    redis_script = File.join(root, "scripts", "test-redis.sh")
+
+    def skip_without_redis7
+      skip "redis-server not installed" unless system("command -v redis-server >/dev/null 2>&1")
+      version = `redis-server --version`[/ v=(\d+)\./, 1].to_i
+      skip "redis-server #{version}.x predates the ACL subcommand rules (needs 7)" if version < 7
+    end
+
+    # A daemon of our own on a free port, under a tmpdir; never 6379 or the live 6380. Started by the script,
+    # or (launch:) by the caller, e.g. from an old-style config.
+    def with_throwaway(script, launch: nil)
+      skip_without_redis7
+      port = TCPServer.open("127.0.0.1", 0) { |srv| srv.addr[1] }
+      raise "free port collided with a shared daemon" if [ 6379, 6380 ].include?(port)
+      Dir.mktmpdir("par-redis-acl") do |d|
+        env = { "TEST_REDIS_DIR" => d, "TEST_REDIS_PORT" => port.to_s, "TEST_REDIS_DATABASES" => "16" }
+        pidfile = File.join(d, "redis.pid")
+        pid = nil
+        begin
+          if launch
+            launch.call(env, d)
+          else
+            _o, e, st = Open3.capture3(env, script, "start")
+            expect(st).to be_success, e
+          end
+          pid = File.read(pidfile).strip.to_i
+          yield env, port, d
+        ensure
+          # Re-read the pidfile too: a start that dies after launching, or a stop/start inside the example,
+          # leaves a daemon the remembered pid does not name.
+          pids = [ pid, (File.read(pidfile).strip.to_i if File.exist?(pidfile)) ].compact.uniq
+          pids.each do |p|
+            next unless p > 1 && p != Process.pid && File.exist?("/proc/#{p}")
+            next unless File.read("/proc/#{p}/comm").start_with?("redis-server") &&
+                        File.read("/proc/#{p}/cmdline").include?(":#{port}")
+            Process.kill("KILL", p)
+          rescue Errno::ENOENT, Errno::ESRCH
+            nil
+          end
+        end
+      end
+    end
+
+    def cli(port, *args)
+      out, err, _st = Open3.capture3("timeout", "5", "redis-cli", "-h", "127.0.0.1", "-p", port.to_s, *args)
+      out + err
+    end
+
+    it "refuses FLUSHALL, CONFIG SET/REWRITE/RESETSTAT, DEBUG, MONITOR, SHUTDOWN, ACL and SWAPDB from clients" do
+      with_throwaway(redis_script) do |_env, port|
+        cli(port, "-n", "5", "set", "survivor", "1")
+        [
+          %w[flushall], %w[flushall async], %w[config set maxmemory-policy noeviction], %w[config rewrite],
+          %w[config resetstat], %w[debug sleep 0], %w[monitor], %w[shutdown abort], %w[acl setuser default +@all],
+          %w[acl whoami], %w[swapdb 0 5], %w[replicaof no one], %w[module list], %w[bgsave], %w[client pause 1],
+          %w[move survivor 6], %w[migrate 127.0.0.1 1 survivor 6 100], %w[script kill], %w[function kill]
+        ].each do |cmd|
+          # DEBUG is also off by default (enable-debug-command no), which answers before the ACL does.
+          expect(cli(port, *cmd)).to match(/NOPERM|DEBUG command not allowed/), "expected #{cmd.join(' ').upcase} to be refused"
+        end
+        expect(cli(port, "-n", "5", "get", "survivor").strip).to eq("1")
+      end
+    end
+
+    it "keeps FLUSHDB, data commands, SCAN, INFO, CONFIG GET and CLIENT working" do
+      with_throwaway(redis_script) do |_env, port|
+        expect(cli(port, "-n", "3", "set", "k", "v").strip).to eq("OK")
+        expect(cli(port, "-n", "3", "get", "k").strip).to eq("v")
+        expect(cli(port, "-n", "3", "setex", "t", "60", "x").strip).to eq("OK")
+        expect(cli(port, "-n", "3", "scan", "0", "match", "k*")).to include("k")
+        expect(cli(port, "-n", "4", "set", "other-lane", "1").strip).to eq("OK")
+        expect(cli(port, "-n", "3", "flushdb").strip).to eq("OK")
+        expect(cli(port, "-n", "3", "dbsize").strip).to eq("0")
+        expect(cli(port, "-n", "4", "get", "other-lane").strip).to eq("1")
+        expect(cli(port, "info", "server")).to match(/process_id:\d+/)
+        expect(cli(port, "config", "get", "databases")).to include("16")
+        expect(cli(port, "client", "setname", "lane3").strip).to eq("OK")
+        expect(cli(port, "client", "list")).to include("name=")
+        expect(cli(port, "publish", "chan", "hi").strip).to eq("0")
+        expect(cli(port, "eval", "return 1", "0").strip).to eq("1")
+      end
+    end
+
+    it "still starts, reports status and stops (without SHUTDOWN), and never signals an unrelated pid" do
+      with_throwaway(redis_script) do |env, _port, d|
+        _o, e, st = Open3.capture3(env, redis_script, "status")
+        expect(st).to be_success, e
+        _o, e, st = Open3.capture3(env, redis_script, "start")
+        expect(st).to be_success, e
+
+        real = File.read(File.join(d, "redis.pid"))
+        bystander = Process.spawn("sleep", "60")
+        begin
+          File.write(File.join(d, "redis.pid"), "#{bystander}\n")
+          _o, e, st = Open3.capture3(env, redis_script, "stop")
+          expect(st).not_to be_success
+          expect(e).to match(/not the redis-server serving/)
+          expect(Process.kill(0, bystander)).to eq(1)
+        ensure
+          begin
+            Process.kill("KILL", bystander)
+          rescue Errno::ESRCH
+            nil
+          end
+          Process.wait(bystander)
+        end
+
+        File.write(File.join(d, "redis.pid"), real)
+        _o, e, st = Open3.capture3(env, redis_script, "stop")
+        expect(st).to be_success, e
+        _o, _e, st = Open3.capture3(env, redis_script, "status")
+        expect(st.exitstatus).to eq(3)
+      end
+    end
+
+    it "warns loudly when it finds a daemon started without (or with an older) command guard" do
+      old_style = lambda do |env, d|
+        conf, _e, st = Open3.capture3(env, redis_script, "--print-conf")
+        expect(st).to be_success
+        File.write(File.join(d, "redis.conf"), conf.lines.grep_v(/^user default /).join)
+        expect(system("redis-server", File.join(d, "redis.conf"), out: File::NULL)).to be(true)
+        Timeout.timeout(5) { sleep 0.1 until cli(env["TEST_REDIS_PORT"], "ping").strip == "PONG" }
+      end
+      with_throwaway(redis_script, launch: old_style) do |env, port, d|
+        expect(cli(port, "-n", "7", "set", "k", "v").strip).to eq("OK")
+        expect(cli(port, "flushall").strip).to eq("OK") # the unguarded daemon this warning is about
+
+        out, err, st = Open3.capture3(env, redis_script, "start")
+        expect(st).to be_success, err
+        expect(out).to include("already running")
+        expect(err).to match(/WARNING: .*WITHOUT the command guard.*run 'stop' then 'start'/)
+
+        conf = File.join(d, "redis.conf")
+        File.write(conf, "#{File.read(conf)}user default on nopass ~* &* +@all -flushall\n")
+        _o, err, st = Open3.capture3(env, redis_script, "start")
+        expect(st).to be_success, err
+        expect(err).to match(/WARNING: .*OLDER command guard/)
+
+        _o, e, st = Open3.capture3(env, redis_script, "stop")
+        expect(st).to be_success, e
+        _o, e, st = Open3.capture3(env, redis_script, "start")
+        expect(st).to be_success, e
+        _o, err, st = Open3.capture3(env, redis_script, "start")
+        expect(st).to be_success, err
+        expect(err).not_to match(/WARNING/)
+        expect(cli(port, "flushall")).to match(/NOPERM/)
+      end
+    end
   end
 
   describe "per-worktree namespaces (lane prefix + redis ledger)" do

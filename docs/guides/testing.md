@@ -166,7 +166,10 @@ DATABASE_PORT=5433 VALIDATE_PARALLEL=auto scripts/validate.sh      # platform sp
   runs a second, loopback-only, no-persistence daemon (default port 6380, 64 databases = 30 lanes;
   `start|stop|status`, data under `/dev/shm/powernode-test-redis`). The suite finds it through
   `TEST_REDIS_PORT` / `TEST_REDIS_DATABASES` (`config/initializers/redis.rb`); unset, nothing changes.
-  The shared Redis is never touched.
+  The shared Redis is never touched. The test daemon's default user is ACL-guarded: FLUSHALL, CONFIG SET,
+  SHUTDOWN, DEBUG, MONITOR, ACL and similar instance-wide commands answer NOPERM (FLUSHDB, INFO, CONFIG GET stay
+  allowed), `stop` sends SIGTERM to the verified pid, and a daemon started before the guard needs `stop` then
+  `start` to pick it up (`start` warns when it finds one).
 - **DB prep.** `prepare-extension-test-db.sh --lanes "__p1 __p2 ..."` resolves the cluster once, builds a
   golden template if its fingerprint is stale (`--lanes` in core mode has its own golden, `powernode_test_golden_core`, tmpfs cluster only; the serial core default is unchanged; two preps racing to rebuild one golden is a pre-existing property of the design), then every
   lane is a `CREATE DATABASE ... TEMPLATE` clone under the per-cluster lock: about 5 s for 8 lanes, versus
