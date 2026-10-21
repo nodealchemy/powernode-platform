@@ -171,6 +171,19 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     end
   end
 
+  # scripts/check-claude-agents-fresh.sh carries an extension-owned skeleton over
+  # when its extension is absent (core mode); this marker is how it knows the owner.
+  it "marks an extension-owned skeleton with its owner, and a core one not at all" do
+    Ai::Agents::CanonicalRoster.each do |slug, _spec, owner|
+      body = described_class.render(slug).split(/^---$/, 3).last
+      if owner == Ai::Agents::CanonicalRoster::CORE_OWNER
+        expect(body).not_to include("<!-- owner:"), slug
+      else
+        expect(body.lines.map(&:chomp)).to include("<!-- owner: #{owner} -->"), slug
+      end
+    end
+  end
+
   it "refuses a slug outside the roster" do
     expect { described_class.render("platform-developer") }.to raise_error(KeyError)
   end

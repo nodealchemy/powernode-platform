@@ -69,6 +69,7 @@ module Ai
         end
 
         def fetch(slug) = @entries.fetch(slug.to_s)[:spec]
+        def owner_of(slug) = @entries.fetch(slug.to_s)[:owner]
         def slugs = @entries.keys
         def include?(slug) = @entries.key?(slug.to_s)
 
@@ -110,6 +111,8 @@ module Ai
 
       # @return [Hash] the declaration; raises KeyError for any unregistered slug
       def fetch(slug) = registry.fetch(slug)
+      # @return [String] "core" or the registering "extensions/<slug>"; raises KeyError for any unregistered slug
+      def owner_of(slug) = registry.owner_of(slug)
       def include?(slug) = registry.include?(slug)
       def slugs = registry.slugs
 

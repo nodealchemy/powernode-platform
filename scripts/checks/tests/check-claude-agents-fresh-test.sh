@@ -92,6 +92,44 @@ else
     echo "FAIL: broken-generator message hides the cause"; echo "$out"; fail=1
 fi
 
+# 6. core mode: a committed skeleton whose OWNING extension is absent (its
+# extensions/<slug>/extension.json is not checked out) cannot be regenerated, so
+# it is tolerated as carried over; the same file is stale when its extension is
+# present, or when it names no owner (a core agent the generator dropped).
+ext_root="$work/root"
+mkdir -p "$ext_root/extensions/present-ext"
+echo '{}' > "$ext_root/extensions/present-ext/extension.json"
+core_mode="$work/core-mode"
+mkdir -p "$core_mode"
+cp "$committed/fleet-autonomy.md" "$core_mode/"
+printf -- '---\nname: ext-agent\n---\n\n%s\n<!-- owner: extensions/absent-ext -->\nbody\n' "$header" > "$core_mode/ext-agent.md"
+
+CLAUDE_AGENTS_DIR="$core_mode" CLAUDE_AGENTS_EXT_ROOT="$ext_root" \
+CLAUDE_AGENTS_SYNC_CMD="cp $core_mode/fleet-autonomy.md \"\$TARGET_DIR\"/" \
+    bash "$CHECK" >/dev/null 2>&1
+assert_exit "an absent extension's committed skeleton is tolerated (core mode)" 0 $?
+
+out="$(CLAUDE_AGENTS_DIR="$core_mode" CLAUDE_AGENTS_EXT_ROOT="$ext_root" CLAUDE_AGENTS_SYNC_CMD="cp $core_mode/fleet-autonomy.md \"\$TARGET_DIR\"/" bash "$CHECK" 2>&1)"
+if grep -q "ext-agent.md" <<<"$out" && grep -q "extensions/absent-ext" <<<"$out"; then
+    echo "PASS: a tolerated skeleton is named, with its absent owner"
+else
+    echo "FAIL: a tolerated skeleton is not reported"; echo "$out"; fail=1
+fi
+
+present="$work/present"
+mkdir -p "$present"
+cp "$committed/fleet-autonomy.md" "$present/"
+printf -- '---\nname: ext-agent\n---\n\n%s\n<!-- owner: extensions/present-ext -->\nbody\n' "$header" > "$present/ext-agent.md"
+CLAUDE_AGENTS_DIR="$present" CLAUDE_AGENTS_EXT_ROOT="$ext_root" \
+CLAUDE_AGENTS_SYNC_CMD="cp $present/fleet-autonomy.md \"\$TARGET_DIR\"/" \
+    bash "$CHECK" >/dev/null 2>&1
+assert_exit "a present extension's skeleton the generator dropped is stale" 1 $?
+
+CLAUDE_AGENTS_DIR="$core_mode" CLAUDE_AGENTS_EXT_ROOT="$ext_root" \
+CLAUDE_AGENTS_SYNC_CMD="cp $core_mode/*.md \"\$TARGET_DIR\"/ && echo changed >> \"\$TARGET_DIR\"/fleet-autonomy.md" \
+    bash "$CHECK" >/dev/null 2>&1
+assert_exit "tolerating an absent extension never hides a stale core file" 1 $?
+
 # 4. the failure message documents the regen command.
 out="$(CLAUDE_AGENTS_DIR="$committed" CLAUDE_AGENTS_SYNC_CMD="true; cp $committed/fleet-autonomy.md \"\$TARGET_DIR\"/" bash "$CHECK" 2>&1)"
 if grep -q "claude:sync_agents" <<<"$out"; then

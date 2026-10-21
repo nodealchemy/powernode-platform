@@ -142,9 +142,16 @@ module Ai
 
       # The final step's run_key shape is the contract .claude/hooks/subagent-report.sh
       # parses back out of the transcript (one platform row per run); keep the two in step.
+      #
+      # An extension-owned skeleton also names its owner on the line after the
+      # header: scripts/check-claude-agents-fresh.sh carries such a file over when
+      # that extension is not checked out (core mode), and only then.
       def body(slug, role)
+        owner = ::Ai::Agents::CanonicalRoster.owner_of(slug)
+        owner_line = owner == ::Ai::Agents::CanonicalRoster::CORE_OWNER ? [] : [ "<!-- owner: #{owner} -->" ]
         [
           AgentSkeletonSync::GENERATED_HEADER,
+          *owner_line,
           "",
           "Thin loader for the Powernode platform agent `#{slug}`: its charter, policies, skills and tools live on " \
             "the platform and are loaded on demand, so this file never changes when they do. Load a deferred " \
