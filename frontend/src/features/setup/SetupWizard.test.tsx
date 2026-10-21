@@ -45,6 +45,7 @@ const mockGetStatus = setupApi.getStatus as jest.Mock;
 const mockGetSteps = setupApi.getSteps as jest.Mock;
 const mockCreateAdmin = setupApi.createAdmin as jest.Mock;
 const mockGetExtensions = setupApi.getExtensions as jest.Mock;
+const mockSubmitStep = setupApi.submitStep as jest.Mock;
 
 const setUrl = (path: string) => window.history.replaceState({}, '', path);
 
@@ -141,6 +142,46 @@ describe('SetupWizard', () => {
 
     await waitFor(() => expect(screen.getByTestId('setup-extension-list')).toBeInTheDocument());
     expect(screen.getByTestId('setup-ext-toggle-system')).toHaveTextContent('Enabled');
+  });
+
+  it('shows a non-blocking warning notice after saving the domain step and still advances', async () => {
+    setUrl('/setup');
+    const domain = (completed: boolean) => ({
+      key: 'domain',
+      title: 'Domain',
+      order: 10,
+      owner: 'core',
+      required: false,
+      endpoint: '/api/v1/setup/steps/domain',
+      schema: [{ key: 'domain', label: 'Primary domain', type: 'text', required: true }],
+      completed,
+      completed_at: null,
+    });
+    const other = {
+      key: 'general_settings',
+      title: 'General',
+      order: 30,
+      owner: 'core',
+      required: false,
+      completed: false,
+      completed_at: null,
+    };
+    mockGetSteps
+      .mockResolvedValueOnce([domain(false), other])
+      .mockResolvedValueOnce([domain(true), other]);
+    mockSubmitStep.mockResolvedValue({ step: domain(true), warnings: ['Reverse-proxy config could not be rewritten'] });
+
+    renderWithProviders(<SetupWizard />, {
+      preloadedState: { auth: { isAuthenticated: true, user: { id: '1' }, isLoading: false } },
+    });
+
+    await waitFor(() => expect(screen.getByTestId('setup-domain-field-domain')).toBeInTheDocument());
+    expect(screen.queryByTestId('setup-step-warnings')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('setup-domain-field-domain'), { target: { value: 'fleet.example.com' } });
+    fireEvent.click(screen.getByTestId('setup-save-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('setup-step-warnings')).toHaveTextContent(/could not be rewritten/));
+    expect(screen.getByTestId('setup-step-general_settings')).toBeInTheDocument();
   });
 
   it('renders a provider step and finishes setup (marks onboarding complete) on Continue', async () => {

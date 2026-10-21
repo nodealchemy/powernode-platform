@@ -72,6 +72,8 @@ interface SetupState {
   valid: Record<string, boolean>;
   submitting: boolean;
   error: string | null;
+  /** Non-blocking warnings from the last saved step. */
+  warnings: string[];
 }
 
 type SetupAction =
@@ -81,6 +83,7 @@ type SetupAction =
   | { type: 'SET_VALUES'; key: string; values: Record<string, string>; valid: boolean }
   | { type: 'SUBMIT_START' }
   | { type: 'SUBMIT_ERROR'; error: string }
+  | { type: 'SET_WARNINGS'; warnings: string[] }
   | { type: 'REPLACE_STEPS'; allSteps: SetupStep[]; afterKey: string | undefined }
   | { type: 'REFILTER' }
   | { type: 'GOTO'; index: number };
@@ -140,6 +143,7 @@ const initialState: SetupState = {
   valid: {},
   submitting: false,
   error: null,
+  warnings: [],
 };
 
 function reducer(state: SetupState, action: SetupAction): SetupState {
@@ -167,9 +171,11 @@ function reducer(state: SetupState, action: SetupAction): SetupState {
         valid: { ...state.valid, [action.key]: action.valid },
       };
     case 'SUBMIT_START':
-      return { ...state, submitting: true, error: null };
+      return { ...state, submitting: true, error: null, warnings: [] };
     case 'SUBMIT_ERROR':
       return { ...state, submitting: false, error: action.error };
+    case 'SET_WARNINGS':
+      return { ...state, warnings: action.warnings };
     case 'REPLACE_STEPS': {
       const steps = action.allSteps.filter(isSetupStepAvailable);
       return {
@@ -306,7 +312,10 @@ export const SetupWizard: React.FC = () => {
           }
           await setupApi.markExtensionConfigured(step.owner);
         } else {
-          await setupApi.submitStep(step.key, values);
+          const result = await setupApi.submitStep(step.key, values);
+          if (result?.warnings?.length) {
+            dispatchLocal({ type: 'SET_WARNINGS', warnings: result.warnings });
+          }
         }
         const allSteps = await setupApi.getSteps();
         const steps = allSteps.filter(isSetupStepAvailable);
@@ -393,6 +402,18 @@ export const SetupWizard: React.FC = () => {
       <main className="flex-1 px-6 py-6">
         <div className="w-full space-y-5">
           <WizardProgress steps={progressSteps} currentIndex={state.index} testId="setup-step-progress" />
+
+          {state.warnings.length > 0 && (
+            <div
+              role="status"
+              className="rounded-md border border-theme bg-theme-warning-fg/10 p-3 text-sm text-theme-warning-fg"
+              data-testid="setup-step-warnings"
+            >
+              {state.warnings.map((w) => (
+                <p key={w}>{w}</p>
+              ))}
+            </div>
+          )}
 
           <section
             className="rounded-lg border border-theme bg-theme-surface p-5 shadow-sm"

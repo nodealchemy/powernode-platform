@@ -36,6 +36,12 @@ export interface SetupStep {
   completed_at: string | null;
 }
 
+/** Result of submitting a core step; warnings are non-fatal (e.g. ingress rewrite failed). */
+export interface SetupStepResult {
+  step: SetupStep;
+  warnings: string[];
+}
+
 export interface SetupStatus {
   bootstrap_complete: boolean;
   pending: Array<{ owner: string; steps: SetupStep[] }>;
@@ -91,9 +97,13 @@ export const setupApi = {
   },
 
   /** POST /setup/steps/:key — persist one core step's payload, returns the re-annotated step. */
-  async submitStep(key: string, payload: Record<string, string>): Promise<SetupStep> {
-    const response = await apiClient.post<Envelope<{ step: SetupStep }>>(`/setup/steps/${key}`, payload);
-    return inner<{ step: SetupStep }>(response.data).step;
+  async submitStep(key: string, payload: Record<string, string>): Promise<SetupStepResult> {
+    const response = await apiClient.post<Envelope<{ step: SetupStep; warnings?: string[] }>>(
+      `/setup/steps/${key}`,
+      payload
+    );
+    const data = inner<{ step: SetupStep; warnings?: string[] }>(response.data);
+    return { step: data.step, warnings: data.warnings ?? [] };
   },
 
   /** GET /setup/extensions — extensions present in this build + enabled state. */
