@@ -16,6 +16,7 @@ When to use this guide: authoring, debugging, or extending the per-action polici
 - [Approval timeouts and chains](#approval-timeouts-and-chains)
 - [Listing and updating policies](#listing-and-updating-policies)
 - [Registering a new action category](#registering-a-new-action-category)
+- [Time-boxed promotion grants](#time-boxed-promotion-grants)
 - [Troubleshooting](#troubleshooting)
 - [Related](#related)
 
@@ -436,6 +437,56 @@ Ai::InterventionPolicy.category_registered?("system.sdwan.peer_revocation")
 # => true
 ```
 
+## Time-boxed promotion grants
+
+A **promotion grant** (`Ai::PromotionGrant`) is a person's narrow, standing permission for **one agent** to perform
+`release.promote` into **one environment** without a per-promotion approval. It is the least-privilege alternative to
+relaxing a plane's `release.promote` row for every caller: keep the row at `require_approval`, and grant one agent a
+window instead.
+
+**What a grant says** (fixed at issue; a grant is revoked and re-issued, never edited):
+
+| Field | Meaning |
+|-------|---------|
+| agent | the only agent it applies to (any agent in the account, MCP-client agents included) |
+| environment | the only plane it applies to |
+| modules | optional; empty means any module |
+| max uses | optional; each promotion it admits spends one |
+| expires at | required; at most **24 hours** after issue |
+| reason | required; recorded on the grant and in the audit log |
+
+**Where it acts.** Only in `Ai::AutonomyGate`'s `require_approval` arm: when a promotion would park (a policy row,
+the unmatched default, or an environment escalation such as `supervised`), an active grant matching account, agent,
+category, environment and module is consumed under a row lock and the promotion proceeds. Otherwise it parks exactly
+as before. A grant **never** overrides:
+
+- a `block` or `silent` row;
+- the kill switch (emergency halt);
+- a human-only call, or any reason a request needs a person's own session other than the plane being protected (the
+  account's `requires_human_session` mark, a destructive verb, a category on the human-session list).
+
+**Production.** A grant may target `prod`. The create form shows a strong warning; prefer a short expiry, a module
+list and `max_uses`.
+
+**Issuing.** Only from your own UI session (AI → Control → Policies → Promotion grants), holding
+`ai.promotion_grants.manage` **and** the permission the promote verb itself requires (`system.modules.update` with the
+system extension). No MCP/tool door can create, extend or un-revoke a grant, whatever credential it carries; an
+impersonation, account-switch or service session is refused too. REST: `POST /api/v1/ai/promotion_grants` with
+`ai_agent_id`, `environment_id`, `module_ids`, `max_uses`, `expires_in_hours`, `reason`.
+
+**Revoking.** The Revoke button, or `POST /api/v1/ai/promotion_grants/:id/revoke`, from any REST session holding
+`ai.promotion_grants.manage` (revoking only tightens). It is final. Revocation is not offered over MCP; the kill switch
+is the tool-door emergency lever.
+
+**Reading and audit.** `GET /api/v1/ai/promotion_grants` (`ai.promotion_grants.read`) and the read-only MCP verb
+`platform.list_promotion_grants`. Each use writes an `ai.promotion_grant.used` audit row naming the grant, agent,
+module, version and environment; issue and revoke write `ai.promotion_grant.created` / `.revoked`. The deferred
+operation that ran under a grant carries its `promotion_grant_id` (`list_deferred_operations`, grant detail
+`GET /api/v1/ai/promotion_grants/:id`), and the tool result names the grant.
+
+**Extension seam.** Core never names the verb's permission or modules: the owning extension registers a
+`promotion_grant_catalog` provider (`Ai::PromotionGrants::Catalog`). With none (core mode) no grant can be issued.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | First action |
@@ -444,6 +495,7 @@ Ai::InterventionPolicy.category_registered?("system.sdwan.peer_revocation")
 | Global policy isn't applying - agent-scoped policy wins instead | `#specificity_key` ranks `ai_agent_id` presence ABOVE `priority`, so an agent-scoped row wins at every priority value | Edit or deactivate the agent-scoped row - `priority` cannot promote a global row across that tier, whatever value you give it (IMP-6430e3a8c4a1). The account-wide engineering floors are the same shape: retune them by giving the agent its own row, not by raising the floor's priority |
 | Critical actions still firing silently | `severity: "critical"` not passed to `resolve` from caller | Check the call site - severity must be threaded through from the action's service layer |
 | `notify_and_proceed` flooding the on-call channel | No `max_daily_notifications` cap on the conditions | `platform.update_intervention_policy(conditions: { max_daily_notifications: 10 })` |
+| A promotion still parks with an active grant | Grant names another agent, plane or module; it is expired, revoked or spent; the kill switch is engaged; or the request needs a person's session for another reason | `platform.list_promotion_grants(active: true)`; compare agent, environment and modules with the parked request's `request_data` |
 | New action category not gating - `resolve` returns default `require_approval` | Category not registered at boot, or seed didn't run | Verify with `Ai::InterventionPolicy.category_registered?("...")`; run `rails db:seed` |
 
 ## Related
