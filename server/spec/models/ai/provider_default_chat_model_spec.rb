@@ -32,25 +32,40 @@ RSpec.describe Ai::Provider, "default chat model" do
     expect(provider.default_model).to eq("gpt-4o")
   end
 
-  it "is nil when no synced model can chat" do
+  it "falls back to the lightest of ALL ids when the filter leaves nothing, never nil" do
     provider.supported_models = models("text-embedding-3-small", "babbage-002")
 
-    expect(provider.default_model).to be_nil
+    expect(provider.default_model).to be_present
+  end
+
+  it "keeps Ollama instruct-tuned tags (only OpenAI's completion-only instruct id is excluded)" do
+    provider.provider_type = "ollama"
+    provider.supported_models = models("text-embedding-3-small", "llama3.1:8b-instruct-q4_K_M", "qwen2.5:14b-instruct")
+
+    expect(provider.default_model).to match(/instruct/)
+    expect(Ai::ModelTiers.chat_capable?("llama3.1:8b-instruct-q4_K_M")).to be(true)
+    expect(Ai::ModelTiers.chat_capable?("qwen2.5-coder:7b-instruct")).to be(true)
+    expect(Ai::ModelTiers.chat_capable?("gpt-3.5-turbo-instruct")).to be(false)
+  end
+
+  it "keeps Gemini preview ids and other chat previews" do
+    %w[gemini-2.5-pro-preview-05-06 gemini-2.0-flash-lite-preview gpt-4-turbo-preview o1-preview].each do |id|
+      expect(Ai::ModelTiers.chat_capable?(id)).to be(true), id
+    end
+    %w[gpt-4o-mini-search-preview gpt-4o-audio-preview gpt-4o-realtime-preview gemini-2.0-flash-preview-image-generation].each do |id|
+      expect(Ai::ModelTiers.chat_capable?(id)).to be(false), id
+    end
+  end
+
+  it "still excludes OpenAI's completion-only ids" do
+    %w[babbage-002 davinci-002 gpt-3.5-turbo-instruct text-embedding-3-small omni-moderation-latest].each do |id|
+      expect(Ai::ModelTiers.chat_capable?(id)).to be(false), id
+    end
   end
 
   it "keeps an explicitly configured default" do
     provider.configuration_schema = { "default_model" => "configured-model" }
 
     expect(provider.default_model).to eq("configured-model")
-  end
-
-  it "takes the embedding default from the catalog when none was synced" do
-    provider.supported_models = models("gpt-4o-mini")
-
-    expect(provider.default_embedding_model).to eq(Ai::ProviderCatalog.for("openai")[:default_embedding_model])
-  end
-
-  it "prefers a synced embedding model for the embedding default" do
-    expect(provider.default_embedding_model).to eq("text-embedding-3-small")
   end
 end

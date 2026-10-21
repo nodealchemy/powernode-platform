@@ -17,7 +17,9 @@ RSpec.describe Ai::Agents::AccountPrincipalResolver, "default provider" do
 
   def routable(name, order, default: false)
     create(:ai_provider, account: account, name: name, provider_type: "custom", priority_order: order,
-                         is_active: true, metadata: default ? { "is_default" => true } : {})
+                         is_active: true, metadata: default ? { "is_default" => true } : {}).tap do |p|
+      create(:ai_provider_credential, account: account, provider: p)
+    end
   end
 
   it "mints the clone on the account default, not on the first provider by name" do
@@ -54,6 +56,7 @@ RSpec.describe Ai::Agents::AccountPrincipalResolver, "default provider" do
 
     expect(pinned).to be_persisted
     expect(clone.provider).to eq(chosen)
+    expect(clone.mcp_metadata.dig("model_config", "model")).to be_nil
   end
 
   it "never lands a clone on the Claude Code local-sessions scope" do

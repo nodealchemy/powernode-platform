@@ -10,7 +10,7 @@ module Ai
           private
 
           def sync_google_models(provider)
-            credential = provider.provider_credentials.active.where(account_id: provider.account_id).first
+            credential = provider.credential_for_sync
 
             # No credential yet = setup state, not failure — defer the sync
             # instead of deactivating a provider that was just created.

@@ -56,10 +56,10 @@ module Ai
     PRICE_CACHE_TTL_SECONDS = 300
 
     # Ids that can never serve a chat/completions call: embedding, search,
-    # preview, audio/speech, image, moderation, rerank and completion-only
+    # audio/speech, image, moderation, rerank and completion-only
     # models. The synced list contains them all; a default or a connection
     # test must never land on one.
-    NON_CHAT_PATTERN = /embed|search|preview|audio|realtime|transcribe|tts|whisper|dall-e|image|moderation|babbage|davinci|instruct|computer-use|codex|sora|rerank|guard/i
+    NON_CHAT_PATTERN = /embed|search|audio|realtime|transcribe|tts|whisper|dall-e|image|moderation|babbage|davinci|turbo-instruct|computer-use|codex|sora|rerank|guard/i
 
     module_function
 

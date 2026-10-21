@@ -11,7 +11,7 @@ module Ai
 
           def sync_anthropic_models(provider)
             # Try to fetch models from Anthropic API dynamically
-            credential = provider.provider_credentials.active.where(account_id: provider.account_id).first
+            credential = provider.credential_for_sync
 
             # No credential yet = setup state, not failure — defer the sync
             # instead of deactivating a provider that was just created.

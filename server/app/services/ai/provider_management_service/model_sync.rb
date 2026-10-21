@@ -324,7 +324,9 @@ class Ai::ProviderManagementService
       # Returns false so it can be the tail call of a failure path.
       def record_sync_failure(provider, error_message, **extra_columns)
         current_metadata = provider.metadata || {}
-        current_metadata["last_sync_error"] = error_message
+        # A failing request URL can carry the credential (?key=...): keep the
+        # path, drop the query values.
+        current_metadata["last_sync_error"] = error_message.to_s.gsub(/\?(?=\S*=)\S*/, "?[FILTERED]")
         current_metadata["last_sync_failed_at"] = Time.current.iso8601
 
         Ai::Provider.where(id: provider.id).update_all(
@@ -372,7 +374,7 @@ class Ai::ProviderManagementService
       # different name on success than on failure (e.g. X.AI vs Grok).
       def sync_bearer_models(provider, url:, label:, models_key: "data", success_label: nil)
         success_label ||= label
-        credential = provider.provider_credentials.active.where(account_id: provider.account_id).first
+        credential = provider.credential_for_sync
 
         if credential.nil?
           return handle_sync_skipped(provider,

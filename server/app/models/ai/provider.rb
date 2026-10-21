@@ -97,6 +97,7 @@ module Ai
     before_validation :normalize_provider_type
     before_validation :normalize_api_endpoint
     after_commit :schedule_model_sync, on: [ :create, :update ]
+    after_destroy_commit :heal_account_default
 
     # Instance Methods
     def supports_capability?(capability)
@@ -171,13 +172,27 @@ module Ai
     end
 
     # Class Methods
+    # The operator-chosen default, only while it can still serve a call.
     def self.default_for_account(account = nil)
       return nil unless account
 
-      providers = where(account: account).active
-      providers.find do |provider|
-        provider.metadata&.dig("is_default") == true
+      where(account: account).active.includes(:provider_credentials).find do |provider|
+        provider.metadata&.dig("is_default") == true && ::Ai::ProviderDefaultService.eligible?(provider)
       end
+    end
+
+    # Credential used by the model sync: the one just saved when a caller scoped
+    # one (#with_sync_credential), else the first active credential.
+    def credential_for_sync
+      @sync_credential || provider_credentials.active.where(account_id: account_id).first
+    end
+
+    def with_sync_credential(credential)
+      previous = @sync_credential
+      @sync_credential = credential
+      yield
+    ensure
+      @sync_credential = previous
     end
 
     def self.with_healthy_status
@@ -198,7 +213,10 @@ module Ai
       relevant_change = sync_triggers.any? { |attr| saved_change_to_attribute?(attr) }
 
       return unless relevant_change
-      return unless is_active? # Don't sync if provider was just deactivated
+      # Not when the provider was just deactivated. An INACTIVE provider whose
+      # URL or type changed IS flagged: that is the recovery path after a failed
+      # create-time sync parked it (it used to be blocked here).
+      return if saved_change_to_attribute?("is_active") && !is_active?
 
       # Flag for the worker pull-sweep instead of fetching inline — the old
       # synchronous fetch put multi-second upstream HTTP calls inside every
@@ -207,6 +225,14 @@ module Ai
       mark_model_sync_pending!
     rescue StandardError => e
       Rails.logger.error "Failed to flag provider #{id} for model sync: #{e.message}"
+    end
+
+    def heal_account_default
+      return if ::Account.tearing_down?(account_id)
+
+      ::Ai::ProviderDefaultService.heal!(::Account.find_by(id: account_id))
+    rescue StandardError => e
+      Rails.logger.error("[Ai::Provider] default heal failed: #{e.class}")
     end
 
     def update_metadata(key, value)

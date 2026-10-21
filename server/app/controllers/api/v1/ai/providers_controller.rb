@@ -45,14 +45,18 @@ module Api
 
         # POST /api/v1/ai/providers
         def create
-          @provider = ::Ai::Provider.new(::Ai::ProviderCatalog.merge_defaults(provider_params.to_h))
+          attrs = ::Ai::ProviderCatalog.merge_defaults(provider_params.to_h)
+          @provider = ::Ai::Provider.new(attrs)
           @provider.account = current_user.account
+          # The wizard adds a distinct provider row per entry: when the name is
+          # taken (e.g. by a seeded catalog row) it gets a numbered suffix.
+          @provider.name = unique_provider_name(@provider.name) if params[:dedupe_name].present?
 
           if @provider.save
             # A provider syncs its models the moment it is added, on every
             # creation path. Types that need a credential defer until one is
             # saved (the credential create syncs again).
-            sync = ::Ai::Providers::ModelSyncAndActivate.call(@provider, activate: false)
+            sync = ::Ai::Providers::ModelSyncAndActivate.call(@provider, activate: false, preserve_on_failure: true, budget: true)
 
             render_success({
               provider: serialize_provider_detail(@provider.reload),
@@ -85,6 +89,10 @@ module Api
         # DELETE /api/v1/ai/providers/:id
         def destroy
           provider_name = @provider.name
+          # Unpinned canonical clones on this provider move to the next working
+          # one first (agents restrict the delete); the default is then healed
+          # by the model's after-destroy hook.
+          ::Ai::ProviderDefaultService.release_clones!(@provider)
 
           if @provider.destroy
             render_success({ message: "AI provider deleted successfully" })
@@ -209,6 +217,15 @@ module Api
         end
 
         private
+
+        def unique_provider_name(name)
+          taken = current_user.account.ai_providers.pluck(:name).to_set
+          return name unless taken.include?(name)
+
+          suffix = 2
+          suffix += 1 while taken.include?("#{name} (#{suffix})")
+          "#{name} (#{suffix})"
+        end
 
         def set_provider
           scope = current_account&.ai_providers || current_user&.account&.ai_providers

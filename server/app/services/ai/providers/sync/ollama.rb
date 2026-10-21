@@ -11,7 +11,7 @@ module Ai
 
           def sync_ollama_models(provider)
             base_url = provider.api_base_url.to_s.chomp("/")
-            credential = provider.provider_credentials.active.where(account_id: provider.account_id).first
+            credential = provider.credential_for_sync
 
             # Build possible endpoint URLs (try multiple patterns)
             # Standard Ollama: http://localhost:11434/api/tags

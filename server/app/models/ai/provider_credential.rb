@@ -42,6 +42,7 @@ module Ai
     before_destroy :prevent_destroy_if_default_and_only
     after_create :set_as_default_if_first
     after_commit :flag_provider_model_sync, on: [ :create, :update ]
+    after_destroy_commit :heal_account_default
 
     # Methods
     def credentials
@@ -281,11 +282,24 @@ module Ai
 
     def prevent_destroy_if_default_and_only
       return if Account.tearing_down?(account_id)
+      # Removing the provider removes its credentials with it.
+      return if destroyed_by_association
 
       if is_default? && account.ai_provider_credentials.for_provider(provider).count == 1
         errors.add(:base, "Cannot delete the only credential for this provider")
         throw :abort
       end
+    end
+
+    # A destroyed credential can leave the account default without anything to
+    # authenticate with; promote the next working provider instead.
+    def heal_account_default
+      return if destroyed_by_association
+      return if Account.tearing_down?(account_id)
+
+      ::Ai::ProviderDefaultService.heal!(account)
+    rescue StandardError => e
+      Rails.logger.error("[Ai::ProviderCredential] default heal failed: #{e.class}")
     end
 
     def set_as_default_if_first

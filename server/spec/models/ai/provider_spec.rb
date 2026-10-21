@@ -551,9 +551,16 @@ RSpec.describe Ai::Provider, type: :model do
 
       it 'returns default provider for account' do
         default = create(:ai_provider, account: account, is_default: true)
+        create(:ai_provider_credential, account: account, provider: default)
         create(:ai_provider, account: account, is_default: false)
 
         expect(described_class.default_for_account(account)).to eq(default)
+      end
+
+      it 'ignores a flagged default that has no credential to serve with' do
+        create(:ai_provider, account: account, is_default: true)
+
+        expect(described_class.default_for_account(account)).to be_nil
       end
 
       it 'returns nil when no default provider exists' do

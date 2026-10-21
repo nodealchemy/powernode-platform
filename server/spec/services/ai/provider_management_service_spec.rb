@@ -101,6 +101,10 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
       allow(Ai::ProviderManagementService).to receive(:new).and_return(test_service)
       # Service now uses test_with_details_simple for flat response format
       allow(test_service).to receive(:test_with_details_simple).and_return({ success: true })
+      # The sync runs first; a failed sync skips the test (it would only repeat the answer).
+      allow(Ai::Providers::ModelSyncAndActivate).to receive(:call).and_return(
+        Ai::Providers::ModelSyncAndActivate::Result.new(success: true, deferred: false, model_count: 1)
+      )
 
       described_class.create_provider_credential(
         openai_provider,

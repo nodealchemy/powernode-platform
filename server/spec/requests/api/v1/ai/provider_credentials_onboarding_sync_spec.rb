@@ -97,6 +97,105 @@ RSpec.describe "Api::V1::Ai::ProviderCredentials onboarding sync", type: :reques
     end
   end
 
+  describe "a bad key on a provider that already works" do
+    let(:other_secret) { "sk-ant-fake-second-placeholder" }
+
+    before do
+      stub_request(:get, models_url).with(headers: { "X-Api-Key" => fake_secret })
+        .to_return(status: 200, body: { data: [ { id: "synced-model-a" } ] }.to_json, headers: { "Content-Type" => "application/json" })
+      stub_request(:get, models_url).with(headers: { "X-Api-Key" => other_secret })
+        .to_return(status: 401, body: { error: "denied" }.to_json, headers: { "Content-Type" => "application/json" })
+      create_credential
+      expect(provider.reload.supported_models).to be_present
+    end
+
+    it "keeps the provider active with its models and records the failure on the new credential" do
+      post "/api/v1/ai/providers/#{provider.id}/credentials",
+           params: { credential: { name: "Second", credentials: { api_key: other_secret }, is_active: true } },
+           headers: headers, as: :json
+
+      expect(response).to have_http_status(:created)
+      expect(json_response_data["model_sync"]["success"]).to be(false)
+      provider.reload
+      expect(provider.is_active).to be(true)
+      expect(provider.supported_models.map { |m| m["id"] }).to eq([ "synced-model-a" ])
+      bad = provider.provider_credentials.find_by(name: "Second")
+      expect(bad.consecutive_failures).to be >= 1
+    end
+  end
+
+  describe "syncing with the credential just saved" do
+    it "uses the new credential even when an older active one is stale" do
+      old_secret = "sk-ant-fake-stale-placeholder"
+      new_secret = "sk-ant-fake-new-placeholder"
+      create(:ai_provider_credential, account: account, provider: provider, credentials: { "api_key" => old_secret })
+      stub_request(:get, models_url).with(headers: { "X-Api-Key" => old_secret }).to_return(status: 401, body: "{}")
+      stub_request(:get, models_url).with(headers: { "X-Api-Key" => new_secret })
+        .to_return(status: 200, body: { data: [ { id: "synced-model-a" } ] }.to_json, headers: { "Content-Type" => "application/json" })
+
+      post "/api/v1/ai/providers/#{provider.id}/credentials",
+           params: { credential: { name: "Fresh", credentials: { api_key: new_secret }, is_active: true } },
+           headers: headers, as: :json
+
+      expect(json_response_data["model_sync"]).to include("success" => true)
+      expect(provider.reload.is_active).to be(true)
+    end
+  end
+
+  describe "provider creation when the upstream is unreachable" do
+    it "keeps the provider active with the sync deferred, and flags it for retry" do
+      stub_request(:get, "http://localhost:11434/api/tags").to_timeout
+      stub_request(:get, "http://localhost:11434/ollama/api/tags").to_timeout
+
+      post "/api/v1/ai/providers",
+           params: { provider: { provider_type: "ollama", name: "Slow Ollama", api_base_url: "http://localhost:11434", is_active: true } },
+           headers: headers, as: :json
+
+      expect(response).to have_http_status(:created)
+      expect(json_response_data["model_sync"]).to include("success" => false, "deferred" => true)
+      created = Ai::Provider.find(json_response_data["provider"]["id"])
+      expect(created.is_active).to be(true)
+      expect(created.supported_models).to be_present
+      expect(created.metadata["model_sync_pending_at"]).to be_present
+    end
+
+    it "gives up after a single total time budget" do
+      stub_const("Ai::Providers::ModelSyncAndActivate::CREATE_BUDGET_SECONDS", 0.2)
+      allow(Ai::ProviderManagementService).to receive(:sync_provider_models) { sleep 5 }
+      slow = create(:ai_provider, account: account, provider_type: "ollama", is_active: true)
+
+      started = Time.now
+      result = Ai::Providers::ModelSyncAndActivate.call(slow, activate: false, preserve_on_failure: true, budget: true)
+
+      expect(Time.now - started).to be < 3
+      expect(result.deferred).to be(true)
+      expect(slow.reload.is_active).to be(true)
+    end
+  end
+
+  describe "recovery after a failed create-time sync" do
+    it "re-flags an INACTIVE provider for sync when its URL is corrected" do
+      parked = create(:ai_provider, account: account, provider_type: "ollama", is_active: false,
+                                    api_base_url: "http://localhost:11434", api_endpoint: "http://localhost:11434")
+
+      parked.update!(api_base_url: "http://localhost:11435", api_endpoint: "http://localhost:11435")
+
+      expect(parked.reload.metadata["model_sync_pending_at"]).to be_present
+    end
+  end
+
+  describe "error text" do
+    it "masks query strings (a ?key= credential) in the recorded sync error" do
+      masked = Ai::ProviderManagementService.send(
+        :record_sync_failure, provider, "GET https://example.test/v1/models?key=fake-query-secret&alt=json failed"
+      )
+
+      expect(masked).to be(false)
+      expect(provider.reload.metadata["last_sync_error"]).not_to include("fake-query-secret")
+      expect(provider.metadata["last_sync_error"]).to include("https://example.test/v1/models")
+    end
+  end
+
   describe "POST /ai/providers (creation)" do
     it "syncs the models the moment the provider is created" do
       stub_request(:get, "http://localhost:11434/api/tags")

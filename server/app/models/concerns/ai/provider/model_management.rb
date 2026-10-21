@@ -84,9 +84,13 @@ module Ai
       # else the lightest chat-capable model. Search, preview, embedding,
       # audio, image, moderation and completion-only ids are never candidates.
       def preferred_chat_model
-        ids = Array(available_models).filter_map { |entry| ::Ai::ModelTiers.id_for(entry).presence }
-                                     .select { |id| ::Ai::ModelTiers.chat_capable?(id) }
-        return nil if ids.empty?
+        all_ids = Array(available_models).filter_map { |entry| ::Ai::ModelTiers.id_for(entry).presence }
+        return nil if all_ids.empty?
+
+        # When the filter leaves nothing (a catalog of unusual ids), the
+        # lightest of ALL ids beats having no default at all.
+        ids = all_ids.select { |id| ::Ai::ModelTiers.chat_capable?(id) }
+        ids = all_ids if ids.empty?
 
         wanted = ::Ai::ProviderCatalog.for(provider_type)&.dig(:default_chat_model)
         if wanted.present?
@@ -95,16 +99,6 @@ module Ai
         end
 
         lightest_of(ids)
-      end
-
-      # The default EMBEDDING model: the catalog's, for a provider that
-      # declares text_embedding; else a synced embedding id.
-      def default_embedding_model
-        return nil unless Array(capabilities).include?("text_embedding")
-
-        ids = Array(available_models).filter_map { |entry| ::Ai::ModelTiers.id_for(entry).presence }
-        ids.find { |id| ::Ai::ModelTiers.embedding?(id) } ||
-          ::Ai::ProviderCatalog.for(provider_type)&.dig(:default_embedding_model)
       end
 
       # Lightest Ai::ModelTiers tier wins; catalog position breaks a tie, so two
