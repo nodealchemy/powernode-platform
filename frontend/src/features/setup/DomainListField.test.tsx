@@ -40,6 +40,20 @@ describe('DomainListField', () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it('rejects over-broad wildcards the server also rejects', () => {
+    const spy = jest.fn();
+    render(<Harness spy={spy} />);
+    for (const bad of ['*.com', '*.1', '*.co.uk', '*.localhost']) {
+      fireEvent.change(screen.getByTestId('d'), { target: { value: bad } });
+      fireEvent.click(screen.getByTestId('d-add'));
+      expect(screen.getByTestId('d-error')).toBeInTheDocument();
+    }
+    expect(spy).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByTestId('d'), { target: { value: '*.example.com' } });
+    fireEvent.click(screen.getByTestId('d-add'));
+    expect(spy).toHaveBeenCalledWith('*.example.com');
+  });
+
   it('removes a domain', () => {
     const spy = jest.fn();
     render(<Harness initial={'a.example.com\nb.example.com'} spy={spy} />);

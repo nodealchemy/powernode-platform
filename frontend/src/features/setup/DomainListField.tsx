@@ -5,7 +5,23 @@ import { Plus, X } from 'lucide-react';
 const LABEL = '[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?';
 const DOMAIN_RE = new RegExp(`^(?:\\*\\.)?${LABEL}(?:\\.${LABEL})*$`, 'i');
 
-export const isValidDomain = (value: string): boolean => DOMAIN_RE.test(value.trim());
+// Client-side mirror of WildcardHostPattern, as a first line of feedback only: the server
+// (public_suffix list) is authoritative. A wildcard needs a registrable domain, so reject a
+// single-label base ("*.com"), a numeric TLD ("*.1") and the common two-level public
+// suffixes ("*.co.uk").
+const RESERVED = ['localhost', '127.0.0.1', '::1'];
+const TWO_LEVEL_SUFFIX = /^(?:co|com|org|net|gov|edu|ac|or|ne|go)\.[a-z]{2}$/i;
+
+export const isValidDomain = (value: string): boolean => {
+  const v = value.trim();
+  if (!DOMAIN_RE.test(v) || RESERVED.includes(v.toLowerCase())) return false;
+  if (!v.startsWith('*.')) return true;
+  const base = v.slice(2);
+  const labels = base.split('.');
+  if (labels.length < 2) return false;
+  if (/^\d+$/.test(labels[labels.length - 1])) return false;
+  return !TWO_LEVEL_SUFFIX.test(base);
+};
 
 interface DomainListFieldProps {
   id: string;
