@@ -624,6 +624,21 @@ RSpec.describe Ai::McpClientIdentityService do
         expect(operation.reload).to have_attributes(ai_agent_id: dup.id, status: "pending")
       end
 
+      it "re-checks inside the merge: an operation parked after the report leaves that duplicate unmerged" do
+        dup = duplicates.first
+        clean_report = described_class.duplicate_agents_report(account: account)
+        allow(described_class).to receive(:duplicate_agents_report).and_return(clean_report)
+        operation = Ai::DeferredOperation.create!(account: account, ai_agent: dup, action_category: "release.promote",
+                                                  executor_class: "TestSpecExecutor", params: { foo: "bar" })
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(result[:merged]).to eq(4)
+        expect(result[:errors]).to contain_exactly(include(id: dup.id, error: include("unsettled_operations")))
+        expect(Ai::Agent.where(id: dup.id)).to exist
+        expect(operation.reload.ai_agent_id).to eq(dup.id)
+      end
+
       it "repoints every history table's rows to the keeper instead of deleting them" do
         dup = duplicates.first
         connection = ActiveRecord::Base.connection

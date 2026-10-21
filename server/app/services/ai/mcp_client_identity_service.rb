@@ -2,6 +2,10 @@
 
 module Ai
   class McpClientIdentityService
+    # Raised inside a merge's transaction when a duplicate stopped being
+    # mergeable after the report listed it; the merge loop records it as an error.
+    class MergeSkipped < StandardError; end
+
     # @param client_info [Hash] MCP client_info from the initialize handshake.
     #   Used to detect the correct AI provider (e.g., "Anthropic's agentic coding
     #   tool" → anthropic provider). Falls back to OAuth application name if empty.
@@ -276,6 +280,15 @@ module Ai
     def self.merge_agent_into!(dup, keeper)
       connection = ActiveRecord::Base.connection
       ActiveRecord::Base.transaction do
+        # The report's skip rules were evaluated before this transaction. Re-check
+        # them under FOR UPDATE on the duplicate's row: a concurrent insert of a
+        # row referencing it (a new deferred operation or session) needs FOR KEY
+        # SHARE on that row, so it waits for this merge, and anything that
+        # landed in between is seen here.
+        dup.lock!
+        reason = duplicate_skip_reason(dup)
+        raise MergeSkipped, "no longer mergeable: #{reason}" if reason
+
         # Team memberships are unique per (team, agent): drop the duplicate's
         # seat where the keeper already sits, move the rest.
         keeper_team_ids = Ai::AgentTeamMember.where(ai_agent_id: keeper.id).select(:ai_agent_team_id)
