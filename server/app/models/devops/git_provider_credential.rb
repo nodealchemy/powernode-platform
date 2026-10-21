@@ -33,6 +33,7 @@ module Devops
       message: "can only have one default credential per provider"
     }
     validate :credentials_format
+    validate :auth_type_unchanged, on: :update
     validate :expiration_date_future, on: :create
 
     # Scopes
@@ -223,6 +224,10 @@ module Devops
         return
       end
 
+      if !ssh_key? && @credentials.key?("private_key")
+        errors.add(:credentials, "private_key is only accepted on an SSH key credential")
+      end
+
       case auth_type
       when "oauth"
         validate_oauth_credentials
@@ -246,6 +251,13 @@ module Devops
       if public_key.present? && !OpensshKeyValidatable::OPENSSH_AUTHORIZED_KEY_PREFIX.match?(public_key.to_s)
         errors.add(:credentials, "public_key must be an OpenSSH public key line")
       end
+    end
+
+    # The type is fixed at creation: an SSH key may only enter through the
+    # audited create/replace path, and a token credential must not be able to
+    # become (or hold) one.
+    def auth_type_unchanged
+      errors.add(:auth_type, "cannot be changed once the credential exists") if auth_type_changed?
     end
 
     def validate_oauth_credentials

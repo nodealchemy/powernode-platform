@@ -203,6 +203,47 @@ RSpec.describe 'Api::V1::Git::Providers SSH access', type: :request do
     end
   end
 
+  describe 'auth_type is immutable (no un-audited path to a stored SSH key)' do
+    it 'does not turn a token credential into an SSH key, and stores no private key on it' do
+      provider_id = create_provider(name: 'Forge Immutable')
+      post_credential(provider_id, **https_credential)
+      credential_id = json_response_data['credential']['id']
+
+      expect do
+        patch "/api/v1/git/providers/#{provider_id}/credentials/#{credential_id}",
+              params: { credential: { auth_type: 'ssh_key', credentials: { token: fake_token, private_key: fake_private_key } } },
+              headers: headers, as: :json
+      end.not_to change { AuditLog.where(action: 'git.credentials.ssh_key.replace').count }
+
+      stored = Devops::GitProviderCredential.find(credential_id)
+      expect(stored.auth_type).to eq('personal_access_token')
+      expect(stored.credentials).not_to have_key('private_key')
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it 'does not turn an SSH key into a token credential' do
+      provider_id = create_provider(name: 'Forge Immutable Two')
+      post_credential(provider_id, **ssh_credential)
+      credential_id = json_response_data['credential']['id']
+
+      patch "/api/v1/git/providers/#{provider_id}/credentials/#{credential_id}",
+            params: { credential: { auth_type: 'personal_access_token', credentials: { token: fake_token } } },
+            headers: headers, as: :json
+
+      expect(Devops::GitProviderCredential.find(credential_id).auth_type).to eq('ssh_key')
+      expect(Devops::GitProviderCredential.find(credential_id).credentials['private_key']).to eq(fake_private_key)
+    end
+
+    it 'rejects the change at the model too' do
+      provider_id = create_provider(name: 'Forge Immutable Three')
+      post_credential(provider_id, **https_credential)
+      credential = Devops::GitProviderCredential.find(json_response_data['credential']['id'])
+
+      expect(credential.update(auth_type: 'ssh_key')).to be(false)
+      expect(credential.errors[:auth_type]).to be_present
+    end
+  end
+
   describe 'testing credentials' do
     it 'refuses to test an SSH key (verified on first use)' do
       provider_id = create_provider(name: 'Forge Test')

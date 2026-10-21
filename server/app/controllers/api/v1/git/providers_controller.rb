@@ -179,7 +179,7 @@ module Api
             return @credential.errors.empty? ? render_success({ credential: serialize_credential_detail(@credential) }) : render_validation_error(@credential.errors)
           end
 
-          if @credential.update(credential_params)
+          if @credential.update(credential_params.except(:auth_type))
             render_success({ credential: serialize_credential_detail(@credential) })
           else
             render_validation_error(@credential.errors)
