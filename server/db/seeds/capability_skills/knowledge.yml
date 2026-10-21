@@ -64,20 +64,21 @@
 - slug: knowledge-contribution
   name: Knowledge Contribution
   category: research
-  description: "Use when a conversation needs existing knowledge looked up, or one new fact, lesson or rating added: search first, add one attributed entry, rate what you used."
+  description: "Use when someone says note this for later, or asks what the platform already knows about how something works: add one attributed note, or look it up."
   tags: [knowledge, learnings, lookup, contribute, feedback]
   domain: knowledge
   capability: knowledge-contribution
   triggers:
     applies_to: [any]
     use_when:
-      - someone asks what the platform already knows about a topic
-      - one new fact or lesson from the current conversation should be recorded
-      - a knowledge entry or learning you relied on helped or misled and should be rated
+      - what does the platform already know about how approval chains work
+      - "note this for later: the onboarding call showed that new teams skip the region question"
+      - "note this for later: remember what a call or conversation showed"
+      - rate a knowledge entry or learning that helped or misled
     not_for:
       - researching, correcting, extracting or re-organising knowledge, use knowledge-curation
       - verifying, resolving contradictions in or retiring learnings, use learning-curation
-    keywords: [look up, what do we know, already documented, record a fact, note this, rate knowledge, was this helpful, add a learning, search knowledge]
+    keywords: [note this for later, the call showed that, remember this, what does the platform already know, how it works]
   manifest:
     verbs: [search_knowledge, search_knowledge_graph, knowledge_health, create_knowledge, rate_knowledge, query_learnings, learning_metrics, create_learning, reinforce_learning, dispute_learning]
     knowledge_tags: [guidance-reuse-first]
