@@ -49,6 +49,10 @@ module Ai
     # A task assembly (assemble_task) is a record of what a run was assembled from,
     # not a routing choice: routing analytics leave it out.
     scope :excluding_assemblies, -> { where.not(request_type: "task_assembly") }
+    # THE scope every analytics reader uses (cost savings, recommendations,
+    # escalation audit, token analytics, the decisions list): this account's routing
+    # choices, never its task assemblies.
+    scope :for_analytics, ->(account) { for_account(account).excluding_assemblies }
     scope :for_provider, ->(provider) { where(selected_provider: provider) }
     scope :by_strategy, ->(strategy) { where(strategy_used: strategy) }
 

@@ -194,9 +194,18 @@ RSpec.describe Ai::Assembly::Service, type: :service do
       expect(decision.request_metadata["selected"].map { |s| s["slug"] }).to eq(slugs_of(@result))
     end
 
-    it "is idempotent by assembly_id: the stored assembly comes back and no row is added" do
+    it "stores slugs and a content hash, not the skills' prompts, manifests or learning text" do
+      result = assemble(dev_task)
+      stored = Ai::RoutingDecision.find(result[:assembly_id]).request_metadata
+
+      expect(stored["selected"]).to all(satisfy { |s| (s.keys - %w[slug name score via content_hash]).empty? && s["content_hash"].present? })
+      expect(stored["selected"].map { |s| s["slug"] }).to eq(slugs_of(result))
+      expect(stored["learnings"]).to all(be_a(String)) # ids only
+      expect(stored.to_json).not_to include(result[:skills].first[:system_prompt][0, 40])
+    end
+
+    it "is idempotent by assembly_id: the same assembly comes back, re-read by slug, and no row is added" do
       first = assemble(dev_task)
-      Ai::Skill.global.where(slug: slugs_of(first)).update_all(system_prompt: "## Procedure\n1. changed after the fact")
 
       again = nil
       expect { again = assemble(nil, agent_slug: "platform-engineer", assembly_id: first[:assembly_id]) }
@@ -206,6 +215,26 @@ RSpec.describe Ai::Assembly::Service, type: :service do
       expect(slugs_of(again)).to eq(slugs_of(first))
       expect(again[:skills].map { |s| s[:system_prompt] }).to eq(first[:skills].map { |s| s[:system_prompt] })
       expect(again.slice(:tier, :model, :effort)).to eq(first.slice(:tier, :model, :effort))
+      expect(again[:skills]).to all(include(content_changed: false))
+    end
+
+    it "serves the CURRENT prompt on fetch and flags a skill whose content changed since the assembly" do
+      first = assemble(dev_task)
+      changed = Ai::Skill.global.find_by!(slug: slugs_of(first).first)
+      changed.update_columns(system_prompt: "## Procedure\n1. changed after the fact")
+
+      again = assemble(nil, agent_slug: "platform-engineer", assembly_id: first[:assembly_id])
+
+      expect(again[:skills].first).to include(system_prompt: "## Procedure\n1. changed after the fact", content_changed: true)
+    end
+
+    it "reports a skill that no longer exists instead of failing the fetch" do
+      first = assemble(dev_task)
+      Ai::Skill.global.where(slug: slugs_of(first).first).update_all(slug: "renamed-away")
+
+      again = assemble(nil, agent_slug: "platform-engineer", assembly_id: first[:assembly_id])
+
+      expect(again[:skills].first).to include(slug: slugs_of(first).first, missing: true)
     end
 
     it "refuses an assembly_id from another account, an unknown one, an unknown agent and a blank task" do

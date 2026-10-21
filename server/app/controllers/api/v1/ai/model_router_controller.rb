@@ -105,7 +105,7 @@ module Api
           page = params[:page]&.to_i || 1
           per_page = [ params[:per_page]&.to_i || 50, 200 ].min
 
-          decisions = ::Ai::RoutingDecision.for_account(current_user.account)
+          decisions = ::Ai::RoutingDecision.for_analytics(current_user.account)
                                            .where("created_at >= ?", @time_range.ago)
                                            .order(created_at: :desc)
 
@@ -124,7 +124,7 @@ module Api
 
         # GET /api/v1/ai/model_router/decisions/:id
         def show_decision
-          decision = ::Ai::RoutingDecision.find(params[:id])
+          decision = ::Ai::RoutingDecision.excluding_assemblies.find(params[:id])
 
           unless decision.account_id == current_user.account_id
             return render_error("Decision not found", status: :not_found)

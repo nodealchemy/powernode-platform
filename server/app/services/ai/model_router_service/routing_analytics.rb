@@ -22,7 +22,7 @@ module Ai
 
       # Analyze potential cost savings
       def analyze_cost_savings(time_range: 30.days)
-        decisions = Ai::RoutingDecision.for_account(@account).excluding_assemblies
+        decisions = Ai::RoutingDecision.for_analytics(@account)
                                         .where("created_at >= ?", time_range.ago)
                                         .where.not(actual_cost_usd: nil)
 
@@ -54,7 +54,7 @@ module Ai
         recommendations = []
 
         # Analyze recent routing decisions
-        recent_decisions = Ai::RoutingDecision.for_account(@account).excluding_assemblies
+        recent_decisions = Ai::RoutingDecision.for_analytics(@account)
                                                .recent(7.days)
                                                .where.not(actual_cost_usd: nil)
 
@@ -118,7 +118,7 @@ module Ai
         providers = @account.ai_providers.active
 
         providers.map do |provider|
-          recent_decisions = Ai::RoutingDecision.for_account(@account)
+          recent_decisions = Ai::RoutingDecision.for_analytics(@account)
                                                  .for_provider(provider)
                                                  .recent(7.days)
 
@@ -195,7 +195,7 @@ module Ai
       # success rate, avg cost, avg latency. The advisory fires when the escalated
       # cohort shows non-positive benefit at scale.
       def escalation_benefit_deltas(time_range: 7.days, task_type: nil)
-        decisions = ::Ai::RoutingDecision.for_account(@account)
+        decisions = ::Ai::RoutingDecision.for_analytics(@account)
                                          .where("created_at >= ?", time_range.ago)
                                          .where.not(complexity_assessment_id: nil)
                                          .includes(:complexity_assessment)
@@ -262,7 +262,7 @@ module Ai
       # ── inc6 escalation helpers ─────────────────────────────────────────────
 
       def window_scope(time_range:)
-        ::Ai::RoutingDecision.for_account(@account).where("created_at >= ?", time_range.ago)
+        ::Ai::RoutingDecision.for_analytics(@account).where("created_at >= ?", time_range.ago)
       end
 
       def escalation_scope(time_range:)

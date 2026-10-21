@@ -234,7 +234,7 @@ module Ai
       end
 
       def routing_decisions_for_period(start_time)
-        Ai::RoutingDecision.for_account(account).where("created_at >= ?", start_time)
+        Ai::RoutingDecision.for_analytics(account).where("created_at >= ?", start_time)
       end
 
       def usage_by_model(metrics)

@@ -126,6 +126,12 @@ module Ai
         added
       end
 
+      # What a skill said at assembly time, as a short digest: the record keeps this
+      # instead of the prompt, so a later fetch can tell the skill changed.
+      def content_hash(system_prompt, meta)
+        Digest::SHA256.hexdigest([ system_prompt.to_s, meta["manifest"].to_json, meta["hints"].to_json ].join("\u0000"))[0, 16]
+      end
+
       def read_only_skill?(skill)
         skill[:manifest]["read_only"] == true
       end
@@ -140,7 +146,8 @@ module Ai
           slug: row.slug, name: row.name, system_prompt: row.system_prompt,
           manifest: meta["manifest"].is_a?(Hash) ? meta["manifest"] : {},
           hints: meta["hints"].is_a?(Hash) ? meta["hints"] : {},
-          tags: Array(row.tags), score: score&.to_f&.round(4), via: via, metadata: meta
+          tags: Array(row.tags), score: score&.to_f&.round(4), via: via, metadata: meta,
+          content_hash: content_hash(row.system_prompt, meta)
         }
       end
 
@@ -195,7 +202,9 @@ module Ai
       # ---- record ------------------------------------------------------------
 
       def persist(agent_slug, context, lane, task, skills, learnings, tags, floors, uncovered)
-        stored_skills = skills.map { |s| s.except(:metadata) }
+        # The record keeps slugs and a content digest, never the prompts or learning
+        # text (up to five full prompts per call otherwise); fetch re-reads them.
+        stored_skills = skills.map { |s| s.slice(:slug, :name, :score, :via, :content_hash) }
         model = context == "claude_code" ? CLAUDE_CODE_MODELS.fetch(floors[:tier]) : nil
         decision = ::Ai::RoutingDecision.create!(
           account: account, request_type: REQUEST_TYPE, strategy_used: STRATEGY, model_tier: floors[:tier],
@@ -203,7 +212,7 @@ module Ai
           request_metadata: {
             "agent_slug" => agent_slug, "context" => context, "lane" => lane, "task_digest" => digest(task),
             "tier" => floors[:tier], "model" => model, "effort" => floors[:effort], "floor_reason" => floors[:reason],
-            "selected" => stored_skills.map(&:deep_stringify_keys), "learnings" => learnings.map(&:deep_stringify_keys),
+            "selected" => stored_skills.map(&:deep_stringify_keys), "learnings" => learnings.map { |l| l[:id].to_s },
             "knowledge_tags" => tags, "uncovered" => uncovered.map(&:deep_stringify_keys)
           },
           rationale: { "mode" => "assembly", "floor_reason" => floors[:reason] },
@@ -236,8 +245,8 @@ module Ai
           assembly_id: decision.id,
           agent_slug: meta["agent_slug"],
           context: meta["context"],
-          skills: Array(meta["selected"]).map { |s| s.symbolize_keys },
-          learnings: Array(meta["learnings"]).map { |l| l.symbolize_keys },
+          skills: hydrate_skills(meta["selected"]),
+          learnings: hydrate_learnings(meta["learnings"]),
           knowledge_tags: Array(meta["knowledge_tags"]),
           tier: meta["tier"],
           model: meta["model"],
@@ -246,6 +255,29 @@ module Ai
           uncovered: Array(meta["uncovered"]).map { |u| u.symbolize_keys },
           routing_decision_id: decision.id
         }
+      end
+
+      # Re-read each stored skill by slug (the account's override first): the CURRENT
+      # prompt and manifest, flagged when its content changed since the assembly, or
+      # marked missing when the skill is gone.
+      def hydrate_skills(stored)
+        entries = Array(stored).map { |s| s.symbolize_keys }
+        rows = ::Ai::Skill.for_account(account.id).where(slug: entries.map { |e| e[:slug] }).account_override_first.to_a.uniq(&:slug).index_by(&:slug)
+        entries.map do |entry|
+          row = rows[entry[:slug]]
+          next entry.except(:content_hash).merge(missing: true) unless row
+
+          current = skill_hash(row, entry[:score], entry[:via])
+          current.except(:metadata, :content_hash).merge(score: entry[:score], via: entry[:via], content_changed: current[:content_hash] != entry[:content_hash])
+        end
+      end
+
+      def hydrate_learnings(ids)
+        ids = Array(ids)
+        rows = ::Ai::CompoundLearning.for_account(account.id).where(id: ids).index_by(&:id)
+        ids.filter_map { |id| rows[id] }.map do |row|
+          { id: row.id, title: row.title, category: row.category, content: row.content.to_s.truncate(LEARNING_CHARS), tags: Array(row.tags) }
+        end
       end
 
       def digest(text)
