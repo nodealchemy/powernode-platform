@@ -71,7 +71,7 @@ module Ai
       private_key signing_key api_key api-key apikey credential
       privatekey private-key signingkey signing-key seedphrase seed-phrase
       ssh_key ssh-key sshkey tls_key tls-key tlskey kubeconfig id_rsa privkey
-      client-key-data client_key_data key_pem
+      client-key-data client_key_data key_pem id_ed25519 id_ecdsa
     ].freeze
 
     # Keys matched in FULL rather than as substrings: "pem" as a substring would
@@ -80,7 +80,11 @@ module Ai
 
     # A base64 PEM armor: "-----BEGIN " encodes to this prefix. Confirmed by
     # decoding enough of it to see a PRIVATE KEY header before anything is masked.
-    BASE64_PEM_PREFIX = /LS0tLS1CRUdJTi[A-Za-z0-9+\/=]{20,}/
+    # Anywhere in a string (not only at its start): a kubeconfig held as a JSON
+    # string, a base64 run after a newline, a MIME-wrapped run (76/64-column lines
+    # joined by real or JSON-escaped newlines). A continuation line must look like
+    # a base64 line (16+ characters) so prose after the run is not swallowed.
+    BASE64_PEM_RUN = %r{(?<![A-Za-z0-9+/])LS0tLS1CRUdJTi(?:[A-Za-z0-9+/=]|(?:\r?\n|\\r\\n|\\n)(?=[A-Za-z0-9+/=]{16}))*}
 
     # Keys that a pattern WOULD match and that provably hold no material —
     # checked before every pattern, including the deployment-configured ones, so
@@ -117,6 +121,12 @@ module Ai
       api_key_name
       public_key_pem
     ].freeze
+
+    # Metadata ABOUT a key-material field, never the material: a fingerprint,
+    # type, path, file name, id or presence flag of an ssh/tls key or kubeconfig.
+    # Narrow on purpose: only these subjects, so "approle_secret_id" still masks.
+    SAFE_SIBLING_SUBJECTS = %w[ssh_key tls_key kubeconfig privkey id_rsa id_ed25519 id_ecdsa key_pem client_key_data].freeze
+    SAFE_SIBLING_SUFFIXES = %w[fingerprint type path file id present].freeze
 
     # Deployment-specific additions (JSON array of strings). EXTENDS the
     # defaults rather than replacing them, so a misconfigured setting cannot
@@ -220,21 +230,20 @@ module Ai
 
       def mask_pem_string(string)
         masked = string.include?("PRIVATE KEY") ? string.gsub(PEM_PRIVATE_KEY, MASK) : string
-        base64_pem?(masked.lstrip) ? MASK : masked
+        masked.include?("LS0tLS1CRUdJTi") ? mask_base64_pem(masked) : masked
       end
 
-      # True when +string+ begins with a base64 PEM private-key armor.
-      def base64_pem?(string)
-        return false unless string.start_with?("LS0tLS1CRUdJTi")
-
-        decoded = ::Base64.decode64(string[0, 96])
+      # True when the base64 +run+ decodes to a PEM PRIVATE KEY header.
+      def base64_pem?(run)
+        flat = run.gsub(/\r?\n|\\r|\\n/, "")
+        decoded = ::Base64.decode64(flat[0, 96])
         decoded.match?(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY/)
       rescue ArgumentError
         false
       end
 
       def mask_base64_pem(text)
-        text.gsub(BASE64_PEM_PREFIX) { |token| base64_pem?(token) ? MASK : token }
+        text.gsub(BASE64_PEM_RUN) { |run| base64_pem?(run) ? MASK : run }
       end
 
       # Everything after the last whitespace of a window cut off mid-text. The
@@ -252,7 +261,7 @@ module Ai
       # its separator. Scanning resumes after each masked value, so a key nested
       # inside one is consumed with it.
       def mask_keyed_values(text)
-        keys = (key_patterns + TEXT_EXTRA_KEYS).map { |pattern| ::Regexp.escape(pattern) }.join("|")
+        keys = (key_patterns + TEXT_EXTRA_KEYS).map { |pattern| flexible(pattern) }.join("|")
         key = /(?:#{keys})[\w.-]*["']?\s*(?:=>|[:=])\s*/i
         out = +""
         pos = 0
@@ -358,7 +367,7 @@ module Ai
         return nil if patterns.empty?
 
         exact = EXACT_SECRET_KEYS.map { |key| ::Regexp.escape(key) }.join("|")
-        ::Regexp.new("\\A(?!#{allowlist_veto}\\z)(?:.*(?:#{alternation(patterns)})|(?:#{exact})\\z)",
+        ::Regexp.new("\\A(?!#{allowlist_veto}\\z)(?!#{sibling_veto}\\z)(?:.*(?:#{alternation(patterns)})|(?:#{exact})\\z)",
                      ::Regexp::IGNORECASE | ::Regexp::MULTILINE)
       end
 
@@ -377,17 +386,37 @@ module Ai
       end
 
       def allowlist_veto
-        entries = SAFE_KEY_ALLOWLIST.map do |key|
-          key.each_char.map do |char|
-            char.match?(/[a-z]/i) ? "[#{char.downcase}#{char.upcase}]" : ::Regexp.escape(char)
-          end.join
-        end
-
-        "(?-i:(?:#{entries.join('|')}))"
+        # Separator- and camelCase-insensitive like the patterns (publicKeyPem is
+        # as safe as public_key_pem), ASCII-only so folding cannot satisfy it.
+        "(?-i:(?:#{SAFE_KEY_ALLOWLIST.map { |key| ascii_flexible(key) }.join('|')}))"
       end
 
       def alternation(patterns)
-        patterns.map { |pattern| ::Regexp.escape(pattern) }.join("|")
+        patterns.map { |pattern| flexible(pattern) }.join("|")
+      end
+
+      # A key pattern matched case-insensitively with its - and _ separators
+      # optional and interchangeable: private_key covers privateKey, PrivateKey,
+      # private-key and privatekey. A dotted (path) pattern is taken literally.
+      def flexible(pattern)
+        return ::Regexp.escape(pattern) if pattern.include?(".")
+
+        pattern.split(/[-_]/).map { |part| ::Regexp.escape(part) }.join("[-_]?")
+      end
+
+      # ASCII-only case-insensitive source for +word+ (separators optional), inside
+      # an (?-i:) group: byte-exact modulo ASCII case, so Unicode folding (U+212A)
+      # cannot satisfy a veto.
+      def ascii_flexible(word)
+        word.split(/[-_]/).map do |part|
+          part.each_char.map { |c| c.match?(/[a-z]/i) ? "[#{c.downcase}#{c.upcase}]" : ::Regexp.escape(c) }.join
+        end.join("[-_]?")
+      end
+
+      def sibling_veto
+        subjects = SAFE_SIBLING_SUBJECTS.map { |w| ascii_flexible(w) }.join("|")
+        suffixes = SAFE_SIBLING_SUFFIXES.map { |w| ascii_flexible(w) }.join("|")
+        "(?-i:(?:.*(?:#{subjects})[-_]?(?:#{suffixes})|[hH][aA][sS][-_]?.*(?:#{subjects})))"
       end
 
       # Fails open to the defaults rather than raising: this runs inside the

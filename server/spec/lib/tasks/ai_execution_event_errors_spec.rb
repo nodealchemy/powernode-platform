@@ -31,17 +31,12 @@ RSpec.describe "ai:scrub_execution_event_errors rake task" do
     Rake.application = app
   end
 
-  it "scrubs, records the done marker, and is a no-op on the next boot" do
+  it "prints the truth for each outcome: ran, then already done" do
     row = event!("x password=#{secret}")
 
-    run_task
+    expect(run_task).to include("scrubbed 1", "complete=true")
     expect(row.reload.error_message).not_to include(secret)
-    expect(SiteSetting.get(Ai::ExecutionEventErrorScrub::DONE_MARKER)).to eq("true")
-
-    later = event!("y password=#{secret}")
-    output = run_task
-    expect(later.reload.error_message).to include(secret)
-    expect(output).to include("already done")
+    expect(run_task).to include("already done")
   end
 
   it "runs again past the marker with FORCE=1" do
@@ -53,7 +48,7 @@ RSpec.describe "ai:scrub_execution_event_errors rake task" do
     expect(later.reload.error_message).not_to include(secret)
   end
 
-  it "stays within a time budget and leaves the marker unset when it was cut short" do
+  it "says it was cut short, not done, when the time budget ran out" do
     event!("x password=#{secret}")
     event!("y password=#{secret}")
     stub_const("Ai::ExecutionEventErrorScrub::BATCH_SIZE", 1)
@@ -61,12 +56,16 @@ RSpec.describe "ai:scrub_execution_event_errors rake task" do
     output = run_task(env: { "BUDGET" => "0" })
 
     expect(SiteSetting.get(Ai::ExecutionEventErrorScrub::DONE_MARKER)).to be_blank
-    expect(output).to include("complete=false")
+    expect(output).to include("cut short")
+    expect(output).not_to include("already done")
   end
 
-  it "never raises, so a boot hook cannot fail the boot" do
-    allow_any_instance_of(Ai::ExecutionEventErrorScrub).to receive(:call).and_raise(StandardError, "boom")
+  it "says it FAILED (and does not claim done) on an error, including a cancelled query, and never raises" do
+    allow_any_instance_of(Ai::ExecutionEventErrorScrub).to receive(:call).and_raise(ActiveRecord::QueryCanceled, "boom")
 
-    expect { run_task }.not_to raise_error
+    output = nil
+    expect { output = run_task }.not_to raise_error
+    expect(output).to include("FAILED")
+    expect(output).not_to include("already done")
   end
 end

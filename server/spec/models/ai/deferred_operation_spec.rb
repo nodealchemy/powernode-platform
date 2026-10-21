@@ -96,6 +96,26 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(stored.dig('output', 0)).to eq('ok')
     end
 
+    it 'text-filters EVERY string leaf of the stored envelope, whatever its name or case, but not ids or statuses' do
+      secret = %w[hunter 2].join
+      stub_const('OpaqueEnvelopeExecutor', Class.new do
+        define_singleton_method(:execute) do |_params, deferred_operation:|
+          { success: true, stdout: %({"password":"#{secret}"}), Error: "token: #{secret}",
+            logs: [ "ok", "secret=#{secret}" ], backtrace: "api_key=#{secret}", reason: "password=#{secret}",
+            errors: [ { detail: "password=#{secret}" } ], error_message: "password=#{secret}",
+            weird_key: %({"password":"#{secret}"}), status: "completed", instance_id: "0191-abc", note: 'plain prose' }
+        end
+      end)
+      op = described_class.create!(account: account, action_category: 'test.act',
+                                   executor_class: 'OpaqueEnvelopeExecutor', params: {})
+
+      op.execute_now!
+
+      stored = op.reload.result
+      expect(stored.to_json).not_to include(secret)
+      expect(stored).to include('status' => 'completed', 'instance_id' => '0191-abc', 'note' => 'plain prose')
+    end
+
     it 'returns the RAW result from the :proceed path (the caller is the requester)' do
       secret = %w[hunter 2].join
       stub_const('RawEnvelopeExecutor', Class.new do

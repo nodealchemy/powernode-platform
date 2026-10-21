@@ -36,21 +36,29 @@ module Ai
       new(**options).call
     end
 
-    # One-shot for deploys (rails-start.sh runs the rake task every boot, after
-    # db:migrate; db:seed is first-boot only there): runs the scrub under a time budget, and records DONE_MARKER only
-    # when it finished completely, so a cut-short or contended run resumes on
-    # the next boot. NEVER raises into boot. nil when already done.
+    # What a one-shot run did, so a caller can say so truthfully:
+    #   :done      the marker was already set; nothing was touched
+    #   :ran       scrubbed everything; the marker is now set
+    #   :cut_short the time budget or lock contention left rows; the marker is
+    #              unset and the next run resumes
+    #   :failed    an error (including a cancelled query) was swallowed; the
+    #              marker is unset
+    Outcome = Struct.new(:status, :result, :error_class, keyword_init: true)
+
+    # One-shot for deploys, run by the host's boot script after db:migrate (db:seed
+    # is first-boot only there): runs the scrub under a time budget and records
+    # DONE_MARKER only when it finished completely. NEVER raises into boot.
     def self.run_once!(time_budget: 30, force: false, **options)
-      return nil if !force && ::SiteSetting.get(DONE_MARKER).to_s == "true"
+      return Outcome.new(status: :done) if !force && ::SiteSetting.get(DONE_MARKER).to_s == "true"
 
       result = new(deadline: Process.clock_gettime(Process::CLOCK_MONOTONIC) + time_budget, **options).call
       ::SiteSetting.set(DONE_MARKER, "true", setting_type: "string") if result.complete?
       Rails.logger.info("[Ai::ExecutionEventErrorScrub] scrubbed #{result.scrubbed}, skipped #{result.skipped_rows}, " \
                         "complete=#{result.complete?}")
-      result
+      Outcome.new(status: result.complete? ? :ran : :cut_short, result: result)
     rescue StandardError => e
       Rails.logger.error("[Ai::ExecutionEventErrorScrub] one-shot failed: #{e.class}")
-      nil
+      Outcome.new(status: :failed, error_class: e.class.name)
     end
 
     def initialize(batch_size: BATCH_SIZE, lock_timeout: LOCK_TIMEOUT, sleeper: Kernel.method(:sleep), deadline: nil)

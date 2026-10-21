@@ -410,22 +410,24 @@ module Ai
 
     private
 
-    # The key-based filter cannot see inside a string, and an executor's failed
-    # envelope carries free text under `error`/`message` that can quote the very
-    # params it masks (IMP-f8e6bbc5e3bb). Only those two top-level string
-    # members are rewritten; the envelope's shape is untouched.
-    ENVELOPE_TEXT_KEYS = %w[error message details stderr output].freeze
+    # The key-based filter cannot see inside a string, and an executor's
+    # envelope carries free text under ANY member (error, stdout, logs, reason,
+    # a JSON document in a string...) that can quote the very params it masks
+    # (IMP-f8e6bbc5e3bb). The polarity is therefore "every string leaf is
+    # text-filtered" (case-insensitively by construction: it is value-based, with
+    # the secret patterns only and no truncation), minus a small set of exact
+    # structured members whose values are identifiers or states and must stay
+    # byte-identical. Hash keys never change, so the envelope's shape is untouched.
+    ENVELOPE_STRUCTURED_KEYS = /\A(?:id|status|state|kind|type|code|action|action_category|executor_class|[a-z0-9_]*_id)\z/i
 
-    def filter_envelope_text(node, inside: false)
+    def filter_envelope_text(node, structured: false)
       case node
       when ::Hash
         node.each_with_object(node.class.new) do |(key, value), out|
-          out[key] = filter_envelope_text(value, inside: inside || ENVELOPE_TEXT_KEYS.include?(key.to_s))
+          out[key] = filter_envelope_text(value, structured: ENVELOPE_STRUCTURED_KEYS.match?(key.to_s))
         end
-      when ::Array then node.map { |value| filter_envelope_text(value, inside: inside) }
-      # Only free text under an error-ish member, only the secret patterns, no
-      # truncation: every other leaf is byte-identical to what the executor said.
-      when ::String then inside ? ::Ai::SensitiveParams.filter_text(node, truncate: false) : node
+      when ::Array then node.map { |value| filter_envelope_text(value, structured: structured) }
+      when ::String then structured ? node : ::Ai::SensitiveParams.filter_text(node, truncate: false)
       else node
       end
     end

@@ -87,34 +87,43 @@ RSpec.describe Ai::ExecutionEventErrorScrub, ".run_once!" do
                                event_type: "approval_execution", status: "failed", error_message: message)
   end
 
-  it "scrubs once, records a marker, and does nothing the second time" do
+  it "reports :ran, records a marker, and then reports :done without touching rows" do
     row = event!("x password=#{secret}")
 
     first = described_class.run_once!(time_budget: 30)
-    expect(first).to be_a(described_class::Result)
+    expect(first.status).to eq(:ran)
+    expect(first.result.scrubbed).to eq(1)
     expect(row.reload.error_message).not_to include(secret)
     expect(SiteSetting.get(described_class::DONE_MARKER)).to eq("true")
 
     later = event!("y password=#{secret}")
-    expect(described_class.run_once!(time_budget: 30)).to be_nil
+    expect(described_class.run_once!(time_budget: 30).status).to eq(:done)
     expect(later.reload.error_message).to include(secret)
   end
 
-  it "does not mark done when the time budget cut it short, so the next boot resumes" do
+  it "reports :cut_short and leaves the marker unset when the time budget ran out" do
     event!("x password=#{secret}")
     event!("y password=#{secret}")
 
-    result = described_class.run_once!(time_budget: 0, batch_size: 1)
+    outcome = described_class.run_once!(time_budget: 0, batch_size: 1)
 
-    expect(result).not_to be_complete
+    expect(outcome.status).to eq(:cut_short)
     expect(SiteSetting.get(described_class::DONE_MARKER)).to be_blank
   end
 
-  it "never raises into boot" do
+  it "reports :failed, never raises, and leaves the marker unset on an error" do
     allow_any_instance_of(described_class).to receive(:call).and_raise(StandardError, "boom")
 
-    expect { described_class.run_once!(time_budget: 5) }.not_to raise_error
+    outcome = nil
+    expect { outcome = described_class.run_once!(time_budget: 5) }.not_to raise_error
+    expect(outcome.status).to eq(:failed)
     expect(SiteSetting.get(described_class::DONE_MARKER)).to be_blank
+  end
+
+  it "reports :failed for a cancelled query (statement timeout)" do
+    allow_any_instance_of(described_class).to receive(:call).and_raise(ActiveRecord::QueryCanceled, "canceling statement")
+
+    expect(described_class.run_once!(time_budget: 5).status).to eq(:failed)
   end
 end
 

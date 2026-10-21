@@ -450,4 +450,59 @@ RSpec.describe Ai::SensitiveParams do
       expect(out.length).to be > described_class::TEXT_LIMIT
     end
   end
+
+  describe 'case and separator twins of the key-material names (r3 M5-1)' do
+    %w[clientKeyData ClientKeyData client-key-data keyPem serverKeyPem hostKeyPem key-pem KeyPEM KEY_PEM
+       idRsa id_rsa id-rsa id_ed25519 idEd25519 sshKey SshKey tlsKey privKey].each do |key|
+      it "masks #{key} in filter and in filter_text (JSON key form)" do
+        expect(described_class.filter(key => 'PLAINTEXT')[key]).to eq('[FILTERED]')
+        expect(described_class.filter_text(%({"#{key}": "PLAINTEXT-VALUE", "x": 1}))).not_to include('PLAINTEXT-VALUE')
+      end
+    end
+  end
+
+  describe 'benign siblings of the key-material names (r3 L5-2)' do
+    %w[ssh_key_fingerprint ssh_key_type ssh_key_present ssh_key_id has_kubeconfig kubeconfig_path tls_key_file
+       privkey_path sshKeyFingerprint].each do |key|
+      it "leaves #{key} legible" do
+        expect(described_class.filter(key => 'value-123')[key]).to eq('value-123')
+      end
+    end
+
+    it 'still masks a secret whose name merely ends in a benign-looking word' do
+      expect(described_class.filter('approle_secret_id' => 'PLAINTEXT')['approle_secret_id']).to eq('[FILTERED]')
+      expect(described_class.filter('ssh_key' => 'PLAINTEXT')['ssh_key']).to eq('[FILTERED]')
+    end
+  end
+
+  describe 'base64 PEM anywhere (r3 M5-2)' do
+    let(:pem) { "-----BEGIN RSA PRIVATE KEY-----\n#{'QUJD' * 40}\n-----END RSA PRIVATE KEY-----\n" }
+    let(:b64) { Base64.strict_encode64(pem) }
+    let(:wrapped) { Base64.encode64(pem) } # MIME, 60-col lines, newline-separated
+
+    it 'masks a base64 PEM run inside a JSON-string kubeconfig under a non-secret key' do
+      doc = %({"clusters":[{"name":"c"}],"users":[{"user":{"data":"#{b64}"}}]})
+
+      masked = described_class.filter('blob' => doc)['blob']
+
+      expect(masked).not_to include(b64[0, 40])
+      expect(masked).to include('"clusters"')
+    end
+
+    it 'masks a base64 PEM after a leading newline' do
+      expect(described_class.filter('blob' => "\n  #{b64}")['blob']).not_to include(b64[0, 40])
+    end
+
+    it 'masks the WHOLE wrapped run in filter_text, not just the first line' do
+      out = described_class.filter_text("key follows:\n#{wrapped}\nend of key")
+
+      wrapped.lines.each { |line| expect(out).not_to include(line.strip) unless line.strip.empty? }
+      expect(out).to include('end of key')
+    end
+
+    it 'leaves ordinary base64 alone' do
+      other = Base64.strict_encode64('plain bytes ' * 20)
+      expect(described_class.filter('blob' => "x #{other} y")['blob']).to eq("x #{other} y")
+    end
+  end
 end

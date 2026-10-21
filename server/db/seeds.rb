@@ -520,6 +520,7 @@ settings.set_unless_exists(Powernode::SampleContentGate::SETTING_KEY, "false",
 
 settings.finish
 
+
 if Powernode::Seeds.demo?
   puts "   Accounts: #{Account.count}"
   puts "   Users: #{User.count}"

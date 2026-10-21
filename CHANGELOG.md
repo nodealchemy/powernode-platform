@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Execution-event error scrub** — historical raw executor error text in `ai_execution_events.error_message`
-  is scrubbed by `Ai::ExecutionEventErrorScrub` (`bin/rails ai:scrub_execution_event_errors`, run every boot by the hub's `rails-start.sh`, bounded and
+  is scrubbed by `Ai::ExecutionEventErrorScrub` (`bin/rails ai:scrub_execution_event_errors`, run every boot by the host's boot script, bounded and
   marker-guarded), no longer by a boot-time migration. Idempotent and resumable.
 - **Migrations squashed** 616 → 7 baselines (one bootstrap + one per owner), with uniform `<ext>_` table
   prefixes (e.g. `system_`, `system_sdwan_`) and standardized Rails index names.
