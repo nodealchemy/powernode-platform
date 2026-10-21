@@ -515,16 +515,34 @@ module Ai
       # written on EVERY refusal, never collapsed — spends that window.
       def guarded_park_refusal(params)
         code, refusal = tightening_refusal(params)
-        return nil unless refusal
-
-        # Fails closed (IMP-8a62dc5a6a4b): the metered row is what spends the
-        # window and what MachinePark.refused_count reads. A refusal whose row
-        # was not written would be uncounted AND would still answer with the
-        # value-dependent text, so the probe is given a generic one instead.
-        return refusal if audit_park_refusal(params, code, collapse: false)
+        # Fails closed (IMP-8a62dc5a6a4b). The metered row is what spends the
+        # window and what MachinePark.refused_count reads. If it cannot be
+        # written, a refusal would be uncounted AND still value-dependent; and
+        # letting a tightening value park while a loosening one is refused
+        # would turn the outage into an oracle. So the guard fails ENTIRELY:
+        # every guarded attempt gets the same generic answer.
+        written = refusal ? audit_park_refusal(params, code, collapse: false) : audit_store_writable?
+        return refusal if refusal && written
+        return nil if refusal.nil? && written
 
         error_result("site_setting_set_protected cannot be requested right now; try again later.")
       end
+
+      # Canary for the non-refusal path: the metered row is written for a real
+      # refusal, so a park that would be allowed first proves the audit store
+      # takes a row, in a transaction that is rolled back (nothing is metered).
+      def audit_store_writable?
+        ok = false
+        AuditLog.transaction(requires_new: true) do
+          ok = write_park_refusal_row(params_for_canary, "canary", metered: false)
+          raise ActiveRecord::Rollback
+        end
+        ok
+      rescue StandardError
+        false
+      end
+
+      def params_for_canary = { action: "site_setting_set_protected" }
 
       # A machine may only TIGHTEN (IMP-1765f6f09458). The requested value and
       # the current one, both cast to the key's registered type, go to the
@@ -673,6 +691,11 @@ module Ai
           return true unless ::Ai::Approvals::MachinePark.audit_once?("site_setting:park_refusal_audit:#{node_instance&.id}:#{code}")
         end
 
+        write_park_refusal_row(params, code, metered: !collapse)
+      end
+
+      # True when the row was written, false (logged, never raised) when not.
+      def write_park_refusal_row(params, code, metered:)
         registered = key_spec(params) ? params[:key].to_s : "unregistered"
         AuditLog.log_action(
           action: ::Ai::Approvals::MachinePark::AUDIT_REFUSED, resource: account, account: account, source: "api",
@@ -683,7 +706,7 @@ module Ai
                       # A collapsed one (bad key, grant, non-parkable key) depends on
                       # nothing the instance may not already know, and counting it
                       # would let a retried typo lock every tightening out.
-                      metered: (true unless collapse),
+                      metered: (true if metered),
                       session_label: session_label, reason: code }.compact
         )
         true
