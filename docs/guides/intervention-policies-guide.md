@@ -468,8 +468,12 @@ through its id-and-kind allowlist).
 
 The driver is the person who actually triggered the call, not the identity a tool runs as. On the agent-bridge door
 (an agent run, chat, the concierge, teams) every tool call runs as the agent's **creator**, so the creator never
-counts as the driver there: the door passes the run's real triggering user (the execution's user, the concierge
-conversation's user) when it knows one, and otherwise the driver is recorded as unknown (`driver_known: false`). A
+counts as the driver there. A door passes the real triggering user only when it has one: an agent execution's
+user (unless the execution was started with no user, when the creator on the row is a stand-in), and the person in a
+REST concierge session, both for a card they confirm and for the concierge's own tool loop. A concierge turn reached
+from a tool door (an agent calling the conversation verbs) carries that door's own driver, which on the agent bridge is
+unknown. A skill executor a tool builds inherits the tool's door and driver, as do its nested peers and tools.
+Otherwise the driver is recorded as unknown (`driver_known: false`). A
 *granter driven only* grant is spent only when the known driver is its granter, so running the granter's agent does
 not satisfy it for anyone else, and an unknown driver never does.
 
