@@ -49,8 +49,11 @@ done
 # git passes the push URL (not a remote name) as the hook's $1 when pushing to a bare URL.
 # A submodule has no remote named like a URL, so the check would silently SKIP. Resolve the
 # URL to a matching remote of this repo; when none matches, drop the filter so the default
-# remote pair is checked (stricter, never a skip).
-if [[ -n "$PUSH_REMOTE" && "$PUSH_REMOTE" == *[:/]* ]]; then
+# remote pair is checked. That is broader than skipping, but a submodule that lacks those
+# remotes is still skipped per submodule ("[skip] ... has no remote named"), so a URL push
+# to a repo whose submodules have neither remote is not verified.
+# A remote NAME may itself contain '/' (e.g. team/fork), so an existing remote name is never a URL.
+if [[ -n "$PUSH_REMOTE" && "$PUSH_REMOTE" == *[:/]* ]] && ! git remote | grep -Fxq -- "$PUSH_REMOTE"; then
   _norm() { local u="${1%/}"; echo "${u%.git}"; }
   _want="$(_norm "$PUSH_REMOTE")"
   _resolved=""

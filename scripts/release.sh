@@ -84,7 +84,7 @@ if [ -f .gitmodules ]; then
   while read -r _ path; do
     # A registered but uninitialised submodule would be silently left out of the
     # release (partial release): refuse instead.
-    [ -e "$path/.git" ] || die "submodule $path is registered in .gitmodules but not initialised; run 'git submodule update --init $path' and re-run"
+    [ -e "$path/.git" ] || die "submodule $path is registered in .gitmodules but not initialised; run 'git submodule update --init $path', then check out the release branch in it ('git -C $path checkout $BRANCH'), and re-run"
     SUBS+=("$path")
   done < <(git config -f .gitmodules --get-regexp '\.path$' || true)
 fi
@@ -334,6 +334,14 @@ for s in "${SUBS[@]+"${SUBS[@]}"}"; do git -C "$ROOT/$s" checkout -q "$DEVELOP";
 if [ "${#SUBS[@]}" -gt 0 ] && [ -n "$(git status --porcelain -- "${SUBS[@]}")" ]; then
   git add -- "${SUBS[@]}"
   git commit -q -m "chore(release): point extensions at $DEVELOP after the $VERSION back-merge"
+fi
+
+# ---- 3b. resume gate: on a resumed release the gate in step 3 did not run, and the develop
+# tip about to be pushed (back-merge + pointer commits) was never validated. Validate it.
+if [ "${RESUMED[0]}" = "1" ] && [ "${RELEASE_SKIP_VALIDATE:-0}" != "1" ] && [ -x scripts/validate.sh ]; then
+  git checkout -q "$DEVELOP"
+  say "resume: running the gate on the $DEVELOP tip before pushing: scripts/validate.sh"
+  scripts/validate.sh || die "scripts/validate.sh failed on the $DEVELOP tip of a resumed release; nothing was pushed. Fix $DEVELOP, then re-run scripts/release.sh $VERSION"
 fi
 
 # ---- 4. push (submodules first, then parent; one atomic push per repo and remote) --------

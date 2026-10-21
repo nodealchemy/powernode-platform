@@ -120,6 +120,7 @@ RSpec.describe "scripts/release.sh" do
     st, out = release("0.3.0", "--dry-run")
     expect(st).not_to be_success
     expect(out).to match(/submodule.*extensions\/ext.*not initiali[sz]ed/i)
+    expect(out).to include("git -C extensions/ext checkout release/0.3.0")
   end
 
   it "refuses when master has a commit the release branch does not contain" do
@@ -287,6 +288,28 @@ RSpec.describe "scripts/release.sh" do
       expect(git(@par_gitea, "tag", "-l", "0.3.0")).to eq("0.3.0")
       expect(git(@par_origin, "tag", "-l", "0.3.0")).to eq("0.3.0")
       expect(git(@par_gitea, "rev-parse", "develop")).to eq(git(@parent, "rev-parse", "develop"))
+    end
+  end
+
+  describe "resuming a partly finished release" do
+    it "validates the develop tip before pushing, and a failing gate blocks the push" do
+      git(@parent, "config", "remote.gitea.pushurl", File.join(@root, "readonly-nowhere.git"))
+      st, = release("0.3.0")
+      expect(st).not_to be_success
+      git(@parent, "config", "--unset", "remote.gitea.pushurl")
+
+      FileUtils.mkdir_p(File.join(@parent, "scripts"))
+      File.write(File.join(@parent, "scripts/validate.sh"), "#!/usr/bin/env bash\necho GATE_RAN_ON=$(git rev-parse --abbrev-ref HEAD)\nexit 1\n")
+      FileUtils.chmod(0o755, File.join(@parent, "scripts/validate.sh"))
+      git(@parent, "checkout", "-q", "develop")
+      git(@parent, "add", "-A"); git(@parent, "commit", "-q", "-m", "unvalidated develop change")
+
+      st, out = release("0.3.0")
+
+      expect(st).not_to be_success
+      expect(out).to include("GATE_RAN_ON=develop")
+      expect(out).to match(/develop.*(validate|gate)/i)
+      expect(git(@par_gitea, "tag", "-l", "0.3.0")).to be_empty
     end
   end
 

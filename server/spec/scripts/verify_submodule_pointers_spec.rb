@@ -158,5 +158,14 @@ RSpec.describe "scripts/verify-submodule-pointers.sh (IMP-ba424a66188f)" do
                                     chdir: parent, stdin_data: line("refs/heads/main", repo[:good]))
       expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
     end
+
+    it "treats a remote NAME containing a slash as a name, not a URL" do
+      parent = repo[:parent]
+      git(parent, "remote", "add", "team/fork", "https://git.example.invalid/team/fork.git", env: env)
+      _o, err, st = Open3.capture3(env, "bash", script, "--remote", "team/fork", chdir: parent,
+                                   stdin_data: line("refs/heads/feature", repo[:bad]))
+      expect(err).not_to match(/matches no remote|resolved to remote/)
+      expect(st.exitstatus).to eq(0) # the submodule has no 'team/fork' remote: skipped, as for any named remote
+    end
   end
 end
