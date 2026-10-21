@@ -16,6 +16,9 @@ module Ai
     # ProviderManagementService.create_provider_credential (transient, never persisted).
     attr_accessor :model_sync_result
 
+    # Set by the wizard's release of a claimed provider only.
+    attr_accessor :skip_last_credential_guard
+
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }
@@ -284,6 +287,7 @@ module Ai
       return if Account.tearing_down?(account_id)
       # Removing the provider removes its credentials with it.
       return if destroyed_by_association
+      return if skip_last_credential_guard
 
       if is_default? && account.ai_provider_credentials.for_provider(provider).count == 1
         errors.add(:base, "Cannot delete the only credential for this provider")

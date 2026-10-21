@@ -5,6 +5,12 @@ module Api
     module Ai
       class ProvidersController < ApplicationController
         include AuditLogging
+
+        # metadata keys only the server writes: params can neither set nor erase them.
+        SERVER_METADATA_KEYS = %w[
+          claimed_from is_default execution_source model_sync_pending_at
+          last_sync_error last_sync_failed_at last_sync_skipped_at last_sync_skipped_reason
+        ].freeze
         include ::Ai::ProviderSerialization
 
         before_action :set_provider, only: [
@@ -87,7 +93,13 @@ module Api
 
         # PATCH /api/v1/ai/providers/:id
         def update
-          if @provider.update(provider_params)
+          attrs = provider_params
+          if attrs.key?(:metadata)
+            # A metadata replace must not erase the server-owned markers.
+            attrs[:metadata] = (attrs[:metadata].to_h).merge((@provider.metadata || {}).slice(*SERVER_METADATA_KEYS))
+          end
+
+          if @provider.update(attrs)
             render_success({
               provider: serialize_provider_detail(@provider)
             })
@@ -176,10 +188,23 @@ module Api
         # deleted instead.
         def release
           origin = @provider.metadata&.dig("claimed_from")
-          return render_error("This provider was not claimed by the setup wizard", status: :unprocessable_content) unless origin
+          unless origin
+            return render_error("This provider was not claimed by the setup wizard", status: :unprocessable_content)
+          end
+          # Only the wizard's own credential may go: a row with more has been
+          # worked on since and is no longer the wizard's to give back.
+          if @provider.provider_credentials.count > 1
+            return render_error("This provider has other credentials and cannot be released", status: :unprocessable_content)
+          end
 
           ::Ai::Provider.transaction do
-            ::Ai::ProviderCredential.where(ai_provider_id: @provider.id).delete_all
+            @provider.provider_credentials.find_each do |credential|
+              # Through the model, so each removal is audited; the only-credential
+              # guard is for operators, not for giving a claimed row back.
+              credential.skip_last_credential_guard = true
+              credential.destroy!
+              log_audit_event("ai.providers.credential.delete", credential, provider_name: @provider.name)
+            end
             @provider.update_columns(
               name: origin["name"],
               api_base_url: origin["api_base_url"],
@@ -333,15 +358,18 @@ module Api
             require_permission("ai.providers.read")
           when "create"
             require_permission("ai.providers.create")
-          when "update", "make_default", "release"
+          when "update", "make_default"
             require_permission("ai.providers.update")
+          when "release"
+            require_permission("ai.providers.update")
+            require_permission("ai.credentials.delete")
           when "destroy"
             require_permission("ai.providers.delete")
           end
         end
 
         def provider_params
-          params.require(:provider).permit(
+          permitted = params.require(:provider).permit(
             :name, :provider_type, :api_base_url, :is_active,
             :priority_order, :description, :api_endpoint, :documentation_url,
             :status_url, :requires_auth, :supports_streaming, :supports_functions,
@@ -356,6 +384,12 @@ module Api
             configuration_schema: {},
             metadata: {}
           )
+          # Server-owned markers (the default flag, the Claude Code scope, the
+          # wizard claim, sync bookkeeping) are never written from params.
+          if permitted[:metadata].respond_to?(:except)
+            permitted[:metadata] = permitted[:metadata].except(*SERVER_METADATA_KEYS)
+          end
+          permitted
         end
 
         def apply_provider_filters(providers)

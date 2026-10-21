@@ -69,6 +69,12 @@ module Api
             **options
           )
 
+          # Once a claimed row holds more than the wizard's credential it is the
+          # operator's: it can no longer be released.
+          if @provider.metadata&.key?("claimed_from") && @provider.provider_credentials.count > 1
+            @provider.update_columns(metadata: @provider.metadata.except("claimed_from"))
+          end
+
           render_success({
             credential: serialize_credential_detail(@credential),
             model_sync: @credential.model_sync_result&.to_h

@@ -198,6 +198,38 @@ RSpec.describe "Wizard AI provider add and remove", type: :request do
       expect(response).to have_http_status(:unprocessable_content)
     end
 
+    it "audits each removed credential (no silent bulk delete)" do
+      claim_and_configure
+
+      expect do
+        post "/api/v1/ai/providers/#{row.id}/release", headers: headers, as: :json
+      end.to change { AuditLog.where(action: "ai.providers.credential.delete").count }.by(1)
+    end
+
+    it "needs ai.credentials.delete as well as ai.providers.update" do
+      claim_and_configure
+      updater = create(:user, account: account, permissions: %w[ai.providers.read ai.providers.update])
+
+      post "/api/v1/ai/providers/#{row.id}/release", headers: auth_headers_for(updater), as: :json
+
+      expect(response).to have_http_status(:forbidden)
+      expect(row.reload.provider_credentials.count).to eq(1)
+    end
+
+    it "refuses once the operator has added another credential, and stops being releasable" do
+      claim_and_configure
+      create(:ai_provider_credential, account: account, provider: row)
+
+      post "/api/v1/ai/providers/#{row.id}/credentials",
+           params: { credential: { name: "Third", credentials: { api_key: "sk-ant-fake-third-placeholder" }, is_active: true } },
+           headers: headers, as: :json
+
+      expect(row.reload.metadata).not_to have_key("claimed_from")
+      post "/api/v1/ai/providers/#{row.id}/release", headers: headers, as: :json
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(row.reload.provider_credentials.count).to be >= 2
+    end
+
     it "is gated by the update permission and scoped to the account" do
       claim_and_configure
       reader = create(:user, account: account, permissions: %w[ai.providers.read])
@@ -208,6 +240,57 @@ RSpec.describe "Wizard AI provider add and remove", type: :request do
 
       post "/api/v1/ai/providers/#{row.id}/release", headers: auth_headers_for(stranger), as: :json
       expect(response).to have_http_status(:not_found)
+    end
+  end
+
+  describe "server-owned metadata cannot be forged through params" do
+    let!(:working) do
+      create(:ai_provider, account: account, provider_type: "anthropic", name: "Working", is_active: true,
+                           metadata: { "is_default" => true }).tap do |p|
+        create(:ai_provider_credential, account: account, provider: p)
+        create(:ai_provider_credential, account: account, provider: p, name: "Second")
+      end
+    end
+
+    it "drops a forged claimed_from on update, so release is refused and no credential is touched" do
+      patch "/api/v1/ai/providers/#{working.id}",
+            params: { provider: { metadata: { claimed_from: { name: "Hijacked", api_base_url: "https://evil.example.test" } } } },
+            headers: headers, as: :json
+
+      working.reload
+      expect(working.metadata).not_to have_key("claimed_from")
+      expect(working.metadata["is_default"]).to be(true) # server-owned keys survive a metadata replace
+
+      post "/api/v1/ai/providers/#{working.id}/release", headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(working.reload.provider_credentials.count).to eq(2)
+      expect(working.name).to eq("Working")
+    end
+
+    it "drops a forged claimed_from on create" do
+      post "/api/v1/ai/providers",
+           params: { provider: { provider_type: "openai", name: "Forged", metadata: { claimed_from: { name: "x" } } } },
+           headers: headers, as: :json
+
+      expect(Ai::Provider.find(json_response_data["provider"]["id"]).metadata).not_to have_key("claimed_from")
+    end
+
+    it "cannot set is_default or execution_source through metadata" do
+      post "/api/v1/ai/providers",
+           params: { provider: { provider_type: "openai", name: "Sneaky", metadata: { is_default: true, execution_source: "claude_code" } } },
+           headers: headers, as: :json
+      created = Ai::Provider.find(json_response_data["provider"]["id"])
+      expect(created.metadata["is_default"]).not_to be(true)
+      expect(created.metadata["execution_source"]).to be_nil
+      expect(created.platform_routable?).to be(true)
+
+      other = create(:ai_provider, account: account, name: "Plain")
+      patch "/api/v1/ai/providers/#{other.id}",
+            params: { provider: { metadata: { is_default: true, execution_source: "claude_code" } } },
+            headers: headers, as: :json
+      expect(other.reload.metadata["is_default"]).not_to be(true)
+      expect(other.platform_routable?).to be(true)
     end
   end
 
