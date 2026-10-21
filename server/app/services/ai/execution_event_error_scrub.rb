@@ -36,12 +36,12 @@ module Ai
       new(**options).call
     end
 
-    # One-shot for deploys (db/seeds.rb runs after db:migrate on every boot
-    # path): runs the scrub under a time budget, and records DONE_MARKER only
+    # One-shot for deploys (rails-start.sh runs the rake task every boot, after
+    # db:migrate; db:seed is first-boot only there): runs the scrub under a time budget, and records DONE_MARKER only
     # when it finished completely, so a cut-short or contended run resumes on
     # the next boot. NEVER raises into boot. nil when already done.
-    def self.run_once!(time_budget: 30, **options)
-      return nil if ::SiteSetting.get(DONE_MARKER).to_s == "true"
+    def self.run_once!(time_budget: 30, force: false, **options)
+      return nil if !force && ::SiteSetting.get(DONE_MARKER).to_s == "true"
 
       result = new(deadline: Process.clock_gettime(Process::CLOCK_MONOTONIC) + time_budget, **options).call
       ::SiteSetting.set(DONE_MARKER, "true", setting_type: "string") if result.complete?

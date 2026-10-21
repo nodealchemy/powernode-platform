@@ -22,8 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Execution-event error scrub** — historical raw executor error text in `ai_execution_events.error_message`
-  is scrubbed by `Ai::ExecutionEventErrorScrub` (one-shot from `db:seed`, or `bin/rails
-  ai:scrub_execution_event_errors`), no longer by a boot-time migration. Idempotent and resumable.
+  is scrubbed by `Ai::ExecutionEventErrorScrub` (`bin/rails ai:scrub_execution_event_errors`, run every boot by the hub's `rails-start.sh`, bounded and
+  marker-guarded), no longer by a boot-time migration. Idempotent and resumable.
 - **Migrations squashed** 616 → 7 baselines (one bootstrap + one per owner), with uniform `<ext>_` table
   prefixes (e.g. `system_`, `system_sdwan_`) and standardized Rails index names.
 - **Permissions are code-defined** — the catalog is the source of truth; the `permissions` table was removed.
