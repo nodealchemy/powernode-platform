@@ -377,4 +377,42 @@ RSpec.describe Ai::SensitiveParams do
       expect(described_class.key_patterns).to eq(described_class::DEFAULT_KEY_PATTERNS)
     end
   end
+
+  describe 'secret key spellings (IMP adversarial review r2 #5)' do
+    forms = %w[privatekey private-key private_key privateKey PrivateKey signingkey signing-key signing_key signingKey
+               seedphrase seed-phrase seed_phrase seedPhrase]
+
+    forms.each do |form|
+      it "masks #{form} in filter" do
+        expect(described_class.filter(form => 'PLAINTEXT')[form]).to eq('[FILTERED]')
+      end
+
+      it "masks #{form} in filter_text" do
+        text = described_class.filter_text(%(failed with #{form}=PLAINTEXT-VALUE next))
+
+        expect(text).not_to include('PLAINTEXT-VALUE')
+      end
+    end
+  end
+
+  describe 'PEM material and file-shaped keys (r2 #6)' do
+    let(:pem) { "-----BEGIN RSA PRIVATE KEY-----\nABCDEF\n-----END RSA PRIVATE KEY-----" }
+
+    it 'masks a PEM block in any string leaf, whatever its key' do
+      filtered = described_class.filter('notes' => "see #{pem} done", 'nested' => [ { 'blob' => pem } ])
+
+      expect(filtered.to_json).not_to include('ABCDEF')
+      expect(filtered['notes']).to include('see ').and include(' done')
+    end
+
+    %w[ssh_key kubeconfig tls_key pem].each do |key|
+      it "masks the #{key} key" do
+        expect(described_class.filter(key => 'PLAINTEXT')[key]).to eq('[FILTERED]')
+      end
+    end
+
+    it 'leaves non-secret strings alone' do
+      expect(described_class.filter('name' => 'edge-01')['name']).to eq('edge-01')
+    end
+  end
 end

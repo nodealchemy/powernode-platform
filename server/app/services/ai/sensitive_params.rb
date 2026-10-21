@@ -67,6 +67,8 @@ module Ai
     DEFAULT_KEY_PATTERNS = %w[
       token secret password passphrase mnemonic seed_phrase
       private_key signing_key api_key api-key apikey credential
+      privatekey private-key signingkey signing-key seedphrase seed-phrase
+      ssh_key kubeconfig tls_key pem
     ].freeze
 
     # Keys that a pattern WOULD match and that provably hold no material —
@@ -123,7 +125,7 @@ module Ai
       def filter(value)
         return value unless value.is_a?(Hash)
 
-        parameter_filter.filter(value)
+        mask_pem_leaves(parameter_filter.filter(value))
       end
 
       # The free-text counterpart of `filter`, for a column that holds raw
@@ -191,6 +193,18 @@ module Ai
       end
 
       private
+
+      # A PEM private key block has no key beside it to judge by, so every
+      # string leaf is scanned for its armor (the hash twin of filter_text's
+      # PEM pass).
+      def mask_pem_leaves(node)
+        case node
+        when ::Hash then node.each_with_object(node.class.new) { |(k, v), out| out[k] = mask_pem_leaves(v) }
+        when ::Array then node.map { |v| mask_pem_leaves(v) }
+        when ::String then node.include?("PRIVATE KEY") ? node.gsub(PEM_PRIVATE_KEY, MASK) : node
+        else node
+        end
+      end
 
       # Everything after the last whitespace of a window cut off mid-text. The
       # token the cut runs through has lost whatever gave it away (a URL its
