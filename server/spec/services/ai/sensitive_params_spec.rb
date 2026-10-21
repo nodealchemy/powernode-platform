@@ -462,8 +462,7 @@ RSpec.describe Ai::SensitiveParams do
   end
 
   describe 'benign siblings of the key-material names (r3 L5-2)' do
-    %w[ssh_key_fingerprint ssh_key_type ssh_key_present ssh_key_id has_kubeconfig kubeconfig_path tls_key_file
-       privkey_path sshKeyFingerprint].each do |key|
+    %w[ssh_key_fingerprint ssh_key_type ssh_key_present ssh_key_id has_kubeconfig sshKeyFingerprint].each do |key|
       it "leaves #{key} legible" do
         expect(described_class.filter(key => 'value-123')[key]).to eq('value-123')
       end
@@ -503,6 +502,118 @@ RSpec.describe Ai::SensitiveParams do
     it 'leaves ordinary base64 alone' do
       other = Base64.strict_encode64('plain bytes ' * 20)
       expect(described_class.filter('blob' => "x #{other} y")['blob']).to eq("x #{other} y")
+    end
+  end
+
+  describe 'the has_ sibling prefix is anchored (r4 M-1)' do
+    %w[hashicorp_ssh_key hashi_vault_tls_key hasura_kubeconfig haskeyKubeconfig HASHICORP_SSH_KEY].each do |key|
+      it "masks #{key}: a word that merely starts with has is not a presence flag" do
+        expect(described_class.filter(key => 'PLAINTEXT')[key]).to eq('[FILTERED]')
+      end
+    end
+
+    %w[has_kubeconfig hasKubeconfig has-ssh-key HAS_TLS_KEY HasSshKey has_client_key_data].each do |key|
+      it "leaves the presence flag #{key} legible" do
+        expect(described_class.filter(key => true)[key]).to be(true)
+      end
+    end
+  end
+
+  describe '_file and _path siblings vouch for the name, not the value (r4 L-2)' do
+    it 'masks key material held under a _file or _path key' do
+      kube = "users:\n- user:\n    token: x"
+
+      expect(described_class.filter('kubeconfig_file' => kube)['kubeconfig_file']).to eq('[FILTERED]')
+      expect(described_class.filter('ssh_key_path' => 'not a path at all')['ssh_key_path']).to eq('[FILTERED]')
+      expect(described_class.filter('tls_key_file' => { 'data' => 'x' })['tls_key_file']).to eq('[FILTERED]')
+      expect(described_class.filter('privkey_path' => "/etc/key\nAAAA")['privkey_path']).to eq('[FILTERED]')
+    end
+
+    { 'kubeconfig_path' => '/etc/kube/config', 'ssh_key_path' => '~/.ssh/id_ed25519',
+      'tls_key_file' => './certs/tls.key', 'privkey_path' => 'C:\\keys\\host.pem' }.each do |key, path|
+      it "leaves #{key} => #{path} legible" do
+        expect(described_class.filter(key => path)[key]).to eq(path)
+      end
+    end
+
+    it 'keeps the value-independent siblings legible whatever the value' do
+      filtered = described_class.filter('ssh_key_fingerprint' => 'SHA256:abc def', 'ssh_key_type' => 'ed25519',
+                                        'kubeconfig_present' => true, 'ssh_key_id' => 'k-1')
+
+      expect(filtered).to eq('ssh_key_fingerprint' => 'SHA256:abc def', 'ssh_key_type' => 'ed25519',
+                             'kubeconfig_present' => true, 'ssh_key_id' => 'k-1')
+    end
+  end
+
+  describe 'a configured pattern that is only separators (r4 L-3)' do
+    before do
+      SiteSetting.create!(key: described_class::SETTING_KEY, setting_type: 'json',
+                          value: [ '-', '_', '-_-', 'cvv', 'card--number' ].to_json)
+    end
+
+    it 'is ignored rather than masking every key' do
+      filtered = described_class.filter('name' => 'edge-01', 'cvv' => '123', 'card_number' => '4111')
+
+      expect(filtered).to eq('name' => 'edge-01', 'cvv' => '[FILTERED]', 'card_number' => '[FILTERED]')
+      expect(described_class.filter_text('name=edge-01 region=us')).to eq('name=edge-01 region=us')
+    end
+  end
+
+  describe 'base64 PEM at any alignment, URL-safe or space-wrapped (r4 M-2)' do
+    let(:key_pem) { "-----BEGIN RSA PRIVATE KEY-----\n#{'QUJD' * 40}\n-----END RSA PRIVATE KEY-----\n" }
+    let(:cert_pem) { "-----BEGIN CERTIFICATE-----\n#{'TUlJ' * 40}\n-----END CERTIFICATE-----\n" }
+
+    def expect_masked(encoded, wrapper: ->(run) { "data: #{run} end" })
+      out = described_class.filter('blob' => wrapper.call(encoded))['blob']
+      expect(out).not_to include(encoded[0, 24])
+      expect(out).not_to include(encoded[-24..])
+      expect(out).to include(described_class::MASK)
+      expect(described_class.filter_text(wrapper.call(encoded), truncate: false)).not_to include(encoded[-24..])
+    end
+
+    it 'masks an encoded pkcs12 export whose key follows Bag Attributes lines and a certificate' do
+      export = "Bag Attributes\n    localKeyID: 01 02 03 04\nsubject=CN = test\nissuer=CN = test\n#{cert_pem}" \
+               "Bag Attributes\n    localKeyID: 01 02 03 04\nKey Attributes: <No Attributes>\n#{key_pem}"
+
+      expect(Base64.strict_encode64(export)).not_to start_with('LS0tLS1CRUdJTi')
+      expect_masked(Base64.strict_encode64(export))
+    end
+
+    it 'masks a cert-then-key bundle at each of the three key-header alignments' do
+      alignments = (0..2).map do |pad|
+        bundle = "#{cert_pem}#{'#' * pad}\n#{key_pem}"
+        expect_masked(Base64.strict_encode64(bundle))
+        bundle.index('-----BEGIN RSA') % 3
+      end
+
+      expect(alignments.sort).to eq([ 0, 1, 2 ])
+    end
+
+    it 'masks a key whose encoding starts one or two bytes before the armor' do
+      [ "\n#{key_pem}", "\r\n#{key_pem}" ].each { |text| expect_masked(Base64.strict_encode64(text)) }
+    end
+
+    it 'masks a URL-safe run' do
+      pem = "-----BEGIN RSA PRIVATE KEY-----\n#{'QUJD' * 10}???>>>~~~\n-----END RSA PRIVATE KEY-----\n"
+      encoded = Base64.urlsafe_encode64(pem)
+
+      expect(encoded).to match(/[-_]/)
+      expect_masked(encoded)
+    end
+
+    it 'masks a space-wrapped run whole' do
+      chunks = Base64.strict_encode64(key_pem).scan(/.{1,64}/)
+      out = described_class.filter('blob' => "key: #{chunks.join(' ')} end of key")['blob']
+
+      chunks.each { |chunk| expect(out).not_to include(chunk) }
+      expect(out).to include('end of key')
+    end
+
+    it 'leaves an encoded certificate-only bundle legible at every alignment' do
+      (0..2).each do |pad|
+        encoded = Base64.strict_encode64("#{'#' * pad}#{cert_pem}")
+        expect(described_class.filter('blob' => "x #{encoded} y")['blob']).to eq("x #{encoded} y")
+      end
     end
   end
 end

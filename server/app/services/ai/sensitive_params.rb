@@ -78,13 +78,31 @@ module Ai
     # mask groupEmail, deepEmbedding, keepEmpty... (and trip reveal-once).
     EXACT_SECRET_KEYS = %w[pem].freeze
 
-    # A base64 PEM armor: "-----BEGIN " encodes to this prefix. Confirmed by
-    # decoding enough of it to see a PRIVATE KEY header before anything is masked.
-    # Anywhere in a string (not only at its start): a kubeconfig held as a JSON
-    # string, a base64 run after a newline, a MIME-wrapped run (76/64-column lines
-    # joined by real or JSON-escaped newlines). A continuation line must look like
-    # a base64 line (16+ characters) so prose after the run is not swallowed.
-    BASE64_PEM_RUN = %r{(?<![A-Za-z0-9+/])LS0tLS1CRUdJTi(?:[A-Za-z0-9+/=]|(?:\r?\n|\\r\\n|\\n)(?=[A-Za-z0-9+/=]{16}))*}
+    # Base64 PEM armor. "-----BEGIN " can sit at any byte offset of the encoded
+    # bytes (a cert-then-key bundle, a pkcs12 export whose key follows "Bag
+    # Attributes" lines), and base64 encodes it three different ways depending on
+    # that offset mod 3. Each needle below is the part of one encoding that does
+    # not depend on the bytes around the armor: with k bytes before it, the
+    # characters wholly inside the armor's bits run from ceil(8k/6) to
+    # floor(8(k+11)/6) - 1. They are "LS0tLS1CRUdJTi", "0tLS0tQkVHSU4g" and
+    # "tLS0tLUJFR0lOI", none using + or /, so they are the same in the URL-safe
+    # alphabet. A needle only nominates a run: it is masked when its decoded bytes
+    # contain a PRIVATE KEY header (a certificate-only bundle stays legible).
+    BASE64_ARMOR = "-----BEGIN "
+    BASE64_PEM_NEEDLES = (0..2).map do |k|
+      encoded = ::Base64.strict_encode64(("\0" * k) + BASE64_ARMOR)
+      encoded[((8 * k) + 5) / 6..((8 * (k + BASE64_ARMOR.bytesize)) / 6) - 1]
+    end.freeze
+    BASE64_PEM_NEEDLE = ::Regexp.union(BASE64_PEM_NEEDLES)
+
+    # A whole base64 run, standard or URL-safe alphabet, anywhere in a string: a
+    # kubeconfig held as a JSON string, a run after a newline, a wrapped run
+    # (76/64-column lines joined by real or JSON-escaped newlines, or by a single
+    # space). A continuation line must look like a base64 line (16+ characters)
+    # so prose after the run is not swallowed.
+    BASE64_CHAR = "[A-Za-z0-9+/_-]"
+    BASE64_RUN = %r{(?<![A-Za-z0-9+/_-])#{BASE64_CHAR}+=*(?:(?:\r?\n|\\r\\n|\\n|[ ])(?=#{BASE64_CHAR}{16})#{BASE64_CHAR}+=*)*}
+    BASE64_RUN_SEPARATORS = /\r?\n|\\r|\\n|[ ]/
 
     # Keys that a pattern WOULD match and that provably hold no material —
     # checked before every pattern, including the deployment-configured ones, so
@@ -127,6 +145,12 @@ module Ai
     # Narrow on purpose: only these subjects, so "approle_secret_id" still masks.
     SAFE_SIBLING_SUBJECTS = %w[ssh_key tls_key kubeconfig privkey id_rsa id_ed25519 id_ecdsa key_pem client_key_data].freeze
     SAFE_SIBLING_SUFFIXES = %w[fingerprint type path file id present].freeze
+    # The suffixes that vouch for the NAME but not the value: "kubeconfig_file"
+    # can just as well hold the file's contents. Kept legible only when the value
+    # looks like a filesystem path (mask_path_siblings).
+    PATH_SIBLING_SUFFIXES = %w[path file].freeze
+    # One line, no whitespace, rooted (/, ~, ./ or a Windows drive).
+    FILESYSTEM_PATH = %r{\A(?:/|~|\./|[A-Za-z]:\\)\S*\z}
 
     # Deployment-specific additions (JSON array of strings). EXTENDS the
     # defaults rather than replacing them, so a misconfigured setting cannot
@@ -147,7 +171,7 @@ module Ai
       def filter(value)
         return value unless value.is_a?(Hash)
 
-        mask_pem_leaves(parameter_filter.filter(value))
+        mask_pem_leaves(mask_path_siblings(parameter_filter.filter(value)))
       end
 
       # The free-text counterpart of `filter`, for a column that holds raw
@@ -236,20 +260,55 @@ module Ai
 
       def mask_pem_string(string)
         masked = string.include?("PRIVATE KEY") ? string.gsub(PEM_PRIVATE_KEY, MASK) : string
-        masked.include?("LS0tLS1CRUdJTi") ? mask_base64_pem(masked) : masked
+        mask_base64_pem(masked)
       end
 
-      # True when the base64 +run+ decodes to a PEM PRIVATE KEY header.
+      # A *_path / *_file sibling of a key-material name survives the key filter
+      # (the sibling veto) on the strength of its name alone. Here its value has
+      # to agree: anything but a filesystem path is masked.
+      def mask_path_siblings(node)
+        case node
+        when ::Hash
+          node.each_with_object(node.class.new) do |(key, value), out|
+            out[key] = path_sibling_key?(key) && !filesystem_path?(value) ? MASK : mask_path_siblings(value)
+          end
+        when ::Array then node.map { |value| mask_path_siblings(value) }
+        else node
+        end
+      end
+
+      def path_sibling_key?(key)
+        @path_sibling_key ||= begin
+          subjects = SAFE_SIBLING_SUBJECTS.map { |w| ascii_flexible(w) }.join("|")
+          suffixes = PATH_SIBLING_SUFFIXES.map { |w| ascii_flexible(w) }.join("|")
+          ::Regexp.new("\\A(?!#{has_prefix})(?-i:.*(?:#{subjects})[-_]?(?:#{suffixes}))\\z", ::Regexp::MULTILINE)
+        end
+        @path_sibling_key.match?(key.to_s)
+      end
+
+      def filesystem_path?(value)
+        value.is_a?(::String) && FILESYSTEM_PATH.match?(value)
+      end
+
+      # True when the base64 +run+ decodes to bytes holding a PEM PRIVATE KEY
+      # header, anywhere in them. The run is decoded at each of the four
+      # character offsets (a run glued to a word need not start on a quantum),
+      # in the standard alphabet and then the URL-safe one.
       def base64_pem?(run)
-        flat = run.gsub(/\r?\n|\\r|\\n/, "")
-        decoded = ::Base64.decode64(flat[0, 96])
-        decoded.match?(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY/)
+        flat = run.gsub(BASE64_RUN_SEPARATORS, "")
+        candidates = [ flat ]
+        candidates << flat.tr("-_", "+/") if flat.match?(/[-_]/)
+        candidates.any? do |candidate|
+          (0..3).any? { |offset| ::Base64.decode64(candidate[offset..].to_s).match?(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY/) }
+        end
       rescue ArgumentError
         false
       end
 
       def mask_base64_pem(text)
-        text.gsub(BASE64_PEM_RUN) { |run| base64_pem?(run) ? MASK : run }
+        return text unless BASE64_PEM_NEEDLE.match?(text)
+
+        text.gsub(BASE64_RUN) { |run| BASE64_PEM_NEEDLE.match?(run) && base64_pem?(run) ? MASK : run }
       end
 
       # Everything after the last whitespace of a window cut off mid-text. The
@@ -410,16 +469,21 @@ module Ai
       end
 
       def alternation(patterns)
-        patterns.map { |pattern| flexible(pattern) }.join("|")
+        patterns.filter_map { |pattern| flexible(pattern) }.join("|")
       end
 
       # A key pattern matched case-insensitively with its - and _ separators
       # optional and interchangeable: private_key covers privateKey, PrivateKey,
       # private-key and privatekey. A dotted (path) pattern is taken literally.
+      # Blank parts are dropped ("a--b" is "a_b"), and a pattern that is only
+      # separators yields nil: its empty alternative would match every key.
       def flexible(pattern)
         return ::Regexp.escape(pattern) if pattern.include?(".")
 
-        pattern.split(/[-_]/).map { |part| ::Regexp.escape(part) }.join("[-_]?")
+        parts = pattern.split(/[-_]/).reject(&:blank?)
+        return nil if parts.empty?
+
+        parts.map { |part| ::Regexp.escape(part) }.join("[-_]?")
       end
 
       # ASCII-only case-insensitive source for +word+ (separators optional), inside
@@ -434,7 +498,14 @@ module Ai
       def sibling_veto
         subjects = SAFE_SIBLING_SUBJECTS.map { |w| ascii_flexible(w) }.join("|")
         suffixes = SAFE_SIBLING_SUFFIXES.map { |w| ascii_flexible(w) }.join("|")
-        "(?-i:(?:.*(?:#{subjects})[-_]?(?:#{suffixes})|[hH][aA][sS][-_]?.*(?:#{subjects})))"
+        "(?-i:(?:.*(?:#{subjects})[-_]?(?:#{suffixes})|#{has_prefix}.*(?:#{subjects})))"
+      end
+
+      # A presence flag's "has": followed by a separator (has_, HAS-) or by a
+      # camelCase boundary (hasKubeconfig, HasSshKey). Unanchored, it vouched for
+      # hashicorp_ssh_key, hasura_kubeconfig and haskeyKubeconfig. ASCII-exact.
+      def has_prefix
+        "(?-i:[hH][aA][sS][-_]|[hH]as(?=[A-Z]))"
       end
 
       # Fails open to the defaults rather than raising: this runs inside the
