@@ -122,14 +122,23 @@ module Ai
         "(confidence=#{classification[:confidence]}); dispatching capture_brief"
       )
 
-      tool = ::Ai::Tools::ProvisioningTool.new(
-        account: account, agent: agent, user: @user, call_origin: ::Ai::Tools::CallOrigin::CONCIERGE
-      )
+      tool = build_tool(::Ai::Tools::ProvisioningTool, call_origin: ::Ai::Tools::CallOrigin::CONCIERGE)
       tool.execute(params: {
         action: "platform_provisioning_capture_brief",
         natural_language: natural_language
       })
     end
+
+    # Every tool this bridge builds itself runs as @user and carries the
+    # bridge's DRIVER explicitly (even nil, from a tool-door concierge), so no
+    # such tool ever falls back to @user as the person who drove the call —
+    # whatever the tool can reach (promotion grants, Ai::AutonomyGate).
+    def build_tool(tool_class, call_origin:)
+      tool_class.new(account: account, agent: agent, user: @user, call_origin: call_origin).tap do |tool|
+        tool.driving_user = @driving_user
+      end
+    end
+    private :build_tool
 
     def dispatch_tool_call(tool_call)
       dispatch_tool_call_capturing(tool_call).first

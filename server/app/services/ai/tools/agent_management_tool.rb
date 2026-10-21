@@ -534,6 +534,10 @@ module Ai
         input_params = input_params.stringify_keys if input_params.respond_to?(:stringify_keys)
         input_params = { "input" => "" } if input_params.blank?
 
+        # user_id is NOT NULL, so the row names someone even with no real
+        # caller. That fallback, and the agent bridge's creator user, are
+        # stand-ins: flagged so McpAgentExecutor hands the tool bridge no driver.
+        stand_in = user.nil? || known_driving_user != user
         execution = Ai::AgentExecution.create!(
           account: account,
           agent: agent,
@@ -542,7 +546,8 @@ module Ai
           input_parameters: input_params,
           status: "pending",
           execution_id: SecureRandom.uuid,
-          execution_context: { "source" => "mcp_tool", "triggered_at" => Time.current.iso8601 }
+          execution_context: { "source" => "mcp_tool", "triggered_at" => Time.current.iso8601,
+                               "user_is_stand_in" => stand_in }
         )
 
         WorkerJobService.enqueue_ai_agent_execution(execution.id)
