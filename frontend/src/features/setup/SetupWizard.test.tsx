@@ -34,6 +34,7 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
     createAiCredential: jest.fn(),
     createGitProvider: jest.fn(),
     createGitCredential: jest.fn(),
+    getAiProviderCatalog: jest.fn(),
   },
 }));
 
@@ -60,6 +61,7 @@ describe('SetupWizard', () => {
     mockGetSteps.mockReset();
     mockCreateAdmin.mockReset();
     mockGetExtensions.mockReset();
+    (onboardingApi.getAiProviderCatalog as jest.Mock).mockResolvedValue([]);
   });
 
   it('shows the admin step and gates the create button on email + password', async () => {

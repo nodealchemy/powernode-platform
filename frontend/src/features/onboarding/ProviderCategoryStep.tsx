@@ -160,6 +160,8 @@ export interface ProviderCategoryStepProps {
   testIdPrefix?: string;
   /** The category's credential test; absent for categories with no test surface. */
   testCredentials?: ProviderCredentialFormProps['testCredentials'];
+  /** Provider-detail inputs (name, base URL, ...) rendered above the credential form. */
+  detailsSlot?: React.ReactNode;
 }
 
 /**
@@ -176,6 +178,7 @@ export const ProviderCategoryStep: React.FC<ProviderCategoryStepProps> = ({
   onSave,
   testIdPrefix = 'first-run',
   testCredentials,
+  detailsSlot,
 }) => {
   const options = PROVIDER_OPTIONS_BY_CATEGORY[category];
   const meta = CATEGORY_DESCRIPTIONS[category];
@@ -239,6 +242,7 @@ export const ProviderCategoryStep: React.FC<ProviderCategoryStepProps> = ({
 
       {progress.providerType && PROVIDER_FIELD_SCHEMAS[category]?.[progress.providerType] && (
         <>
+          {detailsSlot}
           <ProviderCredentialForm
             category={category}
             providerType={progress.providerType}

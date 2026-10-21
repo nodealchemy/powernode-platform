@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -6,6 +6,7 @@ import { Select } from '@/shared/components/ui/Select';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { providersApi } from '@/shared/services/ai';
+import type { AiProviderCatalogEntry } from '@/shared/types/ai';
 
 interface CreateProviderModalProps {
   isOpen: boolean;
@@ -30,7 +31,26 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
     status_url: ''
   });
 
+  const [catalog, setCatalog] = useState<AiProviderCatalogEntry[]>([]);
   const { addNotification } = useNotifications();
+
+  // The type catalog pre-fills the form on type selection; without it (load
+  // failure) the form simply stays manual.
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    providersApi
+      .getCatalog()
+      .then((entries) => {
+        if (!cancelled) setCatalog(entries);
+      })
+      .catch(() => {
+        if (!cancelled) setCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,17 +67,23 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
         capabilities: formData.capabilities,
         documentation_url: formData.documentation_url || undefined,
         status_url: formData.status_url || undefined,
-        supported_models: [{ name: 'default', id: 'default' }],
-        configuration_schema: {
-          type: 'object',
-          properties: {
-            api_key: {
-              type: 'string',
-              description: 'API key for authentication'
-            }
-          },
-          required: ['api_key']
-        },
+        // Catalog types get their models and configuration schema from the
+        // server catalog; only custom providers carry a placeholder.
+        ...(catalog.some((c) => c.provider_type === formData.provider_type)
+          ? {}
+          : {
+              supported_models: [{ name: 'default', id: 'default' }],
+              configuration_schema: {
+                type: 'object',
+                properties: {
+                  api_key: {
+                    type: 'string',
+                    description: 'API key for authentication'
+                  }
+                },
+                required: ['api_key']
+              }
+            }),
         is_active: true
       });
 
@@ -93,6 +119,21 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
   };
 
   const handleInputChange = (field: string, value: string) => {
+    if (field === 'provider_type') {
+      const entry = catalog.find((c) => c.provider_type === value);
+      if (entry) {
+        // Auto-fill from the catalog; every field stays editable afterwards.
+        setFormData((prev) => ({
+          ...prev,
+          provider_type: value,
+          name: entry.name,
+          slug: entry.slug,
+          api_base_url: entry.api_base_url,
+          capabilities: entry.capabilities,
+        }));
+        return;
+      }
+    }
     setFormData(prev => ({ ...prev, [field]: value }));
 
     // Auto-generate slug from name

@@ -1,5 +1,22 @@
 // AI Provider System TypeScript Interfaces
 
+/** One provider-type entry of GET /ai/providers/catalog (non-secret form defaults). */
+export interface AiProviderCatalogEntry {
+  name: string;
+  slug: string;
+  provider_type: string;
+  api_base_url: string;
+  capabilities: string[];
+  default_model: string | null;
+  requires_auth: boolean;
+  credential_fields: Array<{
+    key: string;
+    label: string;
+    type: 'text' | 'password';
+    required: boolean;
+  }>;
+}
+
 export interface AiProvider {
   id: string;
   name: string;

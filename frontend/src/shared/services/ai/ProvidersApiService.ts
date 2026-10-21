@@ -1,5 +1,5 @@
 import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
-import type { AiProvider, AiProviderCredential } from '@/shared/types/ai';
+import type { AiProvider, AiProviderCatalogEntry, AiProviderCredential } from '@/shared/types/ai';
 
 /**
  * ProvidersApiService - Providers Controller API Client
@@ -20,6 +20,7 @@ import type { AiProvider, AiProviderCredential } from '@/shared/types/ai';
  * - GET    /api/v1/ai/providers/:id/models
  * - GET    /api/v1/ai/providers/:id/usage_summary
  * - GET    /api/v1/ai/providers/available
+ * - GET    /api/v1/ai/providers/catalog
  * - GET    /api/v1/ai/providers/statistics
  * - GET    /api/v1/ai/providers/:provider_id/credentials
  * - POST   /api/v1/ai/providers/:provider_id/credentials
@@ -121,6 +122,17 @@ class ProvidersApiService extends BaseApiService {
    */
   async getProviders(filters?: ProviderFilters): Promise<PaginatedResponse<AiProvider>> {
     return this.getList<AiProvider>(this.resource, filters);
+  }
+
+  /**
+   * Provider-type catalog used to auto-fill the provider form
+   * GET /api/v1/ai/providers/catalog
+   */
+  async getCatalog(): Promise<AiProviderCatalogEntry[]> {
+    const data = await this.get<{ items: AiProviderCatalogEntry[] }>(
+      `${this.buildPath(this.resource)}/catalog`
+    );
+    return data.items ?? [];
   }
 
   /**

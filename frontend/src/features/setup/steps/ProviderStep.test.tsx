@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ProviderStep } from './ProviderStep';
 import type { SetupStep } from '../services/setupApi';
 
@@ -9,6 +9,7 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
     createAiCredential: jest.fn(),
     createGitProvider: jest.fn(),
     createGitCredential: jest.fn(),
+    getAiProviderCatalog: jest.fn(),
   },
 }));
 
@@ -24,6 +25,21 @@ const mockCreateAiProvider = onboardingApi.createAiProvider as jest.Mock;
 const mockCreateAiCredential = onboardingApi.createAiCredential as jest.Mock;
 const mockCreateGitProvider = onboardingApi.createGitProvider as jest.Mock;
 const mockCreateGitCredential = onboardingApi.createGitCredential as jest.Mock;
+
+const mockGetAiCatalog = onboardingApi.getAiProviderCatalog as jest.Mock;
+
+const AI_CATALOG = [
+  {
+    name: 'Claude AI (Anthropic)',
+    slug: 'claude-ai-anthropic',
+    provider_type: 'anthropic',
+    api_base_url: 'https://api.example-anthropic.test/v1',
+    capabilities: ['text_generation'],
+    default_model: 'model-x',
+    requires_auth: true,
+    credential_fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
+  },
+];
 
 const stepFor = (component: string, category: string): SetupStep => ({
   key: category + '_provider',
@@ -51,6 +67,8 @@ describe('ProviderStep', () => {
     mockCreateAiCredential.mockReset();
     mockCreateGitProvider.mockReset();
     mockCreateGitCredential.mockReset();
+    mockGetAiCatalog.mockReset();
+    mockGetAiCatalog.mockResolvedValue(AI_CATALOG);
   });
 
   it('renders provider options under the setup test prefix', () => {
@@ -111,6 +129,39 @@ describe('ProviderStep', () => {
       expect.objectContaining({
         providerId: 'prov-ai-1',
         credentials: expect.objectContaining({ api_key: 'sk-ant-abc' }),
+      })
+    );
+  });
+
+  it('auto-fills the AI provider details from the catalog and keeps them editable', async () => {
+    mockCreateAiProvider.mockResolvedValue('prov-ai-1');
+    mockCreateAiCredential.mockResolvedValue('cred-ai-1');
+    render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+    await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
+    await act(async () => {});
+
+    fireEvent.click(screen.getByTestId('setup-provider-anthropic'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('setup-provider-name')).toHaveValue('Claude AI (Anthropic)')
+    );
+    expect(screen.getByTestId('setup-provider-base-url')).toHaveValue(
+      'https://api.example-anthropic.test/v1'
+    );
+    expect(screen.getByTestId('provider-cred-field-default_model')).toHaveValue('model-x');
+
+    fireEvent.change(screen.getByTestId('setup-provider-name'), { target: { value: 'My Claude' } });
+    fireEvent.change(screen.getByTestId('provider-cred-field-api_key'), {
+      target: { value: 'fake-key-1' },
+    });
+    fireEvent.click(screen.getByTestId('setup-save-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('setup-save-success')).toBeInTheDocument());
+    expect(mockCreateAiProvider).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerType: 'anthropic',
+        name: 'My Claude',
+        apiBaseUrl: 'https://api.example-anthropic.test/v1',
       })
     );
   });

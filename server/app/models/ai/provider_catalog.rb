@@ -499,6 +499,14 @@ module Ai
         CONFIGS.values
       end
 
+      # Read-only projection for the provider-type catalog endpoint that
+      # auto-fills the provider form (wizard + providers page). Carries only
+      # non-secret form defaults; no metadata (it names key env vars), no
+      # pricing and no rate limits.
+      def form_entries
+        all.map { |config| form_entry(config) }
+      end
+
       def for(provider_type)
         return nil if provider_type.blank?
 
@@ -525,6 +533,42 @@ module Ai
       end
 
       private
+
+      def form_entry(config)
+        {
+          name: config[:name],
+          slug: slug_for(config[:name]),
+          provider_type: config[:provider_type],
+          api_base_url: config[:api_base_url],
+          capabilities: config[:capabilities],
+          default_model: default_model_for(config),
+          requires_auth: config[:requires_auth],
+          credential_fields: credential_fields_for(config)
+        }
+      end
+
+      # Mirrors Ai::Provider#generate_slug so the prefilled slug is the one the
+      # record would derive itself.
+      def slug_for(name)
+        name.downcase.gsub(/[^a-z0-9\s]/, "").gsub(/\s+/, "-").strip
+      end
+
+      # First model in the shipped catalog list. A self-hosted server serves
+      # only what it has pulled, so none is suggested there (E3b).
+      def default_model_for(config)
+        return nil if config[:configuration_schema].to_h["self_hosted"]
+
+        first = Array(config[:supported_models]).first
+        first && (first["id"] || first["name"])
+      end
+
+      def credential_fields_for(config)
+        if config[:requires_auth]
+          [ { key: "api_key", label: "API Key", type: "password", required: true } ]
+        else
+          [ { key: "base_url", label: "Base URL", type: "text", required: false } ]
+        end
+      end
 
       # A caller value is "fillable" (catalog may supply it) when the key is
       # absent, nil, or an empty String/Array/Hash. Unlike Object#blank?, an

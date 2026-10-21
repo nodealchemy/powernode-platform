@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { logger } from '@/shared/utils/logger';
 import { getErrorMessage, getErrorStatus } from '@/shared/utils/errorHandling';
 import { featureRegistry } from '@/shared/services/featureRegistry';
@@ -15,6 +15,7 @@ import {
   type ProviderCredentialValues,
   type ProviderTypeSlug,
 } from '@/features/onboarding/ProviderCredentialForm';
+import type { AiProviderCatalogEntry } from '@/shared/types/ai';
 import type { SetupStepComponentProps } from './types';
 import type { SetupStep } from '../services/setupApi';
 
@@ -66,16 +67,49 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
   const [saveError, setSaveError] = useState<string | null>(null);
   const prevTestRef = useRef<CredentialTestStatus>('idle');
 
-  const onSelectProvider = useCallback((next: ProviderTypeSlug) => {
+  // AI provider-type catalog: pre-fills the provider details on type selection.
+  const [catalog, setCatalog] = useState<AiProviderCatalogEntry[]>([]);
+  const [providerName, setProviderName] = useState('');
+  const [apiBaseUrl, setApiBaseUrl] = useState('');
+
+  useEffect(() => {
+    if (category !== 'ai') return;
+    let cancelled = false;
+    onboardingApi
+      .getAiProviderCatalog()
+      .then((entries) => {
+        if (!cancelled) setCatalog(entries);
+      })
+      .catch(() => {
+        // Without the catalog the details stay manual; the server still
+        // fills its own defaults for known types.
+        if (!cancelled) setCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [category]);
+
+  const onSelectProvider = useCallback(
+    (next: ProviderTypeSlug) => {
     // Switching providers wipes half-entered creds so we never POST mismatched data.
     setProviderType(next);
-    setCredentials({});
+    const entry = category === 'ai' ? catalog.find((c) => c.provider_type === next) : undefined;
+    setProviderName(entry?.name ?? '');
+    setApiBaseUrl(entry?.api_base_url ?? '');
+    // Non-secret credential-form defaults from the catalog. Never a key.
+    const seed: ProviderCredentialValues = {};
+    if (entry?.default_model) seed.default_model = entry.default_model;
+    if (entry && !entry.requires_auth && entry.api_base_url) seed.base_url = entry.api_base_url;
+    setCredentials(seed);
     setCredentialsValid(false);
     setTestStatus('idle');
     prevTestRef.current = 'idle';
     setSaveStatus('idle');
     setSaveError(null);
-  }, []);
+    },
+    [category, catalog]
+  );
 
   const onValuesChange = useCallback((values: ProviderCredentialValues, valid: boolean) => {
     setCredentials(values);
@@ -103,7 +137,8 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
       } else if (category === 'ai') {
         const providerId = await onboardingApi.createAiProvider({
           providerType,
-          name: PROVIDER_LABELS.ai[providerType] ?? providerType,
+          name: providerName.trim() || (PROVIDER_LABELS.ai[providerType] ?? providerType),
+          apiBaseUrl: apiBaseUrl.trim() || undefined,
         });
         if (!providerId) throw new Error('AI provider creation did not return an id');
         await onboardingApi.createAiCredential({ providerId, credentials });
@@ -133,7 +168,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
       setSaveError(err instanceof Error ? err.message : 'Failed to save credentials. Please retry.');
       setSaveStatus('error');
     }
-  }, [providerType, category, credentials, handlers]);
+  }, [providerType, category, credentials, handlers, providerName, apiBaseUrl]);
 
   const progress: CategoryProgress = {
     providerType,
@@ -154,6 +189,36 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
       onSave={onSave}
       testIdPrefix="setup"
       testCredentials={handlers?.testCredential}
+      detailsSlot={
+        category === 'ai' ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label htmlFor="setup-provider-name" className="block text-sm font-medium text-theme-primary">
+                Provider name
+              </label>
+              <input
+                id="setup-provider-name"
+                data-testid="setup-provider-name"
+                className="input-theme w-full"
+                value={providerName}
+                onChange={(e) => setProviderName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="setup-provider-base-url" className="block text-sm font-medium text-theme-primary">
+                API base URL
+              </label>
+              <input
+                id="setup-provider-base-url"
+                data-testid="setup-provider-base-url"
+                className="input-theme w-full"
+                value={apiBaseUrl}
+                onChange={(e) => setApiBaseUrl(e.target.value)}
+              />
+            </div>
+          </div>
+        ) : undefined
+      }
     />
   );
 };

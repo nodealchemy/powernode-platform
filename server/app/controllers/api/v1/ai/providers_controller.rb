@@ -130,6 +130,12 @@ module Api
           })
         end
 
+        # GET /api/v1/ai/providers/catalog
+        # Read-only provider-type catalog used to auto-fill the provider form.
+        def catalog
+          render_success({ items: ::Ai::ProviderCatalog.form_entries })
+        end
+
         # GET /api/v1/ai/providers/available
         def available
           providers = ::Ai::ProviderManagementService.get_available_providers_for_account(current_user.account)
@@ -195,7 +201,7 @@ module Api
           return if current_worker
 
           case action_name
-          when "index", "show", "available", "statistics", "models", "usage_summary", "check_availability"
+          when "index", "show", "available", "catalog", "statistics", "models", "usage_summary", "check_availability"
             require_permission("ai.providers.read")
           when "create"
             require_permission("ai.providers.create")

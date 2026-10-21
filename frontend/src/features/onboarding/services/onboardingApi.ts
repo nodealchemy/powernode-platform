@@ -7,6 +7,7 @@
 // each component derived from `response.data`. This keeps the components' existing
 // apiClient mocks (which assert call paths/args) intercepting unchanged.
 import { apiClient } from '@/shared/services/apiClient';
+import type { AiProviderCatalogEntry } from '@/shared/types/ai';
 import type {
   ProviderCategory,
   ProviderCredentialValues,
@@ -60,7 +61,7 @@ export interface CreateProviderViaProviderParams {
   /** Display name attached to the created Provider record. */
   name: string;
   /**
-   * Provider-level config (e.g. self-hosted Gitea/GitLab base URL). Sent as
+   * Provider-level config (e.g. self-hosted Gitea/GitLab or AI API base URL). Sent as
    * `provider.api_base_url` — this configures the Provider, not the credential.
    */
   apiBaseUrl?: string;
@@ -103,6 +104,17 @@ export const onboardingApi = {
   },
 
   /**
+   * GET `/ai/providers/catalog`: the provider-type catalog that pre-fills the
+   * AI provider details (name, base URL, default model) on type selection.
+   */
+  async getAiProviderCatalog(): Promise<AiProviderCatalogEntry[]> {
+    const response = await apiClient.get<{ data?: { items?: AiProviderCatalogEntry[] } }>(
+      '/ai/providers/catalog'
+    );
+    return response.data?.data?.items ?? [];
+  },
+
+  /**
    * AI category step 1: resolve an existing provider of this type, or create
    * one. The catalog seeds a Provider per type ahead of onboarding, so a bare
    * POST here would create a duplicate missing required fields (422). Instead
@@ -112,6 +124,7 @@ export const onboardingApi = {
   async createAiProvider({
     providerType,
     name,
+    apiBaseUrl,
   }: CreateProviderViaProviderParams): Promise<string | undefined> {
     const existing = await apiClient.get<AiProviderIndexResponse>('/ai/providers', {
       params: { provider_type: providerType },
@@ -125,6 +138,7 @@ export const onboardingApi = {
       provider: {
         provider_type: providerType,
         name,
+        ...(apiBaseUrl ? { api_base_url: apiBaseUrl } : {}),
       },
     });
     return response.data?.data?.provider?.id;
