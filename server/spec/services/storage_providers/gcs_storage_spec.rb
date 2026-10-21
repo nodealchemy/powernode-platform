@@ -42,7 +42,8 @@ RSpec.describe StorageProviders::GcsStorage, type: :service do
     it 'creates a GCS client' do
       expect(Google::Cloud::Storage).to receive(:new).with(
         project_id: 'test-project',
-        credentials: anything
+        credentials: anything,
+        timeout: 30
       ).and_return(gcs_client)
 
       described_class.new(storage_config)

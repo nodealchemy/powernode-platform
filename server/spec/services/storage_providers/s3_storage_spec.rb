@@ -33,6 +33,16 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
     allow(bucket).to receive(:exists?).and_return(true)
   end
 
+  describe 'client options' do
+    it 'sets explicit timeouts and a single retry so a hanging endpoint cannot stall a caller' do
+      provider.initialize_storage
+
+      expect(Aws::S3::Client).to have_received(:new).with(
+        hash_including(http_open_timeout: 10, http_read_timeout: 30, retry_limit: 1)
+      )
+    end
+  end
+
   describe '#initialize_storage' do
     it 'returns true when bucket exists' do
       result = provider.initialize_storage

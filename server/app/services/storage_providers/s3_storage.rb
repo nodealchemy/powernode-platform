@@ -481,7 +481,14 @@ module StorageProviders
     def create_s3_client
       client_options = {
         region: @region,
-        credentials: create_credentials
+        credentials: create_credentials,
+        # The SDK defaults (60 s open/read, 3 retries) allow minutes per call;
+        # callers such as FileManagement::Erasure budget ~200 ms per delete
+        # against a 120 s request timeout. Worst case per call here:
+        # (10 + 30) * (1 + retry_limit) = 80 s only if the endpoint hangs.
+        http_open_timeout: 10,
+        http_read_timeout: 30,
+        retry_limit: 1
       }
 
       # Support for S3-compatible services (Minio, DigitalOcean Spaces, etc.)

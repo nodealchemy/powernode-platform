@@ -388,8 +388,8 @@ module StorageProviders
         conn.request :multipart
         conn.response :raise_error
         conn.adapter Faraday.default_adapter
-        conn.options.timeout = 120
-        conn.options.open_timeout = 30
+        conn.options.timeout = 30
+        conn.options.open_timeout = 10
       end
     end
 

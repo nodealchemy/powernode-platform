@@ -373,7 +373,8 @@ module StorageProviders
 
       Google::Cloud::Storage.new(
         project_id: @project_id,
-        credentials: credentials
+        credentials: credentials,
+        timeout: 30
       )
     end
 
