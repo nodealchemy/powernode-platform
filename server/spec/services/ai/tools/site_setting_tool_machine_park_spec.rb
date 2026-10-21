@@ -659,6 +659,43 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
       expect(operation.result["error"]).to include("only tighten")
     end
 
+    # IMP-3ab34d4e2932: the write's re-check read the row, then SiteSetting.set
+    # wrote, with nothing between them, so a person's loosening committed in
+    # that gap was overwritten by a machine value judged against a stale row.
+    # The check and the write must be one unit under a row lock.
+    it "runs the write-time re-check and the write under one transaction holding the row lock" do
+      lock_key = "zz_machine_park_lock_key"
+      depth_at_check = nil
+      base_depth = nil
+      described_class.register_key(lock_key, setting_type: "string", description: "locked", protected: true,
+                                             machine_parkable: true,
+                                             ordering: lambda { |_requested, _current|
+                                               depth_at_check = SiteSetting.connection.open_transactions
+                                               true
+                                             })
+      SiteSetting.set(lock_key, "abc")
+      request = parked_request(park(key: lock_key, value: "abcd"))
+      base_depth = SiteSetting.connection.open_transactions
+
+      statements = []
+      sub = ActiveSupport::Notifications.subscribe("sql.active_record") do |*, payload|
+        statements << payload[:sql] if payload[:sql].include?("site_settings")
+      end
+      begin
+        workflow.approve(request: request, approver: operator, origin: Ai::ApprovalDecision::REST_SESSION)
+      ensure
+        ActiveSupport::Notifications.unsubscribe(sub)
+      end
+
+      expect(SiteSetting.get(lock_key)).to eq("abcd")
+      expect(depth_at_check).to be > base_depth
+      locked_read = statements.index { |sql| sql =~ /\ASELECT.*FROM "site_settings".*FOR UPDATE/m }
+      first_write = statements.index { |sql| sql =~ /\A(UPDATE|INSERT INTO) "site_settings"/ }
+      expect(locked_read).not_to be_nil
+      expect(first_write).not_to be_nil
+      expect(locked_read).to be < first_write
+    end
+
     it "does not re-check a person's own request at the write" do
       SiteSetting.set(ordered_key, "abcdef")
       tool = described_class.new(account: account, user: operator)

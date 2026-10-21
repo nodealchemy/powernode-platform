@@ -527,10 +527,12 @@ module Ai
       # change), a stored row of another type, the ordering raising. The envelope
       # names the key and never a value: the instance cannot read a protected
       # key, and the current value must not come back as an error message.
-      def tightening_refusal(params)
+      # +row+ is the caller's already-read (locked) row, or nil for "no such
+      # row"; left out, the row is read here (the park-time check).
+      def tightening_refusal(params, row: :read)
         key = params[:key].to_s
         spec = key_spec(params)
-        row = SiteSetting.find_by(key: key)
+        row = SiteSetting.find_by(key: key) if row == :read
         if row && row.setting_type != spec[:setting_type]
           return [ "current_type_mismatch", error_result(
             "#{key.inspect} is stored as #{row.setting_type} but registered as #{spec[:setting_type]}; " \
@@ -584,14 +586,25 @@ module Ai
       # is reachable without that door, and "a machine may only tighten" has to
       # hold at the write on every door. Only a machine's request: a person's own
       # loosening is theirs to make. nil when nothing objects.
-      def machine_request_tightening_refusal(params)
-        return nil unless human_confirmed_replay?
+      def machine_request_tightening_refusal(params, row: :read)
+        return nil unless machine_requested_replay?
+
+        _code, refusal = tightening_refusal(params, row: row)
+        refusal
+      end
+
+      def machine_requested_replay?
+        return false unless human_confirmed_replay?
 
         request = @replaying_operation.try(:approval_request)
-        return nil unless request.respond_to?(:machine_requested?) && request.machine_requested?
+        request.respond_to?(:machine_requested?) && request.machine_requested?
+      end
 
-        _code, refusal = tightening_refusal(params)
-        refusal
+      # Serialises writers of a key that has NO row yet (nothing to row-lock),
+      # the way Ai::Approvals::MachinePark#lock! serialises a principal.
+      def lock_absent_key!(key)
+        connection = SiteSetting.connection
+        connection.execute("SELECT pg_advisory_xact_lock(hashtextextended(#{connection.quote("site_setting:#{key}")}, 0))")
       end
 
       def park_denied(reason)
@@ -787,27 +800,39 @@ module Ai
         spec = key_spec(params)
         return not_allowlisted_error(params) unless spec
 
-        loosening = machine_request_tightening_refusal(params)
-        return loosening if loosening
-
         key = params[:key].to_s
-        previous = SiteSetting.find_by(key: key)
 
-        setting = SiteSetting.set(
-          key,
-          params[:value],
-          setting_type: spec[:setting_type],
-          is_public: false
-        )
+        # The re-check and the write are ONE unit: the row is read FOR UPDATE
+        # and the tightening check judges that locked row, so a person's
+        # loosening cannot commit between the two and then be overwritten by a
+        # machine value judged against a stale row. A key with no row yet has
+        # nothing to lock, so it takes an advisory lock on the key instead.
+        SiteSetting.transaction do
+          lock_absent_key!(key) if machine_requested_replay?
+          # find_by, not SiteSetting.get: `get` returns nil both for "unset" and
+          # for a boolean row holding a falsey value, and the caller has to be
+          # able to tell those apart before deciding whether to write.
+          previous = SiteSetting.lock.find_by(key: key)
 
-        record_write!(setting: setting, created: previous.nil?)
+          loosening = machine_request_tightening_refusal(params, row: previous)
+          next loosening if loosening
 
-        success_result(
-          key: key,
-          value: SiteSetting.get(key),
-          setting_type: setting.setting_type,
-          created: previous.nil?
-        )
+          setting = SiteSetting.set(
+            key,
+            params[:value],
+            setting_type: spec[:setting_type],
+            is_public: false
+          )
+
+          record_write!(setting: setting, created: previous.nil?)
+
+          success_result(
+            key: key,
+            value: SiteSetting.get(key),
+            setting_type: setting.setting_type,
+            created: previous.nil?
+          )
+        end
       rescue ActiveRecord::RecordInvalid => e
         error_result("Validation failed: #{e.record.errors.full_messages.join(', ')}")
       end
