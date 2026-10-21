@@ -268,9 +268,13 @@ module Ai
       # (a policy write, a terminate) has nothing to show once, and revealing it
       # sent every approver through a "shown once — save it now" modal.
       filtered = ::Ai::SensitiveParams.filter(result_data || {})
-      @revealed_result = result_data if filtered != (result_data || {})
-      complete!(filter_envelope_text(filtered))
-      result_data
+      reveal_once = filtered != (result_data || {})
+      @revealed_result = result_data if reveal_once
+      text_filtered = filter_envelope_text(filtered)
+      complete!(text_filtered)
+      # A result the key filter masked is the reveal-once case: the raw return
+      # is the one reveal. Any other result goes back text-filtered, never raw.
+      reveal_once ? result_data : text_filtered
     rescue StandardError => e
       Rails.logger.error("[DeferredOperation##{id}] execute_now! failed: #{e.class}: " \
                          "#{::Ai::SensitiveParams.filter_text(e.message)}")
@@ -410,10 +414,11 @@ module Ai
     # params it masks (IMP-f8e6bbc5e3bb). Only those two top-level string
     # members are rewritten; the envelope's shape is untouched.
     def filter_envelope_text(filtered)
-      return filtered unless filtered.is_a?(Hash)
-
-      filtered.to_h do |key, value|
-        [ key, %w[error message].include?(key.to_s) && value.is_a?(String) ? ::Ai::SensitiveParams.filter_text(value) : value ]
+      case filtered
+      when ::Hash then filtered.each_with_object(filtered.class.new) { |(k, v), out| out[k] = filter_envelope_text(v) }
+      when ::Array then filtered.map { |v| filter_envelope_text(v) }
+      when ::String then ::Ai::SensitiveParams.filter_text(filtered)
+      else filtered
       end
     end
 
