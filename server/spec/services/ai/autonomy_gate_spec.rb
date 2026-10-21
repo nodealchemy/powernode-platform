@@ -565,6 +565,14 @@ RSpec.describe Ai::AutonomyGate do
       end
     end
 
+    it 'treats a principal hash with a blank kind as absent and derives one' do
+      [ { 'kind' => '' }, { 'kind' => nil }, { kind: ' ' } ].each do |kindless|
+        op = described_class.evaluate(**base_args, params: { foo: 'bar', principal: kindless }).deferred_operation
+
+        expect(op.params['principal']).to include('kind' => 'user', 'user_id' => user.id)
+      end
+    end
+
     it 'adds nothing when there is neither a user nor an agent' do
       op = described_class.evaluate(**base_args.except(:requested_by)).deferred_operation
 

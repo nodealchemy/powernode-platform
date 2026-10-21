@@ -165,9 +165,18 @@ module Ai
 
       raw = params.respond_to?(:to_unsafe_h) ? params.to_unsafe_h : params
       return params unless raw.is_a?(::Hash)
-      return params if raw.any? { |key, value| key.to_s == ::Ai::Approvals::ParkPrincipal::KEY && value.present? }
+      return params if raw.any? { |key, value| key.to_s == ::Ai::Approvals::ParkPrincipal::KEY && stamped_principal?(value) }
 
       ::Ai::Approvals::ParkPrincipal.stamp(raw, ::Ai::Approvals::ParkPrincipal.for_session(user: requested_by, agent: agent))
+    end
+
+    # A caller-stamped principal counts only when it names a kind: a blank value,
+    # or a hash whose kind is blank, would otherwise park unattributed.
+    def stamped_principal?(value)
+      return false if value.blank?
+      return true unless value.is_a?(::Hash)
+
+      value.any? { |key, kind| key.to_s == "kind" && kind.present? }
     end
 
     def create_deferred_operation!(action_category:, executor_class:, params:, agent:,
