@@ -53,6 +53,11 @@ module Ai
         "update_intervention_policy" => "ai.intervention_policies.manage",
         "delete_intervention_policy" => "ai.intervention_policies.manage",
 
+        # Api::V1::Ai::PromotionGrantsController#require_read. READ-ONLY on
+        # purpose: no tool door creates, extends or un-revokes a grant — only a
+        # person's own REST session issues one (Ai::PromotionGrant).
+        "list_promotion_grants" => "ai.promotion_grants.read",
+
         # Api::V1::Ai::GoalsController#validate_permissions
         # — also blanket. decompose_goal writes to a goal's plan, so it follows
         # the goal surface rather than the approvals one.
@@ -138,6 +143,8 @@ module Ai
       declare_action "list_deferred_operations", mutating: false, limit: 100, returns: "count and operations, newest first; 25 unless limit is set"
       declare_action "get_approval_request", mutating: false, returns: "approval_status, decision, decided_by, decided_at, expires_at, expired, requires_human_session, call_origin, action_category, description, the redacted request_data, and the linked deferred operation's status, error_message and redacted params", refuses: "neither or both ids are given, or the id names no request in your account (an instance principal: none recorded as parked by that instance)", see_also: { "list_deferred_operations" => "finding a request by status or agent" }
       declare_action "list_intervention_policies", mutating: false, limit: 100, returns: "count and policies, highest priority first"
+      declare_action "list_promotion_grants", mutating: false, family: "agents", limit: 100,
+                                              returns: "count and grants, newest first: agent, environment, modules, uses and max, expiry, status and who granted or revoked it"
       declare_action "propose_feature", mutating: true, family: "campaigns", returns: "id, title and status of the proposal", see_also: { "create_proposal" => "a proposal of another type" }
       declare_action "reject_deferred_operation", mutating: true, destructive: true
       declare_action "report_issue", mutating: true, family: "notifications", see_also: { "escalate" => "a problem that blocks your own task" }
@@ -318,6 +325,17 @@ module Ai
               is_active: { type: "boolean", required: false, description: "Filter by active flag" }
             }
           },
+          # === Promotion grants (READ-ONLY: issued only from a person's own session) ===
+          "list_promotion_grants" => {
+            description: "List time-boxed promotion grants: a person's standing permission for one agent to perform " \
+                         "release.promote into one environment (optionally only some modules, at most N times, until " \
+                         "a time at most 24h out). While one is active and matches, that agent's promotion proceeds " \
+                         "instead of parking. Read-only: grants are issued and revoked only in the UI/REST session.",
+            parameters: {
+              active: { type: "boolean", required: false, description: "Only grants that can still be used" },
+              agent_id: { type: "string", required: false, description: "Filter by the agent a grant names" }
+            }
+          },
           "create_intervention_policy" => {
             description: "Create a new intervention policy that gates autonomous actions for an agent (or all agents in scope).",
             parameters: {
@@ -433,6 +451,7 @@ module Ai
         when "report_issue" then report_issue(params)
         when "decompose_goal" then decompose_goal(params)
         when "list_intervention_policies" then list_intervention_policies(params)
+        when "list_promotion_grants" then list_promotion_grants(params)
         when "create_intervention_policy" then create_intervention_policy(params)
         when "update_intervention_policy" then update_intervention_policy(params)
         when "delete_intervention_policy" then delete_intervention_policy(params)
@@ -986,6 +1005,24 @@ module Ai
         }
       end
 
+      def list_promotion_grants(params)
+        scope = account.ai_promotion_grants.includes(:environment)
+        scope = scope.active if ActiveModel::Type::Boolean.new.cast(params[:active])
+        scope = scope.where(ai_agent_id: params[:agent_id].to_s) if params[:agent_id].present?
+        now = Time.current
+        grants = scope.recent.limit(100)
+        {
+          success: true, count: grants.size,
+          promotion_grants: grants.map { |g|
+            { id: g.id, ai_agent_id: g.ai_agent_id, action_category: g.action_category,
+              environment_slug: g.environment&.slug, module_ids: g.module_ids,
+              uses_count: g.uses_count, max_uses: g.max_uses, expires_at: g.expires_at.iso8601,
+              status: g.status(now), granted_by_id: g.granted_by_id, revoked_at: g.revoked_at&.iso8601,
+              reason: g.reason }
+          }
+        }
+      end
+
       def create_intervention_policy(params)
         # Resolved through the account, never assigned raw: the associations
         # carry no account check, so a raw id would bind this account's row to
@@ -1054,6 +1091,8 @@ module Ai
             { id: o.id, status: o.status, ai_agent_id: o.ai_agent_id, action_category: o.action_category,
               executor_class: o.executor_class, description: o.description,
               approval_request_id: o.approval_request_id, source_type: o.source_type,
+              # Set when the operation ran under a time-boxed grant instead of parking.
+              promotion_grant_id: o.promotion_grant_id,
               created_at: o.created_at.iso8601, executed_at: o.executed_at&.iso8601 }
           }
         }

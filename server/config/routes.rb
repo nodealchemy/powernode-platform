@@ -2801,6 +2801,20 @@ Rails.application.routes.draw do
         end
 
         # ===================================================================
+        # PROMOTION GRANTS - time-boxed standing permission for one agent to
+        # promote into one environment (Ai::PromotionGrant). No update/destroy:
+        # a grant's terms are fixed at issue; it is revoked, never edited.
+        # ===================================================================
+        resources :promotion_grants, controller: "promotion_grants", only: %i[index show create] do
+          collection do
+            get :options
+          end
+          member do
+            post :revoke
+          end
+        end
+
+        # ===================================================================
         # PROPOSALS - Agent-initiated change proposals for human review
         # ===================================================================
         resources :proposals, controller: "proposals", only: %i[index show] do
