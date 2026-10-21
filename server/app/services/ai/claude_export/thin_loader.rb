@@ -152,8 +152,9 @@ module Ai
           "",
           "1. Charter: call `#{MCP_PREFIX}get_agent` with `slug: \"#{slug}\"`, adopt the returned `system_prompt` " \
             "and keep its `id`. If the verb is unavailable or finds no agent, do not proceed under a generic " \
-            "identity: it is not seeded on this connector, so tell the driver to run phase-1 step 5 or use a " \
-            "general-purpose agent; run step 5 with `outcome: \"failed\"` and stop.",
+            "identity: the agent is not seeded on this connector, so stop and report it to the driver (seed the " \
+            "agents, or use a general-purpose agent). Do not run step 5: `record_agent_execution` refuses a " \
+            "slug with no agent.",
           "2. Assemble: call `#{MCP_PREFIX}assemble_task` with the `assembly_id` from your prompt (none: your task, " \
             "`agent_slug: \"#{slug}\"`, `context: \"claude_code\"`); adopt the returned skills, learnings and verb lists.",
           "3. Tools: load only the verbs those skills name (or `discover_tools` returns); `describe_tool` each " \

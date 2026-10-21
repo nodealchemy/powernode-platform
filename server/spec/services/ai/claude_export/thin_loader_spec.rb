@@ -156,11 +156,17 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
       it "#{slug}: a missing get_agent row tells the driver exactly what to do" do
         body = described_class.render(slug).split(/^---$/, 3).last
 
-        expect(body).to include("do not proceed under a generic identity")
-        expect(body).to include("not seeded on this connector")
-        expect(body).to include("phase-1 step 5")
-        expect(body).to include("general-purpose")
-        expect(body).to include('outcome: "failed"')
+        step1 = body.lines.find { |l| l.start_with?("1. Charter:") }
+
+        expect(step1).to include("do not proceed under a generic identity")
+        expect(step1).to include("not seeded on this connector")
+        expect(step1).to include("stop and report it to the driver")
+        expect(step1).to include("general-purpose")
+        # record_agent_execution refuses a slug with no agent row, so step 1 must
+        # not send the agent to the report step (the old dead end).
+        expect(step1).not_to include('outcome: "failed"')
+        expect(step1).not_to include("run step 5 with")
+        expect(step1).to include("Do not run step 5")
       end
     end
   end
