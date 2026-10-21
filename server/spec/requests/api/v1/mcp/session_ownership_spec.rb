@@ -88,4 +88,29 @@ RSpec.describe "MCP session ownership on the per-request path", type: :request d
     expect(call_tool_as(token_a, session_a.session_token)&.id).to eq(agent_a.id)
     expect(session_a.reload.last_activity_at).to be > 1.minute.ago
   end
+
+  # L-4 control: the reconnect recovery this file guards was touched in both
+  # lookups (track_session_activity and the auth concern). The owner's own
+  # reconnect, within the grace period, must still bring the session back.
+  it "still reactivates the owner's own session revoked within the grace period" do
+    session_a = initialize_as(token_a)
+    session_a.update_columns(status: "revoked", revoked_at: 10.seconds.ago, last_activity_at: 2.hours.ago)
+    expect(session_a.reload).to be_reactivatable
+
+    post mcp_endpoint, params: rpc("ping"), headers: headers_for(token_a, session_id: session_a.session_token)
+
+    expect(response).to have_http_status(:ok)
+    session_a.reload
+    expect(session_a.status).to eq("active")
+    expect(session_a.last_activity_at).to be > 1.minute.ago
+  end
+
+  it "does not reactivate the owner's session revoked past the grace period (control)" do
+    session_a = initialize_as(token_a)
+    session_a.update_columns(status: "revoked", revoked_at: (McpSession::RECONNECT_GRACE_PERIOD + 1.minute).ago)
+
+    post mcp_endpoint, params: rpc("ping"), headers: headers_for(token_a, session_id: session_a.session_token)
+
+    expect(session_a.reload.status).to eq("revoked")
+  end
 end
