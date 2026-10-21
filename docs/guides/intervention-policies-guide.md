@@ -454,10 +454,25 @@ window instead.
 | max uses | optional; each promotion it admits spends one |
 | expires at | required; at most **24 hours** after issue |
 | reason | required; recorded on the grant and in the audit log |
+| granter driven only | optional, default off; when on, the grant is spent only when its granter is the person driving the agent's call |
+
+**Strict planes.** A plane whose `default_decision_authority` is `supervised`, or whose tier is 3 or higher (`prod`
+by default), takes only a bounded grant, enforced by the server: `max_uses` is required (at most 10), at least one
+module must be named, and the lifetime is at most **4 hours**. The form shows these limits and a strong warning,
+keyed on the plane's flags rather than its slug.
+
+**A grant belongs to the agent.** Anyone who can drive the agent it names (any session or door that acts as that
+agent) can spend it, unless it is *granter driven only*. Each use's audit row names who drove it: the user, the agent
+and the door (`driving_user_id`, `driving_agent_id`, `call_origin`, `principal`).
+
+**A use is spent on admission.** The gate counts a use when it admits the promotion; a promotion that then fails
+(a refused replay, an executor error) has still spent it.
 
 **Where it acts.** Only in `Ai::AutonomyGate`'s `require_approval` arm: when a promotion would park (a policy row,
 the unmatched default, or an environment escalation such as `supervised`), an active grant matching account, agent,
-category, environment and module is consumed under a row lock and the promotion proceeds. Otherwise it parks exactly
+category, environment and module is consumed under a row lock. The environment must be both the plane the gate
+resolved and the promotion's target plane (the verb names it), so a grant for one plane can never admit a promotion
+into another and the promotion proceeds. Otherwise it parks exactly
 as before. A grant **never** overrides:
 
 - a `block` or `silent` row;
@@ -465,8 +480,7 @@ as before. A grant **never** overrides:
 - a human-only call, or any reason a request needs a person's own session other than the plane being protected (the
   account's `requires_human_session` mark, a destructive verb, a category on the human-session list).
 
-**Production.** A grant may target `prod`. The create form shows a strong warning; prefer a short expiry, a module
-list and `max_uses`.
+**Production.** A grant may target `prod`, bounded as a strict plane (above).
 
 **Issuing.** Only from your own UI session (AI → Control → Policies → Promotion grants), holding
 `ai.promotion_grants.manage` **and** the permission the promote verb itself requires (`system.modules.update` with the
@@ -475,7 +489,7 @@ impersonation, account-switch or service session is refused too. REST: `POST /ap
 `ai_agent_id`, `environment_id`, `module_ids`, `max_uses`, `expires_in_hours`, `reason`.
 
 **Revoking.** The Revoke button, or `POST /api/v1/ai/promotion_grants/:id/revoke`, from any REST session holding
-`ai.promotion_grants.manage` (revoking only tightens). It is final. Revocation is not offered over MCP; the kill switch
+`ai.promotion_grants.manage` (revoking only tightens). It is final. An impersonated revoke records the impersonator. Revocation is not offered over MCP; the kill switch
 is the tool-door emergency lever.
 
 **Reading and audit.** `GET /api/v1/ai/promotion_grants` (`ai.promotion_grants.read`) and the read-only MCP verb
