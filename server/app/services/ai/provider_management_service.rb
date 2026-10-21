@@ -124,6 +124,11 @@ class Ai::ProviderManagementService
     @health_check_results = []
   end
 
+  # Caps the per-request timeout of the connection test (a shared deadline).
+  def limit_test_timeout(seconds)
+    @test_config[:timeout] = [ @test_config[:timeout], seconds ].min
+  end
+
   # Instance method for simplified provider-level connection test
   def test_provider_connection
     result = test_connection

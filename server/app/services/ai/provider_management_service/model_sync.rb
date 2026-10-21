@@ -387,7 +387,7 @@ class Ai::ProviderManagementService
             response = HTTP.headers(
               "Authorization" => "Bearer #{api_key}",
               "Content-Type" => "application/json"
-            ).timeout(15).get(url)
+            ).timeout(provider.sync_http_timeout(15)).get(url)
 
             if response.status.success?
               api_data = JSON.parse(response.body.to_s)

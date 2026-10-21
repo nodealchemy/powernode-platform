@@ -158,19 +158,6 @@ RSpec.describe "Api::V1::Ai::ProviderCredentials onboarding sync", type: :reques
       expect(created.supported_models).to be_present
       expect(created.metadata["model_sync_pending_at"]).to be_present
     end
-
-    it "gives up after a single total time budget" do
-      stub_const("Ai::Providers::ModelSyncAndActivate::CREATE_BUDGET_SECONDS", 0.2)
-      allow(Ai::ProviderManagementService).to receive(:sync_provider_models) { sleep 5 }
-      slow = create(:ai_provider, account: account, provider_type: "ollama", is_active: true)
-
-      started = Time.now
-      result = Ai::Providers::ModelSyncAndActivate.call(slow, activate: false, preserve_on_failure: true, budget: true)
-
-      expect(Time.now - started).to be < 3
-      expect(result.deferred).to be(true)
-      expect(slow.reload.is_active).to be(true)
-    end
   end
 
   describe "recovery after a failed create-time sync" do

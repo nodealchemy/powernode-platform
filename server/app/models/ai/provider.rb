@@ -182,17 +182,33 @@ module Ai
     end
 
     # Credential used by the model sync: the one just saved when a caller scoped
-    # one (#with_sync_credential), else the first active credential.
+    # one (#with_sync_options), else the first active credential.
     def credential_for_sync
       @sync_credential || provider_credentials.active.where(account_id: account_id).first
     end
 
-    def with_sync_credential(credential)
-      previous = @sync_credential
+    # Scopes a sync: the credential to use and a monotonic DEADLINE the HTTP
+    # calls honour. A deadline bounds the sync without interrupting the thread
+    # (an interrupt could land in the middle of a DB write).
+    def with_sync_options(credential: nil, deadline: nil)
+      previous = [ @sync_credential, @sync_deadline ]
       @sync_credential = credential
+      @sync_deadline = deadline
       yield
     ensure
-      @sync_credential = previous
+      @sync_credential, @sync_deadline = previous
+    end
+
+    # Seconds the next sync request may take: its usual limit, cut to what is
+    # left of the deadline (never below half a second).
+    def sync_http_timeout(default)
+      return default unless @sync_deadline
+
+      [ [ @sync_deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC), 0.5 ].max, default ].min
+    end
+
+    def sync_deadline_passed?
+      @sync_deadline.present? && Process.clock_gettime(Process::CLOCK_MONOTONIC) >= @sync_deadline
     end
 
     def self.with_healthy_status

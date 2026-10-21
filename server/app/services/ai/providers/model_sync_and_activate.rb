@@ -12,7 +12,7 @@ module Ai
     #
     # Nothing here reads or returns credential material.
     class ModelSyncAndActivate
-      Result = Struct.new(:success, :deferred, :model_count, :error, :activated, :default, keyword_init: true) do
+      Result = Struct.new(:success, :deferred, :model_count, :error, :activated, :default, :remaining_seconds, keyword_init: true) do
         def to_h
           { success: success, deferred: deferred, model_count: model_count, error: error,
             activated: activated, default: default }
@@ -33,7 +33,8 @@ module Ai
       #                       whichever active credential happens to come first
       # preserve_on_failure:  a failure leaves the provider exactly as it was and
       #                       flags it for the worker's retry (create time)
-      # budget:               bound the whole sync by CREATE_BUDGET_SECONDS
+      # budget:               bound the whole sync by a CREATE_BUDGET_SECONDS
+      #                       deadline the HTTP calls honour (no thread interrupt)
       def self.call(provider, activate: true, credential: nil, preserve_on_failure: false, budget: false)
         new(provider, activate: activate, credential: credential,
                       preserve_on_failure: preserve_on_failure, budget: budget).call
@@ -64,9 +65,8 @@ module Ai
         activated = activate!
         made_default = @activate && ::Ai::ProviderDefaultService.ensure_default!(@provider.reload)
         Result.new(success: true, deferred: false, model_count: @provider.supported_models.size,
-                   error: nil, activated: activated, default: made_default || default_now?)
-      rescue Timeout::Error
-        restore_after_failure(@snapshot, reason: "Model sync timed out", force_deferred: true)
+                   error: nil, activated: activated, default: made_default || default_now?,
+                   remaining_seconds: remaining)
       rescue StandardError => e
         Rails.logger.error("[Ai::Providers::ModelSyncAndActivate] #{e.class} for provider #{@provider.id}")
         Result.new(success: false, deferred: false, model_count: 0, error: e.message.to_s.truncate(300),
@@ -76,12 +76,20 @@ module Ai
       private
 
       def run_sync
-        sync = proc do
-          @provider.with_sync_credential(@credential) do
-            ::Ai::ProviderManagementService.sync_provider_models(@provider, force_refresh: true)
-          end
+        @deadline = @budget ? now + CREATE_BUDGET_SECONDS : nil
+        @provider.with_sync_options(credential: @credential, deadline: @deadline) do
+          ::Ai::ProviderManagementService.sync_provider_models(@provider, force_refresh: true)
         end
-        @budget ? Timeout.timeout(CREATE_BUDGET_SECONDS) { sync.call } : sync.call
+      end
+
+      # Seconds left of the budget, for the caller's next step (the credential's
+      # connection test). nil when the sync was not budgeted.
+      def remaining
+        @deadline && [ @deadline - now, 0 ].max
+      end
+
+      def now
+        Process.clock_gettime(Process::CLOCK_MONOTONIC)
       end
 
       def take_snapshot
@@ -107,8 +115,10 @@ module Ai
         else
           @provider.mark_model_sync_pending!
         end
-        Result.new(success: false, deferred: force_deferred || @credential.nil?, model_count: @provider.supported_models&.size.to_i,
-                   error: error.to_s.truncate(300), activated: false, default: false)
+        spent = @deadline.present? && remaining.zero?
+        Result.new(success: false, deferred: force_deferred || @credential.nil? || spent,
+                   model_count: @provider.supported_models&.size.to_i,
+                   error: error.to_s.truncate(300), activated: false, default: false, remaining_seconds: remaining)
       end
 
       def activate!

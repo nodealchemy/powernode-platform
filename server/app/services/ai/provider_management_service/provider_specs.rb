@@ -7,7 +7,7 @@ class Ai::ProviderManagementService
     class_methods do
       # Get providers available for a specific account
       def get_available_providers_for_account(account)
-        Ai::Provider.active.includes(:provider_credentials)
+        Ai::Provider.where(account_id: account.id).active.includes(:provider_credentials)
       end
 
       # Setup default AI providers

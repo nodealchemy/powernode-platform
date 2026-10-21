@@ -42,7 +42,7 @@ class Ai::ProviderManagementService
           # Sync the models FIRST: the connection test sends the provider's
           # default chat model, which only exists once the catalog is synced
           # (testing first failed with model_not_found / "No model configured").
-          sync_result = ::Ai::Providers::ModelSyncAndActivate.call(provider.reload, credential: credential)
+          sync_result = ::Ai::Providers::ModelSyncAndActivate.call(provider.reload, credential: credential, budget: true)
           credential.model_sync_result = sync_result
 
           # A failed sync already tells us the key does not work (the protected
@@ -53,9 +53,15 @@ class Ai::ProviderManagementService
             return credential
           end
 
+          # The connection test shares the sync's deadline: a spent budget skips
+          # it (the credential is saved; the test can be run on demand).
+          remaining = sync_result.remaining_seconds
+          return credential if remaining && remaining < 0.5
+
           # Test the credential to ensure it works
           begin
             test_service = new(credential)
+            test_service.limit_test_timeout(remaining) if remaining
             # Use simple format for flat response with :success and :error at top level
             test_result = test_service.test_with_details_simple
 

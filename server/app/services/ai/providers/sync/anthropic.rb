@@ -27,7 +27,7 @@ module Ai
                   "x-api-key" => api_key,
                   "anthropic-version" => "2023-06-01",
                   "Content-Type" => "application/json"
-                ).timeout(15).get("https://api.anthropic.com/v1/models")
+                ).timeout(provider.sync_http_timeout(15)).get("https://api.anthropic.com/v1/models")
 
                 if response.status.success?
                   api_data = JSON.parse(response.body.to_s)

@@ -23,7 +23,7 @@ module Ai
               begin
                 api_key = credential.credentials["api_key"]
                 # Google AI Studio API endpoint for listing models
-                response = HTTP.timeout(15).get("https://generativelanguage.googleapis.com/v1beta/models?key=#{api_key}")
+                response = HTTP.timeout(provider.sync_http_timeout(15)).get("https://generativelanguage.googleapis.com/v1beta/models?key=#{api_key}")
 
                 if response.status.success?
                   api_data = JSON.parse(response.body.to_s)

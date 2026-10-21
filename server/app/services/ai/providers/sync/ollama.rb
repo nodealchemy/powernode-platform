@@ -34,9 +34,12 @@ module Ai
 
             api_data = nil
 
-            endpoints.each do |endpoint|
+            endpoints.each_with_index do |endpoint, index|
+              # Past the sync deadline the remaining fallback endpoints are not tried.
+              break if index.positive? && provider.sync_deadline_passed?
+
               begin
-                http_client = HTTP.timeout(10)
+                http_client = HTTP.timeout(provider.sync_http_timeout(10))
 
                 # Add authentication if needed and credential exists
                 if endpoint[:auth] && credential
