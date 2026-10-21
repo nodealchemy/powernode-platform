@@ -817,16 +817,22 @@ module Ai
           loosening = machine_request_tightening_refusal(params, row: previous)
           next loosening if loosening
 
-          setting = SiteSetting.set(
-            key,
-            params[:value],
-            setting_type: spec[:setting_type],
-            is_public: false,
-            # The locked read saw no row: INSERT only, so a person's insert
-            # that committed since raises RecordNotUnique (refused below)
-            # instead of being UPDATEd over.
-            insert_only: previous.nil?
-          )
+          setting =
+            begin
+              SiteSetting.set(
+                key,
+                params[:value],
+                setting_type: spec[:setting_type],
+                is_public: false,
+                # The locked read saw no row: INSERT only, so a person's insert
+                # that committed since fails here instead of being UPDATEd over.
+                insert_only: previous.nil?
+              )
+            rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => e
+              # Re-raised as ours so the handler below knows THIS write failed
+              # (not the audit row after it) and can tell a true race apart.
+              raise SetWriteFailed, e
+            end
 
           record_write!(setting: setting, created: previous.nil?)
 
@@ -837,13 +843,31 @@ module Ai
             created: previous.nil?
           )
         end
-      rescue ActiveRecord::RecordInvalid => e
-        # A taken key on an insert-only write is the same race as RecordNotUnique.
-        return concurrent_change_error(params) if e.record.errors.of_kind?(:key, :taken)
+      rescue SetWriteFailed => e
+        # The savepoint is rolled back. A TRUE race is a row with exactly this
+        # key now present although the locked read saw none; anything else (a key
+        # differing only by case trips the case-insensitive validation without
+        # being a race) is reported as what it is.
+        cause = e.cause
+        return concurrent_change_error(params) if SiteSetting.exists?(key: params[:key].to_s) && previous_absent_failure?(cause)
 
+        if cause.is_a?(ActiveRecord::RecordInvalid)
+          error_result("Validation failed: #{cause.record.errors.full_messages.join(', ')}")
+        else
+          error_result("#{params[:key].to_s.inspect} could not be written; the request was not applied.")
+        end
+      rescue ActiveRecord::RecordInvalid => e
         error_result("Validation failed: #{e.record.errors.full_messages.join(', ')}")
       rescue ActiveRecord::RecordNotUnique
-        concurrent_change_error(params)
+        error_result("#{params[:key].to_s.inspect} could not be recorded; the request was not applied.")
+      end
+
+      # The SiteSetting.set write itself failed (see #set_setting).
+      class SetWriteFailed < StandardError; end
+
+      def previous_absent_failure?(cause)
+        cause.is_a?(ActiveRecord::RecordNotUnique) ||
+          (cause.is_a?(ActiveRecord::RecordInvalid) && cause.record.errors.of_kind?(:key, :taken))
       end
 
       # A person's INSERT of the same new key committed first; the savepoint

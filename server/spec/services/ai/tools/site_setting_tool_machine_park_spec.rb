@@ -696,6 +696,37 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
       expect(locked_read).to be < first_write
     end
 
+    # Only a TRUE insert race earns the "changed concurrently" text.
+    describe "write failures that are not a concurrent insert" do
+      def replay_tool_for(key)
+        tool = described_class.new(account: account, user: operator)
+        allow(tool).to receive(:machine_requested_replay?).and_return(true)
+        [ tool, { action: "site_setting_set_protected", key: key, value: "abcd" } ]
+      end
+
+      it "reports a key that differs only by case as a validation failure, not a race" do
+        SiteSetting.create!(key: ordered_key.upcase, value: "x", setting_type: "string")
+        tool, params = replay_tool_for(ordered_key)
+
+        result = tool.send(:set_setting, params)
+
+        expect(result[:success]).to be(false)
+        expect(result[:error]).to include("Validation failed")
+        expect(result[:error]).not_to include("changed concurrently")
+      end
+
+      it "does not call an audit-row RecordNotUnique a concurrent change" do
+        tool, params = replay_tool_for(ordered_key)
+        allow(tool).to receive(:record_write!).and_raise(ActiveRecord::RecordNotUnique, "audit duplicate")
+
+        result = tool.send(:set_setting, params)
+
+        expect(result[:success]).to be(false)
+        expect(result[:error]).not_to include("changed concurrently")
+        expect(SiteSetting.find_by(key: ordered_key)).to be_nil
+      end
+    end
+
     it "does not re-check a person's own request at the write" do
       SiteSetting.set(ordered_key, "abcdef")
       tool = described_class.new(account: account, user: operator)
