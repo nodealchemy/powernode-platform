@@ -25,9 +25,12 @@ RSpec.describe ".claude/hooks/readonly-shell-guard.sh" do
     "git log --oneline -n 5", "git show HEAD", "git diff develop..HEAD --stat", "git status --short", "git rev-parse HEAD",
     "git ls-files server/app", "git ls-tree -r HEAD", "git cat-file -p HEAD", "git merge-base develop HEAD", "git branch --list",
     "git blame -L 1,10 server/app/models/ai/skill.rb", "git grep -n assemble_task", "git -C /work/tree log -3",
-    "rg -n assemble_task server/app", "grep -rn 'assemble_task' server/app", "cat server/app/models/ai/skill.rb",
-    "head -n 20 file.rb", "sed -n 1,20p file.rb", "ls -la server", "find server/app -name '*.rb' -newer x",
-    "git log --oneline | head -5", "git diff | grep -c foo", "go vet ./...", "go test ./internal/...", "wc -l file", "pwd"
+    "rg -n assemble_task server/app", "grep -rn assemble_task server/app", "cat server/app/models/ai/skill.rb",
+    "head -n 20 file.rb", "sed -n 1,20p file.rb", "ls -la server", "find server/app -name skill.rb -newer x",
+    "git log --oneline | head -5", "git diff | grep -c foo", "go vet ./...", "go test ./internal/...", "wc -l file", "pwd",
+    "git diff develop..HEAD", "git log HEAD~3..HEAD --oneline", "git log -p --stat -n 2", "sort -n file", "sort -rn -k2 file",
+    "git log --oneline | sort | uniq -c", "uniq -c file", "uniq -f 1 file", "file server/app/models/ai/skill.rb",
+    "go test -run TestAssemble -v -count=1 ./internal/...", "go test -race -timeout=60s ./...", "cat /work/tree/server/app/x.rb"
   ]
   denied = [
     "git push origin develop", "git commit -m x", "git checkout develop", "git reset --hard", "git fetch", "git pull", "git branch -D x",
@@ -38,7 +41,30 @@ RSpec.describe ".claude/hooks/readonly-shell-guard.sh" do
     "sed -i s/a/b/ f", "sed -n 'w out' f", "find . -delete", "find . -exec rm {} ;", "find . -execdir ls ;", "find . -fprint out",
     "git log; rm -rf x", "git log && rm x", "git log || rm x", "ls & rm x", "ls `rm x`", "ls $(rm x)", "git log $HOME", "cat ~/.config/powernode/powernode.conf",
     "cat /home/example/.config/powernode/backend-default.conf", "rg token ~/.config/powernode", "grep -r x .config/powernode",
-    "rg --pre ./x pattern .", "go run main.go", "go build ./...", "npm install", "docker ps", "systemctl restart x", "ssh host ls", "sudo ls", ""
+    "rg --pre ./x pattern .", "go run main.go", "go build ./...", "npm install", "docker ps", "systemctl restart x", "ssh host ls", "sudo ls", "",
+    # PRE-2 final review: bypasses of the first allowlist. Each must be blocked.
+    # Quoted flags slip past a token match on the unquoted spelling:
+    "find . -name x \"-delete\"", "git log \"--output=/tmp/x\"", "rg \"--pre=touch\" x .", "cat 'a'",
+    # Write or run options the first allowlist did not know about:
+    "git grep -Otouch x", "git grep -nOtouch x", "git grep --open-files-in-pager=touch x", "git grep --open x",
+    "git log --outp=/tmp/x", "git log --o=/tmp/x", "git diff --no-index a b", "git cat-file --filters HEAD:x",
+    "sort -o out file", "sort -ro out file", "sort --output=out file", "sort --out=out file", "sort --compress-program=touch file",
+    "uniq in out", "uniq -c in out", "uniq -f 1 in out", "uniq -- in -out",
+    "go test -c -o out ./...", "go test -o out ./...", "go test -exec touch ./...", "go test -toolexec touch ./...",
+    "go test -coverprofile=out ./...", "go test ./... -args -test.cpuprofile=out", "go vet -vettool=touch ./...",
+    "rspec --init", "bundle exec rspec --init", "bundle exec rspec --ini", "bundle exec rspec -r ./x.rb spec",
+    "bundle exec rspec --require ./x.rb spec", "bundle exec rspec -O opts spec", "bundle exec rspec --options opts spec",
+    "bundle exec rspec --out out spec", "bundle exec rspec -o out spec", "bundle exec rspec -I lib spec", "bundle exec rspec db/seeds.rb",
+    "npx jest --config x.js", "npx jest -c x.js", "npx jest --outputFile=out --json", "npx jest -u", "npx jest --updateSnapshot",
+    "npx jest --setupFiles x.js", "npx jest --globalSetup x.js",
+    "file -C -m x", "file -zC -m x", "file --compile -m x", "file --comp -m x",
+    # Globs and path tricks defeat a substring match on the secrets path:
+    "cat /home/rett/.c*nfig/powernode/*", "cat /home/example/.c?nfig/powernode/x", "cat /home/example/.c[o]nfig/powernode/x",
+    "cat /home/example/.config//powernode/x", "cat /home/example/.config/./powernode/x", "cat /home/example/.config/x/../powernode/x",
+    "cat ../../.ssh/id", "ls ~", "cat ~root/x",
+    # The process environment and whole-home scans:
+    "cat /proc/self/environ", "cat /proc//self/environ", "grep -r token /proc/1", "grep -r token /home/example", "rg token /home/example/",
+    "rg token /", "grep -r token /home", "git -C /home/example grep --no-index token"
   ]
 
   allowed.each do |command|
@@ -59,6 +85,9 @@ RSpec.describe ".claude/hooks/readonly-shell-guard.sh" do
     it "allows rspec and jest when no development environment is exported" do
       expect(run("bundle exec rspec spec/models/ai/skill_spec.rb").first).to eq(0)
       expect(run("npx jest src/foo.test.ts").first).to eq(0)
+      expect(run("bundle exec rspec spec/models/ai/skill_spec.rb:12 --format documentation --fail-fast").first).to eq(0)
+      expect(run("bundle exec rspec server/spec/hooks -fd --seed 1").first).to eq(0)
+      expect(run("npx jest src/foo.test.ts --ci -t name --runInBand").first).to eq(0)
     end
 
     it "allows rspec under RAILS_ENV=test" do
