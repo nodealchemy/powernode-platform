@@ -67,6 +67,9 @@ class PlatformPurgeTask < ApplicationRecord
   # One attempt on a CLAIMED task (attempts already advanced). Returns :completed, :failed or :dead.
   # Never raises: a failure to record the outcome is logged and the task stays pending, backed off.
   def attempt!
+    # The cap is enforced on entry too: a purge that crashes the process every time never reaches
+    # record_failure, and the claim has already counted the attempt.
+    return settle_dead!("AttemptCapExceeded") if attempts > MAX_ATTEMPTS
     return settle_dead!("AccountStillExists") if Account.exists?(subject_id)
 
     purge!

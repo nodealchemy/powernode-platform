@@ -19,6 +19,16 @@ RSpec.describe PlatformPurgeTask do
     expect(task.reload).to have_attributes(status: "dead", last_error_class: "AccountStillExists")
   end
 
+  it "goes dead without purging when the cap was already exceeded (a crash before the outcome was recorded)" do
+    task = due_task
+    task.update_columns(attempts: described_class::MAX_ATTEMPTS)
+    expect(Security::SecretStore).not_to receive(:purge_account)
+
+    described_class.run_due!
+
+    expect(task.reload).to have_attributes(status: "dead", last_error_class: "AttemptCapExceeded")
+  end
+
   it "goes dead after the attempt cap instead of retrying forever" do
     task = due_task
     task.update_columns(attempts: described_class::MAX_ATTEMPTS - 1)
