@@ -33,11 +33,17 @@ module Ai
     # hold; with none, nothing can be issued.
     CATEGORIES = %w[release.promote].freeze
     MAX_LIFETIME = 24.hours
+    # A STRICT plane — supervised, or tier 3 and up (prod by default) — takes a
+    # grant only when it is bounded on every axis: a use cap, named modules and
+    # a short life. The server enforces it; the form only shows it.
+    STRICT_MIN_TIER = 3
+    STRICT_MAX_LIFETIME = 4.hours
+    STRICT_MAX_USES = 10
     REASON_MAX_LENGTH = 2000
     UUID_FORMAT = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
     # Everything a grant says. Fixed at issue: a grant is re-issued, never edited.
     TERMS = %w[account_id granted_by_id ai_agent_id environment_id action_category module_ids
-               max_uses expires_at reason].freeze
+               max_uses expires_at reason granter_driven_only].freeze
     ISSUE_REFUSAL = "A promotion grant is issued only by a person in their own session, never through a tool, " \
                     "an impersonation, an account-switch or a service session"
 
@@ -64,6 +70,7 @@ module Ai
     validates :max_uses, numericality: { only_integer: true, greater_than: 0 }, allow_nil: true
     validate :issued_from_own_session, on: :create
     validate :lifetime_within_cap, on: :create
+    validate :strict_plane_bounds, on: :create
     validate :references_in_account
     validate :module_ids_are_uuids
     validate :uses_within_max
@@ -75,6 +82,28 @@ module Ai
     scope :unexpired, ->(now = Time.current) { where(arel_table[:expires_at].gt(now)) }
     scope :with_uses_left, -> { where("max_uses IS NULL OR uses_count < max_uses") }
     scope :active, ->(now = Time.current) { unrevoked.unexpired(now).with_uses_left }
+
+    # True for the planes Ai::PromotionGrant::STRICT_* bound: the environment's
+    # own flags, never its slug.
+    def self.strict_environment?(environment)
+      return false if environment.nil?
+
+      environment.default_decision_authority.to_s == "supervised" || environment.tier.to_i >= STRICT_MIN_TIER
+    end
+
+    def self.max_lifetime_for(environment)
+      strict_environment?(environment) ? STRICT_MAX_LIFETIME : MAX_LIFETIME
+    end
+
+    def strict_plane?
+      self.class.strict_environment?(environment)
+    end
+
+    # Would a call driven by `user` spend this grant? Always, unless the
+    # granter asked that only they may drive it.
+    def drivable_by?(user)
+      !granter_driven_only || (user.present? && user.id == granted_by_id)
+    end
 
     def revoked?
       revoked_at.present?
@@ -148,6 +177,19 @@ module Ai
       now = Time.current
       errors.add(:expires_at, "must be in the future") if expires_at <= now
       errors.add(:expires_at, "may be at most 24 hours after the grant is issued") if expires_at > now + MAX_LIFETIME
+    end
+
+    def strict_plane_bounds
+      return unless strict_plane?
+
+      plane = environment.slug
+      if max_uses.nil? || max_uses > STRICT_MAX_USES
+        errors.add(:max_uses, "is required for #{plane}, a strict plane: max uses (1-#{STRICT_MAX_USES})")
+      end
+      errors.add(:module_ids, "must name at least one module for #{plane}, a strict plane") if module_ids.blank?
+      if expires_at.present? && expires_at > Time.current + STRICT_MAX_LIFETIME
+        errors.add(:expires_at, "may be at most 4 hours after issue for #{plane}, a strict plane")
+      end
     end
 
     def references_in_account

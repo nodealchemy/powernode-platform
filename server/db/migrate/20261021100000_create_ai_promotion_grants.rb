@@ -18,6 +18,9 @@ class CreateAiPromotionGrants < ActiveRecord::Migration[8.1]
       # Empty means any module. A uuid array, not JSON: the gate matches one id.
       t.uuid :module_ids, array: true, null: false, default: []
       t.integer :max_uses
+      # When true, the grant is spent only when its granter is the person
+      # driving the agent's call; by default anyone who can drive the agent can.
+      t.boolean :granter_driven_only, null: false, default: false
       t.integer :uses_count, null: false, default: 0
       t.datetime :expires_at, null: false
       t.datetime :revoked_at

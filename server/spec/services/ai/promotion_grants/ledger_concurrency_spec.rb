@@ -50,7 +50,7 @@ RSpec.describe Ai::PromotionGrants::Ledger, "concurrent consumption" do
           gate.wait
           described_class.consume!(
             account: account, agent: agent, action_category: "release.promote", environment: ops,
-            subject: { module_id: module_id, version_id: SecureRandom.uuid }, deferred_operation: op
+            subject: { module_id: module_id, version_id: SecureRandom.uuid, environment_id: ops.id }, deferred_operation: op
           )
         end
       end

@@ -3372,6 +3372,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_21_100000) do
     t.uuid "environment_id", null: false
     t.datetime "expires_at", null: false
     t.uuid "granted_by_id", null: false
+    t.boolean "granter_driven_only", default: false, null: false
     t.integer "max_uses"
     t.uuid "module_ids", default: [], null: false, array: true
     t.text "reason", null: false

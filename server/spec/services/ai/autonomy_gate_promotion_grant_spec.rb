@@ -24,8 +24,12 @@ RSpec.describe Ai::AutonomyGate, "promotion grants" do
     end)
   end
 
-  def promote(agent: self.agent, environment: ops, subject: { module_id: module_id, version_id: version_id },
-              account: self.account, **rest)
+  # The subject names the promotion's TARGET plane; by default it is the plane
+  # the gate resolved, as the system extension's promote context builds it.
+  def promote(agent: self.agent, environment: ops, subject: :default, account: self.account, **rest)
+    if subject == :default
+      subject = { module_id: module_id, version_id: version_id, environment_id: environment.id }
+    end
     described_class.evaluate(
       action_category: "release.promote", executor_class: "PromotionGrantSpecExecutor",
       params: { tool_params: { module_id: module_id } }, account: account, agent: agent,
@@ -70,7 +74,7 @@ RSpec.describe Ai::AutonomyGate, "promotion grants" do
       expect(audit.metadata).to include(
         "promotion_grant_id" => grant.id, "ai_agent_id" => agent.id, "module_id" => module_id,
         "version_id" => version_id, "environment_id" => ops.id, "environment_slug" => "ops",
-        "deferred_operation_id" => op.id, "uses_count" => 1
+        "deferred_operation_id" => op.id, "uses_count" => 1, "target_environment_id" => ops.id
       )
     end
 
@@ -82,7 +86,7 @@ RSpec.describe Ai::AutonomyGate, "promotion grants" do
 
     it "lifts an environment escalation too (prod is supervised)" do
       grant.destroy!
-      grant!(environment: prod)
+      grant!(environment: prod, max_uses: 1, module_ids: [ module_id ], expires_at: 2.hours.from_now)
       expect(promote(environment: prod)).to be_proceed
     end
   end
@@ -186,6 +190,57 @@ RSpec.describe Ai::AutonomyGate, "promotion grants" do
                                      conditions: { Ai::Approvals::HumanSessionPolicy::CONDITION_KEY => true })
       expect(promote).to be_pending
       expect(grant.reload.uses_count).to eq(0)
+    end
+  end
+  # MEDIUM-3: a grant belongs to the agent, so the audit row must say who drove
+  # the call that spent it.
+  describe "the driving principal" do
+    let(:driver) { create(:user, account: account) }
+
+    it "is recorded on the used audit row: user, agent and door" do
+      grant!
+      promote(requested_by: driver, call_origin: Ai::Tools::CallOrigin::ALL.first)
+
+      audit = AuditLog.where(account_id: account.id, action: "ai.promotion_grant.used").sole
+      expect(audit.user_id).to eq(driver.id)
+      expect(audit.metadata).to include(
+        "driving_user_id" => driver.id, "driving_agent_id" => agent.id,
+        "call_origin" => Ai::Tools::CallOrigin::ALL.first
+      )
+      expect(audit.metadata["principal"]).to include("kind")
+    end
+
+    describe "granter_driven_only" do
+      let!(:grant) { grant!(granter_driven_only: true) }
+
+      it "is spent when the granter drives the agent" do
+        expect(promote(requested_by: granter)).to be_proceed
+      end
+
+      it "is not spent when someone else drives it" do
+        expect(promote(requested_by: driver)).to be_pending
+        expect(grant.reload.uses_count).to eq(0)
+      end
+
+      it "is not spent when no person drives it" do
+        expect(promote).to be_pending
+        expect(grant.reload.uses_count).to eq(0)
+      end
+    end
+  end
+
+  # LOW-2: the grant's plane must be the promotion's TARGET plane, not merely
+  # the plane the gate escalated to (a prod instance_id can lift the gate plane).
+  describe "the promotion's target environment" do
+    it "must be the grant's plane" do
+      grant!(environment: prod, max_uses: 1, module_ids: [ module_id ], expires_at: 2.hours.from_now)
+      result = promote(environment: prod, subject: { module_id: module_id, version_id: version_id, environment_id: ops.id })
+      expect(result).to be_pending
+    end
+
+    it "is required (fail closed)" do
+      grant!
+      expect(promote(subject: { module_id: module_id, version_id: version_id })).to be_pending
     end
   end
 end

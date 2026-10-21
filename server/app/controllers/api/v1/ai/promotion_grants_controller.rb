@@ -44,8 +44,13 @@ module Api
         # GET /api/v1/ai/promotion_grants/options — what the create form offers.
         def options
           category = ::Ai::PromotionGrant::CATEGORIES.first
+          # `strict` and the two limits are what the server enforces on that
+          # plane (Ai::PromotionGrant.strict_environment?); the form shows them.
           environments = ::Ai::Environment.ladder_for(account).map do |e|
-            { id: e.id, slug: e.slug, name: e.name, tier: e.tier, is_protected: e.protected? }
+            strict = ::Ai::PromotionGrant.strict_environment?(e)
+            { id: e.id, slug: e.slug, name: e.name, tier: e.tier, is_protected: e.protected?,
+              strict: strict, max_lifetime_hours: (::Ai::PromotionGrant.max_lifetime_for(e) / 1.hour).to_i,
+              max_uses_limit: strict ? ::Ai::PromotionGrant::STRICT_MAX_USES : nil }
           end
           render_success(
             categories: ::Ai::PromotionGrant::CATEGORIES,
@@ -59,9 +64,12 @@ module Api
 
         # POST /api/v1/ai/promotion_grants
         def create
+          attributes = grant_attributes
+          return render_error(attributes[:error], status: :unprocessable_content) if attributes[:error]
+
           grant = ::Ai::PromotionGrants::Ledger.issue!(
             account: account, granted_by: current_user, origin: human_decision_origin,
-            attributes: grant_attributes, request: request
+            attributes: attributes, request: request
           )
           render_success({ promotion_grant: serialize(grant) }, status: :created)
         rescue ::Ai::PromotionGrants::Ledger::Refused => e
@@ -70,7 +78,8 @@ module Api
 
         # POST /api/v1/ai/promotion_grants/:id/revoke
         def revoke
-          ::Ai::PromotionGrants::Ledger.revoke!(@grant, by: current_user, request: request)
+          ::Ai::PromotionGrants::Ledger.revoke!(@grant, by: current_user, request: request,
+                                                        impersonator: impersonating? ? impersonator : nil)
           render_success(promotion_grant: serialize(@grant.reload))
         rescue ::Ai::PromotionGrants::Ledger::Refused => e
           render_error(e.message, status: e.status)
@@ -100,16 +109,20 @@ module Api
         end
 
         # Expiry is asked for as a lifetime (expires_in_hours, the form's
-        # presets) or an absolute expires_at; the row enforces the 24h cap.
+        # presets) or an absolute expires_at; the row enforces the caps. A
+        # lifetime that is not a finite, positive number comes back as
+        # { error: } and is refused with a 422, never raised.
         def grant_attributes
           permitted = params.permit(:ai_agent_id, :environment_id, :action_category, :max_uses, :reason,
-                                    :expires_at, :expires_in_hours, module_ids: [])
+                                    :expires_at, :expires_in_hours, :granter_driven_only, module_ids: [])
           attrs = permitted.to_h.symbolize_keys
-          hours = attrs.delete(:expires_in_hours)
-          attrs[:expires_at] = Float(hours).hours.from_now if hours.present? && attrs[:expires_at].blank?
-          attrs
-        rescue ArgumentError, TypeError
-          attrs.merge(expires_at: nil)
+          raw = attrs.delete(:expires_in_hours)
+          return attrs if raw.blank? || attrs[:expires_at].present?
+
+          hours = Float(raw.to_s, exception: false)
+          return { error: "expires_in_hours must be a positive, finite number of hours" } unless hours&.finite? && hours.positive?
+
+          attrs.merge(expires_at: Time.current + (hours * 3600).round)
         end
 
         def serialize(grant, now: Time.current)
@@ -123,6 +136,8 @@ module Api
               is_protected: grant.environment.protected?
             },
             module_ids: grant.module_ids,
+            granter_driven_only: grant.granter_driven_only,
+            strict_plane: grant.strict_plane?,
             max_uses: grant.max_uses,
             uses_count: grant.uses_count,
             uses_remaining: grant.uses_remaining,

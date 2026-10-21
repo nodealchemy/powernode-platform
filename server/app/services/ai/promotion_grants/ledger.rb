@@ -61,7 +61,8 @@ module Ai
           account: account, granted_by: granted_by, action_category: category,
           agent: agent, environment: environment,
           module_ids: Array(attrs[:module_ids]), max_uses: attrs[:max_uses].presence,
-          expires_at: attrs[:expires_at], reason: attrs[:reason], issuing_origin: origin
+          expires_at: attrs[:expires_at], reason: attrs[:reason], issuing_origin: origin,
+          granter_driven_only: ActiveModel::Type::Boolean.new.cast(attrs[:granter_driven_only]) || false
         )
 
         ::Ai::PromotionGrant.transaction do
@@ -74,52 +75,72 @@ module Ai
         raise Refused, e.record.errors.full_messages.join(", ")
       end
 
-      def revoke!(grant, by:, request: nil)
+      # `impersonator`: the administrator actually acting when the session is an
+      # impersonation; recorded so the row names the person, not only the
+      # account they were acting as.
+      def revoke!(grant, by:, request: nil, impersonator: nil)
         ::Ai::PromotionGrant.transaction do
           grant.lock!
           raise Refused, "This grant is already revoked" if grant.revoked?
 
           grant.revoke!(by: by)
+          details = terms_of(grant).merge("uses_count" => grant.uses_count)
+          details["impersonator_id"] = impersonator.id if impersonator
           audit!(grant, action: REVOKED, user: by, source: "web", severity: "medium", request: request,
-                        details: terms_of(grant).merge("uses_count" => grant.uses_count))
+                        details: details)
         end
         grant
       end
 
       # Spends one use of an active grant matching every axis, or returns nil
       # (and spends nothing). `subject` is the gated call's own statement of
-      # what it acts on ({ module_id:, version_id: }), built server-side by the
-      # verb's gate context, never from caller params.
+      # what it acts on ({ module_id:, version_id:, environment_id: }), built
+      # server-side by the verb's gate context, never from caller params.
+      # `environment` is the plane the GATE resolved; the subject's
+      # environment_id is the promotion's TARGET plane. Both must be the
+      # grant's: a gate plane lifted to prod by a prod subject (an instance)
+      # cannot stretch a prod grant over an ops promotion, nor the reverse.
+      #
+      # `driver` / `call_origin` / `principal` say who drove the call: a grant
+      # belongs to the agent, so anyone who can drive that agent can spend it
+      # (unless the grant is granter_driven_only), and the audit row names them.
       #
       # Runs in its own transaction (nested into the caller's when there is
       # one). A use is counted when the gate admits the operation, whatever
       # the operation's own outcome.
-      def consume!(account:, agent:, action_category:, environment:, subject:, deferred_operation:)
+      def consume!(account:, agent:, action_category:, environment:, subject:, deferred_operation:,
+                   driver: nil, call_origin: nil, principal: nil)
         subject = (subject || {}).to_h.with_indifferent_access
         module_id = subject[:module_id].to_s
+        target_environment_id = subject[:environment_id].to_s
         return nil if account.nil? || agent.nil? || environment.nil? || module_id.blank?
+        return nil unless target_environment_id == environment.id.to_s
 
         now = Time.current
         candidates = ::Ai::PromotionGrant.active(now)
                                          .where(account_id: account.id, ai_agent_id: agent.id,
                                                 action_category: action_category.to_s, environment_id: environment.id)
                                          .order(:expires_at, :id)
-                                         .select { |grant| grant.covers_module?(module_id) }
+                                         .select { |grant| grant.covers_module?(module_id) && grant.drivable_by?(driver) }
         return nil if candidates.empty?
 
         ::Ai::PromotionGrant.transaction do
           candidates.find do |grant|
             grant.lock! # SELECT ... FOR UPDATE, then reloads the committed row
-            next unless grant.active?(now) && grant.covers_module?(module_id)
+            next unless grant.active?(now) && grant.covers_module?(module_id) && grant.drivable_by?(driver)
 
             grant.update!(uses_count: grant.uses_count + 1)
             deferred_operation.update!(promotion_grant: grant)
-            audit!(grant, action: USED, user: nil, source: "system", severity: "high",
+            audit!(grant, action: USED, user: driver, source: "system", severity: "high",
                           details: {
                             "promotion_grant_id" => grant.id, "ai_agent_id" => agent.id,
                             "agent_name" => agent.name, "action_category" => action_category.to_s,
                             "module_id" => module_id, "version_id" => subject[:version_id]&.to_s,
                             "environment_id" => environment.id, "environment_slug" => environment.slug,
+                            "target_environment_id" => target_environment_id,
+                            "driving_user_id" => driver&.id, "driving_agent_id" => agent.id,
+                            "call_origin" => call_origin, "principal" => principal.presence,
+                            "granter_driven_only" => grant.granter_driven_only,
                             "deferred_operation_id" => deferred_operation.id,
                             "uses_count" => grant.uses_count, "max_uses" => grant.max_uses,
                             "granted_by_id" => grant.granted_by_id

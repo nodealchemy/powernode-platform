@@ -11,7 +11,10 @@ RSpec.describe Ai::PromotionGrant, type: :model do
   let(:ops) { account.environments.find_by!(slug: "ops") }
 
   def build_grant(**attrs)
-    build(:ai_promotion_grant, account: account, **attrs)
+    build(:ai_promotion_grant, account: account, **attrs).tap do |grant|
+      # The validation errors on one attribute, after running them.
+      grant.define_singleton_method(:errors_on_validate) { |attr| validate; errors[attr] }
+    end
   end
 
   describe "issue-time limits" do
@@ -70,6 +73,55 @@ RSpec.describe Ai::PromotionGrant, type: :model do
         expect(grant).not_to be_valid, "origin #{origin.inspect} was admitted"
         expect(grant.errors[:base].join).to include("own session")
       end
+    end
+  end
+
+  # MEDIUM-1: a strict plane — supervised, or tier 3 and up (prod) — takes a
+  # grant only when it is bounded on every axis the server can enforce.
+  describe "strict planes (supervised, or tier >= 3)" do
+    let(:prod) { account.environments.find_by!(slug: "prod") }
+    let(:bounded) { { environment: prod, max_uses: 3, module_ids: [ SecureRandom.uuid ], expires_at: 4.hours.from_now - 1.minute } }
+
+    it "admits a grant bounded by max uses, modules and a 4h lifetime" do
+      expect(build_grant(**bounded)).to be_valid
+    end
+
+    it "requires max_uses, at most #{described_class::STRICT_MAX_USES}" do
+      expect(build_grant(**bounded, max_uses: nil).errors_on_validate(:max_uses)).to be_present
+      expect(build_grant(**bounded, max_uses: described_class::STRICT_MAX_USES + 1).errors_on_validate(:max_uses)).to be_present
+      expect(build_grant(**bounded, max_uses: described_class::STRICT_MAX_USES)).to be_valid
+    end
+
+    it "requires at least one module" do
+      expect(build_grant(**bounded, module_ids: []).errors_on_validate(:module_ids)).to be_present
+    end
+
+    it "caps the lifetime at 4 hours" do
+      grant = build_grant(**bounded, expires_at: 4.hours.from_now + 1.minute)
+      expect(grant.errors_on_validate(:expires_at).join).to include("4 hours")
+    end
+
+    it "applies to a supervised plane below tier 3 too" do
+      staging = account.environments.find_by!(slug: "staging")
+      staging.update!(default_decision_authority: "supervised")
+      expect(build_grant(environment: staging, expires_at: 8.hours.from_now)).not_to be_valid
+    end
+
+    it "does not apply to ops (monitored, tier 2): 24h, any module, no use cap" do
+      expect(build_grant(environment: ops, expires_at: 23.hours.from_now)).to be_valid
+      expect(build_grant(environment: ops).strict_plane?).to be(false)
+      expect(build_grant(environment: prod).strict_plane?).to be(true)
+    end
+  end
+
+  describe "granter_driven_only" do
+    it "defaults to false" do
+      expect(build_grant.granter_driven_only).to be(false)
+    end
+
+    it "is fixed at issue like every other term" do
+      grant = create(:ai_promotion_grant, account: account)
+      expect(grant.update(granter_driven_only: true)).to be(false)
     end
   end
 

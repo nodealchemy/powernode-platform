@@ -100,6 +100,37 @@ RSpec.describe "Api::V1::Ai::PromotionGrants", type: :request do
       expect(Ai::PromotionGrant.count).to eq(0)
     end
 
+    # LOW-3: a lifetime that is not a finite, positive number is a 422, never a 500.
+    %w[1e400 -1 0 abc NaN Infinity].each do |bad|
+      it "refuses expires_in_hours=#{bad.inspect} with a 422" do
+        post "/api/v1/ai/promotion_grants", params: body(expires_in_hours: bad).to_json, headers: headers_for(granter)
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response["error"]).to include("expires_in_hours")
+        expect(Ai::PromotionGrant.count).to eq(0)
+      end
+    end
+
+    # MEDIUM-1 through the door: prod takes only a bounded grant.
+    it "refuses an unbounded prod grant, and issues a bounded one" do
+      prod = account.environments.find_by!(slug: "prod")
+      post "/api/v1/ai/promotion_grants",
+           params: body(environment_id: prod.id, module_ids: [], max_uses: nil, expires_in_hours: 8).to_json,
+           headers: headers_for(granter)
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(json_response["error"].downcase).to include("4 hours").and include("max uses").and include("module")
+
+      post "/api/v1/ai/promotion_grants",
+           params: body(environment_id: prod.id, max_uses: 2, expires_in_hours: 4).to_json, headers: headers_for(granter)
+      expect(response).to have_http_status(:created)
+    end
+
+    it "records granter_driven_only when asked" do
+      post "/api/v1/ai/promotion_grants", params: body(granter_driven_only: true).to_json, headers: headers_for(granter)
+      expect(response).to have_http_status(:created)
+      expect(json_response["data"]["promotion_grant"]["granter_driven_only"]).to be(true)
+    end
+
     it "refuses another account's agent" do
       foreign = create(:ai_agent, account: create(:account))
       post "/api/v1/ai/promotion_grants", params: body(ai_agent_id: foreign.id).to_json, headers: headers_for(granter)
@@ -134,6 +165,16 @@ RSpec.describe "Api::V1::Ai::PromotionGrants", type: :request do
       post "/api/v1/ai/promotion_grants/#{grant.id}/revoke", headers: impersonation_headers_for(granter)
       expect(response).to have_http_status(:ok)
       expect(grant.reload).to be_revoked
+    end
+
+    # LOW-4: an impersonated revoke names the person actually acting.
+    it "records the impersonator on the revoke audit row" do
+      post "/api/v1/ai/promotion_grants/#{grant.id}/revoke", headers: impersonation_headers_for(granter)
+
+      audit = AuditLog.where(account_id: account.id, action: "ai.promotion_grant.revoked").sole
+      expect(audit.user_id).to eq(granter.id)
+      expect(audit.metadata["impersonator_id"]).to be_present
+      expect(audit.metadata["impersonator_id"]).not_to eq(granter.id)
     end
 
     it "refuses a second revoke" do
@@ -196,6 +237,10 @@ RSpec.describe "Api::V1::Ai::PromotionGrants", type: :request do
       expect(data["modules"]).to eq([ { "id" => module_id, "name" => "hub-backend" } ])
       expect(data["max_lifetime_hours"]).to eq(24)
       expect(data["categories"]).to eq([ "release.promote" ])
+      prod = data["environments"].find { |e| e["slug"] == "prod" }
+      ops_row = data["environments"].find { |e| e["slug"] == "ops" }
+      expect(prod).to include("strict" => true, "max_lifetime_hours" => 4, "max_uses_limit" => 10)
+      expect(ops_row).to include("strict" => false, "max_lifetime_hours" => 24, "max_uses_limit" => nil)
     end
   end
 end

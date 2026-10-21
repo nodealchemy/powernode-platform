@@ -135,7 +135,8 @@ module Ai
         # this arm: block/silent below and the unknown-verb arm never consult one.
         grant = consume_promotion_grant(deferred, action_category: action_category, agent: agent,
                                                   requires_human_session: requires_human_session,
-                                                  grant_subject: grant_subject)
+                                                  grant_subject: grant_subject, requested_by: requested_by,
+                                                  call_origin: call_origin)
         if grant
           result_data = deferred.execute_now!
           Result.new(decision: :proceed, deferred_operation: deferred, result: result_data, promotion_grant: grant)
@@ -180,7 +181,8 @@ module Ai
     #     reason a grant answers, because the grant is itself a person's
     #     own-session decision about exactly that plane.
     # Consumption is atomic (Ai::PromotionGrants::Ledger.consume!).
-    def consume_promotion_grant(deferred, action_category:, agent:, requires_human_session:, grant_subject:)
+    def consume_promotion_grant(deferred, action_category:, agent:, requires_human_session:, grant_subject:,
+                                requested_by: nil, call_origin: nil)
       return nil if agent.nil? || grant_subject.blank? || requires_human_session
       return nil unless ::Ai::PromotionGrant::CATEGORIES.include?(action_category.to_s)
       return nil if deferred.environment.nil?
@@ -193,7 +195,11 @@ module Ai
 
       ::Ai::PromotionGrants::Ledger.consume!(
         account: @account, agent: agent, action_category: action_category, environment: deferred.environment,
-        subject: grant_subject, deferred_operation: deferred
+        subject: grant_subject, deferred_operation: deferred,
+        # Who drove the call: the person (if any), the door, and the park
+        # principal the operation was stamped with.
+        driver: requested_by, call_origin: call_origin,
+        principal: deferred.params.is_a?(::Hash) ? deferred.params[::Ai::Approvals::ParkPrincipal::KEY] : nil
       )
     end
 
