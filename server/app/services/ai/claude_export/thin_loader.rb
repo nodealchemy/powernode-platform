@@ -114,6 +114,11 @@ module Ai
           "tools" => tools_for(role).join(", ")
         }
         frontmatter["disallowedTools"] = disallowed_tools_for(role).join(", ") if role[:server_grant]
+        # A read-only shell is enforced by a hook in the subagent's OWN frontmatter,
+        # which Claude Code scopes to that subagent (settings.json would restrict everyone).
+        if role[:shell_guard].present?
+          frontmatter["hooks"] = { "PreToolUse" => [ { "matcher" => "Bash", "hooks" => [ { "type" => "command", "command" => "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/#{role[:shell_guard]}" } ] } ] }
+        end
 
         # line_width: -1 keeps each scalar on one physical line (see AgentSkeletonSync#render).
         "#{YAML.dump(frontmatter, line_width: -1)}---\n\n#{body(slug, role)}\n"

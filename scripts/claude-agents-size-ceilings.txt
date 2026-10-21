@@ -33,3 +33,8 @@
 # ceiling stays at the raised value.
 max_tools_per_agent=30
 max_roster_bytes=18432
+# Widened surface (PRE-2 review): platform-reviewer has a shell (Bash, no Edit/Write). It is
+# held read-only MECHANICALLY by .claude/hooks/readonly-shell-guard.sh, rendered into the
+# reviewer's own frontmatter `hooks:` (so +~230 bytes in that file): an allowlist of
+# read-only git/grep/cat/ls/find/go vet+test and, under the test-DB guard, rspec/jest;
+# everything else, chaining, redirection and ~/.config/powernode are denied.

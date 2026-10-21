@@ -28,7 +28,7 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
 
   it "reads each agent's role from its roster spec (no second table to drift)" do
     expect(described_class.constants).not_to include(:ROLES)
-    roster.slugs.each { |slug| expect(role_of(slug).keys).to match_array(%i[code shell server_grant read_only verbs duty]), slug }
+    roster.slugs.each { |slug| expect(role_of(slug).keys - [ :shell_guard ]).to match_array(%i[code shell server_grant read_only verbs duty]), slug }
   end
 
   roster.slugs.each do |slug|
@@ -39,7 +39,7 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
         fm = frontmatter_of(content)
 
         granted = role_of(slug)[:server_grant]
-        expect(fm.keys).to eq(%w[name description model tools] + (granted ? %w[disallowedTools] : []))
+        expect(fm.keys).to eq(%w[name description model tools] + (granted ? %w[disallowedTools] : []) + (role_of(slug)[:shell_guard] ? %w[hooks] : []))
         expect(fm["name"]).to eq(slug)
         expect(fm["description"]).to eq(roster.fetch(slug)[:description])
         expect(fm["description"]).not_to match(/do not use/i)

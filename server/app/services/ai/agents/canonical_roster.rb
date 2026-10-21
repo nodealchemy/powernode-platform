@@ -20,7 +20,9 @@ module Ai
     #   skeleton frontmatter alike), tier (light|standard|reasoning|frontier — the
     #   roster FLOOR; assembly only raises it), domains (the skill-domain ceiling),
     #   role { code: Edit/Write/Bash, shell: Bash alone, server_grant: the
-    #   whole-server MCP grant, read_only: the role may only be assembled with
+    #   whole-server MCP grant, shell_guard (optional; REQUIRED for a shell without
+    #   code): the PreToolUse hook file rendered into the skeleton's own frontmatter
+    #   to keep that shell read-only, read_only: the role may only be assembled with
     #   read-only skills (manifest.read_only), verbs: the exact verbs a role
     #   WITHOUT the whole-server grant may call beyond the bootstrap floor —
     #   those its assemblable skills name (loader_verb_coverage_spec keeps the two
@@ -83,6 +85,10 @@ module Ai
           raise ArgumentError, "#{slug}: role needs #{ROLE_KEYS.join(', ')}" unless (ROLE_KEYS - role.keys).empty?
           raise ArgumentError, "#{slug}: role verbs must be a list of verb names" unless role[:verbs].is_a?(Array)
           raise ArgumentError, "#{slug}: a role with the whole-server grant lists no explicit verbs" if role[:server_grant] && role[:verbs].any?
+          # A shell without Edit/Write is only "read-only" if something enforces it.
+          if role[:shell] && !role[:code] && role[:shell_guard].to_s.empty?
+            raise ArgumentError, "#{slug}: a shell role without code needs a shell_guard hook (.claude/hooks/<name>.sh) that enforces read-only"
+          end
 
           lines = spec[:charter].to_s.lines.count { |l| l.strip.present? }
           raise ArgumentError, "#{slug}: charter is #{lines} lines (max #{MAX_CHARTER_LINES})" if lines > MAX_CHARTER_LINES
@@ -200,7 +206,7 @@ module Ai
                        "increment, a doc change or an autonomy decision — judged against its acceptance " \
                        "criteria. Never reviews work it produced.",
           domains: %w[review knowledge],
-          role: { code: false, shell: true, server_grant: false, read_only: true,
+          role: { code: false, shell: true, shell_guard: "readonly-shell-guard.sh", server_grant: false, read_only: true,
                   # Read-only verbs only (the review skills that are manifest.read_only name these).
                   verbs: %w[code_blast_radius code_file_skeleton code_semantic_search code_static_analysis list_audit_logs],
                   duty: "You are read-only: never edit, commit or call a mutating verb, and never review work you " \
@@ -209,9 +215,9 @@ module Ai
           charter: assembly_charter(
             identity: "You are the **Platform Reviewer**: the independent review of finished work against its " \
                       "acceptance criteria, reported by severity with file and line, then a verdict.",
-            duty: "you are read-only. Use your shell only for read-only git (log, show, diff, status), grep, and " \
-                  "running tests in a temp directory; never edit, commit or run a mutating command, and never " \
-                  "review work you produced."
+            duty: "you are read-only. Your shell is held to an allowlist by the readonly-shell-guard hook: read-only " \
+                  "git, grep and tests only; anything else is denied. Never edit, commit or run a mutating command, " \
+                  "and never review work you produced."
           ),
           posture: {}
         },

@@ -45,7 +45,7 @@ RSpec.describe Ai::Agents::CanonicalRoster do
         spec = described_class.fetch(slug)
         expect(spec.keys).to include(:name, :agent_type, :tier, :description, :domains, :role, :charter, :posture)
         expect(spec[:domains]).to all(be_a(String)).and(be_present)
-        expect(spec[:role].keys).to match_array(%i[code shell server_grant read_only verbs duty])
+        expect(spec[:role].keys - [ :shell_guard ]).to match_array(%i[code shell server_grant read_only verbs duty])
       end
     end
 
