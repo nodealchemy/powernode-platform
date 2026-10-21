@@ -55,6 +55,18 @@ module Ai
         new(request).required_ignoring_account_mark?
       end
 
+      # Would a request with this data need a person's own session for some
+      # reason OTHER than a protected environment? Ai::AutonomyGate asks before
+      # a promotion grant may stand in for an approval: the protected plane is
+      # the one reason a grant answers. The data carries no environment, so
+      # rule 3 cannot fire; every other rule reads exactly as #required? does.
+      def self.required_beyond_protected_environment?(account_id:, request_data:)
+        new(Probe.new(account_id, request_data.except(:environment, "environment"))).required?
+      end
+
+      # The two readers #initialize and #account_mark take from a request.
+      Probe = Struct.new(:account_id, :request_data)
+
       # Could this write to ONE intervention-policy row lift the mark #account_mark reads
       # (IMP-03134d9452d2, secreview §21 G4 option 1)? True when the row carried
       # CONDITION_KEY before the write (a change to its verb, activity, category or

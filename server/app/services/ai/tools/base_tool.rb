@@ -1177,9 +1177,13 @@ module Ai
       # tool's own envelope, byte-identical to an ungated call — and must not
       # repeat the work.
       def deferred_tool_call_result(_params, gate_result)
-        return gate_result.result if gate_result.result.is_a?(::Hash)
+        result = gate_result.result.is_a?(::Hash) ? gate_result.result : success_result(replayed: true)
+        grant = gate_result.respond_to?(:promotion_grant) ? gate_result.promotion_grant : nil
+        return result unless grant
 
-        success_result(replayed: true)
+        # Ran under a person's time-boxed grant instead of parking: say which.
+        result.merge(promotion_grant: { id: grant.id, uses_count: grant.uses_count, max_uses: grant.max_uses,
+                                        expires_at: grant.expires_at.iso8601 })
       end
 
       # WHO is calling, in the shape Ai::Executors::DeferredToolCall rebuilds
@@ -1348,7 +1352,10 @@ module Ai
           **(requires_human_session ? { requires_human_session: true } : {}),
           **(call_origin ? { call_origin: call_origin } : {}),
           # A machine's call resolves in the agent audience (MCP identity plan #5).
-          **(machine_call? ? { agent_initiated: true } : {})
+          **(machine_call? ? { agent_initiated: true } : {}),
+          # What the call acts on, for a promotion grant (Ai::PromotionGrant).
+          # Only a gate context that resolved its subject server-side names one.
+          **(context[:grant_subject].present? ? { grant_subject: context[:grant_subject] } : {})
         )
 
         # Only a guarded park reads it (#guarded_park_attempt), so only a guarded

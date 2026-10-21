@@ -44,7 +44,9 @@ module Ai
     # consumer today is Ai::GatedActions#gate_update!, which renders an
     # ActiveRecord::RecordInvalid as field-level errors instead of the generic
     # "Gate evaluation failed" 422 that loses them.
-    Result = Struct.new(:decision, :deferred_operation, :result, :error, :exception,
+    # `promotion_grant` is the Ai::PromotionGrant a :proceed ran under in
+    # place of parking; nil on every other path.
+    Result = Struct.new(:decision, :deferred_operation, :result, :error, :exception, :promotion_grant,
                         keyword_init: true) do
       def proceed?; decision == :proceed; end
       def pending?; decision == :pending; end
@@ -89,9 +91,14 @@ module Ai
     #                        marked with it, so its requester never decides it
     #                        through a tool door (MCP identity plan D1, guard a).
     #                        nil for a call from a person's own session.
+    # @param grant_subject   [Hash, nil] what the call acts on, for a promotion
+    #                        grant ({ module_id:, version_id: }). Built by the
+    #                        verb's gate context from rows it resolved, never
+    #                        from caller params. nil ⇒ no grant can apply.
     def evaluate(action_category:, executor_class:, params: {}, agent: nil,
                  requested_by: nil, source_type: nil, source_id: nil, description: nil,
-                 environment: nil, requires_human_session: false, call_origin: nil, agent_initiated: false)
+                 environment: nil, requires_human_session: false, call_origin: nil, agent_initiated: false,
+                 grant_subject: nil)
       call_origin = ::Ai::Tools::CallOrigin.validate!(call_origin)
       resolved_environment = ::Ai::EnvironmentResolution.resolve(
         account: @account, params: params, environment: environment
@@ -122,11 +129,23 @@ module Ai
         result_data = deferred.execute_now!
         Result.new(decision: :proceed, deferred_operation: deferred, result: result_data)
       when "require_approval"
-        require_approval_or_proceed(deferred, policy_match[:record], action_category,
-                                    escalation: policy_match[:environment_escalation],
-                                    blast_radius: policy_match[:blast_radius],
-                                    requires_human_session: requires_human_session,
-                                    call_origin: call_origin)
+        # THE one place a promotion grant acts: a verdict that would PARK
+        # (a policy row, the unmatched default, or an environment escalation)
+        # proceeds instead when an active grant matches on every axis. Only
+        # this arm: block/silent below and the unknown-verb arm never consult one.
+        grant = consume_promotion_grant(deferred, action_category: action_category, agent: agent,
+                                                  requires_human_session: requires_human_session,
+                                                  grant_subject: grant_subject)
+        if grant
+          result_data = deferred.execute_now!
+          Result.new(decision: :proceed, deferred_operation: deferred, result: result_data, promotion_grant: grant)
+        else
+          require_approval_or_proceed(deferred, policy_match[:record], action_category,
+                                      escalation: policy_match[:environment_escalation],
+                                      blast_radius: policy_match[:blast_radius],
+                                      requires_human_session: requires_human_session,
+                                      call_origin: call_origin)
+        end
       when "block", "silent"
         deferred.update!(status: "rejected", error_message: "Blocked by policy")
         Result.new(decision: :blocked, deferred_operation: deferred,
@@ -147,6 +166,36 @@ module Ai
     end
 
     private
+
+    # An Ai::PromotionGrant standing in for a person's approval, or nil (the
+    # operation then parks exactly as it would have). A grant never applies to
+    #   * a call with no agent, or no subject from the verb's gate context;
+    #   * a category off Ai::PromotionGrant::CATEGORIES, or no resolved plane;
+    #   * a human-only call (requires_human_session), whatever else holds;
+    #   * an account under the kill switch (emergency halt), read fresh;
+    #   * a request that would need a person's own session for any reason
+    #     OTHER than its plane being protected: the account's own mark, a
+    #     destructive tool call, a category on the operator's list
+    #     (Ai::Approvals::HumanSessionPolicy). The protected plane is the one
+    #     reason a grant answers, because the grant is itself a person's
+    #     own-session decision about exactly that plane.
+    # Consumption is atomic (Ai::PromotionGrants::Ledger.consume!).
+    def consume_promotion_grant(deferred, action_category:, agent:, requires_human_session:, grant_subject:)
+      return nil if agent.nil? || grant_subject.blank? || requires_human_session
+      return nil unless ::Ai::PromotionGrant::CATEGORIES.include?(action_category.to_s)
+      return nil if deferred.environment.nil?
+      return nil if ::Ai::Autonomy::KillSwitchService.halted_now?(@account.id)
+
+      probe = { action_category: deferred.action_category, params: ::Ai::SensitiveParams.filter(deferred.params) }
+      return nil if ::Ai::Approvals::HumanSessionPolicy.required_beyond_protected_environment?(
+        account_id: @account.id, request_data: probe
+      )
+
+      ::Ai::PromotionGrants::Ledger.consume!(
+        account: @account, agent: agent, action_category: action_category, environment: deferred.environment,
+        subject: grant_subject, deferred_operation: deferred
+      )
+    end
 
     # Every park records WHO asked (Ai::Approvals::ParkPrincipal), including the
     # REST controllers and services that call the gate with only
