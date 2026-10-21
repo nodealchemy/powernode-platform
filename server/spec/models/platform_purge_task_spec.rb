@@ -42,10 +42,40 @@ RSpec.describe PlatformPurgeTask do
     expect(sql.grep(/platform_purge_tasks/).grep(/FOR UPDATE SKIP LOCKED/)).not_to be_empty
   end
 
+  it "counts an attempt and backs off even when the purge raises a database error (no endless instant retry)" do
+    task = due_task
+    allow(Security::SecretStore).to receive(:purge_account).and_raise(ActiveRecord::StatementInvalid, "PG::UndefinedTable")
+
+    described_class.run_due!
+
+    task.reload
+    expect(task.attempts).to eq(2)
+    expect(task.status).to eq("pending")
+    expect(described_class.due).not_to include(task)
+  end
+
+  it "purges outside any transaction, so no row lock is held across the Vault call" do
+    due_task
+    baseline = ActiveRecord::Base.connection.open_transactions
+    seen = nil
+    allow(Security::SecretStore).to receive(:purge_account) do
+      seen = ActiveRecord::Base.connection.open_transactions
+      0
+    end
+
+    described_class.run_due!
+
+    expect(seen).to eq(baseline)
+  end
+
   it "survives a failure to record the retry (logs, does not raise)" do
     task = due_task
     allow(Security::SecretStore).to receive(:purge_account).and_raise(Security::SecretStore::BackendUnavailable)
-    allow_any_instance_of(described_class).to receive(:update!).and_raise(ActiveRecord::StatementInvalid, "db down")
+    allow_any_instance_of(described_class).to receive(:update!).and_wrap_original do |orig, **attrs|
+      raise ActiveRecord::StatementInvalid, "db down" if attrs.key?(:last_error_class) # the outcome write; the claim still succeeds
+
+      orig.call(**attrs)
+    end
 
     expect { described_class.run_due! }.not_to raise_error
     expect(task.reload.status).to eq("pending")
@@ -56,6 +86,10 @@ RSpec.describe PlatformPurgeTask do
     account = create(:account)
     allow(Security::SecretStore).to receive(:purge_account).and_raise(Security::SecretStore::BackendUnavailable)
 
+    expect(Rails.logger).to receive(:error).with(/purge retry record FAILED/).at_least(:once)
+    allow(Rails.logger).to receive(:error).and_call_original
+
     expect { account.destroy! }.not_to raise_error
+    expect(Account.exists?(account.id)).to be false
   end
 end

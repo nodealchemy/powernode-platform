@@ -37,35 +37,40 @@ class PlatformPurgeTask < ApplicationRecord
   end
 
   # Runs every due task once. Returns { completed:, failed:, dead: }.
-  # Each task is claimed with FOR UPDATE SKIP LOCKED in its own transaction, so overlapping
-  # sweeps (two workers, a retried request) never run the same task twice.
+  # A task is CLAIMED in a short transaction (FOR UPDATE SKIP LOCKED, then its attempt count and next
+  # attempt time are advanced, which is also what hides it from an overlapping sweep), and the purge
+  # runs AFTER that transaction commits: no row lock is held across the Vault call, and even a database
+  # error inside the purge cannot leave the task due for an instant retry.
   def self.run_due!(limit: 50)
     result = { completed: 0, failed: 0, dead: 0 }
     claimed = []
     limit.times do
-      outcome = transaction do
-        task = due.where.not(id: claimed).order(:next_attempt_at).lock("FOR UPDATE SKIP LOCKED").first
-        next :none unless task
+      task = claim_next(claimed)
+      break unless task
 
-        claimed << task.id
-        task.attempt!
-      end
-      break if outcome == :none
-
-      result[outcome] += 1
+      claimed << task.id
+      result[task.attempt!] += 1
     end
     result
   end
 
-  # One attempt. Returns :completed, :failed or :dead. Never raises: a failure to record the
-  # outcome is logged and the task stays pending for the next sweep.
-  def attempt!
-    if Account.exists?(subject_id)
-      return settle_dead!("AccountStillExists")
+  def self.claim_next(already)
+    transaction do
+      task = due.where.not(id: already).order(:next_attempt_at).lock("FOR UPDATE SKIP LOCKED").first
+      next unless task
+
+      task.update!(attempts: task.attempts + 1, next_attempt_at: Time.current + backoff(task.attempts + 1))
+      task
     end
+  end
+
+  # One attempt on a CLAIMED task (attempts already advanced). Returns :completed, :failed or :dead.
+  # Never raises: a failure to record the outcome is logged and the task stays pending, backed off.
+  def attempt!
+    return settle_dead!("AccountStillExists") if Account.exists?(subject_id)
 
     purge!
-    update!(status: "completed", completed_at: Time.current, attempts: attempts + 1)
+    update!(status: "completed", completed_at: Time.current)
     :completed
   rescue StandardError => e
     record_failure(e)
@@ -81,20 +86,18 @@ class PlatformPurgeTask < ApplicationRecord
   end
 
   def record_failure(error)
-    next_attempts = attempts + 1
-    Rails.logger.error("[PlatformPurgeTask] #{kind} attempt #{next_attempts} failed: #{error.class}")
-    return settle_dead!(error.class.name, attempts: next_attempts) if next_attempts >= MAX_ATTEMPTS
+    Rails.logger.error("[PlatformPurgeTask] #{kind} attempt #{attempts} failed: #{error.class}")
+    return settle_dead!(error.class.name) if attempts >= MAX_ATTEMPTS
 
-    update!(attempts: next_attempts, last_error_class: error.class.name,
-            next_attempt_at: Time.current + self.class.backoff(next_attempts))
+    update!(last_error_class: error.class.name)
     :failed
   rescue StandardError => e
     Rails.logger.error("[PlatformPurgeTask] could not record the outcome of #{kind}: #{e.class}")
     :failed
   end
 
-  def settle_dead!(error_class, attempts: self.attempts)
-    update!(status: "dead", last_error_class: error_class, attempts: attempts)
+  def settle_dead!(error_class)
+    update!(status: "dead", last_error_class: error_class)
     Rails.logger.error("[PlatformPurgeTask] #{kind} for #{subject_id} is dead (#{error_class}); needs an operator")
     :dead
   end
