@@ -617,6 +617,17 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # PROXY SETTINGS ACTIONS — Api::V1::Admin::ProxySettingsController: every change
+  # to the reverse-proxy URL config, trusted hosts and wildcard patterns (these gate
+  # host authorization and CORS, so each change is audited).
+  # =============================================================================
+  PROXY_SETTINGS_ACTIONS = %w[
+    proxy_settings.update proxy_settings.import
+    proxy_settings.add_trusted_host proxy_settings.remove_trusted_host proxy_settings.reorder_trusted_hosts
+    proxy_settings.add_wildcard_pattern proxy_settings.remove_wildcard_pattern proxy_settings.reorder_wildcard_patterns
+  ].freeze
+
+  # =============================================================================
   # AUDIT SELF-CORRECTION ACTIONS — appended by data migrations that need to
   # annotate a sealed historical row without rewriting it. `action` is a hashed
   # field in the tamper-evident chain (Audit::LogIntegrityService#build_hash_data),
@@ -684,6 +695,7 @@ module AuditActions
     SITE_SETTING_ACTIONS,
     REPORT_REQUEST_ACTIONS,
     PLATFORM_ALERT_CHANNEL_ACTIONS,
+    PROXY_SETTINGS_ACTIONS,
     AUDIT_CORRECTION_ACTIONS
   ].flatten.uniq.freeze
 

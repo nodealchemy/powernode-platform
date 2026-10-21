@@ -186,4 +186,11 @@ RSpec.describe AuditActions do
       expect { audit_log.save! }.to raise_error(ActiveRecord::RecordInvalid)
     end
   end
+
+  it 'registers every action the proxy settings controller writes' do
+    src = File.read(Rails.root.join('app/controllers/api/v1/admin/proxy_settings_controller.rb'))
+    used = src.scan(/create_audit_log\("([^"]+)"/).flatten.uniq
+    expect(used).not_to be_empty
+    expect(used - AuditActions.all_actions).to be_empty
+  end
 end

@@ -137,6 +137,22 @@ RSpec.describe 'Api::V1::Admin::ProxySettingsController', type: :request do
         expect(data).to include('pattern', 'trusted_hosts')
       end
 
+      it 'writes an audit log row for the change' do
+        allow(AdminSetting).to receive(:validate_proxy_host).and_return({ valid: true, errors: [] })
+        allow(AdminSetting).to receive(:add_trusted_host)
+        allow(AdminSetting).to receive(:reverse_proxy_url_config).and_return({ trusted_hosts: [ 'new-host.com' ] })
+
+        expect do
+          post '/api/v1/admin/proxy_settings/trusted_hosts',
+               params: { pattern: 'new-host.com' }.to_json,
+               headers: headers
+        end.to change { AuditLog.where(action: 'proxy_settings.add_trusted_host', account: account).count }.by(1)
+
+        row = AuditLog.where(action: 'proxy_settings.add_trusted_host').last
+        expect(row.user).to eq(admin_user)
+        expect(row.metadata).to include('pattern' => 'new-host.com')
+      end
+
       it 'returns error when pattern is blank' do
         post '/api/v1/admin/proxy_settings/trusted_hosts',
              params: { pattern: '' }.to_json,

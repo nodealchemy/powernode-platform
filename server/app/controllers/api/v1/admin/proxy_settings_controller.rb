@@ -360,19 +360,22 @@ module Api
         end
 
         def create_audit_log(action, metadata = {})
-          return unless defined?(AuditLog)
-
-          AuditLog.create(
+          resource = AdminSetting.find_by(key: "reverse_proxy_url_config") || current_account
+          AuditLog.log_action(
+            action: action,
+            resource: resource,
             user: current_user,
             account: current_account,
-            action: action,
-            source: "Api::V1::Admin::ProxySettingsController",
+            source: "admin_panel",
             ip_address: request.remote_ip,
             user_agent: request.user_agent,
             metadata: metadata
           )
         rescue StandardError => e
-          Rails.logger.error "Failed to create audit log: #{e.message}"
+          # A swallowed audit failure is how these rows went missing unnoticed: loud in test.
+          raise if Rails.env.test?
+
+          Rails.logger.error "Failed to create audit log: #{e.class}: #{e.message}"
         end
       end
     end
