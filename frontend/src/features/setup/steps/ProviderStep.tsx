@@ -294,11 +294,10 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     async (target: ProviderEntry) => {
       setEntryError(null);
       try {
-        if (category === 'ai' && target.providerId && target.credentialId) {
-          await onboardingApi.deleteAiCredential({
-            providerId: target.providerId,
-            credentialId: target.credentialId,
-          });
+        if (category === 'ai' && target.providerId) {
+          // The wizard created this provider row for the entry; deleting it
+          // takes its credential with it (the server heals the default).
+          await onboardingApi.deleteAiProvider(target.providerId);
         }
         if (category === 'git' && target.providerId) {
           // The wizard created this provider; removing it removes its keys

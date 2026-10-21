@@ -2,11 +2,13 @@ import { onboardingApi } from './onboardingApi';
 
 const mockGet = jest.fn();
 const mockPost = jest.fn();
+const mockDelete = jest.fn();
 
 jest.mock('@/shared/services/apiClient', () => ({
   apiClient: {
     get: (...args: unknown[]) => mockGet(...args),
     post: (...args: unknown[]) => mockPost(...args),
+    delete: (...args: unknown[]) => mockDelete(...args),
   },
 }));
 
@@ -16,30 +18,23 @@ beforeEach(() => {
 });
 
 describe('onboardingApi.createAiProvider', () => {
-  it('reuses an existing provider id and skips the create POST', async () => {
-    mockGet.mockResolvedValueOnce({
-      data: { data: { items: [{ id: 'prov-existing', provider_type: 'anthropic' }] } },
-    });
-
-    const id = await onboardingApi.createAiProvider({ providerType: 'anthropic', name: 'Anthropic Claude' });
-
-    expect(id).toBe('prov-existing');
-    expect(mockGet).toHaveBeenCalledWith('/ai/providers', {
-      params: { provider_type: 'anthropic', platform_routable: true },
-    });
-    expect(mockPost).not.toHaveBeenCalled();
-  });
-
-  it('falls through to POST /ai/providers when the index returns no items', async () => {
-    mockGet.mockResolvedValueOnce({ data: { data: { items: [] } } });
+  it('always POSTs a new provider row (name deduplicated server-side), never reusing one', async () => {
     mockPost.mockResolvedValueOnce({ data: { data: { provider: { id: 'prov-created' } } } });
 
     const id = await onboardingApi.createAiProvider({ providerType: 'openai', name: 'OpenAI' });
 
     expect(id).toBe('prov-created');
+    expect(mockGet).not.toHaveBeenCalled();
     expect(mockPost).toHaveBeenCalledWith('/ai/providers', {
+      dedupe_name: true,
       provider: { provider_type: 'openai', name: 'OpenAI' },
     });
+  });
+
+  it('removes an AI provider the wizard created', async () => {
+    await onboardingApi.deleteAiProvider('prov-9');
+
+    expect(mockDelete).toHaveBeenCalledWith('/ai/providers/prov-9');
   });
 });
 

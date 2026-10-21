@@ -34,11 +34,6 @@ interface AiProviderResponse {
   data?: { provider?: { id?: string } };
 }
 
-/** `GET /ai/providers?provider_type=…` — used to resolve an existing provider before creating one. */
-interface AiProviderIndexResponse {
-  data?: { items?: Array<{ id?: string; provider_type?: string }> };
-}
-
 /** Outcome of the server-side model sync run when an AI credential is saved. */
 export interface AiModelSyncResult {
   success: boolean;
@@ -143,28 +138,18 @@ export const onboardingApi = {
   },
 
   /**
-   * AI category step 1: resolve an existing provider of this type, or create
-   * one. The catalog seeds a Provider per type ahead of onboarding, so a bare
-   * POST here would create a duplicate missing required fields (422). Instead
-   * GET `/ai/providers?provider_type=…` first and reuse `items[0].id` when
-   * present; only fall through to create when none exists.
+   * AI category step 1: create a provider row for this entry. Each wizard entry
+   * gets its own provider (matching git); `dedupe_name` has the server number the
+   * name when a seeded catalog row already holds it. The Claude Code
+   * local-sessions scope is never a target: the server refuses credentials on it.
    */
   async createAiProvider({
     providerType,
     name,
     apiBaseUrl,
   }: CreateProviderViaProviderParams): Promise<string | undefined> {
-    const existing = await apiClient.get<AiProviderIndexResponse>('/ai/providers', {
-      // platform_routable keeps the Claude Code local-sessions scope out of the
-      // lookup: it must never receive a key.
-      params: { provider_type: providerType, platform_routable: true },
-    });
-    const items = existing.data?.data?.items ?? [];
-    if (items.length > 0) {
-      return items[0]?.id;
-    }
-
     const response = await apiClient.post<AiProviderResponse>('/ai/providers', {
+      dedupe_name: true,
       provider: {
         provider_type: providerType,
         name,
@@ -204,15 +189,9 @@ export const onboardingApi = {
     await apiClient.post(`/ai/providers/${providerId}/make_default`);
   },
 
-  /** Remove a credential the wizard created (the provider row stays). */
-  async deleteAiCredential({
-    providerId,
-    credentialId,
-  }: {
-    providerId: string;
-    credentialId: string;
-  }): Promise<void> {
-    await apiClient.delete(`/ai/providers/${providerId}/credentials/${credentialId}`);
+  /** Remove an AI provider the wizard created, with its credential (the server heals the default). */
+  async deleteAiProvider(providerId: string): Promise<void> {
+    await apiClient.delete(`/ai/providers/${providerId}`);
   },
 
   /**

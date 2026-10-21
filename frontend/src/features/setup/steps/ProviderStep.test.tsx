@@ -11,7 +11,7 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
     createGitCredential: jest.fn(),
     getAiProviderCatalog: jest.fn(),
     setAiDefaultProvider: jest.fn(),
-    deleteAiCredential: jest.fn(),
+    deleteAiProvider: jest.fn(),
     getGitProviderCatalog: jest.fn(),
     deleteGitProvider: jest.fn(),
   },
@@ -32,7 +32,7 @@ const mockCreateGitProvider = onboardingApi.createGitProvider as jest.Mock;
 const mockCreateGitCredential = onboardingApi.createGitCredential as jest.Mock;
 
 const mockSetAiDefault = onboardingApi.setAiDefaultProvider as jest.Mock;
-const mockDeleteAiCredential = onboardingApi.deleteAiCredential as jest.Mock;
+const mockDeleteAiProvider = onboardingApi.deleteAiProvider as jest.Mock;
 const mockGetGitCatalog = onboardingApi.getGitProviderCatalog as jest.Mock;
 const mockDeleteGitProvider = onboardingApi.deleteGitProvider as jest.Mock;
 const mockGetAiCatalog = onboardingApi.getAiProviderCatalog as jest.Mock;
@@ -94,7 +94,7 @@ describe('ProviderStep', () => {
     mockCreateGitProvider.mockReset();
     mockCreateGitCredential.mockReset();
     mockSetAiDefault.mockReset();
-    mockDeleteAiCredential.mockReset();
+    mockDeleteAiProvider.mockReset();
     mockGetGitCatalog.mockReset();
     mockGetGitCatalog.mockResolvedValue(GIT_CATALOG);
     mockDeleteGitProvider.mockReset();
@@ -353,7 +353,7 @@ describe('ProviderStep', () => {
 
     it('removes an entry before finishing and hands the default to the remaining one', async () => {
       mockSetAiDefault.mockResolvedValue(undefined);
-      mockDeleteAiCredential.mockResolvedValue(undefined);
+      mockDeleteAiProvider.mockResolvedValue(undefined);
       mockCreateAiCredential
         .mockResolvedValueOnce(synced('cred-a', 12, { default: true }))
         .mockResolvedValueOnce(synced('cred-b', 61));
@@ -367,7 +367,7 @@ describe('ProviderStep', () => {
       fireEvent.click(screen.getByTestId('setup-provider-remove-0'));
 
       await waitFor(() =>
-        expect(mockDeleteAiCredential).toHaveBeenCalledWith({ providerId: 'prov-a', credentialId: 'cred-a' })
+        expect(mockDeleteAiProvider).toHaveBeenCalledWith('prov-a')
       );
       await waitFor(() => expect(mockSetAiDefault).toHaveBeenCalledWith('prov-b'));
       expect(screen.getAllByTestId(/^setup-provider-entry-/)).toHaveLength(1);
