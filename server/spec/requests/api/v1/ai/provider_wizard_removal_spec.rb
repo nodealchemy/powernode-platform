@@ -91,11 +91,35 @@ RSpec.describe "Wizard AI provider add and remove", type: :request do
       row = seeded
 
       claimed = post_entry
+      expect(json_response_data["claimed"]).to be(true)
 
       expect(claimed.id).to eq(row.id)
       expect(claimed.reload.name).to eq("My Claude")
       expect(claimed.api_base_url).to eq("https://api.example-anthropic.test/v1")
       expect(account.ai_providers.where(provider_type: "anthropic").count).to eq(1)
+    end
+
+    it "reports a row it created as not claimed" do
+      row = seeded
+      create(:ai_provider_credential, account: account, provider: row)
+
+      post_entry
+
+      expect(json_response_data["claimed"]).to be(false)
+    end
+
+    it "claims inside a lock that skips rows another request holds, so two entries never share a row" do
+      first = seeded(name: "Seeded A")
+      second = seeded(name: "Seeded B")
+      statements = []
+      callback = ->(*, payload) { statements << payload[:sql] if payload[:sql].include?("SKIP LOCKED") }
+
+      ids = ActiveSupport::Notifications.subscribed(callback, "sql.active_record") do
+        [ post_entry(name: "Entry One").id, post_entry(name: "Entry Two").id ]
+      end
+
+      expect(statements).not_to be_empty
+      expect(ids).to contain_exactly(first.id, second.id)
     end
 
     it "does not claim a row that has a credential" do
@@ -123,6 +147,67 @@ RSpec.describe "Wizard AI provider add and remove", type: :request do
 
       expect(account.ai_providers.where(provider_type: "anthropic").pluck(:name))
         .to contain_exactly("Claude AI (Anthropic)", "Claude AI (Anthropic) (2)")
+    end
+  end
+
+  describe "releasing a claimed row (the wizard did not create it)" do
+    let!(:row) do
+      create(:ai_provider, account: account, provider_type: "anthropic", name: "Claude AI (Anthropic)",
+                           api_base_url: "https://api.anthropic.com/v1", is_active: true)
+    end
+
+    def claim_and_configure
+      post "/api/v1/ai/providers",
+           params: { provider: { provider_type: "anthropic", name: "My Claude", api_base_url: "https://proxy.example-anthropic.test/v1" }, dedupe_name: true },
+           headers: headers, as: :json
+      expect(json_response_data["claimed"]).to be(true)
+      post "/api/v1/ai/providers/#{row.id}/credentials",
+           params: { credential: { name: "Onboarding", credentials: { api_key: fake_secret }, is_active: true, is_default: true } },
+           headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+    end
+
+    it "restores the catalog name and base URL, removes the credential and clears the default, keeping the row" do
+      claim_and_configure
+      expect(row.reload.metadata["is_default"]).to be(true)
+
+      post "/api/v1/ai/providers/#{row.id}/release", headers: headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      row.reload
+      expect(row.name).to eq("Claude AI (Anthropic)")
+      expect(row.api_base_url).to eq("https://api.anthropic.com/v1")
+      expect(row.provider_credentials).to be_empty
+      expect(row.metadata["is_default"]).to be(false)
+      expect(row.metadata).not_to have_key("claimed_from")
+    end
+
+    it "can be claimed again after a release" do
+      claim_and_configure
+      post "/api/v1/ai/providers/#{row.id}/release", headers: headers, as: :json
+
+      post "/api/v1/ai/providers",
+           params: { provider: { provider_type: "anthropic", name: "Again" }, dedupe_name: true }, headers: headers, as: :json
+
+      expect(json_response_data["provider"]["id"]).to eq(row.id)
+    end
+
+    it "refuses to release a provider the wizard did not claim" do
+      post "/api/v1/ai/providers/#{row.id}/release", headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+
+    it "is gated by the update permission and scoped to the account" do
+      claim_and_configure
+      reader = create(:user, account: account, permissions: %w[ai.providers.read])
+      stranger = create(:user, account: create(:account), permissions: %w[ai.providers.read ai.providers.update])
+
+      post "/api/v1/ai/providers/#{row.id}/release", headers: auth_headers_for(reader), as: :json
+      expect(response).to have_http_status(:forbidden)
+
+      post "/api/v1/ai/providers/#{row.id}/release", headers: auth_headers_for(stranger), as: :json
+      expect(response).to have_http_status(:not_found)
     end
   end
 

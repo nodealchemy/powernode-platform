@@ -23,12 +23,26 @@ describe('onboardingApi.createAiProvider', () => {
 
     const id = await onboardingApi.createAiProvider({ providerType: 'openai', name: 'OpenAI' });
 
-    expect(id).toBe('prov-created');
+    expect(id).toEqual({ id: 'prov-created', claimed: false });
     expect(mockGet).not.toHaveBeenCalled();
     expect(mockPost).toHaveBeenCalledWith('/ai/providers', {
       dedupe_name: true,
       provider: { provider_type: 'openai', name: 'OpenAI' },
     });
+  });
+
+  it('reports a claimed seeded row', async () => {
+    mockPost.mockResolvedValueOnce({ data: { data: { provider: { id: 'prov-seed' }, claimed: true } } });
+
+    const created = await onboardingApi.createAiProvider({ providerType: 'openai', name: 'OpenAI' });
+
+    expect(created).toEqual({ id: 'prov-seed', claimed: true });
+  });
+
+  it('releases a claimed row', async () => {
+    await onboardingApi.releaseAiProvider('prov-seed');
+
+    expect(mockPost).toHaveBeenCalledWith('/ai/providers/prov-seed/release');
   });
 
   it('removes an AI provider the wizard created', async () => {

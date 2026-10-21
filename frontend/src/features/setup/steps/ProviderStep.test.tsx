@@ -12,6 +12,7 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
     getAiProviderCatalog: jest.fn(),
     setAiDefaultProvider: jest.fn(),
     deleteAiProvider: jest.fn(),
+    releaseAiProvider: jest.fn(),
     getGitProviderCatalog: jest.fn(),
     deleteGitProvider: jest.fn(),
   },
@@ -32,6 +33,7 @@ const mockCreateGitProvider = onboardingApi.createGitProvider as jest.Mock;
 const mockCreateGitCredential = onboardingApi.createGitCredential as jest.Mock;
 
 const mockSetAiDefault = onboardingApi.setAiDefaultProvider as jest.Mock;
+const mockReleaseAiProvider = onboardingApi.releaseAiProvider as jest.Mock;
 const mockDeleteAiProvider = onboardingApi.deleteAiProvider as jest.Mock;
 const mockGetGitCatalog = onboardingApi.getGitProviderCatalog as jest.Mock;
 const mockDeleteGitProvider = onboardingApi.deleteGitProvider as jest.Mock;
@@ -103,6 +105,7 @@ describe('ProviderStep', () => {
     mockCreateGitCredential.mockReset();
     mockSetAiDefault.mockReset();
     mockDeleteAiProvider.mockReset();
+    mockReleaseAiProvider.mockReset();
     mockGetGitCatalog.mockReset();
     mockGetGitCatalog.mockResolvedValue(GIT_CATALOG);
     mockDeleteGitProvider.mockReset();
@@ -150,7 +153,7 @@ describe('ProviderStep', () => {
   });
 
   it('persists an AI credential via chained provider + credential POSTs', async () => {
-    mockCreateAiProvider.mockResolvedValue('prov-ai-1');
+    mockCreateAiProvider.mockResolvedValue({ id: 'prov-ai-1', claimed: false });
     mockCreateAiCredential.mockResolvedValue(synced('cred-ai-1', 12));
     render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
 
@@ -173,7 +176,7 @@ describe('ProviderStep', () => {
   });
 
   it('auto-fills the AI provider details from the catalog and keeps them editable', async () => {
-    mockCreateAiProvider.mockResolvedValue('prov-ai-1');
+    mockCreateAiProvider.mockResolvedValue({ id: 'prov-ai-1', claimed: false });
     mockCreateAiCredential.mockResolvedValue(synced('cred-ai-1', 12));
     render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
     await catalogLoaded(mockGetAiCatalog);
@@ -240,7 +243,7 @@ describe('ProviderStep', () => {
 
   it('logs a failed save without the credential values the request carried', async () => {
     const logSpy = jest.spyOn(logger, 'error').mockImplementation(() => undefined);
-    mockCreateAiProvider.mockResolvedValue('prov-ai-1');
+    mockCreateAiProvider.mockResolvedValue({ id: 'prov-ai-1', claimed: false });
     mockCreateAiCredential.mockRejectedValue(
       Object.assign(new Error('Request failed with status code 422'), {
         config: { data: JSON.stringify({ credential: { credentials: { api_key: 'PLANTED-SECRET' } } }) },
@@ -265,7 +268,7 @@ describe('ProviderStep', () => {
 
   describe('a credential that fails to save', () => {
     it('removes the provider it just created, leaving no orphan', async () => {
-      mockCreateAiProvider.mockResolvedValue('prov-orphan');
+      mockCreateAiProvider.mockResolvedValue({ id: 'prov-orphan', claimed: false });
       mockCreateAiCredential.mockRejectedValue(new Error('Validation failed'));
       mockDeleteAiProvider.mockResolvedValue(undefined);
       render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
@@ -277,6 +280,40 @@ describe('ProviderStep', () => {
       await waitFor(() => expect(screen.getByTestId('setup-save-error')).toBeInTheDocument());
       expect(mockDeleteAiProvider).toHaveBeenCalledWith('prov-orphan');
       expect(screen.queryByTestId('setup-provider-entries')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('a seeded row the wizard claimed', () => {
+    it('is released, not deleted, when its credential fails to save', async () => {
+      mockCreateAiProvider.mockResolvedValue({ id: 'prov-seed', claimed: true });
+      mockCreateAiCredential.mockRejectedValue(new Error('Validation failed'));
+      mockReleaseAiProvider.mockResolvedValue(undefined);
+      render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+
+      fireEvent.click(screen.getByTestId('setup-provider-anthropic'));
+      fireEvent.change(screen.getByTestId('provider-cred-field-api_key'), { target: { value: 'fake-key-x' } });
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+
+      await waitFor(() => expect(screen.getByTestId('setup-save-error')).toBeInTheDocument());
+      expect(mockReleaseAiProvider).toHaveBeenCalledWith('prov-seed');
+      expect(mockDeleteAiProvider).not.toHaveBeenCalled();
+    });
+
+    it('is released, not deleted, when the operator removes the entry', async () => {
+      mockCreateAiProvider.mockResolvedValue({ id: 'prov-seed', claimed: true });
+      mockCreateAiCredential.mockResolvedValue(synced('cred-seed', 12, { default: true }));
+      mockReleaseAiProvider.mockResolvedValue(undefined);
+      render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+      fireEvent.click(screen.getByTestId('setup-provider-anthropic'));
+      fireEvent.change(screen.getByTestId('provider-cred-field-api_key'), { target: { value: 'fake-key-x' } });
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+      await waitFor(() => expect(screen.getByTestId('setup-provider-entry-0')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId('setup-provider-remove-0'));
+
+      await waitFor(() => expect(mockReleaseAiProvider).toHaveBeenCalledWith('prov-seed'));
+      expect(mockDeleteAiProvider).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByTestId('setup-provider-entry-0')).not.toBeInTheDocument());
     });
   });
 
@@ -303,7 +340,7 @@ describe('ProviderStep', () => {
         items: [...AI_CATALOG, OPENAI_ENTRY],
         known_capabilities: ['text_generation'],
       });
-      mockCreateAiProvider.mockResolvedValueOnce('prov-a').mockResolvedValueOnce('prov-b');
+      mockCreateAiProvider.mockResolvedValueOnce({ id: 'prov-a', claimed: false }).mockResolvedValueOnce({ id: 'prov-b', claimed: false });
     });
 
     it('persists and syncs two providers, listing each with its own result', async () => {

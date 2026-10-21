@@ -1673,6 +1673,7 @@ Rails.application.routes.draw do
             get :usage_summary
             get :check_availability
             post :make_default
+            post :release
           end
 
           collection do

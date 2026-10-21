@@ -9,7 +9,7 @@ module Api
 
         before_action :set_provider, only: [
           :show, :update, :destroy,
-          :models, :usage_summary, :check_availability, :make_default
+          :models, :usage_summary, :check_availability, :make_default, :release
         ]
         before_action :validate_permissions
 
@@ -51,13 +51,21 @@ module Api
           # row nobody has configured (a seeded catalog row), taking the entry's
           # name and base URL; only when every same-type row is configured does
           # it add a row, numbering the name if it is taken.
-          claimed = params[:dedupe_name].present? ? claim_unconfigured_provider(attrs) : nil
-          @provider = claimed || ::Ai::Provider.new(attrs).tap do |new_provider|
-            new_provider.account = current_user.account
-            new_provider.name = unique_provider_name(new_provider.name) if params[:dedupe_name].present?
+          claimed = nil
+          saved = false
+          # Claim and save are one transaction, and the claim locks the row it
+          # takes (SKIP LOCKED), so two concurrent entries never share a row.
+          ::Ai::Provider.transaction do
+            claimed = params[:dedupe_name].present? ? claim_unconfigured_provider(attrs) : nil
+            @provider = claimed || ::Ai::Provider.new(attrs).tap do |new_provider|
+              new_provider.account = current_user.account
+              new_provider.name = unique_provider_name(new_provider.name) if params[:dedupe_name].present?
+            end
+            saved = @provider.save
+            raise ActiveRecord::Rollback unless saved
           end
 
-          if (claimed ? claimed.save : @provider.save)
+          if saved
             # A provider syncs its models the moment it is added, on every
             # creation path. Types that need a credential defer until one is
             # saved (the credential create syncs again).
@@ -65,7 +73,8 @@ module Api
 
             render_success({
               provider: serialize_provider_detail(@provider.reload),
-              model_sync: sync.to_h
+              model_sync: sync.to_h,
+              claimed: claimed.present?
             }, status: :created)
 
             log_audit_event("ai.providers.create", @provider,
@@ -160,6 +169,31 @@ module Api
           })
         end
 
+        # POST /api/v1/ai/providers/:id/release
+        # Gives back a seeded row the setup wizard claimed (it did not create
+        # it): the catalog name and base URL return, its credentials go, the
+        # default flag clears, and the row stays. A row the wizard created is
+        # deleted instead.
+        def release
+          origin = @provider.metadata&.dig("claimed_from")
+          return render_error("This provider was not claimed by the setup wizard", status: :unprocessable_content) unless origin
+
+          ::Ai::Provider.transaction do
+            ::Ai::ProviderCredential.where(ai_provider_id: @provider.id).delete_all
+            @provider.update_columns(
+              name: origin["name"],
+              api_base_url: origin["api_base_url"],
+              metadata: @provider.metadata.except("claimed_from").merge("is_default" => false),
+              updated_at: Time.current
+            )
+          end
+          ::Ai::ProviderDefaultService.heal!(@provider.account)
+
+          render_success({ provider: serialize_provider_detail(@provider.reload) })
+
+          log_audit_event("ai.providers.release", @provider, provider_type: @provider.provider_type)
+        end
+
         # POST /api/v1/ai/providers/:id/make_default
         # The operator's default provider, on the existing priority_order /
         # is_default mechanism. Only a working provider qualifies.
@@ -241,16 +275,31 @@ module Api
           type = attrs[:provider_type] || attrs["provider_type"]
           return nil if type.blank?
 
-          candidate = current_user.account.ai_providers.platform_routable.where(provider_type: type)
-                                  .where.not(id: ::Ai::ProviderCredential.select(:ai_provider_id))
-                                  .order(:priority_order, :name).detect do |row|
+          ids = current_user.account.ai_providers.platform_routable.where(provider_type: type)
+                            .where.not(id: ::Ai::ProviderCredential.select(:ai_provider_id))
+                            .order(:priority_order, :name).pluck(:id)
+          candidate = nil
+          ids.each do |id|
+            # Lock one row at a time and skip any another request holds.
+            row = ::Ai::Provider.where(id: id).lock("FOR UPDATE SKIP LOCKED").first
+            next unless row
+
             meta = row.metadata || {}
             # A deferred sync (last_sync_skipped_*) is what an untouched row looks
-            # like; a recorded failure or a default flag is someone's choice.
-            meta["is_default"] != true && (meta.keys & %w[last_sync_error last_sync_failed_at]).empty?
+            # like; a recorded failure, a default flag or an earlier claim is
+            # someone's choice.
+            next if meta["is_default"] == true || meta.key?("claimed_from")
+            next unless (meta.keys & %w[last_sync_error last_sync_failed_at]).empty?
+
+            candidate = row
+            break
           end
           return nil unless candidate
 
+          # Remember what the row was, so a release can restore it.
+          candidate.metadata = (candidate.metadata || {}).merge(
+            "claimed_from" => { "name" => candidate.name, "api_base_url" => candidate.api_base_url }
+          )
           requested = attrs[:name] || attrs["name"]
           candidate.name = unique_provider_name(requested, except: candidate) if requested.present?
           base_url = attrs[:api_base_url] || attrs["api_base_url"]
@@ -284,7 +333,7 @@ module Api
             require_permission("ai.providers.read")
           when "create"
             require_permission("ai.providers.create")
-          when "update", "make_default"
+          when "update", "make_default", "release"
             require_permission("ai.providers.update")
           when "destroy"
             require_permission("ai.providers.delete")

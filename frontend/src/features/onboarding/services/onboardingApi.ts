@@ -31,7 +31,13 @@ export type OnboardingStatusCategories = Partial<
 >;
 
 interface AiProviderResponse {
-  data?: { provider?: { id?: string } };
+  data?: { provider?: { id?: string }; claimed?: boolean };
+}
+
+/** A provider row for a wizard entry: `claimed` when it took over a seeded row. */
+export interface AiProviderCreated {
+  id?: string;
+  claimed: boolean;
 }
 
 /** Outcome of the server-side model sync run when an AI credential is saved. */
@@ -147,7 +153,7 @@ export const onboardingApi = {
     providerType,
     name,
     apiBaseUrl,
-  }: CreateProviderViaProviderParams): Promise<string | undefined> {
+  }: CreateProviderViaProviderParams): Promise<AiProviderCreated> {
     const response = await apiClient.post<AiProviderResponse>('/ai/providers', {
       dedupe_name: true,
       provider: {
@@ -156,7 +162,7 @@ export const onboardingApi = {
         ...(apiBaseUrl ? { api_base_url: apiBaseUrl } : {}),
       },
     });
-    return response.data?.data?.provider?.id;
+    return { id: response.data?.data?.provider?.id, claimed: Boolean(response.data?.data?.claimed) };
   },
 
   /**
@@ -187,6 +193,14 @@ export const onboardingApi = {
   /** Make a working AI provider the account default (POST `/ai/providers/:id/make_default`). */
   async setAiDefaultProvider(providerId: string): Promise<void> {
     await apiClient.post(`/ai/providers/${providerId}/make_default`);
+  },
+
+  /**
+   * Give back a seeded row the wizard claimed: the catalog name and base URL
+   * return, its credential goes, the default clears, and the row stays.
+   */
+  async releaseAiProvider(providerId: string): Promise<void> {
+    await apiClient.post(`/ai/providers/${providerId}/release`);
   },
 
   /** Remove an AI provider the wizard created, with its credential (the server heals the default). */

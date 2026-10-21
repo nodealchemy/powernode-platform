@@ -43,6 +43,8 @@ interface ProviderEntry {
   credentialId?: string | null;
   /** AI only: the server-side model sync run when the credential was saved. */
   modelSync?: AiModelSyncResult | null;
+  /** AI only: the entry took over a seeded row, so removing it gives the row back. */
+  claimed?: boolean;
   /** AI only: the account default provider. */
   isDefault?: boolean;
   /** The credential passed its test before it was saved (handler-served categories). */
@@ -98,7 +100,10 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
   const [apiBaseUrl, setApiBaseUrl] = useState('');
 
   // Git provider-type catalog: base URL and SSH host/port defaults.
-  const [gitCatalog, setGitCatalog] = useState<GitProviderCatalogEntry[]>([]);
+  // Select-time lookups read these refs: a type chosen right after a catalog
+  // arrives must see it even if the re-render has not happened yet.
+  const gitCatalogRef = useRef<GitProviderCatalogEntry[]>([]);
+  const aiCatalogRef = useRef<AiProviderCatalogEntry[]>([]);
 
   useEffect(() => {
     if (category !== 'git') return;
@@ -106,10 +111,12 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     onboardingApi
       .getGitProviderCatalog()
       .then((items) => {
-        if (!cancelled) setGitCatalog(items);
+        if (!cancelled) {
+          gitCatalogRef.current = items;
+        }
       })
       .catch(() => {
-        if (!cancelled) setGitCatalog([]);
+        if (!cancelled) gitCatalogRef.current = [];
       });
     return () => {
       cancelled = true;
@@ -122,7 +129,10 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     onboardingApi
       .getAiProviderCatalog()
       .then((result) => {
-        if (!cancelled) setCatalog(result.items);
+        if (!cancelled) {
+          aiCatalogRef.current = result.items;
+          setCatalog(result.items);
+        }
       })
       .catch(() => {
         // Without the catalog the details stay manual; the server still
@@ -138,14 +148,14 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     (next: ProviderTypeSlug) => {
     // Switching providers wipes half-entered creds so we never POST mismatched data.
     setProviderType(next);
-    const entry = category === 'ai' ? catalog.find((c) => c.provider_type === next) : undefined;
+    const entry = category === 'ai' ? aiCatalogRef.current.find((c) => c.provider_type === next) : undefined;
     setProviderName(entry?.name ?? '');
     setApiBaseUrl(entry?.api_base_url ?? '');
     // Non-secret credential-form defaults from the catalog. Never a key.
     const seed: ProviderCredentialValues = {};
     if (entry?.default_model) seed.default_model = entry.default_model;
     if (entry && !entry.requires_auth && entry.api_base_url) seed.base_url = entry.api_base_url;
-    const gitEntry = category === 'git' ? gitCatalog.find((c) => c.provider_type === next) : undefined;
+    const gitEntry = category === 'git' ? gitCatalogRef.current.find((c) => c.provider_type === next) : undefined;
     if (gitEntry) {
       if (gitEntry.web_base_url) seed.base_url = gitEntry.web_base_url;
       if (gitEntry.ssh_host) seed.ssh_host = gitEntry.ssh_host;
@@ -158,7 +168,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     setSaveStatus('idle');
     setSaveError(null);
     },
-    [category, catalog, gitCatalog]
+    [category]
   );
 
   const onValuesChange = useCallback((values: ProviderCredentialValues, valid: boolean) => {
@@ -193,7 +203,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
         const credentialId = await handlers.createCredential({ providerType, credentials });
         entry = { ...entry, credentialId, validated: testStatus === 'valid' };
       } else if (category === 'ai') {
-        const providerId = await onboardingApi.createAiProvider({
+        const { id: providerId, claimed } = await onboardingApi.createAiProvider({
           providerType,
           name: providerName.trim() || (PROVIDER_LABELS.ai[providerType] ?? providerType),
           apiBaseUrl: apiBaseUrl.trim() || undefined,
@@ -203,9 +213,12 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
         try {
           created = await onboardingApi.createAiCredential({ providerId, credentials });
         } catch (credentialError) {
-          // The provider row was created for this entry: do not leave it behind.
+          // Leave nothing behind: a row created for this entry is deleted, a
+          // seeded row it claimed is given back.
           try {
-            await onboardingApi.deleteAiProvider(providerId);
+            await (claimed
+              ? onboardingApi.releaseAiProvider(providerId)
+              : onboardingApi.deleteAiProvider(providerId));
           } catch (cleanupError) {
             logger.error('ProviderStep: failed to remove the orphaned provider', undefined, {
               errorMessage: getErrorMessage(cleanupError),
@@ -217,6 +230,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
         entry = {
           ...entry,
           providerId,
+          claimed,
           credentialId: created.id,
           modelSync: created.modelSync,
           isDefault: Boolean(created.modelSync?.default),
@@ -311,7 +325,9 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
         if (category === 'ai' && target.providerId) {
           // The wizard created this provider row for the entry; deleting it
           // takes its credential with it (the server heals the default).
-          await onboardingApi.deleteAiProvider(target.providerId);
+          await (target.claimed
+            ? onboardingApi.releaseAiProvider(target.providerId)
+            : onboardingApi.deleteAiProvider(target.providerId));
         }
         if (category === 'git' && target.providerId) {
           // The wizard created this provider; removing it removes its keys
