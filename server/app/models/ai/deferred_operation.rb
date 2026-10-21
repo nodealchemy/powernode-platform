@@ -267,10 +267,15 @@ module Ai
       # something is the same test that keeps it out of :result. A plain return
       # (a policy write, a terminate) has nothing to show once, and revealing it
       # sent every approver through a "shown once — save it now" modal.
-      filtered = ::Ai::SensitiveParams.filter(result_data || {})
-      reveal_once = filtered != (result_data || {})
-      @revealed_result = result_data if reveal_once
-      text_filtered = filter_envelope_text(filtered)
+      #
+      # One SensitiveParams.batch around both passes: the envelope pass
+      # text-filters every string leaf, and outside a batch each leaf re-read
+      # the configured key patterns and recompiled the key regexp.
+      text_filtered = ::Ai::SensitiveParams.batch do
+        filtered = ::Ai::SensitiveParams.filter(result_data || {})
+        @revealed_result = result_data if filtered != (result_data || {})
+        filter_envelope_text(filtered)
+      end
       complete!(text_filtered)
       # The caller of :proceed is the requester: it gets the executor's return
       # exactly as produced (the reveal-once contract for a minted secret

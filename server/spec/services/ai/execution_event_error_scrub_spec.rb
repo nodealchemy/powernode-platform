@@ -72,6 +72,14 @@ RSpec.describe Ai::ExecutionEventErrorScrub do
     expect(result.skipped_rows).to eq(2)
     expect(result).not_to be_complete
   end
+
+  it "reads the configured key patterns at most once per batch, however many rows it filters" do
+    5.times { |i| event!(event_type: "approval_execution", error_message: "row #{i} password=#{secret}") }
+    allow(SiteSetting).to receive(:get).and_call_original
+    expect(SiteSetting).to receive(:get).with(Ai::SensitiveParams::SETTING_KEY).at_most(:once).and_call_original
+
+    expect(scrub.call.scrubbed).to eq(6)
+  end
 end
 
 # A real PG lock_timeout (55P03) held by another connection, not a stub: proves

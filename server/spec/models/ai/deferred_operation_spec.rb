@@ -116,6 +116,22 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(stored).to include('status' => 'completed', 'instance_id' => '0191-abc', 'note' => 'plain prose')
     end
 
+    it 'reads the configured key patterns at most once however many string leaves the envelope has' do
+      stub_const('ManyLeavesExecutor', Class.new do
+        define_singleton_method(:execute) do |_params, deferred_operation:|
+          { success: true, lines: Array.new(25) { |i| "line #{i} ok" }, notes: { a: 'x', b: 'y', c: 'z' } }
+        end
+      end)
+      op = described_class.create!(account: account, action_category: 'test.act',
+                                   executor_class: 'ManyLeavesExecutor', params: {})
+      allow(SiteSetting).to receive(:get).and_call_original
+      expect(SiteSetting).to receive(:get).with(Ai::SensitiveParams::SETTING_KEY).at_most(:once).and_call_original
+
+      op.execute_now!
+
+      expect(op.reload.result['lines'].size).to eq(25)
+    end
+
     it 'returns the RAW result from the :proceed path (the caller is the requester)' do
       secret = %w[hunter 2].join
       stub_const('RawEnvelopeExecutor', Class.new do

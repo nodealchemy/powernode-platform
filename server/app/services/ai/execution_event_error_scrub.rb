@@ -117,14 +117,17 @@ module Ai
 
     def lock_and_scrub(ids)
       count = 0
-      ::Ai::ExecutionEvent.transaction do
-        ::Ai::ExecutionEvent.connection.execute("SET LOCAL lock_timeout = '#{@lock_timeout}'")
-        ::Ai::ExecutionEvent.where(id: ids).lock("FOR UPDATE").each do |row|
-          filtered = ::Ai::SensitiveParams.filter_text(row.error_message)
-          next if filtered == row.error_message
+      # One key-pattern read and regexp compile for the batch, not per row.
+      ::Ai::SensitiveParams.batch do
+        ::Ai::ExecutionEvent.transaction do
+          ::Ai::ExecutionEvent.connection.execute("SET LOCAL lock_timeout = '#{@lock_timeout}'")
+          ::Ai::ExecutionEvent.where(id: ids).lock("FOR UPDATE").each do |row|
+            filtered = ::Ai::SensitiveParams.filter_text(row.error_message)
+            next if filtered == row.error_message
 
-          row.update_columns(error_message: filtered)
-          count += 1
+            row.update_columns(error_message: filtered)
+            count += 1
+          end
         end
       end
       count

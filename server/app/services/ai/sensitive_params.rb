@@ -210,8 +210,14 @@ module Ai
         ::ActiveSupport::IsolatedExecutionState[MEMO_KEY] = outer
       end
 
+      # Memoised inside a `batch`, like the compiled filter: a result envelope or
+      # a scrub batch text-filters one string leaf at a time, and each used to
+      # read the setting again.
       def key_patterns
-        DEFAULT_KEY_PATTERNS + configured_key_patterns
+        memo = ::ActiveSupport::IsolatedExecutionState[MEMO_KEY]
+        return DEFAULT_KEY_PATTERNS + configured_key_patterns unless memo
+
+        memo[:key_patterns] ||= DEFAULT_KEY_PATTERNS + configured_key_patterns
       end
 
       private
@@ -261,8 +267,7 @@ module Ai
       # its separator. Scanning resumes after each masked value, so a key nested
       # inside one is consumed with it.
       def mask_keyed_values(text)
-        keys = (key_patterns + TEXT_EXTRA_KEYS).map { |pattern| flexible(pattern) }.join("|")
-        key = /(?:#{keys})[\w.-]*["']?\s*(?:=>|[:=])\s*/i
+        key = keyed_value_regexp
         out = +""
         pos = 0
         while (match = key.match(text, pos))
@@ -270,6 +275,19 @@ module Ai
           pos = value_end(text, match.end(0))
         end
         out << text[pos..]
+      end
+
+      # Memoised inside a `batch` with the patterns it is built from.
+      def keyed_value_regexp
+        memo = ::ActiveSupport::IsolatedExecutionState[MEMO_KEY]
+        return build_keyed_value_regexp unless memo
+
+        memo[:keyed_value_regexp] ||= build_keyed_value_regexp
+      end
+
+      def build_keyed_value_regexp
+        keys = (key_patterns + TEXT_EXTRA_KEYS).filter_map { |pattern| flexible(pattern) }.join("|")
+        /(?:#{keys})[\w.-]*["']?\s*(?:=>|[:=])\s*/i
       end
 
       # Index just past the value that starts at `start`; text.length when it
