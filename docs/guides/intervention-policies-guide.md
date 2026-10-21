@@ -463,7 +463,15 @@ keyed on the plane's flags rather than its slug.
 
 **A grant belongs to the agent.** Anyone who can drive the agent it names (any session or door that acts as that
 agent) can spend it, unless it is *granter driven only*. Each use's audit row names who drove it: the user, the agent
-and the door (`driving_user_id`, `driving_agent_id`, `call_origin`, `principal`).
+and the door (`driving_user_id`, `driver_known`, `driving_agent_id`, `call_origin`, and the park `principal`, copied
+through its id-and-kind allowlist).
+
+The driver is the person who actually triggered the call, not the identity a tool runs as. On the agent-bridge door
+(an agent run, chat, the concierge, teams) every tool call runs as the agent's **creator**, so the creator never
+counts as the driver there: the door passes the run's real triggering user (the execution's user, the concierge
+conversation's user) when it knows one, and otherwise the driver is recorded as unknown (`driver_known: false`). A
+*granter driven only* grant is spent only when the known driver is its granter, so running the granter's agent does
+not satisfy it for anyone else, and an unknown driver never does.
 
 **A use is spent on admission.** The gate counts a use when it admits the promotion; a promotion that then fails
 (a refused replay, an executor error) has still spent it.
