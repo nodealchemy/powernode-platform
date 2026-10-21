@@ -15,39 +15,6 @@ RSpec.describe StorageProviders::PathLiveness, type: :service do
 
   after { FileUtils.rm_rf(root) }
 
-  # truncation: true => no pinned test connection, so the two threads hold REAL
-  # separate connections and the row lock is what serialises them.
-  it 'leaves the store :live when two initializes write the marker concurrently', truncation: true do
-    FileUtils.mkdir_p(root)
-    # Two independent provider instances over the same row, as two requests have.
-    providers = Array.new(2) do
-      StorageProviders::LocalStorage.new(FileManagement::Storage.find(storage_config.id))
-    end
-
-    # Widen the window between the file write and the row write so an
-    # unlocked implementation interleaves deterministically.
-    # The first writer stalls after its file write, so the second writer's
-    # file AND row writes land before the first writer's row write: disk and
-    # row then disagree unless the whole sequence is serialised.
-    first = Concurrent::AtomicBoolean.new(true)
-    allow(File).to receive(:write).and_wrap_original do |orig, *args, **kw|
-      result = orig.call(*args, **kw)
-      sleep 0.3 if args.first.to_s.end_with?(StorageProviders::Base::LIVENESS_MARKER) && first.make_false
-      result
-    end
-
-    threads = providers.each_with_index.map do |p, i|
-      Thread.new do
-        sleep 0.05 * i
-        ActiveRecord::Base.connection_pool.with_connection { p.write_liveness_marker! }
-      end
-    end
-    threads.each(&:join)
-
-    fresh = StorageProviders::LocalStorage.new(FileManagement::Storage.find(storage_config.id))
-    expect(fresh.store_liveness).to eq(:live)
-  end
-
   it 'merges only the liveness key, keeping other metadata' do
     FileUtils.mkdir_p(root)
     storage_config.update_columns(metadata: { 'keep' => 'me' })
@@ -83,5 +50,52 @@ RSpec.describe StorageProviders::PathLiveness, type: :service do
 
     expect(events.first(2)).to eq(%i[lock file_write])
     expect(storage_config.metadata).to include('keep' => 'me', 'other' => 1)
+  end
+end
+
+# The threads must hold REAL separate connections, so the rows are committed and
+# this group opts out of the wrapping test transaction (a `truncation: true` tag
+# set in a before hook comes too late to do that), cleaning up after itself.
+RSpec.describe StorageProviders::PathLiveness, 'with concurrent initializes', type: :service do
+  self.use_transactional_tests = false
+
+  let!(:account) { create(:account) }
+  let(:root) { Rails.root.join('tmp', 'test_storage', "liveness-conc-#{account.id}").to_s }
+  let!(:storage_config) do
+    create(:file_storage, account: account, provider_type: 'local', configuration: { 'root_path' => root })
+  end
+
+  after do
+    FileUtils.rm_rf(root)
+    FileManagement::Storage.where(id: storage_config.id).delete_all
+    Account.where(id: account.id).delete_all
+  end
+
+  it 'leaves the store :live when two initializes write the marker concurrently' do
+    FileUtils.mkdir_p(root)
+    providers = Array.new(2) do
+      StorageProviders::LocalStorage.new(FileManagement::Storage.find(storage_config.id))
+    end
+
+    # The first writer stalls after its file write, so without serialisation the
+    # second writer's file AND row writes land before the first writer's row
+    # write: disk and row then disagree.
+    first = Concurrent::AtomicBoolean.new(true)
+    allow(File).to receive(:write).and_wrap_original do |orig, *args, **kw|
+      result = orig.call(*args, **kw)
+      sleep 0.3 if args.first.to_s.end_with?(StorageProviders::Base::LIVENESS_MARKER) && first.make_false
+      result
+    end
+
+    threads = providers.each_with_index.map do |p, i|
+      Thread.new do
+        sleep 0.05 * i
+        ActiveRecord::Base.connection_pool.with_connection { p.write_liveness_marker! }
+      end
+    end
+    threads.each(&:join)
+
+    fresh = StorageProviders::LocalStorage.new(FileManagement::Storage.find(storage_config.id))
+    expect(fresh.store_liveness).to eq(:live)
   end
 end
