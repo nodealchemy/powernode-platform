@@ -90,7 +90,13 @@ module Ai
         # When the filter leaves nothing (a catalog of unusual ids), the
         # lightest of ALL ids beats having no default at all.
         ids = all_ids.select { |id| ::Ai::ModelTiers.chat_capable?(id) }
-        ids = all_ids if ids.empty?
+        if ids.empty?
+          # ...but only for a provider that claims to chat; an embedding-only
+          # provider has no chat default to offer.
+          return nil unless (Array(capabilities) & %w[chat text_generation]).any?
+
+          ids = all_ids
+        end
 
         wanted = ::Ai::ProviderCatalog.for(provider_type)&.dig(:default_chat_model)
         if wanted.present?

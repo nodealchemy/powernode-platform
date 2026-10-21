@@ -73,4 +73,100 @@ RSpec.describe "Wizard AI provider add and remove", type: :request do
 
     expect(Ai::Provider.default_for_account(account)&.id).to eq(second)
   end
+
+  describe "claiming an unconfigured seeded row" do
+    def seeded(type: "anthropic", name: "Claude AI (Anthropic)", **extra)
+      create(:ai_provider, account: account, provider_type: type, name: name, is_active: true, **extra)
+    end
+
+    def post_entry(name: "My Claude", base_url: "https://api.example-anthropic.test/v1")
+      post "/api/v1/ai/providers",
+           params: { provider: { provider_type: "anthropic", name: name, api_base_url: base_url }, dedupe_name: true },
+           headers: headers, as: :json
+      expect(response).to have_http_status(:created)
+      Ai::Provider.find(json_response_data["provider"]["id"])
+    end
+
+    it "takes over a same-type row with no credentials and no customisation, updating name and base URL" do
+      row = seeded
+
+      claimed = post_entry
+
+      expect(claimed.id).to eq(row.id)
+      expect(claimed.reload.name).to eq("My Claude")
+      expect(claimed.api_base_url).to eq("https://api.example-anthropic.test/v1")
+      expect(account.ai_providers.where(provider_type: "anthropic").count).to eq(1)
+    end
+
+    it "does not claim a row that has a credential" do
+      row = seeded
+      create(:ai_provider_credential, account: account, provider: row)
+
+      expect(post_entry.id).not_to eq(row.id)
+    end
+
+    it "does not claim the default, a synced row, or the Claude Code scope" do
+      default_row = seeded(name: "Default One", metadata: { "is_default" => true })
+      synced_row = seeded(name: "Synced One", metadata: { "last_sync_error" => "denied" })
+      scope = Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(account)
+
+      created = post_entry
+
+      expect([ default_row.id, synced_row.id, scope.id ]).not_to include(created.id)
+    end
+
+    it "numbers a new row only when every same-type row is configured" do
+      row = seeded
+      create(:ai_provider_credential, account: account, provider: row)
+
+      post_entry(name: "Claude AI (Anthropic)")
+
+      expect(account.ai_providers.where(provider_type: "anthropic").pluck(:name))
+        .to contain_exactly("Claude AI (Anthropic)", "Claude AI (Anthropic) (2)")
+    end
+  end
+
+  describe "removing a provider that has resolver-minted clones" do
+    let(:creator) { user }
+
+    def clone_on(provider)
+      create(:ai_agent, account: account, creator: creator, provider: provider,
+                        cloned_from_id: create(:ai_agent, :global, owner_account: account).id)
+    end
+
+    it "deletes the only provider by removing its idle clones, which re-mint on demand" do
+      provider_id = add_entry
+      clone = clone_on(Ai::Provider.find(provider_id))
+
+      delete "/api/v1/ai/providers/#{provider_id}", headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(Ai::Provider.where(id: provider_id)).to be_empty
+      expect(Ai::Agent.where(id: clone.id)).to be_empty
+    end
+
+    it "answers 409 naming the agent when a clone has conversations, and removes nothing" do
+      provider_id = add_entry
+      clone = clone_on(Ai::Provider.find(provider_id))
+      create(:ai_conversation, account: account, agent: clone, user: user, provider: Ai::Provider.find(provider_id))
+
+      delete "/api/v1/ai/providers/#{provider_id}", headers: headers
+
+      expect(response).to have_http_status(:conflict)
+      expect(response.body).to include(clone.name)
+      expect(Ai::Provider.where(id: provider_id)).to exist
+      expect(Ai::Agent.where(id: clone.id)).to exist
+    end
+
+    it "moves clones to another working provider instead, when there is one" do
+      first = add_entry
+      second = add_entry
+      clone = clone_on(Ai::Provider.find(first))
+
+      delete "/api/v1/ai/providers/#{first}", headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(clone.reload.ai_provider_id).to eq(second)
+    end
+  end
 end

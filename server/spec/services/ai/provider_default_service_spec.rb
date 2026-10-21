@@ -114,7 +114,7 @@ RSpec.describe Ai::ProviderDefaultService do
                         mcp_metadata: pin ? { "model_config" => { "model" => pin } } : {})
     end
 
-    it "repoints UNPINNED resolver-minted clones to the new default and leaves pinned clones alone" do
+    it "repoints UNPINNED clones that are on the PREVIOUS default, and leaves pinned clones alone" do
       old = working("Old", 1, default: true)
       chosen = working("Chosen", 2)
       unpinned = clone_on(old)
@@ -125,6 +125,28 @@ RSpec.describe Ai::ProviderDefaultService do
 
       expect(unpinned.reload.ai_provider_id).to eq(chosen.id)
       expect(pinned.reload.ai_provider_id).to eq(old.id)
+    end
+
+    it "leaves a clone the operator moved to another provider where it is" do
+      old = working("Old", 1, default: true)
+      chosen = working("Chosen", 2)
+      elsewhere = working("Elsewhere", 3)
+      moved = clone_on(elsewhere)
+
+      described_class.set_default!(chosen)
+
+      expect(moved.reload.ai_provider_id).to eq(elsewhere.id)
+      expect(old.reload.metadata["is_default"]).to be(false)
+    end
+
+    it "repoints nothing when there was no previous default" do
+      bystander = working("Bystander", 1)
+      chosen = working("Chosen", 2)
+      stay = clone_on(bystander)
+
+      described_class.set_default!(chosen)
+
+      expect(stay.reload.ai_provider_id).to eq(bystander.id)
     end
 
     it "repoints unpinned clones off a provider that is being destroyed" do

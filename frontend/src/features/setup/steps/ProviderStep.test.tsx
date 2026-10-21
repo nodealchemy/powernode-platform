@@ -65,6 +65,14 @@ const GIT_CATALOG = [
 // Assembled at runtime: no key-shaped literal in the source.
 const FAKE_PRIVATE_KEY = ['-----BEGIN', 'OPENSSH', 'PRIVATE', 'KEY-----'].join(' ') + '\nZmFrZS1wbGFjZWhvbGRlcg==\n' + ['-----END', 'OPENSSH', 'PRIVATE', 'KEY-----'].join(' ');
 
+// Waits until a catalog fetch has resolved AND its state update has rendered, so a
+// type selection made next always sees the catalog (no fixed number of ticks).
+const catalogLoaded = async (mock: jest.Mock) => {
+  await waitFor(() => expect(mock).toHaveBeenCalled());
+  await mock.mock.results[0].value;
+  await act(async () => {});
+};
+
 const stepFor = (component: string, category: string): SetupStep => ({
   key: category + '_provider',
   title: category + ' provider',
@@ -168,8 +176,7 @@ describe('ProviderStep', () => {
     mockCreateAiProvider.mockResolvedValue('prov-ai-1');
     mockCreateAiCredential.mockResolvedValue(synced('cred-ai-1', 12));
     render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
-    await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
-    await act(async () => {});
+    await catalogLoaded(mockGetAiCatalog);
 
     fireEvent.click(screen.getByTestId('setup-provider-anthropic'));
 
@@ -256,6 +263,23 @@ describe('ProviderStep', () => {
     logSpy.mockRestore();
   });
 
+  describe('a credential that fails to save', () => {
+    it('removes the provider it just created, leaving no orphan', async () => {
+      mockCreateAiProvider.mockResolvedValue('prov-orphan');
+      mockCreateAiCredential.mockRejectedValue(new Error('Validation failed'));
+      mockDeleteAiProvider.mockResolvedValue(undefined);
+      render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+
+      fireEvent.click(screen.getByTestId('setup-provider-anthropic'));
+      fireEvent.change(screen.getByTestId('provider-cred-field-api_key'), { target: { value: 'fake-key-x' } });
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+
+      await waitFor(() => expect(screen.getByTestId('setup-save-error')).toBeInTheDocument());
+      expect(mockDeleteAiProvider).toHaveBeenCalledWith('prov-orphan');
+      expect(screen.queryByTestId('setup-provider-entries')).not.toBeInTheDocument();
+    });
+  });
+
   describe('multiple AI providers', () => {
     const OPENAI_ENTRY = {
       ...AI_CATALOG[0],
@@ -287,8 +311,7 @@ describe('ProviderStep', () => {
         .mockResolvedValueOnce(synced('cred-a', 12, { default: true }))
         .mockResolvedValueOnce(synced('cred-b', 61));
       render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
-      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
-      await act(async () => {});
+      await catalogLoaded(mockGetAiCatalog);
 
       await addProvider('anthropic', 'fake-key-a');
       fireEvent.click(screen.getByTestId('setup-add-another'));
@@ -308,8 +331,7 @@ describe('ProviderStep', () => {
           modelSync: { success: false, model_count: 0, error: 'upstream denied the key' },
         });
       render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
-      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
-      await act(async () => {});
+      await catalogLoaded(mockGetAiCatalog);
 
       await addProvider('anthropic', 'fake-key-a');
       fireEvent.click(screen.getByTestId('setup-add-another'));
@@ -323,8 +345,7 @@ describe('ProviderStep', () => {
     it('marks a single working provider as the default without a choice', async () => {
       mockCreateAiCredential.mockResolvedValueOnce(synced('cred-a', 12, { default: true }));
       render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
-      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
-      await act(async () => {});
+      await catalogLoaded(mockGetAiCatalog);
 
       await addProvider('anthropic', 'fake-key-a');
 
@@ -338,8 +359,7 @@ describe('ProviderStep', () => {
         .mockResolvedValueOnce(synced('cred-a', 12, { default: true }))
         .mockResolvedValueOnce(synced('cred-b', 61));
       render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
-      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
-      await act(async () => {});
+      await catalogLoaded(mockGetAiCatalog);
       await addProvider('anthropic', 'fake-key-a');
       fireEvent.click(screen.getByTestId('setup-add-another'));
       await addProvider('openai', 'fake-key-b');
@@ -358,8 +378,7 @@ describe('ProviderStep', () => {
         .mockResolvedValueOnce(synced('cred-a', 12, { default: true }))
         .mockResolvedValueOnce(synced('cred-b', 61));
       render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
-      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
-      await act(async () => {});
+      await catalogLoaded(mockGetAiCatalog);
       await addProvider('anthropic', 'fake-key-a');
       fireEvent.click(screen.getByTestId('setup-add-another'));
       await addProvider('openai', 'fake-key-b');
@@ -380,8 +399,7 @@ describe('ProviderStep', () => {
 
     const renderGit = async () => {
       render(<ProviderStep step={stepFor('core/git_provider', 'git')} />);
-      await waitFor(() => expect(mockGetGitCatalog).toHaveBeenCalled());
-      await act(async () => {});
+      await catalogLoaded(mockGetGitCatalog);
     };
 
     beforeEach(() => {

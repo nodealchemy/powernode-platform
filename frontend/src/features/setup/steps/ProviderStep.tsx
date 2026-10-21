@@ -199,7 +199,21 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
           apiBaseUrl: apiBaseUrl.trim() || undefined,
         });
         if (!providerId) throw new Error('AI provider creation did not return an id');
-        const created = await onboardingApi.createAiCredential({ providerId, credentials });
+        let created: Awaited<ReturnType<typeof onboardingApi.createAiCredential>>;
+        try {
+          created = await onboardingApi.createAiCredential({ providerId, credentials });
+        } catch (credentialError) {
+          // The provider row was created for this entry: do not leave it behind.
+          try {
+            await onboardingApi.deleteAiProvider(providerId);
+          } catch (cleanupError) {
+            logger.error('ProviderStep: failed to remove the orphaned provider', undefined, {
+              errorMessage: getErrorMessage(cleanupError),
+              status: getErrorStatus(cleanupError),
+            });
+          }
+          throw credentialError;
+        }
         entry = {
           ...entry,
           providerId,

@@ -38,6 +38,13 @@ RSpec.describe Ai::Provider, "default chat model" do
     expect(provider.default_model).to be_present
   end
 
+  it "gives no default from non-chat ids when the provider declares no chat or text capability" do
+    provider.capabilities = %w[text_embedding]
+    provider.supported_models = models("text-embedding-3-small", "text-embedding-3-large")
+
+    expect(provider.default_model).to be_nil
+  end
+
   it "keeps Ollama instruct-tuned tags (only OpenAI's completion-only instruct id is excluded)" do
     provider.provider_type = "ollama"
     provider.supported_models = models("text-embedding-3-small", "llama3.1:8b-instruct-q4_K_M", "qwen2.5:14b-instruct")

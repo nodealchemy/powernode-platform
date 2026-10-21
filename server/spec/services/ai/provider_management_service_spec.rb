@@ -264,8 +264,8 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
   end
 
   describe '.get_available_providers_for_account' do
-    let!(:active_provider) { create(:ai_provider, is_active: true) }
-    let!(:inactive_provider) { create(:ai_provider, is_active: false) }
+    let!(:active_provider) { create(:ai_provider, account: account, is_active: true) }
+    let!(:inactive_provider) { create(:ai_provider, account: account, is_active: false) }
     let!(:credential) { create(:ai_provider_credential, account: account, provider: active_provider) }
 
     it 'returns only active providers' do
@@ -273,6 +273,15 @@ RSpec.describe Ai::ProviderManagementService, type: :service do
 
       expect(providers).to include(active_provider)
       expect(providers).not_to include(inactive_provider)
+    end
+
+    it "never includes another tenant's providers" do
+      foreign = create(:ai_provider, account: create(:account), is_active: true)
+
+      providers = described_class.get_available_providers_for_account(account)
+
+      expect(providers).not_to include(foreign)
+      expect(providers).to include(active_provider)
     end
 
     it 'includes providers with credentials' do

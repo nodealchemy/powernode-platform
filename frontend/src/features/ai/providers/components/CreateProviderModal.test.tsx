@@ -1,4 +1,4 @@
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { CreateProviderModal } from './CreateProviderModal';
 import { providersApi } from '@/shared/services/ai';
 
@@ -38,8 +38,9 @@ describe('CreateProviderModal catalog auto-fill', () => {
 
   const renderModal = async () => {
     render(<CreateProviderModal isOpen onClose={jest.fn()} onSuccess={jest.fn()} />);
-    await waitFor(() => expect(providersApi.getCatalog).toHaveBeenCalled());
-    await act(async () => {});
+    // The capability list comes from the catalog: once it renders, the catalog
+    // state is set and a type change can auto-fill (no fixed number of ticks).
+    await screen.findByLabelText(/^search$/i);
   };
 
   it('fills name, slug, base URL and capabilities when a type is selected', async () => {

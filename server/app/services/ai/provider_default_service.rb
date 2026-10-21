@@ -22,14 +22,17 @@ module Ai
 
       # Makes `provider` the account default: first in priority order and the
       # only provider flagged is_default. Everything else keeps its relative
-      # order behind it. Unpinned, resolver-minted agent clones follow the new
-      # default; pinned ones stay where they are.
+      # order behind it. Unpinned, resolver-minted agent clones that were on the
+      # PREVIOUS default follow the new one; pinned clones, and clones the
+      # operator moved elsewhere, stay where they are.
       def set_default!(provider, skip_eligibility: false)
         raise NotEligible, ineligible_reason(provider) unless skip_eligibility || eligible?(provider)
 
         ::Ai::Provider.transaction do
-          rank!(lock_account_providers(provider.account_id), first: provider)
-          repoint_unpinned_clones!(provider.account_id, to: provider)
+          locked = lock_account_providers(provider.account_id)
+          previous = locked.find { |p| flagged?(p) && p.id != provider.id }
+          rank!(locked, first: provider)
+          repoint_unpinned_clones!(provider.account_id, from: previous, to: provider)
         end
         provider.reload
       end
@@ -67,16 +70,30 @@ module Ai
         true
       end
 
-      # Before a provider is destroyed: unpinned resolver-minted clones on it
-      # move to the account's next working provider, so the delete is not
-      # refused (agents restrict it) and the clones keep running.
+      # Before a provider is destroyed. Agents restrict the delete, so every
+      # agent still on it must be dealt with:
+      #   * unpinned resolver-minted clones move to the account's next working
+      #     provider;
+      #   * with no such provider, the clones that never ran anything (no
+      #     executions, no conversations) are removed - the resolver re-mints
+      #     them on demand;
+      #   * anything left (pinned clones, operator agents, clones with history)
+      #     blocks the delete and is returned so the caller can name it.
+      # Call inside the transaction that destroys the provider.
+      # @return [Array<Ai::Agent>] the agents that still block the delete
       def release_clones!(provider)
         target = ::Ai::Provider.where(account_id: provider.account_id).where.not(id: provider.id)
                                .includes(:provider_credentials).order(:priority_order, :name).to_a
                                .find { |p| eligible?(p) }
-        return 0 unless target
 
-        unpinned_clones(provider.account_id).where(ai_provider_id: provider.id).update_all(ai_provider_id: target.id)
+        on_provider = unpinned_clones(provider.account_id).where(ai_provider_id: provider.id)
+        if target
+          on_provider.update_all(ai_provider_id: target.id)
+        else
+          on_provider.find_each { |clone| clone.destroy if idle?(clone) }
+        end
+
+        ::Ai::Agent.where(ai_provider_id: provider.id).where.not(account_id: nil).to_a
       end
 
       private
@@ -109,8 +126,14 @@ module Ai
                    .where("COALESCE(mcp_metadata -> 'model_config' ->> 'model', '') = ''")
       end
 
-      def repoint_unpinned_clones!(account_id, to:)
-        unpinned_clones(account_id).where.not(ai_provider_id: to.id).update_all(ai_provider_id: to.id)
+      def repoint_unpinned_clones!(account_id, from:, to:)
+        return unless from
+
+        unpinned_clones(account_id).where(ai_provider_id: from.id).update_all(ai_provider_id: to.id)
+      end
+
+      def idle?(agent)
+        !agent.executions.exists? && !agent.conversations.exists?
       end
 
       def ineligible_reason(provider)

@@ -46,13 +46,18 @@ module Api
         # POST /api/v1/ai/providers
         def create
           attrs = ::Ai::ProviderCatalog.merge_defaults(provider_params.to_h)
-          @provider = ::Ai::Provider.new(attrs)
-          @provider.account = current_user.account
-          # The wizard adds a distinct provider row per entry: when the name is
-          # taken (e.g. by a seeded catalog row) it gets a numbered suffix.
-          @provider.name = unique_provider_name(@provider.name) if params[:dedupe_name].present?
 
-          if @provider.save
+          # The wizard adds one provider per entry. It first claims a same-type
+          # row nobody has configured (a seeded catalog row), taking the entry's
+          # name and base URL; only when every same-type row is configured does
+          # it add a row, numbering the name if it is taken.
+          claimed = params[:dedupe_name].present? ? claim_unconfigured_provider(attrs) : nil
+          @provider = claimed || ::Ai::Provider.new(attrs).tap do |new_provider|
+            new_provider.account = current_user.account
+            new_provider.name = unique_provider_name(new_provider.name) if params[:dedupe_name].present?
+          end
+
+          if (claimed ? claimed.save : @provider.save)
             # A provider syncs its models the moment it is added, on every
             # creation path. Types that need a credential defer until one is
             # saved (the credential create syncs again).
@@ -89,23 +94,34 @@ module Api
         # DELETE /api/v1/ai/providers/:id
         def destroy
           provider_name = @provider.name
-          # Unpinned canonical clones on this provider move to the next working
-          # one first (agents restrict the delete); the default is then healed
-          # by the model's after-destroy hook.
-          ::Ai::ProviderDefaultService.release_clones!(@provider)
+          blockers = []
+          destroyed = false
 
-          if @provider.destroy
+          # Release the agents and destroy the provider in ONE transaction: a
+          # refused delete leaves every clone where it was.
+          ::Ai::Provider.transaction do
+            blockers = ::Ai::ProviderDefaultService.release_clones!(@provider)
+            raise ActiveRecord::Rollback if blockers.any?
+
+            destroyed = @provider.destroy.present?
+            raise ActiveRecord::Rollback unless destroyed
+          end
+
+          if blockers.any?
+            render_error(
+              "Cannot delete this provider: still used by #{blockers.map(&:name).to_sentence}. Move or remove those agents first.",
+              status: :conflict
+            )
+          elsif destroyed
             render_success({ message: "AI provider deleted successfully" })
 
             log_audit_event("ai.providers.delete", current_user.account,
               provider_name: provider_name
             )
+          elsif @provider.errors.any?
+            render_validation_error(@provider.errors)
           else
-            if @provider.errors.any?
-              render_validation_error(@provider.errors)
-            else
-              render_error("Failed to delete provider", status: :unprocessable_content)
-            end
+            render_error("Failed to delete provider", status: :unprocessable_content)
           end
         end
 
@@ -218,8 +234,32 @@ module Api
 
         private
 
-        def unique_provider_name(name)
-          taken = current_user.account.ai_providers.pluck(:name).to_set
+        # A same-type, routable row with no credential and no operator
+        # customisation (not the default, never synced). Its name and base URL
+        # become the entry's.
+        def claim_unconfigured_provider(attrs)
+          type = attrs[:provider_type] || attrs["provider_type"]
+          return nil if type.blank?
+
+          candidate = current_user.account.ai_providers.platform_routable.where(provider_type: type)
+                                  .where.not(id: ::Ai::ProviderCredential.select(:ai_provider_id))
+                                  .order(:priority_order, :name).detect do |row|
+            meta = row.metadata || {}
+            # A deferred sync (last_sync_skipped_*) is what an untouched row looks
+            # like; a recorded failure or a default flag is someone's choice.
+            meta["is_default"] != true && (meta.keys & %w[last_sync_error last_sync_failed_at]).empty?
+          end
+          return nil unless candidate
+
+          requested = attrs[:name] || attrs["name"]
+          candidate.name = unique_provider_name(requested, except: candidate) if requested.present?
+          base_url = attrs[:api_base_url] || attrs["api_base_url"]
+          candidate.api_base_url = base_url if base_url.present?
+          candidate
+        end
+
+        def unique_provider_name(name, except: nil)
+          taken = current_user.account.ai_providers.where.not(id: except&.id).pluck(:name).to_set
           return name unless taken.include?(name)
 
           suffix = 2
