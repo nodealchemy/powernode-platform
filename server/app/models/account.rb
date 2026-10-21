@@ -10,9 +10,10 @@ class Account < ApplicationRecord
 
   # Account teardown (see #run_account_teardown): runs BEFORE every built-in
   # dependent: callback, so the order of the has_many declarations (core or
-  # extension decorators) cannot matter. `users` and `audit_logs` are declared
-  # WITHOUT a dependent option on purpose: they are destroyed/deleted by the
-  # teardown, after every other dependent and in that order.
+  # extension decorators) cannot matter. `users` is declared WITHOUT a dependent
+  # option on purpose and `audit_logs` is restrict_with_exception: both are
+  # destroyed/deleted by the teardown itself, after every other dependent and in
+  # that order (the audit rows last, once their key-operation copies are written).
   around_destroy :run_account_teardown, prepend: true
   before_destroy :refuse_teardown_if_guarded, prepend: true
   # Vault KV entries have no DB row, so they are purged only once the deletion
@@ -383,7 +384,9 @@ class Account < ApplicationRecord
 
   # The operator performing a destroy!, recorded in the account.destroyed audit row.
   # A User, or an explicit String label (e.g. "rake:accounts:purge"). When unset the audit
-  # row falls back to the OS process ("process:<login>@<host>"), so it is never anonymous.
+  # row falls back to the OS process ("unattributed:process:<login>@<host>"), so it is never
+  # anonymous but is plainly marked unattributed. Every destroy ENTRY POINT (controller, rake task,
+  # job) must set `account.teardown_actor = current_user` (or an explicit label) before destroy!.
   attr_writer :teardown_actor
 
   # Associations holding keys / credentials whose ids the teardown audit records
@@ -702,6 +705,8 @@ class Account < ApplicationRecord
       # Not `audit_logs.delete_all`: on a has_many without a dependent option
       # that NULLIFIES account_id (NOT NULL) instead of deleting the rows.
       AuditLog.where(account_id: id).delete_all
+      # A loaded audit_logs target would still look non-empty to the restrict check below.
+      association(:audit_logs).reset
       yield
     ensure
       idx = self.class.teardown_ids.index(id)

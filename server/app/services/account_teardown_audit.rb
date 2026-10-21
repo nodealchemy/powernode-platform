@@ -32,6 +32,8 @@ class AccountTeardownAudit
   # Names that mark a metadata key as sensitive. Applied to the copied original_metadata on top of the
   # AuditLog redactor, and deliberately broader than it (previews and hints leak key material too).
   SENSITIVE_KEY = /key|secret|token|password|passphrase|credential|private|preview|hint|signature|seed|mnemonic/i
+  # Identifiers and public material are not secret: key_id, key_ids, *_fingerprint, *_name, public_key.
+  SAFE_KEY = /(?:_id|_ids|fingerprint|_name)\z|\Apublic_key\z/i
 
   def initialize(account, actor: nil)
     @account = account
@@ -43,6 +45,10 @@ class AccountTeardownAudit
     @counts = table_counts
     @key_ids = key_ids
     @name_digest = Digest::SHA256.hexdigest(@account.name.to_s)
+    # users.destroy_all later NULLIFIES audit_logs.user_id for in-account authors, which would make
+    # the retained tuple unverifiable against original_integrity_hash (user_id is hashed). Capture now.
+    @authors = AuditLog.where(account_id: @account.id).where.not(user_id: nil)
+                       .where(action: AuditActions.key_operation_actions).pluck(:id, :user_id).to_h
   end
 
   # A User, an explicit String label, or (unset) the OS process, so the row is never anonymous.
@@ -52,7 +58,7 @@ class AccountTeardownAudit
     case @actor
     when User then "user:#{@actor.id}"
     when String, Symbol then @actor.to_s
-    else "process:#{Etc.getlogin || ENV.fetch('USER', 'unknown')}@#{Socket.gethostname}"
+    else "unattributed:process:#{Etc.getlogin || ENV.fetch('USER', 'unknown')}@#{Socket.gethostname}"
     end
   end
 
@@ -97,12 +103,16 @@ class AccountTeardownAudit
           "original_id" => row.id, "original_action" => row.action, "original_account_id" => row.account_id,
           "original_integrity_hash" => row.integrity_hash, "original_previous_hash" => row.previous_hash,
           "original_sequence_number" => row.sequence_number,
-          "original_user_id" => row.user_id, "original_resource_type" => row.resource_type,
+          "original_user_id" => original_user_id(row), "original_user_id_restored" => (original_user_id(row) != row.user_id), "original_resource_type" => row.resource_type,
           "original_resource_id" => row.resource_id, "original_created_at" => row.created_at&.iso8601,
           "original_metadata" => scrub(row.metadata)
         }
       )
     end
+  end
+
+  def original_user_id(row)
+    row.user_id || @authors[row.id]
   end
 
   def record_key_revocations
@@ -131,7 +141,7 @@ class AccountTeardownAudit
 
   def scrub(value)
     case value
-    when Hash then value.each_with_object({}) { |(k, v), h| h[k] = k.to_s.match?(SENSITIVE_KEY) ? "[FILTERED]" : scrub(v) }
+    when Hash then value.each_with_object({}) { |(k, v), h| h[k] = (k.to_s.match?(SENSITIVE_KEY) && !k.to_s.match?(SAFE_KEY)) ? "[FILTERED]" : scrub(v) }
     when Array then value.map { |v| scrub(v) }
     else value
     end

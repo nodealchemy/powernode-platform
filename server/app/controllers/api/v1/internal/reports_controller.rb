@@ -109,9 +109,9 @@ module Api
             "files_deleted=#{summary[:files_deleted]} remaining=#{summary[:remaining_count]}"
           )
 
-          # One audit entry per destroyed row. AuditLog requires an account and a
-          # resource id, and a bulk sweep spans accounts, so a single aggregate
-          # row cannot be recorded truthfully. Bounded by `limit` like the
+          # One audit entry per destroyed row. AuditLog requires a resource id, and a tenant row
+          # needs an account (only the platform-scoped teardown actions may have none), and a bulk
+          # sweep spans accounts, so a single aggregate row cannot be recorded truthfully. Bounded by `limit` like the
           # deletion itself.
           summary[:deleted_records].each do |record|
             log_internal_audit(

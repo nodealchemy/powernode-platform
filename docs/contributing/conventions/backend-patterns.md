@@ -48,3 +48,8 @@ NULL: it is copied as a new chained row that carries `original_integrity_hash` /
 and `account.destroyed` records the deleted sequence range. Key-operation actions that get retained are an
 explicit list (`AuditActions::CORE_KEY_OPERATION_ACTIONS` plus `register_key_operation_actions`), never a pattern.
 
+Every entry point that destroys an account (controller, rake task, job) must set
+`account.teardown_actor = current_user` (or an explicit String label) before `destroy!`. When it is
+unset the `account.destroyed` row records `unattributed:process:<login>@<host>`: never anonymous, but
+plainly marked as not attributed to a person.
+

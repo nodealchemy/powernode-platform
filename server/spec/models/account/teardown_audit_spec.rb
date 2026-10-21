@@ -81,6 +81,56 @@ RSpec.describe "Account teardown audit trail" do
       expect(meta["nested"]).to include("fine" => 1)
     end
 
+    it "keeps the original author on the copy for an in-account user, and the tuple recomputes the original hash" do
+      author = create(:user, account: account)
+      authored = AuditLog.log_action(action: "api_key_revoked", resource: key, account: account, user: author,
+                                     metadata: { "note" => "by author" })
+      expect(authored.user_id).to eq(author.id)
+
+      account.destroy!
+
+      copy = platform_rows("account.teardown_key_audit_retained").find { |r| r.metadata["original_id"] == authored.id }
+      m = copy.metadata
+      expect(m["original_user_id"]).to eq(author.id)
+      expect(m["original_user_id_restored"]).to be(true)
+      rebuilt = AuditLog.new(action: m["original_action"], resource_type: m["original_resource_type"],
+                             resource_id: m["original_resource_id"], user_id: m["original_user_id"],
+                             account_id: m["original_account_id"], metadata: m["original_metadata"],
+                             sequence_number: m["original_sequence_number"])
+      rebuilt.id = m["original_id"]
+      candidates = [ nil, Time.zone.parse(m["original_created_at"]) ].map do |at|
+        rebuilt.created_at = at
+        Audit::LogIntegrityService.calculate_hash(rebuilt, previous_hash: m["original_previous_hash"])
+      end
+      # created_at is hashed as nil or as the stored second depending on when the row's hash was applied.
+      expect(candidates).to include(m["original_integrity_hash"])
+    end
+
+    it "destroys an account whose audit_logs association was already loaded (no stale-restrict error)" do
+      create(:user, account: account)
+      account.audit_logs.load
+      expect(account.audit_logs.target).not_to be_empty
+
+      expect { account.destroy! }.not_to raise_error
+      expect(Account.exists?(account.id)).to be false
+    end
+
+    it "keeps identifiers and public material in the copied metadata while masking secret-looking keys" do
+      row = AuditLog.log_action(action: "api_key_revoked", resource: key, account: account, metadata: {
+        "key_id" => "kid-1", "key_ids" => [ "a" ], "public_key" => "PUBLIC", "key_fingerprint" => "ab:cd", "key_name" => "ci",
+        "old_key_preview" => "abcd1234", "client_secret" => "shh"
+      })
+      row.update_columns(metadata: row.metadata.merge("old_key_preview" => "abcd1234", "client_secret" => "shh"))
+      account.destroy!
+
+      copy = platform_rows("account.teardown_key_audit_retained").find { |r| r.metadata["original_id"] == row.id }
+      meta = copy.metadata["original_metadata"]
+      expect(meta).to include("key_id" => "kid-1", "key_ids" => [ "a" ], "public_key" => "PUBLIC",
+                              "key_fingerprint" => "ab:cd", "key_name" => "ci")
+      expect(meta.to_json).not_to include("abcd1234")
+      expect(meta.to_json).not_to include("shh")
+    end
+
     it "does not retain a look-alike action that is not on the key-operation list" do
       lookalike = AuditLog.log_action(action: "user_created", resource: key, account: account, metadata: { "note" => "x" })
       account.destroy!
@@ -92,7 +142,7 @@ RSpec.describe "Account teardown audit trail" do
       account.destroy!
       meta = platform_rows("account.destroyed").first.metadata
       expect(meta["actor_id"]).to be_nil
-      expect(meta["actor_label"]).to match(/\Aprocess:.+@.+\z/)
+      expect(meta["actor_label"]).to match(/\Aunattributed:process:.+@.+\z/)
     end
 
     it "chains the platform rows into the global audit chain" do
