@@ -179,24 +179,8 @@ module Ai
       # with no declared action cannot be shown read-only, so it fails too; a
       # verb the registry does not know at all is left to verb_errors.
       def read_skill_errors(entries)
-        registry = ::Ai::Tools::PlatformApiToolRegistry.all_tools
-        allowed = Contract.read_probe_verbs(owner_repo)
         entries.flat_map do |entry|
-          manifest = entry.dig("metadata", "manifest")
-          next [] unless manifest.is_a?(Hash) && manifest["gate_category"] == "read"
-
-          Array(manifest["verbs"]).map(&:to_s).uniq.filter_map do |verb|
-            next if allowed.include?(verb) || !registry.key?(verb)
-
-            tool = registry[verb]
-            tool = tool.safe_constantize if tool.is_a?(String)
-            declaration = tool.respond_to?(:declared_action) ? tool.declared_action(::Ai::Tools::McpPlatformToolRegistrar::ACTION_ALIASES.fetch(verb, verb)) : nil
-            if declaration.nil?
-              "#{entry['slug']}: gate_category read but verb #{verb} has no declared action, so it cannot be shown read-only"
-            elsif declaration[:mutating]
-              "#{entry['slug']}: gate_category read but names mutating verb #{verb} (declare the skill mutate, or have its owner register a read-only probe)"
-            end
-          end
+          ReadOnlyVerbs.errors(slug: entry["slug"], manifest: entry.dig("metadata", "manifest"), owner: owner_repo)
         end
       end
 

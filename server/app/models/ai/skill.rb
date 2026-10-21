@@ -553,6 +553,9 @@ module Ai
           "system_prompt" => system_prompt, "metadata" => metadata },
         lenient_unregistered_owner: true
       ).each { |message| errors.add(:metadata, message) }
+      ::Ai::Skills::ReadOnlyVerbs.errors(
+        slug: slug, manifest: metadata["manifest"], owner: metadata["owner_repo"].to_s.presence || ::Ai::Skills::Contract::CORE_OWNER
+      ).each { |message| errors.add(:metadata, message) }
     end
 
     def recipe?

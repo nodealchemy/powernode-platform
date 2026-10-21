@@ -55,6 +55,12 @@ RSpec.describe Ai::ClaudeExport::ExecutionRecorder, "with an assembly_id" do
     expect(Ai::SkillUsageRecord.where(execution_id: cancelled[:id]).pluck(:outcome)).to eq([ "partial" ])
   end
 
+  it "records a cancelled first run's outcome on the assembly too (it used to be dropped)" do
+    result = report(outcome: "cancelled", duration_ms: 900, tokens: { input: 10, output: 1 })
+
+    expect(assembly.reload).to have_attributes(agent_execution_id: result[:id], outcome: "cancelled", actual_latency_ms: 900, actual_tokens_used: 11)
+  end
+
   it "is idempotent on run_key: a retry adds no usage record and no second link" do
     first = report
     expect { report }.not_to change(Ai::SkillUsageRecord, :count)

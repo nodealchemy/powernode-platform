@@ -9,7 +9,7 @@ module Ai
     # ==========================================================================
 
     STRATEGIES = %w[round_robin weighted cost_optimized latency_optimized quality_optimized hybrid ml_based fallback].freeze
-    OUTCOMES = %w[succeeded failed timeout fallback rate_limited error].freeze
+    OUTCOMES = %w[succeeded failed timeout fallback rate_limited error cancelled].freeze
     # Latency-recording seams. Each seam measures a DIFFERENT duration (e.g.
     # agent_execution = AgentExecution#duration_ms, ralph_iteration = whole
     # Ralph-iteration wall clock, router_request = routed request round-trip),

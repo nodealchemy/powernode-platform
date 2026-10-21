@@ -324,7 +324,7 @@ module Ai
       end
 
       def record_assembly_outcome(assembly, report)
-        outcome = { "completed" => "succeeded", "failed" => "failed" }[report[:outcome]]
+        outcome = { "completed" => "succeeded", "failed" => "failed", "cancelled" => "cancelled" }[report[:outcome]]
         return unless outcome
 
         assembly.record_outcome!(outcome: outcome, cost_usd: cost_for(report), latency_ms: report[:duration_ms],
