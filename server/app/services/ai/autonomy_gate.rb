@@ -153,6 +153,13 @@ module Ai
     # requested_by/agent. A principal the caller already stamped (a tool, a
     # skill executor) is kept as-is; with no user and no agent there is nothing
     # to derive from, so the params are left alone.
+    #
+    # TRUST: a `principal` already in the params is believed. That is sound
+    # because only server-side code builds gate params: tools and skill
+    # executors stamp their own, and the REST controllers pass explicit or
+    # nested values, never the request's top level. A new caller that forwards
+    # raw request params into this gate would let a client name its own
+    # principal — don't (pinned by peers_destroy_principal_spec).
     def with_default_principal(params, agent:, requested_by:)
       return params if requested_by.nil? && agent.nil?
 
