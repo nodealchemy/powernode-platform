@@ -113,7 +113,8 @@ module Ai
     # e.g. the "Claude Code (headersHelper) #1-#13" left behind before identities
     # were shared across sessions. Read-only.
     #   count/first/last — the duplicates a confirmed merge would remove
-    #   skipped          — duplicates left alone (live session or manual team)
+    #   skipped          — duplicates left alone (live session, a live deferred
+    #                      operation, or a manual team)
     def self.duplicate_agents_report(account: nil)
       groups = duplicate_groups(account).map do |(account_id, client_name, user_id), agents|
         keeper, *dups = canonical_order(agents)
@@ -187,6 +188,11 @@ module Ai
 
     def self.duplicate_skip_reason(agent)
       return "live_session" if McpSession.live.where(ai_agent_id: agent.id).exists?
+      # A live deferred operation's approval request and parked principal name
+      # this agent, so after a merge it could no longer run as the identity
+      # that asked for it.
+      return "unsettled_operations" if Ai::DeferredOperation.where(ai_agent_id: agent.id,
+                                                                     status: Ai::DeferredOperation::LIVE_STATUSES).exists?
 
       manual_team = Ai::AgentTeamMember.joins(:team).where(ai_agent_id: agent.id)
         .where.not(ai_agent_teams: { team_type: "workspace" }).exists?
@@ -239,15 +245,25 @@ module Ai
 
     # Rows AgentManagementTool::DELETE_AGENT_ROWS deletes with a destroyed
     # agent, but a merge repoints to the keeper instead: they record what the
-    # duplicate's identity did (deferred operations are the replayed gated
-    # actions their approval requests point at; proposals, escalations and
-    # feedback are its decisions). Deleting an agent ends that identity, but a
-    # merge only folds one identity into another, so the history stays.
+    # duplicate's identity did. Deferred operations are the gated actions it
+    # ran (a duplicate with one still live is skipped, see
+    # duplicate_skip_reason); proposals, escalations and feedback are its
+    # decisions; goal plans, observations and team restructure events belong
+    # to goals and teams the merge already repoints (deleting a plan with
+    # steps would also violate ai_goal_plan_steps' FK). Deleting an agent ends
+    # that identity, but a merge only folds one identity into another, so the
+    # history stays. Merged feedback not yet applied to trust counts toward
+    # the keeper's next trust batch, which is right for the same user+client
+    # identity. A subset of DELETE_AGENT_ROWS, so nothing is both repointed
+    # and deleted.
     MERGE_HISTORY_FKS = [
       [ "ai_deferred_operations", "ai_agent_id" ],
       [ "ai_agent_proposals", "ai_agent_id" ],
       [ "ai_agent_escalations", "ai_agent_id" ],
-      [ "ai_agent_feedbacks", "ai_agent_id" ]
+      [ "ai_agent_feedbacks", "ai_agent_id" ],
+      [ "ai_goal_plans", "ai_agent_id" ],
+      [ "ai_agent_observations", "ai_agent_id" ],
+      [ "ai_team_restructure_events", "ai_agent_id" ]
     ].freeze
     MERGE_DELETED_AGENT_ROWS = (Ai::Tools::AgentManagementTool::DELETE_AGENT_ROWS - MERGE_HISTORY_FKS).freeze
     MERGE_DROPPED_FKS = (MERGE_DESTROYED_FKS + MERGE_DELETE_FKS + MERGE_DELETED_AGENT_ROWS).freeze

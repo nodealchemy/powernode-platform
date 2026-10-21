@@ -518,12 +518,26 @@ RSpec.describe Ai::McpClientIdentityService do
       it "does not count a duplicate's deferred operations as drops: a merge keeps them" do
         dup = duplicates.first
         Ai::DeferredOperation.create!(account: account, ai_agent: dup, action_category: "release.promote",
-                                      executor_class: "TestSpecExecutor", params: { foo: "bar" })
+                                      executor_class: "TestSpecExecutor", params: { foo: "bar" },
+                                      status: "completed", executed_at: Time.current)
+        create(:ai_guardrail_config, account: account, agent: dup)
 
         report = described_class.duplicate_agents_report(account: account)
         dropped = report[:groups].first[:duplicates].find { |d| d[:id] == dup.id }[:drops]
 
-        expect(dropped).not_to have_key("ai_deferred_operations.ai_agent_id")
+        # The guardrail config proves drops are being counted for this duplicate.
+        expect(dropped).to eq("ai_guardrail_configs.ai_agent_id" => 1)
+      end
+
+      it "skips a duplicate holding a live deferred operation, which could no longer replay as its requester" do
+        dup = duplicates.first
+        Ai::DeferredOperation.create!(account: account, ai_agent: dup, action_category: "release.promote",
+                                      executor_class: "TestSpecExecutor", params: { foo: "bar" })
+
+        report = described_class.duplicate_agents_report(account: account)
+
+        expect(report[:count]).to eq(4)
+        expect(report[:skipped]).to contain_exactly(include(id: dup.id, reason: "unsettled_operations"))
       end
 
       it "groups by user, so one identity per user is not a duplicate" do
@@ -586,16 +600,70 @@ RSpec.describe Ai::McpClientIdentityService do
         expect(expired.reload).to have_attributes(ai_agent_id: keeper.id, display_name: keeper.name)
       end
 
-      it "keeps a duplicate's deferred operations, repointed to the keeper, as the record of what ran" do
+      it "keeps a duplicate's executed deferred operations, repointed to the keeper, as the record of what ran" do
+        dup = duplicates.first
+        operation = Ai::DeferredOperation.create!(account: account, ai_agent: dup, action_category: "release.promote",
+                                                  executor_class: "TestSpecExecutor", params: { foo: "bar" },
+                                                  status: "completed", executed_at: Time.current)
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(result[:errors]).to be_empty
+        expect(operation.reload.ai_agent_id).to eq(keeper.id)
+      end
+
+      it "leaves a duplicate with a live deferred operation, and that operation, untouched" do
         dup = duplicates.first
         operation = Ai::DeferredOperation.create!(account: account, ai_agent: dup, action_category: "release.promote",
                                                   executor_class: "TestSpecExecutor", params: { foo: "bar" })
 
         result = described_class.merge_duplicate_agents!(confirm: true, account: account)
 
+        expect(result[:merged]).to eq(4)
+        expect(Ai::Agent.where(id: dup.id)).to exist
+        expect(operation.reload).to have_attributes(ai_agent_id: dup.id, status: "pending")
+      end
+
+      it "repoints every history table's rows to the keeper instead of deleting them" do
+        dup = duplicates.first
+        connection = ActiveRecord::Base.connection
+        team = create(:ai_agent_team, account: account)
+        goal_id = SecureRandom.uuid
+        connection.exec_insert(<<~SQL.squish, "goal", [ goal_id, account.id, dup.id ])
+          INSERT INTO ai_agent_goals (id, account_id, ai_agent_id, goal_type, title, created_at, updated_at)
+          VALUES ($1, $2, $3, 'maintenance', 'g', NOW(), NOW())
+        SQL
+        # Each table's NOT NULL columns beyond id/account/agent/timestamps. Raw
+        # inserts: none of these models has a factory.
+        required = {
+          "ai_agent_proposals" => { "proposal_type" => "feature", "title" => "t" },
+          "ai_agent_escalations" => { "escalation_type" => "stuck", "title" => "t" },
+          "ai_agent_feedbacks" => { "feedback_type" => "thumbs", "rating" => 5, "user_id" => user.id },
+          "ai_goal_plans" => { "goal_id" => goal_id },
+          "ai_agent_observations" => { "observation_type" => "anomaly", "sensor_type" => "k", "title" => "t" },
+          "ai_team_restructure_events" => { "ai_agent_team_id" => team.id, "event_type" => "added" }
+        }
+        ids = required.to_h do |table, extra|
+          id = SecureRandom.uuid
+          columns = [ "id", "account_id", "ai_agent_id", *extra.keys ]
+          values = [ id, account.id, dup.id, *extra.values ]
+          placeholders = values.each_index.map { |i| "$#{i + 1}" }
+          connection.exec_insert(
+            "INSERT INTO #{table} (#{columns.join(', ')}, created_at, updated_at) " \
+            "VALUES (#{placeholders.join(', ')}, NOW(), NOW())",
+            "history-#{table}", values
+          )
+          [ table, id ]
+        end
+        expect(ids.keys + [ "ai_deferred_operations" ]).to match_array(described_class::MERGE_HISTORY_FKS.map(&:first))
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
         expect(result[:errors]).to be_empty
-        expect(Ai::DeferredOperation.where(id: operation.id)).to exist
-        expect(operation.reload.ai_agent_id).to eq(keeper.id)
+        ids.each do |table, id|
+          agent = connection.select_value("SELECT ai_agent_id FROM #{table} WHERE id = #{connection.quote(id)}")
+          expect(agent).to eq(keeper.id), "#{table} row was #{agent.nil? ? 'deleted or nulled' : "left on #{agent}"}"
+        end
       end
 
       it "rolls back a failed merge, reports it, and leaves the keeper intact" do
@@ -724,6 +792,12 @@ RSpec.describe Ai::McpClientIdentityService do
       unclassified = db_fks.uniq - described_class.classified_agent_fks
       expect(unclassified).to be_empty,
                               "FKs to ai_agents with no merge rule (repoint, delete or drop): #{unclassified.inspect}"
+    end
+
+    it "gives every foreign key exactly one merge rule" do
+      classified = described_class.classified_agent_fks
+      expect(classified.tally.select { |_, n| n > 1 }.keys).to be_empty
+      expect(described_class::MERGE_HISTORY_FKS - Ai::Tools::AgentManagementTool::DELETE_AGENT_ROWS).to be_empty
     end
   end
 end
