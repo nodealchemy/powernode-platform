@@ -34,12 +34,26 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
   end
 
   describe 'client options' do
-    it 'sets explicit timeouts and a single retry so a hanging endpoint cannot stall a caller' do
-      provider.initialize_storage
+    it 'leaves the shared client on the SDK defaults so uploads and downloads keep the normal limits' do
+      provider
+
+      expect(Aws::S3::Client).to have_received(:new).with(
+        hash_not_including(:http_open_timeout, :http_read_timeout, :retry_limit)
+      )
+    end
+
+    it 'deletes through a separate client with tight timeouts and a single retry' do
+      allow(s3_client).to receive(:delete_object).and_return(true)
+
+      provider.delete_file(file_object)
 
       expect(Aws::S3::Client).to have_received(:new).with(
         hash_including(http_open_timeout: 10, http_read_timeout: 30, retry_limit: 1)
       )
+    end
+
+    it 'bounds the worst case of one delete' do
+      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq((10 + 30) * (1 + 1))
     end
   end
 

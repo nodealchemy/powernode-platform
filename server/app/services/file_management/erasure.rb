@@ -73,8 +73,13 @@ module FileManagement
     # attempts = 80 s worst case), so batch_size x worst case would be far
     # over the request budget. The batch therefore also carries a wall-clock
     # budget: no NEW file is started once it is spent, and the cursor stops at
-    # the last file attempted. Budget + one worst-case call stays under the
-    # 120 s worker timeout (30 + 80 = 110).
+    # the last file attempted. Budget + one worst-case delete stays under the
+    # 120 s worker timeout; each cloud provider exposes its figure as
+    # DELETE_WORST_CASE_SECONDS (S3 80, GCS 60, Azure 40) and a spec holds
+    # the sum under 120. The tight limits apply to the DELETE path only.
+    # The dead-store probe adds nothing to that: store_live? is a constant
+    # true for the cloud providers (no network call) and one marker-file read
+    # for the path-backed ones.
     TIME_BUDGET_SECONDS = 30
 
     # Personal content the destroy's own audit row must not archive — the

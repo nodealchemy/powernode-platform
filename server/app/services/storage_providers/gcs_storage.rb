@@ -8,6 +8,13 @@ module StorageProviders
   class GcsStorage < Base
     attr_reader :gcs_client, :bucket_name
 
+    # A delete is bucket lookup + file lookup + delete = 3 calls. Its own
+    # client: no retries and a 20 s timeout, so one hanging file costs at most
+    # 60 s; the shared client keeps the library defaults for uploads/downloads.
+    DELETE_CLIENT_TIMEOUT = 20
+    DELETE_CALLS = 3
+    DELETE_WORST_CASE_SECONDS = DELETE_CALLS * DELETE_CLIENT_TIMEOUT
+
     def initialize(storage_config)
       super
       @bucket_name = config("bucket")
@@ -192,7 +199,7 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
-      bucket = @gcs_client.bucket(@bucket_name)
+      bucket = delete_client.bucket(@bucket_name)
       gcs_file = bucket.file(file_object.storage_key)
 
       return true unless gcs_file
@@ -368,13 +375,17 @@ module StorageProviders
 
     private
 
-    def create_gcs_client
+    def delete_client
+      @delete_client ||= create_gcs_client(timeout: DELETE_CLIENT_TIMEOUT, retries: 0)
+    end
+
+    def create_gcs_client(extra_options = {})
       credentials = build_credentials
 
       Google::Cloud::Storage.new(
         project_id: @project_id,
         credentials: credentials,
-        timeout: 30
+        **extra_options
       )
     end
 

@@ -8,6 +8,13 @@ module StorageProviders
   class S3Storage < Base
     attr_reader :s3_client, :bucket_name
 
+    # The delete path (GDPR erasure budgets ~200 ms per delete against a 120 s
+    # request) runs on its own tight client; the shared client keeps the SDK
+    # defaults so large uploads and downloads are not cut short.
+    DELETE_CLIENT_OPTIONS = { http_open_timeout: 10, http_read_timeout: 30, retry_limit: 1 }.freeze
+    DELETE_WORST_CASE_SECONDS = (DELETE_CLIENT_OPTIONS[:http_open_timeout] + DELETE_CLIENT_OPTIONS[:http_read_timeout]) *
+                                (DELETE_CLIENT_OPTIONS[:retry_limit] + 1)
+
     def initialize(storage_config)
       super
       @bucket_name = config("bucket")
@@ -243,7 +250,7 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
-      @s3_client.delete_object(
+      delete_client.delete_object(
         bucket: @bucket_name,
         key: file_object.storage_key
       )
@@ -478,18 +485,15 @@ module StorageProviders
 
     private
 
-    def create_s3_client
+    def delete_client
+      @delete_client ||= create_s3_client(DELETE_CLIENT_OPTIONS)
+    end
+
+    def create_s3_client(extra_options = {})
       client_options = {
         region: @region,
-        credentials: create_credentials,
-        # The SDK defaults (60 s open/read, 3 retries) allow minutes per call;
-        # callers such as FileManagement::Erasure budget ~200 ms per delete
-        # against a 120 s request timeout. Worst case per call here:
-        # (10 + 30) * (1 + retry_limit) = 80 s only if the endpoint hangs.
-        http_open_timeout: 10,
-        http_read_timeout: 30,
-        retry_limit: 1
-      }
+        credentials: create_credentials
+      }.merge(extra_options)
 
       # Support for S3-compatible services (Minio, DigitalOcean Spaces, etc.)
       if config("endpoint")

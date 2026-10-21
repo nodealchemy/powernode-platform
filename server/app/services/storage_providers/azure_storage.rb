@@ -13,6 +13,13 @@ module StorageProviders
   class AzureStorage < Base
     API_VERSION = "2023-11-03"
 
+    # The delete path runs on a connection with tight timeouts (GDPR erasure
+    # budgets its batch against the 120 s worker timeout); the shared
+    # connection keeps the normal limits for uploads and downloads.
+    DELETE_TIMEOUT = 30
+    DELETE_OPEN_TIMEOUT = 10
+    DELETE_WORST_CASE_SECONDS = DELETE_TIMEOUT + DELETE_OPEN_TIMEOUT
+
     attr_reader :container_name
 
     def initialize(storage_config)
@@ -217,7 +224,7 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
-      make_request(:delete, blob_path(file_object.storage_key))
+      make_request(:delete, blob_path(file_object.storage_key), connection: delete_connection)
 
       log_info("Deleted the blob of file object #{file_object.id} from Azure")
       true
@@ -383,13 +390,17 @@ module StorageProviders
       end
     end
 
-    def build_connection
+    def delete_connection
+      @delete_connection ||= build_connection(timeout: DELETE_TIMEOUT, open_timeout: DELETE_OPEN_TIMEOUT)
+    end
+
+    def build_connection(timeout: 120, open_timeout: 30)
       Faraday.new(url: base_url) do |conn|
         conn.request :multipart
         conn.response :raise_error
         conn.adapter Faraday.default_adapter
-        conn.options.timeout = 30
-        conn.options.open_timeout = 10
+        conn.options.timeout = timeout
+        conn.options.open_timeout = open_timeout
       end
     end
 
@@ -401,7 +412,7 @@ module StorageProviders
       "/#{@container_name}/#{storage_key}"
     end
 
-    def make_request(method, path, body: nil, headers: {}, params: {})
+    def make_request(method, path, body: nil, headers: {}, params: {}, connection: @connection)
       request_time = Time.now.utc.httpdate
       content_length = body ? body.bytesize : 0
 
@@ -428,7 +439,7 @@ module StorageProviders
         content_length: content_length
       )
 
-      response = @connection.run_request(method, uri, body, request_headers)
+      response = connection.run_request(method, uri, body, request_headers)
       response
     rescue Faraday::ClientError, Faraday::ServerError => e
       status = e.response&.dig(:status) || 0

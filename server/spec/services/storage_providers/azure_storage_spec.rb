@@ -30,6 +30,17 @@ RSpec.describe StorageProviders::AzureStorage, type: :service do
     end
   end
 
+  describe 'connections' do
+    it 'keeps the normal timeouts on the shared connection and tight ones on the delete connection' do
+      shared = provider.instance_variable_get(:@connection)
+      tight = provider.send(:delete_connection)
+
+      expect([ shared.options.timeout, shared.options.open_timeout ]).to eq([ 120, 30 ])
+      expect([ tight.options.timeout, tight.options.open_timeout ]).to eq([ 30, 10 ])
+      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq(30 + 10)
+    end
+  end
+
   describe '#initialize_storage' do
     it 'returns true when container exists' do
       stub_azure_request(

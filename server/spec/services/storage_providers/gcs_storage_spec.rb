@@ -42,8 +42,7 @@ RSpec.describe StorageProviders::GcsStorage, type: :service do
     it 'creates a GCS client' do
       expect(Google::Cloud::Storage).to receive(:new).with(
         project_id: 'test-project',
-        credentials: anything,
-        timeout: 30
+        credentials: anything
       ).and_return(gcs_client)
 
       described_class.new(storage_config)
@@ -143,6 +142,18 @@ RSpec.describe StorageProviders::GcsStorage, type: :service do
   end
 
   describe '#delete_file' do
+    it 'uses a separate client with a bounded timeout and no retries, leaving the shared client alone' do
+      allow(bucket).to receive(:file).and_return(gcs_file)
+      allow(gcs_file).to receive(:delete).and_return(true)
+
+      provider.delete_file(file_object)
+
+      expect(Google::Cloud::Storage).to have_received(:new).with(
+        hash_including(project_id: 'test-project', timeout: 20, retries: 0)
+      )
+      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq(3 * 20)
+    end
+
     it 'deletes file and returns true' do
       allow(bucket).to receive(:file).with(file_object.storage_key).and_return(gcs_file)
       allow(gcs_file).to receive(:delete).and_return(true)

@@ -399,6 +399,15 @@ RSpec.describe FileManagement::Erasure do
     end
   end
 
+  describe 'the time budget against the cloud providers' do
+    it 'keeps budget + one worst-case delete under the 120 s worker timeout for every cloud provider' do
+      [ StorageProviders::S3Storage, StorageProviders::GcsStorage, StorageProviders::AzureStorage ].each do |klass|
+        expect(described_class::TIME_BUDGET_SECONDS + klass::DELETE_WORST_CASE_SECONDS)
+          .to be < 120, "#{klass} worst case #{klass::DELETE_WORST_CASE_SECONDS}s"
+      end
+    end
+  end
+
   describe 'batching' do
     let!(:files) { Array.new(5) { |i| personal_file(filename: "f#{i}.pdf") } }
 
