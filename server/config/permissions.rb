@@ -677,6 +677,11 @@ module Permissions
     resource :goals, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
     resource :campaigns, actions: %i[read manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
     resource :intervention_policies, actions: %i[manage], grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all }
+    # Time-boxed promotion grants (Ai::PromotionGrant). `manage` issues and
+    # revokes one (issuing also needs the gated verb's own permission and a
+    # person's own session); `read` lists them.
+    resource :promotion_grants, actions: %i[read manage],
+             grant: { owner: :all, admin: :all, manager: %i[read], ai_specialist: %i[read] }
     resource :proposals, actions: %i[view review],
              grant: { owner: :all, admin: :all, manager: :all, ai_specialist: :all, member: %i[view] }
     resource :escalations, actions: %i[view resolve],

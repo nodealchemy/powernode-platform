@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_20_160100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_21_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -2019,6 +2019,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_160100) do
     t.datetime "executed_at"
     t.string "executor_class", null: false
     t.jsonb "params", default: {}, null: false
+    t.uuid "promotion_grant_id"
     t.uuid "requested_by_id"
     t.jsonb "result", default: {}, null: false
     t.uuid "source_id"
@@ -2032,6 +2033,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_160100) do
     t.index ["approval_request_id"], name: "index_ai_deferred_operations_on_approval_request_id"
     t.index ["environment_id"], name: "index_ai_deferred_operations_on_environment_id"
     t.index ["executor_class"], name: "index_ai_deferred_operations_on_executor_class"
+    t.index ["promotion_grant_id"], name: "index_ai_deferred_operations_on_promotion_grant_id"
     t.index ["requested_by_id"], name: "index_ai_deferred_operations_on_requested_by_id"
     t.index ["source_type", "source_id"], name: "index_ai_deferred_operations_on_source_type_and_source_id"
   end
@@ -3360,6 +3362,31 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_160100) do
     t.index ["environment_id"], name: "index_ai_projects_on_environment_id"
     t.index ["repository_id"], name: "index_ai_projects_on_repository_id"
     t.index ["template_type", "template_id"], name: "index_ai_projects_on_template_type_and_template_id"
+  end
+
+  create_table "ai_promotion_grants", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action_category", null: false
+    t.uuid "ai_agent_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "environment_id", null: false
+    t.datetime "expires_at", null: false
+    t.uuid "granted_by_id", null: false
+    t.integer "max_uses"
+    t.uuid "module_ids", default: [], null: false, array: true
+    t.text "reason", null: false
+    t.datetime "revoked_at"
+    t.uuid "revoked_by_id"
+    t.datetime "updated_at", null: false
+    t.integer "uses_count", default: 0, null: false
+    t.index ["account_id", "ai_agent_id", "action_category", "expires_at"], name: "idx_ai_promotion_grants_lookup"
+    t.index ["account_id"], name: "index_ai_promotion_grants_on_account_id"
+    t.index ["ai_agent_id"], name: "index_ai_promotion_grants_on_ai_agent_id"
+    t.index ["environment_id"], name: "index_ai_promotion_grants_on_environment_id"
+    t.index ["granted_by_id"], name: "index_ai_promotion_grants_on_granted_by_id"
+    t.index ["revoked_by_id"], name: "index_ai_promotion_grants_on_revoked_by_id"
+    t.check_constraint "max_uses IS NULL OR max_uses > 0 AND uses_count <= max_uses", name: "chk_ai_promotion_grants_within_max_uses"
+    t.check_constraint "uses_count >= 0", name: "chk_ai_promotion_grants_uses_nonnegative"
   end
 
   create_table "ai_provider_credentials", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
@@ -11976,6 +12003,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_160100) do
   add_foreign_key "ai_deferred_operations", "ai_agents"
   add_foreign_key "ai_deferred_operations", "ai_approval_requests", column: "approval_request_id"
   add_foreign_key "ai_deferred_operations", "ai_environments", column: "environment_id", on_delete: :nullify
+  add_foreign_key "ai_deferred_operations", "ai_promotion_grants", column: "promotion_grant_id", on_delete: :nullify
   add_foreign_key "ai_deferred_operations", "users", column: "requested_by_id"
   add_foreign_key "ai_delegation_policies", "accounts"
   add_foreign_key "ai_delegation_policies", "ai_agents", column: "agent_id"
@@ -12081,6 +12109,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_160100) do
   add_foreign_key "ai_policy_violations", "users", column: "resolved_by_id"
   add_foreign_key "ai_pressure_fields", "accounts"
   add_foreign_key "ai_projects", "ai_environments", column: "environment_id"
+  add_foreign_key "ai_promotion_grants", "accounts"
+  add_foreign_key "ai_promotion_grants", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_promotion_grants", "ai_environments", column: "environment_id", on_delete: :cascade
+  add_foreign_key "ai_promotion_grants", "users", column: "granted_by_id"
+  add_foreign_key "ai_promotion_grants", "users", column: "revoked_by_id", on_delete: :nullify
   add_foreign_key "ai_provider_credentials", "accounts", on_delete: :cascade
   add_foreign_key "ai_provider_credentials", "ai_providers", on_delete: :cascade
   add_foreign_key "ai_provider_metrics", "accounts"

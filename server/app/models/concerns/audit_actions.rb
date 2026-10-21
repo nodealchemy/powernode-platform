@@ -367,6 +367,12 @@ module AuditActions
     ai.approvals.machine_park_refused ai.approvals.machine_park_deduped ai.approvals.machine_park_rate_limited
   ].freeze
 
+  # Time-boxed promotion grants (Ai::PromotionGrants::Ledger): a person issues
+  # or revokes one; the autonomy gate spends one use in place of parking.
+  AI_PROMOTION_GRANT_ACTIONS = %w[
+    ai.promotion_grant.created ai.promotion_grant.revoked ai.promotion_grant.used
+  ].freeze
+
   # =============================================================================
   # AI AGENT TEAM ACTIONS — renamed from the underscore-namespace form
   # (ai_agent_team.<verb>) to the dot convention (IMP-85fb47438be6, operator
@@ -718,6 +724,7 @@ module AuditActions
     AI_IMPROVEMENT_ACTIONS,
     AI_APPROVAL_DISPATCH_ACTIONS,
     AI_APPROVAL_MACHINE_REQUEST_ACTIONS,
+    AI_PROMOTION_GRANT_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
     DEVOPS_ACTIONS,
     SWARM_ACTIONS,

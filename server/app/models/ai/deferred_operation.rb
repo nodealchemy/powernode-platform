@@ -54,6 +54,9 @@ module Ai
     belongs_to :ai_agent, class_name: "Ai::Agent", optional: true
     # The plane the operation was gated against (Environment campaign, incr. 3).
     belongs_to :environment, class_name: "Ai::Environment", optional: true
+    # The time-boxed grant this operation ran under instead of parking
+    # (Ai::AutonomyGate, Ai::PromotionGrants::Ledger). nil for every other path.
+    belongs_to :promotion_grant, class_name: "Ai::PromotionGrant", optional: true, inverse_of: :deferred_operations
 
     # Reserved key in the params column holding the sealed original of a
     # secret-bearing params hash (IMP-3d10c3c9439e). Never visible through the
