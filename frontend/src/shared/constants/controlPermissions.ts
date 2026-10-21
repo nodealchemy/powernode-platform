@@ -11,6 +11,7 @@ export const CONTROL_PERMISSIONS: string[] = [
   'ai.approval_chains.manage',
   'ai.intervention_policies.manage',
   'ai.promotion_grants.read',
+  'ai.promotion_grants.manage',
   'ai.governance.read',
   'ai.kill_switch.manage',
   'ai.security.manage',

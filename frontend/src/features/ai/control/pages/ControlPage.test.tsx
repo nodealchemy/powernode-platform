@@ -32,6 +32,7 @@ jest.mock('@/features/ai/autonomy/components/ProposalsPanel', () => ({ Proposals
 jest.mock('@/features/ai/autonomy/components/EscalationsPanel', () => ({ EscalationsPanel: stub('escalations') }));
 jest.mock('@/shared/components/approval-chains/ApprovalChainList', () => ({ ApprovalChainList: stub('approval-chains') }));
 jest.mock('@/features/ai/autonomy/components/InterventionPoliciesPanel', () => ({ InterventionPoliciesPanel: stub('intervention-policies') }));
+jest.mock('@/features/ai/autonomy/components/PromotionGrantsPanel', () => ({ PromotionGrantsPanel: stub('promotion-grants') }));
 jest.mock('@/features/ai/control/components/ComplianceTab', () => ({ ComplianceTab: stub('compliance') }));
 jest.mock('@/features/ai/budgets/components/BudgetsPanel', () => ({ BudgetsPanel: stub('budgets') }));
 jest.mock('@/features/ai/autonomy/components/KillSwitchPanel', () => ({ KillSwitchPanel: stub('kill-switch') }));
@@ -240,5 +241,17 @@ describe('ControlPage — gated on what each leaf\'s endpoints check', () => {
 describe('CONTROL_PERMISSIONS — the route and nav gate', () => {
   it('is exactly the set of permissions the leaves and tabs are gated on', () => {
     expect([...CONTROL_PERMISSIONS].sort()).toEqual(controlLeafPermissions().sort());
+  });
+});
+
+describe('Promotion grants tab', () => {
+  it.each([['ai.promotion_grants.read'], ['ai.promotion_grants.manage']])('opens for a holder of %s alone', (perm) => {
+    mockPermissions = [perm];
+    renderAt('/app/ai/control/policies/promotion-grants');
+    expect(screen.getByTestId('promotion-grants')).toBeInTheDocument();
+  });
+
+  it('is gated on either permission in the route and nav gate', () => {
+    expect(controlLeafPermissions()).toEqual(expect.arrayContaining(['ai.promotion_grants.read', 'ai.promotion_grants.manage']));
   });
 });

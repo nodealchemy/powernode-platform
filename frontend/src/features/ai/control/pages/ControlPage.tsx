@@ -71,7 +71,7 @@ const LEAVES: ControlLeafSpec[] = [
     key: 'policies', label: 'Policies', permission: '', icon: <ScrollText size={16} />,
     tabs: [
       { key: 'intervention', label: 'Intervention', permission: 'ai.intervention_policies.manage', element: <InterventionPoliciesPanel /> },
-      { key: 'promotion-grants', label: 'Promotion grants', permission: 'ai.promotion_grants.read', element: <PromotionGrantsPanel /> },
+      { key: 'promotion-grants', label: 'Promotion grants', permission: 'ai.promotion_grants.read|ai.promotion_grants.manage', element: <PromotionGrantsPanel /> },
       { key: 'compliance-rules', label: 'Compliance rules', permission: 'ai.governance.read', element: <ComplianceTab /> },
     ],
   },
@@ -106,10 +106,14 @@ const LEAVES: ControlLeafSpec[] = [
   },
 ];
 
+/** A gate may name alternatives, `a|b`: any one of them opens it. */
+const ANY_OF = '|';
+
 /** The permissions the leaves and their tabs are gated on (pinned to CONTROL_PERMISSIONS). */
 export function controlLeafPermissions(): string[] {
   return Array.from(new Set(
-    LEAVES.flatMap((leaf) => (leaf.tabs ? leaf.tabs.map((t) => t.permission) : [leaf.permission])),
+    LEAVES.flatMap((leaf) => (leaf.tabs ? leaf.tabs.map((t) => t.permission) : [leaf.permission]))
+      .flatMap((p) => p.split(ANY_OF)),
   ));
 }
 
@@ -143,7 +147,8 @@ const ControlLeaf: React.FC<{ leaf: ControlLeafSpec; hasPermission: (p: string) 
 };
 
 export const ControlPage: React.FC = () => {
-  const { hasPermission } = usePermissions();
+  const { hasPermission: hasOne } = usePermissions();
+  const hasPermission = (permission: string) => permission.split(ANY_OF).some(hasOne);
   const location = useLocation();
 
   // A leaf with tabs is open to anyone who can use one of its tabs.

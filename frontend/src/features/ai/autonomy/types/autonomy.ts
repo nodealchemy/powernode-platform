@@ -336,6 +336,8 @@ export interface PromotionGrant {
   agent: { id: string; name: string; agent_type?: string } | null;
   environment: { id: string; slug: string; name: string; is_protected: boolean } | null;
   module_ids: string[];
+  granter_driven_only: boolean;
+  strict_plane: boolean;
   max_uses: number | null;
   uses_count: number;
   uses_remaining: number | null;
@@ -350,7 +352,11 @@ export interface PromotionGrant {
 
 export interface PromotionGrantOptions {
   categories: string[];
-  environments: { id: string; slug: string; name: string; tier: number; is_protected: boolean }[];
+  environments: {
+    id: string; slug: string; name: string; tier: number; is_protected: boolean;
+    /** Supervised or tier >= 3: the server requires max uses, modules and a short life. */
+    strict: boolean; max_lifetime_hours: number; max_uses_limit: number | null;
+  }[];
   modules: { id: string; name: string }[];
   expiry_presets_hours: number[];
   max_lifetime_hours: number;
@@ -365,4 +371,5 @@ export interface CreatePromotionGrantParams {
   max_uses?: number | null;
   expires_in_hours: number;
   reason: string;
+  granter_driven_only: boolean;
 }

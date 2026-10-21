@@ -33,11 +33,18 @@ const OPTIONS = {
     { id: 'env-staging', slug: 'staging', name: 'Staging', tier: 1, is_protected: false },
     { id: 'env-ops', slug: 'ops', name: 'Operations', tier: 2, is_protected: true },
     { id: 'env-prod', slug: 'prod', name: 'Production', tier: 3, is_protected: true },
-  ],
+    // A strict plane that is not named prod: the warning must key on the server's flags, not the slug.
+    { id: 'env-eu', slug: 'live-eu', name: 'Live EU', tier: 3, is_protected: true },
+  ].map((e) => ({
+    ...e,
+    strict: e.tier >= 3,
+    max_lifetime_hours: e.tier >= 3 ? 4 : 24,
+    max_uses_limit: e.tier >= 3 ? 10 : null,
+  })),
   modules: [{ id: 'mod-1', name: 'hub-backend' }, { id: 'mod-2', name: 'hub-worker' }],
   expiry_presets_hours: [1, 4, 8, 24],
   max_lifetime_hours: 24,
-  required_permission: 'system.modules.update',
+  required_permission: 'system.modules.update' as string | null,
 };
 
 // An MCP-client agent: it has NO trust score, so a trust-score-sourced
@@ -57,10 +64,16 @@ const GRANT = {
   created_at: '2026-10-21T10:00:00Z',
 };
 
-function routeGets(url: string) {
+let mockOptions: typeof OPTIONS = OPTIONS;
+
+function routeGets(url: string, config?: { params?: { search?: string } }) {
   if (url === '/ai/promotion_grants') return Promise.resolve({ data: { data: { promotion_grants: [GRANT] } } });
-  if (url === '/ai/promotion_grants/options') return Promise.resolve({ data: { data: OPTIONS } });
-  if (url === '/ai/agents') return Promise.resolve({ data: { data: { items: AGENTS } } });
+  if (url === '/ai/promotion_grants/options') return Promise.resolve({ data: { data: mockOptions } });
+  if (url === '/ai/agents') {
+    const search = config?.params?.search?.toLowerCase();
+    const items = search ? AGENTS.filter((a) => a.name.toLowerCase().includes(search)) : AGENTS;
+    return Promise.resolve({ data: { data: { items } } });
+  }
   if (url === '/ai/autonomy/trust_scores') return Promise.resolve({ data: { data: [] } });
   return Promise.resolve({ data: { data: [] } });
 }
@@ -78,6 +91,7 @@ beforeEach(() => {
   mockGet.mockReset();
   mockPost.mockReset();
   mockGet.mockImplementation(routeGets);
+  mockOptions = OPTIONS;
   mockPermissions = ['ai.promotion_grants.read', 'ai.promotion_grants.manage'];
 });
 
@@ -125,11 +139,47 @@ describe('PromotionGrantsPanel', () => {
       expect(mockGet).not.toHaveBeenCalledWith('/ai/autonomy/trust_scores');
     });
 
-    it('warns strongly when the environment is prod', async () => {
+    it('warns strongly for a strict plane, keyed on the server flags rather than the slug', async () => {
       await openForm();
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText('Environment'), { target: { value: 'env-eu' } });
+      expect(screen.getByRole('alert')).toHaveTextContent(/Live EU/);
+      expect(screen.getByRole('alert')).toHaveTextContent(/4 hours/);
+    });
+
+    it('shows the strict limits: no preset over 4h, max uses and a module required', async () => {
+      await openForm();
       fireEvent.change(screen.getByLabelText('Environment'), { target: { value: 'env-prod' } });
-      expect(screen.getByRole('alert')).toHaveTextContent(/production/);
+      expect(screen.getByText('8h')).toBeDisabled();
+      expect(screen.getByText('24h')).toBeDisabled();
+      expect(screen.getByText('4h')).not.toBeDisabled();
+      fireEvent.change(screen.getByLabelText('Agent'), { target: { value: 'agent-cc' } });
+      fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'hotfix' } });
+      expect(screen.getByText('Issue grant')).toBeDisabled();
+      expect(screen.getByText(/max uses \(1-10\) and at least one module/i)).toBeInTheDocument();
+    });
+
+    it('says that anyone who can drive the agent can spend its grant, and offers granter-only', async () => {
+      await openForm();
+      expect(screen.getByText(/anyone who can drive this agent can spend/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Only when I drive the agent/i)).not.toBeChecked();
+    });
+
+    it('searches the agents server-side, so a large account still finds one', async () => {
+      await openForm();
+      fireEvent.change(screen.getByLabelText('Search agents'), { target: { value: 'release' } });
+      await waitFor(() => expect(mockGet).toHaveBeenCalledWith('/ai/agents',
+        expect.objectContaining({ params: expect.objectContaining({ search: 'release' }) })));
+      await waitFor(() => expect(within(screen.getByLabelText('Agent')).queryByText('Claude Code (headersHelper) #13')).not.toBeInTheDocument());
+      expect(within(screen.getByLabelText('Agent')).getByText('Release Manager')).toBeInTheDocument();
+    });
+
+    it('is disabled with an explanation when no extension declares the grantable verb (core mode)', async () => {
+      mockOptions = { ...OPTIONS, required_permission: null };
+      renderPanel();
+      fireEvent.click(await screen.findByText('New grant'));
+      expect(await screen.findByText(/no installed extension/i)).toBeInTheDocument();
+      expect(screen.getByText('Issue grant')).toBeDisabled();
     });
 
     it('requires a reason before it can be submitted', async () => {
@@ -150,11 +200,13 @@ describe('PromotionGrantsPanel', () => {
       fireEvent.change(screen.getByLabelText('Max uses'), { target: { value: '2' } });
       fireEvent.click(screen.getByText('8h'));
       fireEvent.change(screen.getByLabelText('Reason'), { target: { value: 'ship the train' } });
+      fireEvent.click(screen.getByLabelText(/Only when I drive the agent/i));
       fireEvent.click(screen.getByText('Issue grant'));
 
       await waitFor(() => expect(mockPost).toHaveBeenCalledWith('/ai/promotion_grants', {
         ai_agent_id: 'agent-cc', environment_id: 'env-ops', action_category: 'release.promote',
         module_ids: ['mod-1'], max_uses: 2, expires_in_hours: 8, reason: 'ship the train',
+        granter_driven_only: true,
       }));
     });
   });

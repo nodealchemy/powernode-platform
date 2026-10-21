@@ -19,15 +19,20 @@ interface AgentListItem {
  * have been scored and so hide MCP-client agents (e.g. a Claude Code session's
  * identity). `scope: 'custom'` limits it to the account's own agents (a grant
  * can only name one); the default also includes the platform's global agents.
+ * Pass `search` to narrow it server-side; one page holds at most 100.
  */
-export function useAccountAgentOptions(options: { scope?: 'custom'; enabled?: boolean } = {}) {
+export function useAccountAgentOptions(options: { scope?: 'custom'; search?: string; enabled?: boolean } = {}) {
   const { scope, enabled = true } = options;
+  // A server-side search (the agents index's `search` param), so an account
+  // with more agents than one page still finds the one it wants.
+  const search = options.search?.trim() || undefined;
   return useQuery({
-    queryKey: ['account-agent-options', scope ?? 'all'],
+    queryKey: ['account-agent-options', scope ?? 'all', search ?? ''],
     enabled,
+    placeholderData: (previous) => previous,
     queryFn: async () => {
       const response = await apiClient.get('/ai/agents', {
-        params: { per_page: 100, ...(scope ? { scope } : {}) },
+        params: { per_page: 100, ...(scope ? { scope } : {}), ...(search ? { search } : {}) },
       });
       const raw = response.data?.data;
       const items = (raw?.items ?? raw?.agents ?? []) as AgentListItem[];
