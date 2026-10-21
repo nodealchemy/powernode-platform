@@ -75,11 +75,17 @@ fi
 
 ROOT="$(git rev-parse --show-toplevel)" || die "not inside a git repository"
 cd "$ROOT"
+# Releasing from inside a submodule would tag/merge the wrong repo as if it were the parent.
+[ -z "$(git rev-parse --show-superproject-working-tree 2>/dev/null)" ] \
+  || die "run scripts/release.sh from the superproject root, not from inside a submodule ($ROOT)"
 
 SUBS=()
 if [ -f .gitmodules ]; then
   while read -r _ path; do
-    [ -e "$path/.git" ] && SUBS+=("$path")
+    # A registered but uninitialised submodule would be silently left out of the
+    # release (partial release): refuse instead.
+    [ -e "$path/.git" ] || die "submodule $path is registered in .gitmodules but not initialised; run 'git submodule update --init $path' and re-run"
+    SUBS+=("$path")
   done < <(git config -f .gitmodules --get-regexp '\.path$' || true)
 fi
 
@@ -167,6 +173,11 @@ check_repo() {
   [ -z "$(git -C "$dir" status --porcelain --ignore-submodules=all)" ] || die "$label working tree is not clean"
   cur="$(git -C "$dir" rev-parse --abbrev-ref HEAD)"
   [ "$cur" = "$BRANCH" ] || die "$label must be on branch $BRANCH (is on '$cur')"
+  git -C "$dir" rev-parse -q --verify "refs/heads/$MASTER" >/dev/null || die "$label has no local $MASTER branch"
+  # A master-only commit (never on the release branch) would be merged into the tag
+  # without having been through the gate: require master to be contained in the release branch.
+  git -C "$dir" merge-base --is-ancestor "refs/heads/$MASTER" "refs/heads/$BRANCH" \
+    || die "$MASTER of $label has commits that $BRANCH does not contain; merge $MASTER into $BRANCH (and re-validate) before releasing"
   for b in "$MASTER" "$DEVELOP"; do
     git -C "$dir" rev-parse -q --verify "refs/heads/$b" >/dev/null || die "$label has no local $b branch"
     for r in $remotes; do
@@ -207,7 +218,10 @@ fi
 merge_to() {
   local dir="$1" into="$2" from="$3" msg="$4"
   git -C "$dir" checkout -q "$into"
-  git -C "$dir" merge -q --no-ff "$from" -m "$msg"
+  if ! git -C "$dir" merge -q --no-ff "$from" -m "$msg"; then
+    git -C "$dir" merge --abort 2>/dev/null || true
+    die "merge of $from into $into failed in $dir (conflict); aborted, nothing was pushed. Resolve by hand, then re-run scripts/release.sh $VERSION"
+  fi
 }
 
 stamp_gemspecs() {

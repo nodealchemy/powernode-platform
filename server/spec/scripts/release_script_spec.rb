@@ -115,6 +115,42 @@ RSpec.describe "scripts/release.sh" do
     expect(out).to match(/tag 0\.3\.0 already exists/i)
   end
 
+  it "dies when a registered submodule is not initialised (no partial release)" do
+    git(@parent, "submodule", "deinit", "-q", "-f", "extensions/ext")
+    st, out = release("0.3.0", "--dry-run")
+    expect(st).not_to be_success
+    expect(out).to match(/submodule.*extensions\/ext.*not initiali[sz]ed/i)
+  end
+
+  it "refuses when master has a commit the release branch does not contain" do
+    git(@parent, "checkout", "-q", "master")
+    File.write(File.join(@parent, "hotfix.txt"), "master only")
+    git(@parent, "add", "-A"); git(@parent, "commit", "-q", "-m", "master-only")
+    [ "origin", "gitea" ].each { |r| git(@parent, "push", "-q", r, "master") }
+    git(@parent, "checkout", "-q", "release/0.3.0")
+    st, out = release("0.3.0", "--dry-run")
+    expect(st).not_to be_success
+    expect(out).to match(/master.*not.*(contained|ancestor)|does not contain/i)
+  end
+
+  it "refuses when a submodule's master has a commit its release branch lacks" do
+    sub = File.join(@parent, "extensions/ext")
+    git(sub, "checkout", "-q", "master")
+    File.write(File.join(sub, "extra.txt"), "x")
+    git(sub, "add", "-A"); git(sub, "commit", "-q", "-m", "ext master-only")
+    git(sub, "push", "-q", "origin", "master")
+    git(sub, "checkout", "-q", "release/0.3.0")
+    st, out = release("0.3.0", "--dry-run")
+    expect(st).not_to be_success
+    expect(out).to match(/extensions\/ext/)
+  end
+
+  it "refuses to run from inside a submodule" do
+    st, out = release("0.3.0", "--dry-run", chdir: File.join(@parent, "extensions/ext"))
+    expect(st).not_to be_success
+    expect(out).to match(/inside a submodule|superproject/i)
+  end
+
   describe "--dry-run" do
     it "validates, prints the plan, and changes nothing" do
       before_head = git(@parent, "rev-parse", "HEAD")
