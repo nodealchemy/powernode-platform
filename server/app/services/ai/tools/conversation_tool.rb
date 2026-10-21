@@ -285,7 +285,7 @@ module Ai
           dispatched_agents = dispatch_mentioned_responses(conversation, message, metadata)
         elsif conversation.agent&.respond_to?(:is_concierge?) && conversation.agent.is_concierge?
           # Concierge: process synchronously via ConciergeService
-          concierge = Ai::ConciergeService.new(conversation: conversation, user: user)
+          concierge = Ai::ConciergeService.new(conversation: conversation, user: user, driving_user: known_driving_user)
           concierge.process_message(params[:message])
           response_message = conversation.messages.not_deleted.where(role: "assistant").order(created_at: :desc).first
           dispatched_agents = [{ id: conversation.agent.id, name: conversation.agent.name, type: "concierge" }]
@@ -377,7 +377,9 @@ module Ai
         conversation = find_or_create_concierge_conversation(concierge_agent)
         conversation.add_user_message(params[:message], user: user)
 
-        service = Ai::ConciergeService.new(conversation: conversation, user: user)
+        # The driver is who drove THIS call, not the tool's user: on the
+        # agent-bridge door that user is the agent's creator (a stand-in).
+        service = Ai::ConciergeService.new(conversation: conversation, user: user, driving_user: known_driving_user)
         service.process_message(params[:message])
 
         last_message = conversation.messages.not_deleted.where(role: "assistant").order(created_at: :desc).first
@@ -419,7 +421,9 @@ module Ai
           action_params = pending&.dig("action_params") || {}
         end
 
-        service = Ai::ConciergeService.new(conversation: conversation, user: user)
+        # The driver is who drove THIS call, not the tool's user: on the
+        # agent-bridge door that user is the agent's creator (a stand-in).
+        service = Ai::ConciergeService.new(conversation: conversation, user: user, driving_user: known_driving_user)
         service.handle_confirmed_action(params[:action_type], action_params)
 
         last_message = conversation.messages.not_deleted.order(created_at: :desc).first

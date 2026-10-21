@@ -71,8 +71,10 @@ module Ai
       list_agents
     ].freeze
 
-    def initialize(agent:, account:, conversation:, user:)
-      super(agent: agent, account: account)
+    # `driving_user`: the REST user on the main tool loop; nil when the
+    # concierge was built from a tool door (Ai::ConciergeService#initialize).
+    def initialize(agent:, account:, conversation:, user:, driving_user: nil)
+      super(agent: agent, account: account, driving_user: driving_user)
       @conversation = conversation
       @user = user
     end

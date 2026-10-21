@@ -203,7 +203,7 @@ module Api
           # Concierge routing — process through ConciergeService
           if conversation.agent&.is_concierge?
             # Concierge ALWAYS responds to workspace messages
-            concierge = ::Ai::ConciergeService.new(conversation: conversation, user: current_user)
+            concierge = ::Ai::ConciergeService.new(conversation: conversation, user: current_user, driving_user: current_user)
             concierge.process_message(content)
 
             assistant_msg = conversation.messages.where.not(role: "user").order(created_at: :desc).first
@@ -460,7 +460,7 @@ module Api
             return render_error("This action is only available for concierge conversations", status: :unprocessable_content)
           end
 
-          concierge = ::Ai::ConciergeService.new(conversation: @conversation, user: current_user)
+          concierge = ::Ai::ConciergeService.new(conversation: @conversation, user: current_user, driving_user: current_user)
           concierge.handle_confirmed_action(
             params[:action_type],
             params[:action_params]&.to_unsafe_h || params[:action_params]&.permit!&.to_h || {}

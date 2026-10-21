@@ -189,6 +189,9 @@ module Ai
       def create_mcp_execution(input_parameters, execution_options)
         executions.create!(
           account: account,
+          # user_id is NOT NULL, so the row still names the creator when no
+          # user started this; user_is_stand_in below says so, and the
+          # executor then hands the tool bridge NO driver (promotion grants).
           user: execution_options[:user] || creator,
           provider: provider,
           input_parameters: input_parameters,
@@ -200,6 +203,7 @@ module Ai
             "tool_id" => mcp_tool_id,
             "connection_id" => execution_options[:connection_id],
             "protocol_version" => "2025-06-18",
+            "user_is_stand_in" => execution_options[:user].nil?,
             "execution_options" => execution_options.except(:user, :connection_id)
           }
         )

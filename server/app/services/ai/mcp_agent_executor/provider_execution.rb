@@ -13,6 +13,17 @@ class Ai::McpAgentExecutor
 
     private
 
+    # Who ran this execution, for the tool bridge's promotion-grant checks:
+    # its user, unless that user is the creator standing in for nobody
+    # (Ai::Agent#create_mcp_execution marks it), in which case unknown.
+    def tool_bridge_driving_user
+      return nil unless @execution
+
+      context = @execution.execution_context
+      stand_in = context.is_a?(Hash) && (context["user_is_stand_in"] == true || context[:user_is_stand_in] == true)
+      stand_in ? nil : @execution.user
+    end
+
     def execute_with_provider(_provider_client, execution_context)
       @logger.info "[MCP_AGENT_EXECUTOR] Executing with provider #{@agent.resolved_provider&.provider_type}"
 
@@ -22,7 +33,8 @@ class Ai::McpAgentExecutor
 
       # The execution's user is who ran the agent; the bridge's tools still run
       # as the agent's creator (see Ai::AgentToolBridgeService#initialize).
-      tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account, driving_user: @execution&.user)
+      tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account,
+                                                   driving_user: tool_bridge_driving_user)
 
       if tool_bridge.tools_enabled? && tool_bridge.tool_definitions_for_llm.any?
         opts[:max_tokens] ||= route_max_tokens(model, agentic: true)

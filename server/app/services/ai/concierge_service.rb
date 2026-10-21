@@ -89,9 +89,14 @@ module Ai
     # decides whether the prompt may name it.
     SKILL_DISCOVERY_ACTION_PATTERN = /\Adiscover_skills\z/
 
-    def initialize(conversation:, user:)
+    # `user` is who the concierge acts for. `driving_user` is the person who
+    # actually drove this turn, handed to the tool bridges for promotion grants:
+    # the REST doors pass their current_user; a tool door passes its own known
+    # driver, which is nil on a stand-in door. Absent ⇒ nil (unknown), never `user`.
+    def initialize(conversation:, user:, driving_user: nil)
       @conversation = conversation
       @user = user
+      @driving_user = driving_user
       @account = user.account
       # HIER-P2I: a conversation attached to the GLOBAL canonical concierge
       # (every concierge conversation minted before the doors learned to
@@ -315,7 +320,7 @@ module Ai
       llm_client = WorkerLlmClient.new(agent_id: @agent.id)
       tool_bridge = Ai::ConciergeToolBridge.new(
         agent: @agent, account: @account,
-        conversation: @conversation, user: @user
+        conversation: @conversation, user: @user, driving_user: @driving_user
       )
 
       messages = build_tool_messages
@@ -795,8 +800,9 @@ module Ai
 
     def handle_tool_bridge_confirmation(params)
       tool_name = params.delete("_tool_name")
-      # The conversation's user confirmed this call: they are its driver.
-      tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account, driving_user: @user)
+      # Whoever drove this confirmation (the REST session's user, or the tool
+      # door's own known driver), never the acting user by default.
+      tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account, driving_user: @driving_user)
 
       result_json = tool_bridge.dispatch_tool_call(name: tool_name, arguments: params)
       result = JSON.parse(result_json)

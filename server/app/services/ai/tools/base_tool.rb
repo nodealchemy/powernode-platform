@@ -1483,9 +1483,25 @@ module Ai
       # differently; everything else is fixed by construction.
       # (IMP-0e6b216de843)
       def build_skill_executor(executor_class, account: @account, **overrides)
-        mark_instance_provenance(
+        executor = mark_instance_provenance(
           executor_class.new(account: account, agent: @agent, user: @user, **overrides)
         )
+        # A step of THIS call: it inherits the call's door and its driver, and
+        # on a stand-in door the driver is explicitly unknown (nil), never the
+        # creator the call runs as (promotion grants, Ai::AutonomyGate).
+        executor.driving_user = known_driving_user if executor.respond_to?(:driving_user=)
+        executor.parent_call_origin = call_origin if executor.respond_to?(:parent_call_origin=)
+        executor
+      end
+
+      # The person who drove this call, for a promotion grant: the one a door
+      # named (#driving_user=), else nil on a stand-in door
+      # (Ai::AutonomyGate::STAND_IN_USER_ORIGINS, whose `user` is the agent's
+      # creator), else the tool's own user.
+      def known_driving_user
+        return @driving_user if defined?(@driving_user)
+
+        ::Ai::AutonomyGate::STAND_IN_USER_ORIGINS.include?(call_origin) ? nil : user
       end
 
       # Hand this call's INSTANCE provenance to a delegate the tool routes to
