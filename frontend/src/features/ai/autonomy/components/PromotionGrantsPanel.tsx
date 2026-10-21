@@ -139,8 +139,8 @@ export const PromotionGrantForm: React.FC<{ onDone: () => void }> = ({ onDone })
           <span>
             {environment.name} is a strict plane (tier {environment.tier}
             {environment.is_protected ? ', protected' : ''}). This grant lets the agent promote into it without a
-            person approving each promotion. The server allows at most 4 hours, max uses (1-{usesLimit ?? 10}) and
-            named modules only.
+            person approving each promotion. The server allows at most {lifetimeLimit} hours
+            {usesLimit !== null ? `, max uses (1-${usesLimit})` : ''} and named modules only.
           </span>
         </div>
       )}
@@ -175,14 +175,14 @@ export const PromotionGrantForm: React.FC<{ onDone: () => void }> = ({ onDone })
           </div>
         </div>
         <label className="text-sm text-theme-secondary space-y-1">
-          <span>Max uses ({strict ? `required, 1-${usesLimit ?? 10}` : 'optional'})</span>
+          <span>Max uses ({strict ? `required${usesLimit !== null ? `, 1-${usesLimit}` : ''}` : 'optional'})</span>
           <input aria-label="Max uses" type="number" min={1} max={usesLimit ?? undefined} value={maxUses}
             onChange={(e) => setMaxUses(e.target.value)} className={fieldClass} />
         </label>
       </div>
       {strict && !strictBoundsMet && (
         <p className="text-sm text-theme-error-fg">
-          A strict plane needs max uses (1-{usesLimit ?? 10}) and at least one module.
+          A strict plane needs max uses{usesLimit !== null ? ` (1-${usesLimit})` : ''} and at least one module.
         </p>
       )}
 
@@ -287,7 +287,7 @@ export const PromotionGrantsPanel: React.FC = () => {
           While a grant is active, the agent it names may promote into its environment without a per-promotion
           approval. Anyone who can drive that agent can spend the grant (unless it is granter-only), and a failed
           promotion still spends a use. A grant never overrides a block or the kill switch, and lasts at most 24
-          hours (4 on a strict plane such as prod).
+          hours (less on a strict plane such as prod; the form shows that plane's limits).
         </p>
 
         {showCreate && canManage && <PromotionGrantForm onDone={() => setShowCreate(false)} />}

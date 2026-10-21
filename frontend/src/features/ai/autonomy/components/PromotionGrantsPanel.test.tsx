@@ -38,8 +38,9 @@ const OPTIONS = {
   ].map((e) => ({
     ...e,
     strict: e.tier >= 3,
-    max_lifetime_hours: e.tier >= 3 ? 4 : 24,
-    max_uses_limit: e.tier >= 3 ? 10 : null,
+    // live-eu carries limits unlike the defaults, so copy hard-coded to 4h/10 shows up.
+    max_lifetime_hours: e.slug === 'live-eu' ? 2 : (e.tier >= 3 ? 4 : 24),
+    max_uses_limit: e.slug === 'live-eu' ? 7 : (e.tier >= 3 ? 10 : null),
   })),
   modules: [{ id: 'mod-1', name: 'hub-backend' }, { id: 'mod-2', name: 'hub-worker' }],
   expiry_presets_hours: [1, 4, 8, 24],
@@ -144,7 +145,16 @@ describe('PromotionGrantsPanel', () => {
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
       fireEvent.change(screen.getByLabelText('Environment'), { target: { value: 'env-eu' } });
       expect(screen.getByRole('alert')).toHaveTextContent(/Live EU/);
-      expect(screen.getByRole('alert')).toHaveTextContent(/4 hours/);
+    });
+
+    it('takes the strict limits from options, not hard-coded fallbacks (L-2)', async () => {
+      await openForm();
+      fireEvent.change(screen.getByLabelText('Environment'), { target: { value: 'env-eu' } });
+      expect(screen.getByRole('alert')).toHaveTextContent(/at most 2 hours/);
+      expect(screen.getByRole('alert')).toHaveTextContent(/max uses \(1-7\)/);
+      expect(screen.getByText('4h')).toBeDisabled();
+      expect(screen.getByText('1h')).not.toBeDisabled();
+      expect(screen.getByText(/Max uses \(required, 1-7\)/)).toBeInTheDocument();
     });
 
     it('shows the strict limits: no preset over 4h, max uses and a module required', async () => {
