@@ -272,9 +272,10 @@ module Ai
       @revealed_result = result_data if reveal_once
       text_filtered = filter_envelope_text(filtered)
       complete!(text_filtered)
-      # A result the key filter masked is the reveal-once case: the raw return
-      # is the one reveal. Any other result goes back text-filtered, never raw.
-      reveal_once ? result_data : text_filtered
+      # The caller of :proceed is the requester: it gets the executor's return
+      # exactly as produced (the reveal-once contract for a minted secret
+      # included). Only the STORED envelope is redacted.
+      result_data
     rescue StandardError => e
       Rails.logger.error("[DeferredOperation##{id}] execute_now! failed: #{e.class}: " \
                          "#{::Ai::SensitiveParams.filter_text(e.message)}")
@@ -413,12 +414,19 @@ module Ai
     # envelope carries free text under `error`/`message` that can quote the very
     # params it masks (IMP-f8e6bbc5e3bb). Only those two top-level string
     # members are rewritten; the envelope's shape is untouched.
-    def filter_envelope_text(filtered)
-      case filtered
-      when ::Hash then filtered.each_with_object(filtered.class.new) { |(k, v), out| out[k] = filter_envelope_text(v) }
-      when ::Array then filtered.map { |v| filter_envelope_text(v) }
-      when ::String then ::Ai::SensitiveParams.filter_text(filtered)
-      else filtered
+    ENVELOPE_TEXT_KEYS = %w[error message details stderr output].freeze
+
+    def filter_envelope_text(node, inside: false)
+      case node
+      when ::Hash
+        node.each_with_object(node.class.new) do |(key, value), out|
+          out[key] = filter_envelope_text(value, inside: inside || ENVELOPE_TEXT_KEYS.include?(key.to_s))
+        end
+      when ::Array then node.map { |value| filter_envelope_text(value, inside: inside) }
+      # Only free text under an error-ish member, only the secret patterns, no
+      # truncation: every other leaf is byte-identical to what the executor said.
+      when ::String then inside ? ::Ai::SensitiveParams.filter_text(node, truncate: false) : node
+      else node
       end
     end
 

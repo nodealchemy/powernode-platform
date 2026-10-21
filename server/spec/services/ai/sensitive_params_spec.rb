@@ -405,7 +405,8 @@ RSpec.describe Ai::SensitiveParams do
       expect(filtered['notes']).to include('see ').and include(' done')
     end
 
-    %w[ssh_key kubeconfig tls_key pem].each do |key|
+    %w[ssh_key kubeconfig tls_key pem ssh-key sshkey tls-key tlskey id_rsa privkey client-key-data client_key_data
+       private_key_pem key_pem tls_key_pem].each do |key|
       it "masks the #{key} key" do
         expect(described_class.filter(key => 'PLAINTEXT')[key]).to eq('[FILTERED]')
       end
@@ -413,6 +414,40 @@ RSpec.describe Ai::SensitiveParams do
 
     it 'leaves non-secret strings alone' do
       expect(described_class.filter('name' => 'edge-01')['name']).to eq('edge-01')
+    end
+  end
+
+  describe 'PEM-named keys without over-masking (r2 M)' do
+    %w[groupEmail deepEmbedding keepEmpty timestampEmitted ca_cert_pem certificate_pem public_key_pem cert_pem].each do |key|
+      it "leaves #{key} legible" do
+        expect(described_class.filter(key => 'value-123')[key]).to eq('value-123')
+      end
+    end
+  end
+
+  describe 'base64-wrapped PEM armor (r2 L)' do
+    let(:armored) { Base64.strict_encode64("-----BEGIN OPENSSH PRIVATE KEY-----\nABCDEF\n-----END OPENSSH PRIVATE KEY-----\n") }
+
+    it 'masks a string leaf that decodes to a PRIVATE KEY header' do
+      expect(armored).to start_with('LS0tLS1CRUdJTi')
+      expect(described_class.filter('blob' => armored)['blob']).to eq('[FILTERED]')
+    end
+
+    it 'masks it in filter_text too, and leaves other base64 alone' do
+      expect(described_class.filter_text("kube data #{armored} end")).not_to include(armored)
+      other = Base64.strict_encode64('just some ordinary bytes' * 4)
+      expect(described_class.filter('blob' => other)['blob']).to eq(other)
+    end
+  end
+
+  describe '.filter_text(truncate: false)' do
+    it 'masks secrets but neither truncates nor window-cuts' do
+      long = ('lorem ipsum ' * 100).strip
+      out = described_class.filter_text("#{long} password=hunter2", truncate: false)
+
+      expect(out).to start_with(long)
+      expect(out).not_to include('hunter2')
+      expect(out.length).to be > described_class::TEXT_LIMIT
     end
   end
 end

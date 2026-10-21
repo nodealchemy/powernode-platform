@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "base64"
+
 module Ai
   # The one place that decides what "secret" means for material riding through
   # `Ai::AutonomyGate`.
@@ -68,8 +70,17 @@ module Ai
       token secret password passphrase mnemonic seed_phrase
       private_key signing_key api_key api-key apikey credential
       privatekey private-key signingkey signing-key seedphrase seed-phrase
-      ssh_key kubeconfig tls_key pem
+      ssh_key ssh-key sshkey tls_key tls-key tlskey kubeconfig id_rsa privkey
+      client-key-data client_key_data key_pem
     ].freeze
+
+    # Keys matched in FULL rather than as substrings: "pem" as a substring would
+    # mask groupEmail, deepEmbedding, keepEmpty... (and trip reveal-once).
+    EXACT_SECRET_KEYS = %w[pem].freeze
+
+    # A base64 PEM armor: "-----BEGIN " encodes to this prefix. Confirmed by
+    # decoding enough of it to see a PRIVATE KEY header before anything is masked.
+    BASE64_PEM_PREFIX = /LS0tLS1CRUdJTi[A-Za-z0-9+\/=]{20,}/
 
     # Keys that a pattern WOULD match and that provably hold no material —
     # checked before every pattern, including the deployment-configured ones, so
@@ -104,6 +115,7 @@ module Ai
       acceptance_token_expires_at
       tokens_revoked
       api_key_name
+      public_key_pem
     ].freeze
 
     # Deployment-specific additions (JSON array of strings). EXTENDS the
@@ -154,21 +166,21 @@ module Ai
       # with no key beside it survives, and truncation is the only bound on it.
       # The allowlist is deliberately NOT consulted (a key it vouches for masks
       # here).
-      def filter_text(text)
+      def filter_text(text, truncate: true)
         return text if text.nil?
 
         # Valid UTF-8 before any regexp touches it: an exception message can
         # carry invalid bytes (a parser quoting a binary body), and a regexp
         # over those raises rather than masking.
         text = text.to_s.encode(::Encoding::UTF_8, invalid: :replace, undef: :replace).scrub
-        cut = text.length > TEXT_SCAN_WINDOW
+        cut = truncate && text.length > TEXT_SCAN_WINDOW
         text = drop_cut_token(text[0, TEXT_SCAN_WINDOW]) if cut
 
-        text = text.gsub(PEM_PRIVATE_KEY, MASK)
+        text = mask_base64_pem(text.gsub(PEM_PRIVATE_KEY, MASK))
         masked = mask_keyed_values(text.gsub(URL_USERINFO) { "#{::Regexp.last_match(1)}#{MASK}@" })
         masked = masked.gsub(BEARER) { "#{::Regexp.last_match(1)}#{MASK}" }
         masked << "..." if cut
-        masked.truncate(TEXT_LIMIT)
+        truncate ? masked.truncate(TEXT_LIMIT) : masked
       end
 
       # Resolve the pattern set and compile the matcher ONCE for the duration of
@@ -201,9 +213,28 @@ module Ai
         case node
         when ::Hash then node.each_with_object(node.class.new) { |(k, v), out| out[k] = mask_pem_leaves(v) }
         when ::Array then node.map { |v| mask_pem_leaves(v) }
-        when ::String then node.include?("PRIVATE KEY") ? node.gsub(PEM_PRIVATE_KEY, MASK) : node
+        when ::String then mask_pem_string(node)
         else node
         end
+      end
+
+      def mask_pem_string(string)
+        masked = string.include?("PRIVATE KEY") ? string.gsub(PEM_PRIVATE_KEY, MASK) : string
+        base64_pem?(masked.lstrip) ? MASK : masked
+      end
+
+      # True when +string+ begins with a base64 PEM private-key armor.
+      def base64_pem?(string)
+        return false unless string.start_with?("LS0tLS1CRUdJTi")
+
+        decoded = ::Base64.decode64(string[0, 96])
+        decoded.match?(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY/)
+      rescue ArgumentError
+        false
+      end
+
+      def mask_base64_pem(text)
+        text.gsub(BASE64_PEM_PREFIX) { |token| base64_pem?(token) ? MASK : token }
       end
 
       # Everything after the last whitespace of a window cut off mid-text. The
@@ -326,7 +357,8 @@ module Ai
       def key_matcher(patterns)
         return nil if patterns.empty?
 
-        ::Regexp.new("\\A(?!#{allowlist_veto}\\z)(?:.*(?:#{alternation(patterns)}))",
+        exact = EXACT_SECRET_KEYS.map { |key| ::Regexp.escape(key) }.join("|")
+        ::Regexp.new("\\A(?!#{allowlist_veto}\\z)(?:.*(?:#{alternation(patterns)})|(?:#{exact})\\z)",
                      ::Regexp::IGNORECASE | ::Regexp::MULTILINE)
       end
 

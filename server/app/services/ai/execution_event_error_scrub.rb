@@ -26,15 +26,35 @@ module Ai
     BACKOFF_SECONDS = 0.5
     EVENT_TYPE = "approval_execution"
 
-    Result = Struct.new(:scrubbed, :skipped_rows, keyword_init: true) do
-      def complete? = skipped_rows.zero?
+    DONE_MARKER = "ai_execution_event_error_scrub_done"
+
+    Result = Struct.new(:scrubbed, :skipped_rows, :stopped_early, keyword_init: true) do
+      def complete? = skipped_rows.zero? && !stopped_early
     end
 
     def self.call(**options)
       new(**options).call
     end
 
-    def initialize(batch_size: BATCH_SIZE, lock_timeout: LOCK_TIMEOUT, sleeper: Kernel.method(:sleep))
+    # One-shot for deploys (db/seeds.rb runs after db:migrate on every boot
+    # path): runs the scrub under a time budget, and records DONE_MARKER only
+    # when it finished completely, so a cut-short or contended run resumes on
+    # the next boot. NEVER raises into boot. nil when already done.
+    def self.run_once!(time_budget: 30, **options)
+      return nil if ::SiteSetting.get(DONE_MARKER).to_s == "true"
+
+      result = new(deadline: Process.clock_gettime(Process::CLOCK_MONOTONIC) + time_budget, **options).call
+      ::SiteSetting.set(DONE_MARKER, "true", setting_type: "string") if result.complete?
+      Rails.logger.info("[Ai::ExecutionEventErrorScrub] scrubbed #{result.scrubbed}, skipped #{result.skipped_rows}, " \
+                        "complete=#{result.complete?}")
+      result
+    rescue StandardError => e
+      Rails.logger.error("[Ai::ExecutionEventErrorScrub] one-shot failed: #{e.class}")
+      nil
+    end
+
+    def initialize(batch_size: BATCH_SIZE, lock_timeout: LOCK_TIMEOUT, sleeper: Kernel.method(:sleep), deadline: nil)
+      @deadline = deadline
       @batch_size = batch_size
       @lock_timeout = lock_timeout
       @sleeper = sleeper
@@ -44,17 +64,24 @@ module Ai
       scrubbed = 0
       skipped = 0
       last_id = nil
+      stopped_early = false
 
       loop do
         ids = candidate_ids(last_id)
         break if ids.empty?
+
+        # The first batch always runs; after that the budget decides.
+        if @deadline && last_id && Process.clock_gettime(Process::CLOCK_MONOTONIC) > @deadline
+          stopped_early = true
+          break
+        end
 
         last_id = ids.last
         count = scrub_batch(ids)
         count.nil? ? skipped += ids.size : scrubbed += count
       end
 
-      Result.new(scrubbed: scrubbed, skipped_rows: skipped)
+      Result.new(scrubbed: scrubbed, skipped_rows: skipped, stopped_early: stopped_early)
     end
 
     private

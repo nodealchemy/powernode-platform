@@ -520,6 +520,13 @@ settings.set_unless_exists(Powernode::SampleContentGate::SETTING_KEY, "false",
 
 settings.finish
 
+# One-shot post-deploy data scrub (IMP-dbabbea6f81c): historical raw executor
+# error text in ai_execution_events. Guarded by a SiteSetting marker, bounded by a
+# time budget and never raises, so it cannot hold up or fail a boot. It resumes
+# on the next boot if it was cut short. Operators can also run it by hand:
+# `bin/rails ai:scrub_execution_event_errors`.
+Ai::ExecutionEventErrorScrub.run_once!(time_budget: 30)
+
 
 if Powernode::Seeds.demo?
   puts "   Accounts: #{Account.count}"

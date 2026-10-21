@@ -78,6 +78,46 @@ end
 # the adapter maps it to ActiveRecord::LockWaitTimeout. Needs COMMITTED rows
 # (the holder is a second connection), so this group opts out of the wrapping
 # test transaction and cleans up after itself.
+RSpec.describe Ai::ExecutionEventErrorScrub, ".run_once!" do
+  let(:account) { create(:account) }
+  let(:secret) { %w[hunter 2].join }
+
+  def event!(message)
+    Ai::ExecutionEvent.create!(account: account, source_type: "Ai::ApprovalRequest", source_id: SecureRandom.uuid,
+                               event_type: "approval_execution", status: "failed", error_message: message)
+  end
+
+  it "scrubs once, records a marker, and does nothing the second time" do
+    row = event!("x password=#{secret}")
+
+    first = described_class.run_once!(time_budget: 30)
+    expect(first).to be_a(described_class::Result)
+    expect(row.reload.error_message).not_to include(secret)
+    expect(SiteSetting.get(described_class::DONE_MARKER)).to eq("true")
+
+    later = event!("y password=#{secret}")
+    expect(described_class.run_once!(time_budget: 30)).to be_nil
+    expect(later.reload.error_message).to include(secret)
+  end
+
+  it "does not mark done when the time budget cut it short, so the next boot resumes" do
+    event!("x password=#{secret}")
+    event!("y password=#{secret}")
+
+    result = described_class.run_once!(time_budget: 0, batch_size: 1)
+
+    expect(result).not_to be_complete
+    expect(SiteSetting.get(described_class::DONE_MARKER)).to be_blank
+  end
+
+  it "never raises into boot" do
+    allow_any_instance_of(described_class).to receive(:call).and_raise(StandardError, "boom")
+
+    expect { described_class.run_once!(time_budget: 5) }.not_to raise_error
+    expect(SiteSetting.get(described_class::DONE_MARKER)).to be_blank
+  end
+end
+
 RSpec.describe Ai::ExecutionEventErrorScrub, "against a real row lock" do
   self.use_transactional_tests = false
 

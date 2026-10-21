@@ -373,6 +373,10 @@ cd server && RAILS_ENV=production bundle exec rails db:rollback STEP=N
 - [ ] Blue-green or rolling deployment strategy chosen
 - [ ] Automated migrations on deploy
 - [ ] Rollback automation tested
+- [ ] Execution-event error scrub: `ai:scrub_execution_event_errors` runs once automatically from `db:seed`
+      (30 s budget, marker `ai_execution_event_error_scrub_done`, never blocks boot). Confirm the marker is
+      `true`; if the log reports skipped rows or a cut-short run, re-run `bin/rails ai:scrub_execution_event_errors`
+      (idempotent) until it reports 0 skipped.
 - [ ] Post-deployment smoke tests
 
 ### Monitoring

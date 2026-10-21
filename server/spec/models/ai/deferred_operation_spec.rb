@@ -71,12 +71,15 @@ RSpec.describe Ai::DeferredOperation, type: :model do
       expect(op.result).to include('performed' => true)
     end
 
-    it 'masks a secret quoted in ANY string leaf of the envelope, and in what :proceed returns' do
+    it 'masks secrets under error-ish members at any depth in the STORED envelope, byte-identical elsewhere' do
       secret = %w[hunter 2].join
+      pem = "-----BEGIN RSA PRIVATE KEY-----\nABCDEF\n-----END RSA PRIVATE KEY-----"
+      normal = ('a normal leaf ' * 50).strip # ~700 chars, prose
       stub_const('DeepEnvelopeExecutor', Class.new do
         define_singleton_method(:execute) do |_params, deferred_operation:|
-          { success: false, error: { message: "bad password=#{secret}" },
-            details: { stderr: "token: #{secret}" }, output: [ "ok", "secret=#{secret}" ] }
+          { success: false, error: { message: "bad password=#{secret} #{pem}" },
+            details: { stderr: "token: #{secret}" }, output: [ "ok", "secret=#{secret}" ],
+            data: { notes: normal, error: { message: "password=#{secret}" } } }
         end
       end)
       op = described_class.create!(
@@ -84,11 +87,32 @@ RSpec.describe Ai::DeferredOperation, type: :model do
         executor_class: 'DeepEnvelopeExecutor', params: {}
       )
 
+      op.execute_now!
+
+      stored = op.reload.result
+      expect(stored.to_json).not_to include(secret)
+      expect(stored.to_json).not_to include('ABCDEF')
+      expect(stored.dig('data', 'notes')).to eq(normal)
+      expect(stored.dig('output', 0)).to eq('ok')
+    end
+
+    it 'returns the RAW result from the :proceed path (the caller is the requester)' do
+      secret = %w[hunter 2].join
+      stub_const('RawEnvelopeExecutor', Class.new do
+        define_singleton_method(:execute) do |_params, deferred_operation:|
+          { success: false, error: "bad password=#{secret}", note: ('x' * 600) }
+        end
+      end)
+      op = described_class.create!(
+        account: account, action_category: 'test.act',
+        executor_class: 'RawEnvelopeExecutor', params: {}
+      )
+
       returned = op.execute_now!
 
+      expect(returned[:error]).to include(secret)
+      expect(returned[:note].length).to eq(600)
       expect(op.reload.result.to_json).not_to include(secret)
-      expect(returned.to_json).not_to include(secret)
-      expect(op.result.dig('output', 0)).to eq('ok')
     end
 
     it 'masks a secret quoted in the error and message strings of a failed envelope' do
