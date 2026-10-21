@@ -6,15 +6,25 @@
 
 puts "\n🤖 Creating Comprehensive AI Provider Ecosystem..."
 
-admin_account = Account.find_by(name: "Powernode Admin")
-admin_user = admin_account&.users&.find_by(email: "admin@powernode.org")
+# Resolve the bootstrap admin account generically — a wizard-created account
+# carries the operator's own name and email, never the demo account's.
+#   1. the demo account ("Powernode Admin"), when present;
+#   2. the account of the earliest super_admin user;
+#   3. the only account, when exactly one exists.
+# More than one account and no admin among them: skip rather than guess.
+admin_account =
+  Account.find_by(name: "Powernode Admin") ||
+  Account.joins(users: :roles)
+         .where(roles: { name: "super_admin" })
+         .order("users.created_at ASC")
+         .first ||
+  (Account.one? ? Account.first : nil)
 
-if admin_account && admin_user
+if admin_account
   puts "✅ Using admin account: #{admin_account.name} (ID: #{admin_account.id})"
-  puts "✅ Using admin user: #{admin_user.name} (ID: #{admin_user.id})"
 
   # Helper method to create AI Provider if it doesn't exist
-  def create_or_find_ai_provider(account, user, provider_data)
+  def create_or_find_ai_provider(account, provider_data)
     provider = account.ai_providers.find_by(name: provider_data[:name])
     if provider
       puts "⏭️  AI Provider already exists: #{provider_data[:name]}"
@@ -50,7 +60,7 @@ if admin_account && admin_user
   # =============================================================================
 
   created_providers = Ai::ProviderCatalog.all.each_with_object({}) do |provider_data, memo|
-    provider = create_or_find_ai_provider(admin_account, admin_user, provider_data)
+    provider = create_or_find_ai_provider(admin_account, provider_data)
     puts "✅ #{provider_data[:name]} provider created/updated: #{provider.id}"
     memo[provider_data[:provider_type]] = provider
   end
@@ -93,6 +103,5 @@ if admin_account && admin_user
   puts "\n" + "=" * 80
 
 else
-  puts "❌ Error: Could not find admin account and user"
-  puts "   Please ensure database is seeded with admin account first"
+  puts "⏭️  No bootstrap admin account yet — the provider catalog is seeded once it exists"
 end
