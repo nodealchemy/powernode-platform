@@ -8,6 +8,9 @@ module Api
         rescue_from ::Devops::Git::SshKeyCredentialService::AuditUnavailable do |e|
           render_error(e.message, status: :service_unavailable)
         end
+        rescue_from ActiveRecord::RecordNotDestroyed do |e|
+          render_error(e.record&.errors&.full_messages&.to_sentence.presence || "Could not delete", status: :unprocessable_content)
+        end
 
         before_action :set_provider, only: %i[
           show update destroy
@@ -176,7 +179,7 @@ module Api
             return @credential.errors.empty? ? render_success({ credential: serialize_credential_detail(@credential) }) : render_validation_error(@credential.errors)
           end
 
-          if @credential.update(credential_params.except(:credentials))
+          if @credential.update(credential_params)
             render_success({ credential: serialize_credential_detail(@credential) })
           else
             render_validation_error(@credential.errors)

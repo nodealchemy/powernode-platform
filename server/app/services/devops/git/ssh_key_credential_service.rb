@@ -50,8 +50,9 @@ module Devops
           removed = false
           ::Devops::GitProviderCredential.transaction(requires_new: true) do
             audit!(DELETE_ACTION, credential, user, credential.account, request_meta)
-            removed = credential.destroy.present?
-            raise ActiveRecord::Rollback unless removed
+            # An aborted destroy must roll the audit row back and surface, not
+            # return false after the key operation was recorded.
+            removed = credential.destroy || raise(ActiveRecord::RecordNotDestroyed.new("Could not delete the SSH key", credential))
           end
           removed
         end

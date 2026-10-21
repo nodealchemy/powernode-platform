@@ -290,7 +290,8 @@ module Devops
       # Removing the provider removes its credentials with it.
       return if destroyed_by_association
 
-      if is_default? && account.git_provider_credentials.for_provider(git_provider_id).count == 1
+      # SSH keys are not API credentials: the guard counts tokens only.
+      if is_default? && account.git_provider_credentials.for_provider(git_provider_id).where.not(auth_type: "ssh_key").count == 1
         errors.add(:base, "Cannot delete the only credential for this provider")
         throw :abort
       end

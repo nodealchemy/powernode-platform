@@ -11,7 +11,7 @@ RSpec.describe 'Api::V1::Git::Providers SSH access', type: :request do
   let(:user) do
     create(:user, account: account, permissions: %w[
       git.providers.read git.providers.create git.providers.delete git.credentials.read git.credentials.create
-      git.credentials.update git.credentials.delete
+      git.credentials.update git.credentials.delete git.credentials.test
     ])
   end
   let(:headers) { auth_headers_for(user) }
@@ -152,6 +152,80 @@ RSpec.describe 'Api::V1::Git::Providers SSH access', type: :request do
       expect { delete "/api/v1/git/providers/#{provider_id}/credentials/#{ssh_id}", headers: headers }
         .to change(Devops::GitProviderCredential, :count).by(-1)
       expect(AuditLog.where(action: 'git.credentials.ssh_key.delete').count).to eq(1)
+    end
+  end
+
+  describe 'rotating credentials' do
+    it 'rotates a personal access token (the new token is stored, not dropped)' do
+      provider_id = create_provider(name: 'Forge Rotate')
+      post_credential(provider_id, **https_credential)
+      credential_id = json_response_data['credential']['id']
+      new_token = 'fake-rotated-token-0002'
+
+      patch "/api/v1/git/providers/#{provider_id}/credentials/#{credential_id}",
+            params: { credential: { credentials: { token: new_token } } }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      expect(Devops::GitProviderCredential.find(credential_id).access_token).to eq(new_token)
+      expect(response.body).not_to include(new_token)
+    end
+
+    it 'replaces an SSH key through the audited path' do
+      provider_id = create_provider(name: 'Forge Replace')
+      post_credential(provider_id, **ssh_credential)
+      credential_id = json_response_data['credential']['id']
+      replacement = fake_private_key.sub(fake_body, Base64.strict_encode64('another-placeholder-material'))
+
+      expect do
+        patch "/api/v1/git/providers/#{provider_id}/credentials/#{credential_id}",
+              params: { credential: { credentials: { private_key: replacement, public_key: fake_public_key } } },
+              headers: headers, as: :json
+      end.to change { AuditLog.where(action: 'git.credentials.ssh_key.replace').count }.by(1)
+
+      expect(response).to have_http_status(:ok)
+      expect(Devops::GitProviderCredential.find(credential_id).credentials['private_key']).to eq(replacement)
+      expect(response.body).not_to include('another-placeholder')
+    end
+
+    it 'fails closed when a key replacement cannot be audited' do
+      provider_id = create_provider(name: 'Forge Replace Closed')
+      post_credential(provider_id, **ssh_credential)
+      credential_id = json_response_data['credential']['id']
+      before = Devops::GitProviderCredential.find(credential_id).credentials['private_key']
+      allow(AuditLog).to receive(:log_action).and_raise(ActiveRecord::RecordInvalid.new(AuditLog.new))
+      replacement = fake_private_key.sub(fake_body, Base64.strict_encode64('another-placeholder-material'))
+
+      patch "/api/v1/git/providers/#{provider_id}/credentials/#{credential_id}",
+            params: { credential: { credentials: { private_key: replacement } } }, headers: headers, as: :json
+
+      expect(response).to have_http_status(:service_unavailable)
+      expect(Devops::GitProviderCredential.find(credential_id).credentials['private_key']).to eq(before)
+    end
+  end
+
+  describe 'testing credentials' do
+    it 'refuses to test an SSH key (verified on first use)' do
+      provider_id = create_provider(name: 'Forge Test')
+      post_credential(provider_id, **ssh_credential)
+      credential_id = json_response_data['credential']['id']
+
+      post "/api/v1/git/providers/#{provider_id}/credentials/#{credential_id}/test", headers: headers, as: :json
+
+      expect(response).to have_http_status(:unprocessable_content)
+    end
+  end
+
+  describe 'the only-credential guard' do
+    it 'counts tokens, not SSH keys: the only token cannot be deleted while a key remains' do
+      provider_id = create_provider(name: 'Forge Guard')
+      post_credential(provider_id, **https_credential)
+      token_id = json_response_data['credential']['id']
+      post_credential(provider_id, **ssh_credential)
+
+      expect { delete "/api/v1/git/providers/#{provider_id}/credentials/#{token_id}", headers: headers }
+        .not_to change(Devops::GitProviderCredential, :count)
+
+      expect(response).to have_http_status(:unprocessable_content)
     end
   end
 
