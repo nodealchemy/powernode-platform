@@ -10,6 +10,7 @@ export const CONTROL_PERMISSIONS: string[] = [
   'ai.escalations.view',
   'ai.approval_chains.manage',
   'ai.intervention_policies.manage',
+  'ai.promotion_grants.read',
   'ai.governance.read',
   'ai.kill_switch.manage',
   'ai.security.manage',

@@ -49,6 +49,12 @@ function routeGets(url: string) {
   if (url === '/ai/intervention_policies/environments') {
     return Promise.resolve({ data: { success: true, data: { environments: ENVIRONMENTS } } });
   }
+  if (url === '/ai/agents') {
+    // An MCP-client agent with no trust score: the picker must still offer it.
+    return Promise.resolve({ data: { success: true, data: { items: [
+      { id: 'agent-cc', name: 'Claude Code (headersHelper) #13', agent_type: 'mcp_client' },
+    ] } } });
+  }
   if (url === '/ai/intervention_policies') {
     return Promise.resolve({ data: { success: true, data: { policies: [existing], total_count: 1 } } });
   }
@@ -242,5 +248,14 @@ describe('InterventionPoliciesPanel environments multi-select', () => {
     fireEvent.click(screen.getByText('Save Changes'));
     await waitFor(() => expect(mockPut).toHaveBeenCalled());
     expect(mockPut.mock.calls[0][1].conditions.environments).toEqual(['staging', 'ops']);
+  });
+
+  it('offers an agent without a trust score in the agent-scope picker (agents list, not trust scores)', async () => {
+    renderPanel();
+    fireEvent.click(await screen.findByText('Create Policy'));
+    fireEvent.change(screen.getByDisplayValue('global'), { target: { value: 'agent' } });
+
+    expect(await screen.findByText('Claude Code (headersHelper) #13')).toBeInTheDocument();
+    expect(mockGet).not.toHaveBeenCalledWith('/ai/autonomy/trust_scores');
   });
 });

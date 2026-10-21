@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/shared/components/ui/Card';
 import { LoadingSpinner } from '@/shared/components/ui/LoadingSpinner';
 import { EntityLink } from '@/shared/components/entity';
 import { useNotifications } from '@/shared/hooks/useNotifications';
+import { useAccountAgentOptions } from '@/shared/hooks/useAccountAgentOptions';
 import { getErrorMessage } from '@/shared/utils/apiErrors';
 import {
   useInterventionPolicies,
@@ -13,7 +14,6 @@ import {
   useUpdateInterventionPolicy,
   useDeleteInterventionPolicy,
   useResolveInterventionPolicy,
-  useTrustScores,
   useInvalidateInterventionPolicies,
   useInterventionPolicyEnvironments,
 } from '../api/autonomyApi';
@@ -421,8 +421,8 @@ const TestResolveForm: React.FC = () => {
   const [agentId, setAgentId] = useState('');
   const [result, setResult] = useState<PolicyResolutionResult | null>(null);
   const resolveMutation = useResolveInterventionPolicy();
-  const { data: trustScores } = useTrustScores();
-  const agents = (trustScores ?? []).map(ts => ({ id: ts.agent_id, name: ts.agent_name }));
+  const { data: agentOptions } = useAccountAgentOptions();
+  const agents = agentOptions ?? [];
 
   const handleTest = async () => {
     try {
@@ -487,11 +487,12 @@ const PolicyList: React.FC<{ onChanged: () => void }> = ({ onChanged }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [showTest, setShowTest] = useState(false);
   const { data: policies, isLoading } = useInterventionPolicies();
-  const { data: trustScores } = useTrustScores();
+  const { data: agentOptions } = useAccountAgentOptions();
   const createPolicy = useCreateInterventionPolicy();
   const { addNotification } = useNotifications();
 
-  const agents = (trustScores ?? []).map(ts => ({ id: ts.agent_id, name: ts.agent_name }));
+  // The account's agents, not trust scores: an unscored agent (an MCP client) is still pickable.
+  const agents = agentOptions ?? [];
 
   const handleCreate = async (data: PolicyFormData) => {
     try {

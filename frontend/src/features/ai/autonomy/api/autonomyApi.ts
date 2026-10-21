@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/shared/services/apiClient';
-import type { TrustScore, AgentLineage, AgentLineageNode, AutonomyStats, CircuitBreaker, CapabilityMatrix, BehavioralFingerprint, ShadowExecution, TelemetryEvent, DelegationPolicy, KillSwitchStatus, KillSwitchEvent, AgentGoal, AgentProposal, AgentEscalation, AgentFeedback, InterventionPolicy, PolicyEnvironmentOption, PolicyResolutionResult, BatchReviewResult } from '../types/autonomy';
+import type { TrustScore, AgentLineage, AgentLineageNode, AutonomyStats, CircuitBreaker, CapabilityMatrix, BehavioralFingerprint, ShadowExecution, TelemetryEvent, DelegationPolicy, KillSwitchStatus, KillSwitchEvent, AgentGoal, AgentProposal, AgentEscalation, AgentFeedback, InterventionPolicy, PolicyEnvironmentOption, PolicyResolutionResult, BatchReviewResult, PromotionGrant, PromotionGrantOptions, CreatePromotionGrantParams } from '../types/autonomy';
 
 const AUTONOMY_KEYS = {
   all: ['autonomy'] as const,
@@ -36,6 +36,9 @@ const AUTONOMY_KEYS = {
   // Intervention policies
   interventionPolicies: () => [...AUTONOMY_KEYS.all, 'intervention-policies'] as const,
   interventionPolicyEnvironments: () => [...AUTONOMY_KEYS.all, 'intervention-policy-environments'] as const,
+  // Promotion grants
+  promotionGrants: () => [...AUTONOMY_KEYS.all, 'promotion-grants'] as const,
+  promotionGrantOptions: () => [...AUTONOMY_KEYS.all, 'promotion-grant-options'] as const,
 };
 
 // ===== Read Queries =====
@@ -541,6 +544,57 @@ export function useDeleteInterventionPolicy() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.interventionPolicies() });
+    },
+  });
+}
+
+// ===== Promotion Grants =====
+
+export function usePromotionGrants() {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.promotionGrants(),
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/promotion_grants');
+      return (response.data?.data?.promotion_grants ?? []) as PromotionGrant[];
+    },
+    // Time left and use counts move on their own.
+    refetchInterval: 30_000,
+  });
+}
+
+export function usePromotionGrantOptions(options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: AUTONOMY_KEYS.promotionGrantOptions(),
+    enabled: options.enabled ?? true,
+    queryFn: async () => {
+      const response = await apiClient.get('/ai/promotion_grants/options');
+      return response.data?.data as PromotionGrantOptions;
+    },
+  });
+}
+
+export function useCreatePromotionGrant() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: CreatePromotionGrantParams) => {
+      const response = await apiClient.post('/ai/promotion_grants', params);
+      return response.data?.data?.promotion_grant as PromotionGrant;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.promotionGrants() });
+    },
+  });
+}
+
+export function useRevokePromotionGrant() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiClient.post(`/ai/promotion_grants/${id}/revoke`);
+      return response.data?.data?.promotion_grant as PromotionGrant;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: AUTONOMY_KEYS.promotionGrants() });
     },
   });
 }

@@ -13,6 +13,7 @@ import { ProposalsPanel } from '@/features/ai/autonomy/components/ProposalsPanel
 import { EscalationsPanel } from '@/features/ai/autonomy/components/EscalationsPanel';
 import { ApprovalChainList } from '@/shared/components/approval-chains/ApprovalChainList';
 import { InterventionPoliciesPanel } from '@/features/ai/autonomy/components/InterventionPoliciesPanel';
+import { PromotionGrantsPanel } from '@/features/ai/autonomy/components/PromotionGrantsPanel';
 import { BudgetsPanel } from '@/features/ai/budgets/components/BudgetsPanel';
 import { KillSwitchPanel } from '@/features/ai/autonomy/components/KillSwitchPanel';
 import { ShadowModeResultsPanel } from '@/features/ai/autonomy/components/ShadowModeResultsPanel';
@@ -70,6 +71,7 @@ const LEAVES: ControlLeafSpec[] = [
     key: 'policies', label: 'Policies', permission: '', icon: <ScrollText size={16} />,
     tabs: [
       { key: 'intervention', label: 'Intervention', permission: 'ai.intervention_policies.manage', element: <InterventionPoliciesPanel /> },
+      { key: 'promotion-grants', label: 'Promotion grants', permission: 'ai.promotion_grants.read', element: <PromotionGrantsPanel /> },
       { key: 'compliance-rules', label: 'Compliance rules', permission: 'ai.governance.read', element: <ComplianceTab /> },
     ],
   },

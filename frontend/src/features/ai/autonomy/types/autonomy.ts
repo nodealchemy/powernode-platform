@@ -324,3 +324,45 @@ export interface AgentObservation {
   processed: boolean;
   created_at: string;
 }
+
+// ===== Promotion Grants =====
+
+export type PromotionGrantStatus = 'active' | 'expired' | 'exhausted' | 'revoked';
+
+export interface PromotionGrant {
+  id: string;
+  action_category: string;
+  status: PromotionGrantStatus;
+  agent: { id: string; name: string; agent_type?: string } | null;
+  environment: { id: string; slug: string; name: string; is_protected: boolean } | null;
+  module_ids: string[];
+  max_uses: number | null;
+  uses_count: number;
+  uses_remaining: number | null;
+  expires_at: string;
+  seconds_remaining: number;
+  reason: string;
+  granted_by: { id: string; name?: string; email?: string } | null;
+  revoked_at: string | null;
+  revoked_by: { id: string; name?: string } | null;
+  created_at: string;
+}
+
+export interface PromotionGrantOptions {
+  categories: string[];
+  environments: { id: string; slug: string; name: string; tier: number; is_protected: boolean }[];
+  modules: { id: string; name: string }[];
+  expiry_presets_hours: number[];
+  max_lifetime_hours: number;
+  required_permission: string | null;
+}
+
+export interface CreatePromotionGrantParams {
+  ai_agent_id: string;
+  environment_id: string;
+  action_category?: string;
+  module_ids: string[];
+  max_uses?: number | null;
+  expires_in_hours: number;
+  reason: string;
+}

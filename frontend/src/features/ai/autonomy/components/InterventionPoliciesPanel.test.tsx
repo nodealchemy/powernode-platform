@@ -18,9 +18,13 @@ jest.mock('../api/autonomyApi', () => ({
   useUpdateInterventionPolicy: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useDeleteInterventionPolicy: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useResolveInterventionPolicy: () => ({ mutateAsync: jest.fn(), isPending: false }),
-  useTrustScores: () => ({ data: [] }),
   useInvalidateInterventionPolicies: () => jest.fn(),
   useInterventionPolicyEnvironments: () => ({ data: [] }),
+}));
+
+// The agent pickers read the account's agents list (not trust scores).
+jest.mock('@/shared/hooks/useAccountAgentOptions', () => ({
+  useAccountAgentOptions: () => ({ data: [] }),
 }));
 
 jest.mock('@/shared/hooks/useNotifications', () => ({
