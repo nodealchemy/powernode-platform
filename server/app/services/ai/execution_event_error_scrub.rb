@@ -6,12 +6,13 @@ module Ai
   # (Ai::ApprovalRequest). Rows of event_type "approval_execution" written
   # earlier can quote the very params the approval filter masks.
   #
-  # Run by an operator (`rake ai:scrub_execution_event_errors`), NOT by a
-  # migration: migrations run at boot (docker-entrypoint db:prepare,
-  # bootstrap.sh), and a lock wait on a busy table must never keep the app
-  # from starting. The scrub is idempotent and resumable: only rows whose text
-  # filter_text actually changes are written, so a re-run touches nothing it
-  # already scrubbed.
+  # Runs every boot from the host's boot script (and by hand via the rake task,
+  # `rails ai:scrub_execution_event_errors`), through run_once!: bounded by a
+  # time budget, guarded by DONE_MARKER, and never raising into boot. NOT from a
+  # migration: a lock wait on a busy table inside db:migrate would keep the app
+  # from starting. Idempotent (only rows whose text filter_text actually changes
+  # are written) and resumable (a cut-short run saves PROGRESS_MARKER and the
+  # next one starts after it).
   #
   # Scrubs in place through Ai::SensitiveParams.filter_text, the one redactor,
   # in primary-key batches, one transaction per batch, each taking a FOR UPDATE
@@ -27,6 +28,10 @@ module Ai
     EVENT_TYPE = "approval_execution"
 
     DONE_MARKER = "ai_execution_event_error_scrub_done"
+    # The last id a run got through with no batch skipped behind it. A run
+    # resumes after it instead of re-reading the same prefix every boot, and a
+    # complete run clears it.
+    PROGRESS_MARKER = "ai_execution_event_error_scrub_progress"
 
     Result = Struct.new(:scrubbed, :skipped_rows, :stopped_early, keyword_init: true) do
       def complete? = skipped_rows.zero? && !stopped_early
@@ -51,8 +56,12 @@ module Ai
     def self.run_once!(time_budget: 30, force: false, **options)
       return Outcome.new(status: :done) if !force && ::SiteSetting.get(DONE_MARKER).to_s == "true"
 
-      result = new(deadline: Process.clock_gettime(Process::CLOCK_MONOTONIC) + time_budget, **options).call
-      ::SiteSetting.set(DONE_MARKER, "true", setting_type: "string") if result.complete?
+      result = new(deadline: Process.clock_gettime(Process::CLOCK_MONOTONIC) + time_budget,
+                   progress_key: PROGRESS_MARKER, **options).call
+      if result.complete?
+        ::SiteSetting.set(DONE_MARKER, "true", setting_type: "string")
+        ::SiteSetting.where(key: PROGRESS_MARKER).delete_all
+      end
       Rails.logger.info("[Ai::ExecutionEventErrorScrub] scrubbed #{result.scrubbed}, skipped #{result.skipped_rows}, " \
                         "complete=#{result.complete?}")
       Outcome.new(status: result.complete? ? :ran : :cut_short, result: result)
@@ -61,8 +70,12 @@ module Ai
       Outcome.new(status: :failed, error_class: e.class.name)
     end
 
-    def initialize(batch_size: BATCH_SIZE, lock_timeout: LOCK_TIMEOUT, sleeper: Kernel.method(:sleep), deadline: nil)
+    # +progress_key+: a SiteSetting the run resumes after and advances as it
+    # goes (run_once! passes PROGRESS_MARKER); nil scans from the first row.
+    def initialize(batch_size: BATCH_SIZE, lock_timeout: LOCK_TIMEOUT, sleeper: Kernel.method(:sleep), deadline: nil,
+                   progress_key: nil)
       @deadline = deadline
+      @progress_key = progress_key
       @batch_size = batch_size
       @lock_timeout = lock_timeout
       @sleeper = sleeper
@@ -71,28 +84,46 @@ module Ai
     def call
       scrubbed = 0
       skipped = 0
-      last_id = nil
+      last_id = saved_progress
       stopped_early = false
+      first = true
 
       loop do
         ids = candidate_ids(last_id)
         break if ids.empty?
 
         # The first batch always runs; after that the budget decides.
-        if @deadline && last_id && Process.clock_gettime(Process::CLOCK_MONOTONIC) > @deadline
+        if @deadline && !first && Process.clock_gettime(Process::CLOCK_MONOTONIC) > @deadline
           stopped_early = true
           break
         end
 
+        first = false
         last_id = ids.last
         count = scrub_batch(ids)
-        count.nil? ? skipped += ids.size : scrubbed += count
+        if count.nil?
+          skipped += ids.size
+        else
+          scrubbed += count
+          # Never past a skipped batch: its rows still need the scrub.
+          save_progress(last_id) if skipped.zero?
+        end
       end
 
       Result.new(scrubbed: scrubbed, skipped_rows: skipped, stopped_early: stopped_early)
     end
 
     private
+
+    def saved_progress
+      return nil unless @progress_key
+
+      ::SiteSetting.get(@progress_key).presence
+    end
+
+    def save_progress(id)
+      ::SiteSetting.set(@progress_key, id, setting_type: "string") if @progress_key
+    end
 
     def candidate_ids(after_id)
       scope = ::Ai::ExecutionEvent.where(event_type: EVENT_TYPE).where.not(error_message: nil).order(:id)

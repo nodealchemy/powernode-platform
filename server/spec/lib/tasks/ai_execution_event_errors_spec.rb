@@ -2,8 +2,8 @@
 
 require "rails_helper"
 
-# ai:scrub_execution_event_errors — run on EVERY boot of a module-composed hub
-# by rails-start.sh (db:seed is first-boot only there), and by hand.
+# ai:scrub_execution_event_errors — runs every boot from the host's boot script
+# (and by hand via the rake task).
 RSpec.describe "ai:scrub_execution_event_errors rake task" do
   let(:account) { create(:account) }
   let(:secret) { %w[hunter 2].join }

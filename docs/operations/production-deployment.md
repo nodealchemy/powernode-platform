@@ -376,8 +376,11 @@ cd server && RAILS_ENV=production bundle exec rails db:rollback STEP=N
 - [ ] Execution-event error scrub: `bin/rails ai:scrub_execution_event_errors` runs on every boot of a
       module-composed hub (the host's boot script, after migrate; `db:seed` is first-boot only there), bounded to 30 s,
       guarded by the marker `ai_execution_event_error_scrub_done`, and never fails the boot. Confirm the marker is
-      `true`. If the log shows `complete=false` it resumes next boot; on other install types run it by hand
-      (`FORCE=1` re-runs past the marker, `BUDGET=<seconds>` changes the bound). Idempotent.
+      `true`. If the log shows `complete=false`, the run saved the last id it finished in
+      `ai_execution_event_error_scrub_progress` and the next boot (or a manual run) resumes after it; the done
+      marker is set, and the progress marker cleared, only by a run that finishes with no batch skipped. On other
+      install types run it by hand (`FORCE=1` re-runs past the done marker, `BUDGET=<seconds>` changes the bound).
+      Idempotent.
 - [ ] Post-deployment smoke tests
 
 ### Monitoring

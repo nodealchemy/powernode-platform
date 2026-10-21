@@ -119,6 +119,44 @@ RSpec.describe Ai::ExecutionEventErrorScrub, ".run_once!" do
     expect(SiteSetting.get(described_class::DONE_MARKER)).to be_blank
   end
 
+  it "resumes a cut-short run from its saved progress rather than from the first row" do
+    rows = Array.new(4) { |i| event!("row #{i} password=#{secret}") }
+
+    first = described_class.run_once!(time_budget: 0, batch_size: 2)
+    expect(first.status).to eq(:cut_short)
+    expect(SiteSetting.get(described_class::PROGRESS_MARKER)).to eq(rows[1].id)
+
+    # A row behind the saved progress is not re-read: only ids after it are.
+    seen = []
+    allow_any_instance_of(described_class).to receive(:lock_and_scrub).and_wrap_original do |orig, ids|
+      seen.concat(ids)
+      orig.call(ids)
+    end
+    second = described_class.run_once!(time_budget: 30, batch_size: 2)
+
+    expect(second.status).to eq(:ran)
+    expect(seen).to match_array(rows[2..].map(&:id))
+    expect(rows.map { |r| r.reload.error_message }).to all(satisfy { |m| !m.include?(secret) })
+    expect(SiteSetting.get(described_class::DONE_MARKER)).to eq("true")
+    expect(SiteSetting.get(described_class::PROGRESS_MARKER)).to be_blank
+  end
+
+  it "never saves progress past a batch it had to skip, and sets no done marker" do
+    rows = Array.new(4) { |i| event!("row #{i} password=#{secret}") }
+    allow_any_instance_of(described_class).to receive(:lock_and_scrub).and_wrap_original do |orig, ids|
+      raise ActiveRecord::LockWaitTimeout, "locked" if ids.include?(rows[2].id)
+
+      orig.call(ids)
+    end
+
+    outcome = described_class.run_once!(time_budget: 30, batch_size: 2, sleeper: ->(_s) { })
+
+    expect(outcome.status).to eq(:cut_short)
+    expect(outcome.result.skipped_rows).to eq(2)
+    expect(SiteSetting.get(described_class::PROGRESS_MARKER)).to eq(rows[1].id)
+    expect(SiteSetting.get(described_class::DONE_MARKER)).to be_blank
+  end
+
   it "reports :failed, never raises, and leaves the marker unset on an error" do
     allow_any_instance_of(described_class).to receive(:call).and_raise(StandardError, "boom")
 
