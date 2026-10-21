@@ -356,8 +356,43 @@ RSpec.describe FileManagement::Erasure do
     end
   end
 
+  describe 'provider construction' do
+    it 'builds the provider once per storage for the whole batch, not once per file' do
+      3.times { |i| personal_file(filename: "p#{i}.pdf") }
+      # Creating the storage row may itself initialise a provider; count only the erasure's.
+      RSpec::Mocks.space.proxy_for(StorageProviderFactory).reset
+      allow(StorageProviderFactory).to receive(:create).and_return(provider)
+
+      result = erase
+
+      expect(result.erased_count).to eq(3)
+      expect(StorageProviderFactory).to have_received(:create).once
+    end
+
+    it 'reports an error row, without raising, when the provider cannot be built' do
+      files = Array.new(2) { |i| personal_file(filename: "c#{i}.pdf") }
+      allow(StorageProviderFactory).to receive(:create).and_raise(StandardError, 'bad config')
+
+      result = erase
+
+      expect(result.erased_count).to eq(0)
+      expect(result.errors.map { |f| f[:id] }).to match_array(files.map(&:id))
+      files.each { |f| expect(FileManagement::Object.exists?(f.id)).to be true }
+    end
+  end
+
   describe 'batching' do
     let!(:files) { Array.new(5) { |i| personal_file(filename: "f#{i}.pdf") } }
+
+    it 'stops starting new files once the time budget is spent and resumes from the last attempted file' do
+      stub_const('FileManagement::Erasure::TIME_BUDGET_SECONDS', -1)
+
+      result = erase(batch_size: 5)
+
+      expect(result.erased_count).to eq(1)
+      expect(result.cursor).to eq(files.map(&:id).min)
+      expect(result.remaining).to eq(4)
+    end
 
     it 'erases at most batch_size files per call and reports a cursor with the remainder' do
       first = erase(batch_size: 2)

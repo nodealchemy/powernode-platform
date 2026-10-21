@@ -68,6 +68,15 @@ module FileManagement
     DEFAULT_BATCH_SIZE = 50
     MAX_BATCH_SIZE = 200
 
+    # The 200 ms figure is the healthy case. A hanging object store is bounded
+    # per call by the clients' own timeouts (S3: (10 s open + 30 s read) x 2
+    # attempts = 80 s worst case), so batch_size x worst case would be far
+    # over the request budget. The batch therefore also carries a wall-clock
+    # budget: no NEW file is started once it is spent, and the cursor stops at
+    # the last file attempted. Budget + one worst-case call stays under the
+    # 120 s worker timeout (30 + 80 = 110).
+    TIME_BUDGET_SECONDS = 30
+
     # Personal content the destroy's own audit row must not archive — the
     # same hazard Api::V1::Internal::UsersController#delete_settings guards
     # against with audit_extra_redactions.
@@ -161,8 +170,14 @@ module FileManagement
       erased_count = 0
       @storage_live = {}
       @failed_handlers = Set.new
+      @provider_errors = {}
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      attempted = []
 
       batch.each do |file|
+        break if attempted.any? && Process.clock_gettime(Process::CLOCK_MONOTONIC) - started > TIME_BUDGET_SECONDS
+
+        attempted << file
         # A storage the liveness probe found DEAD in this call is not asked
         # again: every further file on it is reported as unreachable without
         # a provider call. The probe (provider#store_live?) runs at most once
@@ -177,6 +192,15 @@ module FileManagement
           next
         end
 
+        # Built BEFORE the per-file transaction, once per storage per call
+        # (the Storage instance is preloaded and memoizes its provider): a
+        # construction failure is an error row, not a raise through the
+        # savepoint, and a cloud client is not rebuilt for every file.
+        if (error = provider_error(file))
+          failures << failure(file, "error", error)
+          next
+        end
+
         outcome = erase_one(file)
         next if outcome == :already_gone
 
@@ -187,7 +211,7 @@ module FileManagement
         end
       end
 
-      cursor = batch.last&.id || @after_id
+      cursor = attempted.last&.id || @after_id
       remaining = cursor ? candidates.where("file_objects.id > ?", cursor).count : 0
 
       Result.new(
@@ -252,6 +276,9 @@ module FileManagement
         locked.shares.delete_all
         locked.versions.delete_all
         locked.processing_jobs.delete_all
+        # Hand over the preloaded Storage (with its memoized provider): the
+        # fresh row's storage association would build a new provider.
+        locked.association(:storage).target = file.storage
         locked.strict_storage_removal = true
         locked.audit_extra_redactions = AUDIT_REDACTED_FIELDS
         locked.destroy!
@@ -283,6 +310,23 @@ module FileManagement
     rescue StandardError => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.class}: #{e.message}"
       failure(file, "error", e.class.name)
+    end
+
+    # nil when the file's storage provider is available; otherwise the error
+    # reason. Memoized per storage for the call. Only the exception class is
+    # recorded or logged — never its message or the provider config, which
+    # may carry credentials.
+    def provider_error(file)
+      key = file.file_storage_id
+      return @provider_errors[key] if @provider_errors.key?(key)
+
+      @provider_errors[key] = begin
+        file.storage.storage_provider
+        nil
+      rescue StandardError => e
+        Rails.logger.error "[FileManagement::Erasure] storage #{key} provider could not be built: #{e.class}"
+        "storage_provider_unavailable"
+      end
     end
 
     def failure(file, kind, reason)
