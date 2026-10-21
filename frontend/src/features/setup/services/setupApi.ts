@@ -8,7 +8,7 @@ import { apiClient } from '@/shared/services/apiClient';
 export interface SetupFieldDef {
   key: string;
   label: string;
-  type: 'text' | 'password' | 'textarea';
+  type: 'text' | 'password' | 'textarea' | 'domains';
   required?: boolean;
   placeholder?: string;
   helper?: string;

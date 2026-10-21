@@ -38,7 +38,9 @@ module Setup
         owner: "core",
         endpoint: "/api/v1/setup/steps/domain",
         schema: [
-          { key: "domain", label: "Domain", type: "text", required: true, placeholder: "powernode.example.com" }
+          { key: "domain", label: "Primary domain", type: "text", required: true, placeholder: "powernode.example.com" },
+          { key: "additional_domains", label: "Additional domains", type: "domains", required: false,
+            helper: "Also allowed to reach this instance (trusted hosts and CORS). Wildcards like *.example.com are allowed." }
         ]
       },
       {

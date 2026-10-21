@@ -1,5 +1,6 @@
 import React from 'react';
 import type { SetupFieldDef } from './services/setupApi';
+import { DomainListField } from './DomainListField';
 
 interface SchemaStepFormProps {
   fields: SetupFieldDef[];
@@ -43,7 +44,14 @@ export const SchemaStepForm: React.FC<SchemaStepFormProps> = ({
               {field.label}
               {field.required && <span className="text-theme-danger-fg"> *</span>}
             </label>
-            {field.type === 'textarea' ? (
+            {field.type === 'domains' ? (
+              <DomainListField
+                id={fieldId}
+                value={value}
+                disabled={disabled}
+                onChange={(v) => handle(field.key, v)}
+              />
+            ) : field.type === 'textarea' ? (
               <textarea
                 id={fieldId}
                 data-testid={fieldId}

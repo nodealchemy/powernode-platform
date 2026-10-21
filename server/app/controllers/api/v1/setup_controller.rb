@@ -158,11 +158,15 @@ class Api::V1::SetupController < ApplicationController
   def persist_core_step(key)
     case key
     when "domain"
-      domain = (params[:domain] || params.dig(:payload, :domain)).to_s.strip
-      return "Domain is required" if domain.blank?
-
-      SiteSetting.set("domain", domain, description: "Public domain for this instance", is_public: true)
-      nil
+      primary = (params[:domain] || params.dig(:payload, :domain)).to_s.strip
+      additional = params[:additional_domains] || params.dig(:payload, :additional_domains)
+      additional = additional.respond_to?(:to_unsafe_h) ? [] : additional
+      begin
+        Setup::DomainConfigurator.call(primary: primary, additional: additional || [])
+        nil
+      rescue Setup::DomainConfigurator::InvalidDomain => e
+        e.message
+      end
     when "general_settings"
       # Optional step — persist whichever fields were provided, blanks allowed.
       site_name = (params[:site_name] || params.dig(:payload, :site_name)).to_s.strip

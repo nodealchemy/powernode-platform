@@ -314,3 +314,19 @@ Why not the alternatives:
 
 Cross-repo commit discipline: control-plane changes land **inside `extensions/system`** first
 (push both `origin` (Gitea) + `github` (public mirror)), then core/parent pointer + core baseline.
+
+## Setup wizard domains and host authorization
+
+The wizard's domain step takes a primary domain plus additional domains
+(`*.example.com` wildcards allowed). `Setup::DomainConfigurator` writes them to
+`AdminSetting.reverse_proxy_url_config[:trusted_hosts]` and merges the derived
+origins into `cors_allowed_origins` (operator entries are kept; entries the wizard
+wrote earlier are tracked in SiteSetting `wizard_domains` and replaced on re-run).
+
+- **Development**: `config.hosts` uses `TrustedHostPolicy`, which reads `trusted_hosts`.
+- **Production**: Rails `config.hosts` is intentionally unset (the commented block in
+  `production.rb`); host gating is the reverse proxy. `Core::IngressConfigWriter`
+  already turns the non-wildcard `trusted_hosts` into Traefik `Host()` rules on its
+  next write, so the same list drives production. Wildcards are not emitted as
+  Traefik rules.
+- The admin Proxy Settings tab (`ProxyHostList`) shows the same `trusted_hosts` list.

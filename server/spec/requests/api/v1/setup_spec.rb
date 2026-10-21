@@ -133,6 +133,25 @@ RSpec.describe "Api::V1::Setup", type: :request do
         expect(account.reload.setup_step_completed?("domain")).to be(true)
       end
 
+      it "persists multiple domains into trusted hosts and CORS, primary into SiteSetting" do
+        post "/api/v1/setup/steps/domain",
+             params: { domain: "fleet.example.com", additional_domains: "ops.example.org\n*.apps.example.org" },
+             headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(SiteSetting.get("domain")).to eq("fleet.example.com")
+        expect(AdminSetting.reverse_proxy_url_config[:trusted_hosts])
+          .to include("fleet.example.com", "ops.example.org", "*.apps.example.org")
+      end
+
+      it "rejects an invalid additional domain" do
+        post "/api/v1/setup/steps/domain",
+             params: { domain: "fleet.example.com", additional_domains: "not a host" },
+             headers: auth_headers_for(admin), as: :json
+
+        expect(response).to have_http_status(422)
+      end
+
       it "rejects a blank domain" do
         post "/api/v1/setup/steps/domain",
              params: { domain: "" },
