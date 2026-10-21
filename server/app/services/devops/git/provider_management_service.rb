@@ -9,8 +9,16 @@ module Devops
 
     class << self
       # Create a new credential for a provider
-      def create_credential(provider, account, user, params)
+      def create_credential(provider, account, user, params, request_meta: {})
         validate_credential_params(provider, params)
+
+        if params[:auth_type] == "ssh_key"
+          return Devops::Git::SshKeyCredentialService.create!(
+            provider: provider, account: account, user: user, params: params,
+            name: params[:name] || generate_credential_name(provider, params[:auth_type]),
+            request_meta: request_meta
+          )
+        end
 
         credential = account.git_provider_credentials.build(
           git_provider_id: provider.id,
@@ -310,6 +318,10 @@ module Devops
           unless token.present?
             raise ValidationError, "token is required for personal access token authentication"
           end
+        when "ssh_key"
+          unless params.dig(:credentials, :private_key).present?
+            raise ValidationError, "private_key is required for SSH key authentication"
+          end
         end
       end
 
@@ -341,7 +353,7 @@ module Devops
       end
 
       def generate_credential_name(provider, auth_type)
-        type_label = auth_type == "oauth" ? "OAuth" : "Personal Token"
+        type_label = { "oauth" => "OAuth", "ssh_key" => "SSH Key" }.fetch(auth_type, "Personal Token")
         "#{provider.name} - #{type_label}"
       end
 

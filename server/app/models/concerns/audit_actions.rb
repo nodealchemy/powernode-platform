@@ -309,6 +309,14 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # GIT CREDENTIAL KEY ACTIONS — every SSH private-key operation is audited
+  # inside the transaction that performs it (crypto-material-safety rule).
+  # =============================================================================
+  GIT_CREDENTIAL_KEY_ACTIONS = %w[
+    git.credentials.ssh_key.create git.credentials.ssh_key.replace git.credentials.ssh_key.delete
+  ].freeze
+
+  # =============================================================================
   # AI PROMPT TEMPLATE ACTIONS
   # =============================================================================
   AI_PROMPT_TEMPLATE_ACTIONS = %w[
@@ -703,6 +711,7 @@ module AuditActions
     AI_ANALYTICS_ACTIONS,
     AI_PROVIDER_ACTIONS,
     AI_DATA_SOURCE_ACTIONS,
+    GIT_CREDENTIAL_KEY_ACTIONS,
     AI_PROMPT_TEMPLATE_ACTIONS,
     AI_MONITORING_ACTIONS,
     AI_ROI_ACTIONS,

@@ -8,6 +8,18 @@ module Devops
     # Concerns
     include Auditable
 
+    # Per-type connection defaults the setup wizard and the providers form
+    # auto-fill on type selection. Self-hosted Gitea has no fixed host.
+    TYPE_DEFAULTS = {
+      "github" => { name: "GitHub", api_base_url: "https://api.github.com", web_base_url: "https://github.com",
+                    ssh_host: "github.com", ssh_port: 22 },
+      "gitlab" => { name: "GitLab", api_base_url: "https://gitlab.com/api/v4", web_base_url: "https://gitlab.com",
+                    ssh_host: "gitlab.com", ssh_port: 22 },
+      "gitea" => { name: "Gitea", api_base_url: nil, web_base_url: nil, ssh_host: nil, ssh_port: 22 },
+      "bitbucket" => { name: "Bitbucket", api_base_url: "https://api.bitbucket.org/2.0",
+                       web_base_url: "https://bitbucket.org", ssh_host: "bitbucket.org", ssh_port: 22 }
+    }.freeze
+
     # Associations
     belongs_to :account
     has_many :credentials, class_name: "Devops::GitProviderCredential", foreign_key: "git_provider_id", dependent: :destroy
@@ -117,8 +129,24 @@ module Devops
       credentials.where(account: account, is_active: true)
     end
 
+    # The credential API calls use. An SSH key is clone/push access only and
+    # never the API default.
     def default_credential_for_account(account)
-      credentials_for_account(account).find_by(is_default: true)
+      credentials_for_account(account).where.not(auth_type: "ssh_key").find_by(is_default: true)
+    end
+
+    # SSH endpoint for clone URLs: the provider's own setting (metadata.ssh),
+    # else the type default, else the web host.
+    def ssh_host
+      metadata&.dig("ssh", "host").presence ||
+        TYPE_DEFAULTS.dig(provider_type, :ssh_host) ||
+        (URI.parse(effective_web_base_url.to_s).host if effective_web_base_url.present?)
+    rescue URI::InvalidURIError
+      nil
+    end
+
+    def ssh_port
+      (metadata&.dig("ssh", "port") || TYPE_DEFAULTS.dig(provider_type, :ssh_port) || 22).to_i
     end
 
     private

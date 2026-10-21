@@ -12,7 +12,8 @@ module Devops
     include Auditable
 
     # Constants
-    AUTH_TYPES = %w[oauth personal_access_token].freeze
+    AUTH_TYPES = %w[oauth personal_access_token ssh_key].freeze
+    MAX_SSH_KEY_BYTES = 16_384
     MAX_CONSECUTIVE_FAILURES = 5
 
     # Associations
@@ -139,6 +140,23 @@ module Devops
       provider&.provider_type
     end
 
+    def ssh_key?
+      auth_type == "ssh_key"
+    end
+
+    # The public half an operator adds to the forge. Never the private key.
+    def ssh_public_key
+      credentials["public_key"].presence
+    end
+
+    # SHA256 fingerprint of the public key blob (OpenSSH display form).
+    def ssh_fingerprint
+      blob = ssh_public_key.to_s.split(/\s+/)[1]
+      return nil if blob.blank?
+
+      "SHA256:#{Base64.strict_encode64(Digest::SHA256.digest(Base64.decode64(blob))).delete('=')}"
+    end
+
     def oauth?
       auth_type == "oauth"
     end
@@ -210,6 +228,23 @@ module Devops
         validate_oauth_credentials
       when "personal_access_token"
         validate_pat_credentials
+      when "ssh_key"
+        validate_ssh_credentials
+      end
+    end
+
+    # The private key must look like a private key and the optional public key
+    # like an authorized_keys line. The key text is never put in an error.
+    def validate_ssh_credentials
+      key = @credentials["private_key"].to_s
+      unless key.match?(/\A\s*-----BEGIN [A-Z ]*PRIVATE KEY-----.+-----END [A-Z ]*PRIVATE KEY-----\s*\z/m)
+        errors.add(:credentials, "must include a private_key in PEM or OpenSSH format")
+      end
+      errors.add(:credentials, "private_key is too large") if key.bytesize > MAX_SSH_KEY_BYTES
+
+      public_key = @credentials["public_key"]
+      if public_key.present? && !OpensshKeyValidatable::OPENSSH_AUTHORIZED_KEY_PREFIX.match?(public_key.to_s)
+        errors.add(:credentials, "public_key must be an OpenSSH public key line")
       end
     end
 
@@ -239,6 +274,8 @@ module Devops
     end
 
     def ensure_single_default
+      # An SSH key is clone/push access, never the API default.
+      self.is_default = false if ssh_key?
       return unless is_default_changed? && is_default?
 
       Devops::GitProviderCredential.where(
@@ -250,6 +287,8 @@ module Devops
 
     def prevent_destroy_if_default_and_only
       return if Account.tearing_down?(account_id)
+      # Removing the provider removes its credentials with it.
+      return if destroyed_by_association
 
       if is_default? && account.git_provider_credentials.for_provider(git_provider_id).count == 1
         errors.add(:base, "Cannot delete the only credential for this provider")
@@ -258,7 +297,8 @@ module Devops
     end
 
     def set_as_default_if_first
-      return if account.git_provider_credentials.for_provider(git_provider_id).count > 1
+      return if ssh_key?
+      return if account.git_provider_credentials.for_provider(git_provider_id).where.not(auth_type: "ssh_key").count > 1
 
       update_column(:is_default, true)
     end

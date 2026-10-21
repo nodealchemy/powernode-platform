@@ -64,6 +64,43 @@ export interface ProviderFieldDef {
  *
  * Order within each category matters — fields render top-to-bottom in this order.
  */
+// Git providers take HTTPS (token) and/or SSH (key) access; at least one is
+// required (enforced by the setup step). The ssh_host/ssh_port fields are
+// provider config; the key is credential material.
+const GIT_SSH_FIELDS: ProviderFieldDef[] = [
+  {
+    key: 'ssh_host',
+    label: 'SSH host',
+    type: 'text',
+    placeholder: 'git.example.com',
+    helper: 'Where clones over SSH connect. Auto-filled for known forges.',
+    required: false,
+    scope: 'config',
+  },
+  {
+    key: 'ssh_port',
+    label: 'SSH port',
+    type: 'text',
+    required: false,
+    scope: 'config',
+  },
+  {
+    key: 'ssh_private_key',
+    label: 'SSH private key',
+    type: 'textarea',
+    helper: 'Stored encrypted and never shown again. Paste a key made for this platform.',
+    required: false,
+  },
+  {
+    key: 'ssh_public_key',
+    label: 'SSH public key (optional)',
+    type: 'text',
+    placeholder: 'ssh-ed25519 AAAA…',
+    helper: 'Add this to the forge so it accepts the key.',
+    required: false,
+  },
+];
+
 export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTypeSlug, ProviderFieldDef[]>> = {
   ai: {
     anthropic: [
@@ -284,8 +321,9 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         type: 'password',
         placeholder: 'ghp_…',
         helper: 'Fine-grained PAT with repo + workflow scopes.',
-        required: true,
+        required: false,
       },
+      ...GIT_SSH_FIELDS,
     ],
     gitea: [
       {
@@ -300,15 +338,15 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         key: 'access_token',
         label: 'Access Token',
         type: 'password',
-        required: true,
+        required: false,
       },
+      ...GIT_SSH_FIELDS,
     ],
     gitlab: [
       {
         key: 'base_url',
         label: 'GitLab Base URL',
         type: 'text',
-        defaultValue: 'https://gitlab.com',
         required: false,
         scope: 'config',
       },
@@ -317,8 +355,9 @@ export const PROVIDER_FIELD_SCHEMAS: Record<ProviderCategory, Record<ProviderTyp
         label: 'Personal Access Token',
         type: 'password',
         placeholder: 'glpat-…',
-        required: true,
+        required: false,
       },
+      ...GIT_SSH_FIELDS,
     ],
   },
 };

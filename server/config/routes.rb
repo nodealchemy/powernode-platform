@@ -1385,6 +1385,7 @@ Rails.application.routes.draw do
           collection do
             post :sync, action: :sync_all
             get :available
+            get :catalog
           end
         end
 

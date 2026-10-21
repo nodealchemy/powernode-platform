@@ -12,6 +12,8 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
     getAiProviderCatalog: jest.fn(),
     setAiDefaultProvider: jest.fn(),
     deleteAiCredential: jest.fn(),
+    getGitProviderCatalog: jest.fn(),
+    deleteGitProvider: jest.fn(),
   },
 }));
 
@@ -30,6 +32,8 @@ const mockCreateGitCredential = onboardingApi.createGitCredential as jest.Mock;
 
 const mockSetAiDefault = onboardingApi.setAiDefaultProvider as jest.Mock;
 const mockDeleteAiCredential = onboardingApi.deleteAiCredential as jest.Mock;
+const mockGetGitCatalog = onboardingApi.getGitProviderCatalog as jest.Mock;
+const mockDeleteGitProvider = onboardingApi.deleteGitProvider as jest.Mock;
 const mockGetAiCatalog = onboardingApi.getAiProviderCatalog as jest.Mock;
 
 const AI_CATALOG = [
@@ -51,6 +55,14 @@ const synced = (id: string, count: number, extra: Record<string, unknown> = {}) 
   id,
   modelSync: { success: true, model_count: count, error: null, ...extra },
 });
+
+const GIT_CATALOG = [
+  { provider_type: 'github', name: 'GitHub', api_base_url: 'https://api.example-github.test', web_base_url: 'https://github.example.test', ssh_host: 'ssh.github.example.test', ssh_port: 22 },
+  { provider_type: 'gitea', name: 'Gitea', api_base_url: null, web_base_url: null, ssh_host: null, ssh_port: 22 },
+];
+
+// Assembled at runtime: no key-shaped literal in the source.
+const FAKE_PRIVATE_KEY = ['-----BEGIN', 'OPENSSH', 'PRIVATE', 'KEY-----'].join(' ') + '\nZmFrZS1wbGFjZWhvbGRlcg==\n' + ['-----END', 'OPENSSH', 'PRIVATE', 'KEY-----'].join(' ');
 
 const stepFor = (component: string, category: string): SetupStep => ({
   key: category + '_provider',
@@ -80,6 +92,9 @@ describe('ProviderStep', () => {
     mockCreateGitCredential.mockReset();
     mockSetAiDefault.mockReset();
     mockDeleteAiCredential.mockReset();
+    mockGetGitCatalog.mockReset();
+    mockGetGitCatalog.mockResolvedValue(GIT_CATALOG);
+    mockDeleteGitProvider.mockReset();
     mockGetAiCatalog.mockReset();
     mockGetAiCatalog.mockResolvedValue({ items: AI_CATALOG, known_capabilities: ['text_generation'] });
   });
@@ -353,6 +368,100 @@ describe('ProviderStep', () => {
       );
       await waitFor(() => expect(mockSetAiDefault).toHaveBeenCalledWith('prov-b'));
       expect(screen.getAllByTestId(/^setup-provider-entry-/)).toHaveLength(1);
+    });
+  });
+
+  describe('git providers: HTTPS and SSH access', () => {
+    const fill = (testId: string, value: string) =>
+      fireEvent.change(screen.getByTestId(testId), { target: { value } });
+
+    const renderGit = async () => {
+      render(<ProviderStep step={stepFor('core/git_provider', 'git')} />);
+      await waitFor(() => expect(mockGetGitCatalog).toHaveBeenCalled());
+      await act(async () => {});
+    };
+
+    beforeEach(() => {
+      mockCreateGitProvider.mockResolvedValueOnce('git-a').mockResolvedValueOnce('git-b');
+      mockCreateGitCredential.mockImplementation(async ({ authType }: { authType?: string }) =>
+        authType === 'ssh_key' ? 'cred-ssh' : 'cred-https'
+      );
+    });
+
+    it('auto-fills the base URL and SSH host and port from the type catalog', async () => {
+      await renderGit();
+
+      fireEvent.click(screen.getByTestId('setup-provider-github'));
+
+      await waitFor(() => expect(screen.getByTestId('provider-cred-field-ssh_host')).toHaveValue('ssh.github.example.test'));
+      expect(screen.getByTestId('provider-cred-field-ssh_port')).toHaveValue('22');
+    });
+
+    it('stores both an HTTPS token and an SSH key on one provider', async () => {
+      await renderGit();
+      fireEvent.click(screen.getByTestId('setup-provider-github'));
+      await waitFor(() => expect(screen.getByTestId('provider-cred-field-ssh_host')).toHaveValue('ssh.github.example.test'));
+      fill('provider-cred-field-access_token', 'fake-token-1234567890');
+      fill('provider-cred-field-ssh_private_key', FAKE_PRIVATE_KEY);
+      fill('provider-cred-field-ssh_public_key', 'ssh-ed25519 AAAA spec@example.test');
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+
+      await waitFor(() => expect(screen.getByTestId('setup-save-success')).toBeInTheDocument());
+
+      expect(mockCreateGitProvider).toHaveBeenCalledWith(
+        expect.objectContaining({ providerType: 'github', ssh: { host: 'ssh.github.example.test', port: 22 } })
+      );
+      const calls = mockCreateGitCredential.mock.calls.map((c) => c[0]);
+      expect(calls).toHaveLength(2);
+      expect(calls[0]).toEqual(
+        expect.objectContaining({ providerId: 'git-a', credentials: { access_token: 'fake-token-1234567890' } })
+      );
+      expect(calls[1]).toEqual(
+        expect.objectContaining({
+          providerId: 'git-a',
+          authType: 'ssh_key',
+          credentials: { private_key: FAKE_PRIVATE_KEY, public_key: 'ssh-ed25519 AAAA spec@example.test' },
+        })
+      );
+      expect(screen.getByTestId('setup-provider-entry-0')).toHaveTextContent('HTTPS');
+      expect(screen.getByTestId('setup-provider-entry-0')).toHaveTextContent('SSH');
+    });
+
+    it('accepts SSH only, and requires at least one access method', async () => {
+      await renderGit();
+      fireEvent.click(screen.getByTestId('setup-provider-gitea'));
+      fill('provider-cred-field-base_url', 'https://git.example.test');
+      expect(screen.getByTestId('setup-save-btn')).toBeDisabled();
+
+      fill('provider-cred-field-ssh_private_key', FAKE_PRIVATE_KEY);
+      expect(screen.getByTestId('setup-save-btn')).not.toBeDisabled();
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+
+      await waitFor(() => expect(screen.getByTestId('setup-save-success')).toBeInTheDocument());
+      expect(mockCreateGitCredential).toHaveBeenCalledTimes(1);
+      expect(mockCreateGitCredential.mock.calls[0][0].authType).toBe('ssh_key');
+    });
+
+    it('adds two git providers and removes one before finishing', async () => {
+      mockDeleteGitProvider.mockResolvedValue(undefined);
+      await renderGit();
+      fireEvent.click(screen.getByTestId('setup-provider-gitea'));
+      fill('provider-cred-field-base_url', 'https://git.example.test');
+      fill('provider-cred-field-access_token', 'fake-token-1234567890');
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+      await waitFor(() => expect(screen.getByTestId('setup-save-success')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId('setup-add-another'));
+      fireEvent.click(screen.getByTestId('setup-provider-github'));
+      fill('provider-cred-field-access_token', 'fake-token-0987654321');
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+      await waitFor(() => expect(screen.getAllByTestId(/^setup-provider-entry-/)).toHaveLength(2));
+      expect(mockCreateGitProvider).toHaveBeenCalledTimes(2);
+
+      fireEvent.click(screen.getByTestId('setup-provider-remove-0'));
+
+      await waitFor(() => expect(mockDeleteGitProvider).toHaveBeenCalledWith('git-a'));
+      await waitFor(() => expect(screen.getAllByTestId(/^setup-provider-entry-/)).toHaveLength(1));
     });
   });
 });

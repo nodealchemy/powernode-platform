@@ -6,6 +6,7 @@ import { featureRegistry } from '@/shared/services/featureRegistry';
 import {
   onboardingApi,
   type AiModelSyncResult,
+  type GitProviderCatalogEntry,
 } from '@/features/onboarding/services/onboardingApi';
 import {
   ProviderCategoryStep,
@@ -44,6 +45,8 @@ interface ProviderEntry {
   modelSync?: AiModelSyncResult | null;
   /** AI only: the account default provider. */
   isDefault?: boolean;
+  /** Git only: the access methods stored for this provider. */
+  methods?: Array<'HTTPS' | 'SSH'>;
 }
 
 const categoryOf = (step: SetupStep): ProviderCategory =>
@@ -92,6 +95,25 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
   const [providerName, setProviderName] = useState('');
   const [apiBaseUrl, setApiBaseUrl] = useState('');
 
+  // Git provider-type catalog: base URL and SSH host/port defaults.
+  const [gitCatalog, setGitCatalog] = useState<GitProviderCatalogEntry[]>([]);
+
+  useEffect(() => {
+    if (category !== 'git') return;
+    let cancelled = false;
+    onboardingApi
+      .getGitProviderCatalog()
+      .then((items) => {
+        if (!cancelled) setGitCatalog(items);
+      })
+      .catch(() => {
+        if (!cancelled) setGitCatalog([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [category]);
+
   useEffect(() => {
     if (category !== 'ai') return;
     let cancelled = false;
@@ -121,6 +143,12 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     const seed: ProviderCredentialValues = {};
     if (entry?.default_model) seed.default_model = entry.default_model;
     if (entry && !entry.requires_auth && entry.api_base_url) seed.base_url = entry.api_base_url;
+    const gitEntry = category === 'git' ? gitCatalog.find((c) => c.provider_type === next) : undefined;
+    if (gitEntry) {
+      if (gitEntry.web_base_url) seed.base_url = gitEntry.web_base_url;
+      if (gitEntry.ssh_host) seed.ssh_host = gitEntry.ssh_host;
+      seed.ssh_port = String(gitEntry.ssh_port);
+    }
     setCredentials(seed);
     setCredentialsValid(false);
     setTestStatus('idle');
@@ -128,13 +156,15 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     setSaveStatus('idle');
     setSaveError(null);
     },
-    [category, catalog]
+    [category, catalog, gitCatalog]
   );
 
   const onValuesChange = useCallback((values: ProviderCredentialValues, valid: boolean) => {
     setCredentials(values);
-    setCredentialsValid(valid);
-  }, []);
+    // Git: HTTPS (token) and/or SSH (key) — at least one access method.
+    const hasAccess = Boolean(values.access_token?.trim() || values.ssh_private_key?.trim());
+    setCredentialsValid(valid && (category !== 'git' || hasAccess));
+  }, [category]);
 
   const onTestStatusChange = useCallback((status: CredentialTestStatus) => {
     // Editing creds after a test (non-idle → idle/invalid) resets a prior save.
@@ -176,21 +206,35 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
           isDefault: Boolean(created.modelSync?.default),
         };
       } else if (category === 'git') {
-        // base_url configures the Provider record (self-hosted Gitea/GitLab
-        // endpoint), not the credential — split it out before sending the rest
-        // of the form values as credential material.
-        const { base_url, ...gitCredentials } = credentials;
+        // base_url and the SSH host/port configure the Provider record, not
+        // credential material — split them out before sending the rest.
+        const { base_url, ssh_host, ssh_port, ssh_private_key, ssh_public_key, ...httpsCredentials } =
+          credentials;
+        const port = Number.parseInt(ssh_port ?? '', 10);
         const providerId = await onboardingApi.createGitProvider({
           providerType,
           name: PROVIDER_LABELS.git[providerType] ?? providerType,
           apiBaseUrl: typeof base_url === 'string' ? base_url : undefined,
+          ssh: ssh_host ? { host: ssh_host, port: Number.isNaN(port) ? 22 : port } : undefined,
         });
         if (!providerId) throw new Error('Git provider creation did not return an id');
-        const credentialId = await onboardingApi.createGitCredential({
-          providerId,
-          credentials: gitCredentials,
-        });
-        entry = { ...entry, providerId, credentialId };
+        const methods: Array<'HTTPS' | 'SSH'> = [];
+        if (httpsCredentials.access_token?.trim()) {
+          await onboardingApi.createGitCredential({ providerId, credentials: httpsCredentials });
+          methods.push('HTTPS');
+        }
+        if (ssh_private_key?.trim()) {
+          await onboardingApi.createGitCredential({
+            providerId,
+            authType: 'ssh_key',
+            credentials: {
+              private_key: ssh_private_key,
+              ...(ssh_public_key?.trim() ? { public_key: ssh_public_key } : {}),
+            },
+          });
+          methods.push('SSH');
+        }
+        entry = { ...entry, providerId, methods };
       }
       setEntries((prev) => {
         // The server re-ranks on a new default: only one entry stays the default.
@@ -248,6 +292,11 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
             providerId: target.providerId,
             credentialId: target.credentialId,
           });
+        }
+        if (category === 'git' && target.providerId) {
+          // The wizard created this provider; removing it removes its keys
+          // and tokens too (the key removal is audited server-side).
+          await onboardingApi.deleteGitProvider(target.providerId);
         }
         const remaining = entries.filter((e) => e.key !== target.key);
         setEntries(remaining);
@@ -339,6 +388,14 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
                   data-testid={`setup-provider-entry-${index}`}
                 >
                   <span className="text-sm font-medium text-theme-primary">{entry.label}</span>
+                  {entry.methods?.map((method) => (
+                    <span
+                      key={method}
+                      className="rounded border border-theme px-1.5 py-0.5 text-xs text-theme-secondary"
+                    >
+                      {method}
+                    </span>
+                  ))}
                   {category === 'ai' && sync && (
                     <span
                       className={`text-xs ${sync.success ? 'text-theme-success-fg' : 'text-theme-danger-fg'}`}

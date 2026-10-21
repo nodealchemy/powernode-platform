@@ -35,6 +35,7 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
     createGitProvider: jest.fn(),
     createGitCredential: jest.fn(),
     getAiProviderCatalog: jest.fn(),
+    getGitProviderCatalog: jest.fn(),
   },
 }));
 
@@ -61,6 +62,7 @@ describe('SetupWizard', () => {
     mockGetSteps.mockReset();
     mockCreateAdmin.mockReset();
     mockGetExtensions.mockReset();
+    (onboardingApi.getGitProviderCatalog as jest.Mock).mockResolvedValue([]);
     (onboardingApi.getAiProviderCatalog as jest.Mock).mockResolvedValue({ items: [], known_capabilities: [] });
   });
 

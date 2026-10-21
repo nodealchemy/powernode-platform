@@ -4,6 +4,11 @@ module Api
   module V1
     module Git
       class ProvidersController < ApplicationController
+        # A key operation whose audit row could not be written was rolled back.
+        rescue_from ::Devops::Git::SshKeyCredentialService::AuditUnavailable do |e|
+          render_error(e.message, status: :service_unavailable)
+        end
+
         before_action :set_provider, only: %i[
           show update destroy
           credentials create_credential update_credential destroy_credential test_credential make_default
@@ -71,11 +76,35 @@ module Api
 
         # DELETE /api/v1/git/providers/:id
         def destroy
-          if @provider.destroy
+          destroyed = false
+          # SSH keys are removed through the audited service first, in the same
+          # transaction as the provider: an unauditable key removal keeps both.
+          ::Devops::GitProvider.transaction do
+            @provider.credentials.where(auth_type: "ssh_key").find_each do |key|
+              ::Devops::Git::SshKeyCredentialService.destroy!(
+                credential: key, user: current_user,
+                request_meta: { ip_address: request.remote_ip, user_agent: request.user_agent }
+              )
+            end
+            destroyed = @provider.reload.destroy.present?
+            raise ActiveRecord::Rollback unless destroyed
+          end
+
+          if destroyed
             render_success(message: "Git provider deleted successfully")
           else
             render_validation_error(@provider.errors)
           end
+        end
+
+        # GET /api/v1/git/providers/catalog
+        # Read-only per-type connection defaults (URLs, SSH host and port) used
+        # to auto-fill the provider form.
+        def catalog
+          items = ::Devops::GitProvider::TYPE_DEFAULTS.map do |type, defaults|
+            { provider_type: type }.merge(defaults)
+          end
+          render_success({ items: items })
         end
 
         # GET /api/v1/git/providers/available
@@ -124,7 +153,8 @@ module Api
             @provider,
             current_user.account,
             current_user,
-            credential_params
+            credential_params,
+            request_meta: { ip_address: request.remote_ip, user_agent: request.user_agent }
           )
 
           if @credential.persisted?
@@ -138,7 +168,15 @@ module Api
 
         # PATCH /api/v1/git/providers/:id/credentials/:credential_id
         def update_credential
-          if @credential.update(credential_params)
+          if @credential.ssh_key? && credential_params[:credentials].present?
+            ::Devops::Git::SshKeyCredentialService.replace!(
+              credential: @credential, credentials: credential_params[:credentials], user: current_user,
+              request_meta: { ip_address: request.remote_ip, user_agent: request.user_agent }
+            )
+            return @credential.errors.empty? ? render_success({ credential: serialize_credential_detail(@credential) }) : render_validation_error(@credential.errors)
+          end
+
+          if @credential.update(credential_params.except(:credentials))
             render_success({ credential: serialize_credential_detail(@credential) })
           else
             render_validation_error(@credential.errors)
@@ -147,6 +185,14 @@ module Api
 
         # DELETE /api/v1/git/providers/:id/credentials/:credential_id
         def destroy_credential
+          if @credential.ssh_key?
+            removed = ::Devops::Git::SshKeyCredentialService.destroy!(
+              credential: @credential, user: current_user,
+              request_meta: { ip_address: request.remote_ip, user_agent: request.user_agent }
+            )
+            return removed ? render_success(message: "Credential deleted successfully") : render_validation_error(@credential.errors)
+          end
+
           if @credential.destroy
             render_success(message: "Credential deleted successfully")
           else
@@ -156,6 +202,10 @@ module Api
 
         # POST /api/v1/git/providers/:id/credentials/:credential_id/test
         def test_credential
+          if @credential.ssh_key?
+            return render_error("SSH keys are verified on first use, not tested here", status: :unprocessable_content)
+          end
+
           result = ::Devops::Git::ProviderTestService.new(@credential).test_with_rate_limit
 
           if result[:success]
@@ -318,7 +368,7 @@ module Api
 
         def validate_permissions
           case action_name
-          when "index", "show", "available"
+          when "index", "show", "available", "catalog"
             require_permission("git.providers.read")
           when "create"
             require_permission("git.providers.create")
@@ -384,6 +434,7 @@ module Api
             description: provider.description,
             api_base_url: provider.api_base_url,
             web_base_url: provider.web_base_url,
+            ssh: { host: provider.ssh_host, port: provider.ssh_port },
             is_active: provider.is_active,
             supports_oauth: provider.supports_oauth,
             supports_pat: provider.supports_pat,
@@ -423,7 +474,8 @@ module Api
         end
 
         def serialize_credential(credential)
-          {
+          ssh = credential.ssh_key? ? { ssh: { public_key: credential.ssh_public_key, fingerprint: credential.ssh_fingerprint } } : {}
+          ssh.merge({
             id: credential.id,
             name: credential.name,
             auth_type: credential.auth_type,
@@ -443,7 +495,7 @@ module Api
               consecutive_failures: credential.consecutive_failures,
               repositories_count: credential.repositories.count
             }
-          }
+          })
         end
 
         def serialize_credential_detail(credential)

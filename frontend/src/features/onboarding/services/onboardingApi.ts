@@ -80,11 +80,25 @@ export interface CreateProviderViaProviderParams {
    * `provider.api_base_url` — this configures the Provider, not the credential.
    */
   apiBaseUrl?: string;
+  /** Git only: the provider's SSH endpoint, stored in its metadata. */
+  ssh?: { host?: string; port?: number };
 }
 
 export interface CreateNamedCredentialParams {
   providerId: string;
   credentials: ProviderCredentialValues;
+  /** Git only: `ssh_key` stores an SSH key (never the API default); default is a token. */
+  authType?: 'personal_access_token' | 'ssh_key';
+}
+
+/** One provider-type entry of GET /git/providers/catalog (connection defaults). */
+export interface GitProviderCatalogEntry {
+  provider_type: string;
+  name: string;
+  api_base_url: string | null;
+  web_base_url: string | null;
+  ssh_host: string | null;
+  ssh_port: number;
 }
 
 export interface CompleteOnboardingParams {
@@ -212,12 +226,14 @@ export const onboardingApi = {
     providerType,
     name,
     apiBaseUrl,
+    ssh,
   }: CreateProviderViaProviderParams): Promise<string | undefined> {
     const response = await apiClient.post<GitProviderResponse>('/git/providers', {
       provider: {
         provider_type: providerType,
         name,
         ...(apiBaseUrl ? { api_base_url: apiBaseUrl } : {}),
+        ...(ssh?.host ? { metadata: { ssh } } : {}),
       },
     });
     return response.data?.data?.provider?.id;
@@ -232,20 +248,36 @@ export const onboardingApi = {
   async createGitCredential({
     providerId,
     credentials,
+    authType = 'personal_access_token',
   }: CreateNamedCredentialParams): Promise<string | null> {
+    const isSsh = authType === 'ssh_key';
     const response = await apiClient.post<GitCredentialResponse>(
       `/git/providers/${providerId}/credentials`,
       {
         credential: {
-          name: 'Onboarding',
-          auth_type: 'personal_access_token',
+          name: isSsh ? 'Onboarding SSH key' : 'Onboarding',
+          auth_type: authType,
           credentials,
           is_active: true,
-          is_default: true,
+          // An SSH key is clone/push access, never the API default.
+          is_default: !isSsh,
         },
       }
     );
     return response.data?.data?.credential?.id ?? null;
+  },
+
+  /** GET `/git/providers/catalog`: per-type URL and SSH host/port defaults. */
+  async getGitProviderCatalog(): Promise<GitProviderCatalogEntry[]> {
+    const response = await apiClient.get<{ data?: { items?: GitProviderCatalogEntry[] } }>(
+      '/git/providers/catalog'
+    );
+    return response.data?.data?.items ?? [];
+  },
+
+  /** Remove a git provider the wizard added, with its credentials. */
+  async deleteGitProvider(providerId: string): Promise<void> {
+    await apiClient.delete(`/git/providers/${providerId}`);
   },
 
   /**
