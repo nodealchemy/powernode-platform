@@ -15,7 +15,8 @@ module Ai
     #
     # `tools:` is a FIXED bootstrap core:
     #   * Read/Grep/Glob for everyone; Edit/Write/Bash for a role that changes code
-    #     (the engineer); Bash alone for a role that only checks work (the reviewer);
+    #     (the engineer); Bash alone for a guarded role that only checks work (none
+    #     in phase 1: the reviewer has no shell);
     #   * ToolSearch: with MCP tool search on (the Claude Code default) every
     #     MCP tool reaches a subagent DEFERRED, its schema loaded on demand
     #     through ToolSearch — a subagent without it cannot call even the
@@ -44,9 +45,9 @@ module Ai
       SERVER_GRANT = "mcp__powernode__*"
       READ_BUILTINS = %w[Read Grep Glob ToolSearch].freeze
       CODE_BUILTINS = ToolAllowlist::CODE_BUILTINS
-      # A role that CHECKS work but never changes it (the reviewer: read-only git,
-      # grep, tests in a temp dir) gets a shell and no Edit/Write; its charter, not
-      # the tool list, keeps the shell read-only.
+      # A role that CHECKS work with a shell but never changes it gets Bash and no
+      # Edit/Write, held read-only by its role[:shell_guard] hook. No core role uses
+      # it in phase 1: the reviewer has no shell (the guard can fail open).
       SHELL_BUILTINS = %w[Bash].freeze
 
       # The progressive-disclosure floor. Named here, never derived from the

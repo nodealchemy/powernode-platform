@@ -54,12 +54,20 @@ RSpec.describe Ai::Agents::CanonicalRoster do
         .to eq("powernode-concierge" => "standard", "platform-engineer" => "standard", "platform-reviewer" => "reasoning")
     end
 
-    it "gives the reviewer a shell but never Edit/Write, and says so in its charter" do
+    it "gives the reviewer no shell and no Edit/Write in phase 1, and says so in its charter" do
       reviewer = described_class.fetch("platform-reviewer")
 
-      expect(reviewer[:role]).to include(code: false, shell: true)
-      expect(reviewer[:charter]).to match(/read-only git/i)
+      expect(reviewer[:role]).to include(code: false, shell: false)
+      expect(reviewer[:role]).not_to have_key(:shell_guard)
+      expect(reviewer[:charter]).to match(/no shell/i)
       expect(reviewer[:charter]).to match(/never edit, commit/i)
+    end
+
+    it "still refuses a shell role without code that names no shell_guard" do
+      registry = described_class::Registry.new
+      spec = described_class.fetch("platform-reviewer").merge(role: described_class.fetch("platform-reviewer")[:role].merge(shell: true))
+
+      expect { registry.register("x-reviewer", spec, owner: "core") }.to raise_error(ArgumentError, /shell_guard/)
     end
 
     it "makes the reviewer read-only with an explicit verb list, and the concierge an explicit list too (no whole-server grant)" do

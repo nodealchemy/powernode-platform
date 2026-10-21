@@ -79,14 +79,17 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     end
   end
 
-  it "gives Edit/Write/Bash and the whole-server grant to the engineer, and keeps the reviewer to a shell without Edit/Write" do
+  it "gives Edit/Write/Bash and the whole-server grant to the engineer, and the reviewer no shell (phase 1)" do
     engineer = tools_of(described_class.render("platform-engineer"))
     reviewer = tools_of(described_class.render("platform-reviewer"))
 
     expect(engineer).to include("Edit", "Write", "Bash", described_class::SERVER_GRANT)
-    # The reviewer checks commits (git log/show/diff, tests in a temp dir), so it has Bash; its charter keeps it read-only.
-    expect(reviewer).to include("Bash")
-    expect(reviewer).not_to include("Edit", "Write", described_class::SERVER_GRANT)
+    # The read-only shell guard can fail open (frontmatter hooks need workspace
+    # trust; an unset $CLAUDE_PROJECT_DIR exits 127, non-blocking), so the
+    # reviewer gets no Bash at all: it reads with Read/Grep/Glob.
+    expect(reviewer).not_to include("Bash", "Edit", "Write", described_class::SERVER_GRANT)
+    expect(frontmatter_of(described_class.render("platform-reviewer"))).not_to have_key("hooks")
+    expect(described_class.render("platform-reviewer")).to match(/you have no shell/i)
     # Every registered role without code/shell (core's concierge, an extension's operator): no Edit/Write/Bash.
     roster.slugs.reject { |slug| role_of(slug)[:code] || role_of(slug)[:shell] }.each do |slug|
       expect(tools_of(described_class.render(slug))).not_to include("Edit", "Write", "Bash"), slug

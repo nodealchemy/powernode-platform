@@ -206,18 +206,23 @@ module Ai
                        "increment, a doc change or an autonomy decision — judged against its acceptance " \
                        "criteria. Never reviews work it produced.",
           domains: %w[review knowledge],
-          role: { code: false, shell: true, shell_guard: "readonly-shell-guard.sh", server_grant: false, read_only: true,
+          # Phase 1: NO shell. .claude/hooks/readonly-shell-guard.sh can fail open (a
+          # frontmatter hook needs workspace trust; an unset $CLAUDE_PROJECT_DIR is a
+          # non-blocking exit 127), so the reviewer reads and the delegating session
+          # runs any command the review needs.
+          role: { code: false, shell: false, server_grant: false, read_only: true,
                   # Read-only verbs only (the review skills that are manifest.read_only name these).
                   verbs: %w[code_blast_radius code_file_skeleton code_semantic_search code_static_analysis list_audit_logs],
-                  duty: "You are read-only: never edit, commit or call a mutating verb, and never review work you " \
-                        "produced. Your shell is for CHECKING: read-only git (log, show, diff, status), grep, " \
-                        "tests in a temp directory; no command that mutates the repository or the platform." },
+                  duty: "You are read-only and you have no shell: read the diff and files with Read, Grep and Glob " \
+                        "and the read-only code verbs; name any check that needs a command run (git, tests) in " \
+                        "your report for the delegating session to run. Never edit, commit or call a mutating " \
+                        "verb, and never review work you produced." },
           charter: assembly_charter(
             identity: "You are the **Platform Reviewer**: the independent review of finished work against its " \
                       "acceptance criteria, reported by severity with file and line, then a verdict.",
-            duty: "you are read-only. Your shell is held to an allowlist by the readonly-shell-guard hook: read-only " \
-                  "git, grep and tests only; anything else is denied. Never edit, commit or run a mutating command, " \
-                  "and never review work you produced."
+            duty: "you are read-only and have no shell: read with Read, Grep, Glob and the read-only code verbs, " \
+                  "and name any check that needs a command (git, tests) in your report for the delegating " \
+                  "session to run. Never edit, commit or call a mutating verb, and never review work you produced."
           ),
           posture: {}
         },

@@ -107,28 +107,37 @@ RSpec.describe ".claude/hooks/readonly-shell-guard.sh" do
     expect([ s1.exitstatus, s2.exitstatus ]).to eq([ 2, 2 ])
   end
 
+  # Phase 1: the guard can fail OPEN (frontmatter hooks need workspace trust; an
+  # unset $CLAUDE_PROJECT_DIR is a non-blocking exit 127), so no role relies on
+  # it — the reviewer has no shell at all. The hook stays, hardened, for any
+  # future shell role, and the roster still refuses a shell without code that
+  # names no guard.
   describe "wiring" do
-    it "is in the reviewer's frontmatter, scoped to Bash, and nowhere in settings.json" do
-      reviewer = File.read(File.join(repo_root, ".claude", "agents", "powernode", "platform-reviewer.md"))
-      fm = YAML.safe_load(reviewer.split(/^---$/, 3)[1])
-      hooks = fm.dig("hooks", "PreToolUse")
+    def frontmatter(slug)
+      YAML.safe_load(File.read(File.join(repo_root, ".claude", "agents", "powernode", "#{slug}.md")).split(/^---$/, 3)[1])
+    end
 
-      expect(hooks.first["matcher"]).to eq("Bash")
-      expect(hooks.first["hooks"].first["command"]).to include("readonly-shell-guard.sh")
+    it "is nowhere in settings.json (it must never restrict the main session)" do
       expect(File.read(File.join(repo_root, ".claude", "settings.json"))).not_to include("readonly-shell-guard")
     end
 
-    it "is only on roles that have a shell and no Edit/Write" do
-      roles = Ai::Agents::CanonicalRoster.each.to_h { |slug, spec, _| [ slug, spec[:role] ] }
-      guarded = roles.select { |_s, r| r[:shell_guard] }.keys
-
-      expect(guarded).to eq(roles.select { |_s, r| r[:shell] && !r[:code] }.keys)
-      expect(guarded).to include("platform-reviewer")
+    it "the reviewer has no shell in phase 1: no Bash in its tools and no hook in its frontmatter" do
+      fm = frontmatter("platform-reviewer")
+      expect(fm["tools"].split(",").map(&:strip)).not_to include("Bash", "Edit", "Write")
+      expect(fm).not_to have_key("hooks")
+      expect(Ai::Agents::CanonicalRoster.fetch("platform-reviewer")[:role]).to include(shell: false, code: false)
     end
 
-    it "is stated in the reviewer charter and the ceilings file" do
-      expect(Ai::Agents::CanonicalRoster.fetch("platform-reviewer")[:charter]).to match(/readonly-shell-guard|allowlist/i)
-      expect(File.read(File.join(repo_root, "scripts", "claude-agents-size-ceilings.txt"))).to match(/readonly-shell-guard/)
+    it "every role with a shell and no Edit/Write names a guard" do
+      Ai::Agents::CanonicalRoster.each do |slug, spec, _|
+        role = spec[:role]
+        expect(role[:shell_guard]).to be_present, slug if role[:shell] && !role[:code]
+      end
+    end
+
+    it "the reviewer charter and the ceilings file say it has no shell" do
+      expect(Ai::Agents::CanonicalRoster.fetch("platform-reviewer")[:charter]).to match(/no shell/i)
+      expect(File.read(File.join(repo_root, "scripts", "claude-agents-size-ceilings.txt"))).to match(/platform-reviewer has no shell/i)
     end
   end
 end
