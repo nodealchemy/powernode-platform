@@ -715,6 +715,17 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
         expect(result[:error]).not_to include("changed concurrently")
       end
 
+      it "does not call a case-twin collision on an UPDATE a race: the locked read had found the row" do
+        SiteSetting.set(ordered_key, "abc")
+        SiteSetting.insert_all([ { key: ordered_key.upcase, value: "x", setting_type: "string", is_public: false } ])
+        tool, params = replay_tool_for(ordered_key)
+
+        result = tool.send(:set_setting, params)
+
+        expect(result[:success]).to be(false)
+        expect(result[:error]).not_to include("changed concurrently")
+      end
+
       it "does not call an audit-row RecordNotUnique a concurrent change" do
         tool, params = replay_tool_for(ordered_key)
         allow(tool).to receive(:record_write!).and_raise(ActiveRecord::RecordNotUnique, "audit duplicate")

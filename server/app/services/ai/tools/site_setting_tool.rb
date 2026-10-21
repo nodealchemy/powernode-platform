@@ -831,7 +831,7 @@ module Ai
             rescue ActiveRecord::RecordNotUnique, ActiveRecord::RecordInvalid => e
               # Re-raised as ours so the handler below knows THIS write failed
               # (not the audit row after it) and can tell a true race apart.
-              raise SetWriteFailed, e
+              raise SetWriteFailed.new(e, insert_only: previous.nil?)
             end
 
           record_write!(setting: setting, created: previous.nil?)
@@ -849,7 +849,7 @@ module Ai
         # differing only by case trips the case-insensitive validation without
         # being a race) is reported as what it is.
         cause = e.cause
-        return concurrent_change_error(params) if SiteSetting.exists?(key: params[:key].to_s) && previous_absent_failure?(cause)
+        return concurrent_change_error(params) if e.insert_only && SiteSetting.exists?(key: params[:key].to_s) && previous_absent_failure?(cause)
 
         if cause.is_a?(ActiveRecord::RecordInvalid)
           error_result("Validation failed: #{cause.record.errors.full_messages.join(', ')}")
@@ -863,7 +863,14 @@ module Ai
       end
 
       # The SiteSetting.set write itself failed (see #set_setting).
-      class SetWriteFailed < StandardError; end
+      class SetWriteFailed < StandardError
+        attr_reader :insert_only
+
+        def initialize(error, insert_only:)
+          super(error.class.name)
+          @insert_only = insert_only
+        end
+      end
 
       def previous_absent_failure?(cause)
         cause.is_a?(ActiveRecord::RecordNotUnique) ||
