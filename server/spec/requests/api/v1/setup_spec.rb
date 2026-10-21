@@ -123,6 +123,8 @@ RSpec.describe "Api::V1::Setup", type: :request do
     end
 
     describe "POST /api/v1/setup/steps/:key" do
+      before { allow(Core::IngressConfigWriter).to receive(:write!) }
+
       it "persists the domain step and stamps completion" do
         post "/api/v1/setup/steps/domain",
              params: { domain: "fleet.example.com" },
@@ -150,6 +152,41 @@ RSpec.describe "Api::V1::Setup", type: :request do
              headers: auth_headers_for(admin), as: :json
 
         expect(response).to have_http_status(422)
+      end
+
+      it "rewrites the ingress config once after the domain step" do
+        allow(Core::IngressConfigWriter).to receive(:write!)
+        allow(Rails.env).to receive(:development?).and_return(false)
+
+        post "/api/v1/setup/steps/domain", params: { domain: "fleet.example.com" },
+                                           headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(Core::IngressConfigWriter).to have_received(:write!).once
+        expect(json_response_data["warnings"]).to be_blank
+      end
+
+      it "returns a warning, not an error, when the ingress write fails" do
+        allow(Core::IngressConfigWriter).to receive(:write!).and_raise(Errno::EACCES, "/etc/traefik secret-path")
+        allow(Rails.env).to receive(:development?).and_return(false)
+
+        post "/api/v1/setup/steps/domain", params: { domain: "fleet.example.com" },
+                                           headers: auth_headers_for(admin), as: :json
+
+        expect_success_response
+        expect(json_response_data["warnings"].first).to include("Errno::EACCES")
+        expect(json_response_data["warnings"].first).not_to include("secret-path")
+        expect(SiteSetting.get("domain")).to eq("fleet.example.com")
+      end
+
+      it "does not touch the ingress writer in development" do
+        allow(Core::IngressConfigWriter).to receive(:write!)
+        allow(Rails.env).to receive(:development?).and_return(true)
+
+        post "/api/v1/setup/steps/domain", params: { domain: "fleet.example.com" },
+                                           headers: auth_headers_for(admin), as: :json
+
+        expect(Core::IngressConfigWriter).not_to have_received(:write!)
       end
 
       it "rejects a blank domain" do

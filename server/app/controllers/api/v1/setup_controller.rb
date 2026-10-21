@@ -51,7 +51,11 @@ class Api::V1::SetupController < ApplicationController
     return render_error(error, :unprocessable_content, code: "invalid_setup_step") if error
 
     current_account.mark_setup_step!(step[:key])
-    render_success(data: { step: Setup::StepRegistry.annotate(step, current_account) })
+    data = { step: Setup::StepRegistry.annotate(step, current_account) }
+    # Runs after the domain writes have committed; a failure is a warning, never a step error.
+    warning = Setup::IngressRefresher.call(account: current_account) if step[:key] == "domain"
+    data[:warnings] = [ warning ] if warning
+    render_success(data: data)
   end
 
   # GET /api/v1/setup/extensions — list extensions present in this build + enabled state.

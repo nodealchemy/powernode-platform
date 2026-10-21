@@ -49,6 +49,14 @@ describe('DomainListField', () => {
     expect(spy).toHaveBeenLastCalledWith('b.example.com');
   });
 
+  it('shows a note only when a wildcard domain is present', () => {
+    const { unmount } = render(<Harness initial="a.example.com" />);
+    expect(screen.queryByTestId('d-wildcard-note')).not.toBeInTheDocument();
+    unmount();
+    render(<Harness initial="*.example.com" />);
+    expect(screen.getByTestId('d-wildcard-note')).toBeInTheDocument();
+  });
+
   it('does not duplicate an existing domain', () => {
     const spy = jest.fn();
     render(<Harness initial="a.example.com" spy={spy} />);

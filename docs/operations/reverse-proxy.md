@@ -327,6 +327,9 @@ wrote earlier are tracked in SiteSetting `wizard_domains` and replaced on re-run
 - **Production**: Rails `config.hosts` is intentionally unset (the commented block in
   `production.rb`); host gating is the reverse proxy. `Core::IngressConfigWriter`
   already turns the non-wildcard `trusted_hosts` into Traefik `Host()` rules on its
-  next write, so the same list drives production. Wildcards are not emitted as
-  Traefik rules.
+  next write, and the wizard triggers that write (`Setup::IngressRefresher`) right after
+  the domain step commits so the domains take effect immediately. A write failure is
+  returned as a step warning (class name logged, no message) and never fails the step.
+  It is a no-op in development. Wildcards are not emitted as Traefik rules (Traefik
+  `Host()` matches exact names); the wizard shows a note when one is added.
 - The admin Proxy Settings tab (`ProxyHostList`) shows the same `trusted_hosts` list.

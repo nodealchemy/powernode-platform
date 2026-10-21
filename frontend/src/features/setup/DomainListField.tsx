@@ -81,6 +81,12 @@ export const DomainListField: React.FC<DomainListFieldProps> = ({
           {error}
         </p>
       )}
+      {domains.some((d) => d.includes('*')) && (
+        <p className="text-xs text-theme-secondary" data-testid={`${id}-wildcard-note`}>
+          Wildcard domains are allowed through host checks, but the reverse proxy only routes
+          exact hostnames. Add each hostname you need served explicitly.
+        </p>
+      )}
       {domains.length > 0 && (
         <ul className="space-y-1">
           {domains.map((domain) => (
