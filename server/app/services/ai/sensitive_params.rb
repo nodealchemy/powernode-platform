@@ -121,11 +121,19 @@ module Ai
     # "\\r\\n" separator.
     BASE64_NEEDLE_SPAN = 18
 
+    # The decode-confirmation. Two dashes, not five: a run whose start was cut
+    # one quantum into the armor (its first characters sat on the line before,
+    # out of reach) decodes from the next quantum, which keeps at least two of
+    # the five dashes. PRIVATE KEY is still required.
+    DECODED_PRIVATE_KEY_HEADER = /-{2,}BEGIN [A-Z0-9 ]*PRIVATE KEY/
+
     # The rest of a run from a needle onward.
     BASE64_RUN_TAIL = /\G#{BASE64_CHAR}*=*(?:#{BASE64_WRAP}(?=#{BASE64_CHAR}{16})#{BASE64_CHAR}+=*)*/
     # Byte classes for the walk back to a run's start.
     BASE64_BYTES = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/_-".bytes.to_h { |b| [ b, true ] }.freeze
     PAD_BYTE = "=".ord
+    N_BYTE = "n".ord
+    BACKSLASH_BYTE = "\\".ord
 
     # Keys that a pattern WOULD match and that provably hold no material —
     # checked before every pattern, including the deployment-configured ones, so
@@ -341,7 +349,7 @@ module Ai
         candidates = [ flat ]
         candidates << flat.tr("-_", "+/") if flat.match?(/[-_]/)
         candidates.any? do |candidate|
-          (0..3).any? { |offset| ::Base64.decode64(candidate[offset..].to_s).match?(/-----BEGIN [A-Z0-9 ]*PRIVATE KEY/) }
+          (0..3).any? { |offset| ::Base64.decode64(candidate[offset..].to_s).match?(DECODED_PRIVATE_KEY_HEADER) }
         end
       rescue ArgumentError
         false
@@ -409,18 +417,32 @@ module Ai
       def base64_run_start(bin, index)
         start = skip_base64_back(bin, index)
         loop do
+          start = past_escape_n(bin, start)
           sep = wrap_before(bin, start)
           break unless sep
 
           line_end = sep
           line_end -= 1 while line_end.positive? && bin.getbyte(line_end - 1) == PAD_BYTE
-          line_start = skip_base64_back(bin, line_end)
+          walked = skip_base64_back(bin, line_end)
+          line_start = past_escape_n(bin, walked)
           break if line_end - line_start < 16
-          break if line_start.positive? && (BASE64_BYTES[bin.getbyte(line_start - 1)] || bin.getbyte(line_start - 1) == PAD_BYTE)
+          # Glued to a word (or to padding) is prose, judged before the escape's
+          # n is set aside: that n is base64 but belongs to the separator.
+          break if walked.positive? && bin.getbyte(walked - 1) == PAD_BYTE
 
           start = line_start
         end
         start
+      end
+
+      # The n of a literal "\\n" (or "\\r\\n") escape is a base64 byte, so a
+      # walk back stops on the backslash with the n taken as the line's first
+      # character, and the separator is never seen. A line starting right after
+      # a backslash-n starts one byte later, behind the escape.
+      def past_escape_n(bin, start)
+        return start unless start.positive? && bin.getbyte(start) == N_BYTE && bin.getbyte(start - 1) == BACKSLASH_BYTE
+
+        start + 1
       end
 
       def skip_base64_back(bin, index)

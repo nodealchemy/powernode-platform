@@ -654,6 +654,37 @@ RSpec.describe Ai::SensitiveParams do
       end
     end
 
+    # The n of a literal "\\n" escape is itself a base64 character, so a run
+    # walked back from a needle at the start of a line must not take it for the
+    # line's first character (r5 M-2b).
+    # At a width divisible by 4 every line starts on a quantum, where only the
+    # alignment-0 needle can begin, so the widths here are not.
+    it 'masks a run joined by literal \\n or \\r\\n whose needle starts a line, at alignments 1 and 2' do
+      cases = [ 17, 63, 75, 77 ].flat_map do |width|
+        (0..300).filter_map do |prefix|
+          next unless [ 1, 2 ].include?(prefix % 3)
+
+          encoded = Base64.strict_encode64(('x' * prefix) + key_pem)
+          at = described_class::BASE64_PEM_NEEDLES.filter_map { |needle| encoded.index(needle) }.min
+          [ width, encoded ] if (at % width).zero?
+        end
+      end
+      expect(cases.map(&:first).uniq).to match_array([ 17, 63, 75, 77 ])
+
+      cases.each do |width, encoded|
+        lines = encoded.scan(/.{1,#{width}}/)
+        [ '\\n', '\\r\\n' ].each do |joiner|
+          text = "data: #{lines.join(joiner)} end"
+          # A final line under 16 characters is not taken as a continuation
+          # (the run rule for any joiner); it is the footer's last dashes.
+          tail = lines.last.length < 16 ? "#{joiner}#{lines.last}" : ''
+          want = "data: #{described_class::MASK}#{tail} end"
+          expect(described_class.filter('blob' => text)['blob']).to eq(want), "width #{width}, joiner #{joiner}"
+          expect(described_class.filter_text(text, truncate: false)).to eq(want)
+        end
+      end
+    end
+
     it 'scans a large prose leaf carrying one encoded certificate in bounded time' do
       certificate = Base64.strict_encode64(cert_pem)
       prose = ('well-known re-entrant x-ray state-of-the-art ' * 50_000)[0, 2 * 1024 * 1024]
