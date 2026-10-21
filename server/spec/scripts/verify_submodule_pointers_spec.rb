@@ -36,10 +36,12 @@ RSpec.describe "scripts/verify-submodule-pointers.sh (IMP-ba424a66188f)" do
 
   let(:env) { git_env }
 
+  # Named `repo`, not `fixture`: rails_helper (loaded by other specs in the same run)
+  # mixes ActiveRecord::TestFixtures#fixture into every group, shadowing a `let(:fixture)`.
   # Parent with one submodule at extensions/system whose remote is a temp bare repo.
   #   branch main:    gitlink -> GOOD (pushed to the submodule remote)
   #   branch feature: gitlink -> BAD  (exists only in the local submodule clone)
-  let(:fixture) do
+  let(:repo) do
     bare = File.join(@tmp, "sub.git")
     parent = File.join(@tmp, "parent")
     git(@tmp, "init", "--bare", "-q", "-b", "develop", bare, env: env)
@@ -82,51 +84,51 @@ RSpec.describe "scripts/verify-submodule-pointers.sh (IMP-ba424a66188f)" do
   end
 
   it "(a) refuses a non-HEAD ref whose gitlink is missing from the submodule remote, though HEAD is fine" do
-    git(fixture[:parent], "checkout", "-q", "main", env: env) # HEAD good
-    _out, err, st = run_hook(script, fixture[:parent], line("refs/heads/feature", fixture[:bad]), env)
+    git(repo[:parent], "checkout", "-q", "main", env: env) # HEAD good
+    _out, err, st = run_hook(script, repo[:parent], line("refs/heads/feature", repo[:bad]), env)
     expect(st.exitstatus).to eq(1), err
   end
 
   it "(b) allows a good pushed ref even when HEAD's gitlink is bad" do
-    git(fixture[:parent], "checkout", "-q", "feature", env: env) # HEAD bad
-    out, err, st = run_hook(script, fixture[:parent], line("refs/heads/main", fixture[:good]), env)
+    git(repo[:parent], "checkout", "-q", "feature", env: env) # HEAD bad
+    out, err, st = run_hook(script, repo[:parent], line("refs/heads/main", repo[:good]), env)
     expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
   end
 
   it "(c) works when pushed from a linked worktree (submodule not initialised there)" do
-    parent = fixture[:parent]
+    parent = repo[:parent]
     wt = File.join(@tmp, "wt")
     git(parent, "checkout", "-q", "main", env: env)
     git(parent, "worktree", "add", "-q", wt, "feature", env: env)
     expect(File.directory?(File.join(wt, "extensions", "system", ".git"))).to be(false)
 
-    _o, e1, bad = run_hook(script, wt, line("refs/heads/feature", fixture[:bad]), env)
+    _o, e1, bad = run_hook(script, wt, line("refs/heads/feature", repo[:bad]), env)
     expect(bad.exitstatus).to eq(1), e1
-    o2, e2, good = run_hook(script, wt, line("refs/heads/main", fixture[:good]), env)
+    o2, e2, good = run_hook(script, wt, line("refs/heads/main", repo[:good]), env)
     expect(good.exitstatus).to eq(0), "#{o2}\n#{e2}"
   end
 
   it "(d) ignores a delete push (zero local sha) even when HEAD is bad" do
-    git(fixture[:parent], "checkout", "-q", "feature", env: env)
-    out, err, st = run_hook(script, fixture[:parent], line("(delete)", zeros, fixture[:bad]), env)
+    git(repo[:parent], "checkout", "-q", "feature", env: env)
+    out, err, st = run_hook(script, repo[:parent], line("(delete)", zeros, repo[:bad]), env)
     expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
   end
 
   # git exports GIT_DIR (and friends) to hooks. Without clearing it, every `git -C <submodule>`
   # call in the checker queries the PARENT repository, so each pointer reads "not found".
   it "(e) works under the hook environment, where git exports GIT_DIR for the parent" do
-    parent = fixture[:parent]
+    parent = repo[:parent]
     git(parent, "checkout", "-q", "main", env: env)
     hook_env = env.merge("GIT_DIR" => File.join(parent, ".git"))
-    out, err, st = run_hook(script, parent, line("refs/heads/main", fixture[:good]), hook_env)
+    out, err, st = run_hook(script, parent, line("refs/heads/main", repo[:good]), hook_env)
     expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
-    _o, e2, bad = run_hook(script, parent, line("refs/heads/feature", fixture[:bad]), hook_env)
+    _o, e2, bad = run_hook(script, parent, line("refs/heads/feature", repo[:bad]), hook_env)
     expect(bad.exitstatus).to eq(1), e2
   end
 
   it "falls back to HEAD when no ref lines are supplied (manual invocation)" do
-    git(fixture[:parent], "checkout", "-q", "feature", env: env)
-    _o, err, st = run_hook(script, fixture[:parent], "", env)
+    git(repo[:parent], "checkout", "-q", "feature", env: env)
+    _o, err, st = run_hook(script, repo[:parent], "", env)
     expect(st.exitstatus).to eq(1), err
   end
 
@@ -134,26 +136,26 @@ RSpec.describe "scripts/verify-submodule-pointers.sh (IMP-ba424a66188f)" do
   # checker looked for a submodule remote literally named like the URL, found none and SKIPPED.
   describe "when the push target is a URL rather than a remote name" do
     it "resolves the URL to the matching parent remote and still catches an unpublished pointer" do
-      parent = fixture[:parent]
+      parent = repo[:parent]
       url = "https://git.example.invalid/org/parent.git"
       git(parent, "remote", "add", "origin", url, env: env)
       _o, err, st = Open3.capture3(env, "bash", script, "--remote", url, chdir: parent,
-                                   stdin_data: line("refs/heads/feature", fixture[:bad]))
+                                   stdin_data: line("refs/heads/feature", repo[:bad]))
       expect(st.exitstatus).to eq(1), err
       expect(err + _o).not_to match(/\[skip\]/)
     end
 
     it "falls back to the default remotes (never skips) when the URL matches no remote" do
-      parent = fixture[:parent]
+      parent = repo[:parent]
       out, err, st = Open3.capture3(env, "bash", script, "--remote", "https://other.example.invalid/x.git",
-                                    chdir: parent, stdin_data: line("refs/heads/feature", fixture[:bad]))
+                                    chdir: parent, stdin_data: line("refs/heads/feature", repo[:bad]))
       expect(st.exitstatus).to eq(1), "#{out}\n#{err}"
     end
 
     it "allows a good pointer pushed to an unmatched URL" do
-      parent = fixture[:parent]
+      parent = repo[:parent]
       out, err, st = Open3.capture3(env, "bash", script, "--remote", "https://other.example.invalid/x.git",
-                                    chdir: parent, stdin_data: line("refs/heads/main", fixture[:good]))
+                                    chdir: parent, stdin_data: line("refs/heads/main", repo[:good]))
       expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
     end
   end
