@@ -20,7 +20,9 @@ class Ai::McpAgentExecutor
       messages = build_messages_for_llm(execution_context)
       model, opts = resolve_model_config(execution_context, messages)
 
-      tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account)
+      # The execution's user is who ran the agent; the bridge's tools still run
+      # as the agent's creator (see Ai::AgentToolBridgeService#initialize).
+      tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account, driving_user: @execution&.user)
 
       if tool_bridge.tools_enabled? && tool_bridge.tool_definitions_for_llm.any?
         opts[:max_tokens] ||= route_max_tokens(model, agentic: true)

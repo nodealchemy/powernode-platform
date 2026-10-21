@@ -333,7 +333,10 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
         agent_id: agent.id,
         mcp_agent: agent,
         # The bridge names its door (MCP identity plan R3).
-        origin: "agent_bridge"
+        origin: "agent_bridge",
+        # No real triggering user was handed to this bridge: the driver is
+        # unknown, never the creator the call runs as.
+        driving_user: nil
       ).and_return({ success: true, data: [] })
 
       result = bridge.dispatch_tool_call(tool_call)
@@ -352,7 +355,8 @@ RSpec.describe Ai::AgentToolBridgeService, type: :service do
         user: user,
         agent_id: agent.id,
         mcp_agent: agent,
-        origin: "agent_bridge"
+        origin: "agent_bridge",
+        driving_user: nil
       ).and_return({ success: true })
 
       bridge.dispatch_tool_call(string_tool_call)

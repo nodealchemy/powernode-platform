@@ -56,6 +56,15 @@ module Ai
 
     DEFAULT_APPROVAL_TIMEOUT_HOURS = 4
 
+    # `driving_user:` left unset. The driver is then `requested_by`, except on
+    # a door whose `user` is a stand-in (STAND_IN_USER_ORIGINS), where it is
+    # unknown (nil). A caller that knows the real triggering user names it.
+    UNKNOWN_DRIVER = Object.new.freeze
+    # The agent-bridge door runs every tool call with `user: agent.creator`
+    # (Ai::AgentToolBridgeService): authority, not the person who ran the
+    # agent, so it never stands for the driver of a promotion grant.
+    STAND_IN_USER_ORIGINS = [ ::Ai::Tools::CallOrigin::AGENT_BRIDGE ].freeze
+
     def self.evaluate(**kwargs)
       new(account: kwargs.fetch(:account)).evaluate(**kwargs.except(:account))
     end
@@ -91,6 +100,10 @@ module Ai
     #                        marked with it, so its requester never decides it
     #                        through a tool door (MCP identity plan D1, guard a).
     #                        nil for a call from a person's own session.
+    # @param driving_user    [User, nil] the person who actually drove this call
+    #                        (a promotion grant's granter_driven_only and audit
+    #                        row read it). Unset ⇒ requested_by, or nil on a
+    #                        stand-in door (STAND_IN_USER_ORIGINS).
     # @param grant_subject   [Hash, nil] what the call acts on, for a promotion
     #                        grant ({ module_id:, version_id: }). Built by the
     #                        verb's gate context from rows it resolved, never
@@ -98,7 +111,7 @@ module Ai
     def evaluate(action_category:, executor_class:, params: {}, agent: nil,
                  requested_by: nil, source_type: nil, source_id: nil, description: nil,
                  environment: nil, requires_human_session: false, call_origin: nil, agent_initiated: false,
-                 grant_subject: nil)
+                 grant_subject: nil, driving_user: UNKNOWN_DRIVER)
       call_origin = ::Ai::Tools::CallOrigin.validate!(call_origin)
       resolved_environment = ::Ai::EnvironmentResolution.resolve(
         account: @account, params: params, environment: environment
@@ -135,7 +148,8 @@ module Ai
         # this arm: block/silent below and the unknown-verb arm never consult one.
         grant = consume_promotion_grant(deferred, action_category: action_category, agent: agent,
                                                   requires_human_session: requires_human_session,
-                                                  grant_subject: grant_subject, requested_by: requested_by,
+                                                  grant_subject: grant_subject,
+                                                  driving_user: resolve_driving_user(driving_user, requested_by, call_origin),
                                                   call_origin: call_origin)
         if grant
           result_data = deferred.execute_now!
@@ -181,8 +195,14 @@ module Ai
     #     reason a grant answers, because the grant is itself a person's
     #     own-session decision about exactly that plane.
     # Consumption is atomic (Ai::PromotionGrants::Ledger.consume!).
+    def resolve_driving_user(driving_user, requested_by, call_origin)
+      return driving_user unless driving_user.equal?(UNKNOWN_DRIVER)
+
+      STAND_IN_USER_ORIGINS.include?(call_origin) ? nil : requested_by
+    end
+
     def consume_promotion_grant(deferred, action_category:, agent:, requires_human_session:, grant_subject:,
-                                requested_by: nil, call_origin: nil)
+                                driving_user: nil, call_origin: nil)
       return nil if agent.nil? || grant_subject.blank? || requires_human_session
       return nil unless ::Ai::PromotionGrant::CATEGORIES.include?(action_category.to_s)
       return nil if deferred.environment.nil?
@@ -198,7 +218,7 @@ module Ai
         subject: grant_subject, deferred_operation: deferred,
         # Who drove the call: the person (if any), the door, and the park
         # principal the operation was stamped with.
-        driver: requested_by, call_origin: call_origin,
+        driver: driving_user, call_origin: call_origin,
         principal: deferred.params.is_a?(::Hash) ? deferred.params[::Ai::Approvals::ParkPrincipal::KEY] : nil
       )
     end

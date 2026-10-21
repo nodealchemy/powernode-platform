@@ -23,6 +23,12 @@ module Ai
         end
       end
 
+      # The ParkPrincipal descriptor's keys (Ai::Approvals::ParkPrincipal.descriptor):
+      # ids and kinds only. The used row copies the principal through this
+      # allowlist, so nothing else a params hash carries can reach the audit log.
+      PRINCIPAL_AUDIT_KEYS = %w[kind origin user_id agent_id internal node_instance_id granted_tool_name
+                                session_label detail].freeze
+
       CREATED = "ai.promotion_grant.created"
       REVOKED = "ai.promotion_grant.revoked"
       USED    = "ai.promotion_grant.used"
@@ -139,7 +145,8 @@ module Ai
                             "environment_id" => environment.id, "environment_slug" => environment.slug,
                             "target_environment_id" => target_environment_id,
                             "driving_user_id" => driver&.id, "driving_agent_id" => agent.id,
-                            "call_origin" => call_origin, "principal" => principal.presence,
+                            "driver_known" => driver.present?,
+                            "call_origin" => call_origin, "principal" => audit_principal(principal),
                             "granter_driven_only" => grant.granter_driven_only,
                             "deferred_operation_id" => deferred_operation.id,
                             "uses_count" => grant.uses_count, "max_uses" => grant.max_uses,
@@ -171,6 +178,14 @@ module Ai
           ip_address: request&.remote_ip, user_agent: request&.user_agent&.to_s&.first(1000),
           request_id: request&.request_id&.to_s&.first(50)
         )
+      end
+
+      def audit_principal(principal)
+        return nil unless principal.is_a?(::Hash)
+
+        principal.stringify_keys.slice(*PRINCIPAL_AUDIT_KEYS)
+                 .select { |_key, value| value.nil? || value.is_a?(String) || value == true || value == false }
+                 .presence
       end
 
       def find_in_account(model, account, id, noun)

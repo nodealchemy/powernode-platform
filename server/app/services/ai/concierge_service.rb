@@ -795,7 +795,8 @@ module Ai
 
     def handle_tool_bridge_confirmation(params)
       tool_name = params.delete("_tool_name")
-      tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account)
+      # The conversation's user confirmed this call: they are its driver.
+      tool_bridge = Ai::AgentToolBridgeService.new(agent: @agent, account: @account, driving_user: @user)
 
       result_json = tool_bridge.dispatch_tool_call(name: tool_name, arguments: params)
       result = JSON.parse(result_json)

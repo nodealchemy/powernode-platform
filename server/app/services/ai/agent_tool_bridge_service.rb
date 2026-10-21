@@ -24,9 +24,15 @@ module Ai
 
     attr_reader :agent, :account
 
-    def initialize(agent:, account: nil)
+    # `driving_user`: the person who actually ran the agent (an execution's
+    # user, a concierge conversation's user), when the caller knows one. Every
+    # tool call still runs AS agent.creator; this only tells the autonomy gate
+    # who drove it, for a promotion grant's granter_driven_only and audit row.
+    # nil ⇒ unknown, never the creator.
+    def initialize(agent:, account: nil, driving_user: nil)
       @agent = agent
       @account = account || agent.account
+      @driving_user = driving_user
       @tool_access_config = agent.mcp_metadata&.dig("tool_access") || {}
     end
 
@@ -297,7 +303,8 @@ module Ai
         user: agent.creator,
         agent_id: agent.id,
         mcp_agent: agent,
-        origin: ::Ai::Tools::CallOrigin::AGENT_BRIDGE
+        origin: ::Ai::Tools::CallOrigin::AGENT_BRIDGE,
+        driving_user: @driving_user
       )
 
       [truncate_result(result.to_json), result]

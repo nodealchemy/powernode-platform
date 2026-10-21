@@ -243,4 +243,62 @@ RSpec.describe Ai::AutonomyGate, "promotion grants" do
       expect(promote(subject: { module_id: module_id, version_id: version_id })).to be_pending
     end
   end
+
+  # M-1: on the agent-bridge door the tool's `user` is the agent's CREATOR, a
+  # stand-in for authority, not the person driving the run. It must never
+  # satisfy granter_driven_only or be recorded as the driver.
+  describe "the agent-bridge door" do
+    let(:bridge) { Ai::Tools::CallOrigin::AGENT_BRIDGE }
+
+    it "does not take the stand-in user as the driver" do
+      grant = grant!(granter_driven_only: true)
+      result = promote(requested_by: granter, call_origin: bridge)
+
+      expect(result).to be_pending
+      expect(grant.reload.uses_count).to eq(0)
+    end
+
+    it "takes the real triggering user when the door names one" do
+      grant!(granter_driven_only: true)
+      expect(promote(requested_by: granter, call_origin: bridge, driving_user: granter)).to be_proceed
+    end
+
+    it "records an unknown driver when none is named" do
+      grant!
+      promote(requested_by: granter, call_origin: bridge)
+
+      audit = AuditLog.where(account_id: account.id, action: "ai.promotion_grant.used").sole
+      expect(audit.user_id).to be_nil
+      expect(audit.metadata).to include("driving_user_id" => nil, "driver_known" => false, "call_origin" => bridge)
+    end
+  end
+
+  # L-1: the principal copied onto the used row is the ParkPrincipal
+  # descriptor and nothing else.
+  describe "the principal on the used audit row" do
+    it "carries only ParkPrincipal descriptor keys" do
+      grant!
+      forged = { Ai::Approvals::ParkPrincipal::KEY => { "kind" => "user", "user_id" => granter.id,
+                                                         "agent_id" => agent.id, "token" => "fake-low-entropy",
+                                                         "nested" => { "x" => 1 } } }
+      described_class.evaluate(
+        action_category: "release.promote", executor_class: "PromotionGrantSpecExecutor",
+        params: forged.merge(tool_params: { module_id: module_id }), account: account, agent: agent,
+        environment: ops, agent_initiated: true,
+        grant_subject: { module_id: module_id, version_id: version_id, environment_id: ops.id }
+      )
+
+      principal = AuditLog.where(account_id: account.id, action: "ai.promotion_grant.used").sole.metadata["principal"]
+      expect(principal.keys - Ai::PromotionGrants::Ledger::PRINCIPAL_AUDIT_KEYS).to be_empty
+      expect(principal).to include("kind" => "user", "user_id" => granter.id)
+      expect(principal).not_to have_key("token")
+    end
+
+    it "is exactly the descriptor the gate stamped on a real call" do
+      grant!
+      promote(requested_by: granter)
+      principal = AuditLog.where(account_id: account.id, action: "ai.promotion_grant.used").sole.metadata["principal"]
+      expect(principal.keys - Ai::PromotionGrants::Ledger::PRINCIPAL_AUDIT_KEYS).to be_empty
+    end
+  end
 end

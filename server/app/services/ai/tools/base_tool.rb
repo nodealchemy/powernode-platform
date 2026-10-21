@@ -795,6 +795,13 @@ module Ai
       # nil for user/agent callers, whose paths are unchanged. (BUG-S)
       attr_writer :node_instance
 
+      # The person who actually triggered this call, when the door's `user` is
+      # only a stand-in (the agent bridge runs as agent.creator). Set by
+      # McpPlatformToolRegistrar from the bridge's own driving_user; read only
+      # by the autonomy gate, for promotion grants. Unset ⇒ the gate decides
+      # (Ai::AutonomyGate::UNKNOWN_DRIVER).
+      attr_writer :driving_user
+
       # Set by Ai::Executors::DeferredToolCall when it re-invokes a tool call an
       # operator has APPROVED (APO-1b; docs/concepts/deferred-tool-call-replay.md).
       # The gate already ran for this call, so #execute must not park it a second
@@ -1355,7 +1362,8 @@ module Ai
           **(machine_call? ? { agent_initiated: true } : {}),
           # What the call acts on, for a promotion grant (Ai::PromotionGrant).
           # Only a gate context that resolved its subject server-side names one.
-          **(context[:grant_subject].present? ? { grant_subject: context[:grant_subject] } : {})
+          **(context[:grant_subject].present? ? { grant_subject: context[:grant_subject] } : {}),
+          **(defined?(@driving_user) ? { driving_user: @driving_user } : {})
         )
 
         # Only a guarded park reads it (#guarded_park_attempt), so only a guarded
