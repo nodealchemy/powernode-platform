@@ -19,9 +19,10 @@ module StorageProviders
     DELETE_SEND_TIMEOUT = 10
     DELETE_CALLS = 3
     DELETE_DEADLINE_SECONDS = 60
-    DELETE_WORST_CASE_SECONDS = [
-      DELETE_CALLS * (DELETE_OPEN_TIMEOUT + DELETE_READ_TIMEOUT + DELETE_SEND_TIMEOUT), DELETE_DEADLINE_SECONDS
-    ].min
+    # The per-call derivation (calls x (open + read + send)) is NOT an upper bound: it
+    # omits googleauth's 401 retry (auth_tries 2) and the token refresh. Only the
+    # hard deadline is.
+    DELETE_WORST_CASE_SECONDS = DELETE_DEADLINE_SECONDS
 
     def initialize(storage_config)
       super

@@ -242,7 +242,7 @@ module StorageProviders
 
       log_error("Failed to delete the blob of file object #{file_object.id}: #{e.message}")
       false
-    rescue Timeout::Error, Faraday::TimeoutError => e
+    rescue Timeout::Error => e
       log_error("Failed to delete the blob of file object #{file_object.id}: #{e.class}")
       false
     end

@@ -161,7 +161,9 @@ RSpec.describe StorageProviders::GcsStorage, type: :service do
       derived = described_class::DELETE_CALLS * per_call
 
       expect(derived).to be > described_class::DELETE_DEADLINE_SECONDS # the auth round-trips are why a deadline exists
-      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq([ derived, described_class::DELETE_DEADLINE_SECONDS ].min)
+      # The derived figure undercounts googleauth's 401 retry (auth_tries 2) and token refresh, so only the
+      # deadline is an upper bound.
+      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq(described_class::DELETE_DEADLINE_SECONDS)
     end
 
     it 'returns false, not a hang, when the delete outlives the hard deadline' do

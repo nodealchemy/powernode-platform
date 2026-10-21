@@ -48,6 +48,15 @@ RSpec.describe StorageProviders::AzureStorage, type: :service do
     end
   end
 
+  describe '#delete_file deadline' do
+    it 'returns false, not a hang, when the delete outlives the hard deadline' do
+      stub_const('StorageProviders::AzureStorage::DELETE_DEADLINE_SECONDS', 0.2)
+      allow(provider).to receive(:make_request) { sleep 2 }
+
+      expect(provider.delete_file(file_object)).to be false
+    end
+  end
+
   describe '#initialize_storage' do
     it 'returns true when container exists' do
       stub_azure_request(

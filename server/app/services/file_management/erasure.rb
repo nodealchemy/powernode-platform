@@ -296,12 +296,13 @@ module FileManagement
       # touching nothing, so there is nothing to roll back.
       outcome
     rescue ActiveRecord::LockWaitTimeout
-      # NOWAIT: another request holds this row, i.e. a concurrent duplicate is
-      # erasing it right now (possibly inside a slow blob delete). Waiting would
-      # spend this batch's time budget on someone else's call; the file is that
-      # request's to finish, so it is neither counted nor failed here.
-      Rails.logger.info "[FileManagement::Erasure] #{file.id} is being erased by a concurrent request; skipping"
-      :already_gone
+      # NOWAIT: another transaction holds this row (a duplicate erasure, a
+      # processing job, a version attach...). Waiting would spend this batch's
+      # time budget on someone else's call, but the holder may roll back and leave
+      # file and blob in place, so the file is NOT treated as gone: it is
+      # reported as an error and the caller retries it.
+      Rails.logger.info "[FileManagement::Erasure] #{file.id} is locked by another transaction; reporting row_locked"
+      failure(file, "error", "row_locked")
     rescue FileManagement::Object::StorageRemovalFailed => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
       # A provider that refused for want of a liveness marker

@@ -515,7 +515,7 @@ RSpec.describe FileManagement::Erasure, 'against a row locked by a concurrent er
 
   after { Account.find_by(id: account.id)&.destroy }
 
-  it 'skips the locked file at once instead of waiting, counting it neither erased nor failed' do
+  it 'does not wait on the locked file, and reports it as a row_locked error rather than gone' do
     holder = ActiveRecord::Base.connection_pool.checkout
     begin
       holder.execute('BEGIN')
@@ -526,8 +526,10 @@ RSpec.describe FileManagement::Erasure, 'against a row locked by a concurrent er
       elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
 
       expect(elapsed).to be < 2
+      # Not "already gone": whoever holds the row may roll back, leaving file and
+      # blob in place. It is reported, so a caller never reads this as complete.
       expect(result.erased_count).to eq(0)
-      expect(result.failures).to be_empty
+      expect(result.errors).to contain_exactly(hash_including(id: file.id, reason: 'row_locked'))
       expect(FileManagement::Object.exists?(file.id)).to be true
     ensure
       holder.execute('ROLLBACK')

@@ -18,8 +18,12 @@ module StorageProviders
     DELETE_CLIENT_OPTIONS = {
       http_open_timeout: 10, http_read_timeout: 30, retry_mode: "legacy", retry_limit: 1, max_attempts: 2
     }.freeze
-    LEGACY_RETRY_PAUSE_SECONDS = 0.3
-    # (open + read) x attempts + the legacy retry pause, rounded up to a margin.
+    LEGACY_RETRY_BASE_SECONDS = 0.3
+    # (open + read) x (retry_limit + 1) attempts + the doubling legacy backoff
+    # (max_attempts is ignored in legacy mode), rounded up to a margin: 80.3 s.
+    # When the deadline interrupts aws-sdk mid-request its net/http session is
+    # not closed: one socket per timed-out delete, freed on GC. Accepted (the
+    # SDK offers no clean abort), and bounded by the erasure's time budget.
     DELETE_DEADLINE_SECONDS = 85
     DELETE_WORST_CASE_SECONDS = DELETE_DEADLINE_SECONDS
 

@@ -80,7 +80,9 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
     it 'derives the worst case from the configured options (open + read per attempt, plus the retry pause) under a hard deadline' do
       o = described_class::DELETE_CLIENT_OPTIONS
       per_attempt = o[:http_open_timeout] + o[:http_read_timeout]
-      derived = per_attempt * o[:max_attempts] + described_class::LEGACY_RETRY_PAUSE_SECONDS
+      # Legacy mode ignores max_attempts: attempts are retry_limit + 1, and each retry sleeps a doubling backoff.
+      backoff = (0...o[:retry_limit]).sum { |i| described_class::LEGACY_RETRY_BASE_SECONDS * (2**i) }
+      derived = per_attempt * (o[:retry_limit] + 1) + backoff
 
       expect(described_class::DELETE_DEADLINE_SECONDS).to be >= derived
       expect(described_class::DELETE_WORST_CASE_SECONDS).to eq(described_class::DELETE_DEADLINE_SECONDS)
