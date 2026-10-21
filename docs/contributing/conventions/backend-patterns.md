@@ -53,3 +53,8 @@ Every entry point that destroys an account (controller, rake task, job) must set
 unset the `account.destroyed` row records `unattributed:process:<login>@<host>`: never anonymous, but
 plainly marked as not attributed to a person.
 
+A retained copy's `original_integrity_hash` is recomputable from the copy (action, resource, user, account,
+`original_ip_address`, `original_user_agent`, `original_metadata`, `original_created_at` second,
+`original_sequence_number`, `original_previous_hash`) only when `original_metadata_scrubbed` is `false`.
+When it is `true` the hash is an attestation of the original row, not a recomputable value.
+

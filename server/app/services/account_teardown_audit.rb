@@ -93,9 +93,16 @@ class AccountTeardownAudit
     end
   end
 
+  # Each copy carries the fields Audit::LogIntegrityService hashes (action, resource, user_id,
+  # account_id, ip_address, user_agent, metadata, created_at, sequence_number, previous_hash).
+  # original_integrity_hash is RECOMPUTABLE from the copy only when original_metadata_scrubbed is
+  # false. When it is true, secret-looking metadata keys were masked, so the hash covers metadata the
+  # copy no longer holds and is an attestation of the original row, not a recomputable value.
   def retain_key_operation_rows
     AuditLog.where(account_id: @account.id).find_each do |row|
       next unless AuditActions.key_operation?(row.action)
+
+      copied = Ai::SensitiveParams.filter(scrub(row.metadata)) # what the AuditLog redactor will store
 
       write(
         RETAINED_ACTION, "Account", @account.id,
@@ -103,9 +110,11 @@ class AccountTeardownAudit
           "original_id" => row.id, "original_action" => row.action, "original_account_id" => row.account_id,
           "original_integrity_hash" => row.integrity_hash, "original_previous_hash" => row.previous_hash,
           "original_sequence_number" => row.sequence_number,
-          "original_user_id" => original_user_id(row), "original_user_id_restored" => (original_user_id(row) != row.user_id), "original_resource_type" => row.resource_type,
-          "original_resource_id" => row.resource_id, "original_created_at" => row.created_at&.iso8601,
-          "original_metadata" => scrub(row.metadata)
+          "original_user_id" => original_user_id(row), "original_user_id_restored" => (original_user_id(row) != row.user_id),
+          "original_resource_type" => row.resource_type, "original_resource_id" => row.resource_id,
+          "original_ip_address" => row.ip_address, "original_user_agent" => row.user_agent,
+          "original_created_at" => row.created_at&.iso8601,
+          "original_metadata" => copied, "original_metadata_scrubbed" => (copied != row.metadata)
         }
       )
     end

@@ -81,29 +81,48 @@ RSpec.describe "Account teardown audit trail" do
       expect(meta["nested"]).to include("fine" => 1)
     end
 
-    it "keeps the original author on the copy for an in-account user, and the tuple recomputes the original hash" do
-      author = create(:user, account: account)
-      authored = AuditLog.log_action(action: "api_key_revoked", resource: key, account: account, user: author,
-                                     metadata: { "note" => "by author" })
-      expect(authored.user_id).to eq(author.id)
+    # Written the way api_keys_controller#log_api_key_action writes: ip, user agent and metadata.
+    def write_like_controller(action, extra_metadata = {})
+      AuditLog.create!(action: action, resource_type: "ApiKey", resource_id: key.id, account: account, user: @author,
+                       source: "admin_panel", ip_address: "203.0.113.9", user_agent: "probe/1.0",
+                       metadata: { "api_key_name" => key.name, "scopes" => [ "read" ] }.merge(extra_metadata))
+    end
 
-      account.destroy!
-
-      copy = platform_rows("account.teardown_key_audit_retained").find { |r| r.metadata["original_id"] == authored.id }
-      m = copy.metadata
-      expect(m["original_user_id"]).to eq(author.id)
-      expect(m["original_user_id_restored"]).to be(true)
+    def recompute(m)
       rebuilt = AuditLog.new(action: m["original_action"], resource_type: m["original_resource_type"],
                              resource_id: m["original_resource_id"], user_id: m["original_user_id"],
                              account_id: m["original_account_id"], metadata: m["original_metadata"],
-                             sequence_number: m["original_sequence_number"])
+                             sequence_number: m["original_sequence_number"],
+                             ip_address: m["original_ip_address"], user_agent: m["original_user_agent"])
       rebuilt.id = m["original_id"]
-      candidates = [ nil, Time.zone.parse(m["original_created_at"]) ].map do |at|
-        rebuilt.created_at = at
-        Audit::LogIntegrityService.calculate_hash(rebuilt, previous_hash: m["original_previous_hash"])
-      end
-      # created_at is hashed as nil or as the stored second depending on when the row's hash was applied.
-      expect(candidates).to include(m["original_integrity_hash"])
+      rebuilt.created_at = Time.zone.parse(m["original_created_at"])
+      Audit::LogIntegrityService.calculate_hash(rebuilt, previous_hash: m["original_previous_hash"])
+    end
+
+    it "keeps the author, ip and user agent, so an unscrubbed controller-written row's hash recomputes" do
+      @author = create(:user, account: account)
+      row = write_like_controller("api_key_regenerated")
+      expect(row.user_id).to eq(@author.id)
+
+      account.destroy!
+
+      m = platform_rows("account.teardown_key_audit_retained").find { |r| r.metadata["original_id"] == row.id }.metadata
+      expect(m).to include("original_user_id" => @author.id, "original_user_id_restored" => true,
+                           "original_ip_address" => "203.0.113.9", "original_user_agent" => "probe/1.0",
+                           "original_metadata_scrubbed" => false)
+      expect(recompute(m)).to eq(m["original_integrity_hash"])
+    end
+
+    it "flags a scrubbed copy: its hash is then an attestation, not a recomputable value" do
+      @author = create(:user, account: account)
+      row = write_like_controller("api_key_regenerated", "old_key_preview" => "sk-ab...cd")
+
+      account.destroy!
+
+      m = platform_rows("account.teardown_key_audit_retained").find { |r| r.metadata["original_id"] == row.id }.metadata
+      expect(m["original_metadata_scrubbed"]).to be(true)
+      expect(m["original_metadata"].to_json).not_to include("sk-ab")
+      expect(recompute(m)).not_to eq(m["original_integrity_hash"])
     end
 
     it "destroys an account whose audit_logs association was already loaded (no stale-restrict error)" do
