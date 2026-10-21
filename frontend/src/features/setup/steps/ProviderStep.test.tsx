@@ -25,6 +25,7 @@ import { logger } from '@/shared/utils/logger';
 // come from whichever extension registered them.
 const mockCreateCloud = jest.fn();
 const mockTestCloud = jest.fn();
+const mockDeleteCloud = jest.fn();
 const mockCreateAiProvider = onboardingApi.createAiProvider as jest.Mock;
 const mockCreateAiCredential = onboardingApi.createAiCredential as jest.Mock;
 const mockCreateGitProvider = onboardingApi.createGitProvider as jest.Mock;
@@ -83,7 +84,9 @@ describe('ProviderStep', () => {
     featureRegistry.registerProviderCategoryHandlers('cloud', {
       createCredential: mockCreateCloud,
       testCredential: mockTestCloud,
+      deleteCredential: mockDeleteCloud,
     });
+    mockDeleteCloud.mockReset();
     mockCreateCloud.mockReset();
     mockTestCloud.mockReset();
     mockCreateAiProvider.mockReset();
@@ -462,6 +465,67 @@ describe('ProviderStep', () => {
 
       await waitFor(() => expect(mockDeleteGitProvider).toHaveBeenCalledWith('git-a'));
       await waitFor(() => expect(screen.getAllByTestId(/^setup-provider-entry-/)).toHaveLength(1));
+    });
+  });
+
+  describe('multiple cloud providers through the registered handlers', () => {
+    const addHetzner = async (token: string) => {
+      fireEvent.click(screen.getByTestId('setup-provider-hetzner'));
+      fireEvent.change(screen.getByTestId('provider-cred-field-api_token'), { target: { value: token } });
+      fireEvent.click(screen.getByTestId('provider-cred-test-btn'));
+      await waitFor(() => expect(screen.getByTestId('provider-cred-test-success')).toBeInTheDocument());
+      await waitFor(() => expect(screen.getByTestId('setup-save-btn')).not.toBeDisabled());
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+      await waitFor(() => expect(screen.getByTestId('setup-save-success')).toBeInTheDocument());
+    };
+
+    it('persists two cloud credentials through the handler, each listed with its validation result', async () => {
+      mockTestCloud.mockResolvedValue({ valid: true });
+      mockCreateCloud.mockResolvedValueOnce('cloud-cred-1').mockResolvedValueOnce('cloud-cred-2');
+      render(<ProviderStep step={stepFor('core/cloud_provider', 'cloud')} />);
+
+      await addHetzner('fake-token-one');
+      fireEvent.click(screen.getByTestId('setup-add-another'));
+      fireEvent.click(screen.getByTestId('setup-provider-local_qemu'));
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+      await waitFor(() => expect(screen.getAllByTestId(/^setup-provider-entry-/)).toHaveLength(2));
+
+      expect(mockCreateCloud).toHaveBeenCalledTimes(2);
+      expect(mockCreateCloud.mock.calls.map((c) => c[0].providerType)).toEqual(['hetzner', 'local_qemu']);
+      expect(screen.getByTestId('setup-provider-entry-0')).toHaveTextContent('Validated');
+      expect(screen.getByTestId('setup-provider-entry-1')).not.toHaveTextContent('Validated');
+    });
+
+    it('removes an entry through the handler', async () => {
+      mockTestCloud.mockResolvedValue({ valid: true });
+      mockCreateCloud.mockResolvedValueOnce('cloud-cred-1').mockResolvedValueOnce('cloud-cred-2');
+      mockDeleteCloud.mockResolvedValue(undefined);
+      render(<ProviderStep step={stepFor('core/cloud_provider', 'cloud')} />);
+      await addHetzner('fake-token-one');
+      fireEvent.click(screen.getByTestId('setup-add-another'));
+      fireEvent.click(screen.getByTestId('setup-provider-local_qemu'));
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+      await waitFor(() => expect(screen.getAllByTestId(/^setup-provider-entry-/)).toHaveLength(2));
+
+      fireEvent.click(screen.getByTestId('setup-provider-remove-0'));
+
+      await waitFor(() => expect(mockDeleteCloud).toHaveBeenCalledWith('cloud-cred-1'));
+      await waitFor(() => expect(screen.getAllByTestId(/^setup-provider-entry-/)).toHaveLength(1));
+    });
+
+    it('offers no removal when the handlers cannot delete', async () => {
+      featureRegistry.clear();
+      featureRegistry.registerProviderCategoryHandlers('cloud', {
+        createCredential: mockCreateCloud,
+        testCredential: mockTestCloud,
+      });
+      mockCreateCloud.mockResolvedValue('cloud-cred-1');
+      render(<ProviderStep step={stepFor('core/cloud_provider', 'cloud')} />);
+      fireEvent.click(screen.getByTestId('setup-provider-local_qemu'));
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+      await waitFor(() => expect(screen.getByTestId('setup-provider-entry-0')).toBeInTheDocument());
+
+      expect(screen.queryByTestId('setup-provider-remove-0')).not.toBeInTheDocument();
     });
   });
 });

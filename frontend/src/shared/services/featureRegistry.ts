@@ -142,6 +142,12 @@ export interface ProviderCategoryHandlers {
     credentials: Record<string, string>;
   }): Promise<string | null>;
   testCredential(request: ProviderCredentialTestRequest): Promise<ProviderCredentialTestResult>;
+  /**
+   * Remove a credential created through createCredential (by the id it
+   * resolved to). Optional: without it the setup wizard cannot offer removal
+   * of an entry it already saved.
+   */
+  deleteCredential?(credentialId: string): Promise<void>;
 }
 
 /** A member the chat @-mention picker can offer. */

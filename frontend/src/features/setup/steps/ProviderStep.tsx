@@ -45,6 +45,8 @@ interface ProviderEntry {
   modelSync?: AiModelSyncResult | null;
   /** AI only: the account default provider. */
   isDefault?: boolean;
+  /** The credential passed its test before it was saved (handler-served categories). */
+  validated?: boolean;
   /** Git only: the access methods stored for this provider. */
   methods?: Array<'HTTPS' | 'SSH'>;
 }
@@ -189,7 +191,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
       };
       if (handlers) {
         const credentialId = await handlers.createCredential({ providerType, credentials });
-        entry = { ...entry, credentialId };
+        entry = { ...entry, credentialId, validated: testStatus === 'valid' };
       } else if (category === 'ai') {
         const providerId = await onboardingApi.createAiProvider({
           providerType,
@@ -254,7 +256,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
       setSaveError(err instanceof Error ? err.message : 'Failed to save credentials. Please retry.');
       setSaveStatus('error');
     }
-  }, [providerType, category, credentials, handlers, providerName, apiBaseUrl]);
+  }, [providerType, category, credentials, handlers, providerName, apiBaseUrl, testStatus]);
 
   const resetForm = useCallback(() => {
     setProviderType(null);
@@ -267,6 +269,11 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
     setProviderName('');
     setApiBaseUrl('');
   }, []);
+
+  // An entry saved through extension handlers can be removed only when those
+  // handlers can delete it.
+  const canRemove = (entry: ProviderEntry): boolean =>
+    !handlers || Boolean(handlers.deleteCredential && entry.credentialId);
 
   const chooseDefault = useCallback(async (target: ProviderEntry) => {
     if (!target.providerId) return;
@@ -298,6 +305,9 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
           // and tokens too (the key removal is audited server-side).
           await onboardingApi.deleteGitProvider(target.providerId);
         }
+        if (handlers?.deleteCredential && target.credentialId) {
+          await handlers.deleteCredential(target.credentialId);
+        }
         const remaining = entries.filter((e) => e.key !== target.key);
         setEntries(remaining);
         // A removed default hands over to the next working provider.
@@ -314,7 +324,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
         setEntryError('Could not remove that provider. Please retry.');
       }
     },
-    [category, entries, chooseDefault]
+    [category, entries, chooseDefault, handlers]
   );
 
   // Model choices valid for the selected type, from the catalog.
@@ -396,6 +406,9 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
                       {method}
                     </span>
                   ))}
+                  {entry.validated && (
+                    <span className="text-xs text-theme-success-fg">Validated</span>
+                  )}
                   {category === 'ai' && sync && (
                     <span
                       className={`text-xs ${sync.success ? 'text-theme-success-fg' : 'text-theme-danger-fg'}`}
@@ -420,6 +433,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
                       Default
                     </label>
                   )}
+                  {canRemove(entry) && (
                   <Button
                     type="button"
                     variant="ghost"
@@ -432,6 +446,7 @@ export const ProviderStep: React.FC<SetupStepComponentProps> = ({ step }) => {
                   >
                     Remove
                   </Button>
+                  )}
                 </li>
               );
             })}
