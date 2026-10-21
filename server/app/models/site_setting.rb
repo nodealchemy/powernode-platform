@@ -194,8 +194,12 @@ class SiteSetting < ApplicationRecord
     end
   end
 
-  def self.set(key, value, description: nil, setting_type: "string", is_public: false)
-    setting = find_or_initialize_by(key: key.to_s)
+  # +insert_only+: the caller has established (under a lock) that the key does
+  # not exist, so the write must be a plain INSERT. A row a concurrent writer
+  # committed in the meantime then raises ActiveRecord::RecordNotUnique instead
+  # of being silently UPDATEd.
+  def self.set(key, value, description: nil, setting_type: "string", is_public: false, insert_only: false)
+    setting = insert_only ? new(key: key.to_s) : find_or_initialize_by(key: key.to_s)
 
     setting.value = case setting_type
     when "json"

@@ -807,7 +807,7 @@ module Ai
         # loosening cannot commit between the two and then be overwritten by a
         # machine value judged against a stale row. A key with no row yet has
         # nothing to lock, so it takes an advisory lock on the key instead.
-        SiteSetting.transaction do
+        SiteSetting.transaction(requires_new: true) do
           lock_absent_key!(key) if machine_requested_replay?
           # find_by, not SiteSetting.get: `get` returns nil both for "unset" and
           # for a boolean row holding a falsey value, and the caller has to be
@@ -821,7 +821,11 @@ module Ai
             key,
             params[:value],
             setting_type: spec[:setting_type],
-            is_public: false
+            is_public: false,
+            # The locked read saw no row: INSERT only, so a person's insert
+            # that committed since raises RecordNotUnique (refused below)
+            # instead of being UPDATEd over.
+            insert_only: previous.nil?
           )
 
           record_write!(setting: setting, created: previous.nil?)
@@ -834,10 +838,17 @@ module Ai
           )
         end
       rescue ActiveRecord::RecordInvalid => e
+        # A taken key on an insert-only write is the same race as RecordNotUnique.
+        return concurrent_change_error(params) if e.record.errors.of_kind?(:key, :taken)
+
         error_result("Validation failed: #{e.record.errors.full_messages.join(', ')}")
       rescue ActiveRecord::RecordNotUnique
-        # A person's INSERT of the same new key committed first; the transaction
-        # rolled back, nothing of ours landed. Refuse, naming no value.
+        concurrent_change_error(params)
+      end
+
+      # A person's INSERT of the same new key committed first; the savepoint
+      # rolled back, nothing of ours landed. Refuse, naming no value.
+      def concurrent_change_error(params)
         error_result("#{params[:key].to_s.inspect} was changed concurrently; the request was not applied. " \
                      "Re-check its current state and ask again.")
       end

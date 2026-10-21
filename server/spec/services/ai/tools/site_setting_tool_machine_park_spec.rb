@@ -696,19 +696,6 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
       expect(locked_read).to be < first_write
     end
 
-    it "answers a refusal, not a 500, when a person's concurrent INSERT of a new key wins the race" do
-      request = parked_request(park(key: ordered_key, value: "abcd"))
-      allow(SiteSetting).to receive(:set).and_raise(ActiveRecord::RecordNotUnique, "duplicate key")
-
-      workflow.approve(request: request, approver: operator, origin: Ai::ApprovalDecision::REST_SESSION)
-
-      operation = Ai::DeferredOperation.find(request.source_id)
-      expect(operation.status).to eq("completed")
-      expect(operation.result).to include("success" => false)
-      expect(operation.result["error"]).to include("changed concurrently")
-      expect(operation.result["error"]).not_to include("duplicate key")
-    end
-
     it "does not re-check a person's own request at the write" do
       SiteSetting.set(ordered_key, "abcdef")
       tool = described_class.new(account: account, user: operator)
@@ -897,5 +884,47 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
         expect(Ai::ApprovalRequest.count).to eq(0)
       end
     end
+  end
+end
+
+# A REAL race on separate connections (committed rows, so this group opts out of
+# the wrapping test transaction and cleans up after itself): a person's INSERT
+# of a brand-new key commits between the machine's locked read and its write.
+# The write must be insert-only, so the machine refuses instead of silently
+# UPDATEing over the person's value.
+RSpec.describe Ai::Tools::SiteSettingTool, "absent-key race against a person's concurrent insert" do
+  self.use_transactional_tests = false
+
+  let!(:account) { create(:account) }
+  let!(:operator) { create(:user, account: account, permissions: [ "admin.access" ]) }
+  let(:race_key) { "zz_machine_park_absent_race_key" }
+
+  before do
+    key = race_key
+    described_class.register_key(
+      key, setting_type: "string", description: "race", protected: true, machine_parkable: true,
+           ordering: lambda { |_requested, _current|
+             # The person's write, on its own connection, commits right here:
+             # after the machine's locked read of "no row", before its write.
+             Thread.new { ActiveRecord::Base.connection_pool.with_connection { SiteSetting.set(key, "human-value") } }.join
+             true
+           }
+    )
+  end
+
+  after do
+    SiteSetting.where(key: race_key).delete_all
+    Account.find_by(id: account.id)&.destroy
+  end
+
+  it "refuses the machine write and leaves the person's value" do
+    tool = described_class.new(account: account, user: operator)
+    allow(tool).to receive(:machine_requested_replay?).and_return(true)
+
+    result = tool.send(:set_setting, { action: "site_setting_set_protected", key: race_key, value: "machine-value" })
+
+    expect(result[:success]).to be(false)
+    expect(result[:error]).to include("changed concurrently")
+    expect(SiteSetting.find_by(key: race_key).value).to eq("human-value")
   end
 end
