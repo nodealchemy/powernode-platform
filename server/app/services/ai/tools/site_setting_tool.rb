@@ -835,6 +835,11 @@ module Ai
         end
       rescue ActiveRecord::RecordInvalid => e
         error_result("Validation failed: #{e.record.errors.full_messages.join(', ')}")
+      rescue ActiveRecord::RecordNotUnique
+        # A person's INSERT of the same new key committed first; the transaction
+        # rolled back, nothing of ours landed. Refuse, naming no value.
+        error_result("#{params[:key].to_s.inspect} was changed concurrently; the request was not applied. " \
+                     "Re-check its current state and ask again.")
       end
 
       # Forensic context for the `audit: true` declaration on

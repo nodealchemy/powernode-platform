@@ -696,6 +696,19 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
       expect(locked_read).to be < first_write
     end
 
+    it "answers a refusal, not a 500, when a person's concurrent INSERT of a new key wins the race" do
+      request = parked_request(park(key: ordered_key, value: "abcd"))
+      allow(SiteSetting).to receive(:set).and_raise(ActiveRecord::RecordNotUnique, "duplicate key")
+
+      workflow.approve(request: request, approver: operator, origin: Ai::ApprovalDecision::REST_SESSION)
+
+      operation = Ai::DeferredOperation.find(request.source_id)
+      expect(operation.status).to eq("completed")
+      expect(operation.result).to include("success" => false)
+      expect(operation.result["error"]).to include("changed concurrently")
+      expect(operation.result["error"]).not_to include("duplicate key")
+    end
+
     it "does not re-check a person's own request at the write" do
       SiteSetting.set(ordered_key, "abcdef")
       tool = described_class.new(account: account, user: operator)
