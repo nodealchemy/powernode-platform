@@ -177,7 +177,9 @@ module McpTokenAuthentication
       session_token = request.headers["Mcp-Session-Id"]
       if session_token.present?
         revoked = McpSession.find_by(session_token: session_token)
-        if revoked&.reactivatable?
+        # Only the token holder's OWN session: another principal presenting a
+        # borrowed session id must not bring that session back to life.
+        if revoked&.reactivatable? && revoked.account_id == @current_account&.id && revoked.user_id == @current_user&.id
           revoked.reactivate!
           session = revoked
         end

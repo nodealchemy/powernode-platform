@@ -320,14 +320,20 @@ module Api
           session_id = request.headers["Mcp-Session-Id"]
 
           if session_id.present?
+            # Only the principal that owns a session may resume it from the
+            # header (the rule find_mcp_session applies to the stream): another
+            # token holder presenting a borrowed id must neither keep that
+            # session alive nor act as its agent. Theirs falls through to their
+            # own session below, exactly as a missing header would.
             session = McpSession.find_by(session_token: session_id, status: "active")
+            session = nil unless session_owned_by_current_principal?(session)
 
             # Reconnect recovery: if the session was recently revoked (e.g., server
             # restart dropped the SSE connection), reactivate it. The OAuth token is
             # already validated by authenticate_mcp_request, so the client is legit.
             if session.nil?
               revoked_session = McpSession.find_by(session_token: session_id)
-              if revoked_session&.reactivatable?
+              if revoked_session&.reactivatable? && session_owned_by_current_principal?(revoked_session)
                 revoked_session.reactivate!
                 session = revoked_session
               elsif session_owned_by_current_principal?(revoked_session)
@@ -1270,12 +1276,17 @@ module Api
           end
         end
 
+        # The live session the Mcp-Session-Id header names, and only when it
+        # belongs to the current principal (session_owned_by_current_principal?,
+        # as find_mcp_session). A borrowed id resolves to nil, so
+        # mcp_client_agent falls back to the caller's own agent.
         def current_mcp_session
           @current_mcp_session ||= begin
             session_id = request.headers["Mcp-Session-Id"]
             return nil unless session_id.present?
 
-            McpSession.find_by(session_token: session_id, status: "active")
+            session = McpSession.find_by(session_token: session_id, status: "active")
+            session_owned_by_current_principal?(session) ? session : nil
           end
         end
 
