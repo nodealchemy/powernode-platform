@@ -593,12 +593,64 @@ RSpec.describe Ai::SensitiveParams do
       [ "\n#{key_pem}", "\r\n#{key_pem}" ].each { |text| expect_masked(Base64.strict_encode64(text)) }
     end
 
-    it 'masks a URL-safe run' do
+    it 'masks a URL-safe run through its -/_ characters after the armor' do
       pem = "-----BEGIN RSA PRIVATE KEY-----\n#{'QUJD' * 10}???>>>~~~\n-----END RSA PRIVATE KEY-----\n"
       encoded = Base64.urlsafe_encode64(pem)
 
-      expect(encoded).to match(/[-_]/)
+      # The -/_ sit after the armor, so this pins the run's alphabet (the tail
+      # past them is masked too), not the URL-safe decode.
+      expect(encoded.index(/[-_]/)).to be > encoded.index('LS0tLS1CRUdJTi') + 40
       expect_masked(encoded)
+    end
+
+    it 'needs the URL-safe decode when the byte just before the armor encodes to - or _' do
+      # 0xFF before "-----" puts 63 in the armor's first quantum: "_y0t..."
+      # URL-safe. The standard decode skips the _ and loses the first dashes.
+      encoded = Base64.urlsafe_encode64("\xFF".b + key_pem)
+
+      expect(encoded).to start_with('_')
+      expect_masked(encoded)
+    end
+
+    it 'masks a URL-safe run whose -/_ characters come BEFORE the key armor' do
+      # ASCII does encode to 62/63 ("???" is "Pz8/" in the standard alphabet,
+      # "Pz8_" URL-safe). The lenient decode drops each - and _, misaligning
+      # what follows, and one of the four decode offsets realigns the header.
+      encoded = Base64.urlsafe_encode64("#{'???' * 30}\n#{key_pem}")
+      armor = described_class::BASE64_PEM_NEEDLES.filter_map { |needle| encoded.index(needle) }.min
+
+      expect(encoded.index(/[-_]/)).to be < armor
+      expect_masked(encoded)
+    end
+
+    # A needle split by the wrap: "x" * k puts the armor's encoding across the
+    # first line break at each common MIME / PEM width.
+    { 60 => 35, 64 => 38, 76 => 47 }.each do |width, prefix|
+      it "masks a run wrapped at #{width} whose armor needle crosses the wrap" do
+        encoded = Base64.strict_encode64(('x' * prefix) + key_pem)
+        lines = encoded.scan(/.{1,#{width}}/)
+        expect(described_class::BASE64_PEM_NEEDLES.none? { |needle| lines.any? { |l| l.include?(needle) } }).to be(true)
+
+        [ "\n", '\\n', ' ' ].each do |joiner|
+          wrapped = lines.join(joiner)
+          expect(described_class.filter('blob' => "data: #{wrapped} end")['blob']).to eq("data: #{described_class::MASK} end")
+          expect(described_class.filter_text("data: #{wrapped} end", truncate: false)).not_to include(lines.last)
+        end
+      end
+    end
+
+    it 'scans a large prose leaf carrying one encoded certificate in bounded time' do
+      certificate = Base64.strict_encode64(cert_pem)
+      prose = ('well-known re-entrant x-ray state-of-the-art ' * 50_000)[0, 2 * 1024 * 1024]
+      text = "#{prose} #{certificate} end"
+
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      filtered = described_class.filter('blob' => text)['blob']
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+      expect(filtered).to eq(text)
+      # About 0.4 s before the scan was anchored on the needle; ~0.01 s after.
+      expect(elapsed).to be < 0.1
     end
 
     it 'masks a space-wrapped run whole' do

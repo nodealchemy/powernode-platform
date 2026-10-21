@@ -93,16 +93,39 @@ module Ai
       encoded = ::Base64.strict_encode64(("\0" * k) + BASE64_ARMOR)
       encoded[((8 * k) + 5) / 6..((8 * (k + BASE64_ARMOR.bytesize)) / 6) - 1]
     end.freeze
-    BASE64_PEM_NEEDLE = ::Regexp.union(BASE64_PEM_NEEDLES)
 
-    # A whole base64 run, standard or URL-safe alphabet, anywhere in a string: a
+    # A base64 run, standard or URL-safe alphabet, anywhere in a string: a
     # kubeconfig held as a JSON string, a run after a newline, a wrapped run
     # (76/64-column lines joined by real or JSON-escaped newlines, or by a single
     # space). A continuation line must look like a base64 line (16+ characters)
     # so prose after the run is not swallowed.
     BASE64_CHAR = "[A-Za-z0-9+/_-]"
-    BASE64_RUN = %r{(?<![A-Za-z0-9+/_-])#{BASE64_CHAR}+=*(?:(?:\r?\n|\\r\\n|\\n|[ ])(?=#{BASE64_CHAR}{16})#{BASE64_CHAR}+=*)*}
+    BASE64_WRAP = "(?:\\r?\\n|\\\\r\\\\n|\\\\n|[ ])"
     BASE64_RUN_SEPARATORS = /\r?\n|\\r|\\n|[ ]/
+
+    # The needles as they appear in the TEXT: a wrap can fall anywhere inside
+    # one, so at most one wrap separator is allowed between any two of its
+    # characters (a wrapped line is 16+ characters, so a 14-character needle
+    # crosses at most one). The scan is anchored on these and expands outward,
+    # so a leaf with no armor costs one linear search and prose is never
+    # enumerated word by word.
+    BASE64_PEM_NEEDLE_IN_TEXT = ::Regexp.new(
+      BASE64_PEM_NEEDLES.map { |needle| needle.chars.map { |c| ::Regexp.escape(c) }.join("#{BASE64_WRAP}?") }.join("|")
+    )
+    # A wrap splits a 14-character needle at most once, so its longer half holds
+    # the needle's first or last 7 characters intact. These six literals are
+    # found with a plain substring search (no regexp over the whole leaf); each
+    # hit is then confirmed with BASE64_PEM_NEEDLE_IN_TEXT in a small window.
+    BASE64_PEM_NEEDLE_HALVES = BASE64_PEM_NEEDLES.flat_map { |needle| [ needle[0, 7], needle[-7..] ] }.uniq.freeze
+    # Widest stretch of text a needle can span: 14 characters plus one 4-byte
+    # "\\r\\n" separator.
+    BASE64_NEEDLE_SPAN = 18
+
+    # The rest of a run from a needle onward.
+    BASE64_RUN_TAIL = /\G#{BASE64_CHAR}*=*(?:#{BASE64_WRAP}(?=#{BASE64_CHAR}{16})#{BASE64_CHAR}+=*)*/
+    # Byte classes for the walk back to a run's start.
+    BASE64_BYTES = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/_-".bytes.to_h { |b| [ b, true ] }.freeze
+    PAD_BYTE = "=".ord
 
     # Keys that a pattern WOULD match and that provably hold no material —
     # checked before every pattern, including the deployment-configured ones, so
@@ -293,7 +316,17 @@ module Ai
       # True when the base64 +run+ decodes to bytes holding a PEM PRIVATE KEY
       # header, anywhere in them. The run is decoded at each of the four
       # character offsets (a run glued to a word need not start on a quantum),
-      # in the standard alphabet and then the URL-safe one.
+      # then once more in the URL-safe alphabet.
+      #
+      # Why the URL-safe retry: the lenient standard decode SKIPS a - or _,
+      # misaligning what follows by one character per skip. A skip well before
+      # the armor is harmless, one of the four offsets realigns it (ASCII text
+      # does encode to 62/63: "???" is "Pz8_" URL-safe). The header's own
+      # encoding never holds one either (dashes, spaces, digits and capitals have
+      # no five 1-bits in a row). What breaks is a skip in the quantum the armor
+      # starts in: a byte of 0xF8 or above just before "-----" (binary or Latin-1
+      # text, never ASCII) encodes to 62/63, and the realigned decode then starts
+      # past the first dashes. Only the URL-safe decode reads that header.
       def base64_pem?(run)
         flat = run.gsub(BASE64_RUN_SEPARATORS, "")
         candidates = [ flat ]
@@ -306,9 +339,93 @@ module Ai
       end
 
       def mask_base64_pem(text)
-        return text unless BASE64_PEM_NEEDLE.match?(text)
+        return text unless BASE64_PEM_NEEDLE_HALVES.any? { |half| text.include?(half) }
 
-        text.gsub(BASE64_RUN) { |run| BASE64_PEM_NEEDLE.match?(run) && base64_pem?(run) ? MASK : run }
+        # Byte offsets on a binary copy: O(1) indexing whatever the text's
+        # encoding, and a run is ASCII, so its bounds are character bounds too.
+        bin = text.b
+        runs = base64_pem_runs(bin)
+        return text if runs.empty?
+
+        out = +""
+        pos = 0
+        runs.each do |from, to|
+          out << text.byteslice(pos...from) << MASK
+          pos = to
+        end
+        out << text.byteslice(pos..)
+      end
+
+      # [start, end) byte offsets of every run that carries an armor needle (a
+      # wrap may split the needle) and decodes to a PRIVATE KEY header, in order.
+      def base64_pem_runs(bin)
+        runs = []
+        pos = 0
+        hits = {}
+        while (needle = next_needle(bin, pos, hits))
+          from = base64_run_start(bin, needle.first)
+          to = bin.match(BASE64_RUN_TAIL, needle.first).end(0)
+          runs << [ from, to ] if base64_pem?(bin.byteslice(from...to))
+          pos = [ to, needle.last ].max
+        end
+        runs
+      end
+
+      # [start, end) of the first needle (wrap-split or not) at or after +pos+,
+      # or nil. Driven by substring hits on the needle halves (+hits+ caches
+      # each half's next offset, :none once it has none left), each confirmed in
+      # a window just wide enough to hold a needle that contains it.
+      def next_needle(bin, pos, hits)
+        loop do
+          BASE64_PEM_NEEDLE_HALVES.each do |half|
+            next if hits[half] == :none || (hits[half] && hits[half] >= pos)
+
+            hits[half] = bin.index(half, pos) || :none
+          end
+          hit = hits.values.grep(Integer).min
+          return nil unless hit
+
+          from = [ hit - BASE64_NEEDLE_SPAN, pos ].max
+          window = bin.byteslice(from, (hit - from) + (2 * BASE64_NEEDLE_SPAN))
+          match = BASE64_PEM_NEEDLE_IN_TEXT.match(window)
+          return [ from + match.begin(0), from + match.end(0) ] if match
+
+          pos = hit + 1
+        end
+      end
+
+      # Walks back from +index+ to the start of its run: the base64 bytes glued
+      # to it, then each whole wrapped line (16+ characters, optional padding,
+      # not glued to a word) before a wrap separator.
+      def base64_run_start(bin, index)
+        start = skip_base64_back(bin, index)
+        loop do
+          sep = wrap_before(bin, start)
+          break unless sep
+
+          line_end = sep
+          line_end -= 1 while line_end.positive? && bin.getbyte(line_end - 1) == PAD_BYTE
+          line_start = skip_base64_back(bin, line_end)
+          break if line_end - line_start < 16
+          break if line_start.positive? && (BASE64_BYTES[bin.getbyte(line_start - 1)] || bin.getbyte(line_start - 1) == PAD_BYTE)
+
+          start = line_start
+        end
+        start
+      end
+
+      def skip_base64_back(bin, index)
+        index -= 1 while index.positive? && BASE64_BYTES[bin.getbyte(index - 1)]
+        index
+      end
+
+      # Start of the wrap separator ending at +index+, or nil.
+      def wrap_before(bin, index)
+        [ "\\r\\n", "\r\n", "\\n", "\n", " " ].each do |sep|
+          from = index - sep.bytesize
+          return from if from >= 0 && bin.byteslice(from, sep.bytesize) == sep
+        end
+        nil
       end
 
       # Everything after the last whitespace of a window cut off mid-text. The
