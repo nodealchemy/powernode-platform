@@ -5,6 +5,8 @@ class AuditLog < ApplicationRecord
 
   # Associations
   belongs_to :user, optional: true
+  # NULL account_id is the platform-scope convention (NOT a sentinel Audit::PlatformAccount row);
+  # see docs/contributing/conventions/backend-patterns.md#platform-scoped-audit-rows-no-account.
   # Optional only for platform-scoped actions (AuditActions::PLATFORM_SCOPED_ACTIONS): rows
   # that must outlive the account that wrote them. Tenant rows still require an account.
   belongs_to :account, optional: true

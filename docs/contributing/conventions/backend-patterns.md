@@ -23,3 +23,28 @@ These two remain in the always-loaded core because a violation is costly and no 
 
 - **Eager Loading** — always use `.includes()` when iterating associations; never bare `.all` then `.map`/`.each` accessing relations. Nudge: `n-plus-one-check.sh`.
 - **Webhook Receivers** — inbound webhooks MUST return 200/202 on processing errors, NEVER 500 (causes provider retry storms). Nudge: `webhook-500-check.sh`.
+
+## Platform-scoped audit rows (no account)
+
+Some audit rows must outlive the account that wrote them (the `account.destroyed` record and the
+retained key-operation trail of an account teardown). Convention: **`audit_logs.account_id` is NULL**,
+not a sentinel "platform account" row (an `Audit::PlatformAccount`).
+
+Why NULL: a sentinel account is a fake tenant that every account-scoped query, FK and permission path
+would have to learn to special-case, can be selected or deleted like a real one, and would give the
+platform trail a tenant identity it should not have. NULL is invisible to tenant scopes by construction
+(`account.audit_logs`, `AuditLog.by_account`, the tenant listing never match it) and is visible only to
+platform auditors (`admin.audit.read`).
+
+Guards that make NULL safe:
+
+- `AuditLog` requires an account unless the action is in `AuditActions::PLATFORM_SCOPED_ACTIONS`.
+- The DB CHECK `chk_audit_logs_account_unless_platform` enforces the same for writers that skip validations.
+  Adding a platform-scoped action needs a migration updating that constraint.
+- `Account has_many :audit_logs, dependent: :restrict_with_exception`; only the teardown deletes them.
+
+Rows stay in the one global hash chain. `account_id` is part of the row hash, so a row is never UPDATEd to
+NULL: it is copied as a new chained row that carries `original_integrity_hash` / `original_sequence_number`,
+and `account.destroyed` records the deleted sequence range. Key-operation actions that get retained are an
+explicit list (`AuditActions::CORE_KEY_OPERATION_ACTIONS` plus `register_key_operation_actions`), never a pattern.
+

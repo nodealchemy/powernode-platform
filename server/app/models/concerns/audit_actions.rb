@@ -639,14 +639,19 @@ module AuditActions
   ].freeze
   PLATFORM_SCOPED_ACTIONS = ACCOUNT_TEARDOWN_ACTIONS
 
-  # Audit actions that record a key or credential operation (create, revoke, rotate,
-  # delete, regenerate, import). The account teardown re-homes these rows to the
-  # platform scope before deleting the account's audit rows
-  # (memory:key-audit-fail-closed: key operations are always audited).
-  KEY_OPERATION_ACTION = /(?:key|credential|secret)s?[._](?:created?|revoked?|rotated?|rotate|deleted?|regenerated|generated?|imported?)\z/
-  def self.key_operation?(action)
-    action.to_s.match?(KEY_OPERATION_ACTION) || action.to_s.include?("signing_key")
-  end
+  # Audit actions that record a key or credential operation (create, rotate, revoke,
+  # regenerate, delete). The account teardown re-homes exactly these rows to the platform
+  # scope before deleting the account's audit rows (memory:key-audit-fail-closed). An
+  # EXPLICIT list, not a name pattern: a pattern both misses real key operations and
+  # retains look-alikes. A new key-operation action must be added here (core) or via
+  # AuditActions.register_key_operation_actions (extensions).
+  CORE_KEY_OPERATION_ACTIONS = %w[
+    api_key_created api_key_deleted api_key_regenerated api_key_revoked
+    ai_provider_credential_created ai_provider_credential_deleted ai_provider_credential_encryption_rotated
+    ai.providers.credential.create ai.providers.credential.delete ai.providers.credential.rotate
+    ai.credentials.create ai.credentials.delete
+    ai.data_sources.credential.create ai.data_sources.credential.delete
+  ].freeze
 
   # =============================================================================
   # AUDIT SELF-CORRECTION ACTIONS — appended by data migrations that need to
@@ -740,6 +745,8 @@ module AuditActions
   @extension_actions = {}
   # Flat Array of source tokens contributed by extensions.
   @extension_sources = []
+  # namespace (String) => frozen Array of key-operation action tokens (see CORE_KEY_OPERATION_ACTIONS).
+  @extension_key_operation_actions = {}
 
   # Catches the deprecated LEGACY_ACTIONS shape (ai_agents.index, ai_messages.create,
   # ...): an underscore-joined "ai_" namespace immediately followed by a dotted
@@ -779,6 +786,21 @@ module AuditActions
     def register_sources(sources)
       @extension_sources = (@extension_sources + Array(sources).map(&:to_s)).uniq
       nil
+    end
+
+    # Extension sink for KEY-OPERATION actions (a subset of the actions it registers via
+    # register_actions). Idempotent per namespace, like register_actions.
+    def register_key_operation_actions(namespace, actions)
+      @extension_key_operation_actions[namespace.to_s] = Array(actions).map(&:to_s).uniq.freeze
+      nil
+    end
+
+    def key_operation_actions
+      (CORE_KEY_OPERATION_ACTIONS + @extension_key_operation_actions.values.flatten).uniq
+    end
+
+    def key_operation?(action)
+      key_operation_actions.include?(action.to_s)
     end
 
     # Read-side accessors (parallel to Permissions.extension_* accessors).

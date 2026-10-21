@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_20_150100) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_20_160100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -4883,6 +4883,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_150100) do
     t.index ["sequence_number"], name: "index_audit_logs_on_sequence_number", unique: true, where: "(sequence_number IS NOT NULL)"
     t.index ["severity"], name: "index_audit_logs_on_severity"
     t.index ["user_id"], name: "index_audit_logs_on_user_id"
+    t.check_constraint "account_id IS NOT NULL OR (action::text = ANY (ARRAY['account.destroyed'::character varying, 'account.teardown_key_revoked'::character varying, 'account.teardown_key_audit_retained'::character varying]::text[]))", name: "chk_audit_logs_account_unless_platform"
   end
 
   create_table "background_jobs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|

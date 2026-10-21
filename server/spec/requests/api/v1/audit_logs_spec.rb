@@ -15,6 +15,31 @@ RSpec.describe 'Api::V1::AuditLogs', type: :request do
     create(:audit_log, account: account, user: admin_user, action: 'admin_settings_update')
   end
 
+  describe 'platform-scoped (NULL account) rows' do
+    let!(:platform_row) do
+      AuditLog.create!(action: 'account.destroyed', resource_type: 'Account', resource_id: SecureRandom.uuid,
+                       account: nil, source: 'system', metadata: { 'account_id' => SecureRandom.uuid })
+    end
+
+    it 'are not listed to a tenant user' do
+      get '/api/v1/audit_logs', headers: auth_headers_for(user_with_audit_permission), as: :json
+
+      expect_success_response
+      expect(json_response['data'].map { |l| l['id'] }).not_to include(platform_row.id)
+      expect(json_response['meta']['total']).to eq(9)
+    end
+
+    it 'are listed to a platform auditor (admin.audit.read), with no account attached' do
+      auditor = create(:user, account: account, permissions: [ 'admin.audit.read', 'audit.read' ])
+      get '/api/v1/audit_logs', headers: auth_headers_for(auditor), as: :json
+
+      expect_success_response
+      row = json_response['data'].find { |l| l['id'] == platform_row.id }
+      expect(row).to be_present
+      expect(row['account']).to be_nil
+    end
+  end
+
   describe 'GET /api/v1/audit_logs' do
     context 'with audit.read permission' do
       let(:headers) { auth_headers_for(user_with_audit_permission) }
