@@ -785,6 +785,22 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
           .to include("action_category" => described_class::PROTECTED_WRITE_CATEGORY, "node_instance_id" => node_instance.id)
       end
 
+      # IMP-8a62dc5a6a4b: the metered row is what spends the window. When it
+      # cannot be written the probe is neither counted nor allowed to learn
+      # anything: the refusal is generic, with no value-dependent text.
+      it "fails closed when the metered audit row cannot be written: a generic refusal, no not_tightening text" do
+        SiteSetting.set(ordered_key, "current-value")
+        allow(AuditLog).to receive(:log_action).and_raise(StandardError, "audit store down")
+
+        result = park(key: ordered_key, value: "new")
+
+        expect(result[:success]).to be(false)
+        expect(result[:error]).not_to include("only tighten")
+        expect(result[:error]).not_to include("restrictive")
+        expect(result[:error]).not_to include("current-value")
+        expect(Ai::ApprovalRequest.count).to eq(0)
+      end
+
       it "dedupes a probe against this principal's pending request for the key, answering nothing about the value" do
         pending = parked_request(park(key: ordered_key, value: "abcd"))
         SiteSetting.set(ordered_key, "a-much-longer-current-value")

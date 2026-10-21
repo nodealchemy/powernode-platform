@@ -515,8 +515,15 @@ module Ai
       # written on EVERY refusal, never collapsed — spends that window.
       def guarded_park_refusal(params)
         code, refusal = tightening_refusal(params)
-        audit_park_refusal(params, code, collapse: false) if refusal
-        refusal
+        return nil unless refusal
+
+        # Fails closed (IMP-8a62dc5a6a4b): the metered row is what spends the
+        # window and what MachinePark.refused_count reads. A refusal whose row
+        # was not written would be uncounted AND would still answer with the
+        # value-dependent text, so the probe is given a generic one instead.
+        return refusal if audit_park_refusal(params, code, collapse: false)
+
+        error_result("site_setting_set_protected cannot be requested right now; try again later.")
       end
 
       # A machine may only TIGHTEN (IMP-1765f6f09458). The requested value and
@@ -663,7 +670,7 @@ module Ai
       # counts against the principal's window.
       def audit_park_refusal(params, code, collapse: true)
         if collapse
-          return unless ::Ai::Approvals::MachinePark.audit_once?("site_setting:park_refusal_audit:#{node_instance&.id}:#{code}")
+          return true unless ::Ai::Approvals::MachinePark.audit_once?("site_setting:park_refusal_audit:#{node_instance&.id}:#{code}")
         end
 
         registered = key_spec(params) ? params[:key].to_s : "unregistered"
@@ -679,8 +686,10 @@ module Ai
                       metered: (true unless collapse),
                       session_label: session_label, reason: code }.compact
         )
+        true
       rescue StandardError => e
         Rails.logger.error("[SiteSettingTool] park refusal audit row failed: #{e.class}: #{e.message}")
+        false
       end
 
       def key_spec(params)
