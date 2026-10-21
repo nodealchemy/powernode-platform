@@ -42,18 +42,55 @@ RSpec.describe StorageProviders::S3Storage, type: :service do
       )
     end
 
-    it 'deletes through a separate client with tight timeouts and a single retry' do
+    it 'deletes through a separate client with tight timeouts and a single legacy-mode retry' do
       allow(s3_client).to receive(:delete_object).and_return(true)
 
       provider.delete_file(file_object)
 
       expect(Aws::S3::Client).to have_received(:new).with(
-        hash_including(http_open_timeout: 10, http_read_timeout: 30, retry_limit: 1)
+        hash_including(http_open_timeout: 10, http_read_timeout: 30, retry_limit: 1, retry_mode: 'legacy', max_attempts: 2)
       )
     end
 
-    it 'bounds the worst case of one delete' do
-      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq((10 + 30) * (1 + 1))
+    it 'stays capped to one retry even when the environment selects standard retry mode' do
+      allow(Aws::S3::Client).to receive(:new).and_call_original
+      previous = ENV['AWS_RETRY_MODE']
+      ENV['AWS_RETRY_MODE'] = 'standard'
+      client = Aws::S3::Client.new(
+        described_class::DELETE_CLIENT_OPTIONS.merge(
+          region: 'us-east-1', credentials: Aws::Credentials.new('AKIAFAKE', 'fake-secret'), stub_responses: true
+        )
+      )
+      # retry_limit is honoured only in legacy mode; with the mode pinned, the
+      # environment cannot switch the delete client to standard (max_attempts 3).
+      expect(client.config.retry_mode).to eq('legacy')
+      expect(client.config.retry_limit).to eq(1)
+      expect(client.config.max_attempts).to eq(2)
+
+      without_pin = Aws::S3::Client.new(
+        described_class::DELETE_CLIENT_OPTIONS.except(:retry_mode).merge(
+          region: 'us-east-1', credentials: Aws::Credentials.new('AKIAFAKE', 'fake-secret'), stub_responses: true
+        )
+      )
+      expect(without_pin.config.retry_mode).to eq('standard') # why the pin exists
+    ensure
+      previous.nil? ? ENV.delete('AWS_RETRY_MODE') : ENV['AWS_RETRY_MODE'] = previous
+    end
+
+    it 'derives the worst case from the configured options (open + read per attempt, plus the retry pause) under a hard deadline' do
+      o = described_class::DELETE_CLIENT_OPTIONS
+      per_attempt = o[:http_open_timeout] + o[:http_read_timeout]
+      derived = per_attempt * o[:max_attempts] + described_class::LEGACY_RETRY_PAUSE_SECONDS
+
+      expect(described_class::DELETE_DEADLINE_SECONDS).to be >= derived
+      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq(described_class::DELETE_DEADLINE_SECONDS)
+    end
+
+    it 'returns false, not a hang, when the delete outlives the hard deadline' do
+      stub_const('StorageProviders::S3Storage::DELETE_DEADLINE_SECONDS', 0.2)
+      allow(s3_client).to receive(:delete_object) { sleep 2 }
+
+      expect(provider.delete_file(file_object)).to be false
     end
   end
 

@@ -495,3 +495,43 @@ RSpec.describe FileManagement::Erasure do
     end
   end
 end
+
+# A REAL row lock held on a second connection (committed rows, so this group
+# opts out of the wrapping test transaction and cleans up after itself): a
+# concurrent duplicate request must not wait out the holder's delete.
+RSpec.describe FileManagement::Erasure, 'against a row locked by a concurrent erasure' do
+  self.use_transactional_tests = false
+
+  let!(:account) { create(:account) }
+  let!(:user) { create(:user, account: account) }
+  let!(:storage) { create(:file_storage, account: account) }
+  let!(:file) { create(:file_object, account: account, storage: storage, uploaded_by: user) }
+  let(:provider) { instance_double(StorageProviders::LocalStorage, delete_file: true, store_live?: true, last_removal_refusal: nil) }
+
+  before do
+    allow(Audit::LogIntegrityService).to receive(:apply_integrity).and_return(true)
+    allow(StorageProviderFactory).to receive(:create).and_return(provider)
+  end
+
+  after { Account.find_by(id: account.id)&.destroy }
+
+  it 'skips the locked file at once instead of waiting, counting it neither erased nor failed' do
+    holder = ActiveRecord::Base.connection_pool.checkout
+    begin
+      holder.execute('BEGIN')
+      holder.execute("SELECT 1 FROM file_objects WHERE id = '#{file.id}' FOR UPDATE")
+
+      started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+      result = described_class.call(scope: FileManagement::Object.where(account_id: account.id))
+      elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+
+      expect(elapsed).to be < 2
+      expect(result.erased_count).to eq(0)
+      expect(result.failures).to be_empty
+      expect(FileManagement::Object.exists?(file.id)).to be true
+    ensure
+      holder.execute('ROLLBACK')
+      ActiveRecord::Base.connection_pool.checkin(holder)
+    end
+  end
+end

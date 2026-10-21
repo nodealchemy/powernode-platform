@@ -142,16 +142,33 @@ RSpec.describe StorageProviders::GcsStorage, type: :service do
   end
 
   describe '#delete_file' do
-    it 'uses a separate client with a bounded timeout and no retries, leaving the shared client alone' do
+    it 'uses a separate client with explicit open/read/send timeouts and no retries, leaving the shared client alone' do
       allow(bucket).to receive(:file).and_return(gcs_file)
       allow(gcs_file).to receive(:delete).and_return(true)
 
       provider.delete_file(file_object)
 
       expect(Google::Cloud::Storage).to have_received(:new).with(
-        hash_including(project_id: 'test-project', timeout: 20, retries: 0)
+        hash_including(project_id: 'test-project', retries: 0,
+                       open_timeout: described_class::DELETE_OPEN_TIMEOUT,
+                       read_timeout: described_class::DELETE_READ_TIMEOUT,
+                       send_timeout: described_class::DELETE_SEND_TIMEOUT)
       )
-      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq(3 * 20)
+    end
+
+    it 'derives the figures from the configured options and caps the whole delete (token fetch included) with a hard deadline' do
+      per_call = described_class::DELETE_OPEN_TIMEOUT + described_class::DELETE_READ_TIMEOUT + described_class::DELETE_SEND_TIMEOUT
+      derived = described_class::DELETE_CALLS * per_call
+
+      expect(derived).to be > described_class::DELETE_DEADLINE_SECONDS # the auth round-trips are why a deadline exists
+      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq([ derived, described_class::DELETE_DEADLINE_SECONDS ].min)
+    end
+
+    it 'returns false, not a hang, when the delete outlives the hard deadline' do
+      stub_const('StorageProviders::GcsStorage::DELETE_DEADLINE_SECONDS', 0.2)
+      allow(bucket).to receive(:file) { sleep 2 }
+
+      expect(provider.delete_file(file_object)).to be false
     end
 
     it 'deletes file and returns true' do

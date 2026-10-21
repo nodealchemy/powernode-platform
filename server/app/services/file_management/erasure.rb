@@ -75,7 +75,7 @@ module FileManagement
     # budget: no NEW file is started once it is spent, and the cursor stops at
     # the last file attempted. Budget + one worst-case delete stays under the
     # 120 s worker timeout; each cloud provider exposes its figure as
-    # DELETE_WORST_CASE_SECONDS (S3 80, GCS 60, Azure 40) and a spec holds
+    # DELETE_WORST_CASE_SECONDS (S3 85, GCS 60, Azure 50: each a hard deadline over the client timeouts) and a spec holds
     # the sum under 120. The tight limits apply to the DELETE path only.
     # The dead-store probe adds nothing to that: store_live? is a constant
     # true for the cloud providers (no network call) and one marker-file read
@@ -263,7 +263,7 @@ module FileManagement
         # Row lock first: a concurrent duplicate of this request (a retried
         # DELETE) blocks here until this transaction commits, then finds no
         # row and reports nothing. See CONCURRENT DUPLICATE above.
-        locked = FileManagement::Object.lock.find_by(id: file.id)
+        locked = FileManagement::Object.lock("FOR UPDATE NOWAIT").find_by(id: file.id)
         if locked.nil?
           Rails.logger.info "[FileManagement::Erasure] #{file.id} was erased by a concurrent request; nothing to do"
           next :already_gone
@@ -295,6 +295,13 @@ module FileManagement
       # A held outcome is a hash; the transaction block returned it after
       # touching nothing, so there is nothing to roll back.
       outcome
+    rescue ActiveRecord::LockWaitTimeout
+      # NOWAIT: another request holds this row, i.e. a concurrent duplicate is
+      # erasing it right now (possibly inside a slow blob delete). Waiting would
+      # spend this batch's time budget on someone else's call; the file is that
+      # request's to finish, so it is neither counted nor failed here.
+      Rails.logger.info "[FileManagement::Erasure] #{file.id} is being erased by a concurrent request; skipping"
+      :already_gone
     rescue FileManagement::Object::StorageRemovalFailed => e
       Rails.logger.error "[FileManagement::Erasure] #{file.id}: #{e.message}"
       # A provider that refused for want of a liveness marker

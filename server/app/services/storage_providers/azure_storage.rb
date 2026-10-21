@@ -13,12 +13,15 @@ module StorageProviders
   class AzureStorage < Base
     API_VERSION = "2023-11-03"
 
-    # The delete path runs on a connection with tight timeouts (GDPR erasure
-    # budgets its batch against the 120 s worker timeout); the shared
-    # connection keeps the normal limits for uploads and downloads.
-    DELETE_TIMEOUT = 30
+    # The delete path runs on a connection with explicit tight timeouts (GDPR
+    # erasure budgets its batch against the 120 s worker timeout); the shared
+    # connection keeps the normal limits for uploads and downloads. Faraday's
+    # bare `timeout` sets read AND write, so all three are set separately.
     DELETE_OPEN_TIMEOUT = 10
-    DELETE_WORST_CASE_SECONDS = DELETE_TIMEOUT + DELETE_OPEN_TIMEOUT
+    DELETE_READ_TIMEOUT = 30
+    DELETE_WRITE_TIMEOUT = 10
+    DELETE_DEADLINE_SECONDS = 50
+    DELETE_WORST_CASE_SECONDS = DELETE_DEADLINE_SECONDS
 
     attr_reader :container_name
 
@@ -224,7 +227,9 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
-      make_request(:delete, blob_path(file_object.storage_key), connection: delete_connection)
+      with_delete_deadline do
+        make_request(:delete, blob_path(file_object.storage_key), connection: delete_connection)
+      end
 
       log_info("Deleted the blob of file object #{file_object.id} from Azure")
       true
@@ -236,6 +241,9 @@ module StorageProviders
       return true if e.status_code == 404 && e.error_code == "BlobNotFound"
 
       log_error("Failed to delete the blob of file object #{file_object.id}: #{e.message}")
+      false
+    rescue Timeout::Error, Faraday::TimeoutError => e
+      log_error("Failed to delete the blob of file object #{file_object.id}: #{e.class}")
       false
     end
 
@@ -391,16 +399,18 @@ module StorageProviders
     end
 
     def delete_connection
-      @delete_connection ||= build_connection(timeout: DELETE_TIMEOUT, open_timeout: DELETE_OPEN_TIMEOUT)
+      @delete_connection ||= build_connection(open_timeout: DELETE_OPEN_TIMEOUT, read_timeout: DELETE_READ_TIMEOUT,
+                                              write_timeout: DELETE_WRITE_TIMEOUT)
     end
 
-    def build_connection(timeout: 120, open_timeout: 30)
+    def build_connection(open_timeout: 30, read_timeout: 120, write_timeout: 120)
       Faraday.new(url: base_url) do |conn|
         conn.request :multipart
         conn.response :raise_error
         conn.adapter Faraday.default_adapter
-        conn.options.timeout = timeout
         conn.options.open_timeout = open_timeout
+        conn.options.read_timeout = read_timeout
+        conn.options.write_timeout = write_timeout
       end
     end
 

@@ -11,9 +11,17 @@ module StorageProviders
     # The delete path (GDPR erasure budgets ~200 ms per delete against a 120 s
     # request) runs on its own tight client; the shared client keeps the SDK
     # defaults so large uploads and downloads are not cut short.
-    DELETE_CLIENT_OPTIONS = { http_open_timeout: 10, http_read_timeout: 30, retry_limit: 1 }.freeze
-    DELETE_WORST_CASE_SECONDS = (DELETE_CLIENT_OPTIONS[:http_open_timeout] + DELETE_CLIENT_OPTIONS[:http_read_timeout]) *
-                                (DELETE_CLIENT_OPTIONS[:retry_limit] + 1)
+    # retry_mode is pinned: retry_limit is honoured only in legacy mode, and
+    # AWS_RETRY_MODE / ~/.aws/config would otherwise switch the client to
+    # max_attempts 3. The SDK has no write-timeout option, which the hard
+    # deadline covers.
+    DELETE_CLIENT_OPTIONS = {
+      http_open_timeout: 10, http_read_timeout: 30, retry_mode: "legacy", retry_limit: 1, max_attempts: 2
+    }.freeze
+    LEGACY_RETRY_PAUSE_SECONDS = 0.3
+    # (open + read) x attempts + the legacy retry pause, rounded up to a margin.
+    DELETE_DEADLINE_SECONDS = 85
+    DELETE_WORST_CASE_SECONDS = DELETE_DEADLINE_SECONDS
 
     def initialize(storage_config)
       super
@@ -250,15 +258,17 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
-      delete_client.delete_object(
-        bucket: @bucket_name,
-        key: file_object.storage_key
-      )
+      with_delete_deadline do
+        delete_client.delete_object(
+          bucket: @bucket_name,
+          key: file_object.storage_key
+        )
+      end
 
       log_info("Deleted the blob of file object #{file_object.id} from S3")
       true
-    rescue Aws::S3::Errors::ServiceError => e
-      log_error("Failed to delete the blob of file object #{file_object.id}: #{e.message}")
+    rescue Aws::S3::Errors::ServiceError, Timeout::Error => e
+      log_error("Failed to delete the blob of file object #{file_object.id}: #{e.class}")
       false
     end
 

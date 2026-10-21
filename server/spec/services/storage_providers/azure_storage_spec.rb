@@ -31,13 +31,20 @@ RSpec.describe StorageProviders::AzureStorage, type: :service do
   end
 
   describe 'connections' do
-    it 'keeps the normal timeouts on the shared connection and tight ones on the delete connection' do
+    it 'keeps the normal timeouts on the shared connection and explicit tight ones on the delete connection' do
       shared = provider.instance_variable_get(:@connection)
       tight = provider.send(:delete_connection)
 
-      expect([ shared.options.timeout, shared.options.open_timeout ]).to eq([ 120, 30 ])
-      expect([ tight.options.timeout, tight.options.open_timeout ]).to eq([ 30, 10 ])
-      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq(30 + 10)
+      expect([ shared.options.open_timeout, shared.options.read_timeout, shared.options.write_timeout ]).to eq([ 30, 120, 120 ])
+      expect([ tight.options.open_timeout, tight.options.read_timeout, tight.options.write_timeout ])
+        .to eq([ described_class::DELETE_OPEN_TIMEOUT, described_class::DELETE_READ_TIMEOUT, described_class::DELETE_WRITE_TIMEOUT ])
+    end
+
+    it 'derives the worst case from open + read + write under a hard deadline' do
+      derived = described_class::DELETE_OPEN_TIMEOUT + described_class::DELETE_READ_TIMEOUT + described_class::DELETE_WRITE_TIMEOUT
+
+      expect(described_class::DELETE_DEADLINE_SECONDS).to be >= derived
+      expect(described_class::DELETE_WORST_CASE_SECONDS).to eq(described_class::DELETE_DEADLINE_SECONDS)
     end
   end
 

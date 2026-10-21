@@ -8,12 +8,20 @@ module StorageProviders
   class GcsStorage < Base
     attr_reader :gcs_client, :bucket_name
 
-    # A delete is bucket lookup + file lookup + delete = 3 calls. Its own
-    # client: no retries and a 20 s timeout, so one hanging file costs at most
-    # 60 s; the shared client keeps the library defaults for uploads/downloads.
-    DELETE_CLIENT_TIMEOUT = 20
+    # A delete is bucket lookup + file lookup + delete = 3 calls, each on its
+    # own client with explicit open/read/send timeouts (a bare `timeout:` fans
+    # out to all three) and no retries. The OAuth token fetch (googleauth, up to
+    # several tries on a 60 s connection) is not reachable through options, so
+    # the whole delete also runs under a hard deadline. The shared client keeps
+    # the library defaults for uploads/downloads.
+    DELETE_OPEN_TIMEOUT = 5
+    DELETE_READ_TIMEOUT = 10
+    DELETE_SEND_TIMEOUT = 10
     DELETE_CALLS = 3
-    DELETE_WORST_CASE_SECONDS = DELETE_CALLS * DELETE_CLIENT_TIMEOUT
+    DELETE_DEADLINE_SECONDS = 60
+    DELETE_WORST_CASE_SECONDS = [
+      DELETE_CALLS * (DELETE_OPEN_TIMEOUT + DELETE_READ_TIMEOUT + DELETE_SEND_TIMEOUT), DELETE_DEADLINE_SECONDS
+    ].min
 
     def initialize(storage_config)
       super
@@ -199,17 +207,19 @@ module StorageProviders
 
     # Delete file
     def delete_file(file_object)
-      bucket = delete_client.bucket(@bucket_name)
-      gcs_file = bucket.file(file_object.storage_key)
+      with_delete_deadline do
+        bucket = delete_client.bucket(@bucket_name)
+        gcs_file = bucket.file(file_object.storage_key)
 
-      return true unless gcs_file
+        return true unless gcs_file
 
-      gcs_file.delete
+        gcs_file.delete
+      end
 
       log_info("Deleted the blob of file object #{file_object.id} from GCS")
       true
-    rescue Google::Cloud::Error => e
-      log_error("Failed to delete the blob of file object #{file_object.id}: #{e.message}")
+    rescue Google::Cloud::Error, Timeout::Error => e
+      log_error("Failed to delete the blob of file object #{file_object.id}: #{e.class}")
       false
     end
 
@@ -376,7 +386,9 @@ module StorageProviders
     private
 
     def delete_client
-      @delete_client ||= create_gcs_client(timeout: DELETE_CLIENT_TIMEOUT, retries: 0)
+      @delete_client ||= create_gcs_client(
+        open_timeout: DELETE_OPEN_TIMEOUT, read_timeout: DELETE_READ_TIMEOUT, send_timeout: DELETE_SEND_TIMEOUT, retries: 0
+      )
     end
 
     def create_gcs_client(extra_options = {})

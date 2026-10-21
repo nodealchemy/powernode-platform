@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "timeout"
+
 module StorageProviders
   # Base class for all storage providers
   # Defines the interface that all storage providers must implement
@@ -266,6 +268,14 @@ module StorageProviders
     # Log info
     def log_info(message)
       @logger.info "[#{self.class.name}] #{message}"
+    end
+
+    # A hard wall-clock cap on one blob delete, on top of the clients' own
+    # timeouts: several limits (SDK write timeouts, token round-trips, retry
+    # pauses) are not reachable through client options, and the erasure
+    # budgets every provider's DELETE_WORST_CASE_SECONDS. Raises Timeout::Error.
+    def with_delete_deadline
+      ::Timeout.timeout(self.class::DELETE_DEADLINE_SECONDS) { yield }
     end
 
     # Log error
