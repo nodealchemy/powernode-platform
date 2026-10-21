@@ -546,6 +546,13 @@
       queue: default
       description: 'Sweep component status contributors and record verdict transitions'
 
+    # Retry cleanup that had to follow a committed account deletion (Vault purge)
+    platform_purge_sweep:
+      every: '10m'
+      class: PlatformPurgeSweepJob
+      queue: maintenance
+      description: 'Retry failed post-deletion purges via the server internal API'
+
     # Goal maintenance - auto-abandon stale goals
     ai_goal_maintenance:
       cron: '30 4 * * *'  # Daily at 4:30 AM UTC

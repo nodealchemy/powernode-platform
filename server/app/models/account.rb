@@ -379,6 +379,15 @@ class Account < ApplicationRecord
     account_id.present? && teardown_ids.include?(account_id)
   end
 
+  # The operator performing a destroy!, recorded in the account.destroyed audit row.
+  attr_writer :teardown_actor
+
+  # Associations holding keys / credentials whose ids the teardown audit records
+  # (ids only, never material). An extension registers its own from a to_prepare block.
+  def self.register_teardown_key_source(association)
+    AccountTeardownAudit.key_sources[association.to_sym] = association.to_sym
+  end
+
   def self.teardown_ids
     ActiveSupport::IsolatedExecutionState[:account_teardown_ids] ||= []
   end
@@ -678,8 +687,14 @@ class Account < ApplicationRecord
   def run_account_teardown
     self.class.teardown_ids << id
     begin
+      audit = AccountTeardownAudit.new(self, actor: @teardown_actor)
+      audit.snapshot!
       teardown_reflected_dependents
       users.destroy_all
+      # Fail closed, inside this transaction: platform-scoped copies of the key-operation
+      # audit rows and the account.destroyed record are written BEFORE the account's own
+      # audit rows are deleted; if that raises, nothing is deleted.
+      audit.record!
       # Not `audit_logs.delete_all`: on a has_many without a dependent option
       # that NULLIFIES account_id (NOT NULL) instead of deleting the rows.
       AuditLog.where(account_id: id).delete_all
@@ -694,8 +709,21 @@ class Account < ApplicationRecord
     count = Security::SecretStore.purge_account(account_id: id)
     Rails.logger.info("[Account.teardown] purged #{count} secret store entries for account #{id}") if count.positive?
   rescue StandardError => e
-    # Visible, never values: the account id and the error class only.
+    # Visible, never values: the account id and the error class only. The deletion has
+    # committed and cannot be undone, so the purge is recorded for the worker sweep to retry.
     Rails.logger.error("[Account.teardown] secret store purge FAILED for account #{id}: #{e.class}")
+    PlatformPurgeTask.enqueue!(kind: "secret_store_account", subject_id: id, error: e)
+  end
+
+  # Vault entries exist only in Vault and the purge runs after commit: refuse up front when
+  # Vault is the active backend but is not healthy, rather than orphan them.
+  def vault_unhealthy_refusal
+    return unless Security::SecretStore.backend == :vault
+    return if Security::VaultClient.instance.healthy?
+
+    "Cannot delete account: Vault is the active secret backend but is not healthy, so its secrets could not be purged"
+  rescue StandardError
+    "Cannot delete account: Vault is the active secret backend but is not healthy, so its secrets could not be purged"
   end
 
   # Pre-flight (before_destroy, prepended so it halts before the teardown
@@ -727,8 +755,9 @@ class Account < ApplicationRecord
                   .select { |r| association(r.name).reader.then { |v| v.respond_to?(:exists?) ? v.exists? : v.present? } }
                   .map { |r| "Cannot delete account with existing #{r.name.to_s.humanize.downcase}" }
     reasons.concat(shared_row_refusals)
+    reasons << vault_unhealthy_refusal
     self.class.teardown_guards.each_value { |guard| reasons.concat(Array(guard.call(self)).compact) }
-    reasons
+    reasons.compact
   end
 
   # The ONLY User associations that restrict removing a single member and that
@@ -837,5 +866,10 @@ class Account < ApplicationRecord
     # onboarding flag, etc.). NOT NULL with default {} at the DB level,
     # but normalize new in-memory records too.
     self.metadata ||= {} if has_attribute?(:metadata)
+  end
+
+  %i[api_keys ai_provider_credentials ai_data_source_credentials git_provider_credentials
+     devops_integration_credentials system_provider_credentials].each do |assoc|
+    register_teardown_key_source(assoc)
   end
 end

@@ -305,6 +305,7 @@ Rails.application.routes.draw do
         # side, so the cron ticks unconditionally.
         scope :platform do
           post "status_sweep", to: "platform_status#status_sweep"
+          post "purge_tasks/sweep", to: "platform_purge_tasks#sweep"
 
           # Investigation ranking (A6). The evidence is assembled synchronously
           # wherever the investigation was opened; ranking is an LLM call

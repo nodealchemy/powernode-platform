@@ -7,7 +7,10 @@ RSpec.describe AuditLog, type: :model do
 
   describe "associations" do
     it { should belong_to(:user).optional }
-    it { should belong_to(:account) }
+    it "belongs to an account (optional only for platform-scoped actions)" do
+      expect(described_class.reflect_on_association(:account)).to be_present
+      expect(described_class.new(action: "login", resource_type: "User", resource_id: "x", source: "web")).not_to be_valid
+    end
   end
 
   describe "validations" do

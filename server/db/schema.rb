@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_20_140000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_20_150100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -4851,7 +4851,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_140000) do
   end
 
   create_table "audit_logs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
-    t.uuid "account_id", null: false
+    t.uuid "account_id"
     t.string "action", limit: 100, null: false
     t.datetime "chain_verified_at"
     t.datetime "created_at", null: false
@@ -7623,6 +7623,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_20_140000) do
     t.index ["agent_id"], name: "index_platform_investigations_on_agent_id"
     t.index ["component_kind", "component_ref"], name: "index_platform_investigations_on_component"
     t.index ["opened_by_user_id"], name: "index_platform_investigations_on_opened_by_user_id"
+  end
+
+  create_table "platform_purge_tasks", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.integer "attempts", default: 1, null: false
+    t.datetime "completed_at"
+    t.datetime "created_at", null: false
+    t.string "kind", null: false
+    t.string "last_error_class"
+    t.datetime "next_attempt_at", null: false
+    t.string "status", default: "pending", null: false
+    t.uuid "subject_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["kind", "subject_id"], name: "index_platform_purge_tasks_one_pending_per_subject", unique: true, where: "((status)::text = 'pending'::text)"
+    t.index ["status", "next_attempt_at"], name: "index_platform_purge_tasks_on_status_and_next_attempt_at"
   end
 
   create_table "platform_status_events", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|

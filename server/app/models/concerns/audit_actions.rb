@@ -628,6 +628,27 @@ module AuditActions
   ].freeze
 
   # =============================================================================
+  # ACCOUNT TEARDOWN ACTIONS — platform-scoped (audit_logs.account_id NULL): they
+  # outlive the account whose destroy! wrote them. PLATFORM_SCOPED_ACTIONS is the
+  # only allowlist of actions that may have no account (AuditLog validates it).
+  # =============================================================================
+  ACCOUNT_TEARDOWN_ACTIONS = %w[
+    account.destroyed
+    account.teardown_key_revoked
+    account.teardown_key_audit_retained
+  ].freeze
+  PLATFORM_SCOPED_ACTIONS = ACCOUNT_TEARDOWN_ACTIONS
+
+  # Audit actions that record a key or credential operation (create, revoke, rotate,
+  # delete, regenerate, import). The account teardown re-homes these rows to the
+  # platform scope before deleting the account's audit rows
+  # (memory:key-audit-fail-closed: key operations are always audited).
+  KEY_OPERATION_ACTION = /(?:key|credential|secret)s?[._](?:created?|revoked?|rotated?|rotate|deleted?|regenerated|generated?|imported?)\z/
+  def self.key_operation?(action)
+    action.to_s.match?(KEY_OPERATION_ACTION) || action.to_s.include?("signing_key")
+  end
+
+  # =============================================================================
   # AUDIT SELF-CORRECTION ACTIONS — appended by data migrations that need to
   # annotate a sealed historical row without rewriting it. `action` is a hashed
   # field in the tamper-evident chain (Audit::LogIntegrityService#build_hash_data),
@@ -696,6 +717,7 @@ module AuditActions
     REPORT_REQUEST_ACTIONS,
     PLATFORM_ALERT_CHANNEL_ACTIONS,
     PROXY_SETTINGS_ACTIONS,
+    ACCOUNT_TEARDOWN_ACTIONS,
     AUDIT_CORRECTION_ACTIONS
   ].flatten.uniq.freeze
 

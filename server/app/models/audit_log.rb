@@ -5,7 +5,10 @@ class AuditLog < ApplicationRecord
 
   # Associations
   belongs_to :user, optional: true
-  belongs_to :account
+  # Optional only for platform-scoped actions (AuditActions::PLATFORM_SCOPED_ACTIONS): rows
+  # that must outlive the account that wrote them. Tenant rows still require an account.
+  belongs_to :account, optional: true
+  validates :account, presence: true, unless: :platform_scoped?
 
   # Enhanced validations with comprehensive action types.
   # action/source allowlists are DYNAMIC (re-evaluated per validation via a
@@ -107,6 +110,10 @@ class AuditLog < ApplicationRecord
     # metadata is free-form per writer and follows no resource's attribute list, so
     # it is judged by key name (IMP-4fdae24c24a3). Nested hashes are traversed.
     self.metadata = ::Ai::SensitiveParams.filter(metadata)
+  end
+
+  def platform_scoped?
+    AuditActions::PLATFORM_SCOPED_ACTIONS.include?(action)
   end
 
   # Apply cryptographic integrity hash for immutable audit chain
