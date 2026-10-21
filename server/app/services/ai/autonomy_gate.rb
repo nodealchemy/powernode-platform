@@ -165,7 +165,7 @@ module Ai
 
       raw = params.respond_to?(:to_unsafe_h) ? params.to_unsafe_h : params
       return params unless raw.is_a?(::Hash)
-      return params if raw.keys.any? { |key| key.to_s == ::Ai::Approvals::ParkPrincipal::KEY }
+      return params if raw.any? { |key, value| key.to_s == ::Ai::Approvals::ParkPrincipal::KEY && value.present? }
 
       ::Ai::Approvals::ParkPrincipal.stamp(raw, ::Ai::Approvals::ParkPrincipal.for_session(user: requested_by, agent: agent))
     end

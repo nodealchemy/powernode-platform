@@ -557,6 +557,14 @@ RSpec.describe Ai::AutonomyGate do
       expect(op.params['principal']).to eq('kind' => 'internal')
     end
 
+    it 'treats a present-but-blank principal as absent and derives one' do
+      [ nil, '', {} ].each do |blank|
+        op = described_class.evaluate(**base_args, params: { foo: 'bar', principal: blank }).deferred_operation
+
+        expect(op.params['principal']).to include('kind' => 'user', 'user_id' => user.id)
+      end
+    end
+
     it 'adds nothing when there is neither a user nor an agent' do
       op = described_class.evaluate(**base_args.except(:requested_by)).deferred_operation
 
