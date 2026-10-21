@@ -13,6 +13,11 @@
 server/spec/lib/tasks/ai_learning_bulk_spec.rb
 server/spec/models/user_factory_role_scope_spec.rb
 server/spec/services/platform/status/account_lock_spec.rb
+# Not truncation itself, but the same shape: a race on REAL separate connections with COMMITTED rows
+# (use_transactional_tests = false, cleaning up after itself) and sleep-timed interleaving, which CPU
+# contention in the balanced phase can reorder into a false pass or a flake. (The rule above matches its
+# comment's `truncation: true`.)
+server/spec/services/storage_providers/path_liveness_spec.rb
 #
 # --- fixed-name paths under Rails.root/tmp (rm_rf / mkdir_p / write of a name every process would pick) ---
 # Whole-directory removal of a shared name by one process while another is writing into it.
