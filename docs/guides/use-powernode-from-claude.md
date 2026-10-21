@@ -29,6 +29,7 @@ discovery surface, and troubleshooting.
 - [First-call smoke test](#first-call-smoke-test)
 - [A2A discovery (agent cards)](#a2a-discovery-agent-cards)
 - [Platform agents as Claude Code subagents](#platform-agents-as-claude-code-subagents)
+  - [Deploying the roster](#deploying-the-roster)
   - [Handing a task to the Platform Developer vs Claude Code](#handing-a-task-to-the-platform-developer-vs-claude-code)
 - [Troubleshooting](#troubleshooting)
 - [Related documentation](#related-documentation)
@@ -368,6 +369,40 @@ agent when one exists, else the concierge — whose payload is the would-be
 canonical spec (slug, name, agent type, description, the body as system prompt,
 `tools` → tool families, `model` → model tier). Nothing is created directly:
 official agents are seeded canonicals, so an operator reviews and approves.
+
+### Deploying the roster
+
+The roster agents and their capability skills reach a running install through
+`db:seed`. On the host, from `server/`:
+
+1. Dry-run the seed gate for each owner first. It writes no row and fails on any
+   skill the seed would refuse (a contract violation, a writing verb in a read
+   skill, a text the embedding provider cannot embed):
+
+   ```bash
+   rails "skills:gate:check[core,provider]"
+   rails "skills:gate:check[extensions/system,provider]"   # when the system extension is installed
+   ```
+
+2. Seed with `POWERNODE_SEED_STRICT=true`, so a capability-skill seed failure
+   exits non-zero instead of only printing an error banner (the default stays
+   exit 0 so a first-boot start script cannot brick a hub over a skill gate):
+
+   ```bash
+   POWERNODE_SEED_STRICT=true rails db:seed
+   ```
+
+3. Expect the agent rows **inactive** (shadow mode, above). The thin loaders
+   work, because `get_agent` and `assemble_task` resolve the slug, but
+   `platform.route_task` and the concierge do not see inactive agents, so nothing
+   routes to them yet.
+4. The concierge's skeleton is at the 30-tool ceiling
+   (`scripts/claude-agents-size-ceilings.txt`): a verb added to its role needs one
+   removed, or a reviewed raise of the ceiling.
+
+A loader whose agent is missing on the connector stops and reports it to the
+driver. It does not call `record_agent_execution`, which refuses a slug with no
+agent.
 
 ### Handing a task to the Platform Developer vs Claude Code
 

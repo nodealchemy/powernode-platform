@@ -15,7 +15,7 @@ Recall: `search_knowledge` tag `guidance-claude-code-assembly`.
 
 ## Why
 
-- Tier is a floor, never an agent-wide pin. Roster tiers are concierge `standard`, engineer `standard`, reviewer `reasoning`, fleet-operator `standard`. The assembler raises the tier from two independent signals: the selected skills' `hints` (`min_tier`, `effort`) and verb risk (any gated, destructive or approval-parking verb in a selected skill's manifest raises to `reasoning` / `high`). The highest wins; nothing lowers below the roster tier. So a mutating fleet task runs `opus` / `high` and an inspect task `sonnet` / `medium`.
+- Tier is a floor, never an agent-wide pin. Core's roster tiers are concierge `standard`, engineer `standard`, reviewer `reasoning`; an extension-registered agent declares its own (e.g. the system extension's fleet operator, `standard`). The assembler raises the tier from two independent signals: the selected skills' `hints` (`min_tier`, `effort`) and verb risk (any gated, destructive or approval-parking verb in a selected skill's manifest raises to `reasoning` / `high`). The highest wins; nothing lowers below the roster tier. So a mutating fleet task runs `opus` / `high` and an inspect task `sonnet` / `medium`.
 - Candidates stay inside the agent's domain ceiling (the concierge never gets platform-dev skills, the reviewer never gets front-door ones); a `requires` dependency of a selected skill rides along.
 - A Claude Code subagent never routes to a non-Claude provider: `context: "claude_code"` returns a Claude model only.
 - A task no skill owns comes back with `uncovered[]` and no skills: route it (`route_task`) or ask, do not improvise.
@@ -31,6 +31,6 @@ Hard enforcement is impossible client-side:
 ## Subagent limits
 
 - A subagent cannot spawn subagents. A delegated `platform-engineer` therefore reports its diff and the delegating session (or the loop driver) runs the independent review; the review stays required.
-- `platform-reviewer` has a shell to check commits but is read-only by charter: read-only git, grep, and tests in a temp directory; never edit, commit or run a mutating command.
-- A deploy is never the engineer's: it is handed to `fleet-operator`.
-- A thin loader whose agent is not seeded on the connector stops and says so; the driver seeds the agents (handoff phase-1 step 5) or uses a general-purpose agent for that task.
+- `platform-reviewer` has no shell in phase 1 (no Bash, Edit or Write): it reads the diff and files with Read/Grep/Glob and the read-only code verbs, and names any check that needs a command (git, tests) in its report for the delegating session to run. `.claude/hooks/readonly-shell-guard.sh` was not enough on its own: a frontmatter hook needs workspace trust and an unset `$CLAUDE_PROJECT_DIR` fails open (a non-blocking exit 127).
+- A deploy is never the engineer's: it is handed, through `route_task`, to the agent that operates the running fleet (an extension-registered agent, e.g. the system extension's fleet operator).
+- A thin loader whose agent is not seeded on the connector stops and reports it to the driver without calling `record_agent_execution` (which refuses a slug with no agent); the driver seeds the agents (see [Deploying the roster](../../guides/use-powernode-from-claude.md#deploying-the-roster)) or uses a general-purpose agent for that task.
