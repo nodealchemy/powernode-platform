@@ -278,7 +278,10 @@ module FileManagement
         locked.processing_jobs.delete_all
         # Hand over the preloaded Storage (with its memoized provider): the
         # fresh row's storage association would build a new provider.
-        locked.association(:storage).target = file.storage
+        # Only while the row still points at that storage: if it was moved
+        # between the batch read and the lock, the fresh association is used
+        # (its provider is built here and a failure is an error row).
+        locked.association(:storage).target = file.storage if locked.file_storage_id == file.file_storage_id
         locked.strict_storage_removal = true
         locked.audit_extra_redactions = AUDIT_REDACTED_FIELDS
         locked.destroy!

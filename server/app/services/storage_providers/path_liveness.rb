@@ -74,14 +74,17 @@ module StorageProviders
       # ||), never the whole hash, so a concurrent writer of other metadata
       # keys is not clobbered.
       klass = @storage_config.class
-      klass.transaction do
+      fresh = klass.transaction do
         klass.lock.where(id: @storage_config.id).pick(:id)
         File.write(liveness_marker_path, nonce)
         klass.where(id: @storage_config.id).update_all(
           [ "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb", { "liveness_marker" => nonce }.to_json ]
         )
+        klass.where(id: @storage_config.id).pick(:metadata)
       end
-      @storage_config.metadata = @storage_config.metadata.to_h.merge("liveness_marker" => nonce)
+      # The merged row, not a local guess: other keys written by a concurrent
+      # writer are reflected in memory too.
+      @storage_config.metadata = fresh.to_h
       @storage_config.send(:clear_attribute_changes, [ "metadata" ])
       nonce
     end

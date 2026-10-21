@@ -369,6 +369,24 @@ RSpec.describe FileManagement::Erasure do
       expect(StorageProviderFactory).to have_received(:create).once
     end
 
+    it 'does not reuse the preloaded storage when the row moved to another storage before the lock' do
+      file = personal_file(filename: 'moved.pdf')
+      other = create(:file_storage, account: account)
+      RSpec::Mocks.space.proxy_for(StorageProviderFactory).reset
+      allow(StorageProviderFactory).to receive(:create).and_return(provider)
+      allow_any_instance_of(described_class).to receive(:provider_error).and_wrap_original do |original, f|
+        result = original.call(f)
+        FileManagement::Object.where(id: f.id).update_all(file_storage_id: other.id)
+        result
+      end
+
+      erase
+
+      # Once for the preloaded storage, once more for the storage the locked row names.
+      expect(StorageProviderFactory).to have_received(:create).twice
+      expect(FileManagement::Object.exists?(file.id)).to be false
+    end
+
     it 'reports an error row, without raising, when the provider cannot be built' do
       files = Array.new(2) { |i| personal_file(filename: "c#{i}.pdf") }
       allow(StorageProviderFactory).to receive(:create).and_raise(StandardError, 'bad config')

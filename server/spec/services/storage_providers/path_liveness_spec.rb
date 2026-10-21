@@ -15,7 +15,9 @@ RSpec.describe StorageProviders::PathLiveness, type: :service do
 
   after { FileUtils.rm_rf(root) }
 
-  it 'leaves the store :live when two initializes write the marker concurrently' do
+  # truncation: true => no pinned test connection, so the two threads hold REAL
+  # separate connections and the row lock is what serialises them.
+  it 'leaves the store :live when two initializes write the marker concurrently', truncation: true do
     FileUtils.mkdir_p(root)
     # Two independent provider instances over the same row, as two requests have.
     providers = Array.new(2) do
@@ -56,5 +58,30 @@ RSpec.describe StorageProviders::PathLiveness, type: :service do
     row = FileManagement::Storage.find(storage_config.id)
     expect(row.metadata).to eq('keep' => 'me', 'liveness_marker' => nonce)
     expect(storage_config.metadata['liveness_marker']).to eq(nonce)
+  end
+
+  it 'reads the row FOR UPDATE before it writes the marker file, and reflects the merged metadata in memory' do
+    FileUtils.mkdir_p(root)
+    storage_config.update_columns(metadata: { 'keep' => 'me' })
+    provider = StorageProviders::LocalStorage.new(storage_config)
+    # Another writer adds a key behind this instance's back.
+    FileManagement::Storage.where(id: storage_config.id).update_all("metadata = metadata || '{\"other\":1}'::jsonb")
+
+    events = []
+    sub = ActiveSupport::Notifications.subscribe('sql.active_record') do |*, payload|
+      events << :lock if payload[:sql] =~ /FROM "file_storages".*FOR UPDATE/m
+    end
+    allow(File).to receive(:write).and_wrap_original do |orig, *args, **kw|
+      events << :file_write if args.first.to_s.end_with?(StorageProviders::Base::LIVENESS_MARKER)
+      orig.call(*args, **kw)
+    end
+    begin
+      provider.write_liveness_marker!
+    ensure
+      ActiveSupport::Notifications.unsubscribe(sub)
+    end
+
+    expect(events.first(2)).to eq(%i[lock file_write])
+    expect(storage_config.metadata).to include('keep' => 'me', 'other' => 1)
   end
 end
