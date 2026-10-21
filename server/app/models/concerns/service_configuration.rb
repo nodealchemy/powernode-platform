@@ -353,6 +353,9 @@ module ServiceConfiguration
     def valid_wildcard_pattern?(pattern)
       return false if pattern.nil? || pattern.empty?
 
+      # Strict shared rule (registrable domain required, no public suffixes)
+      return false unless WildcardHostPattern.valid?(pattern.split(":").first)
+
       # Remove port if present
       host = pattern.split(":").first
 

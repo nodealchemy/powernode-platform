@@ -166,7 +166,10 @@ class Api::V1::SetupController < ApplicationController
       additional = params[:additional_domains] || params.dig(:payload, :additional_domains)
       additional = additional.respond_to?(:to_unsafe_h) ? [] : additional
       begin
-        Setup::DomainConfigurator.call(primary: primary, additional: additional || [])
+        Setup::DomainConfigurator.call(
+          primary: primary, additional: additional || [], user: current_user, account: current_account,
+          ip_address: request.remote_ip, user_agent: request.user_agent
+        )
         nil
       rescue Setup::DomainConfigurator::InvalidDomain => e
         e.message

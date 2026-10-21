@@ -145,6 +145,16 @@ RSpec.describe 'Api::V1::Admin::ProxySettingsController', type: :request do
         expect(response).to have_http_status(:unprocessable_content)
       end
 
+      it 'rejects overly broad wildcards' do
+        [ '*.com', '*.1', '*.co.uk' ].each do |bad|
+          post '/api/v1/admin/proxy_settings/trusted_hosts',
+               params: { pattern: bad }.to_json,
+               headers: headers
+
+          expect(response).to have_http_status(:unprocessable_content), "expected #{bad} rejected"
+        end
+      end
+
       it 'validates wildcard pattern format' do
         post '/api/v1/admin/proxy_settings/trusted_hosts',
              params: { pattern: '*.invalid@pattern' }.to_json,
@@ -231,6 +241,16 @@ RSpec.describe 'Api::V1::Admin::ProxySettingsController', type: :request do
         expect_success_response
         data = json_response_data
         expect(data).to include('pattern', 'wildcard_patterns')
+      end
+
+      it 'rejects overly broad wildcard patterns' do
+        [ '*.com', '*.1' ].each do |bad|
+          post '/api/v1/admin/proxy_settings/wildcard_patterns',
+               params: { pattern: bad }.to_json,
+               headers: headers
+
+          expect(response).to have_http_status(:unprocessable_content), "expected #{bad} rejected"
+        end
       end
 
       it 'returns error when pattern format is invalid' do

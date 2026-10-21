@@ -320,16 +320,29 @@ Cross-repo commit discipline: control-plane changes land **inside `extensions/sy
 The wizard's domain step takes a primary domain plus additional domains
 (`*.example.com` wildcards allowed). `Setup::DomainConfigurator` writes them to
 `AdminSetting.reverse_proxy_url_config[:trusted_hosts]` and merges the derived
-origins into `cors_allowed_origins` (operator entries are kept; entries the wizard
-wrote earlier are tracked in SiteSetting `wizard_domains` and replaced on re-run).
+origins into `cors_allowed_origins`. Only entries the wizard itself added (absent
+before its write) are tracked in SiteSetting `wizard_owned_entries` and replaced on
+re-run; entries the operator already had, and `localhost`/`127.0.0.1`, are never
+removed. Each run writes an audit log entry (`admin_settings_update`,
+`metadata.change = setup.domains_configured`).
 
 - **Development**: `config.hosts` uses `TrustedHostPolicy`, which reads `trusted_hosts`.
 - **Production**: Rails `config.hosts` is intentionally unset (the commented block in
-  `production.rb`); host gating is the reverse proxy. `Core::IngressConfigWriter`
-  already turns the non-wildcard `trusted_hosts` into Traefik `Host()` rules on its
-  next write, and the wizard triggers that write (`Setup::IngressRefresher`) right after
-  the domain step commits so the domains take effect immediately. A write failure is
-  returned as a step warning (class name logged, no message) and never fails the step.
-  It is a no-op in development. Wildcards are not emitted as Traefik rules (Traefik
-  `Host()` matches exact names); the wizard shows a note when one is added.
+  `production.rb`). `trusted_hosts` does NOT gate every path. It becomes `Host()` rules
+  only on the per-account routers written by `Core::IngressConfigWriter#write!` (and the
+  system extension's ACME writer); the wizard triggers that write
+  (`Setup::IngressRefresher`) right after the domain step commits. A write failure is
+  returned as a step warning (class name logged, no message) and never fails the step;
+  it is a no-op in development.
+- **Host-login front door is NOT gated by `trusted_hosts`.** `00-host-login.yaml`
+  (`ensure_host_login_ingress!`) routes by `PathPrefix` only, deliberately host-agnostic
+  so the appliance is reachable by any name, LAN IP or localhost. Do not assume
+  `trusted_hosts` restricts what Host header reaches the app through that door.
+- **Wildcards**: Traefik `Host()` rules are exact, so wildcards are not emitted as
+  Traefik rules. They DO reach CORS: via `trusted_hosts`,
+  `CorsConfigurationService#add_proxy_origins` derives a regex origin
+  (`https://<anything>.example.com`) for each wildcard, with credentials allowed. For
+  that reason wildcards are validated strictly by `WildcardHostPattern` (a registrable
+  domain is required; `*.com`, `*.co.uk` and numeric TLDs are rejected) in both the wizard
+  and the admin proxy-settings endpoints. The wizard shows a note when a wildcard is added.
 - The admin Proxy Settings tab (`ProxyHostList`) shows the same `trusted_hosts` list.

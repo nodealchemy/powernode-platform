@@ -108,8 +108,8 @@ module Api
           # Validate pattern format
           if pattern.include?("*")
             # Validate wildcard pattern
-            unless pattern.match?(/^\*?\.?[a-z0-9\-\.]+$/i)
-              return render_validation_error(pattern: [ "Invalid wildcard pattern format" ])
+            unless WildcardHostPattern.valid?(pattern)
+              return render_validation_error(pattern: [ "Invalid or too broad wildcard pattern (use *.example.com)" ])
             end
           else
             # Validate standard hostname
@@ -197,6 +197,9 @@ module Api
           # Validate wildcard pattern format
           unless pattern.match?(/^(\*\.)?[a-z0-9\-\.]+(\.[a-z]{2,})?$/i)
             return render_validation_error(pattern: [ "Invalid wildcard pattern format" ])
+          end
+          if WildcardHostPattern.wildcard?(pattern) && !WildcardHostPattern.valid?(pattern)
+            return render_validation_error(pattern: [ "Invalid or too broad wildcard pattern (use *.example.com)" ])
           end
 
           config = ::Admin::SystemSettings.proxy_url_config
