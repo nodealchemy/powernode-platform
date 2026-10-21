@@ -1031,17 +1031,35 @@ module Ai
         nil
       end
 
-      # The gate's own failure ("Gate evaluation failed: ...", e.g. its audit or
-      # approval write) inside a guarded park. A tool that answers its guarded
+      # The gate's own failure (its exception: e.g. its audit or approval write)
+      # inside a guarded park. A tool that answers its guarded
       # refusals generically returns that same answer here (so the failure is
       # not a differently-worded oracle); nil keeps the gate's text.
       def guarded_park_failure(_params)
         nil
       end
 
-      def guarded_park_result(params, result)
-        failed = result.is_a?(Hash) && result[:success] == false && result[:error].to_s.start_with?("Gate evaluation failed")
-        (failed && guarded_park_failure(params)) || result
+      # The park itself, inside the guard, in its OWN savepoint. The gate swallows
+      # its failures into a Result (decision :blocked, exception set), so a PG-level
+      # error in one of its writes would otherwise leave the guard's transaction
+      # aborted; on a gate failure the savepoint is rolled back explicitly and the
+      # tool's #guarded_park_failure answers. Detected by the gate's exception (set
+      # in #run_through_autonomy_gate), never by matching its error text.
+      def guarded_park_attempt(params, parker)
+        @last_gate_exception = nil
+        result = nil
+        ::ActiveRecord::Base.transaction(requires_new: true) do
+          result = parker.call
+          raise ::ActiveRecord::Rollback if @last_gate_exception
+        end
+        return result unless @last_gate_exception
+
+        guarded_park_failure(params) || result
+      rescue StandardError => e
+        @last_gate_exception = e
+        guarded_park_failure(params) || raise
+      ensure
+        @last_gate_exception = nil
       end
 
       # What makes two parks "the same request" from one machine principal (the
@@ -1331,6 +1349,7 @@ module Ai
           **(machine_call? ? { agent_initiated: true } : {})
         )
 
+        @last_gate_exception = gate.exception
         case gate.decision
         when :proceed
           # The gate never proceeds a human-only action (it forces
@@ -1378,7 +1397,7 @@ module Ai
           # pending request and has passed the window check, and the row it
           # audits spends that window (Ai::Approvals::MachinePark#recent_count),
           # so a tool's value-dependent refusal cannot be probed unmetered.
-          guarded_park_refusal(params) || guarded_park_result(params, parker.call)
+          guarded_park_refusal(params) || guarded_park_attempt(params, parker)
         end
         case outcome
         when ::Ai::Approvals::MachinePark::Deduped

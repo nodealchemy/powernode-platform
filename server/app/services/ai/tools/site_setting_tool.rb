@@ -532,7 +532,11 @@ module Ai
         error_result("site_setting_set_protected cannot be requested right now; try again later.")
       end
 
-      def guarded_park_failure(_params)
+      # A gate failure spends the window like any metered refusal (otherwise a
+      # tightening value would be a free, repeatable probe of the outage); if the
+      # row cannot be written the answer is the same generic one.
+      def guarded_park_failure(params)
+        audit_park_refusal(params, "gate_failed", collapse: false)
         generic_park_refusal
       end
 

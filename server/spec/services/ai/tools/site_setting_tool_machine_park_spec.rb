@@ -839,18 +839,51 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
         expect(SiteSetting.get(ordered_key)).to eq("current-value")
       end
 
-      it "gives the same generic refusal when the gate's own write fails after the canary passed" do
-        SiteSetting.set(ordered_key, "abc")
-        generic = park_with_audit_down(ordered_key)
-        allow_any_instance_of(Ai::AutonomyGate).to receive(:evaluate).and_return(
-          Ai::AutonomyGate::Result.new(decision: :blocked, error: "Gate evaluation failed: PG::Error detail with internals")
-        )
+      # A gate outage with a HEALTHY audit store. A real PG error (NOT NULL) in the
+      # gate's own write, not a stubbed Result: the gate swallows it, which leaves
+      # the surrounding transaction aborted unless the attempt is savepointed.
+      describe "while the gate's own write fails (healthy audit store)" do
+        def metered_count
+          Ai::Approvals::MachinePark.send(:refused_count, account, node_instance.id, described_class::PROTECTED_WRITE_CATEGORY)
+        end
 
-        tightening = park(key: ordered_key, value: "abcdefgh")
+        before do
+          SiteSetting.set(ordered_key, "abc")
+          allow(Ai::DeferredOperation).to receive(:create!) do
+            Ai::DeferredOperation.connection.execute("INSERT INTO ai_deferred_operations (id) VALUES (NULL)")
+          end
+        end
 
-        expect(tightening[:success]).to be(false)
-        expect(tightening[:error]).not_to include("Gate evaluation failed")
-        expect(tightening[:error]).to eq(generic[:error])
+        it "answers a tightening value generically, meters it, and does not abort the transaction" do
+          result = park(key: ordered_key, value: "abcdefgh")
+
+          expect(result[:success]).to be(false)
+          expect(result[:error]).not_to include("Gate evaluation failed")
+          expect(result[:error]).to include("cannot be requested right now")
+          expect(metered_count).to eq(1)
+          expect(Ai::ApprovalRequest.count).to eq(0) # raises PG::InFailedSqlTransaction if the txn was left aborted
+        end
+
+        it "meters a loosening probe too, so both sides spend the window (the loosening text is unchanged)" do
+          loosening = park(key: ordered_key, value: "a")
+          tightening = park(key: ordered_key, value: "abcdefgh")
+
+          expect(loosening[:error]).to include("only tighten")
+          expect(tightening[:error]).to include("cannot be requested right now")
+          expect(metered_count).to eq(2)
+        end
+      end
+
+      it "survives a REAL PG error in MachinePark's own dedupe audit row" do
+        pending = parked_request(park(key: ordered_key, value: "abcd"))
+        allow(AuditLog).to receive(:log_action) do
+          AuditLog.connection.execute("INSERT INTO audit_logs (id) VALUES (NULL)")
+        end
+
+        probe = park(key: ordered_key, value: "new")
+
+        expect(probe[:data]).to include(deduplicated: true, approval_request_id: pending.id)
+        expect(Ai::ApprovalRequest.count).to eq(1)
       end
 
       it "dedupes a probe against this principal's pending request for the key, answering nothing about the value" do

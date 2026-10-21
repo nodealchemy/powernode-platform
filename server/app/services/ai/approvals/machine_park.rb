@@ -143,13 +143,18 @@ module Ai
         def audit(action, resource, account, principal_id, action_category, session_label, **extra)
           return unless audit_once?("machine_park:audit:#{principal_id}:#{action_category}:#{action}")
 
-          ::AuditLog.log_action(
-            action: action, resource: resource, account: account, source: "api",
-            metadata: {
-              requester_kind: "instance", node_instance_id: principal_id.to_s,
-              action_category: action_category.to_s, session_label: session_label
-            }.merge(extra).compact
-          )
+          # Its own savepoint: a PG-level failure of this insert must not leave the
+          # guard's transaction aborted (the rescue below would otherwise swallow a
+          # Ruby exception over a poisoned transaction).
+          ::AuditLog.transaction(requires_new: true) do
+            ::AuditLog.log_action(
+              action: action, resource: resource, account: account, source: "api",
+              metadata: {
+                requester_kind: "instance", node_instance_id: principal_id.to_s,
+                action_category: action_category.to_s, session_label: session_label
+              }.merge(extra).compact
+            )
+          end
         rescue StandardError => e
           Rails.logger.error("[MachinePark] audit row #{action} failed: #{e.class}: #{e.message}")
         end
