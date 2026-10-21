@@ -536,6 +536,21 @@ RSpec.describe Ai::SensitiveParams do
       end
     end
 
+    { 'kubeconfig_file' => 'admin.conf', 'ssh_key_path' => 'id_rsa', 'tls_key_file' => 'tls-server.key',
+      'privkey_path' => 'id_ed25519' }.each do |key, name|
+      it "leaves the bare filename #{key} => #{name} legible" do
+        expect(described_class.filter(key => name)[key]).to eq(name)
+      end
+    end
+
+    it 'still masks a single-line base64 key or a PEM/YAML document under a _file or _path key' do
+      { 'ssh_key_file' => 'AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl',
+        'tls_key_path' => "-----BEGIN PRIVATE KEY-----\nQUJD\n-----END PRIVATE KEY-----",
+        'kubeconfig_file' => "apiVersion: v1\nusers: []" }.each do |key, value|
+        expect(described_class.filter(key => value)[key]).to eq('[FILTERED]'), key
+      end
+    end
+
     it 'keeps the value-independent siblings legible whatever the value' do
       filtered = described_class.filter('ssh_key_fingerprint' => 'SHA256:abc def', 'ssh_key_type' => 'ed25519',
                                         'kubeconfig_present' => true, 'ssh_key_id' => 'k-1')

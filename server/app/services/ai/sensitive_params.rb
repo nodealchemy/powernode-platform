@@ -174,6 +174,13 @@ module Ai
     PATH_SIBLING_SUFFIXES = %w[path file].freeze
     # One line, no whitespace, rooted (/, ~, ./ or a Windows drive).
     FILESYSTEM_PATH = %r{\A(?:/|~|\./|[A-Za-z]:\\)\S*\z}
+    # Or a bare relative file name ("admin.conf", "id_rsa"), at most 255
+    # characters, ...
+    BARE_FILENAME = /\A[\w.-]{1,255}\z/
+    # ... unless it has a base64 key's shape: 16+ characters of the base64
+    # alphabet with no dot (a one-line key, a token). A file name of that shape
+    # is masked: over-masking, never a leak.
+    BASE64_KEY_SHAPE = /\A[A-Za-z0-9+\/_=-]{16,}\z/
 
     # Deployment-specific additions (JSON array of strings). EXTENDS the
     # defaults rather than replacing them, so a misconfigured setting cannot
@@ -288,7 +295,7 @@ module Ai
 
       # A *_path / *_file sibling of a key-material name survives the key filter
       # (the sibling veto) on the strength of its name alone. Here its value has
-      # to agree: anything but a filesystem path is masked.
+      # to agree: anything but a filesystem path or a bare file name is masked.
       def mask_path_siblings(node)
         case node
         when ::Hash
@@ -310,7 +317,9 @@ module Ai
       end
 
       def filesystem_path?(value)
-        value.is_a?(::String) && FILESYSTEM_PATH.match?(value)
+        return false unless value.is_a?(::String)
+
+        FILESYSTEM_PATH.match?(value) || (BARE_FILENAME.match?(value) && !BASE64_KEY_SHAPE.match?(value))
       end
 
       # True when the base64 +run+ decodes to bytes holding a PEM PRIVATE KEY
