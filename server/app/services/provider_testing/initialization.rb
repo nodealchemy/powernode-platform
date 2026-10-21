@@ -8,6 +8,14 @@ module ProviderTesting
       attr_reader :credential, :provider
     end
 
+    # A per-call limit, cut to what is left of the test's overall budget (set by
+    # #limit_test_timeout) with a half-second floor. Without a budget, unchanged.
+    def bounded_timeout(timeout)
+      return timeout unless @test_deadline
+
+      [ timeout, [ @test_deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC), 0.5 ].max ].min
+    end
+
     def make_http_request(url, method: :get, headers: {}, body: nil, timeout: 10)
       require "net/http"
       require "uri"
@@ -16,6 +24,7 @@ module ProviderTesting
       uri = URI.parse(url)
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == "https"
+      timeout = bounded_timeout(timeout)
       http.read_timeout = timeout
       http.open_timeout = timeout
 
