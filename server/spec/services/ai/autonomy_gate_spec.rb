@@ -116,7 +116,7 @@ RSpec.describe Ai::AutonomyGate do
         op = result.deferred_operation.reload
         expect(op.action_category).to eq('test.action')
         expect(op.executor_class).to eq('TestSpecExecutor')
-        expect(op.params).to eq('foo' => 'bar')
+        expect(op.params).to include('foo' => 'bar')
         expect(op.executed_at).to be_present
       end
     end
@@ -525,6 +525,42 @@ RSpec.describe Ai::AutonomyGate do
       expect(result.decision).to eq(:blocked)
       expect(result.error).to match(/no approval chain/i)
       expect(deferred.reload.status).to eq('rejected')
+    end
+  end
+
+  describe 'the default park principal (IMP-dbf945e7e4db)' do
+    before do
+      Ai::InterventionPolicy.create!(
+        account: account, action_category: 'test.action',
+        scope: 'global', policy: 'require_approval', priority: 5, is_active: true
+      )
+    end
+
+    it 'derives a user principal from requested_by when the params carry none' do
+      op = described_class.evaluate(**base_args).deferred_operation
+
+      expect(op.params['principal']).to include('kind' => 'user', 'user_id' => user.id)
+      expect(op.params).to include('foo' => 'bar')
+    end
+
+    it 'derives an agent principal when only an agent is given' do
+      op = described_class.evaluate(**base_args.except(:requested_by), agent: agent).deferred_operation
+
+      expect(op.params['principal']).to include('kind' => 'agent', 'agent_id' => agent.id)
+    end
+
+    it 'keeps a principal the caller already stamped' do
+      stamped = Ai::Approvals::ParkPrincipal.stamp({ foo: 'bar' }, { 'kind' => 'internal' })
+
+      op = described_class.evaluate(**base_args, params: stamped).deferred_operation
+
+      expect(op.params['principal']).to eq('kind' => 'internal')
+    end
+
+    it 'adds nothing when there is neither a user nor an agent' do
+      op = described_class.evaluate(**base_args.except(:requested_by)).deferred_operation
+
+      expect(op.params).not_to have_key('principal')
     end
   end
 end

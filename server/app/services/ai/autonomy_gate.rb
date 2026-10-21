@@ -107,7 +107,7 @@ module Ai
 
       deferred = create_deferred_operation!(
         action_category: action_category, executor_class: executor_class,
-        params: params, agent: agent, requested_by: requested_by,
+        params: with_default_principal(params, agent: agent, requested_by: requested_by), agent: agent, requested_by: requested_by,
         source_type: source_type, source_id: source_id, description: description,
         environment: resolved_environment
       )
@@ -147,6 +147,21 @@ module Ai
     end
 
     private
+
+    # Every park records WHO asked (Ai::Approvals::ParkPrincipal), including the
+    # REST controllers and services that call the gate with only
+    # requested_by/agent. A principal the caller already stamped (a tool, a
+    # skill executor) is kept as-is; with no user and no agent there is nothing
+    # to derive from, so the params are left alone.
+    def with_default_principal(params, agent:, requested_by:)
+      return params if requested_by.nil? && agent.nil?
+
+      raw = params.respond_to?(:to_unsafe_h) ? params.to_unsafe_h : params
+      return params unless raw.is_a?(::Hash)
+      return params if raw.keys.any? { |key| key.to_s == ::Ai::Approvals::ParkPrincipal::KEY }
+
+      ::Ai::Approvals::ParkPrincipal.stamp(raw, ::Ai::Approvals::ParkPrincipal.for_session(user: requested_by, agent: agent))
+    end
 
     def create_deferred_operation!(action_category:, executor_class:, params:, agent:,
                                    requested_by:, source_type:, source_id:, description:,

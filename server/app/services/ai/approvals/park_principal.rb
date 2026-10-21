@@ -53,6 +53,14 @@ module Ai
           .merge("origin" => call_origin)
       end
 
+      # The block for a park made from a person's or agent's own session with no
+      # tool context to describe it (a REST controller, a service holding only
+      # requested_by/agent): same shape as .descriptor, never internal, never an
+      # instance. "unattributed" when given neither.
+      def for_session(user: nil, agent: nil)
+        descriptor(user: user, agent: agent, internal: false, instance_authorized: false, node_instance: nil)
+      end
+
       def shape(user:, agent:, internal:, instance_authorized:, node_instance:, action: nil, session_label: nil)
         if instance_authorized
           if node_instance
