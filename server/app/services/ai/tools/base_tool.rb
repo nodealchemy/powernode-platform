@@ -1047,6 +1047,7 @@ module Ai
       # in #run_through_autonomy_gate), never by matching its error text.
       def guarded_park_attempt(params, parker)
         @last_gate_exception = nil
+        @recording_gate_exception = true
         result = nil
         ::ActiveRecord::Base.transaction(requires_new: true) do
           result = parker.call
@@ -1060,6 +1061,7 @@ module Ai
         guarded_park_failure(params) || raise
       ensure
         @last_gate_exception = nil
+        @recording_gate_exception = false
       end
 
       # What makes two parks "the same request" from one machine principal (the
@@ -1349,7 +1351,10 @@ module Ai
           **(machine_call? ? { agent_initiated: true } : {})
         )
 
-        @last_gate_exception = gate.exception
+        # Only a guarded park reads it (#guarded_park_attempt), so only a guarded
+        # park records it: an ordinary gated call leaves no exception on the
+        # instance.
+        @last_gate_exception = gate.exception if @recording_gate_exception
         case gate.decision
         when :proceed
           # The gate never proceeds a human-only action (it forces
