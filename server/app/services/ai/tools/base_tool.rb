@@ -1031,6 +1031,19 @@ module Ai
         nil
       end
 
+      # The gate's own failure ("Gate evaluation failed: ...", e.g. its audit or
+      # approval write) inside a guarded park. A tool that answers its guarded
+      # refusals generically returns that same answer here (so the failure is
+      # not a differently-worded oracle); nil keeps the gate's text.
+      def guarded_park_failure(_params)
+        nil
+      end
+
+      def guarded_park_result(params, result)
+        failed = result.is_a?(Hash) && result[:success] == false && result[:error].to_s.start_with?("Gate evaluation failed")
+        (failed && guarded_park_failure(params)) || result
+      end
+
       # What makes two parks "the same request" from one machine principal (the
       # tool's own notion: a setting key, say), or nil. A non-nil key is also the
       # tool's OPT-IN to Ai::Approvals::MachinePark (dedupe and a per-principal,
@@ -1365,7 +1378,7 @@ module Ai
           # pending request and has passed the window check, and the row it
           # audits spends that window (Ai::Approvals::MachinePark#recent_count),
           # so a tool's value-dependent refusal cannot be probed unmetered.
-          guarded_park_refusal(params) || parker.call
+          guarded_park_refusal(params) || guarded_park_result(params, parker.call)
         end
         case outcome
         when ::Ai::Approvals::MachinePark::Deduped

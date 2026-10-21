@@ -525,7 +525,15 @@ module Ai
         return refusal if refusal && written
         return nil if refusal.nil? && written
 
+        generic_park_refusal
+      end
+
+      def generic_park_refusal
         error_result("site_setting_set_protected cannot be requested right now; try again later.")
+      end
+
+      def guarded_park_failure(_params)
+        generic_park_refusal
       end
 
       # Canary for the non-refusal path: the metered row is written for a real
@@ -697,18 +705,23 @@ module Ai
       # True when the row was written, false (logged, never raised) when not.
       def write_park_refusal_row(params, code, metered:)
         registered = key_spec(params) ? params[:key].to_s : "unregistered"
-        AuditLog.log_action(
-          action: ::Ai::Approvals::MachinePark::AUDIT_REFUSED, resource: account, account: account, source: "api",
-          metadata: { requester_kind: "instance", node_instance_id: node_instance&.id.to_s.presence,
-                      tool_action: routed_action_name(params), setting_key: registered,
-                      action_category: self.class.declared_action(routed_action_name(params))&.dig(:action_category),
-                      # ONLY the uncollapsed, value-dependent refusal spends the window.
-                      # A collapsed one (bad key, grant, non-parkable key) depends on
-                      # nothing the instance may not already know, and counting it
-                      # would let a retried typo lock every tightening out.
-                      metered: (true if metered),
-                      session_label: session_label, reason: code }.compact
-        )
+        # Its own savepoint: a PG-level failure of this insert (a constraint, not
+        # just a Ruby raise) rolls back to here and cannot leave the surrounding
+        # MachinePark.guard transaction aborted.
+        AuditLog.transaction(requires_new: true) do
+          AuditLog.log_action(
+            action: ::Ai::Approvals::MachinePark::AUDIT_REFUSED, resource: account, account: account, source: "api",
+            metadata: { requester_kind: "instance", node_instance_id: node_instance&.id.to_s.presence,
+                        tool_action: routed_action_name(params), setting_key: registered,
+                        action_category: self.class.declared_action(routed_action_name(params))&.dig(:action_category),
+                        # ONLY the uncollapsed, value-dependent refusal spends the window.
+                        # A collapsed one (bad key, grant, non-parkable key) depends on
+                        # nothing the instance may not already know, and counting it
+                        # would let a retried typo lock every tightening out.
+                        metered: (true if metered),
+                        session_label: session_label, reason: code }.compact
+          )
+        end
         true
       rescue StandardError => e
         Rails.logger.error("[SiteSettingTool] park refusal audit row failed: #{e.class}: #{e.message}")

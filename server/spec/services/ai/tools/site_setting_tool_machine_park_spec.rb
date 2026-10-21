@@ -791,6 +791,13 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
       # value-dependent text) and a tightening value does not park either, so
       # the two are indistinguishable and the outage is no oracle. Neither is
       # counted (no row exists to count); that is the accepted cost.
+      def park_with_audit_down(key)
+        allow(AuditLog).to receive(:log_action).and_raise(StandardError, "audit store down")
+        result = park(key: key, value: "a")
+        allow(AuditLog).to receive(:log_action).and_call_original
+        result
+      end
+
       describe "while the audit store is down" do
         before { allow(AuditLog).to receive(:log_action).and_raise(StandardError, "audit store down") }
 
@@ -815,6 +822,35 @@ RSpec.describe Ai::Tools::SiteSettingTool, "instance principal parks a protected
           expect(tightening[:error]).to eq(probe[:error])
           expect(Ai::ApprovalRequest.count).to eq(0)
         end
+      end
+
+      it "survives a REAL PG error on the metered row: the guard's transaction is not left aborted" do
+        SiteSetting.set(ordered_key, "current-value")
+        allow(AuditLog).to receive(:log_action) do
+          AuditLog.connection.execute("INSERT INTO audit_logs (id) VALUES (NULL)") # PG::NotNullViolation
+        end
+
+        result = park(key: ordered_key, value: "new")
+
+        expect(result[:success]).to be(false)
+        expect(result[:error]).not_to include("only tighten")
+        # Would raise PG::InFailedSqlTransaction if the failed INSERT had aborted the surrounding transaction.
+        expect(Ai::ApprovalRequest.count).to eq(0)
+        expect(SiteSetting.get(ordered_key)).to eq("current-value")
+      end
+
+      it "gives the same generic refusal when the gate's own write fails after the canary passed" do
+        SiteSetting.set(ordered_key, "abc")
+        generic = park_with_audit_down(ordered_key)
+        allow_any_instance_of(Ai::AutonomyGate).to receive(:evaluate).and_return(
+          Ai::AutonomyGate::Result.new(decision: :blocked, error: "Gate evaluation failed: PG::Error detail with internals")
+        )
+
+        tightening = park(key: ordered_key, value: "abcdefgh")
+
+        expect(tightening[:success]).to be(false)
+        expect(tightening[:error]).not_to include("Gate evaluation failed")
+        expect(tightening[:error]).to eq(generic[:error])
       end
 
       it "dedupes a probe against this principal's pending request for the key, answering nothing about the value" do
