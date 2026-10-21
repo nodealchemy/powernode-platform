@@ -1,0 +1,60 @@
+# frozen_string_literal: true
+
+require 'rails_helper'
+
+# IMP-593f2b533823 — write_liveness_marker! wrote the nonce file and then did
+# a whole-hash update_columns with no lock, so two concurrent initializes could
+# leave the disk nonce and the row nonce different (every blob then :dead).
+RSpec.describe StorageProviders::PathLiveness, type: :service do
+  let(:account) { create(:account) }
+  let(:root) { Rails.root.join('tmp', 'test_storage', "liveness-#{account.id}").to_s }
+  let(:storage_config) do
+    create(:file_storage, account: account, provider_type: 'local',
+                          configuration: { 'root_path' => root })
+  end
+
+  after { FileUtils.rm_rf(root) }
+
+  it 'leaves the store :live when two initializes write the marker concurrently' do
+    FileUtils.mkdir_p(root)
+    # Two independent provider instances over the same row, as two requests have.
+    providers = Array.new(2) do
+      StorageProviders::LocalStorage.new(FileManagement::Storage.find(storage_config.id))
+    end
+
+    # Widen the window between the file write and the row write so an
+    # unlocked implementation interleaves deterministically.
+    # The first writer stalls after its file write, so the second writer's
+    # file AND row writes land before the first writer's row write: disk and
+    # row then disagree unless the whole sequence is serialised.
+    first = Concurrent::AtomicBoolean.new(true)
+    allow(File).to receive(:write).and_wrap_original do |orig, *args, **kw|
+      result = orig.call(*args, **kw)
+      sleep 0.3 if args.first.to_s.end_with?(StorageProviders::Base::LIVENESS_MARKER) && first.make_false
+      result
+    end
+
+    threads = providers.each_with_index.map do |p, i|
+      Thread.new do
+        sleep 0.05 * i
+        ActiveRecord::Base.connection_pool.with_connection { p.write_liveness_marker! }
+      end
+    end
+    threads.each(&:join)
+
+    fresh = StorageProviders::LocalStorage.new(FileManagement::Storage.find(storage_config.id))
+    expect(fresh.store_liveness).to eq(:live)
+  end
+
+  it 'merges only the liveness key, keeping other metadata' do
+    FileUtils.mkdir_p(root)
+    storage_config.update_columns(metadata: { 'keep' => 'me' })
+    provider = StorageProviders::LocalStorage.new(storage_config)
+
+    nonce = provider.write_liveness_marker!
+
+    row = FileManagement::Storage.find(storage_config.id)
+    expect(row.metadata).to eq('keep' => 'me', 'liveness_marker' => nonce)
+    expect(storage_config.metadata['liveness_marker']).to eq(nonce)
+  end
+end

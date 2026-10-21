@@ -62,13 +62,27 @@ module StorageProviders
     # from initialize_storage, after the store's layout was created there.
     def write_liveness_marker!
       nonce = SecureRandom.hex(16)
-      File.write(liveness_marker_path, nonce)
-      metadata = @storage_config.metadata.to_h.merge("liveness_marker" => nonce)
-      if @storage_config.persisted?
-        @storage_config.update_columns(metadata: metadata)
-      else
-        @storage_config.metadata = metadata
+      unless @storage_config.persisted?
+        File.write(liveness_marker_path, nonce)
+        @storage_config.metadata = @storage_config.metadata.to_h.merge("liveness_marker" => nonce)
+        return nonce
       end
+
+      # The file write and the row write are one unit under the row lock, so
+      # two concurrent initializes cannot leave the disk nonce and the row
+      # nonce from different writers. Only the liveness key is merged (JSONB
+      # ||), never the whole hash, so a concurrent writer of other metadata
+      # keys is not clobbered.
+      klass = @storage_config.class
+      klass.transaction do
+        klass.lock.where(id: @storage_config.id).pick(:id)
+        File.write(liveness_marker_path, nonce)
+        klass.where(id: @storage_config.id).update_all(
+          [ "metadata = COALESCE(metadata, '{}'::jsonb) || ?::jsonb", { "liveness_marker" => nonce }.to_json ]
+        )
+      end
+      @storage_config.metadata = @storage_config.metadata.to_h.merge("liveness_marker" => nonce)
+      @storage_config.send(:clear_attribute_changes, [ "metadata" ])
       nonce
     end
 
