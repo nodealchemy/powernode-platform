@@ -129,4 +129,32 @@ RSpec.describe "scripts/verify-submodule-pointers.sh (IMP-ba424a66188f)" do
     _o, err, st = run_hook(script, fixture[:parent], "", env)
     expect(st.exitstatus).to eq(1), err
   end
+
+  # git passes the URL (not a remote name) as $1 when pushing to a bare URL. Previously the
+  # checker looked for a submodule remote literally named like the URL, found none and SKIPPED.
+  describe "when the push target is a URL rather than a remote name" do
+    it "resolves the URL to the matching parent remote and still catches an unpublished pointer" do
+      parent = fixture[:parent]
+      url = "https://git.example.invalid/org/parent.git"
+      git(parent, "remote", "add", "origin", url, env: env)
+      _o, err, st = Open3.capture3(env, "bash", script, "--remote", url, chdir: parent,
+                                   stdin_data: line("refs/heads/feature", fixture[:bad]))
+      expect(st.exitstatus).to eq(1), err
+      expect(err + _o).not_to match(/\[skip\]/)
+    end
+
+    it "falls back to the default remotes (never skips) when the URL matches no remote" do
+      parent = fixture[:parent]
+      out, err, st = Open3.capture3(env, "bash", script, "--remote", "https://other.example.invalid/x.git",
+                                    chdir: parent, stdin_data: line("refs/heads/feature", fixture[:bad]))
+      expect(st.exitstatus).to eq(1), "#{out}\n#{err}"
+    end
+
+    it "allows a good pointer pushed to an unmatched URL" do
+      parent = fixture[:parent]
+      out, err, st = Open3.capture3(env, "bash", script, "--remote", "https://other.example.invalid/x.git",
+                                    chdir: parent, stdin_data: line("refs/heads/main", fixture[:good]))
+      expect(st.exitstatus).to eq(0), "#{out}\n#{err}"
+    end
+  end
 end

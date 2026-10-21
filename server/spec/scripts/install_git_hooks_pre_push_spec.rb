@@ -20,4 +20,9 @@ RSpec.describe "scripts/install-git-hooks.sh pre-push hook" do
   it "keeps the hooks-dir fallback for use outside a work tree" do
     expect(hook_body).to include('(cd "$SCRIPT_DIR/../.." && pwd)')
   end
+
+  it "hands the raw push target ($1, a remote name OR a URL) to the checker, which resolves URLs" do
+    expect(hook_body).to include('PUSH_REMOTE="${1:-origin}"')
+    expect(hook_body).to include('--remote "$PUSH_REMOTE"')
+  end
 end

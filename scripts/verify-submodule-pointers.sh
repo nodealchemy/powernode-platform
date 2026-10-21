@@ -46,6 +46,28 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# git passes the push URL (not a remote name) as the hook's $1 when pushing to a bare URL.
+# A submodule has no remote named like a URL, so the check would silently SKIP. Resolve the
+# URL to a matching remote of this repo; when none matches, drop the filter so the default
+# remote pair is checked (stricter, never a skip).
+if [[ -n "$PUSH_REMOTE" && "$PUSH_REMOTE" == *[:/]* ]]; then
+  _norm() { local u="${1%/}"; echo "${u%.git}"; }
+  _want="$(_norm "$PUSH_REMOTE")"
+  _resolved=""
+  while IFS= read -r _r; do
+    while IFS= read -r _u; do
+      if [[ "$(_norm "$_u")" == "$_want" ]]; then _resolved="$_r"; break 2; fi
+    done < <({ git remote get-url --all "$_r"; git remote get-url --all --push "$_r"; } 2>/dev/null)
+  done < <(git remote)
+  if [[ -n "$_resolved" ]]; then
+    echo "ℹ️  push target URL resolved to remote '$_resolved'" >&2
+    PUSH_REMOTE="$_resolved"
+  else
+    echo "⚠️  push target '$PUSH_REMOTE' matches no remote; checking the default remotes (origin, ipnode)" >&2
+    PUSH_REMOTE=""
+  fi
+fi
+
 # Common git dir: differs from `git rev-parse --git-dir` in a linked worktree. The
 # main checkout (where submodules are normally initialised) is its parent.
 COMMON_DIR="$(cd "$(git rev-parse --git-common-dir)" && pwd)"
