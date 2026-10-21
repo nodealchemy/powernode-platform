@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { X, Plus } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Input } from '@/shared/components/ui/Input';
@@ -6,7 +6,7 @@ import { Select } from '@/shared/components/ui/Select';
 import { Modal } from '@/shared/components/ui/Modal';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { providersApi } from '@/shared/services/ai';
-import type { AiProviderCatalogEntry } from '@/shared/types/ai';
+import { useAiProviderCatalog } from '../hooks/useAiProviderCatalog';
 
 interface CreateProviderModalProps {
   isOpen: boolean;
@@ -31,26 +31,8 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
     status_url: ''
   });
 
-  const [catalog, setCatalog] = useState<AiProviderCatalogEntry[]>([]);
+  const { entryFor, capabilitiesFor } = useAiProviderCatalog(isOpen);
   const { addNotification } = useNotifications();
-
-  // The type catalog pre-fills the form on type selection; without it (load
-  // failure) the form simply stays manual.
-  useEffect(() => {
-    if (!isOpen) return;
-    let cancelled = false;
-    providersApi
-      .getCatalog()
-      .then((entries) => {
-        if (!cancelled) setCatalog(entries);
-      })
-      .catch(() => {
-        if (!cancelled) setCatalog([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +51,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
         status_url: formData.status_url || undefined,
         // Catalog types get their models and configuration schema from the
         // server catalog; only custom providers carry a placeholder.
-        ...(catalog.some((c) => c.provider_type === formData.provider_type)
+        ...(entryFor(formData.provider_type)
           ? {}
           : {
               supported_models: [{ name: 'default', id: 'default' }],
@@ -120,7 +102,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
 
   const handleInputChange = (field: string, value: string) => {
     if (field === 'provider_type') {
-      const entry = catalog.find((c) => c.provider_type === value);
+      const entry = entryFor(value);
       if (entry) {
         // Auto-fill from the catalog; every field stays editable afterwards.
         setFormData((prev) => ({
@@ -152,15 +134,8 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
     }));
   };
 
-  const availableCapabilities = [
-    'text_generation',
-    'chat',
-    'vision',
-    'function_calling',
-    'code_execution',
-    'image_generation',
-    'text_embedding'
-  ];
+  // Only capabilities valid for the selected type (the backend's known list for custom types).
+  const availableCapabilities = capabilitiesFor(formData.provider_type);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="lg">
@@ -264,7 +239,7 @@ export const CreateProviderModal: React.FC<CreateProviderModalProps> = ({
                   className="rounded border-theme text-theme-info-fg focus:ring-theme-info-fg"
                 />
                 <span className="text-sm text-theme-secondary capitalize">
-                  {capability.replace('_', ' ')}
+                  {capability.replace(/_/g, ' ')}
                 </span>
               </label>
             ))}

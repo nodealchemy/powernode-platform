@@ -1,5 +1,11 @@
 // AI Provider System TypeScript Interfaces
 
+export interface AiProviderCatalog {
+  items: AiProviderCatalogEntry[];
+  /** Capability names the backend accepts (Ai::Provider::KNOWN_CAPABILITIES). */
+  known_capabilities: string[];
+}
+
 /** One provider-type entry of GET /ai/providers/catalog (non-secret form defaults). */
 export interface AiProviderCatalogEntry {
   name: string;
@@ -7,7 +13,11 @@ export interface AiProviderCatalogEntry {
   provider_type: string;
   api_base_url: string;
   capabilities: string[];
+  /** Chat-capable default model for the type (never search/preview/embedding). */
   default_model: string | null;
+  default_embedding_model: string | null;
+  /** Model ids valid for the type, for the model choices. */
+  models: string[];
   requires_auth: boolean;
   credential_fields: Array<{
     key: string;
@@ -40,6 +50,10 @@ export interface AiProvider {
   documentation_url?: string;
   status_url?: string;
   priority_order: number;
+  /** The account default (priority_order 1 + is_default), chosen by the operator. */
+  is_default?: boolean;
+  /** Whether the provider can be made the default (active, models synced, credential). */
+  default_eligible?: boolean;
   credential_count: number;
   model_count: number;
   health_status: 'healthy' | 'unhealthy' | 'unknown' | 'inactive';

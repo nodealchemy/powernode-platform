@@ -44,6 +44,17 @@ RSpec.describe 'Api::V1::Ai::Providers catalog', type: :request do
       expect(json_response_data['items'].flat_map(&:keys)).not_to include('api_key', 'credentials', 'metadata')
     end
 
+    it 'serves the backend known capability list and keeps every type within it' do
+      get '/api/v1/ai/providers/catalog', headers: auth_headers_for(reader), as: :json
+
+      known = json_response_data['known_capabilities']
+      expect(known).to eq(Ai::Provider::KNOWN_CAPABILITIES)
+      expect(known).not_to include('embeddings')
+      json_response_data['items'].each do |item|
+        expect(item['capabilities'] - known).to be_empty, item['provider_type']
+      end
+    end
+
     it 'is permission gated' do
       get '/api/v1/ai/providers/catalog', headers: auth_headers_for(nobody), as: :json
 

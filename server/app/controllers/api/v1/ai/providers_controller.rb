@@ -9,7 +9,7 @@ module Api
 
         before_action :set_provider, only: [
           :show, :update, :destroy,
-          :models, :usage_summary, :check_availability
+          :models, :usage_summary, :check_availability, :make_default
         ]
         before_action :validate_permissions
 
@@ -49,8 +49,14 @@ module Api
           @provider.account = current_user.account
 
           if @provider.save
+            # A provider syncs its models the moment it is added, on every
+            # creation path. Types that need a credential defer until one is
+            # saved (the credential create syncs again).
+            sync = ::Ai::Providers::ModelSyncAndActivate.call(@provider, activate: false)
+
             render_success({
-              provider: serialize_provider_detail(@provider)
+              provider: serialize_provider_detail(@provider.reload),
+              model_sync: sync.to_h
             }, status: :created)
 
             log_audit_event("ai.providers.create", @provider,
@@ -130,10 +136,26 @@ module Api
           })
         end
 
+        # POST /api/v1/ai/providers/:id/make_default
+        # The operator's default provider, on the existing priority_order /
+        # is_default mechanism. Only a working provider qualifies.
+        def make_default
+          ::Ai::ProviderDefaultService.set_default!(@provider)
+
+          render_success({ provider: serialize_provider_detail(@provider.reload) })
+
+          log_audit_event("ai.providers.make_default", @provider, provider_type: @provider.provider_type)
+        rescue ::Ai::ProviderDefaultService::NotEligible => e
+          render_error("Cannot make this provider the default: #{e.message}", status: :unprocessable_content)
+        end
+
         # GET /api/v1/ai/providers/catalog
         # Read-only provider-type catalog used to auto-fill the provider form.
         def catalog
-          render_success({ items: ::Ai::ProviderCatalog.form_entries })
+          render_success({
+            items: ::Ai::ProviderCatalog.form_entries,
+            known_capabilities: ::Ai::Provider::KNOWN_CAPABILITIES
+          })
         end
 
         # GET /api/v1/ai/providers/available
@@ -205,7 +227,7 @@ module Api
             require_permission("ai.providers.read")
           when "create"
             require_permission("ai.providers.create")
-          when "update"
+          when "update", "make_default"
             require_permission("ai.providers.update")
           when "destroy"
             require_permission("ai.providers.delete")
@@ -232,6 +254,7 @@ module Api
 
         def apply_provider_filters(providers)
           providers = providers.where(provider_type: params[:provider_type]) if params[:provider_type].present?
+          providers = providers.platform_routable if params[:platform_routable].present?
           providers = providers.supporting_capability(params[:capability]) if params[:capability].present?
           providers = providers.where("name ILIKE ?", "%#{ActiveRecord::Base.sanitize_sql_like(params[:search])}%") if params[:search].present?
           providers

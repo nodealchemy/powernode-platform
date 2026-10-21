@@ -162,6 +162,8 @@ export interface ProviderCategoryStepProps {
   testCredentials?: ProviderCredentialFormProps['testCredentials'];
   /** Provider-detail inputs (name, base URL, ...) rendered above the credential form. */
   detailsSlot?: React.ReactNode;
+  /** Valid choices per credential-form field key (see ProviderCredentialForm). */
+  fieldOptions?: Record<string, string[]>;
 }
 
 /**
@@ -179,6 +181,7 @@ export const ProviderCategoryStep: React.FC<ProviderCategoryStepProps> = ({
   testIdPrefix = 'first-run',
   testCredentials,
   detailsSlot,
+  fieldOptions,
 }) => {
   const options = PROVIDER_OPTIONS_BY_CATEGORY[category];
   const meta = CATEGORY_DESCRIPTIONS[category];
@@ -251,6 +254,7 @@ export const ProviderCategoryStep: React.FC<ProviderCategoryStepProps> = ({
             onTestStatusChange={onTestStatusChange}
             testCredentials={testCredentials}
             hideTestButton={!requiresTest}
+            fieldOptions={fieldOptions}
           />
 
           <div className="flex flex-wrap items-center gap-3 border-t border-theme pt-3">

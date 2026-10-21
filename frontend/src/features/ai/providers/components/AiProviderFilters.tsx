@@ -75,7 +75,7 @@ export const AiProviderFilters: React.FC<AiProviderFiltersProps> = ({
             <option value="function_calling">Function Calling</option>
             <option value="code_execution">Code Execution</option>
             <option value="image_generation">Image Generation</option>
-            <option value="embeddings">Embeddings</option>
+            <option value="text_embedding">Embeddings</option>
           </Select>
         </div>
 

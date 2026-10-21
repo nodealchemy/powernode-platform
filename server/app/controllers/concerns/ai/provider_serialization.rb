@@ -16,6 +16,8 @@ module Ai
         is_active: provider.is_active,
         api_base_url: provider.api_base_url,
         priority_order: provider.priority_order,
+        is_default: provider.metadata&.dig("is_default") == true,
+        default_eligible: ::Ai::ProviderDefaultService.eligible?(provider),
         capabilities: provider.capabilities,
         created_at: provider.created_at.iso8601,
         updated_at: provider.updated_at.iso8601,

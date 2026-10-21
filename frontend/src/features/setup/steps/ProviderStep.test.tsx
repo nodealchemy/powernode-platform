@@ -10,6 +10,8 @@ jest.mock('@/features/onboarding/services/onboardingApi', () => ({
     createGitProvider: jest.fn(),
     createGitCredential: jest.fn(),
     getAiProviderCatalog: jest.fn(),
+    setAiDefaultProvider: jest.fn(),
+    deleteAiCredential: jest.fn(),
   },
 }));
 
@@ -26,6 +28,8 @@ const mockCreateAiCredential = onboardingApi.createAiCredential as jest.Mock;
 const mockCreateGitProvider = onboardingApi.createGitProvider as jest.Mock;
 const mockCreateGitCredential = onboardingApi.createGitCredential as jest.Mock;
 
+const mockSetAiDefault = onboardingApi.setAiDefaultProvider as jest.Mock;
+const mockDeleteAiCredential = onboardingApi.deleteAiCredential as jest.Mock;
 const mockGetAiCatalog = onboardingApi.getAiProviderCatalog as jest.Mock;
 
 const AI_CATALOG = [
@@ -36,10 +40,17 @@ const AI_CATALOG = [
     api_base_url: 'https://api.example-anthropic.test/v1',
     capabilities: ['text_generation'],
     default_model: 'model-x',
+    default_embedding_model: null,
+    models: ['model-x', 'model-y'],
     requires_auth: true,
     credential_fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
 ];
+
+const synced = (id: string, count: number, extra: Record<string, unknown> = {}) => ({
+  id,
+  modelSync: { success: true, model_count: count, error: null, ...extra },
+});
 
 const stepFor = (component: string, category: string): SetupStep => ({
   key: category + '_provider',
@@ -67,8 +78,10 @@ describe('ProviderStep', () => {
     mockCreateAiCredential.mockReset();
     mockCreateGitProvider.mockReset();
     mockCreateGitCredential.mockReset();
+    mockSetAiDefault.mockReset();
+    mockDeleteAiCredential.mockReset();
     mockGetAiCatalog.mockReset();
-    mockGetAiCatalog.mockResolvedValue(AI_CATALOG);
+    mockGetAiCatalog.mockResolvedValue({ items: AI_CATALOG, known_capabilities: ['text_generation'] });
   });
 
   it('renders provider options under the setup test prefix', () => {
@@ -112,7 +125,7 @@ describe('ProviderStep', () => {
 
   it('persists an AI credential via chained provider + credential POSTs', async () => {
     mockCreateAiProvider.mockResolvedValue('prov-ai-1');
-    mockCreateAiCredential.mockResolvedValue('cred-ai-1');
+    mockCreateAiCredential.mockResolvedValue(synced('cred-ai-1', 12));
     render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
 
     fireEvent.click(screen.getByTestId('setup-provider-anthropic'));
@@ -135,7 +148,7 @@ describe('ProviderStep', () => {
 
   it('auto-fills the AI provider details from the catalog and keeps them editable', async () => {
     mockCreateAiProvider.mockResolvedValue('prov-ai-1');
-    mockCreateAiCredential.mockResolvedValue('cred-ai-1');
+    mockCreateAiCredential.mockResolvedValue(synced('cred-ai-1', 12));
     render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
     await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
     await act(async () => {});
@@ -149,6 +162,11 @@ describe('ProviderStep', () => {
       'https://api.example-anthropic.test/v1'
     );
     expect(screen.getByTestId('provider-cred-field-default_model')).toHaveValue('model-x');
+    // Only the models valid for the type are offered.
+    const offered = Array.from(
+      screen.getByTestId('provider-cred-options-default_model').querySelectorAll('option')
+    ).map((o) => o.getAttribute('value'));
+    expect(offered).toEqual(['model-x', 'model-y']);
 
     fireEvent.change(screen.getByTestId('setup-provider-name'), { target: { value: 'My Claude' } });
     fireEvent.change(screen.getByTestId('provider-cred-field-api_key'), {
@@ -218,5 +236,123 @@ describe('ProviderStep', () => {
     expect(logged).not.toContain('PLANTED-SECRET');
     expect(logSpy.mock.calls[0][2]).toEqual(expect.objectContaining({ status: 422, category: 'ai' }));
     logSpy.mockRestore();
+  });
+
+  describe('multiple AI providers', () => {
+    const OPENAI_ENTRY = {
+      ...AI_CATALOG[0],
+      name: 'OpenAI',
+      slug: 'openai',
+      provider_type: 'openai',
+      api_base_url: 'https://api.example-openai.test/v1',
+      default_model: 'model-o',
+      models: ['model-o'],
+    };
+
+    const addProvider = async (type: string, key: string) => {
+      fireEvent.click(screen.getByTestId(`setup-provider-${type}`));
+      fireEvent.change(screen.getByTestId('provider-cred-field-api_key'), { target: { value: key } });
+      fireEvent.click(screen.getByTestId('setup-save-btn'));
+      await waitFor(() => expect(screen.getByTestId('setup-save-success')).toBeInTheDocument());
+    };
+
+    beforeEach(() => {
+      mockGetAiCatalog.mockResolvedValue({
+        items: [...AI_CATALOG, OPENAI_ENTRY],
+        known_capabilities: ['text_generation'],
+      });
+      mockCreateAiProvider.mockResolvedValueOnce('prov-a').mockResolvedValueOnce('prov-b');
+    });
+
+    it('persists and syncs two providers, listing each with its own result', async () => {
+      mockCreateAiCredential
+        .mockResolvedValueOnce(synced('cred-a', 12, { default: true }))
+        .mockResolvedValueOnce(synced('cred-b', 61));
+      render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
+      await act(async () => {});
+
+      await addProvider('anthropic', 'fake-key-a');
+      fireEvent.click(screen.getByTestId('setup-add-another'));
+      await addProvider('openai', 'fake-key-b');
+
+      expect(mockCreateAiCredential).toHaveBeenCalledTimes(2);
+      expect(mockCreateAiProvider.mock.calls.map((c) => c[0].providerType)).toEqual(['anthropic', 'openai']);
+      expect(screen.getByTestId('setup-sync-result-0')).toHaveTextContent('12 models');
+      expect(screen.getByTestId('setup-sync-result-1')).toHaveTextContent('61 models');
+    });
+
+    it('reports a failed sync as an error and keeps that provider out of the default choices', async () => {
+      mockCreateAiCredential
+        .mockResolvedValueOnce(synced('cred-a', 12, { default: true }))
+        .mockResolvedValueOnce({
+          id: 'cred-b',
+          modelSync: { success: false, model_count: 0, error: 'upstream denied the key' },
+        });
+      render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
+      await act(async () => {});
+
+      await addProvider('anthropic', 'fake-key-a');
+      fireEvent.click(screen.getByTestId('setup-add-another'));
+      await addProvider('openai', 'fake-key-b');
+
+      expect(screen.getByTestId('setup-sync-result-1')).toHaveTextContent('upstream denied the key');
+      expect(screen.getByTestId('setup-default-0')).toBeInTheDocument();
+      expect(screen.queryByTestId('setup-default-1')).not.toBeInTheDocument();
+    });
+
+    it('marks a single working provider as the default without a choice', async () => {
+      mockCreateAiCredential.mockResolvedValueOnce(synced('cred-a', 12, { default: true }));
+      render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
+      await act(async () => {});
+
+      await addProvider('anthropic', 'fake-key-a');
+
+      expect(screen.getByTestId('setup-default-0')).toBeChecked();
+      expect(mockSetAiDefault).not.toHaveBeenCalled();
+    });
+
+    it('lets the operator choose the default among working providers', async () => {
+      mockSetAiDefault.mockResolvedValue(undefined);
+      mockCreateAiCredential
+        .mockResolvedValueOnce(synced('cred-a', 12, { default: true }))
+        .mockResolvedValueOnce(synced('cred-b', 61));
+      render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
+      await act(async () => {});
+      await addProvider('anthropic', 'fake-key-a');
+      fireEvent.click(screen.getByTestId('setup-add-another'));
+      await addProvider('openai', 'fake-key-b');
+
+      fireEvent.click(screen.getByTestId('setup-default-1'));
+
+      await waitFor(() => expect(mockSetAiDefault).toHaveBeenCalledWith('prov-b'));
+      await waitFor(() => expect(screen.getByTestId('setup-default-1')).toBeChecked());
+      expect(screen.getByTestId('setup-default-0')).not.toBeChecked();
+    });
+
+    it('removes an entry before finishing and hands the default to the remaining one', async () => {
+      mockSetAiDefault.mockResolvedValue(undefined);
+      mockDeleteAiCredential.mockResolvedValue(undefined);
+      mockCreateAiCredential
+        .mockResolvedValueOnce(synced('cred-a', 12, { default: true }))
+        .mockResolvedValueOnce(synced('cred-b', 61));
+      render(<ProviderStep step={stepFor('core/ai_provider', 'ai')} />);
+      await waitFor(() => expect(mockGetAiCatalog).toHaveBeenCalled());
+      await act(async () => {});
+      await addProvider('anthropic', 'fake-key-a');
+      fireEvent.click(screen.getByTestId('setup-add-another'));
+      await addProvider('openai', 'fake-key-b');
+
+      fireEvent.click(screen.getByTestId('setup-provider-remove-0'));
+
+      await waitFor(() =>
+        expect(mockDeleteAiCredential).toHaveBeenCalledWith({ providerId: 'prov-a', credentialId: 'cred-a' })
+      );
+      await waitFor(() => expect(mockSetAiDefault).toHaveBeenCalledWith('prov-b'));
+      expect(screen.getAllByTestId(/^setup-provider-entry-/)).toHaveLength(1);
+    });
   });
 });

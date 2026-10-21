@@ -12,6 +12,10 @@ module Ai
     belongs_to :provider, class_name: "Ai::Provider", foreign_key: "ai_provider_id"
     belongs_to :account
 
+    # Outcome of the model sync run when this credential was created through
+    # ProviderManagementService.create_provider_credential (transient, never persisted).
+    attr_accessor :model_sync_result
+
 
     # Validations
     validates :name, presence: true, length: { maximum: 255 }

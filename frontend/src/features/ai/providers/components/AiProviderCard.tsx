@@ -109,6 +109,24 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
     }
   };
 
+  const handleMakeDefault = async () => {
+    try {
+      await providersApi.makeDefault(provider.id);
+      addNotification({
+        type: 'success',
+        title: 'Default Provider',
+        message: `${provider.name} is now the default AI provider`
+      });
+      onUpdate();
+    } catch (_error) {
+      addNotification({
+        type: 'error',
+        title: 'Could Not Set Default',
+        message: 'Only a working provider (active, models synced, credential saved) can be the default'
+      });
+    }
+  };
+
   const handleSyncModels = async () => {
     try {
       setSyncing(true);
@@ -205,6 +223,11 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
         label: 'Manage Credentials',
         onClick: () => onEditProvider?.(provider.id)
       },
+      ...(!provider.is_default && provider.default_eligible ? [{
+        icon: Star,
+        label: 'Set as Default',
+        onClick: handleMakeDefault
+      }] : []),
       {
         icon: RefreshCw,
         label: 'Sync Models',
@@ -232,8 +255,14 @@ export const AiProviderCard: React.FC<AiProviderCardProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-semibold text-theme-primary">{provider.name}</h3>
-              {provider.priority_order <= 3 && (
-                <Star className="h-4 w-4 text-theme-warning-fg fill-current" />
+              {provider.is_default && (
+                <span
+                  className="flex items-center gap-1 text-xs font-medium text-theme-warning-fg"
+                  data-testid="provider-default-badge"
+                >
+                  <Star className="h-4 w-4 fill-current" />
+                  Default
+                </span>
               )}
             </div>
             

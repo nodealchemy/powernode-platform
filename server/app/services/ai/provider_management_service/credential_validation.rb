@@ -39,6 +39,12 @@ class Ai::ProviderManagementService
         credential = account.ai_provider_credentials.build(credential_attrs)
 
         if credential.save
+          # Sync the models FIRST: the connection test sends the provider's
+          # default chat model, which only exists once the catalog is synced
+          # (testing first failed with model_not_found / "No model configured").
+          sync_result = ::Ai::Providers::ModelSyncAndActivate.call(provider.reload)
+          credential.model_sync_result = sync_result
+
           # Test the credential to ensure it works
           begin
             test_service = new(credential)

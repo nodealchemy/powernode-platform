@@ -35,6 +35,11 @@ module Shared
 
       scope = account.public_send(association_name)
       scope = scope.where(is_active: true) if scope.model.column_names.include?("is_active")
+      # An AI credential counts only on a provider that can serve a call —
+      # active and routable (never the Claude Code local-sessions scope).
+      if association_name == :ai_provider_credentials
+        scope = scope.joins(:provider).merge(::Ai::Provider.platform_routable.where(is_active: true))
+      end
       count = scope.count
 
       { has_credentials: count.positive?, count: count, available: true }

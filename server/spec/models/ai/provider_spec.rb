@@ -632,13 +632,14 @@ RSpec.describe Ai::Provider, type: :model do
       # E3b: bootstrap used to copy the catalog's literal default_model (or,
       # failing that, catalog[0], the most expensive entry) into the stored
       # configuration. It stores none now, so #default_model follows the synced
-      # catalog's tier rule.
-      it 'stores no literal default_model, so the default follows the catalog tier rule' do
+      # catalog's rule: the type's catalog chat default, else the lightest
+      # chat-capable model.
+      it 'stores no literal default_model, so the default follows the catalog rule' do
         described_class.setup_default_providers(account).each do |provider|
           fresh = described_class.find(provider.id)
 
           expect(fresh.configuration_schema).to include('default_model' => nil), "#{provider.provider_type} stored a literal"
-          expect(fresh.default_model).to eq(fresh.send(:lightest_catalog_model))
+          expect(fresh.default_model).to eq(fresh.send(:preferred_chat_model))
         end
       end
 

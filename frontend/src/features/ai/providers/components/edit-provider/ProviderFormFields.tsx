@@ -1,6 +1,7 @@
 import React from 'react';
 import { Input } from '@/shared/components/ui/Input';
 import { Select } from '@/shared/components/ui/Select';
+import { useAiProviderCatalog } from '../../hooks/useAiProviderCatalog';
 
 interface ProviderFormData {
   name: string;
@@ -20,21 +21,17 @@ interface ProviderFormFieldsProps {
   onCapabilityChange: (capability: string, checked: boolean) => void;
 }
 
-const availableCapabilities = [
-  'text_generation',
-  'chat',
-  'vision',
-  'function_calling',
-  'code_execution',
-  'image_generation',
-  'embeddings'
-];
-
 export const ProviderFormFields: React.FC<ProviderFormFieldsProps> = ({
   data,
   onChange,
   onCapabilityChange
 }) => {
+  const { capabilitiesFor } = useAiProviderCatalog();
+  // Only capabilities valid for the type, plus any already set on the record.
+  const availableCapabilities = Array.from(
+    new Set([...capabilitiesFor(data.provider_type), ...data.capabilities])
+  );
+
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -142,7 +139,7 @@ export const ProviderFormFields: React.FC<ProviderFormFieldsProps> = ({
                 className="rounded border-theme text-theme-info-fg focus:ring-theme-info-fg"
               />
               <span className="text-sm text-theme-secondary capitalize">
-                {capability.replace('_', ' ')}
+                {capability.replace(/_/g, ' ')}
               </span>
             </label>
           ))}

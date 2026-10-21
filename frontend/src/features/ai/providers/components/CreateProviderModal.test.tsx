@@ -13,6 +13,8 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
   useNotifications: () => ({ addNotification: jest.fn() }),
 }));
 
+const KNOWN = ['text_generation', 'chat', 'text_embedding', 'vision', 'search'];
+
 const CATALOG = [
   {
     name: 'OpenAI',
@@ -21,6 +23,8 @@ const CATALOG = [
     api_base_url: 'https://api.example-openai.test/v1',
     capabilities: ['text_generation', 'chat', 'text_embedding'],
     default_model: 'model-a',
+    default_embedding_model: null,
+    models: ['model-a'],
     requires_auth: true,
     credential_fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }],
   },
@@ -28,7 +32,7 @@ const CATALOG = [
 
 describe('CreateProviderModal catalog auto-fill', () => {
   beforeEach(() => {
-    (providersApi.getCatalog as jest.Mock).mockResolvedValue(CATALOG);
+    (providersApi.getCatalog as jest.Mock).mockResolvedValue({ items: CATALOG, known_capabilities: KNOWN });
     (providersApi.createProvider as jest.Mock).mockResolvedValue({});
   });
 
@@ -51,6 +55,19 @@ describe('CreateProviderModal catalog auto-fill', () => {
       'https://api.example-openai.test/v1'
     );
     expect(screen.getByLabelText(/text embedding/i)).toBeChecked();
+  });
+
+  it('offers only the capabilities valid for the selected type, from the backend list', async () => {
+    await renderModal();
+    // Custom type: every backend-known capability, and no stale 'embeddings'.
+    expect(screen.getByLabelText(/^search$/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^embeddings$/i)).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'openai' } });
+
+    await waitFor(() => expect(screen.queryByLabelText(/^search$/i)).not.toBeInTheDocument());
+    expect(screen.getByLabelText(/text embedding/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^vision$/i)).not.toBeInTheDocument();
   });
 
   it('keeps the filled fields editable', async () => {

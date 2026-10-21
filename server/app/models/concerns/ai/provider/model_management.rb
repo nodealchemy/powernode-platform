@@ -76,13 +76,44 @@ module Ai
         configured = configuration_schema["default_model"] if configured.blank? && configuration_schema.is_a?(Hash)
         return configured if configured.present?
 
-        lightest_catalog_model
+        preferred_chat_model
+      end
+
+      # The default CHAT model, from the synced catalog: the type's catalog
+      # default when the sync returned it (exact id, else its dated variant),
+      # else the lightest chat-capable model. Search, preview, embedding,
+      # audio, image, moderation and completion-only ids are never candidates.
+      def preferred_chat_model
+        ids = Array(available_models).filter_map { |entry| ::Ai::ModelTiers.id_for(entry).presence }
+                                     .select { |id| ::Ai::ModelTiers.chat_capable?(id) }
+        return nil if ids.empty?
+
+        wanted = ::Ai::ProviderCatalog.for(provider_type)&.dig(:default_chat_model)
+        if wanted.present?
+          preferred = ids.find { |id| id == wanted } || ids.select { |id| id.start_with?("#{wanted}-") }.min_by(&:length)
+          return preferred if preferred
+        end
+
+        lightest_of(ids)
+      end
+
+      # The default EMBEDDING model: the catalog's, for a provider that
+      # declares text_embedding; else a synced embedding id.
+      def default_embedding_model
+        return nil unless Array(capabilities).include?("text_embedding")
+
+        ids = Array(available_models).filter_map { |entry| ::Ai::ModelTiers.id_for(entry).presence }
+        ids.find { |id| ::Ai::ModelTiers.embedding?(id) } ||
+          ::Ai::ProviderCatalog.for(provider_type)&.dig(:default_embedding_model)
       end
 
       # Lightest Ai::ModelTiers tier wins; catalog position breaks a tie, so two
       # unclassifiable ids (both :standard) keep the order sync gave them.
       def lightest_catalog_model
-        ids = Array(available_models).filter_map { |entry| ::Ai::ModelTiers.id_for(entry).presence }
+        lightest_of(Array(available_models).filter_map { |entry| ::Ai::ModelTiers.id_for(entry).presence })
+      end
+
+      def lightest_of(ids)
         ids.each_with_index.min_by { |id, position| [ ::Ai::ModelTiers::ORDER.index(::Ai::ModelTiers.classify(id)), position ] }&.first
       end
 

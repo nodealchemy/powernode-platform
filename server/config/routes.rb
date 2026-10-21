@@ -1671,6 +1671,7 @@ Rails.application.routes.draw do
             get :models
             get :usage_summary
             get :check_availability
+            post :make_default
           end
 
           collection do

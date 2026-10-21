@@ -44,6 +44,13 @@ module Api
 
         # POST /api/v1/ai/providers/:provider_id/credentials
         def create
+          # The synthetic Claude Code local-sessions scope holds no platform
+          # credential; attaching a key to it left the provisioning chat
+          # unusable (no models, 412 on the concierge).
+          unless @provider.platform_routable?
+            return render_error("This provider cannot hold credentials", status: :unprocessable_content)
+          end
+
           # Extract credentials from params and convert to Hash with string keys
           credentials_data = credential_params[:credentials]&.to_h&.deep_stringify_keys || {}
 
@@ -63,8 +70,9 @@ module Api
           )
 
           render_success({
-            credential: serialize_credential_detail(@credential)
-          }, status: :created)
+            credential: serialize_credential_detail(@credential),
+            model_sync: @credential.model_sync_result&.to_h
+          }.compact, status: :created)
 
           log_audit_event("ai.providers.credential.create", @credential,
             provider_name: @provider.name

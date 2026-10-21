@@ -1,5 +1,5 @@
 import { BaseApiService, QueryFilters, PaginatedResponse } from '@/shared/services/ai/BaseApiService';
-import type { AiProvider, AiProviderCatalogEntry, AiProviderCredential } from '@/shared/types/ai';
+import type { AiProvider, AiProviderCatalog, AiProviderCredential } from '@/shared/types/ai';
 
 /**
  * ProvidersApiService - Providers Controller API Client
@@ -21,6 +21,7 @@ import type { AiProvider, AiProviderCatalogEntry, AiProviderCredential } from '@
  * - GET    /api/v1/ai/providers/:id/usage_summary
  * - GET    /api/v1/ai/providers/available
  * - GET    /api/v1/ai/providers/catalog
+ * - POST   /api/v1/ai/providers/:id/make_default
  * - GET    /api/v1/ai/providers/statistics
  * - GET    /api/v1/ai/providers/:provider_id/credentials
  * - POST   /api/v1/ai/providers/:provider_id/credentials
@@ -128,11 +129,18 @@ class ProvidersApiService extends BaseApiService {
    * Provider-type catalog used to auto-fill the provider form
    * GET /api/v1/ai/providers/catalog
    */
-  async getCatalog(): Promise<AiProviderCatalogEntry[]> {
-    const data = await this.get<{ items: AiProviderCatalogEntry[] }>(
-      `${this.buildPath(this.resource)}/catalog`
-    );
-    return data.items ?? [];
+  async getCatalog(): Promise<AiProviderCatalog> {
+    const data = await this.get<Partial<AiProviderCatalog>>(`${this.buildPath(this.resource)}/catalog`);
+    return { items: data.items ?? [], known_capabilities: data.known_capabilities ?? [] };
+  }
+
+  /**
+   * Make a working provider the account default
+   * POST /api/v1/ai/providers/:id/make_default
+   */
+  async makeDefault(id: string): Promise<AiProvider> {
+    const response = await this.performAction<{ provider: AiProvider }>(this.resource, id, 'make_default');
+    return response.provider;
   }
 
   /**

@@ -61,7 +61,7 @@ describe('SetupWizard', () => {
     mockGetSteps.mockReset();
     mockCreateAdmin.mockReset();
     mockGetExtensions.mockReset();
-    (onboardingApi.getAiProviderCatalog as jest.Mock).mockResolvedValue([]);
+    (onboardingApi.getAiProviderCatalog as jest.Mock).mockResolvedValue({ items: [], known_capabilities: [] });
   });
 
   it('shows the admin step and gates the create button on email + password', async () => {

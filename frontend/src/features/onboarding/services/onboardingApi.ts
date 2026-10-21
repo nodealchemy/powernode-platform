@@ -7,7 +7,7 @@
 // each component derived from `response.data`. This keeps the components' existing
 // apiClient mocks (which assert call paths/args) intercepting unchanged.
 import { apiClient } from '@/shared/services/apiClient';
-import type { AiProviderCatalogEntry } from '@/shared/types/ai';
+import type { AiProviderCatalog } from '@/shared/types/ai';
 import type {
   ProviderCategory,
   ProviderCredentialValues,
@@ -39,8 +39,23 @@ interface AiProviderIndexResponse {
   data?: { items?: Array<{ id?: string; provider_type?: string }> };
 }
 
+/** Outcome of the server-side model sync run when an AI credential is saved. */
+export interface AiModelSyncResult {
+  success: boolean;
+  deferred?: boolean;
+  model_count: number;
+  error: string | null;
+  activated?: boolean;
+  default?: boolean;
+}
+
 interface AiCredentialResponse {
-  data?: { credential?: { id?: string } };
+  data?: { credential?: { id?: string }; model_sync?: AiModelSyncResult };
+}
+
+export interface AiCredentialCreated {
+  id: string | null;
+  modelSync: AiModelSyncResult | null;
 }
 
 interface GitProviderResponse {
@@ -107,11 +122,10 @@ export const onboardingApi = {
    * GET `/ai/providers/catalog`: the provider-type catalog that pre-fills the
    * AI provider details (name, base URL, default model) on type selection.
    */
-  async getAiProviderCatalog(): Promise<AiProviderCatalogEntry[]> {
-    const response = await apiClient.get<{ data?: { items?: AiProviderCatalogEntry[] } }>(
-      '/ai/providers/catalog'
-    );
-    return response.data?.data?.items ?? [];
+  async getAiProviderCatalog(): Promise<AiProviderCatalog> {
+    const response = await apiClient.get<{ data?: Partial<AiProviderCatalog> }>('/ai/providers/catalog');
+    const data = response.data?.data;
+    return { items: data?.items ?? [], known_capabilities: data?.known_capabilities ?? [] };
   },
 
   /**
@@ -127,7 +141,9 @@ export const onboardingApi = {
     apiBaseUrl,
   }: CreateProviderViaProviderParams): Promise<string | undefined> {
     const existing = await apiClient.get<AiProviderIndexResponse>('/ai/providers', {
-      params: { provider_type: providerType },
+      // platform_routable keeps the Claude Code local-sessions scope out of the
+      // lookup: it must never receive a key.
+      params: { provider_type: providerType, platform_routable: true },
     });
     const items = existing.data?.data?.items ?? [];
     if (items.length > 0) {
@@ -151,7 +167,7 @@ export const onboardingApi = {
   async createAiCredential({
     providerId,
     credentials,
-  }: CreateNamedCredentialParams): Promise<string | null> {
+  }: CreateNamedCredentialParams): Promise<AiCredentialCreated> {
     const response = await apiClient.post<AiCredentialResponse>(
       `/ai/providers/${providerId}/credentials`,
       {
@@ -163,7 +179,26 @@ export const onboardingApi = {
         },
       }
     );
-    return response.data?.data?.credential?.id ?? null;
+    return {
+      id: response.data?.data?.credential?.id ?? null,
+      modelSync: response.data?.data?.model_sync ?? null,
+    };
+  },
+
+  /** Make a working AI provider the account default (POST `/ai/providers/:id/make_default`). */
+  async setAiDefaultProvider(providerId: string): Promise<void> {
+    await apiClient.post(`/ai/providers/${providerId}/make_default`);
+  },
+
+  /** Remove a credential the wizard created (the provider row stays). */
+  async deleteAiCredential({
+    providerId,
+    credentialId,
+  }: {
+    providerId: string;
+    credentialId: string;
+  }): Promise<void> {
+    await apiClient.delete(`/ai/providers/${providerId}/credentials/${credentialId}`);
   },
 
   /**

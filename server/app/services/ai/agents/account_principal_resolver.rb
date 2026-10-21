@@ -284,8 +284,25 @@ module Ai
         # never borrows another tenant's provider while its own account has one.
         own = canonical.provider
         own = nil if own && own.account_id != account.id && account.ai_providers.exists?
+        # Never the synthetic Claude Code local-sessions scope: it holds no
+        # credential, so a clone minted on it could not run.
+        routable = account.ai_providers.platform_routable.ordered_by_priority
+
+        # The operator's chosen default wins over the pin's family: a clone
+        # lands where the operator said work should run, unpinned when the
+        # pin names another family (the same drop as the fallback below).
+        chosen = ::Ai::Provider.default_for_account(account)
+        if chosen&.platform_routable?
+          family = ::Ai::Agent.provider_family_for(pin) if pin.present?
+          return [ chosen, nil ] if family.nil? || family == chosen.provider_type
+
+          metadata = (canonical.mcp_metadata || {}).deep_dup
+          metadata["model_config"] = (metadata["model_config"] || {}).except("model")
+          return [ chosen, metadata ]
+        end
+
         provider, compatible = self.class.provider_for_pin(
-          pinned_model: pin, providers: account.ai_providers.ordered_by_priority, preferred: own
+          pinned_model: pin, providers: routable, preferred: own
         )
         return [ nil, nil ] unless provider
         return [ provider, nil ] if compatible

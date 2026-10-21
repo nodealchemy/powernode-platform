@@ -385,6 +385,11 @@ export interface ProviderCredentialFormProps {
    * provider from the credentials payload and needs every field.
    */
   excludeScopes?: ProviderFieldScope[];
+  /**
+   * Valid choices per field key (e.g. the catalog's model ids for
+   * `default_model`), offered as suggestions. The field stays free text.
+   */
+  fieldOptions?: Record<string, string[]>;
   className?: string;
 }
 
@@ -449,6 +454,7 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
   compact = false,
   hideTestButton = false,
   excludeScopes,
+  fieldOptions,
   className = '',
 }) => {
   // Memoize against a string key so callers can pass a fresh array literal
@@ -562,6 +568,8 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
       'aria-invalid': errorMsg ? true : undefined,
       'aria-describedby': field.helper ? `${fieldId}-helper` : undefined,
     } as const;
+    const options = fieldOptions?.[field.key];
+    const listId = options && options.length > 0 ? `${fieldId}-options` : undefined;
     const baseClass = `input-theme w-full ${errorMsg ? 'error' : ''}`.trim();
 
     return (
@@ -586,9 +594,18 @@ export const ProviderCredentialForm: React.FC<ProviderCredentialFormProps> = ({
             {...commonProps}
             type={field.type}
             autoComplete={field.type === 'password' ? 'new-password' : 'off'}
+            list={listId}
             onChange={(e) => handleChange(field.key, e.target.value)}
             className={baseClass}
           />
+        )}
+
+        {listId && (
+          <datalist id={listId} data-testid={`provider-cred-options-${field.key}`}>
+            {options?.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
         )}
 
         {field.helper && (

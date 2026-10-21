@@ -15,7 +15,8 @@ jest.mock('@/shared/hooks/useNotifications', () => ({
 jest.mock('@/shared/services/ai', () => ({
   providersApi: {
     testConnection: jest.fn(),
-    syncModels: jest.fn()
+    syncModels: jest.fn(),
+    makeDefault: jest.fn()
   }
 }));
 
@@ -28,7 +29,7 @@ describe('AiProviderCard', () => {
     is_active: true,
     health_status: 'healthy',
     description: 'OpenAI API for text generation and code completion',
-    capabilities: ['text_generation', 'code_completion', 'embeddings', 'chat', 'vision'],
+    capabilities: ['text_generation', 'code_completion', 'text_embedding', 'chat', 'vision'],
     model_count: 5,
     credential_count: 2,
     priority_order: 1,
@@ -138,10 +139,10 @@ describe('AiProviderCard', () => {
       expect(screen.getByText('Priority')).toBeInTheDocument();
     });
 
-    it('renders star icon for high priority providers', () => {
-      render(<AiProviderCard {...defaultProps} />);
+    it('renders the star icon for the default provider only', () => {
+      render(<AiProviderCard {...defaultProps} provider={{ ...mockProvider, is_default: true }} />);
 
-      // Priority 1-3 shows star icon
+      // The star marks the operator-chosen default, not a priority band
       const starIcon = document.querySelector('.fill-current');
       expect(starIcon).toBeInTheDocument();
     });
@@ -362,6 +363,40 @@ describe('AiProviderCard', () => {
 
       expect(openSpy).toHaveBeenCalledWith('https://status.openai.com', '_blank');
       openSpy.mockRestore();
+    });
+  });
+
+  describe('account default provider', () => {
+    it('shows the Default badge only on the operator-chosen default', () => {
+      const { rerender } = render(<AiProviderCard {...defaultProps} provider={{ ...mockProvider, is_default: true }} />);
+      expect(screen.getByTestId('provider-default-badge')).toBeInTheDocument();
+
+      rerender(<AiProviderCard {...defaultProps} provider={{ ...mockProvider, priority_order: 2, is_default: false }} />);
+      expect(screen.queryByTestId('provider-default-badge')).not.toBeInTheDocument();
+    });
+
+    it('offers Set as Default for a working non-default provider and calls the API', async () => {
+      (providersApi.makeDefault as jest.Mock).mockResolvedValue({});
+      render(
+        <AiProviderCard {...defaultProps} provider={{ ...mockProvider, is_default: false, default_eligible: true }} />
+      );
+
+      fireEvent.click(screen.getByLabelText('More actions'));
+      fireEvent.click(await screen.findByText('Set as Default'));
+
+      await waitFor(() => expect(providersApi.makeDefault).toHaveBeenCalledWith('provider-1'));
+      expect(defaultProps.onUpdate).toHaveBeenCalled();
+    });
+
+    it('does not offer Set as Default for a provider that is not working', async () => {
+      render(
+        <AiProviderCard {...defaultProps} provider={{ ...mockProvider, is_default: false, default_eligible: false }} />
+      );
+
+      fireEvent.click(screen.getByLabelText('More actions'));
+
+      await screen.findByText('Sync Models');
+      expect(screen.queryByText('Set as Default')).not.toBeInTheDocument();
     });
   });
 });

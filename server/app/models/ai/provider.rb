@@ -15,6 +15,18 @@ module Ai
     include Ai::Provider::ProviderSetup
     include Ai::Provider::DevopsIntegration
 
+
+    # Capability names a provider may declare. The provider-type catalog
+    # endpoint serves this list so the forms never keep their own copy.
+    KNOWN_CAPABILITIES = %w[
+      text_generation chat conversation reasoning analysis
+      code_generation creative_writing structured_output function_calling
+      document_analysis image_generation image_analysis vision code_execution
+      text_embedding code_embedding audio_generation audio_transcription
+      video_generation video_analysis translation summarization
+      search retrieval fine_tuning model_training devops_execution
+    ].freeze
+
     # Associations
     belongs_to :account
     has_many :provider_credentials, class_name: "Ai::ProviderCredential", foreign_key: "ai_provider_id", dependent: :destroy
@@ -93,6 +105,13 @@ module Ai
 
     def to_param
       slug
+    end
+
+    # False for the synthetic Claude Code local-sessions scope: it holds no
+    # platform credential, so it never serves a platform call (see
+    # .platform_routable) and must never receive one.
+    def platform_routable?
+      metadata&.dig("execution_source") != ::Ai::AgentExecution::CLAUDE_CODE_SOURCE
     end
 
     def is_default?
@@ -223,16 +242,7 @@ module Ai
     def capabilities_must_be_meaningful
       return unless capabilities.is_a?(Array)
 
-      known_capabilities = %w[
-        text_generation chat conversation reasoning analysis
-        code_generation creative_writing structured_output function_calling
-        document_analysis image_generation image_analysis vision code_execution
-        text_embedding code_embedding audio_generation audio_transcription
-        video_generation video_analysis translation summarization
-        search retrieval fine_tuning model_training devops_execution
-      ]
-
-      unknown_capabilities = capabilities - known_capabilities
+      unknown_capabilities = capabilities - KNOWN_CAPABILITIES
       if unknown_capabilities.any?
         errors.add(:capabilities, "contains unknown capabilities: #{unknown_capabilities.join(', ')}")
       end

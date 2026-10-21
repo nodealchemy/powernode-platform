@@ -24,7 +24,9 @@ describe('onboardingApi.createAiProvider', () => {
     const id = await onboardingApi.createAiProvider({ providerType: 'anthropic', name: 'Anthropic Claude' });
 
     expect(id).toBe('prov-existing');
-    expect(mockGet).toHaveBeenCalledWith('/ai/providers', { params: { provider_type: 'anthropic' } });
+    expect(mockGet).toHaveBeenCalledWith('/ai/providers', {
+      params: { provider_type: 'anthropic', platform_routable: true },
+    });
     expect(mockPost).not.toHaveBeenCalled();
   });
 

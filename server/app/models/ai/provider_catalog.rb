@@ -157,6 +157,8 @@ module Ai
         supports_vision: true,
         supports_code_execution: false,
         priority_order: 1,
+        default_chat_model: "gpt-4o-mini",
+        default_embedding_model: "text-embedding-3-small",
         metadata: {
           "organization" => "OpenAI",
           "api_key_env" => "OPENAI_API_KEY",
@@ -272,6 +274,7 @@ module Ai
         supports_vision: false,
         supports_code_execution: false,
         priority_order: 2,
+        default_chat_model: "grok-3-mini",
         metadata: {
           "organization" => "X.AI (xAI)",
           "api_key_env" => "XAI_API_KEY",
@@ -474,6 +477,7 @@ module Ai
         supports_vision: true,
         supports_code_execution: false,
         priority_order: 3,
+        default_chat_model: "claude-sonnet-4-6",
         metadata: {
           "organization" => "Anthropic",
           "api_key_env" => "ANTHROPIC_API_KEY",
@@ -542,6 +546,8 @@ module Ai
           api_base_url: config[:api_base_url],
           capabilities: config[:capabilities],
           default_model: default_model_for(config),
+          default_embedding_model: config[:default_embedding_model],
+          models: chat_model_ids(config),
           requires_auth: config[:requires_auth],
           credential_fields: credential_fields_for(config)
         }
@@ -553,13 +559,21 @@ module Ai
         name.downcase.gsub(/[^a-z0-9\s]/, "").gsub(/\s+/, "-").strip
       end
 
-      # First model in the shipped catalog list. A self-hosted server serves
-      # only what it has pulled, so none is suggested there (E3b).
+      # The type's default chat model. A self-hosted server serves only what
+      # it has pulled, so none is suggested there (E3b).
       def default_model_for(config)
         return nil if config[:configuration_schema].to_h["self_hosted"]
 
-        first = Array(config[:supported_models]).first
-        first && (first["id"] || first["name"])
+        config[:default_chat_model].presence || chat_model_ids(config).first
+      end
+
+      # Model ids valid for the type's chat form: the shipped list minus every
+      # non-chat model. Empty for a self-hosted type (it serves what it pulled).
+      def chat_model_ids(config)
+        return [] if config[:configuration_schema].to_h["self_hosted"]
+
+        Array(config[:supported_models]).filter_map { |m| m["id"] || m["name"] }
+                                        .select { |id| Ai::ModelTiers.chat_capable?(id) }
       end
 
       def credential_fields_for(config)

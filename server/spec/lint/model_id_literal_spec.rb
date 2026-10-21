@@ -189,7 +189,7 @@ module ModelIdLintRules
 
   BASELINE = {
     # — the model catalog proper —
-    "server/app/models/ai/provider_catalog.rb" => [ 33, "Ai::ProviderCatalog::CONFIGS — the built-in provider catalog itself" ],
+    "server/app/models/ai/provider_catalog.rb" => [ 36, "Ai::ProviderCatalog::CONFIGS — the built-in provider catalog itself, incl. each type's default chat/embedding model" ],
     "server/app/services/ai/provider_management_service.rb" => [ 27, "MODEL_PRICING: the per-1k price table, keyed by model id" ],
     "server/app/services/ai/provider_management_service/provider_specs.rb" => [ 3, "built-in provider specs: the seed catalog for a provider created from a template" ],
     "server/app/services/ai/providers/sync/openai.rb" => [ 13, "classifies a SYNCED id into context window / capabilities / rank; reads ids, never invents one" ],
@@ -217,7 +217,6 @@ module ModelIdLintRules
     #   still choose models by name and are recorded, not blessed: —
     "server/scripts/diagnostics/check_and_update_agent_models.rb" => [ 6, "one-off diagnostic that REWRITES agent pins from a task-name heuristic; the ids are retired — capped here, owed a resolver rewrite (E3 review report)" ],
     # — frontend/src (root added by the E3 review) —
-    "frontend/src/features/onboarding/ProviderCredentialForm.tsx" => [ 3, "onboarding form PRE-FILLS a default_model field per provider type; the operator can edit it, but a shipped default rots — owed a read of the provider catalog" ],
     "frontend/src/features/ai/devops/components/WorkflowTab.tsx" => [ 1, "an example model id inside a textarea PLACEHOLDER showing the JSON shape — illustrative, never submitted" ]
     # (cost_calculation_service.rb was here at 1; its only hit is a full-line
     #  @param comment, which the scan correctly ignores — entry deleted at zero.)

@@ -55,7 +55,24 @@ module Ai
     # per-candidate query) while still tracking price changes within minutes.
     PRICE_CACHE_TTL_SECONDS = 300
 
+    # Ids that can never serve a chat/completions call: embedding, search,
+    # preview, audio/speech, image, moderation, rerank and completion-only
+    # models. The synced list contains them all; a default or a connection
+    # test must never land on one.
+    NON_CHAT_PATTERN = /embed|search|preview|audio|realtime|transcribe|tts|whisper|dall-e|image|moderation|babbage|davinci|instruct|computer-use|codex|sora|rerank|guard/i
+
     module_function
+
+    # Whether a model id can serve a chat call (see NON_CHAT_PATTERN).
+    def chat_capable?(model_id)
+      id = model_id.to_s
+      id.present? && !id.match?(NON_CHAT_PATTERN)
+    end
+
+    # Whether a model id is an embedding model.
+    def embedding?(model_id)
+      model_id.to_s.match?(/embed/i)
+    end
 
     # Classify a model id onto the price ladder. Precedence:
     #   * known family + live price ⇒ max(prefix floor, price band) — price may
