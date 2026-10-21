@@ -38,11 +38,61 @@ RSpec.describe "Account teardown audit trail" do
       destroyed = platform_rows("account.destroyed")
       expect(destroyed.count).to eq(1)
       meta = destroyed.first.metadata
-      expect(meta).to include("account_id" => account_id, "actor_id" => actor.id)
+      expect(meta).to include("account_id" => account_id, "actor_id" => actor.id, "actor_label" => "user:#{actor.id}")
       expect(meta["name_digest"]).to eq(Digest::SHA256.hexdigest("Doomed Account"))
       expect(meta.to_json).not_to include("Doomed Account")
       expect(meta["counts"]).to include("table" => "api_keys", "rows" => 1)
       expect(meta["revoked_records"]).to eq([ { "model" => "ApiKey", "ids" => [ key.id ] } ])
+    end
+
+    it "carries the original hash chain position on each copy and records the deleted sequence range" do
+      account_id = account.id
+      originals = AuditLog.where(account_id: account_id).order(:sequence_number).to_a
+      expect(originals.map(&:sequence_number).compact).not_to be_empty
+      account.destroy!
+
+      copy = platform_rows("account.teardown_key_audit_retained").find { |r| r.metadata["original_id"] == old_row.id }
+      expect(copy.metadata).to include(
+        "original_integrity_hash" => old_row.integrity_hash,
+        "original_previous_hash" => old_row.previous_hash,
+        "original_sequence_number" => old_row.sequence_number
+      )
+      range = platform_rows("account.destroyed").first.metadata["deleted_sequence_range"]
+      seqs = originals.map(&:sequence_number).compact
+      expect(range).to include("min" => seqs.min, "max" => seqs.max)
+      expect(range["count"]).to be >= originals.size
+    end
+
+    it "scrubs sensitive keys out of the copied metadata, nested too" do
+      key.update_columns(updated_at: Time.current)
+      row = AuditLog.new(action: "api_key_revoked", resource_type: "ApiKey", resource_id: key.id, account: account,
+                         source: "system", metadata: { "ok" => "kept", "old_key_preview" => "abcd1234",
+                                                         "nested" => { "client_secret_hint" => "zz", "fine" => 1 } })
+      row.save!(validate: false) # bypass the model's own redactor: this proves the teardown scrubs independently
+      row.update_columns(metadata: { "ok" => "kept", "old_key_preview" => "abcd1234",
+                                     "nested" => { "client_secret_hint" => "zz", "fine" => 1 } })
+      account.destroy!
+
+      copy = platform_rows("account.teardown_key_audit_retained").find { |r| r.metadata["original_id"] == row.id }
+      meta = copy.metadata["original_metadata"]
+      expect(meta).to include("ok" => "kept")
+      expect(meta.to_json).not_to include("abcd1234")
+      expect(meta.to_json).not_to include("zz")
+      expect(meta["nested"]).to include("fine" => 1)
+    end
+
+    it "does not retain a look-alike action that is not on the key-operation list" do
+      lookalike = AuditLog.log_action(action: "user_created", resource: key, account: account, metadata: { "note" => "x" })
+      account.destroy!
+      expect(platform_rows("account.teardown_key_audit_retained").map { |r| r.metadata["original_id"] }).not_to include(lookalike.id)
+    end
+
+    it "attributes the deletion to an explicit actor, or to the OS process when none is given" do
+      account.teardown_actor = nil
+      account.destroy!
+      meta = platform_rows("account.destroyed").first.metadata
+      expect(meta["actor_id"]).to be_nil
+      expect(meta["actor_label"]).to match(/\Aprocess:.+@.+\z/)
     end
 
     it "chains the platform rows into the global audit chain" do
@@ -63,6 +113,46 @@ RSpec.describe "Account teardown audit trail" do
       expect(Account.exists?(account.id)).to be true
       expect(ApiKey.exists?(key.id)).to be true
       expect(AuditLog.exists?(old_row.id)).to be true
+    end
+  end
+
+  describe "tenant scopes never include platform (NULL-account) rows" do
+    it "excludes them from account.audit_logs and AuditLog.by_account (the API listing is covered in audit_logs_spec)" do
+      survivor = AuditLog.create!(action: "account.destroyed", resource_type: "Account", resource_id: SecureRandom.uuid,
+                                  account: nil, source: "system", metadata: { "account_id" => SecureRandom.uuid })
+      mine = AuditLog.log_action(action: "api_key_created", resource: create(:api_key, account: account), account: account)
+
+      expect(account.audit_logs.pluck(:id)).to include(mine.id)
+      expect(account.audit_logs.pluck(:id)).not_to include(survivor.id)
+      expect(AuditLog.by_account(account).pluck(:id)).not_to include(survivor.id)
+      expect(AuditLog.where(account_id: nil).pluck(:id)).to eq([ survivor.id ])
+    end
+  end
+
+  describe "database and association guards on NULL-account rows" do
+    it "has a CHECK constraint refusing a NULL account_id on an ordinary action, even past validations" do
+      expect do
+        AuditLog.insert_all!([ { action: "api_key_created", resource_type: "ApiKey", resource_id: "x", source: "system",
+                                 severity: "low", risk_level: "low", account_id: nil } ])
+      end.to raise_error(ActiveRecord::StatementInvalid, /chk_audit_logs_account_unless_platform/)
+    end
+
+    it "allows a NULL account_id for the platform-scoped teardown actions" do
+      expect do
+        AuditLog.insert_all!([ { action: "account.destroyed", resource_type: "Account", resource_id: "x", source: "system",
+                                 severity: "low", risk_level: "low", account_id: nil } ])
+      end.not_to raise_error
+    end
+
+    it "keeps the constraint's action list in step with PLATFORM_SCOPED_ACTIONS" do
+      definition = ActiveRecord::Base.connection.select_value(
+        "SELECT pg_get_constraintdef(oid) FROM pg_constraint WHERE conname = 'chk_audit_logs_account_unless_platform'"
+      )
+      AuditActions::PLATFORM_SCOPED_ACTIONS.each { |a| expect(definition).to include(a) }
+    end
+
+    it "restricts destroying an account through its audit_logs association" do
+      expect(Account.reflect_on_association(:audit_logs).options[:dependent]).to eq(:restrict_with_exception)
     end
   end
 

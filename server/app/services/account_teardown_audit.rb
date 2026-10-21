@@ -29,6 +29,10 @@ class AccountTeardownAudit
     end
   end
 
+  # Names that mark a metadata key as sensitive. Applied to the copied original_metadata on top of the
+  # AuditLog redactor, and deliberately broader than it (previews and hints leak key material too).
+  SENSITIVE_KEY = /key|secret|token|password|passphrase|credential|private|preview|hint|signature|seed|mnemonic/i
+
   def initialize(account, actor: nil)
     @account = account
     @actor = actor
@@ -39,6 +43,17 @@ class AccountTeardownAudit
     @counts = table_counts
     @key_ids = key_ids
     @name_digest = Digest::SHA256.hexdigest(@account.name.to_s)
+  end
+
+  # A User, an explicit String label, or (unset) the OS process, so the row is never anonymous.
+  def actor_id = @actor.is_a?(User) ? @actor.id : nil
+
+  def actor_label
+    case @actor
+    when User then "user:#{@actor.id}"
+    when String, Symbol then @actor.to_s
+    else "process:#{Etc.getlogin || ENV.fetch('USER', 'unknown')}@#{Socket.gethostname}"
+    end
   end
 
   # After the dependents and users are gone, before the account's audit rows are deleted.
@@ -80,9 +95,11 @@ class AccountTeardownAudit
         RETAINED_ACTION, "Account", @account.id,
         {
           "original_id" => row.id, "original_action" => row.action, "original_account_id" => row.account_id,
+          "original_integrity_hash" => row.integrity_hash, "original_previous_hash" => row.previous_hash,
+          "original_sequence_number" => row.sequence_number,
           "original_user_id" => row.user_id, "original_resource_type" => row.resource_type,
           "original_resource_id" => row.resource_id, "original_created_at" => row.created_at&.iso8601,
-          "original_metadata" => row.metadata
+          "original_metadata" => scrub(row.metadata)
         }
       )
     end
@@ -91,7 +108,7 @@ class AccountTeardownAudit
   def record_key_revocations
     @key_ids.each do |entry|
       entry["ids"].each do |id|
-        write(REVOKED_ACTION, entry["model"], id, { "account_id" => @account.id, "actor_id" => @actor&.id })
+        write(REVOKED_ACTION, entry["model"], id, { "account_id" => @account.id, "actor_id" => actor_id, "actor_label" => actor_label })
       end
     end
   end
@@ -99,10 +116,25 @@ class AccountTeardownAudit
   def record_destroyed
     write(
       DESTROYED_ACTION, "Account", @account.id,
-      { "account_id" => @account.id, "name_digest" => @name_digest, "actor_id" => @actor&.id,
-        "counts" => @counts, "revoked_records" => @key_ids },
+      { "account_id" => @account.id, "name_digest" => @name_digest, "actor_id" => actor_id, "actor_label" => actor_label,
+        "counts" => @counts, "revoked_records" => @key_ids, "deleted_sequence_range" => deleted_sequence_range },
       severity: "high", risk_level: "high"
     )
+  end
+
+  # The global-chain positions the teardown is about to delete, so a verifier can attribute the gap.
+  def deleted_sequence_range
+    rows = AuditLog.where(account_id: @account.id)
+    seqs = rows.where.not(sequence_number: nil)
+    { "min" => seqs.minimum(:sequence_number), "max" => seqs.maximum(:sequence_number), "count" => rows.count }
+  end
+
+  def scrub(value)
+    case value
+    when Hash then value.each_with_object({}) { |(k, v), h| h[k] = k.to_s.match?(SENSITIVE_KEY) ? "[FILTERED]" : scrub(v) }
+    when Array then value.map { |v| scrub(v) }
+    else value
+    end
   end
 
   # create! (never log_action with a rescue): a failure must propagate and abort the teardown.

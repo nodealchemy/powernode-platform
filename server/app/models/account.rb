@@ -22,7 +22,9 @@ class Account < ApplicationRecord
   # Associations
   has_many :invitations, dependent: :destroy
   has_many :account_delegations, class_name: "Account::Delegation", dependent: :destroy
-  has_many :audit_logs
+  # restrict: the teardown deletes the account's audit rows itself (after copying the key-operation
+  # rows to platform scope), so a plain destroy path can never orphan or silently nullify them.
+  has_many :audit_logs, dependent: :restrict_with_exception
   has_many :webhook_events, dependent: :destroy
   has_many :workers, dependent: :destroy
   has_many :api_keys, dependent: :destroy
@@ -380,6 +382,8 @@ class Account < ApplicationRecord
   end
 
   # The operator performing a destroy!, recorded in the account.destroyed audit row.
+  # A User, or an explicit String label (e.g. "rake:accounts:purge"). When unset the audit
+  # row falls back to the OS process ("process:<login>@<host>"), so it is never anonymous.
   attr_writer :teardown_actor
 
   # Associations holding keys / credentials whose ids the teardown audit records
@@ -712,7 +716,16 @@ class Account < ApplicationRecord
     # Visible, never values: the account id and the error class only. The deletion has
     # committed and cannot be undone, so the purge is recorded for the worker sweep to retry.
     Rails.logger.error("[Account.teardown] secret store purge FAILED for account #{id}: #{e.class}")
-    PlatformPurgeTask.enqueue!(kind: "secret_store_account", subject_id: id, error: e)
+    record_purge_retry(e)
+  end
+
+  # The retry record is best-effort by necessity (this runs after commit and cannot raise into
+  # the caller), but a failure to write it is logged loudly so it is never silent.
+  def record_purge_retry(error)
+    PlatformPurgeTask.enqueue!(kind: "secret_store_account", subject_id: id, error: error)
+  rescue StandardError => e
+    Rails.logger.error("[Account.teardown] purge retry record FAILED for account #{id}: #{e.class}; " \
+                       "vault entries under the account path may be orphaned")
   end
 
   # Vault entries exist only in Vault and the purge runs after commit: refuse up front when
@@ -752,6 +765,7 @@ class Account < ApplicationRecord
   def teardown_refusals
     reasons = self.class.reflect_on_all_associations
                   .select { |r| %i[restrict_with_error restrict_with_exception].include?(r.options[:dependent]) }
+                  .reject { |r| r.name == :audit_logs } # deleted by the teardown itself
                   .select { |r| association(r.name).reader.then { |v| v.respond_to?(:exists?) ? v.exists? : v.present? } }
                   .map { |r| "Cannot delete account with existing #{r.name.to_s.humanize.downcase}" }
     reasons.concat(shared_row_refusals)
@@ -869,7 +883,7 @@ class Account < ApplicationRecord
   end
 
   %i[api_keys ai_provider_credentials ai_data_source_credentials git_provider_credentials
-     devops_integration_credentials system_provider_credentials].each do |assoc|
+     devops_integration_credentials].each do |assoc|
     register_teardown_key_source(assoc)
   end
 end

@@ -320,10 +320,9 @@ RSpec.describe Account, type: :model do
       expect(AuditLog.where(account_id: account.id)).to be_empty
     end
 
-    it "keeps users and audit_logs out of the dependent: callback order" do
-      %i[users audit_logs].each do |name|
-        expect(Account.reflect_on_association(name).options[:dependent]).to be_nil
-      end
+    it "keeps users out of the dependent: callback order, and restricts audit_logs (the teardown deletes them itself)" do
+      expect(Account.reflect_on_association(:users).options[:dependent]).to be_nil
+      expect(Account.reflect_on_association(:audit_logs).options[:dependent]).to eq(:restrict_with_exception)
     end
 
     it "leaves no teardown marker behind after a refused destroy" do
