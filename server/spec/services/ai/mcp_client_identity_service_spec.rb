@@ -515,6 +515,17 @@ RSpec.describe Ai::McpClientIdentityService do
         expect(report[:first].first[:drops]).to eq(dropped)
       end
 
+      it "does not count a duplicate's deferred operations as drops: a merge keeps them" do
+        dup = duplicates.first
+        Ai::DeferredOperation.create!(account: account, ai_agent: dup, action_category: "release.promote",
+                                      executor_class: "TestSpecExecutor", params: { foo: "bar" })
+
+        report = described_class.duplicate_agents_report(account: account)
+        dropped = report[:groups].first[:duplicates].find { |d| d[:id] == dup.id }[:drops]
+
+        expect(dropped).not_to have_key("ai_deferred_operations.ai_agent_id")
+      end
+
       it "groups by user, so one identity per user is not a duplicate" do
         other_user = create(:user, account: account)
         create(:ai_agent, :mcp_client, account: account, creator: other_user, provider: provider,
@@ -573,6 +584,18 @@ RSpec.describe Ai::McpClientIdentityService do
         expect(conversation.reload.ai_agent_id).to eq(keeper.id)
         expect(message.reload.ai_agent_id).to eq(keeper.id)
         expect(expired.reload).to have_attributes(ai_agent_id: keeper.id, display_name: keeper.name)
+      end
+
+      it "keeps a duplicate's deferred operations, repointed to the keeper, as the record of what ran" do
+        dup = duplicates.first
+        operation = Ai::DeferredOperation.create!(account: account, ai_agent: dup, action_category: "release.promote",
+                                                  executor_class: "TestSpecExecutor", params: { foo: "bar" })
+
+        result = described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(result[:errors]).to be_empty
+        expect(Ai::DeferredOperation.where(id: operation.id)).to exist
+        expect(operation.reload.ai_agent_id).to eq(keeper.id)
       end
 
       it "rolls back a failed merge, reports it, and leaves the keeper intact" do

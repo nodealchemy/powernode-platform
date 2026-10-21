@@ -236,12 +236,25 @@ module Ai
     MERGE_DELETE_FKS = [
       [ "ai_guardrail_configs", "ai_agent_id" ]
     ].freeze
-    MERGE_DROPPED_FKS = (
-      MERGE_DESTROYED_FKS + MERGE_DELETE_FKS + Ai::Tools::AgentManagementTool::DELETE_AGENT_ROWS
-    ).freeze
+
+    # Rows AgentManagementTool::DELETE_AGENT_ROWS deletes with a destroyed
+    # agent, but a merge repoints to the keeper instead: they record what the
+    # duplicate's identity did (deferred operations are the replayed gated
+    # actions their approval requests point at; proposals, escalations and
+    # feedback are its decisions). Deleting an agent ends that identity, but a
+    # merge only folds one identity into another, so the history stays.
+    MERGE_HISTORY_FKS = [
+      [ "ai_deferred_operations", "ai_agent_id" ],
+      [ "ai_agent_proposals", "ai_agent_id" ],
+      [ "ai_agent_escalations", "ai_agent_id" ],
+      [ "ai_agent_feedbacks", "ai_agent_id" ]
+    ].freeze
+    MERGE_DELETED_AGENT_ROWS = (Ai::Tools::AgentManagementTool::DELETE_AGENT_ROWS - MERGE_HISTORY_FKS).freeze
+    MERGE_DROPPED_FKS = (MERGE_DESTROYED_FKS + MERGE_DELETE_FKS + MERGE_DELETED_AGENT_ROWS).freeze
 
     def self.classified_agent_fks
-      MERGE_EXTRA_FKS + MERGE_LINEAGE_FKS + MERGE_DROPPED_FKS + Ai::Tools::AgentManagementTool::REASSIGN_AGENT_FKS
+      MERGE_EXTRA_FKS + MERGE_LINEAGE_FKS + MERGE_HISTORY_FKS + MERGE_DROPPED_FKS +
+        Ai::Tools::AgentManagementTool::REASSIGN_AGENT_FKS
     end
 
     def self.merge_agent_into!(dup, keeper)
@@ -254,7 +267,7 @@ module Ai
 
         merge_private_memory_pool!(dup, keeper)
 
-        fks = MERGE_EXTRA_FKS + Ai::Tools::AgentManagementTool::REASSIGN_AGENT_FKS
+        fks = MERGE_EXTRA_FKS + MERGE_HISTORY_FKS + Ai::Tools::AgentManagementTool::REASSIGN_AGENT_FKS
         fks.each do |table, col|
           connection.exec_update("UPDATE #{table} SET #{col} = $1 WHERE #{col} = $2",
                                  "merge-#{table}-#{col}", [ keeper.id, dup.id ])
@@ -264,7 +277,7 @@ module Ai
 
         merge_lineages!(dup, keeper)
 
-        (MERGE_DELETE_FKS + Ai::Tools::AgentManagementTool::DELETE_AGENT_ROWS).each do |table, col|
+        (MERGE_DELETE_FKS + MERGE_DELETED_AGENT_ROWS).each do |table, col|
           connection.exec_delete("DELETE FROM #{table} WHERE #{col} = $1", "merge-del-#{table}-#{col}", [ dup.id ])
         end
 
