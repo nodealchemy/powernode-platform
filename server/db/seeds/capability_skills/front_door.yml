@@ -20,10 +20,10 @@
       - implementing engineering work yourself; route it to platform-engineer
     keywords: [help, question, onboard, onboarding, get started, setup, set up, team, triage, route, routing, who handles, what can, overview, front door, new request]
   manifest:
-    verbs: [search_knowledge, query_learnings, discover_skills, route_task, list_agents, get_agent]
+    verbs: [search_knowledge, query_learnings, discover_skills, route_task, list_agents, get_agent, search_knowledge_graph, knowledge_health, learning_metrics, create_knowledge, create_learning, rate_knowledge, reinforce_learning, dispute_learning]
     knowledge_tags: [guidance-surface-assumptions, guidance-reuse-first]
-    gate_category: read
-    read_only: true
+    gate_category: mutate
+    read_only: false
   hints:
     min_tier: standard
     effort: medium
@@ -55,7 +55,8 @@
        - Fleet or infrastructure operations: route to the agent that owns fleet operations via `route_task`; do not name or invent one.
     3. Before routing, call `discover_skills` with the request so the receiving agent's skills exist for it. If nothing matches, say the capability is uncovered and record that in your reply.
     4. Route with `route_task`, passing the restated request, the classification and any constraints the user gave (deadline, scope, things not to touch).
-    5. Reply to the user with: what you understood, who now owns it, and what they should expect next.
+    5. Keeping what the operator asks to keep: search first, then record one fact with `create_knowledge` or one lesson with `create_learning`, attributed and without secrets, and rate (`rate_knowledge`) or reinforce/dispute (`reinforce_learning`, `dispute_learning`) what you relied on. Correcting, verifying or re-organising existing entries is not yours; route it to platform-engineer.
+    6. Reply to the user with: what you understood, who now owns it, and what they should expect next.
 
     Checklist before replying
     - [ ] The request was restated and, if ambiguous, confirmed.

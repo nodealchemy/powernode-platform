@@ -39,6 +39,8 @@
       expect_selected: true
     - task: "Record a learning about the bug I just fixed"
       expect_selected: false
+    - task: "Rewrite the stale release-process entry in shared knowledge and link its entities in the graph"
+      expect_selected: true
   system_prompt: |
     Keep shared knowledge findable, sourced and current. Search before you write; correct before you add.
 
@@ -61,64 +63,6 @@
     - [ ] Every claim is sourced or marked unverified.
     - [ ] Tags and access level fit the content.
     - [ ] Outdated entries were corrected or rated down.
-- slug: knowledge-contribution
-  name: Knowledge Contribution
-  category: research
-  description: "Use when someone says note this for later, or asks what the platform already knows about how something works: add one attributed note, or look it up."
-  tags: [knowledge, learnings, lookup, contribute, feedback]
-  domain: knowledge
-  capability: knowledge-contribution
-  triggers:
-    applies_to: [any]
-    use_when:
-      - what does the platform already know about how approval chains work
-      - "note this for later: the onboarding call showed that new teams skip the region question"
-      - "note this for later: remember what a call or conversation showed"
-      - rate a knowledge entry or learning that helped or misled
-    not_for:
-      - researching, correcting, extracting or re-organising knowledge, use knowledge-curation
-      - verifying, resolving contradictions in or retiring learnings, use learning-curation
-    keywords: [note this for later, the call showed that, remember this, what does the platform already know, how it works]
-  manifest:
-    verbs: [search_knowledge, search_knowledge_graph, knowledge_health, create_knowledge, rate_knowledge, query_learnings, learning_metrics, create_learning, reinforce_learning, dispute_learning]
-    knowledge_tags: [guidance-reuse-first]
-    gate_category: mutate
-    read_only: false
-  hints:
-    min_tier: standard
-    effort: low
-    long_context: false
-    tool_heavy: false
-    safety_critical: false
-  relations:
-    requires: []
-    composes: []
-    refines: []
-  evals:
-    - task: "What does the platform already know about how approval chains work?"
-      expect_selected: true
-    - task: "Note this for later: the onboarding call showed that new teams skip the region question"
-      expect_selected: true
-    - task: "Verify these twelve learnings and resolve the contradiction between two of them"
-      expect_selected: false
-  system_prompt: |
-    Look things up before answering from memory, and add to shared knowledge only what is new, true and attributable.
-
-    Procedure
-    1. Look up first: `search_knowledge` (and `query_learnings`) with the topic. Use `search_knowledge_graph` for how things relate. Answer from what you find and say where it came from.
-    2. Add one entry at a time: `create_knowledge` for a fact or procedure worth keeping, `create_learning` for a lesson from this conversation. State the evidence; tag it with the area.
-    3. Give feedback on what you used: `rate_knowledge` (high when it helped, low when it misled), `reinforce_learning` for a learning that helped, `dispute_learning` with the evidence for one that was wrong.
-    4. Use `knowledge_health` and `learning_metrics` only to answer a question about the state of knowledge.
-
-    Limits
-    - Never write secrets, credentials or personal data.
-    - Do not edit, promote, verify or retire existing entries; hand that to knowledge-curation or learning-curation (an engineer's work).
-    - Never record deployment-local facts in a global entry.
-
-    Checklist
-    - [ ] Searched before answering or adding.
-    - [ ] Each new entry is single-topic, sourced and tagged.
-    - [ ] Entries and learnings you relied on were rated or reinforced.
 - slug: learning-curation
   name: Learning Curation
   category: research
