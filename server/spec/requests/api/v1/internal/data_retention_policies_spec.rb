@@ -100,6 +100,32 @@ RSpec.describe 'Api::V1::Internal::DataRetentionPolicies', type: :request do
         )
       end
 
+      # IMP-01a163fa: without account_id the worker cannot tell an
+      # account-scoped policy from a system-wide one.
+      it 'returns the tenant scope and enforcement fields the worker needs' do
+        tenant = create(:account)
+        scoped = DataManagement::RetentionPolicy.create!(
+          account: tenant, data_type: 'webhook_logs', retention_days: 60, action: 'delete',
+          active: true, records_processed_count: 12
+        )
+
+        get '/api/v1/internal/data_retention_policies',
+            headers: internal_headers,
+            as: :json
+
+        data = json_response_data
+        scoped_row = data.find { |p| p['id'] == scoped.id }
+        system_row = data.find { |p| p['id'] == active_policy1.id }
+
+        expect(scoped_row).to include(
+          'account_id' => tenant.id,
+          'records_processed_count' => 12,
+          'last_enforced_at' => nil
+        )
+        expect(system_row).to include('account_id' => nil)
+        expect(system_row).to have_key('records_processed_count')
+      end
+
       it 'returns empty array when no active policies exist' do
         DataManagement::RetentionPolicy.update_all(active: false)
 

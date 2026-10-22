@@ -11,13 +11,18 @@ class Api::V1::Internal::DataRetentionPoliciesController < Api::V1::Internal::In
 
   private
 
+  # account_id is the policy's tenant scope: the worker refuses any policy
+  # without one rather than treating nil as system-wide (IMP-01a163fa).
   def policy_data(policy)
     {
       id: policy.id,
+      account_id: policy.account_id,
       data_type: policy.data_type,
       retention_days: policy.retention_days,
       action: policy.action,
       active: policy.active,
+      last_enforced_at: policy.last_enforced_at,
+      records_processed_count: policy.records_processed_count,
       created_at: policy.created_at,
       updated_at: policy.updated_at
     }
