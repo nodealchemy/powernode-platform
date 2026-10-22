@@ -221,7 +221,7 @@ module Security
         write(HMAC_KEYRING, ring.to_json)
         write(ACTIVE_HMAC_SECRET, new_secret)
         rotated_at = Time.current
-        ::SiteSetting.set(ROTATION_MARKER, rotated_at.iso8601, setting_type: "string")
+        record_rotation_marker(rotated_at)
         clear_cache!
 
         { rotated_at: rotated_at, grace_ends_at: grace_ends }
@@ -383,24 +383,40 @@ module Security
         Rails.logger.warn("[JwtKeyStore] #{why}; serving the last-known #{key}") if log
       end
 
+      # Best effort: the secrets are already written and are what verification
+      # needs; the marker only guards against a later empty store. A failure is
+      # logged loudly, never raised, so it cannot fail a rotation that landed.
+      def record_rotation_marker(rotated_at)
+        ::SiteSetting.set(ROTATION_MARKER, rotated_at.iso8601, setting_type: "string")
+      rescue StandardError => e
+        Rails.logger.error("[JwtKeyStore] HS256 rotation landed but #{ROTATION_MARKER} could not be " \
+                           "recorded (#{e.class}); an empty store would fall back to JWT_SECRET_KEY")
+      end
+
       # Whether a rotation was ever recorded. Sticky once true; a false answer
-      # is re-checked after CACHE_TTL. Read errors are classified like the
-      # store's.
+      # is re-checked after CACHE_TTL. When the database is unreachable the
+      # last-known answer serves (as #fetch_strict does for the secrets, within
+      # STALE_SERVE_LIMIT); with none it raises StoreUnavailable.
       def rotation_recorded?
         now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        last_known = nil
         @mutex.synchronize do
-          entry = @cache[ROTATION_MARKER]
-          return true if entry && entry[:value]
-          return false if entry && entry[:expires_at] > now
+          last_known = @cache[ROTATION_MARKER]
+          return true if last_known && last_known[:value]
+          return false if last_known && last_known[:expires_at] > now
         end
 
         recorded =
           begin
             ::SiteSetting.get(ROTATION_MARKER).present?
           rescue *UNREACHABLE_ERRORS => e
-            raise StoreUnavailable, "JWT rotation marker unreadable (#{e.class})"
+            raise StoreUnavailable, "JWT rotation marker unreadable (#{e.class})" unless last_known
+
+            return serve_last_known(ROTATION_MARKER, last_known, now, "rotation marker unreadable")
           end
-        @mutex.synchronize { @cache[ROTATION_MARKER] = { value: recorded, expires_at: now + CACHE_TTL } }
+        @mutex.synchronize do
+          @cache[ROTATION_MARKER] = { value: recorded, expires_at: now + CACHE_TTL, loaded_at: Time.current }
+        end
         recorded
       end
 

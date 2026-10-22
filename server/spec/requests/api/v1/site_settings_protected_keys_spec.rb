@@ -87,6 +87,39 @@ RSpec.describe "Api::V1::SiteSettings protected keys", type: :request do
     end
   end
 
+  # Security::JwtKeyStore's rotation marker: once set, an empty secret store
+  # refuses to fall back to JWT_SECRET_KEY. Deleting or forging it over REST
+  # would change that, so it is registered protected; rotate_hmac! writes it.
+  describe "the JWT rotation marker" do
+    let(:marker) { Security::JwtKeyStore::ROTATION_MARKER }
+
+    it "is registered as a protected key" do
+      expect(Ai::Tools::SiteSettingTool.protected_key?(marker)).to be(true)
+    end
+
+    it "cannot be created over REST" do
+      post "/api/v1/site_settings",
+           params: { site_setting: { key: marker, value: Time.current.iso8601, setting_type: "string" } },
+           headers: headers, as: :json
+
+      expect_protected_refusal
+      expect(SiteSetting.find_by(key: marker)).to be_nil
+    end
+
+    it "cannot be deleted over REST" do
+      # Mint the admin's token first: with the marker set and no stored secret,
+      # the key store (correctly) refuses to fall back to JWT_SECRET_KEY, so
+      # this process must already hold the bootstrap answer.
+      headers
+      setting = SiteSetting.set(marker, Time.current.iso8601)
+
+      delete "/api/v1/site_settings/#{setting.id}", headers: headers, as: :json
+
+      expect_protected_refusal
+      expect(SiteSetting.find_by(key: marker)).to be_present
+    end
+  end
+
   describe "PUT /api/v1/site_settings/bulk_update" do
     it "still writes a batch of ordinary keys" do
       put "/api/v1/site_settings/bulk_update",

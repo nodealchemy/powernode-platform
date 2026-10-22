@@ -318,6 +318,30 @@ RSpec.describe Security::JwtKeyStore, "HMAC keyring" do
     expect(refreshed_at.call).to eq(1_006.0)
   end
 
+  # Before the first rotation the marker read is on the hot path too. During
+  # an outage it serves its last-known value, like the secrets do, rather than
+  # turning a bootstrap install's every request into a 503.
+  it "serves the last-known rotation marker while the database is unreachable" do
+    expect(described_class.active_hmac_secret).to eq(env_secret)
+    allow(SiteSetting).to receive(:get).and_raise(ActiveRecord::QueryCanceled, "canceling statement")
+
+    expire_cache!
+    expect(described_class.active_hmac_secret).to eq(env_secret)
+  end
+
+  # The secrets are written first and are what matter; the marker is a guard.
+  # A failure to write it must not fail a rotation whose secrets landed.
+  it "completes a rotation, and drops its cache, when the marker write fails" do
+    described_class.active_hmac_secret # warm the cache with the bootstrap secret
+    allow(SiteSetting).to receive(:set).and_raise(ActiveRecord::StatementInvalid, "boom")
+    allow(Rails.logger).to receive(:error)
+
+    expect { described_class.rotate_hmac!(grace_hours: 24) }.not_to raise_error
+
+    expect(described_class.active_hmac_secret).to eq(stored_active_secret)
+    expect(Rails.logger).to have_received(:error).with(/#{described_class::ROTATION_MARKER}/)
+  end
+
   it "still bootstraps from JWT_SECRET_KEY when no rotation was ever recorded" do
     allow(Security::SecretStore).to receive(:read).and_return(nil)
 
