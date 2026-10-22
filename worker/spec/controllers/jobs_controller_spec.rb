@@ -18,7 +18,7 @@ RSpec.describe JobsController do
   end
 
   let(:jwt_secret) { 'test-jobs-controller-secret' }
-  let(:valid_token) { JWT.encode({ 'type' => 'worker', 'sub' => 'system' }, jwt_secret, 'HS256') }
+  let(:valid_token) { JWT.encode({ 'type' => 'worker', 'sub' => 'system', 'aud' => 'worker' }, jwt_secret, 'HS256') }
   let(:server_hash) { { 'command' => 'node', 'args' => [ 'server.js' ], 'env' => {}, 'capabilities' => {}, 'account_id' => 'acct-1' } }
   let(:mcp_request) { { 'jsonrpc' => '2.0', 'id' => 'req-1', 'method' => 'tools/call', 'params' => {} } }
 

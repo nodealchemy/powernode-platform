@@ -16,7 +16,7 @@ RSpec.describe JobsController, 'system_prompt on /llm/*' do
   end
 
   let(:jwt_secret) { 'test-jobs-controller-secret' }
-  let(:valid_token) { JWT.encode({ 'type' => 'worker', 'sub' => 'system' }, jwt_secret, 'HS256') }
+  let(:valid_token) { JWT.encode({ 'type' => 'worker', 'sub' => 'system', 'aud' => 'worker' }, jwt_secret, 'HS256') }
   let(:system_prompt) { 'You are the contract-test agent.' }
   let(:proxy) { instance_double(LlmProxyClient) }
 
