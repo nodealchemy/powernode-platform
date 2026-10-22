@@ -327,10 +327,12 @@ module Ai
           },
           # === Promotion grants (READ-ONLY: issued only from a person's own session) ===
           "list_promotion_grants" => {
-            description: "List time-boxed promotion grants: a person's standing permission for one agent to perform " \
-                         "release.promote into one environment (optionally only some modules, at most N times, until " \
-                         "a time at most 24h out). While one is active and matches, that agent's promotion proceeds " \
-                         "instead of parking. Read-only: grants are issued and revoked only in the UI/REST session.",
+            description: "List the time-boxed grants that let one agent run release.promote into one environment without parking. " \
+                         "A grant is a person's standing permission, optionally limited to some modules, to at most N " \
+                         "uses and to an expiry at most 24h out; while one is active and matches, that agent's " \
+                         "promotion proceeds instead of parking for approval. Use it to see why a promotion did or did " \
+                         "not park, or what an agent may still promote before a release. Read-only: grants are issued " \
+                         "and revoked only in a person's own UI/REST session.",
             parameters: {
               active: { type: "boolean", required: false, description: "Only grants that can still be used" },
               agent_id: { type: "string", required: false, description: "Filter by the agent a grant names" }

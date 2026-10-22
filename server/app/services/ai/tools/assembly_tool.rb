@@ -34,11 +34,14 @@ module Ai
       def self.definition
         {
           name: "assemble_task",
-          description: "Assemble a task for a platform agent: the skills that own it (domain-ceilinged, at most five, " \
-                       "with their prompts and verb manifests), the learnings those skills carry, and the tier, " \
-                       "model and effort to run at (context claude_code: model is haiku|sonnet|opus|fable, effort is " \
-                       "the Agent tool's). Persists the assembly and returns its assembly_id; call again with the " \
-                       "assembly_id to fetch it unchanged.",
+          description: "Assemble the skills, learnings, tier, model and effort a platform agent needs for one task. " \
+                       "Call it before spawning a powernode/* subagent from Claude Code: pass the returned model and " \
+                       "effort to the Agent tool and the assembly_id in the subagent's prompt, and the subagent calls " \
+                       "it again with that assembly_id to fetch the same assembly unchanged. The skills are the ones " \
+                       "that own the task (domain-ceilinged, at most five, with their prompts and verb manifests) and " \
+                       "the learnings are the ones those skills carry; with context claude_code the model is " \
+                       "haiku|sonnet|opus|fable and the effort is the Agent tool's. Persists the assembly and returns " \
+                       "its assembly_id.",
           parameters: {
             action: { type: "string", required: false, description: "assemble_task" },
             task: { type: "string", required: false, description: "The task, in natural language (required unless assembly_id is given)" },
