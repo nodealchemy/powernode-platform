@@ -33,8 +33,12 @@ require "tmpdir"
 # ADVERTISEMENT filter has to be able to answer it. (The generator keeps rows
 # for classes that cannot — see the rake task — which is what lets that sibling
 # fixture stay minimal.)
+#
+# Being a real BaseTool descendant, it is also swept by
+# spec/services/ai/tools/tool_permission_catalog_guard_spec.rb whenever both
+# files load in one run, so its floor is a catalogued permission name.
 class McpToolCatalogAdvertisementFixtureTool < ::Ai::Tools::BaseTool
-  REQUIRED_PERMISSION = "fixture.advertisement.read"
+  REQUIRED_PERMISSION = "ai.agents.read"
 
   def self.definition
     { name: "fixture_advertised_action", description: "fixture tool", parameters: {} }
