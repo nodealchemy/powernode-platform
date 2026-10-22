@@ -511,16 +511,18 @@ module RateLimiting
         "tiered_rate:#{identifier}:#{category}:#{period_key}"
       end
 
+      # Atomic, with a fixed window from the first increment (increment keeps an
+      # existing entry's expiry). Read-then-write lost concurrent increments and
+      # restarted the window on every request.
       def increment_counter(cache_key, period)
-        current = Rails.cache.read(cache_key).to_i
-        Rails.cache.write(cache_key, current + 1, expires_in: period)
-        current + 1
+        Rails.cache.increment(cache_key, 1, expires_in: period).to_i
       rescue StandardError
         1
       end
 
+      # read_counter: a counter written by increment is raw on RedisCacheStore.
       def get_counter(cache_key)
-        Rails.cache.read(cache_key).to_i
+        Rails.cache.read_counter(cache_key).to_i
       rescue StandardError
         0
       end

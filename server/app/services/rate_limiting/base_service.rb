@@ -72,7 +72,7 @@ module RateLimiting
 
         found = false
         Powernode::CacheRedis.scan_each(match: pattern) do |key|
-          current_count = Rails.cache.read(key) || 0
+          current_count = Rails.cache.read_counter(key).to_i
           limit = extract_limit_from_key(key)
           if limit && current_count >= limit
             found = true
@@ -101,7 +101,7 @@ module RateLimiting
 
             controller = parts[1]
             action = parts[2]
-            current_count = Rails.cache.read(key) || 0
+            current_count = Rails.cache.read_counter(key).to_i
             limit = extract_limit_from_key(key)
             ttl = redis.ttl(key)
 
@@ -141,7 +141,7 @@ module RateLimiting
       def count_current_violations
         violations = 0
         Powernode::CacheRedis.scan_each(match: "rate_limit:*") do |key|
-          current_count = Rails.cache.read(key) || 0
+          current_count = Rails.cache.read_counter(key).to_i
           limit = extract_limit_from_key(key)
           violations += 1 if limit && current_count >= limit
         end

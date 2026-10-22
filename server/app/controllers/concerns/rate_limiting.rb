@@ -14,7 +14,9 @@ module RateLimiting
     return if ENV["DISABLE_RATE_LIMITING"] == "true"
 
     key = rate_limit_key
-    current_count = Rails.cache.read(key) || 0
+    # read_counter, not read: increment stores a raw counter on RedisCacheStore,
+    # which a plain read returns as nil.
+    current_count = Rails.cache.read_counter(key).to_i
 
     if current_count >= rate_limit_max_attempts
       render_error(
@@ -29,11 +31,14 @@ module RateLimiting
     @rate_limit_current_count = current_count
   end
 
+  # Atomic, and the window is fixed from the first attempt: increment keeps an
+  # existing entry's expiry and only a new entry takes expires_in. Writing
+  # "count read earlier + 1" lost attempts when two requests read the same count
+  # on a shared store, and restarted the window on every attempt.
   def increment_rate_limit_count
-    return unless @rate_limit_key && @rate_limit_current_count
+    return unless @rate_limit_key
 
-    new_count = @rate_limit_current_count + 1
-    Rails.cache.write(@rate_limit_key, new_count, expires_in: rate_limit_window_seconds.seconds)
+    Rails.cache.increment(@rate_limit_key, 1, expires_in: rate_limit_window_seconds.seconds)
   end
 
   def should_rate_limit?

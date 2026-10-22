@@ -337,7 +337,7 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     # Get all rate limit keys and check for violations
     begin
       Powernode::CacheRedis.scan_each(match: "rate_limit:*") do |key|
-        current_count = Rails.cache.read(key) || 0
+        current_count = Rails.cache.read_counter(key).to_i
         limit = extract_limit_from_key(key)
 
         if limit && current_count >= limit
