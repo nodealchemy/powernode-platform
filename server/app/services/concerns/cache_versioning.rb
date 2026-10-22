@@ -65,10 +65,9 @@
 #     of a live version entry comes from the CACHE_FULL branch
 #     (max_size: 256 MB), which ignores created_at entirely.
 #
-# NOT A LIVE DEFECT ON THIS DEPLOYMENT, and the comment should not read as one:
-# the hub pins CACHE_STORE=memory_store, dev uses redis_cache_store, test uses
-# memory_store. This is a PREREQUISITE for adopting solid_cache, which is why
-# it lands before that decision rather than with it. The failure it forecloses
+# This was landed as a PREREQUISITE for adopting solid_cache, before the hub
+# moved off CACHE_STORE=memory_store (IMP-24a25a083497); dev uses
+# redis_cache_store and test uses memory_store. The failure it forecloses
 # is concrete: Security::VaultClient bumps "vault:<path>" on write/delete with
 # a 5-minute read TTL (vault_client.rb:12), so a resurrected key there means a
 # PRE-ROTATION secret served after a rotation.
@@ -98,18 +97,18 @@
 #
 # ── SCOPE OF AN INVALIDATION: PER-STORE, NOT PER-FLEET ────────────────────
 #
-# A bump reaches exactly as far as the store it is written to. On a hub that
-# pins CACHE_STORE=memory_store (extensions/system/modules/
-# powernode-hub-backend/manifest.yaml), each puma worker holds its OWN
+# A bump reaches exactly as far as the store it is written to. Under
+# CACHE_STORE=memory_store (what the hub pinned until IMP-24a25a083497 moved it
+# to solid_cache_store; also test), each puma worker holds its OWN
 # ActiveSupport::Cache::MemoryStore, so a bump in one worker retires nothing in
 # the others or in hub-worker. That is a property of the configured store, not
 # of this concern, and it predates the delete_matched migration — MemoryStore's
 # #delete_matched was equally per-process. Do NOT read ".bump! invalidates
 # every key above" as fleet-wide: it is true within one store.
 #
-# Making it cross-process means pointing CACHE_STORE at a shared backend, which
-# is a deploy decision with its own boot-reachability risk, not a change to
-# this file. spec/services/concerns/cache_versioning_spec.rb pins BOTH halves
+# Making it cross-process means pointing CACHE_STORE at a shared backend (the
+# hub now runs solid_cache_store), a deploy decision, not a change to this
+# file. spec/services/concerns/cache_versioning_spec.rb pins BOTH halves
 # (a bump not crossing two independent stores, and crossing one shared store)
 # so this paragraph cannot quietly drift from the behaviour.
 #

@@ -3,7 +3,7 @@
 require "rails_helper"
 
 # IMP-01a0823e — RequestInspector's DDoS state used to be Rails.cache keys, and
-# the hub pins CACHE_STORE=memory_store, so every block and every counter was
+# the hub pinned CACHE_STORE=memory_store, so every block and every counter was
 # per puma PROCESS and lost on restart. These examples pin the properties that
 # made moving it worth doing: shared across processes, durable, and atomic.
 RSpec.describe Security::IpBlockStore do

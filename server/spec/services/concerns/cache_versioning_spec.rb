@@ -70,9 +70,9 @@ RSpec.describe CacheVersioning do
   # bumps "vault:<path>" on write/delete with a 5-minute read TTL, so the
   # concrete failure is a PRE-ROTATION secret served after a rotation.
   #
-  # PREREQUISITE, not a live defect: production pins CACHE_STORE=memory_store,
-  # so this forecloses the hazard before solid_cache is adopted rather than
-  # fixing something failing today.
+  # Landed as a PREREQUISITE, while production still pinned
+  # CACHE_STORE=memory_store, so the hazard was foreclosed before the hub moved
+  # to solid_cache (IMP-24a25a083497).
   #
   # A non-repeating token cannot do that: no value it produces has ever been
   # produced before, so no previously-issued key becomes addressable again.
@@ -215,9 +215,9 @@ RSpec.describe CacheVersioning do
   # ACCEPTANCE for this task required two processes or a faithful stand-in. Two
   # independent MemoryStore instances ARE that stand-in: MemoryStore holds its
   # entries in the instance, exactly as each puma worker holds its own store.
-  # The hub pins CACHE_STORE=memory_store (powernode-hub-backend/manifest.yaml),
-  # so this is the live production shape, and it is why the concern's guarantee
-  # is per-process there.
+  # The hub pinned CACHE_STORE=memory_store until IMP-24a25a083497, so this was
+  # the production shape then, and it is why the concern's guarantee is
+  # per-store, not per-fleet.
   describe "scope of a bump" do
     it "does NOT reach a second process under a per-process store" do
       worker_a = ActiveSupport::Cache::MemoryStore.new

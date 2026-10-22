@@ -9,7 +9,7 @@ RSpec.describe RequestInspector do
   let(:middleware) { described_class.new(app) }
 
   # DDoS state lives in Redis now (Security::IpBlockStore), NOT Rails.cache —
-  # the hub pins CACHE_STORE=memory_store, which made blocks per puma worker and
+  # the hub pinned CACHE_STORE=memory_store, which made blocks per puma worker and
   # lost them on restart. Clear only this store's own keys: the redis test
   # database is shared by every rspec process on the box, so a FLUSHDB here
   # would take out a concurrent run.

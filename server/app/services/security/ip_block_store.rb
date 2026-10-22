@@ -4,10 +4,10 @@ module Security
   # Durable, cross-process state for RequestInspector's DDoS controls.
   #
   # WHY THIS EXISTS RATHER THAN Rails.cache. Every counter and every IP block
-  # used to be a Rails.cache key, and the hub pins CACHE_STORE=memory_store
-  # (extensions/system/modules/powernode-hub-backend/manifest.yaml) — a pin the
-  # manifest documents as a deliberate live-hub deploy decision, not an
-  # oversight. MemoryStore is per PROCESS, so:
+  # used to be a Rails.cache key, and the hub pinned CACHE_STORE=memory_store
+  # (extensions/system/modules/powernode-hub-backend/manifest.yaml) until
+  # IMP-24a25a083497 moved it to solid_cache_store. MemoryStore is per PROCESS,
+  # so:
   #
   #   - a block written by one puma worker was invisible to the others, i.e. a
   #     blocked attacker still reached the app on every worker but one;
@@ -21,7 +21,7 @@ module Security
   # Redis store — so on the hub every Retry-After was the hardcoded fallback.
   #
   # This store talks to Redis DIRECTLY (Powernode::Redis), independent of
-  # whatever Rails.cache is configured to be, so the CACHE_STORE pin stays put.
+  # whatever Rails.cache is configured to be.
   # The hub-backend module already requires powernode/redis and sets REDIS_URL;
   # the worker uses the same instance.
   #

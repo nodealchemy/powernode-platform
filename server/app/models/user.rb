@@ -896,10 +896,10 @@ class User < ApplicationRecord
   #     StandardError, so the rescue could not catch it: the invalidation had
   #     never once run, and the exception propagated into whatever changed the
   #     role. Loud, but in the wrong place.
-  #   - on the store the hub actually deploys with (CACHE_STORE=memory_store,
+  #   - on the store the hub deployed with at the time (CACHE_STORE=memory_store,
   #     set in the powernode-hub-backend module manifest) it returns normally,
   #     but MemoryStore is PER-PROCESS: it clears only the calling process's
-  #     copy. That is the whole cache today only because the hub leaves
+  #     copy. That was the whole cache then only because the hub leaves
   #     WEB_CONCURRENCY unset and puma therefore runs single-process
   #     (config/puma.rb:24); a second worker or an out-of-band `rails runner`
   #     keeps its own stale entry.
