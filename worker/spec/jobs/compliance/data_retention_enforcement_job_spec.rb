@@ -20,7 +20,7 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       'data_type' => 'audit_logs',
       'retention_days' => 365,
       'action' => 'archive',
-      'account_id' => nil
+      'account_id' => account_id
     }
   end
 
@@ -252,7 +252,7 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
           'data_type' => 'session_logs',
           'retention_days' => 30,
           'action' => 'delete',
-          'account_id' => nil
+          'account_id' => account_id
         }
       end
 
@@ -297,7 +297,7 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
           'data_type' => 'analytics_data',
           'retention_days' => 180,
           'action' => 'anonymize',
-          'account_id' => nil
+          'account_id' => account_id
         }
       end
 
@@ -357,7 +357,7 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
           'data_type' => 'unknown_type',
           'retention_days' => 30,
           'action' => 'delete',
-          'account_id' => nil
+          'account_id' => account_id
         }
       end
 
@@ -369,11 +369,246 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
         allow(api_client).to receive(:post).and_return('success' => true)
       end
 
-      it 'handles gracefully with zero records' do
+      it 'handles gracefully with zero records and reports it as unsupported, not enforced' do
         result = job.execute
 
-        expect(result[:policies_processed]).to eq(1)
+        expect(result[:policies_processed]).to eq(0)
         expect(result[:records_processed]).to eq(0)
+        expect(result[:policy_results].first[:status]).to eq('unsupported')
+      end
+    end
+  end
+
+  # IMP-01a163fa: the index omitted account_id, and a nil account_id was read
+  # as "system-wide". These pin that a policy only ever purges its own tenant.
+  describe 'tenant scope' do
+    let(:job) { described_class.new }
+    let(:api_client) { instance_double(BackendApiClient) }
+    let(:account_a) { 'account-a' }
+    let(:account_b) { 'account-b' }
+    let(:retention_calls) { [] }
+
+    def a_policy(data_type, action, overrides = {})
+      {
+        'id' => "policy-#{data_type}",
+        'data_type' => data_type,
+        'retention_days' => 30,
+        'action' => action,
+        'account_id' => account_a
+      }.merge(overrides)
+    end
+
+    before do
+      allow(job).to receive(:api_client).and_return(api_client)
+      allow(job).to receive(:log_info)
+      allow(job).to receive(:log_error)
+      allow(job).to receive(:log_warn)
+
+      %i[post patch delete].each do |verb|
+        allow(api_client).to receive(verb) do |path, params|
+          retention_calls << { verb: verb, path: path, params: params } if path.start_with?('/api/v1/internal/retention/')
+          { 'success' => true, 'data' => { 'count' => 1 } }
+        end
+      end
+    end
+
+    def serve(policies)
+      allow(api_client).to receive(:get)
+        .with('/api/v1/internal/data_retention_policies', { active: true })
+        .and_return('success' => true, 'data' => policies)
+    end
+
+    context 'with account-A policies covering every purge path' do
+      before do
+        serve([
+          a_policy('audit_logs', 'archive'),
+          a_policy('user_activity', 'anonymize'),
+          a_policy('session_logs', 'delete'),
+          a_policy('email_logs', 'delete'),
+          a_policy('webhook_logs', 'delete'),
+          a_policy('api_request_logs', 'delete'),
+          a_policy('analytics_data', 'delete'),
+          a_policy('file_uploads', 'delete')
+        ])
+      end
+
+      it 'scopes every purge request to account A and never to account B or all tenants' do
+        job.execute
+
+        expect(retention_calls.size).to eq(8)
+        retention_calls.each do |call|
+          expect(call[:params]).to include(account_id: account_a, scope: 'account'),
+                                   "#{call[:verb]} #{call[:path]} sent #{call[:params].inspect}"
+          expect(call[:params][:account_id]).not_to eq(account_b)
+        end
+      end
+    end
+
+    context 'with a policy that has no explicit scope (nil account_id)' do
+      before { serve([a_policy('session_logs', 'delete', 'account_id' => nil)]) }
+
+      it 'refuses it: no purge request and no enforcement bookkeeping' do
+        job.execute
+
+        expect(retention_calls).to be_empty
+        expect(api_client).not_to have_received(:patch)
+          .with(%r{\A/api/v1/internal/data_retention_policies/}, anything)
+      end
+
+      it 'logs the refusal and records it in the per-type results' do
+        result = job.execute
+
+        expect(job).to have_received(:log_warn).with(/no explicit scope/)
+        expect(result[:policies_processed]).to eq(0)
+        expect(result[:policy_results]).to contain_exactly(
+          hash_including(policy_id: 'policy-session_logs', data_type: 'session_logs', status: 'skipped_unscoped')
+        )
+      end
+    end
+
+    context 'with a blank-string account_id' do
+      before { serve([a_policy('session_logs', 'delete', 'account_id' => '')]) }
+
+      it 'refuses it' do
+        job.execute
+
+        expect(retention_calls).to be_empty
+      end
+    end
+
+    context 'with an account policy that also claims scope "system"' do
+      before { serve([a_policy('session_logs', 'delete', 'scope' => 'system')]) }
+
+      it 'refuses the contradictory scope' do
+        result = job.execute
+
+        expect(retention_calls).to be_empty
+        expect(result[:policy_results].first[:status]).to eq('skipped_unscoped')
+      end
+    end
+
+    context 'with an explicitly system-wide policy' do
+      before { serve([a_policy('session_logs', 'delete', 'account_id' => nil, 'scope' => 'system')]) }
+
+      it 'sends an explicit system scope and no account_id' do
+        job.execute
+
+        expect(retention_calls.size).to eq(1)
+        expect(retention_calls.first[:params]).to include(scope: 'system')
+        expect(retention_calls.first[:params]).not_to have_key(:account_id)
+      end
+    end
+  end
+
+  # IMP-01a163fa: the nightly compliance_check said nothing about whether any
+  # purge actually ran, so a job whose every call 404'd looked like success.
+  describe 'truthful audit' do
+    let(:job) { described_class.new }
+    let(:api_client) { instance_double(BackendApiClient) }
+    let(:audits) { [] }
+    let(:not_found) { BackendApiClient::ApiError.new('Resource not found', 404) }
+
+    let(:policies) do
+      [
+        { 'id' => 'p1', 'data_type' => 'session_logs', 'retention_days' => 30,
+          'action' => 'delete', 'account_id' => 'account-a' },
+        { 'id' => 'p2', 'data_type' => 'audit_logs', 'retention_days' => 365,
+          'action' => 'archive', 'account_id' => 'account-a' }
+      ]
+    end
+
+    before do
+      allow(job).to receive(:api_client).and_return(api_client)
+      allow(job).to receive(:log_info)
+      allow(job).to receive(:log_error)
+      allow(job).to receive(:log_warn)
+      allow(api_client).to receive(:post).with('/api/v1/internal/audit_logs', anything) do |_path, body|
+        audits << body
+        { 'success' => true }
+      end
+    end
+
+    def serve(list)
+      allow(api_client).to receive(:get)
+        .with('/api/v1/internal/data_retention_policies', { active: true })
+        .and_return('success' => true, 'data' => list)
+    end
+
+    context 'when no policies are configured' do
+      before { serve([]) }
+
+      it 'says retention is not configured' do
+        job.execute
+
+        expect(audits.size).to eq(1)
+        expect(audits.first[:metadata]).to include(outcome: 'not_configured', summary: 'retention not configured')
+      end
+    end
+
+    context 'when every purge call 404s' do
+      before do
+        serve(policies)
+        allow(api_client).to receive(:delete).and_raise(not_found)
+        allow(api_client).to receive(:post).with('/api/v1/internal/retention/audit_logs/archive', anything)
+                                           .and_raise(not_found)
+        allow(api_client).to receive(:patch).and_return('success' => true)
+      end
+
+      it 'reports enforcement failed with the unrouted call count' do
+        job.execute
+
+        meta = audits.first[:metadata]
+        expect(meta).to include(outcome: 'failed', summary: 'retention enforcement failed: 2 calls unrouted')
+        expect(meta[:policies_processed]).to eq(0)
+      end
+
+      it 'records a per-type unrouted result and skips the enforcement bookkeeping' do
+        job.execute
+
+        expect(audits.first[:metadata][:policy_results]).to contain_exactly(
+          hash_including(data_type: 'session_logs', status: 'unrouted', records_processed: 0),
+          hash_including(data_type: 'audit_logs', status: 'unrouted', records_processed: 0)
+        )
+        expect(api_client).not_to have_received(:patch)
+      end
+    end
+
+    context 'when every purge call fails' do
+      before do
+        serve(policies)
+        allow(api_client).to receive(:delete).and_raise(BackendApiClient::ApiError.new('Backend server error', 500))
+        allow(api_client).to receive(:post).with('/api/v1/internal/retention/audit_logs/archive', anything)
+                                           .and_raise(BackendApiClient::ApiError.new('Backend server error', 500))
+      end
+
+      it 'reports enforcement failed, not a completed check' do
+        job.execute
+
+        meta = audits.first[:metadata]
+        expect(meta[:outcome]).to eq('failed')
+        expect(meta[:summary]).to start_with('retention enforcement failed')
+        expect(meta[:policy_results].map { |r| r[:status] }).to all(eq('failed'))
+      end
+    end
+
+    context 'when every purge call succeeds' do
+      before do
+        serve(policies)
+        allow(api_client).to receive(:delete).and_return('success' => true, 'data' => { 'count' => 4 })
+        allow(api_client).to receive(:post).with('/api/v1/internal/retention/audit_logs/archive', anything)
+                                           .and_return('success' => true, 'data' => { 'count' => 6 })
+        allow(api_client).to receive(:patch).and_return('success' => true)
+      end
+
+      it 'reports enforced with per-type record counts' do
+        job.execute
+
+        meta = audits.first[:metadata]
+        expect(meta[:outcome]).to eq('enforced')
+        expect(meta[:policy_results]).to contain_exactly(
+          hash_including(data_type: 'session_logs', status: 'enforced', records_processed: 4),
+          hash_including(data_type: 'audit_logs', status: 'enforced', records_processed: 6)
+        )
       end
     end
   end
