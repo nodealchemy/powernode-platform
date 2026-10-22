@@ -342,16 +342,54 @@ RSpec.describe Security::JwtKeyStore, "HMAC keyring" do
     expect(Rails.logger).to have_received(:error).with(/#{described_class::ROTATION_MARKER}/)
   end
 
-  # The documented revert clears the marker to an empty value through the
-  # human-only site_setting_set_protected verb; SiteSetting must accept a
-  # blank value for it, and blank must read as "not rotated".
-  it "accepts a blank rotation marker, which reads back as not rotated" do
+  def delete_stored_hmac_secrets
+    [ described_class::ACTIVE_HMAC_SECRET, described_class::HMAC_KEYRING ].each do |key|
+      Security::SecretStore.delete(account: nil, scope: described_class::SCOPE, key: key)
+    end
+  end
+
+  # The documented revert deletes the stored secrets, then clears the marker
+  # to an empty value through the human-only site_setting_set_protected verb;
+  # blank must save and read as "not rotated".
+  describe "clearing the rotation marker" do
+    before { described_class.rotate_hmac!(grace_hours: 24) }
+
+    it "accepts a blank marker once the stored secret is gone, which reads back as not rotated" do
+      delete_stored_hmac_secrets
+
+      expect(SiteSetting.set(described_class::ROTATION_MARKER, "", setting_type: "string")).to be_persisted
+      described_class.clear_cache!
+
+      expect(described_class.send(:rotation_recorded?)).to be(false)
+    end
+
+    # Blanking the marker while a rotated secret is still stored would leave
+    # that secret in use with the fail-closed guard quietly disarmed: the next
+    # empty store (an old restore, a reconfigured Vault mount) would then fall
+    # back to the retired JWT_SECRET_KEY with no refusal.
+    it "refuses a blank marker while the store still holds a rotated secret" do
+      expect { SiteSetting.set(described_class::ROTATION_MARKER, "", setting_type: "string") }
+        .to raise_error(ActiveRecord::RecordInvalid, /still holds a rotated HS256 secret; delete it first/)
+
+      expect(SiteSetting.get(described_class::ROTATION_MARKER)).to be_present
+    end
+
+    it "allows a blank marker when the store cannot be read, so the revert works during an outage" do
+      allow(Security::SecretStore).to receive(:read)
+        .and_raise(Security::SecretStore::BackendUnavailable, "vault down")
+
+      expect(SiteSetting.set(described_class::ROTATION_MARKER, "", setting_type: "string")).to be_persisted
+    end
+  end
+
+  it "warns when the store holds a secret but no rotation is recorded" do
     described_class.rotate_hmac!(grace_hours: 24)
-
-    expect(SiteSetting.set(described_class::ROTATION_MARKER, "", setting_type: "string")).to be_persisted
+    SiteSetting.find_by(key: described_class::ROTATION_MARKER).update_column(:value, "")
     described_class.clear_cache!
+    allow(Rails.logger).to receive(:warn)
 
-    expect(described_class.send(:rotation_recorded?)).to be(false)
+    expect(described_class.active_hmac_secret).to eq(stored_active_secret)
+    expect(Rails.logger).to have_received(:warn).with(/#{described_class::ROTATION_MARKER}/)
   end
 
   it "still bootstraps from JWT_SECRET_KEY when no rotation was ever recorded" do

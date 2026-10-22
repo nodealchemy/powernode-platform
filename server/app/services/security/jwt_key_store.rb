@@ -171,7 +171,10 @@ module Security
       # cannot be read.
       def active_hmac_secret
         stored = fetch_strict(ACTIVE_HMAC_SECRET).presence
-        return stored if stored
+        if stored
+          warn_unrecorded_rotation unless rotation_recorded?
+          return stored
+        end
 
         if rotation_recorded?
           raise StoreUnavailable, "the store holds no active HS256 secret although a rotation is recorded " \
@@ -372,6 +375,10 @@ module Security
 
       # One warning per key per CACHE_TTL during an outage, not one per request.
       def warn_stale_once(key, now, why)
+        warn_once(key, now, "#{why}; serving the last-known #{key}")
+      end
+
+      def warn_once(key, now, message)
         @stale_warned_at ||= {}
         log = @mutex.synchronize do
           last = @stale_warned_at[key]
@@ -380,7 +387,17 @@ module Security
           @stale_warned_at[key] = now
           true
         end
-        Rails.logger.warn("[JwtKeyStore] #{why}; serving the last-known #{key}") if log
+        Rails.logger.warn("[JwtKeyStore] #{message}") if log
+      end
+
+      # A stored secret with no recorded rotation means the marker was cleared (or
+      # never written) while the secret stayed: the fail-closed guard is off, and
+      # the next empty store would fall back to JWT_SECRET_KEY. Logged once per
+      # CACHE_TTL, like the stale-serve warning.
+      def warn_unrecorded_rotation
+        warn_once(:unrecorded_rotation, Process.clock_gettime(Process::CLOCK_MONOTONIC),
+                        "the store holds an HS256 secret but #{ROTATION_MARKER} is not set; an empty " \
+                        "store would fall back to JWT_SECRET_KEY")
       end
 
       # Best effort: the secrets are already written and are what verification
