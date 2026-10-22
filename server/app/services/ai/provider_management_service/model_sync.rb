@@ -31,11 +31,12 @@ class Ai::ProviderManagementService
           if sync_provider_models(provider, force_refresh: force_refresh)
             results[:synced] += 1
           else
+            heal_default_after_deactivation(provider, was_active: true)
             results[:failed] += 1
             results[:errors] << { provider_id: provider.id, name: provider.name }
           end
         rescue StandardError => e
-          Rails.logger.error "Failed to sync provider #{provider.id}: #{e.message}"
+          Rails.logger.error "Failed to sync provider #{provider.id}: #{redact_sync_error(e.message)}"
           results[:failed] += 1
           results[:errors] << { provider_id: provider.id, name: provider.name, error: e.message }
         end
@@ -54,15 +55,17 @@ class Ai::ProviderManagementService
 
         Ai::Provider.model_sync_pending.find_each do |provider|
           provider.clear_model_sync_pending!
+          was_active = provider.is_active?
 
           if sync_provider_models(provider, force_refresh: true)
             results[:synced] += 1
           else
+            heal_default_after_deactivation(provider, was_active: was_active)
             results[:failed] += 1
             results[:errors] << { provider_id: provider.id, name: provider.name }
           end
         rescue StandardError => e
-          Rails.logger.error "Failed pending model sync for provider #{provider.id}: #{e.message}"
+          Rails.logger.error "Failed pending model sync for provider #{provider.id}: #{redact_sync_error(e.message)}"
           results[:failed] += 1
           results[:errors] << { provider_id: provider.id, name: provider.name, error: e.message }
         end
@@ -136,21 +139,43 @@ class Ai::ProviderManagementService
           # configured.
           return false unless synced
 
+          # A success supersedes the last recorded failure: a later failure
+          # report must never surface that stale reason.
+          provider.merge_metadata!(remove: %w[last_sync_error last_sync_failed_at])
+
           # Health status is now computed via the model's health_status method
           # Cache the successful sync
           Rails.cache.write(cache_key, true, expires_in: PROVIDER_MODELS_CACHE_TTL)
           true
         rescue StandardError => e
-          Rails.logger.error "Failed to sync models for provider #{provider.id}: #{e.message}"
+          Rails.logger.error "Failed to sync models for provider #{provider.id}: #{redact_sync_error(e.message)}"
           record_sync_failure(provider, e.message)
         end
       end
 
       # A sync error names the URL it tried, and that URL can carry the
-      # credential: in its query (?key=...) or its userinfo (user:pass@host).
-      # Keep the host and path, drop both.
+      # credential: in its userinfo (user:pass@host, the password may itself
+      # hold an @) or its query (?key=..., or a bare ?token). Keep the scheme,
+      # host and path; drop both. Only text after a scheme:// is touched, so
+      # prose question marks and e-mail addresses survive. A bare query value
+      # outside a URL (GET /path?key=...) is still dropped when it has an =.
       def redact_sync_error(message)
-        message.to_s.gsub(%r{(\w+://)[^/\s@]+@}, "\\1").gsub(/\?(?=\S*=)\S*/, "?[FILTERED]")
+        message.to_s
+               .gsub(%r{(\w+://)[^/?#\s]*@}, "\\1")
+               .gsub(%r{(\w+://[^\s?#]*)\?[^\s#]*}, "\\1?[FILTERED]")
+               .gsub(/\?(?=[^\s\[]*=)\S*/, "?[FILTERED]")
+      end
+
+      # The sweep deactivates a provider whose sync fails (handle_sync_failure).
+      # When that took away a provider that was serving, the account default
+      # may now point at nothing: heal it like a removal does.
+      def heal_default_after_deactivation(provider, was_active:)
+        return unless was_active
+        return if provider.reload.is_active?
+
+        ::Ai::ProviderDefaultService.heal!(provider.account)
+      rescue StandardError => e
+        Rails.logger.error "[ProviderSync] default heal failed for provider #{provider.id}: #{e.class}"
       end
 
       # Invalidate provider models cache
@@ -330,20 +355,17 @@ class Ai::ProviderManagementService
       # models cannot satisfy the supported_models presence validation.
       # Returns false so it can be the tail call of a failure path.
       def record_sync_failure(provider, error_message, **extra_columns)
-        current_metadata = provider.metadata || {}
-        current_metadata["last_sync_error"] = redact_sync_error(error_message)
-        current_metadata["last_sync_failed_at"] = Time.current.iso8601
-
-        Ai::Provider.where(id: provider.id).update_all(
-          { metadata: current_metadata }.merge(extra_columns)
-        )
+        Ai::Provider.where(id: provider.id).update_all(extra_columns) if extra_columns.any?
+        # Merged into the stored row, not written from this (pre-sync) copy.
+        provider.merge_metadata!(set: { "last_sync_error" => redact_sync_error(error_message),
+                                        "last_sync_failed_at" => Time.current.iso8601 })
         provider.reload
         false
       end
 
       # Handle sync failure: clear models, deactivate provider, raise error
       def handle_sync_failure(provider, error_message)
-        Rails.logger.error "[ProviderSync] #{error_message} (provider: #{provider.id} / #{provider.name})"
+        Rails.logger.error "[ProviderSync] #{redact_sync_error(error_message)} (provider: #{provider.id} / #{provider.name})"
 
         # We intentionally want 0 models and a deactivated provider on a
         # failed fetch
@@ -362,11 +384,10 @@ class Ai::ProviderManagementService
       def handle_sync_skipped(provider, reason)
         Rails.logger.info "[ProviderSync] sync deferred for provider #{provider.id} / #{provider.name}: #{reason}"
 
-        current_metadata = provider.metadata || {}
-        current_metadata["last_sync_skipped_at"] = Time.current.iso8601
-        current_metadata["last_sync_skipped_reason"] = reason
-        Ai::Provider.where(id: provider.id).update_all(metadata: current_metadata)
+        provider.merge_metadata!(set: { "last_sync_skipped_at" => Time.current.iso8601,
+                                        "last_sync_skipped_reason" => reason })
         provider.reload
+        provider.note_sync_skipped!(reason)
         false
       end
 
@@ -403,7 +424,7 @@ class Ai::ProviderManagementService
               return true
             end
           rescue HTTP::Error, JSON::ParserError => e
-            Rails.logger.error "Error fetching #{label} models: #{e.message}, falling back to static models"
+            Rails.logger.error "Error fetching #{label} models: #{redact_sync_error(e.message)}, falling back to static models"
           end
         end
 

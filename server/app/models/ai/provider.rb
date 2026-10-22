@@ -166,15 +166,38 @@ module Ai
     # callbacks (the flag is set from after_commit — a writer that re-enters
     # callbacks would loop).
     def mark_model_sync_pending!
-      current_metadata = metadata || {}
-      current_metadata["model_sync_pending_at"] = Time.current.iso8601
-      update_column(:metadata, current_metadata)
+      merge_metadata!(set: { "model_sync_pending_at" => Time.current.iso8601 })
     end
 
     def clear_model_sync_pending!
-      return unless (metadata || {}).key?("model_sync_pending_at")
+      merge_metadata!(remove: %w[model_sync_pending_at])
+    end
 
-      update_column(:metadata, metadata.except("model_sync_pending_at"))
+    # Sets and removes metadata keys in ONE statement against the stored row,
+    # never from this object's (possibly stale) copy: a key another writer set
+    # meanwhile (is_default, model_sync_pending_at, claimed_from) survives.
+    # No validations, no callbacks, no updated_at bump; this object's metadata
+    # is refreshed from the row.
+    def merge_metadata!(set: {}, remove: [])
+      sql = "metadata = (COALESCE(metadata, '{}'::jsonb) - ARRAY[?]::text[]) || ?::jsonb"
+      self.class.where(id: id).update_all([ sql, remove.presence || [ "" ], set.to_json ])
+      self[:metadata] = self.class.where(id: id).pick(:metadata)
+      clear_attribute_changes([ :metadata ])
+      metadata
+    end
+
+    # True for a type with a live model-list sync. Any other type keeps the
+    # models the operator supplied: the generic sync would overwrite them.
+    def live_model_sync?
+      ::Ai::Providers::ModelSyncAndActivate::SYNCABLE_TYPES.include?(provider_type.to_s.downcase)
+    end
+
+    # Why the sync running under #with_sync_options deferred itself (no
+    # credential to call with), or nil when it did not.
+    attr_reader :sync_skipped_reason
+
+    def note_sync_skipped!(reason)
+      @sync_skipped_reason = reason
     end
 
     # Class Methods
@@ -197,12 +220,13 @@ module Ai
     # calls honour. A deadline bounds the sync without interrupting the thread
     # (an interrupt could land in the middle of a DB write).
     def with_sync_options(credential: nil, deadline: nil)
-      previous = [ @sync_credential, @sync_deadline ]
+      previous = [ @sync_credential, @sync_deadline, @sync_skipped_reason ]
       @sync_credential = credential
       @sync_deadline = deadline
+      @sync_skipped_reason = nil
       yield
     ensure
-      @sync_credential, @sync_deadline = previous
+      @sync_credential, @sync_deadline, @sync_skipped_reason = previous
     end
 
     # Seconds the next sync request may take: its usual limit, cut to what is
@@ -235,6 +259,9 @@ module Ai
       relevant_change = sync_triggers.any? { |attr| saved_change_to_attribute?(attr) }
 
       return unless relevant_change
+      # A type with no live sync keeps the models the operator supplied; the
+      # sweep's generic sync would overwrite them.
+      return unless live_model_sync?
       # Not when the provider was just deactivated. An INACTIVE provider whose
       # URL or type changed IS flagged: that is the recovery path after a failed
       # create-time sync parked it (it used to be blocked here).

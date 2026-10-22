@@ -12,12 +12,19 @@ module Ai
     #
     # Nothing here reads or returns credential material.
     class ModelSyncAndActivate
-      Result = Struct.new(:success, :deferred, :model_count, :error, :activated, :default, :remaining_seconds, keyword_init: true) do
+      # skipped: the sync deferred itself because no credential could make the
+      # call (handle_sync_skipped); nothing was fetched and nothing changed.
+      Result = Struct.new(:success, :deferred, :skipped, :model_count, :error, :activated, :default, :remaining_seconds,
+                          keyword_init: true) do
         def to_h
-          { success: success, deferred: deferred, model_count: model_count, error: error,
+          { success: success, deferred: deferred, skipped: skipped || false, model_count: model_count, error: error,
             activated: activated, default: default }
         end
       end
+
+      # What a sync writes to metadata. A failed sync puts back exactly these,
+      # leaving every other key as the row holds it now.
+      SYNC_METADATA_KEYS = %w[last_sync_error last_sync_failed_at last_sync_skipped_at last_sync_skipped_reason].freeze
 
       # Types with a live model-list sync. Any other type falls to the generic
       # placeholder sync, which would overwrite the models the operator
@@ -25,7 +32,12 @@ module Ai
       SYNCABLE_TYPES = %w[ollama openai anthropic google azure azure_openai groq grok xai mistral cohere].freeze
 
       # One total time budget for a create-time sync, however many requests
-      # (and fallbacks) the type's sync makes.
+      # (and fallbacks) the type's sync makes. Each request's http.rb global
+      # timeout is cut to what is left of it, and that timeout wraps socket open
+      # (DNS included) as well as the read. Name resolution is a blocking
+      # getaddrinfo call, which Ruby's Timeout may not be able to interrupt on
+      # this Ruby (3.2): a stalled resolver can overrun the budget by up to its
+      # own timeout (resolv.conf `timeout` x `attempts`, per nameserver).
       CREATE_BUDGET_SECONDS = 10
 
       # activate:             activate the provider on success
@@ -59,7 +71,7 @@ module Ai
         ok = run_sync
         @provider.reload
         unless ok && @provider.supported_models.present?
-          return protect ? restore_after_failure(snapshot) : failure(ok)
+          return protect ? restore_after_failure(snapshot, ok: ok) : failure(ok)
         end
 
         activated = activate!
@@ -69,7 +81,8 @@ module Ai
                    remaining_seconds: remaining)
       rescue StandardError => e
         Rails.logger.error("[Ai::Providers::ModelSyncAndActivate] #{e.class} for provider #{@provider.id}")
-        Result.new(success: false, deferred: false, model_count: 0, error: ::Ai::ProviderManagementService.redact_sync_error(e.message).truncate(300),
+        Result.new(success: false, deferred: false, model_count: 0,
+                   error: ::Ai::ProviderManagementService.redact_sync_error(e.message).truncate(300),
                    activated: false, default: false)
       end
 
@@ -78,7 +91,9 @@ module Ai
       def run_sync
         @deadline = @budget ? now + CREATE_BUDGET_SECONDS : nil
         @provider.with_sync_options(credential: @credential, deadline: @deadline) do
-          ::Ai::ProviderManagementService.sync_provider_models(@provider, force_refresh: true)
+          ok = ::Ai::ProviderManagementService.sync_provider_models(@provider, force_refresh: true)
+          @skipped_reason = @provider.sync_skipped_reason
+          ok
         end
       end
 
@@ -104,13 +119,10 @@ module Ai
 
       # Put the provider back as it was; the failure is the credential's (when
       # one was being added) or a deferred retry (create time).
-      def restore_after_failure(snapshot, reason: nil, force_deferred: false)
+      def restore_after_failure(snapshot, ok: false, reason: nil, force_deferred: false)
         @provider.reload
-        metadata = @provider.metadata || {}
-        error = reason || metadata["last_sync_error"].presence || metadata["last_sync_skipped_reason"].presence ||
-                "Model sync failed"
-        @provider.update_columns(is_active: snapshot[:is_active], supported_models: snapshot[:supported_models],
-                                 metadata: snapshot[:metadata])
+        error = reason || failure_reason(ok)
+        restore_sync_state(snapshot)
         @provider.reload
         if @credential
           @credential.record_failure!(error.to_s.truncate(300))
@@ -118,9 +130,38 @@ module Ai
           @provider.mark_model_sync_pending!
         end
         spent = @deadline.present? && remaining.zero?
-        Result.new(success: false, deferred: force_deferred || @credential.nil? || spent,
+        Result.new(success: false, deferred: force_deferred || @credential.nil? || spent, skipped: skipped?,
                    model_count: @provider.supported_models&.size.to_i,
                    error: error.to_s.truncate(300), activated: false, default: false, remaining_seconds: remaining)
+      end
+
+      # Undo what the failed sync wrote, and only that, compare-and-set against
+      # the stored row, so a write that landed while the HTTP calls were in
+      # flight (make_default, an operator edit, the pending flag) survives:
+      #   * is_active / supported_models go back only while the row still holds
+      #     what a failed sync leaves (inactive, no models);
+      #   * metadata gets back its snapshot values for SYNC_METADATA_KEYS only.
+      def restore_sync_state(snapshot)
+        before = (snapshot[:metadata] || {}).slice(*SYNC_METADATA_KEYS)
+        ::Ai::Provider.transaction do
+          ::Ai::Provider.where(id: @provider.id, is_active: false).where("supported_models = '[]'::jsonb")
+                        .update_all(is_active: snapshot[:is_active], supported_models: snapshot[:supported_models] || [])
+          @provider.merge_metadata!(set: before, remove: SYNC_METADATA_KEYS - before.keys)
+        end
+      end
+
+      def skipped?
+        @skipped_reason.present?
+      end
+
+      # This run's reason, never a stale one: a skip names its own reason; a
+      # sync that answered with nothing says so; a failed one recorded its
+      # error just now (record_sync_failure).
+      def failure_reason(ok)
+        return @skipped_reason if skipped?
+        return "Model sync returned no models" if ok
+
+        @provider.metadata&.dig("last_sync_error").presence || "Model sync failed"
       end
 
       def activate!
@@ -140,13 +181,9 @@ module Ai
                    error: "No live model sync for this provider type", activated: false, default: false)
       end
 
-      def failure(_ok)
-        metadata = @provider.metadata || {}
-        skipped = metadata["last_sync_skipped_reason"].present? && metadata["last_sync_error"].blank?
-        error = metadata["last_sync_error"].presence || metadata["last_sync_skipped_reason"].presence ||
-                "Model sync returned no models"
-        Result.new(success: false, deferred: skipped, model_count: @provider.supported_models&.size.to_i,
-                   error: error, activated: false, default: false)
+      def failure(ok)
+        Result.new(success: false, deferred: skipped?, skipped: skipped?, model_count: @provider.supported_models&.size.to_i,
+                   error: failure_reason(ok), activated: false, default: false)
       end
     end
   end

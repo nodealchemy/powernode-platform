@@ -56,12 +56,12 @@ module Ai
                   # Verify it's JSON, not HTML
                   if body.start_with?("{") || body.start_with?("[")
                     api_data = JSON.parse(body)
-                    Rails.logger.info "Ollama sync succeeded with endpoint: #{endpoint[:url]}"
+                    Rails.logger.info "Ollama sync succeeded with endpoint: #{redact_sync_error(endpoint[:url])}"
                     break
                   end
                 end
               rescue HTTP::Error, JSON::ParserError => e
-                Rails.logger.debug "Ollama endpoint #{endpoint[:url]} failed: #{e.message}"
+                Rails.logger.debug "Ollama endpoint #{redact_sync_error(endpoint[:url])} failed: #{redact_sync_error(e.message)}"
                 next
               end
             end
@@ -91,11 +91,11 @@ module Ai
               provider.update(supported_models: supported_models)
               Rails.logger.info "Successfully synced #{supported_models.length} models for Ollama provider #{provider.id}"
             else
-              Rails.logger.error "Failed to fetch models from any Ollama endpoint for provider #{provider.id} (base_url: #{base_url})"
+              Rails.logger.error "Failed to fetch models from any Ollama endpoint for provider #{provider.id} (base_url: #{redact_sync_error(base_url)})"
               handle_sync_failure(provider, "Could not connect to Ollama API at #{base_url}")
             end
           rescue HTTP::Error, Errno::ECONNREFUSED, Errno::EHOSTUNREACH, Errno::ETIMEDOUT => e
-            Rails.logger.error "Error syncing Ollama models: #{e.message}"
+            Rails.logger.error "Error syncing Ollama models: #{redact_sync_error(e.message)}"
             handle_sync_failure(provider, "Could not connect to Ollama API: #{e.message}")
           end
         end
