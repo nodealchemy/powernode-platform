@@ -1,8 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { providersApi } from '@/shared/services/ai';
+import type { ProviderModelSyncResult } from '@/shared/services/ai';
 import type { AiProviderCredential } from '@/shared/types/ai';
 import { getErrorMessage } from '@/shared/utils/typeGuards';
+
+/** " Synced N models." for a save whose model sync succeeded, else "". */
+export function modelSyncSuffix(sync?: ProviderModelSyncResult): string {
+  if (!sync?.success) return '';
+  return ` Synced ${sync.model_count} model${sync.model_count === 1 ? '' : 's'}.`;
+}
+
+/**
+ * The server's message when enabling failed because the model sync did
+ * (422, code model_sync_failed); null for any other error.
+ */
+export function modelSyncFailureMessage(error: unknown): string | null {
+  if (typeof error !== 'object' || error === null || !('response' in error)) return null;
+  const response = (error as { response?: { status?: number; data?: { code?: string; error?: string } } }).response;
+  if (response?.status !== 422 || response.data?.code !== 'model_sync_failed') return null;
+  return response.data.error || 'Model sync failed; the provider was not enabled.';
+}
 
 export function useEditProviderForm(providerId: string, isOpen: boolean, onSuccess: () => void, onClose: () => void) {
   const [loading, setLoading] = useState(false);
@@ -112,7 +130,19 @@ export function useEditProviderForm(providerId: string, isOpen: boolean, onSucce
         }
       });
 
-      await providersApi.updateProvider(providerId, providerUpdateData);
+      const result = await providersApi.updateProvider(providerId, providerUpdateData);
+      const modelSync = result?.model_sync;
+      const syncSuffix = modelSyncSuffix(modelSync);
+
+      // Saved, but the connection edit's model sync failed: the provider kept
+      // what it had and the background sweep will retry.
+      if (modelSync && !modelSync.success) {
+        addNotification({
+          type: 'warning',
+          title: 'Model Sync Failed',
+          message: `${formData.name} was saved, but its model sync failed: ${modelSync.error || 'unknown error'}`
+        });
+      }
 
       if (credentialData.name.trim() && credentialData.api_key.trim()) {
         try {
@@ -136,7 +166,7 @@ export function useEditProviderForm(providerId: string, isOpen: boolean, onSucce
           addNotification({
             type: 'success',
             title: 'Provider and Credential Updated',
-            message: `${formData.name} and new credential have been saved successfully`
+            message: `${formData.name} and new credential have been saved successfully.${syncSuffix}`
           });
         } catch (credError: unknown) {
           let errorMessage = 'Failed to create credential. Please try again.';
@@ -169,13 +199,22 @@ export function useEditProviderForm(providerId: string, isOpen: boolean, onSucce
         addNotification({
           type: 'success',
           title: 'Provider Updated',
-          message: `${formData.name} has been updated successfully`
+          message: `${formData.name} has been updated successfully.${syncSuffix}`
         });
       }
 
       onSuccess();
       onClose();
-    } catch (_error) {
+    } catch (error) {
+      const syncFailure = modelSyncFailureMessage(error);
+      if (syncFailure) {
+        // The other edits were saved and the provider stayed inactive: refresh
+        // the list, keep the form open on the true state so the URL can be fixed.
+        setFormData(prev => ({ ...prev, is_active: false }));
+        addNotification({ type: 'error', title: 'Provider Not Enabled', message: syncFailure });
+        onSuccess();
+        return;
+      }
       addNotification({
         type: 'error',
         title: 'Update Failed',

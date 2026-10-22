@@ -99,6 +99,8 @@ export type {
   UsageSummary,
   ProviderStatistics,
   ConnectionTestResult,
+  ProviderModelSyncResult,
+  ProviderUpdateResult,
 } from '@/shared/services/ai/ProvidersApiService';
 
 // Re-export Data Sources service

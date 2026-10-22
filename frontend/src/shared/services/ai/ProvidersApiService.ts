@@ -100,6 +100,22 @@ export interface ConnectionTestResult {
   model_info?: Record<string, unknown>;  // Model information
 }
 
+/** Outcome of the server-side model sync a provider save runs (create, or an edit to its connection or enabling it). */
+export interface ProviderModelSyncResult {
+  success: boolean;
+  deferred?: boolean;
+  model_count: number;
+  error: string | null;
+  activated?: boolean;
+  default?: boolean;
+}
+
+/** PATCH /api/v1/ai/providers/:id answer: model_sync is present only when the edit synced. */
+export interface ProviderUpdateResult {
+  provider: AiProvider;
+  model_sync?: ProviderModelSyncResult;
+}
+
 export interface ProviderAvailability {
   available: boolean;
   reason: string;
@@ -164,9 +180,11 @@ class ProvidersApiService extends BaseApiService {
   /**
    * Update existing provider
    * PATCH /api/v1/ai/providers/:id
+   * A connection edit or enabling the provider syncs its models; a failed
+   * sync while enabling rejects with 422 (code: model_sync_failed).
    */
-  async updateProvider(id: string, data: Partial<CreateProviderRequest>): Promise<AiProvider> {
-    return this.update<AiProvider>(this.resource, id, { provider: data });
+  async updateProvider(id: string, data: Partial<CreateProviderRequest>): Promise<ProviderUpdateResult> {
+    return this.update<ProviderUpdateResult>(this.resource, id, { provider: data });
   }
 
   /**
