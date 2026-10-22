@@ -92,6 +92,10 @@ module Api
         end
 
         # PATCH /api/v1/ai/providers/:id
+        # A connection edit (base URL, endpoint, type) or turning the provider
+        # on syncs its models inline (Ai::Providers::UpdateWithModelSync).
+        # Enabling activates only on a sync that returned models; otherwise the
+        # other edits stay saved and the answer is 422 with the sync's reason.
         def update
           attrs = provider_params
           if attrs.key?(:metadata)
@@ -99,16 +103,16 @@ module Api
             attrs[:metadata] = (attrs[:metadata].to_h).merge((@provider.metadata || {}).slice(*SERVER_METADATA_KEYS))
           end
 
-          if @provider.update(attrs)
-            render_success({
-              provider: serialize_provider_detail(@provider)
-            })
+          outcome = ::Ai::Providers::UpdateWithModelSync.call(@provider, attrs)
+          return render_validation_error(@provider.errors) unless outcome.saved
 
-            log_audit_event("ai.providers.update", @provider,
-              changes: @provider.previous_changes.keys
-            )
+          log_audit_event("ai.providers.update", @provider, changes: outcome.changes)
+          payload = { provider: serialize_provider_detail(@provider), model_sync: outcome.sync&.to_h }.compact
+
+          if outcome.activation_failed
+            render_error(outcome.message, status: :unprocessable_content, code: "model_sync_failed", details: payload)
           else
-            render_validation_error(@provider.errors)
+            render_success(payload)
           end
         end
 

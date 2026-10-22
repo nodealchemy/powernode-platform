@@ -27,6 +27,12 @@ module Ai
       search retrieval fine_tuning model_training devops_execution
     ].freeze
 
+    # The attributes a model sync reads to reach the upstream API (the base URL
+    # and type; the endpoint is kept with them). Changing one makes the synced
+    # models stale. No configuration or header field feeds a sync: the
+    # credential does, and saving one syncs on its own.
+    CONNECTION_ATTRIBUTES = %w[api_base_url api_endpoint provider_type].freeze
+
     # Associations
     belongs_to :account
     has_many :provider_credentials, class_name: "Ai::ProviderCredential", foreign_key: "ai_provider_id", dependent: :destroy
@@ -225,7 +231,7 @@ module Ai
 
     def schedule_model_sync
       # Only trigger sync when relevant fields change (not on routine metadata updates)
-      sync_triggers = %w[api_base_url api_endpoint provider_type is_active]
+      sync_triggers = CONNECTION_ATTRIBUTES + %w[is_active]
       relevant_change = sync_triggers.any? { |attr| saved_change_to_attribute?(attr) }
 
       return unless relevant_change
@@ -234,10 +240,12 @@ module Ai
       # create-time sync parked it (it used to be blocked here).
       return if saved_change_to_attribute?("is_active") && !is_active?
 
-      # Flag for the worker pull-sweep instead of fetching inline — the old
-      # synchronous fetch put multi-second upstream HTTP calls inside every
-      # provider save. AiProviderPendingSyncJob picks flags up within
-      # minutes; the daily full sweep remains the backstop.
+      # Flag for the worker pull-sweep: a plain save does not fetch inline.
+      # The providers PATCH runs a bounded inline sync after its save and
+      # clears this flag when that sync succeeds, so the flag is the backstop
+      # for a failed or timed-out sync (or a request that dies mid-sync).
+      # AiProviderPendingSyncJob picks flags up within minutes; the daily full
+      # sweep remains the last resort.
       mark_model_sync_pending!
     rescue StandardError => e
       Rails.logger.error "Failed to flag provider #{id} for model sync: #{e.message}"

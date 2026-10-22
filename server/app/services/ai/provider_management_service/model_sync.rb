@@ -146,6 +146,13 @@ class Ai::ProviderManagementService
         end
       end
 
+      # A sync error names the URL it tried, and that URL can carry the
+      # credential: in its query (?key=...) or its userinfo (user:pass@host).
+      # Keep the host and path, drop both.
+      def redact_sync_error(message)
+        message.to_s.gsub(%r{(\w+://)[^/\s@]+@}, "\\1").gsub(/\?(?=\S*=)\S*/, "?[FILTERED]")
+      end
+
       # Invalidate provider models cache
       def invalidate_provider_models_cache(provider_id)
         Rails.cache.delete("ai:provider_models:#{provider_id}")
@@ -324,9 +331,7 @@ class Ai::ProviderManagementService
       # Returns false so it can be the tail call of a failure path.
       def record_sync_failure(provider, error_message, **extra_columns)
         current_metadata = provider.metadata || {}
-        # A failing request URL can carry the credential (?key=...): keep the
-        # path, drop the query values.
-        current_metadata["last_sync_error"] = error_message.to_s.gsub(/\?(?=\S*=)\S*/, "?[FILTERED]")
+        current_metadata["last_sync_error"] = redact_sync_error(error_message)
         current_metadata["last_sync_failed_at"] = Time.current.iso8601
 
         Ai::Provider.where(id: provider.id).update_all(

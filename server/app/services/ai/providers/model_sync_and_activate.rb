@@ -69,7 +69,7 @@ module Ai
                    remaining_seconds: remaining)
       rescue StandardError => e
         Rails.logger.error("[Ai::Providers::ModelSyncAndActivate] #{e.class} for provider #{@provider.id}")
-        Result.new(success: false, deferred: false, model_count: 0, error: e.message.to_s.truncate(300),
+        Result.new(success: false, deferred: false, model_count: 0, error: ::Ai::ProviderManagementService.redact_sync_error(e.message).truncate(300),
                    activated: false, default: false)
       end
 
@@ -106,7 +106,9 @@ module Ai
       # one was being added) or a deferred retry (create time).
       def restore_after_failure(snapshot, reason: nil, force_deferred: false)
         @provider.reload
-        error = reason || @provider.metadata&.dig("last_sync_error").presence || "Model sync failed"
+        metadata = @provider.metadata || {}
+        error = reason || metadata["last_sync_error"].presence || metadata["last_sync_skipped_reason"].presence ||
+                "Model sync failed"
         @provider.update_columns(is_active: snapshot[:is_active], supported_models: snapshot[:supported_models],
                                  metadata: snapshot[:metadata])
         @provider.reload
