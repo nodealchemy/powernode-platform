@@ -288,6 +288,16 @@ RSpec.describe Security::VaultClient do
       expect(leaked).to be_empty, "secret material written to Rails.cache: #{leaked.map(&:first).inspect}"
     end
 
+    # A Vault reconfiguration (new address, new AppRole) may point at a
+    # different Vault; values cached from the old one must not be served.
+    it "is emptied by .reconfigure!" do
+      client.read_secret(path)
+      described_class.reconfigure!
+      client.read_secret(path)
+
+      expect(logical).to have_received(:read).with(path).twice
+    end
+
     it "still serves the second read from its own cache, without a second Vault call" do
       client.read_secret(path)
       client.read_secret(path)

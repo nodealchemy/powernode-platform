@@ -428,6 +428,9 @@ module Security
       # Reset the singleton — called after Vault config is updated via UI
       def reconfigure!
         @instance = nil
+        # Values cached from the previous configuration may come from a
+        # different Vault; never serve them after a reconfiguration.
+        SECRET_CACHE.clear
       end
 
       # Read Vault config from AdminSetting (DB-persisted, set via UI).
