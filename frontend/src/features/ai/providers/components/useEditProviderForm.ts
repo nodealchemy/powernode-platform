@@ -221,6 +221,12 @@ export function useEditProviderForm(providerId: string, isOpen: boolean, onSucce
 
       // The new credential goes FIRST: enabling a provider syncs its models,
       // and that sync needs the key. A refused credential saves nothing else.
+      // Known wrinkle: when the same save also changes an Ollama base URL, the
+      // credential's own sync and connection test run against the OLD URL, so
+      // the new credential can show last_test_status "failed" even though the
+      // PATCH's sync against the new URL then succeeds. "Test" on the
+      // credential clears it; the model-list sync is not a connection test, so
+      // its success does not reset the credential's counters.
       const credentialSaved = await saveNewCredential();
       if (credentialSaved === false) return;
 
