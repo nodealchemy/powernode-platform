@@ -50,7 +50,7 @@ module Ai
                   # Sort by model name (newest first based on naming convention)
                   supported_models.sort_by! { |m| -anthropic_model_sort_priority(m["id"]) }
 
-                  provider.update(supported_models: supported_models)
+                  store_synced_models!(provider, supported_models, "the Anthropic API")
                   Rails.logger.info "Successfully synced #{supported_models.length} models from Anthropic API for provider #{provider.id}"
                   file_new_anthropic_family_offers(provider, supported_models.map { |m| m["id"] })
                   return true

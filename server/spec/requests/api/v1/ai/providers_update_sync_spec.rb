@@ -222,6 +222,47 @@ RSpec.describe 'Api::V1::Ai::Providers update syncs models', type: :request do
     end
   end
 
+  # An upstream that answers with NO models is a failed sync, not a success
+  # that silently keeps the stale list.
+  context 'an upstream that lists no models, on an active provider' do
+    before { old_models }
+
+    def expect_failed_sync_kept_for_retry
+      expect(response).to have_http_status(:ok)
+      expect(body.dig('data', 'model_sync')).to include('success' => false)
+      expect(body.dig('data', 'model_sync', 'error')).to match(/returned no models/i)
+      expect(body.dig('data', 'warning')).to match(/disabled if the background retry also fails/i)
+      provider.reload
+      expect(provider.is_active).to be(true)
+      expect(provider.supported_models).to eq(old_models)
+      expect(provider.metadata).to have_key('model_sync_pending_at')
+    end
+
+    it 'reports an Ollama tags answer with no models as a failed sync' do
+      stub_request(:get, "#{new_url}/api/tags")
+        .to_return(status: 200, body: { models: [] }.to_json, headers: { 'Content-Type' => 'application/json' })
+
+      patch_provider(api_base_url: new_url)
+
+      expect_failed_sync_kept_for_retry
+    end
+
+    context 'through a bearer-type sync' do
+      let(:provider) { create(:ai_provider, :openai, account: account) }
+
+      it 'reports an OpenAI model list with no models as a failed sync' do
+        create(:ai_provider_credential, account: account, provider: provider)
+        provider.clear_model_sync_pending!
+        stub_request(:get, 'https://api.openai.com/v1/models')
+          .to_return(status: 200, body: { data: [] }.to_json, headers: { 'Content-Type' => 'application/json' })
+
+        patch_provider(api_base_url: 'https://openai-proxy.internal/v1')
+
+        expect_failed_sync_kept_for_retry
+      end
+    end
+  end
+
   context 'edits unrelated to the connection' do
     it '(d) does not sync on a name-only edit' do
       expect(Ai::Providers::ModelSyncAndActivate).not_to receive(:call)

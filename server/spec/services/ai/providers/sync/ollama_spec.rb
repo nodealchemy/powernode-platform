@@ -167,10 +167,11 @@ RSpec.describe Ai::Providers::Sync::Ollama do
           .to_return(status: 200, body: { models: [] }.to_json, headers: { "Content-Type" => "application/json" })
       end
 
-      it "does not raise an error" do
+      # An empty list is a failed sync, never a success that keeps the stale models.
+      it "fails the sync, naming the empty answer" do
         expect {
           Ai::ProviderManagementService.send(:sync_ollama_models, provider)
-        }.not_to raise_error
+        }.to raise_error(StandardError, /returned no models/)
       end
     end
   end

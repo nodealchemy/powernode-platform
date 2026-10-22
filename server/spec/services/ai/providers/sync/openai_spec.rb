@@ -228,9 +228,11 @@ RSpec.describe Ai::Providers::Sync::Openai do
           .to_return(status: 200, body: { data: [] }.to_json, headers: { "Content-Type" => "application/json" })
       end
 
-      it "returns true from sync" do
-        result = Ai::ProviderManagementService.send(:sync_openai_models, provider)
-        expect(result).to be true
+      # An empty list is a failed sync, never a success that keeps the stale models.
+      it "fails the sync, naming the empty answer" do
+        expect {
+          Ai::ProviderManagementService.send(:sync_openai_models, provider)
+        }.to raise_error(StandardError, /returned no models/)
       end
     end
   end

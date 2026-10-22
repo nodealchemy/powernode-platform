@@ -48,7 +48,7 @@ module Ai
                     }
                   end
 
-                  provider.update(supported_models: supported_models)
+                  store_synced_models!(provider, supported_models, "the Google API")
                   Rails.logger.info "Successfully synced #{supported_models.length} models from Google API for provider #{provider.id}"
                   return true
                 end

@@ -88,7 +88,7 @@ module Ai
                 }
               end
 
-              provider.update(supported_models: supported_models)
+              store_synced_models!(provider, supported_models, "the Ollama API at #{base_url}")
               Rails.logger.info "Successfully synced #{supported_models.length} models for Ollama provider #{provider.id}"
             else
               Rails.logger.error "Failed to fetch models from any Ollama endpoint for provider #{provider.id} (base_url: #{redact_sync_error(base_url)})"

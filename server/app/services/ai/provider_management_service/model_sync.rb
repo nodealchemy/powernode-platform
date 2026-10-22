@@ -364,6 +364,17 @@ class Ai::ProviderManagementService
         false
       end
 
+      # Stores the models a sync fetched. An upstream that listed none is a
+      # failed sync (not a success that keeps the stale list: on an active
+      # provider the presence validation would silently refuse the empty
+      # write), and so is a write the provider refuses.
+      def store_synced_models!(provider, models, label)
+        handle_sync_failure(provider, "#{label} returned no models") if models.blank?
+        return true if provider.update(supported_models: models)
+
+        handle_sync_failure(provider, "Could not store the models from #{label}: #{provider.errors.full_messages.to_sentence}")
+      end
+
       # Handle sync failure: clear models, deactivate provider, raise error
       def handle_sync_failure(provider, error_message)
         Rails.logger.error "[ProviderSync] #{redact_sync_error(error_message)} (provider: #{provider.id} / #{provider.name})"
@@ -427,7 +438,7 @@ class Ai::ProviderManagementService
               api_data = JSON.parse(response.body.to_s)
               supported_models = yield(api_data[models_key] || [])
 
-              provider.update(supported_models: supported_models)
+              store_synced_models!(provider, supported_models, "the #{label} API")
               Rails.logger.info "Successfully synced #{supported_models.length} models from #{success_label} API for provider #{provider.id}"
               return true
             end

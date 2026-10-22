@@ -42,7 +42,7 @@ module Ai
               }
             ]
 
-            provider.update(supported_models: current_models)
+            store_synced_models!(provider, current_models, "the Azure catalog")
             Rails.logger.info "Successfully synced #{current_models.length} models for Azure provider #{provider.id}"
             true
           end
