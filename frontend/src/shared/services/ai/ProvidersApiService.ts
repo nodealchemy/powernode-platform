@@ -103,7 +103,10 @@ export interface ConnectionTestResult {
 /** Outcome of the server-side model sync a provider save runs (create, or an edit to its connection or enabling it). */
 export interface ProviderModelSyncResult {
   success: boolean;
+  /** A retry is scheduled. */
   deferred?: boolean;
+  /** The sync deferred itself: no credential to call the provider with. */
+  skipped?: boolean;
   model_count: number;
   error: string | null;
   activated?: boolean;
@@ -114,6 +117,10 @@ export interface ProviderModelSyncResult {
 export interface ProviderUpdateResult {
   provider: AiProvider;
   model_sync?: ProviderModelSyncResult;
+  /** A connection edit saved, but the provider may be disabled if the background retry also fails. */
+  warning?: string;
+  /** Enabling made this provider the account default. */
+  became_default?: boolean;
 }
 
 export interface ProviderAvailability {

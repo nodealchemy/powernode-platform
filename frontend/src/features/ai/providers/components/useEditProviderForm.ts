@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNotifications } from '@/shared/hooks/useNotifications';
 import { providersApi } from '@/shared/services/ai';
-import type { ProviderModelSyncResult } from '@/shared/services/ai';
+import type { ProviderModelSyncResult, ProviderUpdateResult } from '@/shared/services/ai';
 import type { AiProviderCredential } from '@/shared/types/ai';
 import { getErrorMessage } from '@/shared/utils/typeGuards';
 
@@ -9,6 +9,47 @@ import { getErrorMessage } from '@/shared/utils/typeGuards';
 export function modelSyncSuffix(sync?: ProviderModelSyncResult): string {
   if (!sync?.success) return '';
   return ` Synced ${sync.model_count} model${sync.model_count === 1 ? '' : 's'}.`;
+}
+
+const DEFAULT_SUFFIX = ' and it is now your default provider.';
+
+/**
+ * The ONE notification for a saved edit: a sync that deferred itself (no
+ * credential) is "deferred", a failed one a warning (the server's warning when
+ * it sent one), otherwise success with the synced count. Never a warning
+ * followed by a success toast.
+ */
+export function saveNotification(
+  name: string,
+  result: ProviderUpdateResult | undefined,
+  credentialSaved: boolean
+): { type: 'success' | 'warning' | 'info'; title: string; message: string } {
+  const sync = result?.model_sync;
+  const madeDefault = result?.became_default ? ` ${name} was enabled${DEFAULT_SUFFIX}` : '';
+
+  if (sync?.skipped) {
+    return {
+      type: 'info',
+      title: 'Saved, Model Sync Deferred',
+      message: `${name} was saved. Model sync deferred: ${sync.error || 'no credential to sync with yet'}.${madeDefault}`
+    };
+  }
+  if (sync && !sync.success) {
+    return {
+      type: 'warning',
+      title: 'Saved, Model Sync Failed',
+      message: result?.warning
+        || `${name} was saved, but its model sync failed: ${sync.error || 'unknown error'}. It will be retried in the background.`
+    };
+  }
+  const saved = credentialSaved
+    ? `${name} and new credential have been saved successfully.`
+    : `${name} has been updated successfully.`;
+  return {
+    type: 'success',
+    title: credentialSaved ? 'Provider and Credential Updated' : 'Provider Updated',
+    message: `${saved}${modelSyncSuffix(sync)}${madeDefault}`
+  };
 }
 
 /**
@@ -109,6 +150,54 @@ export function useEditProviderForm(providerId: string, isOpen: boolean, onSucce
     }
   };
 
+  // Saves the credential typed into the form, if any: true when saved, null
+  // when there was none, false when it was refused (already notified).
+  const saveNewCredential = async (): Promise<boolean | null> => {
+    if (!(credentialData.name.trim() && credentialData.api_key.trim())) return null;
+
+    const credentialsToSubmit: Record<string, unknown> = { api_key: credentialData.api_key.trim() };
+    if (credentialData.org_id?.trim()) {
+      credentialsToSubmit.org_id = credentialData.org_id.trim();
+    }
+
+    try {
+      await providersApi.createCredential(providerId, {
+        name: credentialData.name.trim(),
+        credentials: credentialsToSubmit,
+        ...(credentialData.expires_at ? { expires_at: credentialData.expires_at } : {})
+      });
+      setCredentialData({ name: '', api_key: '', org_id: '', expires_at: '' });
+      return true;
+    } catch (credError: unknown) {
+      let errorMessage = 'Failed to create credential. Please try again.';
+
+      if (typeof credError === 'object' && credError !== null && 'response' in credError) {
+        const axiosError = credError as {
+          response?: {
+            data?: {
+              error?: string;
+              message?: string;
+              data?: { error?: string; message?: string };
+            };
+          };
+          message?: string;
+        };
+
+        errorMessage = axiosError.response?.data?.error
+          || axiosError.response?.data?.data?.error
+          || axiosError.response?.data?.message
+          || axiosError.response?.data?.data?.message
+          || axiosError.message
+          || errorMessage;
+      } else {
+        errorMessage = getErrorMessage(credError);
+      }
+
+      addNotification({ type: 'error', title: 'Credential Creation Failed', message: errorMessage });
+      return false;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -130,87 +219,25 @@ export function useEditProviderForm(providerId: string, isOpen: boolean, onSucce
         }
       });
 
+      // The new credential goes FIRST: enabling a provider syncs its models,
+      // and that sync needs the key. A refused credential saves nothing else.
+      const credentialSaved = await saveNewCredential();
+      if (credentialSaved === false) return;
+
       const result = await providersApi.updateProvider(providerId, providerUpdateData);
-      const modelSync = result?.model_sync;
-      const syncSuffix = modelSyncSuffix(modelSync);
-
-      // Saved, but the connection edit's model sync failed: the provider kept
-      // what it had and the background sweep will retry.
-      if (modelSync && !modelSync.success) {
-        addNotification({
-          type: 'warning',
-          title: 'Model Sync Failed',
-          message: `${formData.name} was saved, but its model sync failed: ${modelSync.error || 'unknown error'}`
-        });
-      }
-
-      if (credentialData.name.trim() && credentialData.api_key.trim()) {
-        try {
-          const credentialsToSubmit: Record<string, unknown> = {
-            api_key: credentialData.api_key.trim()
-          };
-
-          if (credentialData.org_id?.trim()) {
-            credentialsToSubmit.org_id = credentialData.org_id.trim();
-          }
-
-          await providersApi.createCredential(providerId, {
-            name: credentialData.name.trim(),
-            credentials: credentialsToSubmit,
-            ...(credentialData.expires_at ? { expires_at: credentialData.expires_at } : {})
-          });
-
-          setCredentialData({ name: '', api_key: '', org_id: '', expires_at: '' });
-          await loadCredentials();
-
-          addNotification({
-            type: 'success',
-            title: 'Provider and Credential Updated',
-            message: `${formData.name} and new credential have been saved successfully.${syncSuffix}`
-          });
-        } catch (credError: unknown) {
-          let errorMessage = 'Failed to create credential. Please try again.';
-
-          if (typeof credError === 'object' && credError !== null && 'response' in credError) {
-            const axiosError = credError as {
-              response?: {
-                data?: {
-                  error?: string;
-                  message?: string;
-                  data?: { error?: string; message?: string };
-                };
-              };
-              message?: string;
-            };
-
-            errorMessage = axiosError.response?.data?.error
-              || axiosError.response?.data?.data?.error
-              || axiosError.response?.data?.message
-              || axiosError.response?.data?.data?.message
-              || axiosError.message
-              || errorMessage;
-          } else {
-            errorMessage = getErrorMessage(credError);
-          }
-
-          addNotification({ type: 'error', title: 'Credential Creation Failed', message: errorMessage });
-        }
-      } else {
-        addNotification({
-          type: 'success',
-          title: 'Provider Updated',
-          message: `${formData.name} has been updated successfully.${syncSuffix}`
-        });
-      }
+      addNotification(saveNotification(formData.name, result, credentialSaved === true));
+      if (credentialSaved) await loadCredentials();
 
       onSuccess();
       onClose();
     } catch (error) {
       const syncFailure = modelSyncFailureMessage(error);
       if (syncFailure) {
-        // The other edits were saved and the provider stayed inactive: refresh
-        // the list, keep the form open on the true state so the URL can be fixed.
+        // The other edits (and any new credential) were saved and the provider
+        // stayed inactive: refresh, keep the form open on the true state so
+        // the URL or key can be fixed.
         setFormData(prev => ({ ...prev, is_active: false }));
+        await loadCredentials();
         addNotification({ type: 'error', title: 'Provider Not Enabled', message: syncFailure });
         onSuccess();
         return;

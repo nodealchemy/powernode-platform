@@ -89,19 +89,109 @@ describe('useEditProviderForm save outcome', () => {
     expect(result.current.loading).toBe(false);
   });
 
-  it('warns when the save succeeded but its model sync failed', async () => {
+  it('warns once, with the server warning, when the save succeeded but its model sync failed', async () => {
+    const warning = 'Ollama was saved and keeps its previous models for now, but its model sync against ' +
+      'http://x:11434 failed: Could not connect. It will be disabled if the background retry also fails.';
     (providersApi.updateProvider as jest.Mock).mockResolvedValue({
       provider: { ...PROVIDER, is_active: true },
       model_sync: { success: false, model_count: 3, error: 'Could not connect to Ollama API at http://x:11434' },
+      warning,
+    });
+    const { result } = await renderForm();
+
+    await act(async () => { await result.current.handleSubmit(submitEvent); });
+
+    expect(mockAddNotification).toHaveBeenCalledTimes(1);
+    expect(mockAddNotification).toHaveBeenCalledWith(expect.objectContaining({ type: 'warning', message: warning }));
+  });
+
+  it('shows a skipped sync as deferred, not failed, and once', async () => {
+    (providersApi.updateProvider as jest.Mock).mockResolvedValue({
+      provider: { ...PROVIDER, is_active: true },
+      model_sync: { success: false, skipped: true, deferred: true, model_count: 3,
+                    error: 'no active credential for OpenAI — model sync deferred until credentials are configured' },
+    });
+    const { result } = await renderForm();
+
+    await act(async () => { await result.current.handleSubmit(submitEvent); });
+
+    expect(mockAddNotification).toHaveBeenCalledTimes(1);
+    const note = mockAddNotification.mock.calls[0][0];
+    expect(note.type).toBe('info');
+    expect(note.title).toMatch(/deferred/i);
+    expect(`${note.title} ${note.message}`).not.toMatch(/failed/i);
+  });
+
+  it('says when enabling made it the default provider', async () => {
+    (providersApi.updateProvider as jest.Mock).mockResolvedValue({
+      provider: { ...PROVIDER, is_active: true },
+      model_sync: { success: true, model_count: 2, error: null, activated: true, default: true },
+      became_default: true,
     });
     const { result } = await renderForm();
 
     await act(async () => { await result.current.handleSubmit(submitEvent); });
 
     expect(mockAddNotification).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'warning',
-      message: expect.stringContaining('Could not connect to Ollama API at http://x:11434'),
+      type: 'success',
+      message: expect.stringContaining('it is now your default provider'),
     }));
+  });
+
+  describe('with a new credential in the same save', () => {
+    const fillCredential = (result: { current: ReturnType<typeof useEditProviderForm> }) => {
+      act(() => {
+        result.current.handleCredentialChange('name', 'Key');
+        result.current.handleCredentialChange('api_key', 'placeholder-key');
+        result.current.handleInputChange('is_active', true);
+      });
+    };
+
+    it('saves the credential BEFORE the provider, so enabling can sync with it', async () => {
+      (providersApi.createCredential as jest.Mock).mockResolvedValue({});
+      (providersApi.updateProvider as jest.Mock).mockResolvedValue({
+        provider: { ...PROVIDER, is_active: true },
+        model_sync: { success: true, model_count: 2, error: null, activated: true },
+      });
+      const { result } = await renderForm();
+      fillCredential(result);
+
+      await act(async () => { await result.current.handleSubmit(submitEvent); });
+
+      const credOrder = (providersApi.createCredential as jest.Mock).mock.invocationCallOrder[0];
+      const patchOrder = (providersApi.updateProvider as jest.Mock).mock.invocationCallOrder[0];
+      expect(credOrder).toBeLessThan(patchOrder);
+    });
+
+    it('keeps the credential saved when enabling is then refused (422)', async () => {
+      (providersApi.createCredential as jest.Mock).mockResolvedValue({});
+      (providersApi.updateProvider as jest.Mock).mockRejectedValue({
+        response: { status: 422, data: { success: false, error: 'Could not enable', code: 'model_sync_failed' } },
+      });
+      const { result } = await renderForm();
+      fillCredential(result);
+
+      await act(async () => { await result.current.handleSubmit(submitEvent); });
+
+      expect(providersApi.createCredential).toHaveBeenCalledTimes(1);
+      expect(mockAddNotification).toHaveBeenCalledWith(expect.objectContaining({ title: 'Provider Not Enabled' }));
+    });
+
+    it('does not save the provider when the credential is refused', async () => {
+      (providersApi.createCredential as jest.Mock).mockRejectedValue({
+        response: { status: 422, data: { error: 'Validation failed: bad key' } },
+      });
+      const { result, onClose } = await renderForm();
+      fillCredential(result);
+
+      await act(async () => { await result.current.handleSubmit(submitEvent); });
+
+      expect(providersApi.updateProvider).not.toHaveBeenCalled();
+      expect(mockAddNotification).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'error', title: 'Credential Creation Failed', message: 'Validation failed: bad key',
+      }));
+      expect(onClose).not.toHaveBeenCalled();
+    });
   });
 
   it('keeps the generic message for errors that are not a model sync failure', async () => {
