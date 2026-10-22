@@ -34,7 +34,14 @@ RSpec.describe "Rails.cache.delete_matched call-site ratchet (core)" do
     # Prose, not a call: documents (in the exact syntax) the delete_matched
     # invocation IMP-95e4904258c8 already removed from #clear_permission_cache
     # by making the permission-name cache key structural instead.
-    "models/user.rb" => 1
+    "models/user.rb" => 1,
+    # Not a Rails.cache call: Security::ResilientThrottleStore IS a cache store
+    # (Rack::Attack's), so it defines #delete_matched (1) and forwards it to the
+    # two stores it wraps (2): a RedisCacheStore and a MemoryStore, both of
+    # which implement it. Rack::Attack.reset! needs it. solid_cache is never
+    # either store, so the NotImplementedError this ratchet guards cannot arise.
+    # Added 2026-10-22 with the wrapper (afe0b1c80), not a grown count.
+    "services/security/resilient_throttle_store.rb" => 3
   }.freeze
 
   scan = lambda do
