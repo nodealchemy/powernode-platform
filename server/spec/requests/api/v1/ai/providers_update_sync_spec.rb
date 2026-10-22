@@ -141,6 +141,56 @@ RSpec.describe 'Api::V1::Ai::Providers update syncs models', type: :request do
 
     # M3: a write that lands while the sync's HTTP call is in flight survives
     # the failed sync's restore.
+    # M3b: a write that disables the provider while the inline sync is in
+    # flight wins; the failed sync's restore must not re-activate it.
+    it 'leaves a provider disabled by a concurrent edit during the failing sync disabled' do
+      stub_request(:get, /ollama\.internal/).to_return do
+        Ai::Provider.where(id: provider.id).update_all(is_active: false)
+        { status: 502, body: 'bad gateway' }
+      end
+
+      patch_provider(api_base_url: new_url)
+
+      expect(response).to have_http_status(:ok)
+      expect(provider.reload.is_active).to be(false)
+    end
+
+    # The sweep failing (and disabling) concurrently: no flap back to active,
+    # and the sweep's fresh error is not overwritten by the restore.
+    it 'does not flap a provider a concurrent sweep failure disabled, nor erase its error' do
+      # The sweep disables it while this request's HTTP call is in flight...
+      stub_request(:get, /ollama\.internal/).to_return do
+        Ai::Provider.where(id: provider.id).update_all(is_active: false, supported_models: [])
+        { status: 502, body: 'bad gateway' }
+      end
+      # ...and records its own failure after this request recorded its own.
+      allow(Ai::ProviderManagementService).to receive(:record_sync_failure).and_wrap_original do |original, *args, **kw|
+        result = original.call(*args, **kw)
+        Ai::Provider.find(provider.id).merge_metadata!(set: { 'last_sync_error' => 'sweep: upstream gone',
+                                                              'last_sync_failed_at' => '2026-01-01T00:00:00Z' })
+        result
+      end
+
+      patch_provider(api_base_url: new_url)
+
+      provider.reload
+      expect(provider.is_active).to be(false)
+      expect(provider.supported_models).to eq([])
+      expect(provider.metadata['last_sync_error']).to eq('sweep: upstream gone')
+    end
+
+    it 'never writes the provider inactive or model-less while its preserving inline sync fails' do
+      allow(Ai::ProviderManagementService).to receive(:record_sync_failure).and_call_original
+      stub_tags_down
+
+      patch_provider(api_base_url: new_url)
+
+      expect(Ai::ProviderManagementService).to have_received(:record_sync_failure).at_least(:once)
+      expect(Ai::ProviderManagementService).not_to have_received(:record_sync_failure)
+        .with(anything, anything, hash_including(:is_active))
+      expect(provider.reload.is_active).to be(true)
+    end
+
     it 'keeps a make_default that happened during the failed sync' do
       create(:ai_provider_credential, account: account, provider: provider)
       provider.clear_model_sync_pending!
@@ -201,6 +251,7 @@ RSpec.describe 'Api::V1::Ai::Providers update syncs models', type: :request do
       patch_provider(description: 'turn it on', is_active: true)
 
       expect(response).to have_http_status(:ok)
+      expect(body.dig('data', 'model_sync', 'activated')).to be(true)
       provider.reload
       expect(provider.is_active).to be(true)
       expect(provider.description).to eq('turn it on')
@@ -221,6 +272,35 @@ RSpec.describe 'Api::V1::Ai::Providers update syncs models', type: :request do
       expect(body['error']).not_to include('stale failure from last week')
       expect(body.dig('details', 'model_sync', 'error')).to match(/no active credential/i)
       expect(provider.reload.is_active).to be(false)
+    end
+
+    # Q3: the models on hand belong to the old type/URL: they are no proof the
+    # new connection serves them.
+    it 'refuses a type change plus enable with no credential: the old catalog is not the new one' do
+      patch_provider(provider_type: 'anthropic', is_active: true)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(body['error']).to match(/no active credential/i)
+      provider.reload
+      expect(provider.provider_type).to eq('anthropic')
+      expect(provider.is_active).to be(false)
+    end
+
+    it 'lets the PATCH do the enabling when the credential already exists' do
+      create(:ai_provider_credential, account: account, provider: provider)
+      provider.clear_model_sync_pending!
+      stub_request(:get, 'https://api.openai.com/v1/models')
+        .to_return(status: 200, body: { data: [ { id: 'gpt-4o' }, { id: 'gpt-4o-mini' } ] }.to_json,
+                   headers: { 'Content-Type' => 'application/json' })
+      expect(provider.reload.is_active).to be(false)
+
+      patch_provider(is_active: true)
+
+      expect(response).to have_http_status(:ok)
+      expect(body.dig('data', 'model_sync')).to include('success' => true, 'activated' => true, 'model_count' => 2)
+      provider.reload
+      expect(provider.is_active).to be(true)
+      expect(provider.supported_models.map { |m| m['id'] }).to contain_exactly('gpt-4o', 'gpt-4o-mini')
     end
 
     it 'enables with a key saved in the same edit: credential first, then the PATCH' do

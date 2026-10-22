@@ -178,12 +178,19 @@ module Ai
     # meanwhile (is_default, model_sync_pending_at, claimed_from) survives.
     # No validations, no callbacks, no updated_at bump; this object's metadata
     # is refreshed from the row.
-    def merge_metadata!(set: {}, remove: [])
+    #
+    # expect: { key => value } the stored keys must still hold (nil = absent)
+    # for the write to apply, a compare-and-set. Returns whether it applied.
+    def merge_metadata!(set: {}, remove: [], expect: nil)
       sql = "metadata = (COALESCE(metadata, '{}'::jsonb) - ARRAY[?]::text[]) || ?::jsonb"
-      self.class.where(id: id).update_all([ sql, remove.presence || [ "" ], set.to_json ])
+      scope = self.class.where(id: id)
+      expect&.each do |key, value|
+        scope = scope.where("metadata -> ? IS NOT DISTINCT FROM ?::jsonb", key.to_s, value.nil? ? nil : value.to_json)
+      end
+      applied = scope.update_all([ sql, remove.presence || [ "" ], set.to_json ]).positive?
       self[:metadata] = self.class.where(id: id).pick(:metadata)
       clear_attribute_changes([ :metadata ])
-      metadata
+      applied
     end
 
     # True for a type with a live model-list sync. Any other type keeps the
@@ -216,17 +223,34 @@ module Ai
       @sync_credential || provider_credentials.active.where(account_id: account_id).first
     end
 
-    # Scopes a sync: the credential to use and a monotonic DEADLINE the HTTP
-    # calls honour. A deadline bounds the sync without interrupting the thread
-    # (an interrupt could land in the middle of a DB write).
-    def with_sync_options(credential: nil, deadline: nil)
-      previous = [ @sync_credential, @sync_deadline, @sync_skipped_reason ]
+    # Scopes a sync: the credential to use, a monotonic DEADLINE the HTTP
+    # calls honour (bounding the sync without interrupting the thread: an
+    # interrupt could land in the middle of a DB write), and PRESERVE: a failed
+    # sync records its error but leaves is_active and supported_models alone.
+    def with_sync_options(credential: nil, deadline: nil, preserve: false)
+      previous = [ @sync_credential, @sync_deadline, @sync_skipped_reason, @sync_preserve, @sync_metadata_written ]
       @sync_credential = credential
       @sync_deadline = deadline
       @sync_skipped_reason = nil
+      @sync_preserve = preserve
+      @sync_metadata_written = {}
       yield
     ensure
-      @sync_credential, @sync_deadline, @sync_skipped_reason = previous
+      @sync_credential, @sync_deadline, @sync_skipped_reason, @sync_preserve, @sync_metadata_written = previous
+    end
+
+    # The metadata values the running sync recorded (its failure or skip), so
+    # a restore can undo exactly those while the row still holds them.
+    def sync_metadata_written
+      (@sync_metadata_written || {}).dup
+    end
+
+    def note_sync_metadata!(values)
+      @sync_metadata_written&.merge!(values)
+    end
+
+    def sync_preserving?
+      @sync_preserve == true
     end
 
     # Seconds the next sync request may take: its usual limit, cut to what is

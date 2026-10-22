@@ -68,7 +68,7 @@ module Ai
         # survive a bad new key: the failure is recorded on the credential.
         protect = @preserve || already_working_elsewhere?(snapshot)
 
-        ok = run_sync
+        ok = run_sync(preserve: protect)
         @provider.reload
         unless ok && @provider.supported_models.present?
           return protect ? restore_after_failure(snapshot, ok: ok) : failure(ok)
@@ -88,11 +88,14 @@ module Ai
 
       private
 
-      def run_sync
+      def run_sync(preserve:)
         @deadline = @budget ? now + CREATE_BUDGET_SECONDS : nil
-        @provider.with_sync_options(credential: @credential, deadline: @deadline) do
+        @provider.with_sync_options(credential: @credential, deadline: @deadline, preserve: preserve) do
           ok = ::Ai::ProviderManagementService.sync_provider_models(@provider, force_refresh: true)
           @skipped_reason = @provider.sync_skipped_reason
+          # The sync keys this run recorded: the restore undoes exactly those,
+          # and only while the row still holds them.
+          @written = @provider.sync_metadata_written.slice(*SYNC_METADATA_KEYS)
           ok
         end
       end
@@ -122,7 +125,7 @@ module Ai
       def restore_after_failure(snapshot, ok: false, reason: nil, force_deferred: false)
         @provider.reload
         error = reason || failure_reason(ok)
-        restore_sync_state(snapshot)
+        restore_sync_state(snapshot, ok: ok)
         @provider.reload
         if @credential
           @credential.record_failure!(error.to_s.truncate(300))
@@ -135,18 +138,26 @@ module Ai
                    error: error.to_s.truncate(300), activated: false, default: false, remaining_seconds: remaining)
       end
 
-      # Undo what the failed sync wrote, and only that, compare-and-set against
-      # the stored row, so a write that landed while the HTTP calls were in
-      # flight (make_default, an operator edit, the pending flag) survives:
-      #   * is_active / supported_models go back only while the row still holds
-      #     what a failed sync leaves (inactive, no models);
-      #   * metadata gets back its snapshot values for SYNC_METADATA_KEYS only.
-      def restore_sync_state(snapshot)
-        before = (snapshot[:metadata] || {}).slice(*SYNC_METADATA_KEYS)
+      # Undo what this run wrote, and only that, compare-and-set against the
+      # stored row, so a write that landed while the HTTP calls were in flight
+      # (an operator disable, make_default, a concurrent sweep's failure, the
+      # pending flag) survives:
+      #   * a preserving failure wrote neither is_active nor supported_models
+      #     (handle_sync_failure), so neither is touched here;
+      #   * an inactive provider whose upstream answered with NO models had
+      #     them written empty: they go back while the row is still empty;
+      #   * the sync metadata keys THIS run recorded go back to their snapshot
+      #     values, only while the row still holds what it recorded (a
+      #     concurrent sweep's fresh error stays).
+      def restore_sync_state(snapshot, ok:)
+        written = @written || {}
+        before = (snapshot[:metadata] || {}).slice(*written.keys)
         ::Ai::Provider.transaction do
-          ::Ai::Provider.where(id: @provider.id, is_active: false).where("supported_models = '[]'::jsonb")
-                        .update_all(is_active: snapshot[:is_active], supported_models: snapshot[:supported_models] || [])
-          @provider.merge_metadata!(set: before, remove: SYNC_METADATA_KEYS - before.keys)
+          if ok && snapshot[:supported_models].present?
+            ::Ai::Provider.where(id: @provider.id).where("supported_models = '[]'::jsonb")
+                          .update_all(supported_models: snapshot[:supported_models])
+          end
+          @provider.merge_metadata!(set: before, remove: written.keys - before.keys, expect: written) if written.any?
         end
       end
 

@@ -40,13 +40,13 @@ module Ai
         @was_default = @provider.metadata&.dig("is_default") == true
         @provider.assign_attributes(activating ? @attrs.except(:is_active, "is_active") : @attrs)
         @changes = @provider.changed
-        connection_changed = @changes.intersect?(::Ai::Provider::CONNECTION_ATTRIBUTES)
+        @connection_changed = @changes.intersect?(::Ai::Provider::CONNECTION_ATTRIBUTES)
 
         return outcome(saved: false) unless @provider.save
 
         if activating
           activate
-        elsif connection_changed && @provider.live_model_sync? && !deactivated?
+        elsif @connection_changed && @provider.live_model_sync? && !deactivated?
           resync
         else
           outcome
@@ -95,14 +95,20 @@ module Ai
         sync = run_sync(activate: true)
         return outcome(sync: sync) if sync.success && @provider.is_active?
         # No credential to sync with: the models the provider has are as good
-        # as they were; only a provider with none at all is refused.
-        return activate_on_current_models(sync) if sync.skipped && @provider.supported_models.present?
+        # as they were, unless this edit changed the connection they came from
+        # (another type or URL serves another catalog). Otherwise refused.
+        if sync.skipped && @provider.supported_models.present? && !@connection_changed
+          return activate_on_current_models(sync)
+        end
 
         refused(sync, reason(sync))
       end
 
       def activate_on_current_models(sync)
-        return outcome(sync: sync) if @provider.update(is_active: true)
+        if @provider.update(is_active: true)
+          sync.activated = true if sync
+          return outcome(sync: sync)
+        end
 
         refused(sync, @provider.errors.full_messages.to_sentence)
       end

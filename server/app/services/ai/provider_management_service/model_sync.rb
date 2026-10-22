@@ -357,8 +357,9 @@ class Ai::ProviderManagementService
       def record_sync_failure(provider, error_message, **extra_columns)
         Ai::Provider.where(id: provider.id).update_all(extra_columns) if extra_columns.any?
         # Merged into the stored row, not written from this (pre-sync) copy.
-        provider.merge_metadata!(set: { "last_sync_error" => redact_sync_error(error_message),
-                                        "last_sync_failed_at" => Time.current.iso8601 })
+        recorded = { "last_sync_error" => redact_sync_error(error_message), "last_sync_failed_at" => Time.current.iso8601 }
+        provider.merge_metadata!(set: recorded)
+        provider.note_sync_metadata!(recorded)
         provider.reload
         false
       end
@@ -367,9 +368,15 @@ class Ai::ProviderManagementService
       def handle_sync_failure(provider, error_message)
         Rails.logger.error "[ProviderSync] #{redact_sync_error(error_message)} (provider: #{provider.id} / #{provider.name})"
 
-        # We intentionally want 0 models and a deactivated provider on a
-        # failed fetch
-        record_sync_failure(provider, error_message, supported_models: [], is_active: false)
+        # The sweep wants 0 models and a deactivated provider on a failed
+        # fetch. A preserving sync (the inline ones) records the error only:
+        # writing nothing it would later have to undo, it can never revert a
+        # concurrent disable.
+        if provider.sync_preserving?
+          record_sync_failure(provider, error_message)
+        else
+          record_sync_failure(provider, error_message, supported_models: [], is_active: false)
+        end
 
         raise StandardError, error_message
       end
@@ -384,8 +391,9 @@ class Ai::ProviderManagementService
       def handle_sync_skipped(provider, reason)
         Rails.logger.info "[ProviderSync] sync deferred for provider #{provider.id} / #{provider.name}: #{reason}"
 
-        provider.merge_metadata!(set: { "last_sync_skipped_at" => Time.current.iso8601,
-                                        "last_sync_skipped_reason" => reason })
+        recorded = { "last_sync_skipped_at" => Time.current.iso8601, "last_sync_skipped_reason" => reason }
+        provider.merge_metadata!(set: recorded)
+        provider.note_sync_metadata!(recorded)
         provider.reload
         provider.note_sync_skipped!(reason)
         false
