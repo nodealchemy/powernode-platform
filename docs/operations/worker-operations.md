@@ -173,7 +173,6 @@ The largest category — covers the entire AI platform. Selected examples:
 | `Git::RepositorySyncJob` | `devops_default` | Repository metadata sync |
 | `Git::RunnerHealthCheckJob` | `devops_default` | Runner health monitoring |
 | `Git::RunnerSyncJob` | `devops_default` | Runner state sync |
-| `Git::ScheduledPipelineJob` | `devops_default` | Cron-triggered pipelines |
 | `Git::WebhookProcessingJob` | `devops_webhooks` | Git webhook processing |
 
 ### MCP

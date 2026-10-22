@@ -88,9 +88,6 @@ RSpec.describe "worker -> server internal route census" do
     "POST /api/v1/internal/git/approvals/expire_stale" => "baseline 01a163c7: no route",
     "GET /api/v1/internal/git/approvals/:x" => "baseline 01a163c7: no route",
     "POST /api/v1/internal/git/pipelines/sync_jobs" => "baseline 01a163c7: path routes, verb does not",
-    "GET /api/v1/internal/git/schedules/due" => "baseline 01a163c7: no route",
-    "GET /api/v1/internal/git/schedules/:x" => "baseline 01a163c7: no route",
-    "POST /api/v1/internal/git/schedules/:x/record_run" => "baseline 01a163c7: no route",
     "POST /api/v1/internal/git/webhook_events/:x/trigger_workflows" => "baseline 01a163c7: no route",
     # internal/retention
     "PATCH /api/v1/internal/retention/activity/anonymize" => "baseline 01a163c7: no route",
