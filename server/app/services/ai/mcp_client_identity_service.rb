@@ -243,8 +243,12 @@ module Ai
       [ "ai_agent_budgets", "agent_id" ],
       [ "ai_agent_trust_scores", "agent_id" ]
     ].freeze
+    # A promotion grant is a person's permission for ONE agent, and it goes
+    # when that agent does (the FK cascades). Repointing it would hand that
+    # permission to a different agent nobody granted it to.
     MERGE_DELETE_FKS = [
-      [ "ai_guardrail_configs", "ai_agent_id" ]
+      [ "ai_guardrail_configs", "ai_agent_id" ],
+      [ "ai_promotion_grants", "ai_agent_id" ]
     ].freeze
 
     # Rows AgentManagementTool::DELETE_AGENT_ROWS deletes with a destroyed
