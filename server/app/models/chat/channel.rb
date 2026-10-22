@@ -114,15 +114,15 @@ module Chat
       "chat:channel:#{id}:rate"
     end
 
+    # read_counter: increment stores a raw counter on RedisCacheStore.
     def rate_limited?
-      count = Rails.cache.read(rate_limit_key).to_i
+      count = Rails.cache.read_counter(rate_limit_key).to_i
       count >= rate_limit_per_minute
     end
 
+    # Atomic, with a fixed one-minute window from the first message.
     def increment_rate_counter!
-      key = rate_limit_key
-      count = Rails.cache.read(key).to_i
-      Rails.cache.write(key, count + 1, expires_in: 1.minute)
+      Rails.cache.increment(rate_limit_key, 1, expires_in: 1.minute)
     end
 
     # Token management

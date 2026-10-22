@@ -279,7 +279,9 @@ module Audit
     # Implement rate limiting logic
     key = "audit_log:#{action}:#{user&.id || ip_address}"
 
-    current_count = Rails.cache.read(key) || 0
+    # Atomic, with a fixed one-hour window from the first entry; the count
+    # includes this call, so the first `limit` calls pass.
+    current_count = Rails.cache.increment(key, 1, expires_in: 1.hour).to_i
 
     # Different limits for different actions
     limit = case action.to_s
@@ -288,12 +290,11 @@ module Audit
     else 50                      # General limit
     end
 
-    if current_count >= limit
+    if current_count > limit
       Rails.logger.warn "Rate limiting audit log: #{action} for #{user&.email || ip_address}"
       return true
     end
 
-    Rails.cache.write(key, current_count + 1, expires_in: 1.hour)
     false
   end
 

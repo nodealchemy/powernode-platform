@@ -204,15 +204,15 @@ class FederationPartner < ApplicationRecord
     "federation:#{id}:rate"
   end
 
+  # read_counter: increment stores a raw counter on RedisCacheStore.
   def rate_limited?
-    count = Rails.cache.read(rate_limit_key).to_i
+    count = Rails.cache.read_counter(rate_limit_key).to_i
     count >= max_requests_per_hour
   end
 
+  # Atomic, with a fixed one-hour window from the first request.
   def increment_request_count!
-    key = rate_limit_key
-    count = Rails.cache.read(key).to_i
-    Rails.cache.write(key, count + 1, expires_in: 1.hour)
+    Rails.cache.increment(rate_limit_key, 1, expires_in: 1.hour)
     increment!(:request_count)
     touch(:last_request_at)
   end
