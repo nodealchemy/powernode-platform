@@ -158,50 +158,48 @@ module Admin
       }
     end
 
-    # HS256 rotation (dev/test): rotate the in-memory HMAC secret with a grace
-    # window held in Rails.cache. The new secret is returned so the operator can
-    # persist it to JWT_SECRET_KEY (HMAC has no durable store seam like RS256).
+    # HS256 rotation of the user-token secret: JwtKeyStore stores a new secret
+    # generated in code, keeps the retiring one in its grace keyring, and every
+    # process picks the new one up within JwtKeyStore::CACHE_TTL (at once,
+    # throttled, on a verification miss). The secret is durable in SecretStore,
+    # and none is returned, logged or written to Rails.cache. Server-to-worker
+    # job JWTs keep JWT_SECRET_KEY (JwtService.encode_for_worker).
     def regenerate_hmac_secret(reason: nil)
-      new_secret = SecureRandom.hex(64) # 128-character secret (512 bits)
-      old_secret = Rails.application.config.jwt_secret_key
-
-      grace_period_ends_at = JWT_ROTATION_GRACE_PERIOD.hours.from_now
-
-      # Store both secrets with grace period
-      Rails.cache.write("jwt_secret_rotation", {
-        old_secret: old_secret,
-        new_secret: new_secret,
-        rotated_at: Time.current,
-        grace_period_ends_at: grace_period_ends_at
-      }, expires_in: (JWT_ROTATION_GRACE_PERIOD + 1).hours)
-
-      # Update current secret (immediately effective for new tokens)
-      Rails.application.config.jwt_secret_key = new_secret
+      result =
+        begin
+          Security::JwtKeyStore.rotate_hmac!(grace_hours: JWT_ROTATION_GRACE_PERIOD)
+        rescue StandardError => e
+          log_critical_security_event("jwt_secret_regenerated", {
+            regenerated_by: user.email,
+            algorithm: "HS256",
+            status: "failed",
+            error: e.class.name,
+            reason: reason || "Admin-initiated rotation"
+          })
+          raise
+        end
 
       log_critical_security_event("jwt_secret_regenerated", {
         regenerated_by: user.email,
         algorithm: "HS256",
+        status: "success",
         grace_period_hours: JWT_ROTATION_GRACE_PERIOD,
-        grace_period_ends_at: grace_period_ends_at.iso8601,
-        old_secret_length: old_secret.length,
-        new_secret_length: new_secret.length,
+        grace_period_ends_at: result[:grace_ends_at].iso8601,
         reason: reason || "Admin-initiated rotation"
       })
 
       {
         success: true,
         algorithm: "HS256",
-        message: "JWT secret regenerated successfully",
-        new_secret: new_secret,
         grace_period_hours: JWT_ROTATION_GRACE_PERIOD,
-        grace_period_ends_at: grace_period_ends_at.iso8601,
-        warning: "Store this secret securely. After #{JWT_ROTATION_GRACE_PERIOD} hours, all sessions using the old secret will be invalidated.",
-        instructions: [
-          "Save the new secret to your environment variables (JWT_SECRET_KEY)",
-          "Update production credentials if using Rails credentials",
-          "Restart application servers after updating environment",
-          "Users will need to re-authenticate after grace period expires"
-        ]
+        grace_period_ends_at: result[:grace_ends_at].iso8601,
+        message: "JWT signing secret rotated for the tokens this server issues (user, impersonation " \
+                 "and API tokens). Every server process uses it within " \
+                 "#{Security::JwtKeyStore::CACHE_TTL}s; no env update or restart is needed for those.",
+        warning: "Tokens signed with the previous secret remain valid until the grace period ends. " \
+                 "Server-to-worker job authentication is NOT rotated by this: it uses JWT_SECRET_KEY " \
+                 "from the secrets file, which rotates by changing it on the server and the worker " \
+                 "and restarting both."
       }
     end
 

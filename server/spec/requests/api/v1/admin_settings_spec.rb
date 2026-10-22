@@ -777,13 +777,11 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
   # holder of only `admin.settings.read` the class-level before_action passes,
   # the inline check renders a 403 but the body keeps running, the privileged
   # mutation executes, and the trailing render then double-renders. The
-  # `jwt_secret_rotation` cache assertion proves the mutator ran despite the 403.
+  # no-rotation expectation proves the mutator did not run behind the 403.
   # ===========================================================================
   describe 'security-config action authorization' do
     before do
       allow(Audit::LoggingService.instance).to receive(:log).and_return(nil)
-      # Clear the rotation cache so we can assert the mutator did NOT write it.
-      Rails.cache.delete('jwt_secret_rotation')
     end
 
     let(:read_only_headers) { auth_headers_for(user_with_settings_view) }
@@ -797,10 +795,12 @@ RSpec.describe 'Api::V1::AdminSettings', type: :request do
       end
 
       it 'does not regenerate the JWT secret for a read-only admin (no side-effect)' do
+        # Under the bug the mutator runs despite the 403 and rotates.
+        expect(Security::JwtKeyStore).not_to receive(:rotate_hmac!)
+        expect(Security::JwtKeyStore).not_to receive(:rotate!)
+
         post '/api/v1/admin_settings/security/regenerate_jwt_secret',
              headers: read_only_headers, as: :json
-        # Under the bug the mutator runs despite the 403 and writes this key.
-        expect(Rails.cache.read('jwt_secret_rotation')).to be_nil
       end
 
       it 'allows a holder of admin.settings.security' do

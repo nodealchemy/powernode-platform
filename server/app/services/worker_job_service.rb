@@ -764,7 +764,9 @@ class WorkerJobService
     worker = Worker.system_worker
     raise WorkerNotSentError, "No active system worker found in database" unless worker&.active?
 
-    token = Security::JwtService.encode(
+    # Signed for the worker's own check (JWT_SECRET_KEY, HS256), independent of
+    # user-token rotation; see Security::JwtService.encode_for_worker.
+    token = Security::JwtService.encode_for_worker(
       { type: "worker", sub: worker.id },
       5.minutes.from_now
     )

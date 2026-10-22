@@ -25,10 +25,46 @@ module Security
   # MISS the caller forces a throttled refresh (see #grace_verification_pems), so
   # a worker whose cache still holds the pre-rotation key picks up the new key
   # immediately instead of rejecting freshly-issued tokens for up to CACHE_TTL.
+  #
+  # HS256 has the same shape beside it (the hub runs HS256 in production):
+  #   * ACTIVE_HMAC_SECRET   — the current signing secret.
+  #   * HMAC_KEYRING         — JSON [{secret, expires_at}, ...]; retired secrets
+  #                            still inside their grace window.
+  # JWT_SECRET_KEY (config.jwt_secret_key) is only the BOOTSTRAP value, used
+  # while the store holds no secret: an absent row, or Vault's "not found" for
+  # a path never written, is "readable but empty". A store that cannot be
+  # REACHED (Vault connection error, BackendUnavailable, an AR connection
+  # error) serves the last secrets this process loaded; only when it has never
+  # loaded any does it FAIL CLOSED (StoreUnavailable, which authentication
+  # answers with 503). Falling back to JWT_SECRET_KEY there would sign and
+  # accept with the very secret a rotation retired. Nothing HS256 is ever
+  # written to Rails.cache.
+  #
+  # Scope of an HS256 rotation: tokens this server signs and verifies (user,
+  # impersonation, API). Server-to-worker job JWTs are NOT covered: the worker
+  # verifies them with its own JWT_SECRET_KEY, so they are always signed with
+  # JWT_SECRET_KEY (#worker_auth_secret), which rotates through the secrets
+  # file and a restart of server and worker.
+  #
+  # Every store read here passes `cache: false`, so on a Vault backend a
+  # refresh really re-reads Vault instead of VaultClient's 5-minute cache.
   module JwtKeyStore
+    class StoreUnavailable < StandardError; end
+
     SCOPE              = "jwt_signing"
     ACTIVE_KEYPAIR     = "active_keypair"
     VERIFICATION_KEYRING = "verification_keyring"
+    ACTIVE_HMAC_SECRET = "active_hmac_secret"
+    HMAC_KEYRING       = "hmac_keyring"
+    HMAC_SECRET_BYTES  = 64 # hex-encoded: a 128-character secret
+    # Store errors that mean "cannot reach the store", as opposed to "the store
+    # answered and holds nothing" (nil, or Vault's SecretNotFoundError).
+    UNREACHABLE_ERRORS = [
+      Security::SecretStore::BackendUnavailable,
+      Security::VaultClient::ConnectionError,
+      ActiveRecord::ConnectionNotEstablished,
+      ActiveRecord::ConnectionTimeoutError
+    ].freeze
     CACHE_TTL          = 60 # seconds — steady-state cache lifetime
     # Min gap between cache-bypass refreshes. Kept SMALL so that under a steady
     # stream of verification misses (including an attacker spraying invalid tokens
@@ -109,6 +145,57 @@ module Security
         { rotated_at: Time.current, grace_ends_at: grace_ends }
       end
 
+      # The HS256 signing secret: the stored active secret, or JWT_SECRET_KEY
+      # while nothing has been rotated. Raises StoreUnavailable when the store
+      # cannot be read.
+      def active_hmac_secret
+        fetch_strict(ACTIVE_HMAC_SECRET).presence || env_hmac_secret
+      end
+
+      # Retired HS256 secrets still inside their grace window (may be empty).
+      # Raises StoreUnavailable when the store cannot be read.
+      def hmac_grace_secrets
+        hmac_ring(fetch_strict(HMAC_KEYRING)).reject { |e| expired?(e) }.filter_map { |e| e["secret"].presence }
+      end
+
+      # Every HS256 secret a token may verify against: the active one first,
+      # then the unexpired ring. `refresh: true` re-reads the store first
+      # (throttled, as for RSA), for the one retry after a verification miss,
+      # so a process still holding the pre-rotation secret accepts tokens
+      # signed with the new one.
+      def hmac_verification_secrets(refresh: false)
+        force_refresh! if refresh
+        ([ active_hmac_secret ] + hmac_grace_secrets).compact.uniq
+      end
+
+      # The secret server-to-worker job JWTs are signed with: always
+      # JWT_SECRET_KEY, the value the worker verifies with. Never the rotated
+      # user-token secret (see the module comment).
+      def worker_auth_secret
+        env_hmac_secret || raise(StoreUnavailable, "JWT_SECRET_KEY is not configured")
+      end
+
+      # Rotate the HS256 secret: generated IN CODE, never on a CLI. Prunes
+      # expired ring entries, appends the retiring secret with its grace end,
+      # writes the ring FIRST and the new active secret LAST (a partial failure
+      # leaves at worst a redundant ring entry). Reads bypass the cache and fail
+      # closed. Returns metadata only, never a secret.
+      def rotate_hmac!(grace_hours:)
+        new_secret = SecureRandom.hex(HMAC_SECRET_BYTES)
+        old_secret = read_strict(ACTIVE_HMAC_SECRET).presence || env_hmac_secret
+        grace_ends = grace_hours.hours.from_now
+
+        ring = hmac_ring(read_strict(HMAC_KEYRING)).reject { |e| expired?(e) }
+        ring << { "secret" => old_secret, "expires_at" => grace_ends.iso8601 } if old_secret.present?
+        ring = ring.last(MAX_KEYRING_ENTRIES)
+
+        write(HMAC_KEYRING, ring.to_json)
+        write(ACTIVE_HMAC_SECRET, new_secret)
+        clear_cache!
+
+        { rotated_at: Time.current, grace_ends_at: grace_ends }
+      end
+
       # True once a rotation has populated the store (active keypair present).
       def store_populated?
         read(ACTIVE_KEYPAIR).present?
@@ -163,8 +250,11 @@ module Security
           return if @last_forced_refresh && (now - @last_forced_refresh) < FORCED_REFRESH_THROTTLE
 
           @last_forced_refresh = now
-          @cache.delete(ACTIVE_KEYPAIR)
-          @cache.delete(VERIFICATION_KEYRING)
+          # Mark stale rather than delete: the HS256 path serves the last-known
+          # value when the store is unreachable, so it must survive a refresh.
+          [ ACTIVE_KEYPAIR, VERIFICATION_KEYRING, ACTIVE_HMAC_SECRET, HMAC_KEYRING ].each do |key|
+            @cache[key] = @cache[key].merge(expires_at: 0) if @cache[key]
+          end
         end
       end
 
@@ -186,8 +276,55 @@ module Security
         nil
       end
 
+      # As #fetch for the HS256 path. When the store is unreachable it serves
+      # the last value this process loaded (even past CACHE_TTL), and raises
+      # StoreUnavailable only when it has never loaded one. Never caches an
+      # error.
+      def fetch_strict(key)
+        now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        last_known = nil
+        @mutex.synchronize do
+          last_known = @cache[key]
+          return last_known[:value] if last_known && last_known[:expires_at] > now
+        end
+
+        value =
+          begin
+            read_strict(key)
+          rescue StoreUnavailable
+            raise unless last_known
+
+            Rails.logger.warn("[JwtKeyStore] store unreachable; serving the last-known #{key}")
+            return last_known[:value]
+          end
+        @mutex.synchronize { @cache[key] = { value: value, expires_at: now + CACHE_TTL } }
+        value
+      end
+
+      # nil when the store answered and holds nothing; StoreUnavailable when it
+      # cannot be reached. Any other error propagates unchanged (still refused).
+      def read_strict(key)
+        read(key)
+      rescue Security::VaultClient::SecretNotFoundError
+        nil
+      rescue *UNREACHABLE_ERRORS => e
+        Rails.logger.error("[JwtKeyStore] store read failed for #{key}: #{e.class}")
+        raise StoreUnavailable, "JWT key store unavailable (#{e.class})"
+      end
+
+      def hmac_ring(raw)
+        return [] if raw.blank?
+
+        Array(JSON.parse(raw)).select { |e| e.is_a?(Hash) }
+      rescue JSON::ParserError
+        []
+      end
+
+      # cache: false — JwtKeyStore's own short in-process cache is the only
+      # cache; a Vault backend's 5-minute VaultClient cache would defeat the
+      # forced refresh.
       def read(key)
-        Security::SecretStore.read(account: nil, scope: SCOPE, key: key)
+        Security::SecretStore.read(account: nil, scope: SCOPE, key: key, cache: false)
       end
 
       def write(key, value)
@@ -206,6 +343,12 @@ module Security
       def env_public_pem
         config = Rails.application.config
         config.respond_to?(:jwt_public_key) ? config.jwt_public_key : nil
+      end
+
+      # JWT_SECRET_KEY, the HS256 bootstrap secret (config/initializers/jwt.rb).
+      def env_hmac_secret
+        config = Rails.application.config
+        config.respond_to?(:jwt_secret_key) ? config.jwt_secret_key.presence : nil
       end
     end
   end

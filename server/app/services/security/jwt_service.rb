@@ -42,6 +42,26 @@ module Security
         JWT.encode(enhanced_payload, signing_key(algorithm), algorithm)
       end
 
+      # A JWT for the standalone worker. The worker verifies HS256 with its own
+      # JWT_SECRET_KEY and cannot reach JwtKeyStore, so these are always HS256
+      # signed with JwtKeyStore.worker_auth_secret (JWT_SECRET_KEY), whatever the
+      # user-token algorithm is and however often its secret has rotated. That
+      # secret rotates through the secrets file and a restart of server and
+      # worker, never through regenerate_jwt_secret.
+      def encode_for_worker(payload, exp)
+        enhanced_payload = {
+          **payload.with_indifferent_access,
+          type: payload[:type] || payload["type"] || "worker",
+          exp: exp.to_i,
+          iat: Time.current.to_i,
+          jti: SecureRandom.hex(16),
+          version: CURRENT_TOKEN_VERSION,
+          iss: Rails.application.config.jwt_issuer,
+          aud: Rails.application.config.jwt_audience
+        }
+        JWT.encode(enhanced_payload, Security::JwtKeyStore.worker_auth_secret, "HS256")
+      end
+
       # Enhanced decode method with blacklist checking and secret rotation support
       def decode(token, algorithm: nil)
         algorithm ||= default_algorithm
@@ -340,11 +360,12 @@ module Security
         end
       end
 
-      # HMAC secret (dev/test). Read LIVE from config — not memoized — so an HS256
-      # rotation that reassigns config.jwt_secret_key takes effect immediately for
-      # newly-signed tokens (a memo here silently kept signing with the old secret).
+      # The HS256 signing/verifying secret: JwtKeyStore's durable active secret
+      # (JWT_SECRET_KEY until the first rotation). Raises
+      # JwtKeyStore::StoreUnavailable when the store cannot be read, so HS256
+      # fails closed rather than falling back to a possibly retired secret.
       def secret_key
-        Rails.application.config.jwt_secret_key
+        Security::JwtKeyStore.active_hmac_secret
       end
 
       # Active RSA private key for signing — sourced from JwtKeyStore (store-backed,
@@ -379,7 +400,7 @@ module Security
       # RS256: try the freshly-refreshed active key (so a worker lagging a rotation
       # accepts new-key tokens) plus every retired public key still inside its
       # grace window (multi-generation — overlapping rotations all keep verifying).
-      # HS256 (dev/test): the old HMAC secret from the rotation cache.
+      # HS256: JwtKeyStore's refreshed active secret and its grace keyring.
       def decode_with_grace_keys(token, decode_options, algorithm)
         case algorithm
         when "RS256"
@@ -390,14 +411,14 @@ module Security
           end
           nil
         when "HS256"
-          data = Rails.cache.read("jwt_secret_rotation")
-          return nil unless data && data[:grace_period_ends_at] && Time.current < data[:grace_period_ends_at]
-
-          begin
-            JWT.decode(token, data[:old_secret], true, decode_options)[0]
+          # One store re-read (throttled), then the refreshed active secret and
+          # every retired secret still inside its grace window.
+          Security::JwtKeyStore.hmac_verification_secrets(refresh: true).each do |secret|
+            return JWT.decode(token, secret, true, decode_options)[0]
           rescue JWT::DecodeError
-            nil
+            next
           end
+          nil
         end
       end
 

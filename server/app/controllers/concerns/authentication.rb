@@ -119,6 +119,11 @@ module Authentication
       end
 
       return
+    rescue Security::JwtKeyStore::StoreUnavailable
+      # The token could not be checked either way: the server's failure, not
+      # the client's. 503 keeps clients retrying with the token they hold; a
+      # 401 would make them discard it and log the user out.
+      render_error("Authentication is temporarily unavailable", status: :service_unavailable)
     rescue StandardError
       render_unauthorized("Invalid access token")
     end

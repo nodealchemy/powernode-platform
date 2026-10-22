@@ -47,17 +47,44 @@ RSpec.describe Admin::SecurityConfigService, "#regenerate_jwt_secret" do
     end
   end
 
-  context "under HS256 (dev/test)" do
+  # HS256 runs in production on the hub (rails-start.sh pins JWT_ALGORITHM),
+  # so its rotation goes through JwtKeyStore's durable HMAC keyring exactly as
+  # RS256 goes through its keypair: no secret in Rails.cache, none returned.
+  context "under HS256" do
     before do
       allow(Rails.application.config).to receive(:jwt_algorithm).and_return("HS256")
-      Rails.cache.delete("jwt_secret_rotation")
+      Security::JwtKeyStore.clear_cache!
     end
 
-    it "rotates the HMAC secret with a grace window cache" do
-      result = service.regenerate_jwt_secret
+    after { Security::JwtKeyStore.clear_cache! }
+
+    it "rotates the HMAC secret through JwtKeyStore" do
+      expect(Security::JwtKeyStore).to receive(:rotate_hmac!).with(grace_hours: 24).and_call_original
+
+      result = service.regenerate_jwt_secret(reason: "test")
+
+      expect(result[:success]).to be(true)
       expect(result[:algorithm]).to eq("HS256")
-      expect(result[:new_secret]).to be_present
-      expect(Rails.cache.read("jwt_secret_rotation")).to be_present
+      expect(result[:grace_period_hours]).to eq(24)
+    end
+
+    it "returns NO secret and writes none to Rails.cache" do
+      allow(Rails.cache).to receive(:write).and_call_original
+
+      result = service.regenerate_jwt_secret
+
+      expect(result).not_to have_key(:new_secret)
+      stored = Security::SecretStore.read(account: nil, scope: Security::JwtKeyStore::SCOPE,
+                                          key: Security::JwtKeyStore::ACTIVE_HMAC_SECRET)
+      expect(result.to_s).not_to include(stored)
+      expect(Rails.cache).not_to have_received(:write).with("jwt_secret_rotation", anything, anything)
+    end
+
+    it "writes a critical audit log without secret lengths or material" do
+      service.regenerate_jwt_secret
+      log = AuditLog.where(action: "jwt_secret_regenerated").last
+      expect(log.metadata["algorithm"]).to eq("HS256")
+      expect(log.metadata.keys).not_to include("old_secret_length", "new_secret_length")
     end
   end
 end

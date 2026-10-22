@@ -32,8 +32,10 @@ module Security
         active_backend.write(account: account, scope: scope, key: key, value: value)
       end
 
-      def read(account:, scope:, key:)
-        active_backend.read(account: account, scope: scope, key: key)
+      # `cache: false` reads past any backend-side cache (VaultClient keeps a
+      # 5-minute per-process one); the database backend has none.
+      def read(account:, scope:, key:, cache: true)
+        active_backend.read(account: account, scope: scope, key: key, cache: cache)
       end
 
       def delete(account:, scope:, key:)
@@ -76,7 +78,7 @@ module Security
           value
         end
 
-        def read(account:, scope:, key:)
+        def read(account:, scope:, key:, cache: true) # rubocop:disable Lint/UnusedMethodArgument
           Security::Secret.find_by(account: account, scope: scope.to_s, key: key.to_s)&.value
         end
 
@@ -95,8 +97,8 @@ module Security
           value
         end
 
-        def read(account:, scope:, key:)
-          Security::VaultClient.instance.read_secret(path_for(account, scope, key), key: "value")
+        def read(account:, scope:, key:, cache: true)
+          Security::VaultClient.instance.read_secret(path_for(account, scope, key), key: "value", cache: cache)
         end
 
         def delete(account:, scope:, key:)
