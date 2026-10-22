@@ -116,4 +116,22 @@ RSpec.describe "MCP federation authentication", type: :request do
     post_rpc(method: "tools/list", headers: fed_headers(token: "wrong"))
     expect(JSON.parse(response.body)["error_code"]).to eq("federation_throttled")
   end
+
+  # IMP-24a25a083497: the failure counter must expire after its window. The
+  # first failure used to be written by a bare `increment`, which on Rails 8.1
+  # stores (MemoryStore and SolidCache alike) creates the key with NO expiry, so
+  # the nil-guarded TTL write never ran and a partner, named by an
+  # unauthenticated header, stayed locked out until the store evicted the key.
+  # On a shared, durable cache that is fleet-wide and survives restarts.
+  it "lifts the throttle once the failure window has passed" do
+    stub_const("McpTokenAuthentication::FEDERATION_AUTH_FAILURE_LIMIT", 2)
+
+    3.times { post_rpc(method: "tools/list", headers: fed_headers(token: "wrong")) }
+    expect(JSON.parse(response.body)["error_code"]).to eq("federation_throttled")
+
+    travel(McpTokenAuthentication::FEDERATION_AUTH_FAILURE_WINDOW + 1) do
+      post_rpc(method: "tools/list", headers: fed_headers)
+      expect(response).to have_http_status(:ok)
+    end
+  end
 end

@@ -110,13 +110,13 @@ module McpTokenAuthentication
     Rails.cache.read(federation_auth_failure_key(org)).to_i >= FEDERATION_AUTH_FAILURE_LIMIT
   end
 
-  # Atomic increment; seed with a TTL on the first failure (cache stores that do
-  # not auto-create on increment return nil).
+  # Atomic increment that carries the window itself. Rails 8.1 stores create a
+  # missing key on increment (returning 1, never nil), so a TTL written only
+  # when increment returned nil never ran and the counter had no expiry
+  # (IMP-24a25a083497). With expires_in, the first failure starts the window and
+  # later increments keep that entry's expiry.
   def record_federation_auth_failure(org)
-    key = federation_auth_failure_key(org)
-    if Rails.cache.increment(key).nil?
-      Rails.cache.write(key, 1, expires_in: FEDERATION_AUTH_FAILURE_WINDOW)
-    end
+    Rails.cache.increment(federation_auth_failure_key(org), 1, expires_in: FEDERATION_AUTH_FAILURE_WINDOW)
   end
 
   def current_mcp_principal
