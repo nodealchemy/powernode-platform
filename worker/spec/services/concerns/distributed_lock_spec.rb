@@ -107,6 +107,17 @@ RSpec.describe DistributedLock do
       expect(Sidekiq.redis { |c| c.get(redis_key) }).to eq("a-different-process")
     end
 
+    it "a STALE holder finishing its block cannot release the newer holder's lock (IMP-a9fa85399526)" do
+      # End to end through with_lock: the first holder's lock expires mid-run
+      # and a second holder takes it before the first block returns.
+      holder.with_lock(key, ttl: 60) do
+        Sidekiq.redis { |c| c.del(redis_key) } # the first holder's TTL runs out
+        expect(Sidekiq.redis { |c| c.set(redis_key, 'newer-holder', nx: true, ex: 60) }).to be_truthy
+      end
+
+      expect(Sidekiq.redis { |c| c.get(redis_key) }).to eq('newer-holder')
+    end
+
     it "serialises two holders: the second is refused while the first holds it" do
       inner_result = :not_run
 
