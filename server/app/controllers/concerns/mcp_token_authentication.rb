@@ -78,15 +78,21 @@ module McpTokenAuthentication
 
     # From here the request is federation-signalled: it succeeds or is rejected,
     # never silently downgraded to OAuth.
-    if federation_auth_throttled?(org)
-      render_oauth_unauthorized("Too many federation authentication attempts", error_code: "federation_throttled")
-      return true
-    end
-
+    #
+    # Credentials FIRST: a partner's token is high-entropy, so a valid one is
+    # never refused by the failure counter below. The counter is keyed by the
+    # organisation AND the client IP. Keyed by the attacker-chosen org header
+    # alone and checked before credentials, it let anyone keep a real partner
+    # locked out. The per-request bcrypt it used to bound is left to the
+    # IP-keyed Rack::Attack throttles.
     partner = ::FederationPartner.for_inbound(organization_id: org, token: extract_bearer_token)
     unless partner
-      record_federation_auth_failure(org)
-      render_oauth_unauthorized("Invalid federation credentials", error_code: "federation_invalid")
+      failures = record_federation_auth_failure(org)
+      if failures.to_i > FEDERATION_AUTH_FAILURE_LIMIT
+        render_oauth_unauthorized("Too many federation authentication attempts", error_code: "federation_throttled")
+      else
+        render_oauth_unauthorized("Invalid federation credentials", error_code: "federation_invalid")
+      end
       return true
     end
 
@@ -103,18 +109,16 @@ module McpTokenAuthentication
   end
 
   def federation_auth_failure_key(org)
-    "mcp:fed_auth_fail:#{org}"
-  end
-
-  def federation_auth_throttled?(org)
-    Rails.cache.read(federation_auth_failure_key(org)).to_i >= FEDERATION_AUTH_FAILURE_LIMIT
+    "mcp:fed_auth_fail:#{Digest::SHA256.hexdigest("#{org}|#{request.remote_ip}")}"
   end
 
   # Atomic increment that carries the window itself. Rails 8.1 stores create a
   # missing key on increment (returning 1, never nil), so a TTL written only
   # when increment returned nil never ran and the counter had no expiry
   # (IMP-24a25a083497). With expires_in, the first failure starts the window and
-  # later increments keep that entry's expiry.
+  # later increments keep that entry's expiry. Returns the new count (increment
+  # returns it on every store, including RedisCacheStore, where a plain #read
+  # of the raw counter returns nil).
   def record_federation_auth_failure(org)
     Rails.cache.increment(federation_auth_failure_key(org), 1, expires_in: FEDERATION_AUTH_FAILURE_WINDOW)
   end

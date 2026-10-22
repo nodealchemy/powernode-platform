@@ -105,7 +105,7 @@ RSpec.describe "MCP federation authentication", type: :request do
     expect(victim.reload.status).to eq("active")
   end
 
-  it "throttles repeated failed federation auth to bound bcrypt work" do
+  it "answers federation_throttled once failed federation auth passes the limit" do
     stub_const("McpTokenAuthentication::FEDERATION_AUTH_FAILURE_LIMIT", 2)
 
     2.times do
@@ -132,6 +132,51 @@ RSpec.describe "MCP federation authentication", type: :request do
     travel(McpTokenAuthentication::FEDERATION_AUTH_FAILURE_WINDOW + 1) do
       post_rpc(method: "tools/list", headers: fed_headers)
       expect(response).to have_http_status(:ok)
+    end
+  end
+
+  # The failure counter is keyed by the organisation AND the client IP, and is
+  # consulted only after the credentials fail: a high-entropy partner token is
+  # never refused by it. Before, it was keyed by the attacker-chosen
+  # X-Federation-Organization header alone and checked before credentials, so
+  # anyone could keep a real partner locked out.
+  describe "lockout scope" do
+    before { stub_const("McpTokenAuthentication::FEDERATION_AUTH_FAILURE_LIMIT", 2) }
+
+    def attack_from(ip, times: 3)
+      times.times do
+        post_rpc(method: "tools/list", headers: fed_headers(token: "wrong").merge("REMOTE_ADDR" => ip))
+      end
+      expect(JSON.parse(response.body)["error_code"]).to eq("federation_throttled")
+    end
+
+    it "does not refuse the partner's valid token from the attacker's own IP" do
+      attack_from("198.51.100.66")
+
+      post_rpc(method: "tools/list", headers: fed_headers.merge("REMOTE_ADDR" => "198.51.100.66"))
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "does not lock the organisation out from a different IP" do
+      attack_from("198.51.100.66")
+
+      post_rpc(method: "tools/list", headers: fed_headers(token: "wrong").merge("REMOTE_ADDR" => "198.51.100.77"))
+      expect(JSON.parse(response.body)["error_code"]).to eq("federation_invalid")
+      post_rpc(method: "tools/list", headers: fed_headers.merge("REMOTE_ADDR" => "198.51.100.77"))
+      expect(response).to have_http_status(:ok)
+    end
+
+    # RedisCacheStore stores an incremented counter raw, and a plain #read
+    # returns nil for it, so a threshold checked with #read never tripped there.
+    it "trips on a Redis-backed cache store" do
+      redis_store = ActiveSupport::Cache::RedisCacheStore.new(
+        url: Powernode::Redis.url, namespace: "fed_auth_spec_#{SecureRandom.hex(4)}"
+      )
+      allow(Rails).to receive(:cache).and_return(redis_store)
+
+      attack_from("198.51.100.88")
+    ensure
+      redis_store&.clear
     end
   end
 end
