@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import { Button } from '@/shared/components/ui/Button';
 import { Checkbox } from '@/shared/components/ui/Checkbox';
+import { EmptyState } from '@/shared/components/ui/EmptyState';
 import { Textarea } from '@/shared/components/ui/Textarea';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { useNotifications } from '@/shared/hooks/useNotifications';
@@ -148,9 +149,11 @@ export const McpSecurityTab: React.FC = () => {
       </p>
 
       {!servers || servers.length === 0 ? (
-        <div className="rounded-lg border border-theme bg-theme-surface px-4 py-8 text-center text-theme-tertiary">
-          No stdio MCP servers.
-        </div>
+        <EmptyState
+          className="rounded-lg border border-theme bg-theme-surface"
+          title="No stdio MCP servers."
+          description="Sandbox settings appear here once a stdio MCP server is registered."
+        />
       ) : (
         <ul className="divide-y divide-theme overflow-hidden rounded-lg border border-theme bg-theme-surface">
           {servers.map((server) => (
