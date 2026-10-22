@@ -9,9 +9,12 @@ module McpTokenAuthentication
 
   PROTECTED_RESOURCE_PATH = "/.well-known/oauth-protected-resource"
 
-  # Bound the bcrypt work an attacker can force on the federation arm: after this
-  # many failed attempts for an organization within the window, reject fast (no
-  # bcrypt) until it expires. Valid callers never fail, so are never throttled.
+  # Federation auth-failure lockout: after this many failed attempts from one
+  # client IP for one organization within the window, a failure answers
+  # federation_throttled instead of federation_invalid. Credentials are checked
+  # FIRST, so every attempt still costs a bcrypt and a valid token is never
+  # refused; the per-request bcrypt work is bounded by the IP-keyed Rack::Attack
+  # throttles, not by this counter.
   FEDERATION_AUTH_FAILURE_LIMIT = 20
   FEDERATION_AUTH_FAILURE_WINDOW = 60 # seconds
 
