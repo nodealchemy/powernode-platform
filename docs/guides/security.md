@@ -84,6 +84,15 @@ Production signs with **RS256** (`JWT_PRIVATE_KEY` / `JWT_PUBLIC_KEY` env vars, 
 
 Signing keys rotate without invalidating outstanding tokens via `Security::JwtKeyStore.rotate!(grace_hours:)` (exposed through the admin security settings): previous public keys are retained as grace verification keys until the grace window ends, so tokens signed with the old key keep verifying.
 
+#### HS256 secret rotation
+
+Under HS256 the same admin action calls `Security::JwtKeyStore.rotate_hmac!(grace_hours:)`. It stores a new secret, generated in code, durably in `Security::SecretStore` (`account: nil`, scope `jwt_signing`: `active_hmac_secret` plus an `hmac_keyring` of retired secrets still inside their grace window), and records the protected SiteSetting `jwt_hmac_rotated_at`. `JWT_SECRET_KEY` is only the bootstrap secret, used until the first rotation. Every server process picks up the new secret within 60 seconds, or within a few seconds on a verification miss. Nothing is written to `Rails.cache`, and the new secret is never shown.
+
+- **What it covers:** the user, impersonation and API tokens this server issues and verifies. It does **not** cover server-to-worker job authentication: job JWTs are always signed with `JWT_SECRET_KEY` and `aud: "worker"`, which the worker verifies itself. Rotate that secret by changing `JWT_SECRET_KEY` in the secrets file on the server and the worker and restarting both. When upgrading across the `aud: "worker"` change, deploy the backend before the worker.
+- **When the store is unreachable:** each process keeps serving the secrets it last loaded, for up to 24 hours from the last successful load. With nothing loaded, authentication answers 503 rather than 401.
+- **After a rotation, an empty store is an error, not a fallback:** while `jwt_hmac_rotated_at` is set, a store that answers with no active secret (wrong Vault mount or namespace, a reconfigured Vault, a database restored from before the rotation) fails closed instead of re-trusting the retired `JWT_SECRET_KEY`.
+- **Reverting to the env secret** therefore means deleting **both** the stored `active_hmac_secret` (and `hmac_keyring`) **and** the `jwt_hmac_rotated_at` marker, then restarting every server process. The marker is a protected key: clear it to an empty value through the human-only `site_setting_set_protected` path (an empty value counts as unset), or delete the row from a Rails console; the REST site settings API refuses it. Tokens signed with the rotated secrets stop verifying once they are gone.
+
 ### Token types
 
 - **Access token** — short-lived (15min), carries user_id + account_id + permissions claims
