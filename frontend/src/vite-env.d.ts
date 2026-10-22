@@ -40,7 +40,7 @@ declare const __DISABLED_EXTENSIONS__: string[];
 // resolve into extension source files (which have no node_modules of their own).
 // Vite's Rollup build will catch any missing modules at build time.
 declare module '@ext/*' {
-  const value: any;
+  const value: unknown;
   export default value;
   export = value;
 }

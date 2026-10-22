@@ -650,8 +650,12 @@ else
     failed_checks=$((failed_checks + 1))
 fi
 
+# Counts `: any` annotations in code. Comment lines are skipped and `any` must be
+# a whole word: the bare `grep ': any'` this replaced also counted prose such as
+# "the agent: anyone who can drive it", so 9 of the 10 hits it reported were
+# comments and the one real annotation was hidden among them.
 check_pattern "TypeScript any types (should be minimal)" \
-    "grep -r ': any' frontend/src/ | grep -v 'node_modules' | wc -l" \
+    "grep -rnE ':[[:space:]]*any\\b' frontend/src/ --include='*.ts' --include='*.tsx' | grep -v 'node_modules' | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(//|/?\\*|\\{/\\*)' | wc -l" \
     "5"
 
 echo ""
