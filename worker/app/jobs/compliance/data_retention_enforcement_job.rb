@@ -70,6 +70,9 @@ module Compliance
 
         { scope: 'account', account_id: account_id }
       elsif declared == 'system'
+        # Hook for the pending operator decision on system-wide policies.
+        # Nothing emits `scope` today: there is no column and the index does
+        # not return it, so in practice every nil-account policy is refused.
         { scope: 'system' }
       end
     end
@@ -86,21 +89,34 @@ module Compliance
         return base.merge(status: 'skipped_unscoped', records_processed: 0)
       end
 
-      params = { cutoff_date: policy['retention_days'].to_i.days.ago.iso8601 }.merge(scope)
+      base[:scope] = scope[:scope]
+
+      # A nil/blank/non-numeric value would become 0 days, a cutoff of "now",
+      # and purge every row: refuse it before any call.
+      retention_days = Integer(policy['retention_days'].to_s, 10, exception: false)
+      if retention_days.nil? || retention_days < 1
+        log_warn "Refusing retention policy #{policy['id']} (#{data_type}): invalid retention_days " \
+                 "#{policy['retention_days'].inspect}"
+        return base.merge(status: 'skipped_invalid', records_processed: 0)
+      end
+
+      params = { cutoff_date: retention_days.days.ago.iso8601 }.merge(scope)
       log_info "Enforcing #{action} for #{data_type} older than #{params[:cutoff_date]} (#{scope[:scope]} scope)"
 
       call = purge_call(data_type, action)
-      return base.merge(scope: scope[:scope], status: 'unsupported', records_processed: 0) unless call
+      return base.merge(status: 'unsupported', records_processed: 0) unless call
 
+      # Record the call that actually runs: an audit_logs delete runs archive.
+      base[:call] = "#{call[0].upcase} #{call[1]}"
       count = purge(*call, params)
       record_enforcement(policy, count)
-      base.merge(scope: scope[:scope], status: 'enforced', records_processed: count)
+      base.merge(status: 'enforced', records_processed: count)
     rescue UnroutedError => e
       log_error "Retention purge unrouted for policy #{policy['id']}: #{e.message}"
-      base.merge(scope: scope&.dig(:scope), status: 'unrouted', records_processed: 0, error: e.message)
+      base.merge(status: 'unrouted', records_processed: 0, error: e.message)
     rescue StandardError => e
       log_error "Failed to enforce policy #{policy['id']}: #{e.message}"
-      base.merge(scope: scope&.dig(:scope), status: 'failed', records_processed: 0, error: e.message)
+      base.merge(status: 'failed', records_processed: 0, error: e.message)
     end
 
     # [verb, path] for a data type + action, or nil when there is nothing to call.
@@ -157,6 +173,9 @@ module Compliance
       enforced = policy_results.count { |r| r[:status] == 'enforced' }
       records = policy_results.sum { |r| r[:records_processed] }
       unrouted = @unrouted_calls
+      unscoped = policy_results.count { |r| r[:status] == 'skipped_unscoped' }
+      invalid = policy_results.count { |r| r[:status] == 'skipped_invalid' }
+      refused = unscoped + invalid
 
       outcome, summary =
         if total.zero?
@@ -171,6 +190,7 @@ module Compliance
           ['enforced', "retention enforced: #{enforced} policies, #{records} records" \
                        "#{", #{unrouted} calls unrouted" if unrouted.positive?}"]
         end
+      summary += ", #{refused} refused (#{unscoped} unscoped, #{invalid} invalid)" if refused.positive?
 
       {
         outcome: outcome,
@@ -179,6 +199,7 @@ module Compliance
         policies_processed: enforced,
         records_processed: records,
         unrouted_calls: unrouted,
+        policies_refused: refused,
         policy_results: policy_results,
         errors: policy_results.select { |r| r[:error] }.map { |r| { policy_id: r[:policy_id], error: r[:error] } }
       }

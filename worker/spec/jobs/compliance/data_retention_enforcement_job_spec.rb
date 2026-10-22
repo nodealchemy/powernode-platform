@@ -487,6 +487,53 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
       end
     end
 
+    # A nil/blank/non-numeric retention_days used to become 0 via to_i, so the
+    # cutoff was "now" and the purge would take every row.
+    [nil, '', 'abc', 0, -5].each do |bad_days|
+      context "with retention_days #{bad_days.inspect}" do
+        before { serve([a_policy('session_logs', 'delete', 'retention_days' => bad_days)]) }
+
+        it 'refuses it as skipped_invalid before any call' do
+          result = job.execute
+
+          expect(retention_calls).to be_empty
+          expect(job).to have_received(:log_warn).with(/invalid retention_days/)
+          expect(result[:policy_results]).to contain_exactly(
+            hash_including(data_type: 'session_logs', status: 'skipped_invalid', records_processed: 0)
+          )
+        end
+      end
+    end
+
+    context 'when every policy is refused' do
+      before do
+        serve([
+          a_policy('session_logs', 'delete', 'account_id' => nil),
+          a_policy('email_logs', 'delete', 'retention_days' => nil)
+        ])
+      end
+
+      it 'says in the summary that the policies were refused' do
+        result = job.execute
+
+        expect(result[:summary]).to eq(
+          'retention enforcement failed: 0 of 2 policies enforced, 2 refused (1 unscoped, 1 invalid)'
+        )
+      end
+    end
+
+    context 'with an audit_logs delete policy' do
+      before { serve([a_policy('audit_logs', 'delete')]) }
+
+      it 'records that it ran archive, not delete' do
+        result = job.execute
+
+        expect(result[:policy_results].first).to include(
+          action: 'delete', status: 'enforced', call: 'POST audit_logs/archive'
+        )
+      end
+    end
+
     context 'with an explicitly system-wide policy' do
       before { serve([a_policy('session_logs', 'delete', 'account_id' => nil, 'scope' => 'system')]) }
 
@@ -566,8 +613,10 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
         job.execute
 
         expect(audits.first[:metadata][:policy_results]).to contain_exactly(
-          hash_including(data_type: 'session_logs', status: 'unrouted', records_processed: 0),
-          hash_including(data_type: 'audit_logs', status: 'unrouted', records_processed: 0)
+          hash_including(data_type: 'session_logs', status: 'unrouted', records_processed: 0,
+                         call: 'DELETE sessions'),
+          hash_including(data_type: 'audit_logs', status: 'unrouted', records_processed: 0,
+                         call: 'POST audit_logs/archive')
         )
         expect(api_client).not_to have_received(:patch)
       end
@@ -606,8 +655,10 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
         meta = audits.first[:metadata]
         expect(meta[:outcome]).to eq('enforced')
         expect(meta[:policy_results]).to contain_exactly(
-          hash_including(data_type: 'session_logs', status: 'enforced', records_processed: 4),
-          hash_including(data_type: 'audit_logs', status: 'enforced', records_processed: 6)
+          hash_including(data_type: 'session_logs', status: 'enforced', records_processed: 4,
+                         call: 'DELETE sessions'),
+          hash_including(data_type: 'audit_logs', status: 'enforced', records_processed: 6,
+                         call: 'POST audit_logs/archive')
         )
       end
     end
