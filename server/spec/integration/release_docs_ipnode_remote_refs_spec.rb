@@ -3,7 +3,7 @@
 require 'rails_helper'
 
 # Repo-hygiene check for the release/setup docs that describe the dual-remote
-# layout (private Gitea upstream = `origin`, public GitHub mirror = `github`).
+# layout (private Gitea upstream = `gitea`, public GitHub mirror = `origin`).
 #
 # 1. They must not name the retired `ipnode` git remote (IMP-1cbab660381e). The
 #    regex matches `ipnode` only as a remote NAME: word-bounded, and excluding a
@@ -50,10 +50,13 @@ RSpec.describe 'release/setup docs describe the git remotes without deployment i
     )
   end
 
-  it 'still documents the dual-remote layout with the placeholder' do
+  # The release doc names the remotes release.sh pushes to (`gitea`, then
+  # `origin`) and describes the Gitea host in prose, as deployment knowledge,
+  # rather than through the <gitea-host> placeholder.
+  it 'still documents the dual-remote layout without naming the host' do
     release = File.read(File.join(repo_root, 'docs/contributing/release-process.md'))
 
-    expect(release).to include('<gitea-host>')
-    expect(release).to match(/`github` is the public GitHub mirror/)
+    expect(release).to match(/`gitea` \(the private Gitea upstream; host is deployment knowledge\)/)
+    expect(release).to match(/`origin` \(the public GitHub mirror\)/)
   end
 end
