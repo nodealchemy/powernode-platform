@@ -25,6 +25,17 @@ RSpec.describe Security::JwtKeyStore, "HMAC keyring" do
     JWT.encode(payload, secret, "HS256")
   end
 
+  # Expire every cached entry: the cache TTL runs on the monotonic clock, which
+  # `travel` does not move.
+  def expire_cache!
+    cache = described_class.instance_variable_get(:@cache)
+    cache.each_key { |key| cache[key] = cache[key].merge(expires_at: 0) }
+  end
+
+  def stored_ring
+    Security::SecretStore.read(account: nil, scope: described_class::SCOPE, key: described_class::HMAC_KEYRING)
+  end
+
   # Simulate another process: rotate there, then put this process's cache back
   # to what it held before, so it still believes the pre-rotation secret.
   def rotate_in_another_process(grace_hours: 24)
@@ -206,11 +217,54 @@ RSpec.describe Security::JwtKeyStore, "HMAC keyring" do
       allow(Security::SecretStore).to receive(:read)
         .and_raise(Security::SecretStore::BackendUnavailable, "vault down")
 
-      travel(described_class::CACHE_TTL + 5) do
-        expect(described_class.active_hmac_secret).to eq(active)
-        expect(described_class.hmac_grace_secrets).to eq(ring)
-        expect(described_class.hmac_verification_secrets(refresh: true)).to eq([ active, *ring ])
+      expire_cache!
+      expect(described_class.active_hmac_secret).to eq(active)
+      expect(described_class.hmac_grace_secrets).to eq(ring)
+      expect(described_class.hmac_verification_secrets(refresh: true)).to eq([ active, *ring ])
+    end
+
+    # Transient database errors (solid_cache's own transient list) are an
+    # outage too, not a bad token: last-known secret, or 503, never 401.
+    it "treats a cancelled query as an outage and serves the last-known secret" do
+      described_class.rotate_hmac!(grace_hours: 24)
+      active = described_class.active_hmac_secret
+      allow(Security::SecretStore).to receive(:read).and_raise(ActiveRecord::QueryCanceled, "canceling statement")
+
+      expire_cache!
+      expect(described_class.active_hmac_secret).to eq(active)
+    end
+
+    it "raises StoreUnavailable (503) for a cancelled query when nothing was loaded" do
+      allow(Security::SecretStore).to receive(:read).and_raise(ActiveRecord::QueryCanceled, "canceling statement")
+
+      expect { described_class.active_hmac_secret }.to raise_error(described_class::StoreUnavailable)
+    end
+
+    it "stops serving a last-known active secret once it is older than the rotation grace period" do
+      described_class.rotate_hmac!(grace_hours: 24)
+      described_class.active_hmac_secret
+      allow(Security::SecretStore).to receive(:read)
+        .and_raise(Security::SecretStore::BackendUnavailable, "vault down")
+
+      travel(described_class::STALE_SERVE_LIMIT + 1.minute) do
+        expire_cache!
+        expect { described_class.active_hmac_secret }.to raise_error(described_class::StoreUnavailable)
       end
+    end
+
+    it "logs the stale-serve warning once per key per CACHE_TTL, not per request" do
+      described_class.rotate_hmac!(grace_hours: 24)
+      described_class.active_hmac_secret
+      allow(Security::SecretStore).to receive(:read)
+        .and_raise(Security::SecretStore::BackendUnavailable, "vault down")
+      allow(Rails.logger).to receive(:warn)
+
+      5.times do
+        expire_cache!
+        described_class.active_hmac_secret
+      end
+
+      expect(Rails.logger).to have_received(:warn).with(/last-known #{described_class::ACTIVE_HMAC_SECRET}/).once
     end
 
     it "still fails closed when nothing was ever loaded" do
@@ -219,5 +273,54 @@ RSpec.describe Security::JwtKeyStore, "HMAC keyring" do
 
       expect { described_class.active_hmac_secret }.to raise_error(described_class::StoreUnavailable)
     end
+  end
+
+  # After a rotation, JWT_SECRET_KEY is a RETIRED secret. A store that answers
+  # "empty" afterwards (wrong Vault mount or namespace, a reconfigured Vault, a
+  # database restored from before the rotation) must not quietly bring it back.
+  describe "after a rotation has been recorded" do
+    before { described_class.rotate_hmac!(grace_hours: 24) }
+
+    it "records the rotation outside the secret path" do
+      expect(SiteSetting.get(described_class::ROTATION_MARKER)).to be_present
+    end
+
+    it "refuses to fall back to JWT_SECRET_KEY when the store answers empty" do
+      described_class.clear_cache!
+      allow(Security::SecretStore).to receive(:read).and_return(nil)
+
+      expect { described_class.active_hmac_secret }.to raise_error(described_class::StoreUnavailable, /rotation/)
+    end
+
+    it "never replaces a last-known real secret with an empty read" do
+      active = described_class.active_hmac_secret
+      allow(Security::SecretStore).to receive(:read).and_return(nil)
+
+      expire_cache!
+      expect(described_class.active_hmac_secret).to eq(active)
+    end
+  end
+
+  it "spaces forced refreshes at least 5s apart on a Vault backend" do
+    allow(Security::SecretStore).to receive(:backend).and_return(:vault)
+    clock = 1_000.0
+    allow(Process).to receive(:clock_gettime).and_call_original
+    allow(Process).to receive(:clock_gettime).with(Process::CLOCK_MONOTONIC) { clock }
+    refreshed_at = -> { described_class.instance_variable_get(:@last_forced_refresh) }
+
+    described_class.send(:force_refresh!)
+    expect(refreshed_at.call).to eq(1_000.0)
+    clock += 2
+    described_class.send(:force_refresh!)
+    expect(refreshed_at.call).to eq(1_000.0)
+    clock += 4
+    described_class.send(:force_refresh!)
+    expect(refreshed_at.call).to eq(1_006.0)
+  end
+
+  it "still bootstraps from JWT_SECRET_KEY when no rotation was ever recorded" do
+    allow(Security::SecretStore).to receive(:read).and_return(nil)
+
+    expect(described_class.active_hmac_secret).to eq(env_secret)
   end
 end

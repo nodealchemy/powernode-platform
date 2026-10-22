@@ -59,12 +59,30 @@ module Security
     HMAC_SECRET_BYTES  = 64 # hex-encoded: a 128-character secret
     # Store errors that mean "cannot reach the store", as opposed to "the store
     # answered and holds nothing" (nil, or Vault's SecretNotFoundError).
+    # The database half matches solid_cache's own transient list
+    # (SolidCache::Store::Failsafe): a cancelled or timed-out query is an outage,
+    # not a bad token.
     UNREACHABLE_ERRORS = [
       Security::SecretStore::BackendUnavailable,
       Security::VaultClient::ConnectionError,
       ActiveRecord::ConnectionNotEstablished,
-      ActiveRecord::ConnectionTimeoutError
+      ActiveRecord::ConnectionTimeoutError,
+      ActiveRecord::AdapterTimeout,
+      ActiveRecord::Deadlocked,
+      ActiveRecord::LockWaitTimeout,
+      ActiveRecord::QueryCanceled,
+      ActiveRecord::StatementTimeout
     ].freeze
+    # SiteSetting recorded by every HS256 rotation, OUTSIDE the secret path.
+    # Once set, an "empty" active secret is an error (wrong Vault mount or
+    # namespace, reconfigured Vault, database restored from before the
+    # rotation), never a reason to fall back to the retired JWT_SECRET_KEY.
+    ROTATION_MARKER = "jwt_hmac_rotated_at"
+    # How long a last-known secret may be served while the store is
+    # unreachable, from its last successful load. Equal to the rotation grace
+    # period (Admin::SecurityConfigService::JWT_ROTATION_GRACE_PERIOD, 24h), so
+    # an outage cannot keep a secret alive longer than a rotation would.
+    STALE_SERVE_LIMIT = 24.hours
     CACHE_TTL          = 60 # seconds — steady-state cache lifetime
     # Min gap between cache-bypass refreshes. Kept SMALL so that under a steady
     # stream of verification misses (including an attacker spraying invalid tokens
@@ -73,6 +91,9 @@ module Security
     # a rotation converges within ~1s instead of waiting out CACHE_TTL, while store
     # reads stay bounded to ~1/sec/worker.
     FORCED_REFRESH_THROTTLE = 1 # seconds
+    # On a Vault backend every forced refresh is a Vault round trip per key, so
+    # the floor there is higher.
+    VAULT_FORCED_REFRESH_THROTTLE = 5 # seconds
     MAX_KEYRING_ENTRIES = 24 # bound verification cost (one day of hourly rotations)
     RSA_BITS           = 2048
 
@@ -149,7 +170,15 @@ module Security
       # while nothing has been rotated. Raises StoreUnavailable when the store
       # cannot be read.
       def active_hmac_secret
-        fetch_strict(ACTIVE_HMAC_SECRET).presence || env_hmac_secret
+        stored = fetch_strict(ACTIVE_HMAC_SECRET).presence
+        return stored if stored
+
+        if rotation_recorded?
+          raise StoreUnavailable, "the store holds no active HS256 secret although a rotation is recorded " \
+                                  "(#{ROTATION_MARKER}); refusing to fall back to JWT_SECRET_KEY"
+        end
+
+        env_hmac_secret
       end
 
       # Retired HS256 secrets still inside their grace window (may be empty).
@@ -191,9 +220,11 @@ module Security
 
         write(HMAC_KEYRING, ring.to_json)
         write(ACTIVE_HMAC_SECRET, new_secret)
+        rotated_at = Time.current
+        ::SiteSetting.set(ROTATION_MARKER, rotated_at.iso8601, setting_type: "string")
         clear_cache!
 
-        { rotated_at: Time.current, grace_ends_at: grace_ends }
+        { rotated_at: rotated_at, grace_ends_at: grace_ends }
       end
 
       # True once a rotation has populated the store (active keypair present).
@@ -206,6 +237,8 @@ module Security
       def clear_cache!
         @mutex.synchronize do
           @cache = {}
+          @stale_warned_at = {}
+          @vault_backend = nil
           @last_forced_refresh = nil # a cleared cache may refresh immediately
         end
       end
@@ -248,7 +281,13 @@ module Security
         now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         @mutex.synchronize do
           return if @last_forced_refresh && (now - @last_forced_refresh) < FORCED_REFRESH_THROTTLE
-
+        end
+        if vault_backend?(now)
+          @mutex.synchronize do
+            return if @last_forced_refresh && (now - @last_forced_refresh) < VAULT_FORCED_REFRESH_THROTTLE
+          end
+        end
+        @mutex.synchronize do
           @last_forced_refresh = now
           # Mark stale rather than delete: the HS256 path serves the last-known
           # value when the store is unreachable, so it must survive a refresh.
@@ -256,6 +295,20 @@ module Security
             @cache[key] = @cache[key].merge(expires_at: 0) if @cache[key]
           end
         end
+      end
+
+      # Whether the secret backend is Vault, memoized for CACHE_TTL so a flood
+      # of verification misses costs no extra setting reads. Unknown => false
+      # (the 1s floor still applies).
+      def vault_backend?(now)
+        @mutex.synchronize do
+          return @vault_backend[:value] if @vault_backend && @vault_backend[:expires_at] > now
+        end
+        value = Security::SecretStore.backend == :vault
+        @mutex.synchronize { @vault_backend = { value: value, expires_at: now + CACHE_TTL } }
+        value
+      rescue StandardError
+        false
       end
 
       # Short-TTL in-process memoization. On any store error, returns nil so the
@@ -276,10 +329,11 @@ module Security
         nil
       end
 
-      # As #fetch for the HS256 path. When the store is unreachable it serves
-      # the last value this process loaded (even past CACHE_TTL), and raises
-      # StoreUnavailable only when it has never loaded one. Never caches an
-      # error.
+      # As #fetch for the HS256 path. When the store is unreachable, or answers
+      # empty after this process had loaded a real value, it serves that
+      # last-known value for up to STALE_SERVE_LIMIT from its last successful
+      # load, then raises StoreUnavailable; with nothing loaded it raises at
+      # once. Never caches an error, and never replaces a real value with nil.
       def fetch_strict(key)
         now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         last_known = nil
@@ -294,11 +348,60 @@ module Security
           rescue StoreUnavailable
             raise unless last_known
 
-            Rails.logger.warn("[JwtKeyStore] store unreachable; serving the last-known #{key}")
-            return last_known[:value]
+            return serve_last_known(key, last_known, now, "store unreachable")
           end
-        @mutex.synchronize { @cache[key] = { value: value, expires_at: now + CACHE_TTL } }
+
+        if value.nil? && last_known && !last_known[:value].nil?
+          return serve_last_known(key, last_known, now, "store answered empty after a real value")
+        end
+
+        @mutex.synchronize { @cache[key] = { value: value, expires_at: now + CACHE_TTL, loaded_at: Time.current } }
         value
+      end
+
+      def serve_last_known(key, last_known, now, why)
+        loaded_at = last_known[:loaded_at]
+        if loaded_at.nil? || Time.current - loaded_at > STALE_SERVE_LIMIT
+          raise StoreUnavailable, "JWT key store: #{why}, and the last-known #{key} is older than " \
+                                  "#{STALE_SERVE_LIMIT.inspect}"
+        end
+
+        warn_stale_once(key, now, why)
+        last_known[:value]
+      end
+
+      # One warning per key per CACHE_TTL during an outage, not one per request.
+      def warn_stale_once(key, now, why)
+        @stale_warned_at ||= {}
+        log = @mutex.synchronize do
+          last = @stale_warned_at[key]
+          next false if last && (now - last) < CACHE_TTL
+
+          @stale_warned_at[key] = now
+          true
+        end
+        Rails.logger.warn("[JwtKeyStore] #{why}; serving the last-known #{key}") if log
+      end
+
+      # Whether a rotation was ever recorded. Sticky once true; a false answer
+      # is re-checked after CACHE_TTL. Read errors are classified like the
+      # store's.
+      def rotation_recorded?
+        now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        @mutex.synchronize do
+          entry = @cache[ROTATION_MARKER]
+          return true if entry && entry[:value]
+          return false if entry && entry[:expires_at] > now
+        end
+
+        recorded =
+          begin
+            ::SiteSetting.get(ROTATION_MARKER).present?
+          rescue *UNREACHABLE_ERRORS => e
+            raise StoreUnavailable, "JWT rotation marker unreadable (#{e.class})"
+          end
+        @mutex.synchronize { @cache[ROTATION_MARKER] = { value: recorded, expires_at: now + CACHE_TTL } }
+        recorded
       end
 
       # nil when the store answered and holds nothing; StoreUnavailable when it

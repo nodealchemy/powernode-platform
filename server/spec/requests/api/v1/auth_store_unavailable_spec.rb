@@ -20,6 +20,16 @@ RSpec.describe "Authentication when the JWT key store is unavailable", type: :re
     expect(response).to have_http_status(:service_unavailable)
   end
 
+  it "answers 503 when the store read is a cancelled query (a transient DB error)" do
+    headers
+    Security::JwtKeyStore.clear_cache!
+    allow(Security::SecretStore).to receive(:read).and_raise(ActiveRecord::QueryCanceled, "canceling statement")
+
+    get "/api/v1/auth/me", headers: headers, as: :json
+
+    expect(response).to have_http_status(:service_unavailable)
+  end
+
   it "still answers 401 for a token that is simply invalid" do
     get "/api/v1/auth/me", headers: { "Authorization" => "Bearer not-a-token" }, as: :json
 
