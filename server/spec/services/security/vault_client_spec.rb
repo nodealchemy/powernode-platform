@@ -40,7 +40,7 @@ RSpec.describe Security::VaultClient do
     subject(:vault) do
       described_class.allocate.tap do |v|
         v.instance_variable_set(:@client, client)
-        v.instance_variable_set(:@cache, Rails.cache)
+        v.instance_variable_set(:@cache, described_class.secret_cache)
       end
     end
 
@@ -89,13 +89,13 @@ RSpec.describe Security::VaultClient do
     it "invalidates the path's cached entries so the next cached read agrees" do
       allow(logical).to receive(:read).and_return(secret_double({ data: { password: "pw" } }))
       stale_key = vault.send(:cache_key_for, "secret/data/x", nil)
-      Rails.cache.write(stale_key, { "password" => "stale" })
+      described_class.secret_cache.write(stale_key, { "password" => "stale" })
 
       vault.probe_secret("secret/data/x")
 
       current_key = vault.send(:cache_key_for, "secret/data/x", nil)
       expect(current_key).not_to eq(stale_key) # the stale entry is now unaddressable
-      expect(Rails.cache.read(current_key)).to be_nil
+      expect(described_class.secret_cache.read(current_key)).to be_nil
     end
 
     # The ABSENT arm needs it too, and in the more alarming direction: a stale
@@ -106,14 +106,14 @@ RSpec.describe Security::VaultClient do
     it "invalidates the cache even when the path turns out to be absent" do
       allow(logical).to receive(:read).and_return(nil)
       stale_key = vault.send(:cache_key_for, "secret/data/gone", nil)
-      Rails.cache.write(stale_key, { "password" => "stale" })
+      described_class.secret_cache.write(stale_key, { "password" => "stale" })
 
       expect { vault.probe_secret("secret/data/gone") }
         .to raise_error(described_class::SecretNotFoundError)
 
       current_key = vault.send(:cache_key_for, "secret/data/gone", nil)
       expect(current_key).not_to eq(stale_key) # the stale entry is now unaddressable
-      expect(Rails.cache.read(current_key)).to be_nil
+      expect(described_class.secret_cache.read(current_key)).to be_nil
     end
 
     # A STATE oracle, not a message oracle. `not_to receive(:record_failure)`
@@ -165,8 +165,7 @@ RSpec.describe Security::VaultClient do
 
   # IMP-63a7d2f99c56. #invalidate_cache_for_path called @cache.delete_matched,
   # which the production default store (solid_cache) does not implement — see
-  # CacheVersioning's header. @cache is Rails.cache here (VaultClient#initialize
-  # sets it from that, same object #probe_secret above stubs directly), so this
+  # CacheVersioning's header. @cache is injected here, so this
   # is not a Vault-specific quirk — it's the same class of defect as the other
   # delete_matched sites this task fixes.
   describe "#invalidate_cache_for_path (private, exercised through #write_secret)" do
@@ -232,6 +231,83 @@ RSpec.describe Security::VaultClient do
       end
     end
   end
+  # Secret values must never reach a shared cache store. Rails.cache is
+  # solid_cache in production: whatever is written there sits in plain text in
+  # solid_cache_entries and in every database backup. The 5-minute read cache is
+  # therefore a per-process MemoryStore owned by this class.
+  describe "secret read cache" do
+    let(:path) { "secret/data/powernode/spec/#{SecureRandom.hex(6)}" }
+    let(:secret_value) { "s3cret-#{SecureRandom.hex(8)}" }
+    let(:logical) { double("Vault::Logical") }
+
+    subject(:client) do
+      described_class.new(token: "spec-token").tap do |c|
+        allow(logical).to receive(:read).with(path)
+                                        .and_return(double("Vault::Secret", data: { data: { password: secret_value } }))
+        c.instance_variable_set(:@client, double("Vault::Client", logical: logical))
+      end
+    end
+
+    def shared_cache_writes
+      writes = []
+      allow(Rails.cache).to receive(:write).and_wrap_original do |original, *args, **kwargs|
+        writes << args
+        original.call(*args, **kwargs)
+      end
+      allow(Rails.cache).to receive(:write_multi).and_wrap_original do |original, *args, **kwargs|
+        writes << args
+        original.call(*args, **kwargs)
+      end
+      writes
+    end
+
+    it "never writes a secret value to Rails.cache, on the miss or the hit" do
+      writes = shared_cache_writes
+
+      client.read_secret(path)
+      client.read_secret(path, key: "password")
+      client.read_secret(path)
+
+      leaked = writes.select { |args| args.inspect.include?(secret_value) || args.first.to_s.include?(path) }
+      expect(leaked).to be_empty, "secret material written to Rails.cache: #{leaked.map(&:first).inspect}"
+    end
+
+    # The callers that cache: SecretStore's Vault backend, VaultCredentialProvider
+    # and Devops::SecretReference all read through VaultClient.instance (the
+    # class-level delegates), so they share this cache and this guarantee.
+    it "keeps the class-level and SecretStore read paths off Rails.cache too" do
+      allow(described_class).to receive(:instance).and_return(client)
+      writes = shared_cache_writes
+
+      described_class.read_secret(path)
+      described_class.read_secret(path, key: "password")
+      allow(Security::SecretStore::VaultBackend).to receive(:path_for).and_return(path)
+      Security::SecretStore::VaultBackend.read(account: nil, scope: "spec", key: "k")
+
+      leaked = writes.select { |args| args.inspect.include?(secret_value) || args.first.to_s.include?(path) }
+      expect(leaked).to be_empty, "secret material written to Rails.cache: #{leaked.map(&:first).inspect}"
+    end
+
+    it "still serves the second read from its own cache, without a second Vault call" do
+      client.read_secret(path)
+      client.read_secret(path)
+
+      expect(logical).to have_received(:read).with(path).once
+    end
+
+    it "is shared by every client in the process, so one client's write invalidates another's reads" do
+      other = described_class.new(token: "spec-token")
+      other.instance_variable_set(:@client, double("Vault::Client", logical: logical))
+      allow(logical).to receive(:write)
+
+      client.read_secret(path)
+      other.write_secret(path, { password: "rotated" })
+      client.read_secret(path)
+
+      expect(logical).to have_received(:read).with(path).twice
+    end
+  end
+
   # The key-class contract of #read_secret's return value.
   #
   # The vault gem parses every response with `symbolize_names: true`
@@ -282,14 +358,15 @@ RSpec.describe Security::VaultClient do
        "hand a differently-keyed Hash to the second reader" do
       client.read_secret(path, cache: true)
       # Simulate the string-keyed shape a JSON/marshal-coded store round-trips to.
-      Rails.cache.write(client.send(:cache_key_for, path, nil), { "username" => "deploy-bot", "password" => "s3cret" })
+      described_class.secret_cache.write(client.send(:cache_key_for, path, nil),
+                                         { "username" => "deploy-bot", "password" => "s3cret" })
 
       result = client.read_secret(path, cache: true)
 
       expect(result[:username]).to eq("deploy-bot")
       expect(result["username"]).to eq("deploy-bot")
     ensure
-      Rails.cache.delete(client.send(:cache_key_for, path, nil))
+      described_class.secret_cache.delete(client.send(:cache_key_for, path, nil))
     end
 
     # `symbolize_names` is deep, so a single-key value that is ITSELF a Hash
@@ -309,7 +386,7 @@ RSpec.describe Security::VaultClient do
       expect(miss["accessToken"]).to eq("tok")
       expect(hit["accessToken"]).to eq("tok")
     ensure
-      Rails.cache.delete(client.send(:cache_key_for, nested_path, "oauth"))
+      described_class.secret_cache.delete(client.send(:cache_key_for, nested_path, "oauth"))
     end
 
     it "leaves the single-key branch returning the bare VALUE, not a Hash" do

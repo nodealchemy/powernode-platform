@@ -10,6 +10,15 @@ module Security
     class ConnectionError < VaultError; end
 
     CACHE_TTL = 5.minutes
+
+    # The 5-minute read cache holds SECRET VALUES, so it is this process's own
+    # memory, never Rails.cache. Rails.cache is solid_cache in production: an
+    # entry there is a row in solid_cache_entries, in plain text unless the
+    # store encrypts, and it survives into every database backup. One store per
+    # process, shared by every client in it, so a write or delete through any
+    # client invalidates the others' reads. Other processes may serve a value up
+    # to CACHE_TTL old after a change; that is the cost of not sharing secrets.
+    SECRET_CACHE = ActiveSupport::Cache::MemoryStore.new(expires_in: CACHE_TTL, size: 8.megabytes)
     MAX_RETRIES = 3
     RETRY_DELAY = 0.5.seconds
 
@@ -20,7 +29,7 @@ module Security
       db_config = self.class.admin_setting_config
       @address = db_config["vault_addr"].presence || ENV.fetch("VAULT_ADDR", "https://vault.powernode.internal:8200")
       @skip_verify = ENV.fetch("VAULT_SKIP_VERIFY", "false") == "true"
-      @cache = Rails.cache
+      @cache = self.class.secret_cache
 
       setup_circuit_breaker(
         resource_id: "vault",
@@ -360,9 +369,9 @@ module Security
       nil
     end
 
-    # Structural invalidation (CacheVersioning), not pattern deletion — @cache
-    # is Rails.cache, whose production default store (solid_cache) does not
-    # implement #delete_matched. See CacheVersioning's header. Bumping this
+    # Structural invalidation (CacheVersioning), not pattern deletion — it works
+    # on any store, including one that does not implement #delete_matched (see
+    # CacheVersioning's header). @cache is SECRET_CACHE. Bumping this
     # path's version retires every previously-built cache_key_for(path, *)
     # entry at once, regardless of which `key:` each was read with.
     def invalidate_cache_for_path(path)
@@ -409,6 +418,11 @@ module Security
     class << self
       def instance
         @instance ||= new
+      end
+
+      # The per-process secret read cache (see SECRET_CACHE).
+      def secret_cache
+        SECRET_CACHE
       end
 
       # Reset the singleton — called after Vault config is updated via UI
