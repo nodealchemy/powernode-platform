@@ -830,10 +830,13 @@ class RequestInspector
     ]
   end
 
-  # Real remaining seconds. This read used to go through Powernode::CacheRedis,
-  # which resolves Redis OFF Rails.cache and therefore returned nil for every
-  # non-Redis cache store — so on the hub (CACHE_STORE=memory_store) every
-  # Retry-After was the 3600 fallback regardless of the actual block.
+  # Real remaining seconds, read from the block's own TTL in
+  # Security::IpBlockStore, which talks to Redis directly and so does not
+  # depend on what Rails.cache is. The configured block duration is only the
+  # fallback for when that TTL cannot be read (Redis unreachable, or the block
+  # expired between the check and this call). Before IpBlockStore this went
+  # through Powernode::CacheRedis, which found no Redis behind a non-Redis
+  # Rails.cache, so every Retry-After was that fallback.
   def remaining_block_time(ip)
     ::Security::IpBlockStore.block_ttl(ip) || self.class.threshold(:block_duration_seconds)
   end
