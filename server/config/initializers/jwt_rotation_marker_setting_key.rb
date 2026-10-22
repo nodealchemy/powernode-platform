@@ -26,7 +26,7 @@ Rails.application.config.to_prepare do
   # secret in use with the fail-closed guard quietly disarmed: the next empty
   # store would fall back to the retired JWT_SECRET_KEY with no refusal. So a
   # blank value is refused while the store still holds an active HS256 secret.
-  # A store that answers nothing, or cannot be reached (BackendUnavailable),
+  # A store that answers nothing, or cannot be reached (JwtKeyStore::UNREACHABLE_ERRORS),
   # allows it, so the documented revert still works during an outage.
   SiteSetting.register_value_check(Security::JwtKeyStore::ROTATION_MARKER) do |value|
     next nil if value.present?
@@ -35,7 +35,7 @@ Rails.application.config.to_prepare do
       begin
         Security::SecretStore.read(account: nil, scope: Security::JwtKeyStore::SCOPE,
                                    key: Security::JwtKeyStore::ACTIVE_HMAC_SECRET, cache: false)
-      rescue Security::SecretStore::BackendUnavailable, Security::VaultClient::SecretNotFoundError
+      rescue Security::VaultClient::SecretNotFoundError, *Security::JwtKeyStore::UNREACHABLE_ERRORS
         nil
       end
     "the store still holds a rotated HS256 secret; delete it first" if stored.present?

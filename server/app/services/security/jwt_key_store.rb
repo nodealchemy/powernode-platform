@@ -172,7 +172,7 @@ module Security
       def active_hmac_secret
         stored = fetch_strict(ACTIVE_HMAC_SECRET).presence
         if stored
-          warn_unrecorded_rotation unless rotation_recorded?
+          warn_unrecorded_rotation
           return stored
         end
 
@@ -394,10 +394,17 @@ module Security
       # never written) while the secret stayed: the fail-closed guard is off, and
       # the next empty store would fall back to JWT_SECRET_KEY. Logged once per
       # CACHE_TTL, like the stale-serve warning.
+      # Diagnostics only, never part of the answer: a marker that cannot be read
+      # (a cold process during a DB outage) skips the warning rather than turning
+      # a successful stored-secret read into a 503.
       def warn_unrecorded_rotation
+        return if rotation_recorded?
+
         warn_once(:unrecorded_rotation, Process.clock_gettime(Process::CLOCK_MONOTONIC),
                         "the store holds an HS256 secret but #{ROTATION_MARKER} is not set; an empty " \
                         "store would fall back to JWT_SECRET_KEY")
+      rescue StoreUnavailable
+        nil
       end
 
       # Best effort: the secrets are already written and are what verification

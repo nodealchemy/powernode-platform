@@ -38,4 +38,27 @@ RSpec.describe Ai::Tools::SiteSettingTool, "clearing the JWT rotation marker" do
     Security::JwtKeyStore.clear_cache!
     expect(Security::JwtKeyStore.send(:rotation_recorded?)).to be(false)
   end
+
+  # The tool parks the request; the value check runs when the approved write
+  # lands, and its authored reason must come back as the operation's outcome,
+  # not as an exception out of the approval.
+  it "refuses to clear the marker while the rotated secret is still stored, as a result, not a raise" do
+    Security::JwtKeyStore.rotate_hmac!(grace_hours: 24)
+
+    tool = described_class.new(account: account, user: requester)
+    tool.call_origin = "mcp_oauth"
+    result = tool.execute(params: { action: "site_setting_set_protected", key: marker, value: "" })
+    operation = Ai::DeferredOperation.find(result.dig(:data, :deferred_operation_id))
+
+    expect {
+      Ai::Autonomy::ApprovalWorkflowService.new(account: account)
+                                           .approve(request: operation.approval_request, approver: confirmer,
+                                                    origin: Ai::ApprovalDecision::REST_SESSION)
+    }.not_to raise_error
+
+    operation.reload
+    outcome = [ operation.error_message, operation.result.to_json ].join(" ")
+    expect(outcome).to include("the store still holds a rotated HS256 secret; delete it first")
+    expect(SiteSetting.get(marker)).to be_present
+  end
 end

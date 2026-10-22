@@ -374,12 +374,31 @@ RSpec.describe Security::JwtKeyStore, "HMAC keyring" do
       expect(SiteSetting.get(described_class::ROTATION_MARKER)).to be_present
     end
 
+    it "allows a blank marker when Vault cannot be reached" do
+      allow(Security::SecretStore).to receive(:read)
+        .and_raise(Security::VaultClient::ConnectionError, "connection refused")
+
+      expect(SiteSetting.set(described_class::ROTATION_MARKER, "", setting_type: "string")).to be_persisted
+    end
+
     it "allows a blank marker when the store cannot be read, so the revert works during an outage" do
       allow(Security::SecretStore).to receive(:read)
         .and_raise(Security::SecretStore::BackendUnavailable, "vault down")
 
       expect(SiteSetting.set(described_class::ROTATION_MARKER, "", setting_type: "string")).to be_persisted
     end
+  end
+
+  # The warning is diagnostics only: a marker read that fails on a cold
+  # process must not turn a successful stored-secret read into a 503.
+  it "returns the stored secret even when the marker cannot be read on a cold cache" do
+    described_class.rotate_hmac!(grace_hours: 24)
+    described_class.clear_cache!
+    allow(SiteSetting).to receive(:get).and_call_original
+    allow(SiteSetting).to receive(:get).with(described_class::ROTATION_MARKER)
+                                       .and_raise(ActiveRecord::ConnectionNotEstablished, "no connection")
+
+    expect(described_class.active_hmac_secret).to eq(stored_active_secret)
   end
 
   it "warns when the store holds a secret but no rotation is recorded" do
