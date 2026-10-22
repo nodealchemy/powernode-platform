@@ -17,6 +17,8 @@ module Security
 
     # Current token version for migration support
     CURRENT_TOKEN_VERSION = 2
+    # The audience of JWTs this server sends the standalone worker.
+    WORKER_AUDIENCE = "worker"
 
     class << self
       # Enhanced encode method with token type support
@@ -57,7 +59,10 @@ module Security
           jti: SecureRandom.hex(16),
           version: CURRENT_TOKEN_VERSION,
           iss: Rails.application.config.jwt_issuer,
-          aud: Rails.application.config.jwt_audience
+          # Its own audience: the worker requires it, and #decode (which verifies
+          # aud against jwt_audience) refuses it, so a job token can never be
+          # replayed against this server's API.
+          aud: WORKER_AUDIENCE
         }
         JWT.encode(enhanced_payload, Security::JwtKeyStore.worker_auth_secret, "HS256")
       end

@@ -606,7 +606,7 @@ class JobsController
 
     begin
       decoded = JWT.decode(token, secret, true, algorithm: 'HS256')[0]
-      decoded['type'] == 'worker' && decoded['sub'].present?
+      decoded['type'] == 'worker' && decoded['sub'].present? && worker_audience?(decoded['aud'])
     rescue JWT::DecodeError
       false
     end
@@ -664,5 +664,15 @@ class JobsController
   
   def jwt_secret_key
     ENV['JWT_SECRET_KEY']
+  end
+
+  # The server signs worker job JWTs with aud "worker"
+  # (Security::JwtService.encode_for_worker), so a token minted for the server
+  # API (aud "powernode-api") is refused here. COMPATIBILITY, one release: a
+  # token with NO aud, from a server older than that change, is still
+  # accepted so server and worker can deploy in either order. Drop the nil
+  # branch once every server signs with aud "worker".
+  def worker_audience?(aud)
+    aud.nil? || Array(aud).include?('worker')
   end
 end
