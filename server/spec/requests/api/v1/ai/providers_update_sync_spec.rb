@@ -119,7 +119,10 @@ RSpec.describe 'Api::V1::Ai::Providers update syncs models', type: :request do
   context 'URL change on an already-active provider' do
     before { old_models }
 
-    it '(c) keeps it active with its old models and returns 200 with the failed sync' do
+    # The inline sync leaves the provider serving its old models only until the
+    # background retry: if that retry fails too, the sweep disables it. The
+    # answer says so instead of presenting the interim state as settled.
+    it '(c) saves, keeps the old models for now, and warns the retry may disable it' do
       stub_tags_down
 
       patch_provider(api_base_url: new_url)
@@ -129,8 +132,30 @@ RSpec.describe 'Api::V1::Ai::Providers update syncs models', type: :request do
       expect(provider.api_base_url).to eq(new_url)
       expect(provider.is_active).to be(true)
       expect(provider.supported_models).to eq(old_models)
+      expect(provider.metadata).to have_key('model_sync_pending_at')
       expect(body.dig('data', 'model_sync')).to include('success' => false)
       expect(body.dig('data', 'model_sync', 'error')).to include('Could not connect to Ollama API')
+      expect(body.dig('data', 'warning')).to include(new_url)
+      expect(body.dig('data', 'warning')).to match(/disabled if the background retry also fails/i)
+    end
+
+    # M3: a write that lands while the sync's HTTP call is in flight survives
+    # the failed sync's restore.
+    it 'keeps a make_default that happened during the failed sync' do
+      create(:ai_provider_credential, account: account, provider: provider)
+      provider.clear_model_sync_pending!
+      stub_request(:get, /ollama\.internal/).to_return do
+        Ai::ProviderDefaultService.set_default!(Ai::Provider.find(provider.id)) unless Ai::Provider.find(provider.id).metadata['is_default']
+        { status: 502, body: 'bad gateway' }
+      end
+
+      patch_provider(api_base_url: new_url)
+
+      expect(response).to have_http_status(:ok)
+      provider.reload
+      expect(provider.metadata['is_default']).to be(true)
+      expect(provider.is_active).to be(true)
+      expect(provider.supported_models).to eq(old_models)
       expect(provider.metadata).to have_key('model_sync_pending_at')
     end
 
@@ -166,6 +191,144 @@ RSpec.describe 'Api::V1::Ai::Providers update syncs models', type: :request do
       patch_provider(description: 'x', priority_order: 3, rate_limits: { requests_per_minute: 10 })
 
       expect(response).to have_http_status(:ok)
+    end
+  end
+
+  context 'enabling a bearer-type provider that has no credential (sync skipped)' do
+    let(:provider) { create(:ai_provider, :openai, account: account, is_active: false) }
+
+    it 'activates on the models it already has and reports the sync as skipped' do
+      patch_provider(description: 'turn it on', is_active: true)
+
+      expect(response).to have_http_status(:ok)
+      provider.reload
+      expect(provider.is_active).to be(true)
+      expect(provider.description).to eq('turn it on')
+      expect(provider.supported_models).to be_present
+      expect(body.dig('data', 'model_sync')).to include('success' => false, 'skipped' => true)
+      expect(body.dig('data', 'model_sync', 'error')).to match(/no active credential/i)
+    end
+
+    it 'refuses with 422 naming the skip reason when there are no models at all' do
+      Ai::Provider.where(id: provider.id).update_all(
+        supported_models: [], metadata: { 'last_sync_error' => 'stale failure from last week' }
+      )
+
+      patch_provider(is_active: true)
+
+      expect(response).to have_http_status(:unprocessable_content)
+      expect(body['error']).to match(/no active credential/i)
+      expect(body['error']).not_to include('stale failure from last week')
+      expect(body.dig('details', 'model_sync', 'error')).to match(/no active credential/i)
+      expect(provider.reload.is_active).to be(false)
+    end
+
+    it 'enables with a key saved in the same edit: credential first, then the PATCH' do
+      stub_request(:get, 'https://api.openai.com/v1/models')
+        .to_return(status: 200, body: { data: [ { id: 'gpt-4o' }, { id: 'gpt-4o-mini' } ] }.to_json,
+                   headers: { 'Content-Type' => 'application/json' })
+      cred_user = create(:user, account: account,
+                                permissions: %w[ai.providers.read ai.providers.update ai.credentials.create])
+      cred_headers = auth_headers_for(cred_user)
+
+      post "/api/v1/ai/providers/#{provider.id}/credentials",
+           params: { credential: { name: 'Key', credentials: { api_key: 'sk-placeholder-not-real' } } },
+           headers: cred_headers, as: :json
+      expect(response).to have_http_status(:created)
+
+      patch "/api/v1/ai/providers/#{provider.id}", params: { provider: { is_active: true } },
+                                                   headers: cred_headers, as: :json
+
+      expect(response).to have_http_status(:ok)
+      provider.reload
+      expect(provider.is_active).to be(true)
+      expect(provider.provider_credentials.count).to eq(1)
+    end
+  end
+
+  context 'the stored sync error' do
+    before { park_without_models! }
+
+    it 'is cleared by a successful sync' do
+      Ai::Provider.where(id: provider.id).update_all(metadata: { 'last_sync_error' => 'old', 'last_sync_failed_at' => 1.day.ago.iso8601 })
+      stub_tags_ok
+
+      patch_provider(api_base_url: new_url, is_active: true)
+
+      expect(response).to have_http_status(:ok)
+      expect(provider.reload.metadata.keys).not_to include('last_sync_error', 'last_sync_failed_at')
+    end
+  end
+
+  context 'becoming the account default' do
+    before do
+      park_without_models!
+      create(:ai_provider_credential, account: account, provider: provider)
+      provider.clear_model_sync_pending!
+    end
+
+    it 'says so when enabling made it the default' do
+      stub_tags_ok
+
+      patch_provider(api_base_url: new_url, is_active: true)
+
+      expect(response).to have_http_status(:ok)
+      expect(provider.reload.metadata['is_default']).to be(true)
+      expect(body.dig('data', 'became_default')).to be(true)
+    end
+  end
+
+  context 'audit trail' do
+    before { park_without_models! }
+
+    it 'marks a refused activation on the update audit row' do
+      stub_tags_down
+
+      patch_provider(api_base_url: new_url, is_active: true)
+
+      row = AuditLog.where(action: 'ai.providers.update', resource_id: provider.id).order(:created_at).last
+      expect(row.metadata).to include('activation_refused' => true)
+      expect(row.metadata['changes']).to include('api_base_url')
+    end
+  end
+
+  context 'logs' do
+    before { park_without_models! }
+
+    # The sync's own log lines (app/services), not ActiveRecord's SQL echo of
+    # the stored column, which the test environment logs at debug.
+    it 'never log the credentials of the base URL' do
+      logged = []
+      %i[debug info warn error].each do |level|
+        allow(Rails.logger).to receive(level).and_wrap_original do |original, *args, &blk|
+          from_services = caller_locations(1, 20).any? { |l| l.path.include?('/app/services/') }
+          logged << (args.first || blk&.call).to_s if from_services
+          original.call(*args, &blk)
+        end
+      end
+      stub_tags_down
+
+      patch_provider(api_base_url: 'http://ops:p@ss-s3cr3t@ollama.internal:11434', is_active: true)
+
+      expect(logged.join("\n")).to include('ollama.internal')
+      expect(logged.join("\n")).not_to include('s3cr3t')
+    end
+  end
+
+  context 'changing to a type with no live sync while enabling' do
+    before do
+      old_models
+      Ai::Provider.where(id: provider.id).update_all(is_active: false)
+    end
+
+    it 'activates on the supplied models and does not flag the sweep to overwrite them' do
+      patch_provider(provider_type: 'custom', is_active: true)
+
+      expect(response).to have_http_status(:ok)
+      provider.reload
+      expect(provider.is_active).to be(true)
+      expect(provider.supported_models).to eq(old_models)
+      expect(provider.metadata || {}).not_to have_key('model_sync_pending_at')
     end
   end
 

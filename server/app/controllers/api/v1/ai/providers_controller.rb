@@ -106,8 +106,15 @@ module Api
           outcome = ::Ai::Providers::UpdateWithModelSync.call(@provider, attrs)
           return render_validation_error(@provider.errors) unless outcome.saved
 
-          log_audit_event("ai.providers.update", @provider, changes: outcome.changes)
-          payload = { provider: serialize_provider_detail(@provider), model_sync: outcome.sync&.to_h }.compact
+          # log_audit_event records only `metadata:`; a refused activation is marked there.
+          log_audit_event("ai.providers.update", @provider,
+            metadata: { changes: outcome.changes, activation_refused: outcome.activation_failed ? true : nil }.compact)
+          payload = {
+            provider: serialize_provider_detail(@provider),
+            model_sync: outcome.sync&.to_h,
+            warning: outcome.warning,
+            became_default: outcome.became_default || nil
+          }.compact
 
           if outcome.activation_failed
             render_error(outcome.message, status: :unprocessable_content, code: "model_sync_failed", details: payload)
