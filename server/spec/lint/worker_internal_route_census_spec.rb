@@ -63,15 +63,7 @@ RSpec.describe "worker -> server internal route census" do
     # internal/data_retention_policies
     "PATCH /api/v1/internal/data_retention_policies/:x" => "baseline 01a163c7: no route",
     # internal/devops
-    "PATCH /api/v1/internal/devops/claude_invocations/:x" => "baseline 01a163c7: no route",
-    "GET /api/v1/internal/devops/deployments/:x" => "baseline 01a163c7: no route",
-    "PATCH /api/v1/internal/devops/deployments/:x" => "baseline 01a163c7: no route",
     "GET /api/v1/internal/devops/pipeline_runs/:x/step_executions" => "baseline 01a163c7: no route",
-    "GET /api/v1/internal/devops/webhook_events/:x" => "baseline 01a163c7: no route",
-    "PATCH /api/v1/internal/devops/webhook_events/:x" => "baseline 01a163c7: no route",
-    "GET /api/v1/internal/devops/pipelines" => "baseline 01a163c7: no route",
-    "POST /api/v1/internal/devops/pipeline_runs" => "baseline 01a163c7: no route",
-    "POST /api/v1/internal/devops/pipeline_runs/:x/execute" => "baseline 01a163c7: no route",
     "GET /api/v1/internal/devops/swarm/deployments/:x" => "baseline 01a163c7: path routes, verb does not",
     "POST /api/v1/internal/devops/pull_requests" => "baseline 01a163c7: no route",
     "POST /api/v1/internal/devops/runners/dispatch" => "baseline 01a163c7: no route",
