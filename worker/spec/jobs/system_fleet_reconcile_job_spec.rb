@@ -53,6 +53,36 @@ RSpec.describe SystemFleetReconcileJob, type: :job do
       end
     end
 
+    # Two runs interleaved: the second starts while the first is inside its
+    # API call. The second must skip, and its exit must not release the
+    # first's lock; the first's own exit then releases it.
+    context "when a second run starts while the first holds the lock" do
+      let(:second_job) { described_class.new }
+      let(:second_api_client) { instance_double(BackendApiClient) }
+
+      it "skips the second run and leaves the lock with the first until the first finishes" do
+        allow(second_job).to receive(:api_client).and_return(second_api_client)
+        expect(second_api_client).not_to receive(:post)
+        lock_value = -> { Sidekiq.redis { |c| c.get(described_class::CONCURRENCY_LOCK) } }
+        observed = {}
+
+        allow(api_client).to receive(:post).with(endpoint, {}) do
+          observed[:held_by_first] = lock_value.call
+          observed[:second_result] = second_job.execute
+          observed[:after_second] = lock_value.call
+          { "data" => {} }
+        end
+
+        job.execute
+
+        expect(observed[:held_by_first]).to be_present
+        expect(observed[:second_result]).to include(skipped: true)
+        expect(observed[:after_second]).to eq(observed[:held_by_first]),
+          "the skipped second run released the lock the first run still held"
+        expect(lock_value.call).to be_nil
+      end
+    end
+
     context "API error" do
       before do
         allow(api_client).to receive(:post).with(endpoint, {})
