@@ -12,4 +12,8 @@ test:
 
 production:
   database: cache
+  # Entry VALUES are encrypted at rest with Active Record Encryption. Keys are
+  # stored as written, so never put a credential in a cache key. Powernode::CacheEncryptionGuard refuses to boot
+  # production without it or without the three AR encryption keys.
+  encrypt: true
   <<: *default

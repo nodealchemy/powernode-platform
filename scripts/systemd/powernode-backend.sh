@@ -58,4 +58,20 @@ if [[ ! -L "${AGENT_LINK}" ]]; then
         && echo "[backend] created agent-serving symlink ${AGENT_LINK}"
 fi
 
+# One-time legacy cache clear (production): the deploy that turns on solid_cache
+# encryption must not leave entries written in plain text before it at rest (on
+# an installer host those include cached Vault values). Emptying the cache is a
+# cold start, not data loss. Bounded, never fails the start, and guarded twice:
+# this marker file skips the extra Rails boot once done, and the task's own
+# SiteSetting marker makes a repeat a no-op. A failed run leaves both unset and
+# retries next start.
+CACHE_CLEAR_MARKER="${POWERNODE_BASE:-/opt/powernode}/server/tmp/.solid-cache-legacy-plaintext-cleared"
+if [[ "${RAILS_ENV}" == "production" ]] && [[ ! -f "${CACHE_CLEAR_MARKER}" ]]; then
+    if timeout 120 bundle exec rails powernode:cache:clear_legacy_plaintext; then
+        touch "${CACHE_CLEAR_MARKER}" || true
+    else
+        echo "[backend] legacy cache clear did not finish; continuing, it retries next start" >&2
+    fi
+fi
+
 exec bundle exec rails server -p "${PORT}" -b "${HOST}"
