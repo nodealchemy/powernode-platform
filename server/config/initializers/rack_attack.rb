@@ -667,6 +667,51 @@ class Rack::Attack
   end
 end
 
+# =========================================================================
+# CACHE STORE
+# =========================================================================
+#
+# Rack::Attack counts every throttle on every request. Left on Rails.cache,
+# that is a row-locked upsert in Postgres per throttle per request wherever
+# Rails.cache is solid_cache. When Redis is configured (REDIS_URL set),
+# Rack::Attack gets its own RedisCacheStore on that Redis, resolved through
+# Powernode::Redis so admin-configured connection settings apply; otherwise it
+# keeps Rails.cache.
+#
+# The store fails open: RedisCacheStore's error handler logs and answers nil,
+# so a Redis outage stops counting rather than raising into every request.
+class Rack::Attack
+  def self.configured_redis_url
+    return nil if ENV["REDIS_URL"].blank?
+
+    Powernode::Redis.url.presence
+  end
+
+  def self.cache_store_for(redis_url:)
+    return Rails.cache if redis_url.blank?
+
+    ActiveSupport::Cache::RedisCacheStore.new(
+      url: redis_url,
+      namespace: "rack_attack",
+      connect_timeout: 1,
+      read_timeout: 1,
+      write_timeout: 1,
+      reconnect_attempts: 0
+    )
+  end
+end
+
+# After initialization: Powernode::Redis is defined by config/initializers/redis.rb,
+# which loads after this file. The test env keeps the default (specs that
+# exercise throttles set their own store).
+unless Rails.env.test?
+  Rails.application.config.after_initialize do
+    Rack::Attack.cache.store = Rack::Attack.cache_store_for(redis_url: Rack::Attack.configured_redis_url)
+  rescue StandardError => e
+    Rails.logger.warn "[Rack::Attack] keeping Rails.cache as the throttle store: #{e.message}"
+  end
+end
+
 # Enable Rack::Attack middleware in all environments except test
 unless Rails.env.test?
   Rails.application.config.middleware.use Rack::Attack
