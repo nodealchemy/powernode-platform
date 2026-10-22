@@ -678,8 +678,10 @@ end
 # Powernode::Redis so admin-configured connection settings apply; otherwise it
 # keeps Rails.cache.
 #
-# The store fails open: RedisCacheStore's error handler logs and answers nil,
-# so a Redis outage stops counting rather than raising into every request.
+# On a Redis error the counts move to a per-process MemoryStore, behind a short
+# circuit breaker (Security::ResilientThrottleStore), so throttles keep
+# tripping while Redis is down and a hung Redis does not cost every request a
+# timeout per matched throttle.
 class Rack::Attack
   def self.configured_redis_url
     return nil if ENV["REDIS_URL"].blank?
@@ -690,14 +692,7 @@ class Rack::Attack
   def self.cache_store_for(redis_url:)
     return Rails.cache if redis_url.blank?
 
-    ActiveSupport::Cache::RedisCacheStore.new(
-      url: redis_url,
-      namespace: "rack_attack",
-      connect_timeout: 1,
-      read_timeout: 1,
-      write_timeout: 1,
-      reconnect_attempts: 0
-    )
+    Security::ResilientThrottleStore.new(primary: Security::ResilientThrottleStore.redis_primary(url: redis_url))
   end
 end
 
