@@ -59,10 +59,13 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
         data = json_response_data
         expect(data['session_token']).to be_present
 
-        # Verify the session was cached by reading it back
-        session_data = Rails.cache.read("worker_session:#{data['session_token']}")
+        # Verify the session was cached by reading it back, under the token's
+        # digest: the cache KEY is not encrypted at rest, so the bearer token
+        # itself must never be one.
+        session_data = Rails.cache.read("worker_session:#{Digest::SHA256.hexdigest(data['session_token'])}")
         expect(session_data).to be_present
         expect(session_data[:user_id]).to eq(user.id)
+        expect(Rails.cache.read("worker_session:#{data['session_token']}")).to be_nil
       end
     end
 
@@ -168,7 +171,7 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
     end
 
     before do
-      Rails.cache.write("worker_session:#{session_token}", session_data, expires_in: 24.hours)
+      Rails.cache.write("worker_session:#{Digest::SHA256.hexdigest(session_token)}", session_data, expires_in: 24.hours)
     end
 
     context 'with valid session token' do
@@ -195,13 +198,13 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
 
     context 'when user no longer exists' do
       it 'invalidates session and returns error' do
-        Rails.cache.write("worker_session:#{session_token}", session_data.merge(user_id: SecureRandom.uuid), expires_in: 24.hours)
+        Rails.cache.write("worker_session:#{Digest::SHA256.hexdigest(session_token)}", session_data.merge(user_id: SecureRandom.uuid), expires_in: 24.hours)
 
         post '/api/v1/worker_auth/verify_session', params: { session_token: session_token },
           headers: worker_auth_headers, as: :json
 
         expect_error_response('Session invalid - user permissions changed', 401)
-        expect(Rails.cache.read("worker_session:#{session_token}")).to be_nil
+        expect(Rails.cache.read("worker_session:#{Digest::SHA256.hexdigest(session_token)}")).to be_nil
       end
     end
 
@@ -213,7 +216,7 @@ RSpec.describe 'Api::V1::WorkerAuth', type: :request do
           headers: worker_auth_headers, as: :json
 
         expect_error_response('Session invalid - user permissions changed', 401)
-        expect(Rails.cache.read("worker_session:#{session_token}")).to be_nil
+        expect(Rails.cache.read("worker_session:#{Digest::SHA256.hexdigest(session_token)}")).to be_nil
       end
     end
 

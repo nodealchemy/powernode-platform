@@ -133,7 +133,7 @@ class Api::V1::WorkerAuthController < ApplicationController
       return render_error("Session token is required", status: :bad_request)
     end
 
-    session_data = Rails.cache.read("worker_session:#{session_token}")
+    session_data = Rails.cache.read(worker_session_cache_key(session_token))
 
     if session_data
       user = User.find_by(id: session_data[:user_id])
@@ -146,7 +146,7 @@ class Api::V1::WorkerAuthController < ApplicationController
           expires_at: (Time.current + 24.hours).iso8601
         })
       else
-        Rails.cache.delete("worker_session:#{session_token}")
+        Rails.cache.delete(worker_session_cache_key(session_token))
         render_error("Session invalid - user permissions changed", status: :unauthorized)
       end
     else
@@ -155,6 +155,13 @@ class Api::V1::WorkerAuthController < ApplicationController
   end
 
   private
+
+  # The session token is a bearer credential. A cache store may encrypt values
+  # at rest (solid_cache with encrypt: true does) but never keys, so the key is
+  # the token's SHA-256 digest, not the token.
+  def worker_session_cache_key(session_token)
+    "worker_session:#{Digest::SHA256.hexdigest(session_token.to_s)}"
+  end
 
   def generate_session_token(_user)
     SecureRandom.uuid
@@ -173,7 +180,7 @@ class Api::V1::WorkerAuthController < ApplicationController
   # next reader does not re-investigate it.
   def store_worker_session!(session_token, user)
     Rails.cache.write(
-      "worker_session:#{session_token}",
+      worker_session_cache_key(session_token),
       {
         user_id: user.id,
         user_email: user.email,
