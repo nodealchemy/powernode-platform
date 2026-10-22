@@ -14,7 +14,17 @@ RSpec.describe SystemFleetReconcileJob, type: :job do
   let(:job_args) { nil }
   let(:api_client) { instance_double(BackendApiClient) }
 
-  before { allow(job).to receive(:api_client).and_return(api_client) }
+  # The lock is a real Redis key, shared by every process on the same Redis
+  # database (another spec process, a dev worker ticking the real fleet). A
+  # per-example key keeps one holder's lock from turning another's tick into
+  # a skip.
+  before do
+    stub_const("#{described_class}::CONCURRENCY_LOCK",
+               "#{described_class::CONCURRENCY_LOCK}:spec:#{SecureRandom.hex(8)}")
+    allow(job).to receive(:api_client).and_return(api_client)
+  end
+
+  after { Sidekiq.redis { |c| c.del(described_class::CONCURRENCY_LOCK) } }
 
   describe "#execute" do
     let(:endpoint) { "/api/v1/system/worker_api/fleet/reconcile" }
@@ -29,6 +39,17 @@ RSpec.describe SystemFleetReconcileJob, type: :job do
         expect(result).to be_a(Hash)
         expect(result).not_to include(:error)
         expect(api_client).to have_received(:post).with(endpoint, {})
+      end
+    end
+
+    context "when another tick holds the lock" do
+      before { Sidekiq.redis { |c| c.set(described_class::CONCURRENCY_LOCK, "held", ex: 60) } }
+
+      it "skips without posting and leaves the other tick's lock in place" do
+        expect(api_client).not_to receive(:post)
+
+        expect(job.execute).to include(skipped: true)
+        expect(Sidekiq.redis { |c| c.get(described_class::CONCURRENCY_LOCK) }).to eq("held")
       end
     end
 
