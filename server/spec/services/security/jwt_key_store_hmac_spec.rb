@@ -342,6 +342,18 @@ RSpec.describe Security::JwtKeyStore, "HMAC keyring" do
     expect(Rails.logger).to have_received(:error).with(/#{described_class::ROTATION_MARKER}/)
   end
 
+  # The documented revert clears the marker to an empty value through the
+  # human-only site_setting_set_protected verb; SiteSetting must accept a
+  # blank value for it, and blank must read as "not rotated".
+  it "accepts a blank rotation marker, which reads back as not rotated" do
+    described_class.rotate_hmac!(grace_hours: 24)
+
+    expect(SiteSetting.set(described_class::ROTATION_MARKER, "", setting_type: "string")).to be_persisted
+    described_class.clear_cache!
+
+    expect(described_class.send(:rotation_recorded?)).to be(false)
+  end
+
   it "still bootstraps from JWT_SECRET_KEY when no rotation was ever recorded" do
     allow(Security::SecretStore).to receive(:read).and_return(nil)
 

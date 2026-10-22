@@ -4,6 +4,11 @@ class SiteSetting < ApplicationRecord
   # Keys whose value may be deliberately blank: optional social/analytics links
   # and the contact email (community contact is via GitHub — the seed sets it
   # to ""). Single source for the presence validation and can_be_blank?.
+  #
+  # jwt_hmac_rotated_at (Security::JwtKeyStore::ROTATION_MARKER): clearing it
+  # to "" through the human-only site_setting_set_protected verb is the
+  # documented way to revert HS256 to JWT_SECRET_KEY, and blank reads as "not
+  # rotated" (JwtKeyStore checks .present?).
   BLANK_ALLOWED_KEYS = %w[
     social_facebook
     social_twitter
@@ -12,6 +17,7 @@ class SiteSetting < ApplicationRecord
     social_youtube
     analytics_tracking_id
     contact_email
+    jwt_hmac_rotated_at
   ].freeze
 
   # Validations
