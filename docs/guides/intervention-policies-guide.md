@@ -502,12 +502,13 @@ impersonation, account-switch or service session is refused too. REST: `POST /ap
 
 **Agent-requested grants.** An agent may ASK for a grant for itself with `platform.request_promotion_grant`
 (environment, category, modules, max uses, `expires_in_hours`, reason, `granter_driven_only`, and `bind`). The agent
-is always the calling one; params cannot name another. The terms are frozen into a request
+is always the calling one; params cannot name another. A grant and a request name an account agent only: a global
+canonical agent is a read-only template that never runs, so its account row (the shadow) asks and holds the grant. The terms are frozen into a request
 (`Ai::PromotionGrantRequest`) that parks as an approval card marked human-only: only a person, in their own session,
 can approve it, and a chain's approve-on-timeout never issues it. On that approval the grant is issued **in the
 approver's name** with exactly the requested terms, its expiry counted from the approval. The approver must hold what
 a person issuing the grant directly holds (`ai.promotion_grants.manage` and the verb's own permission), checked at
-approval time. An approval recorded from any other door, an override with no own-session decision, or a bound target
+approval time, and decides the card from the approvals queue (`ai.autonomy.approve`). An approval recorded from any other door, an override with no own-session decision, or a bound target
 that has already ended issues nothing and writes `ai.promotion_grant.issue_refused`. An agent may have at most 3
 requests pending; asking again for the same environment and category returns the pending one. Each request writes
 `ai.promotion_grant.requested`; a rejection or expiry writes `ai.promotion_grant.request_closed`.
