@@ -90,6 +90,12 @@ module Ai
         duration_ms: execution.duration_ms,
         cost_usd: execution.cost_usd&.to_f,
         tokens_used: execution.tokens_used,
+        error_message: execution.error_message,
+        input_summary: execution_input_summary(execution),
+        output_summary: execution_output_summary(execution),
+        model: execution_model(execution),
+        source: execution_source(execution),
+        executor: execution_executor(execution),
         agent: {
           id: execution.agent.id,
           name: execution.agent.name,
@@ -97,6 +103,67 @@ module Ai
         },
         user: execution.user ? serialize_agent_user(execution.user) : nil
       }
+    end
+
+    EXECUTION_SUMMARY_CHARS = 200
+
+    # Claude Code rows keep a redacted task_digest; platform runs keep the
+    # prompt as input_parameters["input"] (McpAgentExecutor) or as chat
+    # messages (TrackedWorkerLlmClient). Read-only: nothing new is stored.
+    def execution_input_summary(execution)
+      params = execution.input_parameters
+      return nil unless params.is_a?(Hash)
+
+      text = params["task_digest"].presence || params["input"].presence || params["prompt"].presence
+      text ||= last_user_message(params["messages"])
+      summarize_execution_text(text)
+    end
+
+    # Platform runs write output_data["response"] (Agent#execute),
+    # ["content"] (TrackedWorkerLlmClient) or an "error" string; Claude Code
+    # rows carry only model_used, so they have no output text.
+    def execution_output_summary(execution)
+      data = execution.output_data
+      return nil unless data.is_a?(Hash)
+
+      summarize_execution_text(data["response"].presence || data["content"].presence ||
+                               data["output"].presence || data["error"].presence)
+    end
+
+    def execution_model(execution)
+      metrics = execution.performance_metrics.is_a?(Hash) ? execution.performance_metrics : {}
+      data = execution.output_data.is_a?(Hash) ? execution.output_data : {}
+      context = execution.execution_context.is_a?(Hash) ? execution.execution_context : {}
+      (metrics["served_by"] || metrics["model"] || data["model_used"] || data.dig("metadata", "model_used") ||
+        context["reported_model"]).presence
+    end
+
+    # Rows with no recorded source were run by the platform's own executor.
+    def execution_source(execution)
+      context = execution.execution_context.is_a?(Hash) ? execution.execution_context : {}
+      context["source"].presence || "platform"
+    end
+
+    def execution_executor(execution)
+      context = execution.execution_context.is_a?(Hash) ? execution.execution_context : {}
+      kind = context["executor_kind"].presence
+      agent_id = context["executor_agent_id"].presence
+      return nil if kind.nil? && agent_id.nil?
+
+      { kind: kind, agent_id: agent_id }.compact
+    end
+
+    def last_user_message(messages)
+      return nil unless messages.is_a?(Array)
+
+      msg = messages.reverse.find { |m| m.is_a?(Hash) && m["role"].to_s == "user" }
+      msg && msg["content"]
+    end
+
+    def summarize_execution_text(text)
+      return nil if text.blank?
+
+      text.to_s.strip.truncate(EXECUTION_SUMMARY_CHARS)
     end
 
     def serialize_execution_detail(execution)
