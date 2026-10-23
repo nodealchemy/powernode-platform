@@ -19,8 +19,6 @@ module Compliance
   class DataRetentionEnforcementJob < BaseJob
     sidekiq_options queue: :compliance
 
-    RETENTION_PATH = '/api/v1/internal/retention'
-
     # Raised when a purge call reaches no route (404), so the audit can tell
     # "unrouted" apart from other failures.
     class UnroutedError < StandardError; end
@@ -103,12 +101,9 @@ module Compliance
       params = { cutoff_date: retention_days.days.ago.iso8601 }.merge(scope)
       log_info "Enforcing #{action} for #{data_type} older than #{params[:cutoff_date]} (#{scope[:scope]} scope)"
 
-      call = purge_call(data_type, action)
-      return base.merge(status: 'unsupported', records_processed: 0) unless call
+      count = run_purge(data_type, action, params, base)
+      return base.merge(status: 'unsupported', records_processed: 0) if count.nil?
 
-      # Record the call that actually runs: an audit_logs delete runs archive.
-      base[:call] = "#{call[0].upcase} #{call[1]}"
-      count = purge(*call, params)
       record_enforcement(policy, count)
       base.merge(status: 'enforced', records_processed: count)
     rescue UnroutedError => e
@@ -119,27 +114,41 @@ module Compliance
       base.merge(status: 'failed', records_processed: 0, error: e.message)
     end
 
-    # [verb, path] for a data type + action, or nil when there is nothing to call.
-    def purge_call(data_type, action)
+    # One explicit client call per row, the verb and the full literal path on the same line, so
+    # spec/support/worker_route_census.rb reads both. Returns the purged count, or nil when the
+    # data type + action has nothing to call. Each row names the call it makes: base[:call] records
+    # what actually ran (an audit_logs delete runs archive).
+    def run_purge(data_type, action, params, base)
       case data_type
       when 'audit_logs'
         # Audit logs are never deleted, only archived
-        action == 'anonymize' ? [:patch, 'audit_logs/anonymize'] : [:post, 'audit_logs/archive']
+        if action == 'anonymize'
+          purge(base, 'PATCH audit_logs/anonymize') { api_client.patch("/api/v1/internal/retention/audit_logs/anonymize", params) }
+        else
+          purge(base, 'POST audit_logs/archive') { api_client.post("/api/v1/internal/retention/audit_logs/archive", params) }
+        end
       when 'user_activity'
-        { 'anonymize' => [:patch, 'activity/anonymize'], 'delete' => [:delete, 'activity'] }[action]
+        case action
+        when 'anonymize' then purge(base, 'PATCH activity/anonymize') { api_client.patch("/api/v1/internal/retention/activity/anonymize", params) }
+        when 'delete' then purge(base, 'DELETE activity') { api_client.delete("/api/v1/internal/retention/activity", params) }
+        end
       when 'analytics_data'
-        { 'anonymize' => [:patch, 'analytics/anonymize'], 'delete' => [:delete, 'analytics'] }[action]
-      when 'session_logs' then [:delete, 'sessions']
-      when 'email_logs' then [:delete, 'email_logs']
-      when 'webhook_logs' then [:delete, 'webhook_logs']
-      when 'api_request_logs' then [:delete, 'api_logs']
-      when 'file_uploads' then [:delete, 'files']
+        case action
+        when 'anonymize' then purge(base, 'PATCH analytics/anonymize') { api_client.patch("/api/v1/internal/retention/analytics/anonymize", params) }
+        when 'delete' then purge(base, 'DELETE analytics') { api_client.delete("/api/v1/internal/retention/analytics", params) }
+        end
+      when 'session_logs' then purge(base, 'DELETE sessions') { api_client.delete("/api/v1/internal/retention/sessions", params) }
+      when 'email_logs' then purge(base, 'DELETE email_logs') { api_client.delete("/api/v1/internal/retention/email_logs", params) }
+      when 'webhook_logs' then purge(base, 'DELETE webhook_logs') { api_client.delete("/api/v1/internal/retention/webhook_logs", params) }
+      when 'api_request_logs' then purge(base, 'DELETE api_logs') { api_client.delete("/api/v1/internal/retention/api_logs", params) }
+      when 'file_uploads' then purge(base, 'DELETE files') { api_client.delete("/api/v1/internal/retention/files", params) }
       end
     end
 
-    def purge(verb, path, params)
-      response = call_api(verb, "#{RETENTION_PATH}/#{path}", params)
-      raise "#{verb.upcase} #{path} returned success=false: #{response&.dig('error')}" unless response&.dig('success')
+    def purge(base, call)
+      base[:call] = call
+      response = guard_unrouted(call) { yield }
+      raise "#{call} returned success=false: #{response&.dig('error')}" unless response&.dig('success')
 
       response.dig('data', 'count') || 0
     end
@@ -147,25 +156,24 @@ module Compliance
     # Bookkeeping only: a failure here does not undo the purge, but an
     # unrouted PATCH is still counted so the audit stays truthful.
     def record_enforcement(policy, count)
-      call_api(
-        :patch,
-        "/api/v1/internal/data_retention_policies/#{policy['id']}",
-        {
-          last_enforced_at: Time.current.iso8601,
-          records_processed_count: (policy['records_processed_count'] || 0) + count
-        }
-      )
+      guard_unrouted('PATCH data_retention_policies') do
+        api_client.patch("/api/v1/internal/data_retention_policies/#{policy['id']}", {
+                           last_enforced_at: Time.current.iso8601,
+                           records_processed_count: (policy['records_processed_count'] || 0) + count
+                         })
+      end
     rescue StandardError => e
       log_warn "Could not record enforcement for policy #{policy['id']}: #{e.message}"
     end
 
-    def call_api(verb, path, params)
-      api_client.public_send(verb, path, params)
+    # Runs the block's client call; a 404 is counted and re-raised as UnroutedError.
+    def guard_unrouted(call)
+      yield
     rescue BackendApiClient::ApiError => e
       raise unless e.status == 404
 
       @unrouted_calls += 1
-      raise UnroutedError, "#{verb.upcase} #{path} has no route"
+      raise UnroutedError, "#{call} has no route"
     end
 
     def summarize(policy_results)
