@@ -517,8 +517,12 @@ requests pending; asking again for the same environment and category returns the
 server from the call's own owner-resolved session, never from params); `bind: "none"` leaves it unbound, usable by any
 of the agent's calls as above. A session-bound grant is spent only by a call carrying that session while the session
 is live (active, within its TTL, not idle), and never by the same agent on another session or a call with none. When
-the session ends (expiry, the idle sweep, or a revoke that outlasts the reconnect grace) its grants are revoked with
-reason `session_ended`, each with an `ai.promotion_grant.revoked` row. The card, the grants list and the use row show
+the session ends (expiry, the idle sweep, or a dropped connection that outlasts the reconnect grace) its grants are
+revoked with reason `session_ended`, each with an `ai.promotion_grant.revoked` row. A dropped connection only pauses
+them: they cannot be spent until the owner reconnects within the grace. A person revoking the session on purpose
+(`DELETE /api/v1/mcp/sessions/:id`) ends it for good, so it can no longer reconnect, and revokes its grants at once
+with reason `session_revoked_by_operator`. Asking again for a pending request's environment and category returns that
+request with its own binding; the response says `binding_differs: true` when the new ask was bound differently. The card, the grants list and the use row show
 the binding ("bound to session …", or "unbound").
 
 **Grantable categories.** The categories a grant may name are an operator setting,
