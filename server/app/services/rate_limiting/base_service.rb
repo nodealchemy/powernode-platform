@@ -12,6 +12,14 @@ module RateLimiting
           configuration: get_current_configuration,
           tier_statistics: RateLimiting::TieredService.tier_statistics
         }
+      rescue RateLimiting::UnsupportedStore => e
+        # Never zero counts: the configuration is still true, the counters are unknown.
+        {
+          enabled: ENV["DISABLE_RATE_LIMITING"] != "true",
+          supported: false,
+          error: e.message,
+          configuration: get_current_configuration
+        }
       end
 
       # Get tier-specific statistics for an account
@@ -39,42 +47,36 @@ module RateLimiting
         RateLimiting::TieredService.clear_tier_override(account)
       end
 
-      # Clear rate limits for a specific IP or user
+      # Clear rate limits for a specific IP or user (numeric id or UUID). Returns the number of
+      # counters deleted. Raises ArgumentError for an identifier of neither kind and UnsupportedStore
+      # when the counters' Redis cannot be reached.
       def clear_limits_for(identifier)
-        pattern = case identifier
-        when /\A\d+\z/ # User ID
-                   "rate_limit:*:*:user_#{identifier}"
-        when /\A\d+\.\d+\.\d+\.\d+\z/ # IP address
-                   "rate_limit:*:*:ip_#{identifier}"
-        else
-                   raise ArgumentError, "Invalid identifier: #{identifier}"
-        end
+        subject = Security::RateLimitKey.subject_for(identifier)
+        raise ArgumentError, "Invalid identifier: #{identifier}" unless subject
 
         keys_cleared = 0
-        Powernode::CacheRedis.scan_each(match: pattern) do |key|
-          Rails.cache.delete(key)
-          keys_cleared += 1
+        with_counter_redis do |redis|
+          scan_batches(redis, Security::RateLimitKey.pattern_for(subject)) do |keys|
+            owned = keys.select { |key| Security::RateLimitKey.parse(key)&.fetch(:subject) == subject }
+            keys_cleared += redis.del(*owned) if owned.any?
+          end
         end
-
         keys_cleared
       end
 
-      # Check if an identifier is currently rate limited
+      # Check if an identifier is currently rate limited. false for an identifier of neither kind.
       def rate_limited?(identifier)
-        pattern = case identifier
-        when /\A\d+\z/ # User ID
-                   "rate_limit:*:*:user_#{identifier}"
-        when /\A\d+\.\d+\.\d+\.\d+\z/ # IP address
-                   "rate_limit:*:*:ip_#{identifier}"
-        else
-                   return false
-        end
+        subject = Security::RateLimitKey.subject_for(identifier)
+        return false unless subject
 
         found = false
-        Powernode::CacheRedis.with do |redis|
-          scan_batches(redis, pattern) do |keys|
+        with_counter_redis do |redis|
+          scan_batches(redis, Security::RateLimitKey.pattern_for(subject)) do |keys|
             counters_and_ttls(redis, keys).each do |key, (current_count, _ttl)|
-              limit = extract_limit_from_key(key)
+              parsed = Security::RateLimitKey.parse(key)
+              next unless parsed && parsed[:subject] == subject
+
+              limit = limit_for_category(parsed[:category])
               if limit && current_count >= limit
                 found = true
                 break
@@ -86,39 +88,58 @@ module RateLimiting
         found
       end
 
-      # Get detailed rate limit info for an identifier
+      # Detailed rate limit info for an identifier, keyed by category (suffixed with the account when
+      # the counter is account-scoped).
       def get_limit_info(identifier)
-        pattern = case identifier
-        when /\A\d+\z/ # User ID
-                   "rate_limit:*:*:user_#{identifier}"
-        when /\A\d+\.\d+\.\d+\.\d+\z/ # IP address
-                   "rate_limit:*:*:ip_#{identifier}"
-        else
-                   return {}
-        end
+        subject = Security::RateLimitKey.subject_for(identifier)
+        return {} unless subject
 
         limits = {}
-        Powernode::CacheRedis.with do |redis|
-          scan_batches(redis, pattern) do |keys|
+        with_counter_redis do |redis|
+          scan_batches(redis, Security::RateLimitKey.pattern_for(subject)) do |keys|
             counters_and_ttls(redis, keys).each do |key, (current_count, ttl)|
-              parts = key.split(":")
-              next if parts.length < 4
+              parsed = Security::RateLimitKey.parse(key)
+              next unless parsed && parsed[:subject] == subject
 
-              controller = parts[1]
-              action = parts[2]
-              limit = extract_limit_from_key(key)
+              limit = limit_for_category(parsed[:category])
+              next unless limit
 
-              limits["#{controller}##{action}"] = {
+              label = parsed[:account_id] ? "#{parsed[:category]}:account:#{parsed[:account_id]}" : parsed[:category]
+              limits[label] = {
                 current: current_count,
                 limit: limit,
                 remaining: [ limit - current_count, 0 ].max,
                 reset_in: ttl > 0 ? ttl : 0
-              } if limit
+              }
             end
           end
         end
 
         limits
+      end
+
+      # Every counter at or over its limit, worst first. Raises UnsupportedStore like the other readers.
+      def recent_violations
+        found = []
+        with_counter_redis do |redis|
+          scan_batches(redis, Security::RateLimitKey::ALL) do |keys|
+            counters_and_ttls(redis, keys).each do |key, (current_count, _ttl)|
+              parsed = Security::RateLimitKey.parse(key)
+              limit = parsed && limit_for_category(parsed[:category])
+              next unless limit && current_count >= limit
+
+              found << {
+                endpoint: parsed[:category],
+                identifier: parsed[:subject],
+                account_id: parsed[:account_id],
+                count: current_count,
+                limit: limit,
+                timestamp: Time.current.iso8601 # the counter carries no timestamp; this is when it was read
+              }
+            end
+          end
+        end
+        found.sort_by { |v| -v[:count] }
       end
 
       # Temporarily disable rate limiting (for maintenance, etc.)
@@ -163,29 +184,35 @@ module RateLimiting
         keys.each_with_index.to_h { |key, i| [ key, [ replies[2 * i].to_i, replies[2 * i + 1].to_i ] ] }
       end
 
+      # Runs the block with a connection to the Redis Security::RateLimiter writes its counters to
+      # (Powernode::Redis), independent of whatever Rails.cache is. UnsupportedStore when it is down.
+      def with_counter_redis(&block)
+        Powernode::Redis.with(&block)
+      rescue ::Redis::BaseConnectionError, ::ConnectionPool::TimeoutError => e
+        Rails.logger.error "Rate limit counters unreachable: #{e.class}: #{e.message}"
+        raise RateLimiting::UnsupportedStore
+      end
+
       def count_current_violations
         violations = 0
-        Powernode::CacheRedis.with do |redis|
-          scan_batches(redis, "rate_limit:*") do |keys|
+        with_counter_redis do |redis|
+          scan_batches(redis, Security::RateLimitKey::ALL) do |keys|
             counters_and_ttls(redis, keys).each do |key, (current_count, _ttl)|
-              limit = extract_limit_from_key(key)
+              parsed = Security::RateLimitKey.parse(key)
+              limit = parsed && limit_for_category(parsed[:category])
               violations += 1 if limit && current_count >= limit
             end
           end
         end
         violations
-      rescue StandardError => e
-        Rails.logger.error "Error counting rate limit violations: #{e.message}"
-        0
       end
 
       def count_active_limits
         count = 0
-        Powernode::CacheRedis.scan_each(match: "rate_limit:*") { count += 1 }
+        with_counter_redis do |redis|
+          scan_batches(redis, Security::RateLimitKey::ALL) { |keys| count += keys.size }
+        end
         count
-      rescue StandardError => e
-        Rails.logger.error "Error counting active limits: #{e.message}"
-        0
       end
 
       def get_current_configuration
@@ -205,13 +232,14 @@ module RateLimiting
         }
       end
 
-      def extract_limit_from_key(key)
-        parts = key.split(":")
-        return nil if parts.length < 4
+      # The limit a counter's category is held to: the writer's own table first (the category is a
+      # Security::RateLimiter::RATE_LIMITS key), then the admin-configured limit for a legacy
+      # controller-named category. nil when neither knows it.
+      def limit_for_category(category)
+        known = Security::RateLimiter::RATE_LIMITS.find { |name, _| name.to_s == category }
+        return known.last[:limit] if known
 
-        controller_name = parts[1]
-        limit_type = determine_limit_type_for_controller(controller_name)
-        Admin::SystemSettings.rate_limit(limit_type)
+        Admin::SystemSettings.rate_limit(determine_limit_type_for_controller(category))
       end
 
       def determine_limit_type_for_controller(controller_name)

@@ -527,11 +527,17 @@ module RateLimiting
         0
       end
 
+      # When the counter's window ends, or nil when that cannot be known. The tiered counters live in
+      # Rails.cache (not in the Redis Security::RateLimiter writes to), so only a Redis-backed cache
+      # store can say; on solid_cache or a memory store the TTL is unobtainable and the answer is nil,
+      # not "now" or "a minute from now" (both used to be invented here).
       def get_reset_time(cache_key)
-        ttl = Powernode::CacheRedis.ttl(cache_key) || 0
+        ttl = Powernode::CacheRedis.ttl(cache_key)
+        return nil unless ttl&.positive?
+
         Time.current + ttl.seconds
       rescue StandardError
-        Time.current + 1.minute
+        nil
       end
 
       def count_accounts_in_tier(tier)

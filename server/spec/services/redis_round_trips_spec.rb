@@ -47,7 +47,7 @@ RSpec.describe "Redis round trips on scan-then-read paths" do
 
     def seed(n, conn)
       (1..n).to_h do |i|
-        key = "rate_limit:ctl#{i}:act:ip_#{ip}"
+        key = Security::RateLimitKey.build(category: "ctl#{i}", key: "ip:#{ip}")
         conn.set(key, i.to_s)
         conn.expire(key, 600 + i)
         [ key, i ]
@@ -65,7 +65,7 @@ RSpec.describe "Redis round trips on scan-then-read paths" do
       conn = real_connection
       seed(n, conn)
       counter = counting_class.new(conn)
-      allow(Powernode::CacheRedis).to receive(:with) { |&blk| blk.call(counter) }
+      allow(Powernode::Redis).to receive(:with) { |&blk| blk.call(counter) }
       result = {
         limited: described_class.rate_limited?(ip),
         info: described_class.get_limit_info(ip),
@@ -84,13 +84,13 @@ RSpec.describe "Redis round trips on scan-then-read paths" do
       expect(small_result[:limited]).to be(false)
       expect(small_result[:violations]).to eq(0)
       expect(small_result[:info].size).to eq(5)
-      expect(small_result[:info]["ctl3#act"]).to include(current: 3, limit: 25, remaining: 22)
-      expect(small_result[:info]["ctl3#act"][:reset_in]).to be_between(590, 603)
+      expect(small_result[:info]["ctl3"]).to include(current: 3, limit: 25, remaining: 22)
+      expect(small_result[:info]["ctl3"][:reset_in]).to be_between(590, 603)
 
       expect(large_result[:limited]).to be(true) # counters 25..50 reach the limit
       expect(large_result[:violations]).to eq(26)
       expect(large_result[:info].size).to eq(50)
-      expect(large_result[:info]["ctl40#act"]).to include(current: 40, limit: 25, remaining: 0)
+      expect(large_result[:info]["ctl40"]).to include(current: 40, limit: 25, remaining: 0)
 
       expect(large_calls.size).to eq(small_calls.size)
       expect(large_calls).not_to include(:keys, :get, :ttl)

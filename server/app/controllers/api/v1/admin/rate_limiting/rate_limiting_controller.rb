@@ -20,12 +20,14 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
   # GET /api/v1/admin/rate_limiting/violations
   def violations
     begin
-      violations = get_recent_violations
+      violations = RateLimiting::BaseService.recent_violations
 
       render_success({
         violations: violations,
         total_count: violations.count
       })
+    rescue RateLimiting::UnsupportedStore => e
+      render_error(e.message, status: :service_unavailable)
     rescue StandardError => e
       Rails.logger.error "Failed to get rate limiting violations: #{e.message}"
       render_error("Failed to retrieve rate limiting violations", status: :internal_server_error)
@@ -91,6 +93,8 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
         identifier: identifier,
         limits: limits
       })
+    rescue RateLimiting::UnsupportedStore => e
+      render_error(e.message, status: :service_unavailable)
     rescue StandardError => e
       Rails.logger.error "Failed to get rate limits for #{identifier}: #{e.message}"
       render_error("Failed to retrieve rate limits", status: :internal_server_error)
@@ -118,6 +122,8 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
       })
     rescue ArgumentError => e
       render_error(e.message, status: :bad_request)
+    rescue RateLimiting::UnsupportedStore => e
+      render_error(e.message, status: :service_unavailable)
     rescue StandardError => e
       Rails.logger.error "Failed to clear rate limits for #{identifier}: #{e.message}"
       render_error("Failed to clear rate limits", status: :internal_server_error)
@@ -329,67 +335,5 @@ class Api::V1::Admin::RateLimiting::RateLimitingController < ApplicationControll
     @account = Account.find(params[:account_id])
   rescue ActiveRecord::RecordNotFound
     render_error("Account not found", status: :not_found)
-  end
-
-  def get_recent_violations
-    violations = []
-
-    # Get all rate limit keys and check for violations
-    begin
-      Powernode::CacheRedis.scan_each(match: "rate_limit:*") do |key|
-        current_count = Rails.cache.read_counter(key).to_i
-        limit = extract_limit_from_key(key)
-
-        if limit && current_count >= limit
-          parts = key.split(":")
-          next if parts.length < 4
-
-          controller = parts[1]
-          action = parts[2]
-          identifier = parts[3]
-
-          violations << {
-            endpoint: "#{controller}/#{action}",
-            identifier: identifier,
-            count: current_count,
-            limit: limit,
-            timestamp: Time.current.iso8601 # We don't have exact timestamp, use current time
-          }
-        end
-      end
-    rescue StandardError => e
-      Rails.logger.error "Error getting violations: #{e.message}"
-    end
-
-    # Sort by count descending (worst violations first)
-    violations.sort_by { |v| -v[:count] }
-  end
-
-  def extract_limit_from_key(key)
-    parts = key.split(":")
-    return nil if parts.length < 4
-
-    controller_name = parts[1]
-    limit_type = determine_limit_type_for_controller(controller_name)
-    Admin::SystemSettings.rate_limit(limit_type)
-  end
-
-  def determine_limit_type_for_controller(controller_name)
-    case controller_name
-    when "sessions"
-      "login_attempts_per_hour"
-    when "registrations"
-      "registration_attempts_per_hour"
-    when "passwords"
-      "password_reset_attempts_per_hour"
-    when "email_verifications"
-      "email_verification_attempts_per_hour"
-    when "webhooks"
-      "webhook_requests_per_minute"
-    when "impersonation_sessions"
-      "impersonation_attempts_per_hour"
-    else
-      "api_requests_per_minute"
-    end
   end
 end

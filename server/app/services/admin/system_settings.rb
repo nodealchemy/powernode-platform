@@ -102,8 +102,7 @@ module Admin
       # -- Rate limiting ----------------------------------------------------
 
       # Single-field read used by the readers that report/enforce a
-      # configured limit (RateLimitingController#extract_limit_from_key,
-      # RateLimiting::BaseService#extract_limit_from_key/
+      # configured limit (RateLimiting::BaseService#limit_for_category/
       # #get_current_configuration). nil when unset, matching the pre-move
       # `AdminSetting.find_by(key: ...)&.value&.to_i` contract exactly.
       def rate_limit(key)
