@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_23_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_23_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -3852,6 +3852,20 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_100000) do
     t.index ["account_id"], name: "index_ai_role_profiles_on_account_id"
     t.index ["is_system"], name: "index_ai_role_profiles_on_is_system"
     t.index ["slug"], name: "index_ai_role_profiles_on_slug", unique: true
+  end
+
+  create_table "ai_roster_migration_runs", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id"
+    t.datetime "created_at", null: false
+    t.uuid "from_id"
+    t.string "kind", null: false
+    t.jsonb "metadata", default: {}, null: false
+    t.uuid "record_id", null: false
+    t.uuid "run_id", null: false
+    t.string "table_name", null: false
+    t.uuid "to_id"
+    t.index ["kind", "run_id"], name: "idx_ai_roster_migration_runs_run"
+    t.index ["table_name", "record_id"], name: "idx_ai_roster_migration_runs_record"
   end
 
   create_table "ai_routing_decisions", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
