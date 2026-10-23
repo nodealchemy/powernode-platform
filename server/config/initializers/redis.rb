@@ -408,7 +408,12 @@ module Powernode
       %i[eval select exec].each { |name| undef_method(name) if private_method_defined?(name) }
 
       def method_missing(name, *args, **kwargs, &block)
-        Powernode::Redis.with { |redis| redis.public_send(name, *args, **kwargs, &block) }
+        Powernode::Redis.with do |redis|
+          result = redis.public_send(name, *args, **kwargs, &block)
+          # A block-less scan_each returns an Enumerator that would run its cursor loop AFTER this
+          # checkout ended, on a connection another thread may hold. Drain it while we own it.
+          result.is_a?(Enumerator) ? result.to_a.each : result
+        end
       end
 
       def respond_to_missing?(name, include_private = false)
