@@ -28,7 +28,12 @@ module Ai
       SystemPrincipal = Data.define(:name)
       DISCOVERY = SystemPrincipal.new(name: "campaign_discovery")
       INTERNAL = SystemPrincipal.new(name: "internal_tool_call")
-      SYSTEM_PRINCIPALS = [ DISCOVERY, INTERNAL ].freeze
+      # An operator approved an Ai::AgentProposal; the approval IS the triage, so the platform
+      # opens the campaign proposal it asked for (Ai::AgentProposals::Handoff). The reviewer
+      # holds ai.proposals.review, not necessarily ai.campaigns.manage, and the campaign
+      # proposal still waits for its own review before anything is spawned.
+      AGENT_PROPOSAL_HANDOFF = SystemPrincipal.new(name: "agent_proposal_handoff")
+      SYSTEM_PRINCIPALS = [ DISCOVERY, INTERNAL, AGENT_PROPOSAL_HANDOFF ].freeze
 
       module_function
 
@@ -49,9 +54,15 @@ module Ai
       # For services an agent or instance principal also reaches. A call that names a user
       # is asked for the permission. A call with no user must name its principal, and the
       # principal is asserted rather than trusted to have been bound by some door.
-      def authorize_actor!(user:, account:, permission: MANAGE_PERMISSION, principal: nil)
+      def authorize_actor!(user:, account:, permission: MANAGE_PERMISSION, principal: nil, proposing: false)
         return authorize!(user: user, account: account, permission: permission) if user
         raise Refused, "a caller with no user must name its principal (account #{account&.id})" if principal.nil?
+
+        # The agent-proposal handoff may only OPEN a campaign proposal. It can never approve,
+        # queue, reject, edit or spawn one: the campaign proposal waits for its own review.
+        if principal.equal?(AGENT_PROPOSAL_HANDOFF) && !proposing
+          raise Refused, "the agent-proposal handoff may only propose a campaign, not act on one"
+        end
 
         if principal.is_a?(SystemPrincipal)
           # By identity: a Data value rebuilt with a declared name compares equal.

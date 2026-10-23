@@ -76,6 +76,7 @@ module Ai
 
     def complete!(summary = nil)
       update!(status: "completed", completed_at: Time.current, completion_summary: summary)
+      close_handed_off_agent_proposals
     end
 
     def archive!
@@ -370,6 +371,14 @@ module Ai
     end
 
     private
+
+    # An Ai::AgentProposal (architecture, sweep_execution) approved into this campaign's
+    # proposal is implemented now that the campaign finished. Never fails the completion.
+    def close_handed_off_agent_proposals
+      ::Ai::AgentProposals::Completion.campaign_completed!(self)
+    rescue StandardError => e
+      Rails.logger.warn("[Ai::Campaign] closing handed-off agent proposals for #{id} failed: #{e.class}: #{e.message}")
+    end
 
     # IMP-fd7e7082b431 — see Ai::Campaigns::PlanIncrements. Checked on create only:
     # a campaign already running keeps the plan it was seeded with.

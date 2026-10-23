@@ -27,33 +27,49 @@ module Ai
       proposal
     end
 
-    # Batch review multiple proposals
-    def batch_review(proposal_ids:, action:, reviewer:)
+    # Batch review multiple proposals. A batch REJECT is allowed; a batch APPROVE is only for
+    # proposals whose approval starts nothing (acknowledgement-only): anything that hands work
+    # off (a task, a campaign, an agent) is approved one at a time, so a reviewer looks at
+    # each. Every id gets its own result row; a refusal or a failed handoff is reported there
+    # (`error`, `code`) and the rest still go through.
+    APPROVE_ONE_AT_A_TIME = "approve one at a time: this proposal hands work off when approved"
+
+    def batch_review(proposal_ids:, action:, reviewer:, origin:)
       proposals = account.ai_agent_proposals.where(id: proposal_ids, status: "pending_review")
       results = []
 
       proposals.find_each do |proposal|
         case action
         when "approve"
-          proposal.approve!(reviewer)
-          results << { id: proposal.id, status: "approved" }
+          unless Ai::AgentProposals::Handoff.acknowledgement_only?(proposal)
+            results << { id: proposal.id, status: proposal.status, error: APPROVE_ONE_AT_A_TIME, code: 422 }
+            next
+          end
+
+          Ai::AgentProposals::Decision.call(proposal, "approved", reviewer, origin: origin)
+          results << { id: proposal.id, status: "approved", handoff_kind: proposal.handoff_kind,
+                       handoff_id: proposal.handoff_id, acknowledged_only: proposal.acknowledged_only? }
         when "reject"
-          proposal.reject!(reviewer)
+          Ai::AgentProposals::Decision.call(proposal, "rejected", reviewer, origin: origin)
           results << { id: proposal.id, status: "rejected" }
         end
+      rescue Ai::AgentProposals::Handoff::Failed, Ai::AgentProposal::InvalidTransition => e
+        results << { id: proposal.id, status: proposal.status, error: e.message, code: 422 }
       end
 
       results
     end
 
-    # Auto-expire overdue proposals
+    # Lapse overdue proposals: "expired" (no reviewer saw them, reviewed_at stays nil),
+    # never "withdrawn", which is only the agent's own retraction.
     def expire_overdue!
-      expired = account.ai_agent_proposals.overdue
       count = 0
 
-      expired.find_each do |proposal|
-        proposal.update!(status: "withdrawn")
+      account.ai_agent_proposals.overdue.find_each do |proposal|
+        proposal.expire!
         count += 1
+      rescue Ai::AgentProposal::InvalidTransition
+        next # decided between the query and the lock
       end
 
       count
@@ -73,7 +89,8 @@ module Ai
         approvable: proposal,
         kind: "agent_proposal",
         requested_by: proposal.target_user,
-        request_data: { proposal_type: proposal.proposal_type, title: proposal.title }
+        request_data: { proposal_type: proposal.proposal_type, title: proposal.title,
+                        agent_id: proposal.ai_agent_id }
       )
     rescue StandardError => e
       Rails.logger.warn("[ProposalService] open_proposal_gate! failed for proposal #{proposal.id}: #{e.class}: #{e.message}")

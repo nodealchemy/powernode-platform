@@ -207,6 +207,10 @@ module Ai
     # otherwise. In memory only: the caller that decided holds this instance.
     attr_reader :decision_refusal
 
+    # The agent a tool door carried on the decision just made, in memory only, so a
+    # source's #on_approval_decision (Ai::AgentProposal) can apply its own rule to it.
+    attr_reader :decision_agent
+
     # `origin` names the door the decision came through (Ai::ApprovalDecision
     # ORIGINS), and the decision row records it. A requires_human_session
     # request accepts a decision only from a person's own session. Every other
@@ -218,6 +222,7 @@ module Ai
     # replays AS them.
     def record_decision!(approver:, decision:, comments: nil, conditions: {}, origin: nil, agent: nil)
       @decision_refusal = nil
+      @decision_agent = agent
       return false unless human_session_satisfied?(origin)
       return false if requester_excluded?(approver: approver, origin: origin, agent: agent)
       return false unless can_approve?(approver)

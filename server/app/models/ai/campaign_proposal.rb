@@ -69,14 +69,15 @@ module Ai
     # The review transitions and a door-made proposal name their acting user; each asks the
     # shared campaign check for the proposal's account. A caller with no user names its
     # `principal:` (a discovery scan, or an agent/instance), which the check asserts.
-    def self.authorize_actor!(actor, account, principal: nil)
-      ::Ai::Campaigns::Authorization.authorize_actor!(user: actor, account: account, principal: principal)
+    def self.authorize_actor!(actor, account, principal: nil, proposing: false)
+      ::Ai::Campaigns::Authorization.authorize_actor!(user: actor, account: account, principal: principal,
+                                                      proposing: proposing)
     end
 
     def self.propose!(account:, title:, objective:, source: "manual", scope: nil,
                       suggested_workload: nil, suggested_driver: nil,
                       decision_authority: "trusted", configuration: {}, evidence: {}, actor: nil, principal: nil)
-      authorize_actor!(actor, account, principal: principal)
+      authorize_actor!(actor, account, principal: principal, proposing: true)
       workload = suggested_workload.presence || DEFAULT_WORKLOAD
       fp = fingerprint_for(scope: scope, objective: objective, suggested_workload: workload)
       existing = account.ai_campaign_proposals.find_by(fingerprint: fp)
@@ -140,6 +141,7 @@ module Ai
     def reject!(user = nil, reason: nil, principal: nil)
       self.class.authorize_actor!(user, account, principal: principal)
       update!(status: "rejected", reviewed_by: user, reviewed_at: Time.current, rejection_reason: reason)
+      ::Ai::AgentProposals::Completion.campaign_proposal_rejected!(self, user)
     end
 
     # Back-link the spawned campaign (called by increment 3 after CampaignDriver#start).

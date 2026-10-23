@@ -40,7 +40,7 @@ RSpec.describe Ai::AgentProposal, type: :model do
 
     it "flips pending_review -> approved when the request is approved" do
       request # open the gate
-      gateway.resolve!(request: request, decision: "approved", by: user)
+      gateway.resolve!(request: request, decision: "approved", by: user, origin: Ai::ApprovalDecision::REST_SESSION)
 
       expect(proposal.reload.status).to eq("approved")
       expect(proposal.reload.reviewed_by).to eq(user)
@@ -48,7 +48,7 @@ RSpec.describe Ai::AgentProposal, type: :model do
 
     it "flips pending_review -> rejected when the request is rejected" do
       request
-      gateway.resolve!(request: request, decision: "rejected", by: user)
+      gateway.resolve!(request: request, decision: "rejected", by: user, origin: Ai::ApprovalDecision::REST_SESSION)
 
       expect(proposal.reload.status).to eq("rejected")
       expect(proposal.reload.reviewed_by).to eq(user)
@@ -58,7 +58,7 @@ RSpec.describe Ai::AgentProposal, type: :model do
       proposal.update!(status: "withdrawn")
       req = gateway.request!(approvable: proposal, kind: "agent_proposal").approval_request
 
-      expect { gateway.resolve!(request: req, decision: "approved", by: user) }
+      expect { gateway.resolve!(request: req, decision: "approved", by: user, origin: Ai::ApprovalDecision::REST_SESSION) }
         .not_to change { proposal.reload.status }
       expect(proposal.reload.status).to eq("withdrawn")
     end

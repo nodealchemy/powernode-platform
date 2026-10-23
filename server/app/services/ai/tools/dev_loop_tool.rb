@@ -948,7 +948,7 @@ module Ai
 
           iteration = prepare_iteration(loop_record, task, params, landing: landing)
           record_outcome(loop_record, task, iteration, outcome, summary, params,
-                         verification: verification, evidence_source: evidence_source)
+                         verification: verification, evidence_source: evidence_source, landing: landing)
         end
         return error_result(pairing_error) if pairing_error
 
@@ -1133,7 +1133,7 @@ module Ai
       end
 
       def record_outcome(loop_record, task, iteration, outcome, summary, params,
-                         verification: nil, evidence_source: nil)
+                         verification: nil, evidence_source: nil, landing: nil)
         # IMP-9d49b9833a67 — CAPTURE BOUNDARY for executor-supplied learning text.
         #
         # This is where raw `params[:learning]` first enters the system, and it
@@ -1192,6 +1192,7 @@ module Ai
             )
           end
           apply_linked_recommendation!(task) if verification == :verified && evidence_source == :declared
+          close_linked_agent_proposal!(task, params[:commit_sha]) if landing&.landed == true
         when "failed"
           iteration.fail!(error_message: summary)
           task.fail!(error_message: summary)
@@ -1238,6 +1239,17 @@ module Ai
         recommendation.apply!(user || recommendation.approved_by)
       rescue StandardError => e
         Rails.logger.warn("[DevLoopTool] apply_linked_recommendation! failed for task #{task.task_key}: #{e.message}")
+      end
+
+      # A dev-improve task handed off by an approved Ai::AgentProposal (metadata.proposal_id)
+      # is the proposal's implementation: when it passes with a commit the git host confirms
+      # LANDED (landing.landed == true; an unverified or unlanded sha proves nothing), that
+      # commit is the proposal's implemented_ref. Does not depend on the declared-evidence
+      # gate that guards closing an offer: the landed commit is the proof here.
+      def close_linked_agent_proposal!(task, commit_sha)
+        ::Ai::AgentProposals::Completion.dev_task_landed!(task, commit_sha: commit_sha, account: account, actor: user)
+      rescue StandardError => e
+        Rails.logger.warn("[DevLoopTool] closing the agent proposal for task #{task.task_key} failed: #{e.class}: #{e.message}")
       end
 
       def capture_learning(loop_record, task, iteration, learning, files: nil)

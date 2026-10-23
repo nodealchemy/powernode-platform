@@ -4,9 +4,18 @@ module Api
   module V1
     module Ai
       class ProposalsController < ApplicationController
+        include ::HumanSession
+
         before_action :validate_view_permissions
         before_action :validate_review_permissions, only: %i[approve reject batch_review]
         before_action :set_proposal, only: %i[show approve reject withdraw]
+
+        rescue_from ::Ai::AgentProposal::InvalidTransition do |e|
+          render_error(e.message, status: :unprocessable_entity)
+        end
+        rescue_from ::Ai::AgentProposals::Handoff::Failed do |e|
+          render_error(e.message, status: :unprocessable_entity)
+        end
 
         # GET /api/v1/ai/proposals
         def index
@@ -33,19 +42,19 @@ module Api
 
         # POST /api/v1/ai/proposals/:id/approve
         def approve
-          @proposal.approve!(current_user)
+          ::Ai::AgentProposals::Decision.call(@proposal, "approved", current_user, origin: human_decision_origin)
           render_success(serialize_proposal(@proposal))
         end
 
         # POST /api/v1/ai/proposals/:id/reject
         def reject
-          @proposal.reject!(current_user)
+          ::Ai::AgentProposals::Decision.call(@proposal, "rejected", current_user, origin: human_decision_origin)
           render_success(serialize_proposal(@proposal))
         end
 
         # PUT /api/v1/ai/proposals/:id/withdraw
         def withdraw
-          @proposal.withdraw!
+          @proposal.withdraw!(by: current_user)
           render_success(serialize_proposal(@proposal))
         end
 
@@ -54,8 +63,11 @@ module Api
           service = ::Ai::ProposalService.new(account: current_user.account)
           results = service.batch_review(
             proposal_ids: params.require(:proposal_ids),
-            action: params.require(:action),
-            reviewer: current_user
+            # NOT params[:action]: Rails owns that key (the routed action name, "batch_review"),
+            # so a body field of that name never arrived and every batch silently did nothing.
+            action: params.require(:decision),
+            reviewer: current_user,
+            origin: human_decision_origin
           )
 
           render_success(results: results)
@@ -75,6 +87,27 @@ module Api
           require_permission("ai.proposals.review")
         end
 
+        HANDOFF_LABELS = {
+          "dev_task" => "Queued as a dev-improve task",
+          "campaign_proposal" => "Opened as a campaign proposal",
+          "agent" => "Canonical agent created",
+          "gitops" => "Applied by GitOps",
+          "acknowledged" => "Acknowledged only: nothing was started"
+        }.freeze
+
+        # nil until an approval hands the work off. An acknowledgement-only handoff is
+        # labelled as such so nobody reads "approved" as "being done".
+        def serialize_handoff(proposal)
+          return nil if proposal.handoff_kind.blank?
+
+          {
+            kind: proposal.handoff_kind,
+            id: proposal.handoff_id,
+            label: HANDOFF_LABELS.fetch(proposal.handoff_kind, proposal.handoff_kind),
+            acknowledged_only: proposal.acknowledged_only?
+          }
+        end
+
         def serialize_proposal(proposal)
           {
             id: proposal.id,
@@ -88,6 +121,10 @@ module Api
             proposed_changes: proposal.proposed_changes,
             review_deadline: proposal.review_deadline&.iso8601,
             reviewed_at: proposal.reviewed_at&.iso8601,
+            implemented_at: proposal.implemented_at&.iso8601,
+            implemented_ref: proposal.implemented_ref,
+            agent_spec: (proposal.proposal_type == "agent_create" ? ::Ai::ClaudeExport::AgentImportApplier.preview(proposal.proposed_changes) : nil),
+            handoff: serialize_handoff(proposal),
             overdue: proposal.overdue?,
             agent: proposal.agent ? { id: proposal.agent.id, name: proposal.agent.name } : nil,
             target_user: proposal.target_user ? { id: proposal.target_user.id, email: proposal.target_user.email } : nil,

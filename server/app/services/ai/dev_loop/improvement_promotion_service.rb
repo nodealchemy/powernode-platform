@@ -34,6 +34,26 @@ module Ai
 
       Result = Struct.new(:ralph_loop, :ralph_task, :created, :requeued, keyword_init: true)
 
+      # The account's dev-improve loop: the queue dev_next_task drains. Every door that
+      # puts work in it (an approved offer here, an approved agent proposal in
+      # Ai::AgentProposals::Handoff) goes through this one find-or-create.
+      def self.dev_improve_loop(account)
+        account.ai_ralph_loops.find_or_create_by!(name: LOOP_NAME) do |l|
+          l.description = "Operator-approved code-quality improvements discovered via /improve. " \
+                          "Executed via dev_next_task/dev_complete_task."
+          l.ai_tool = "claude_code"
+          l.scheduling_mode = "manual"
+          l.status = "pending"
+          l.branch = LOOP_BRANCH
+          l.max_iterations = 500
+          l.configuration = {
+            "workload" => "improvement-discovery",
+            "loop_spec_path" => LOOP_SPEC_PATH,
+            "guardrails" => GUARDRAILS
+          }
+        end
+      end
+
       # `direction` is the operator's post-discovery decision, captured at approval
       # time. Offers that surface a genuine fork ("delete it OR wire it") used to
       # promote that fork verbatim into the brief, so the executor re-litigated a
@@ -198,20 +218,7 @@ module Ai
       end
 
       def find_or_create_loop
-        account.ai_ralph_loops.find_or_create_by!(name: LOOP_NAME) do |l|
-          l.description = "Operator-approved code-quality improvements discovered via /improve. " \
-                          "Executed via dev_next_task/dev_complete_task."
-          l.ai_tool = "claude_code"
-          l.scheduling_mode = "manual"
-          l.status = "pending"
-          l.branch = LOOP_BRANCH
-          l.max_iterations = 500
-          l.configuration = {
-            "workload" => "improvement-discovery",
-            "loop_spec_path" => LOOP_SPEC_PATH,
-            "guardrails" => GUARDRAILS
-          }
-        end
+        self.class.dev_improve_loop(account)
       end
 
       # IMP-60f457f6e8a6: "passed" is not proof the offer closed. DevLoopTool
