@@ -26,7 +26,10 @@ module Api
         # DELETE /api/v1/mcp/sessions/:id
         def destroy
           session = current_account.mcp_sessions.find(params[:id])
-          session.revoke! # no-op unless active
+          # A person's deliberate revoke: final (no reconnect), and it ends the
+          # promotion grants bound to the session at once. A transport drop is
+          # the flagless revoke! the streamable controller uses.
+          session.revoke!(final: true) # no-op unless active or inside the reconnect grace
 
           render_success({ id: session.id, status: session.status })
         end

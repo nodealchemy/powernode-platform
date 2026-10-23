@@ -42,6 +42,8 @@ module Ai
 
       # Why a bound grant was revoked without a person: its target ended.
       SESSION_ENDED = "session_ended"
+      # A person deliberately revoked the session (McpSession#revoke!(final: true)).
+      SESSION_REVOKED_BY_OPERATOR = "session_revoked_by_operator"
       EXECUTION_FINISHED = "execution_finished"
       EXECUTION_STALE = "execution_stale"
 

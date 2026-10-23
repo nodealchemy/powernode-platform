@@ -83,10 +83,26 @@ class McpSession < ApplicationRecord
   # Instance methods
   # Only an active session can be revoked: revoking an idle-swept (expired)
   # one would make it reactivatable? and bring it back from the dead.
-  def revoke!
+  #
+  # `final: true` is a PERSON's deliberate revoke (Api::V1::Mcp::SessionsController
+  # #destroy), never a transport drop: the session can no longer be
+  # reactivated, and the promotion grants bound to it end at once with reason
+  # session_revoked_by_operator. It also finalises a session a transport drop
+  # already revoked inside its reconnect grace. Without the flag (a dropped
+  # stream, a server restart) bound grants are only paused: they cannot be
+  # spent until the owner reconnects, and the binding sweep revokes them once
+  # the grace has passed.
+  FINAL_REVOCATION_KEY = "revoked_final"
+
+  def revoke!(final: false)
+    return revoke_finally! if final
     return false unless status == "active"
 
     update!(status: "revoked", revoked_at: Time.current)
+  end
+
+  def finally_revoked?
+    metadata.is_a?(Hash) && metadata[FINAL_REVOCATION_KEY] == true
   end
 
   def touch_activity!
@@ -132,7 +148,8 @@ class McpSession < ApplicationRecord
   # and hasn't exceeded its original TTL. This handles server restarts where the
   # SSE connection drops and revoke! fires, but the client reconnects shortly after.
   def reactivatable?
-    revoked? &&
+    !finally_revoked? &&
+      revoked? &&
       revoked_at.present? &&
       revoked_at > RECONNECT_GRACE_PERIOD.ago &&
       expires_at.present? &&
@@ -211,6 +228,16 @@ class McpSession < ApplicationRecord
   end
 
   private
+
+  def revoke_finally!
+    return false unless status == "active" || reactivatable?
+
+    update!(status: "revoked", revoked_at: revoked_at || Time.current,
+            metadata: (metadata.is_a?(Hash) ? metadata : {}).merge(FINAL_REVOCATION_KEY => true))
+    ::Ai::PromotionGrants::Ledger.revoke_bound!(kind: ::Ai::PromotionGrant::BINDING_MCP_SESSION, ids: [ id ],
+                                                reason: ::Ai::PromotionGrants::Ledger::SESSION_REVOKED_BY_OPERATOR)
+    true
+  end
 
   # A failure never undoes the session's end: a grant bound to a session that
   # is not live is already unspendable (Ai::PromotionGrants::Binding), and the
