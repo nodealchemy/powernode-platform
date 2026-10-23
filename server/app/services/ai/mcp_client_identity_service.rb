@@ -310,6 +310,12 @@ module Ai
 
         merge_lineages!(dup, keeper)
 
+        # The grants go with the duplicate (see MERGE_DELETE_FKS): leave the
+        # audit row for each before the rows disappear.
+        Ai::PromotionGrant.where(ai_agent_id: dup.id).includes(:environment).find_each do |grant|
+          Ai::PromotionGrants::Ledger.dropped_with_merged_agent!(grant, duplicate: dup, keeper: keeper)
+        end
+
         (MERGE_DELETE_FKS + MERGE_DELETED_AGENT_ROWS).each do |table, col|
           connection.exec_delete("DELETE FROM #{table} WHERE #{col} = $1", "merge-del-#{table}-#{col}", [ dup.id ])
         end

@@ -600,6 +600,34 @@ RSpec.describe Ai::McpClientIdentityService do
         expect(expired.reload).to have_attributes(ai_agent_id: keeper.id, display_name: keeper.name)
       end
 
+      it "audits each promotion grant a merge deletes with the duplicate" do
+        dup = duplicates.first
+        issuer = create(:user, account: account)
+        grant = create(:ai_promotion_grant, account: account, agent: dup, granted_by: issuer)
+        other = create(:ai_promotion_grant, account: account, agent: dup, granted_by: issuer, reason: "a second grant")
+        kept = create(:ai_promotion_grant, account: account, agent: duplicates.last, granted_by: issuer)
+
+        described_class.merge_duplicate_agents!(confirm: true, account: account)
+
+        expect(Ai::PromotionGrant.where(id: [ grant.id, other.id, kept.id ])).to be_empty
+        rows = AuditLog.where(action: Ai::PromotionGrants::Ledger::REVOKED, resource_type: "Ai::PromotionGrant",
+                              resource_id: [ grant.id, other.id ])
+        expect(rows.count).to eq(2)
+        row = rows.find_by(resource_id: grant.id)
+        expect(row.account_id).to eq(account.id)
+        expect(row.metadata).to include(
+          "promotion_grant_id" => grant.id, "ai_agent_id" => dup.id, "agent_name" => dup.name,
+          "merged_into_agent_id" => keeper.id, "merged_into_agent_name" => keeper.name,
+          "environment_id" => grant.environment_id, "environment_slug" => "ops",
+          "granted_by_id" => issuer.id, "reason" => "agent merged into #{keeper.name}"
+        )
+      end
+
+      it "writes no grant audit row when the duplicate held no grant" do
+        expect { described_class.merge_duplicate_agents!(confirm: true, account: account) }
+          .not_to change { AuditLog.where(action: Ai::PromotionGrants::Ledger::REVOKED).count }
+      end
+
       it "keeps a duplicate's executed deferred operations, repointed to the keeper, as the record of what ran" do
         dup = duplicates.first
         operation = Ai::DeferredOperation.create!(account: account, ai_agent: dup, action_category: "release.promote",

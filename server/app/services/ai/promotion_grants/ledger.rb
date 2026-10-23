@@ -98,6 +98,21 @@ module Ai
         grant
       end
 
+      # A grant is a person's permission for ONE agent and goes when that agent
+      # does. When an agent merge deletes the duplicate it leaves the grant's
+      # revoke family of audit row (nothing else records that the grant ended),
+      # naming the duplicate, the keeper, the environment and the person who
+      # issued it. Required, like every grant audit: inside the merge's transaction.
+      def dropped_with_merged_agent!(grant, duplicate:, keeper:)
+        details = terms_of(grant).merge(
+          "agent_name" => duplicate.name, "merged_into_agent_id" => keeper.id,
+          "merged_into_agent_name" => keeper.name, "uses_count" => grant.uses_count,
+          "was_revoked" => grant.revoked?,
+          "reason" => "agent merged into #{keeper.name}", "grant_reason" => grant.reason
+        )
+        audit!(grant, action: REVOKED, user: nil, source: "system", severity: "medium", details: details)
+      end
+
       # Spends one use of an active grant matching every axis, or returns nil
       # (and spends nothing). `subject` is the gated call's own statement of
       # what it acts on ({ module_id:, version_id:, environment_id: }), built
