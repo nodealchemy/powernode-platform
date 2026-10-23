@@ -318,50 +318,33 @@ export interface AiMessage {
   };
 }
 
+export type AiAgentExecutionSource = 'claude_code' | 'platform' | 'scheduler' | string;
+
+/** One agent execution as the serializer sends it (list and detail endpoints). */
 export interface AiAgentExecution {
   id: string;
-  ai_agent: {
-    id: string;
-    name: string;
-  };
-  input_data: {
-    prompt: string;
-    parameters: Record<string, unknown>;
-  };
+  execution_id?: string;
   status: 'queued' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
-  started_at?: string;
-  completed_at?: string;
-  result?: {
-    output?: string;
-    metrics?: {
-      tokens_used: number;
-      response_time_ms: number;
-      cost_estimate: number;
-      api_calls?: number;
-      memory_usage_mb?: number;
-    };
-    artifacts?: Array<{
-      name: string;
-      type: string;
-      size: number;
-      url: string;
-      metadata: Record<string, unknown>;
-    }>;
-    error?: boolean;
-    error_message?: string;
-    cancelled?: boolean;
-    [key: string]: unknown;
-  };
-  metadata: {
-    priority: 'low' | 'normal' | 'high';
-    retry_count: number;
-    created_by: string;
-    [key: string]: string | number | boolean | undefined;
-  };
-  progress_percentage?: number;
-  duration_seconds?: number;
   created_at: string;
-  updated_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_ms?: number | null;
+  tokens_used?: number | null;
+  cost_usd?: number | null;
+  error_message?: string | null;
+  /** First 200 chars of the stored task digest / prompt; null when not recorded. */
+  input_summary?: string | null;
+  /** First 200 chars of the output text; null when not recorded. */
+  output_summary?: string | null;
+  model?: string | null;
+  source?: AiAgentExecutionSource | null;
+  executor?: { kind?: string; agent_id?: string } | null;
+  agent?: { id: string; name: string; agent_type?: string };
+  output_data?: Record<string, unknown> | null;
+  // Detail endpoint only
+  input_parameters?: Record<string, unknown> | null;
+  execution_context?: Record<string, unknown> | null;
+  error_details?: Record<string, unknown> | null;
 }
 
 // API Request/Response Types

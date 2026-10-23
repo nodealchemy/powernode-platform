@@ -286,7 +286,11 @@ class AgentsApiService extends BaseApiService {
    * GET /api/v1/ai/agents/:agent_id/executions/:id
    */
   async getExecution(agentId: string, executionId: string): Promise<AiAgentExecution> {
-    return this.getNestedOne<AiAgentExecution>(this.resource, agentId, 'executions', executionId);
+    // The detail endpoint wraps the row as { execution: {...} }.
+    const response = await this.getNestedOne<AiAgentExecution | { execution: AiAgentExecution }>(
+      this.resource, agentId, 'executions', executionId
+    );
+    return 'execution' in response ? response.execution : response;
   }
 
   /**

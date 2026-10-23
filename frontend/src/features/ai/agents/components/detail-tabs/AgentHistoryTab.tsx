@@ -19,10 +19,45 @@ const STATUS_BADGE: Record<ExecutionStatus, { variant: 'success' | 'warning' | '
   cancelled: { variant: 'outline', label: 'Cancelled' },
 };
 
+const SOURCE_BADGE: Record<string, { variant: 'success' | 'warning' | 'danger' | 'info' | 'outline'; label: string }> = {
+  claude_code: { variant: 'info', label: 'Claude Code' },
+  platform: { variant: 'outline', label: 'Platform' },
+  scheduler: { variant: 'warning', label: 'Scheduler' },
+};
+
+const NOT_RECORDED = 'not recorded';
+
+const sourceBadge = (source?: string | null) =>
+  SOURCE_BADGE[source || 'platform'] || { variant: 'outline' as const, label: source as string };
+
+const formatCost = (cost?: number | null) => (cost == null ? NOT_RECORDED : `$${Number(cost).toFixed(4)}`);
+
+const formatJson = (value: unknown) => JSON.stringify(value, null, 2);
+
+const isPresent = (value: unknown) =>
+  value != null && !(typeof value === 'object' && Object.keys(value as object).length === 0);
 
 interface AgentHistoryTabProps {
   agentId: string;
 }
+
+const Field: React.FC<{ label: string; value?: React.ReactNode }> = ({ label, value }) => (
+  <div>
+    <span className="text-theme-tertiary">{label}: </span>
+    <span className={value == null || value === '' ? 'text-theme-tertiary italic' : 'text-theme-primary'}>
+      {value == null || value === '' ? NOT_RECORDED : value}
+    </span>
+  </div>
+);
+
+const JsonBlock: React.FC<{ label: string; value: unknown; error?: boolean }> = ({ label, value, error }) => (
+  <div className="mt-2">
+    <span className={`text-xs font-semibold ${error ? 'text-theme-error-fg' : 'text-theme-secondary'}`}>{label}</span>
+    <pre className="mt-1 p-3 bg-theme-background rounded text-xs text-theme-primary whitespace-pre-wrap break-words max-h-40 overflow-y-auto font-mono">
+      {typeof value === 'string' ? value : formatJson(value)}
+    </pre>
+  </div>
+);
 
 export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => {
   const { showNotification } = useNotification();
@@ -33,6 +68,9 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [details, setDetails] = useState<Record<string, AiAgentExecution>>({});
+  const [detailLoading, setDetailLoading] = useState<string | null>(null);
+  const [detailFailed, setDetailFailed] = useState<Record<string, boolean>>({});
 
   const loadExecutions = useCallback(async (pageNum: number, append = false) => {
     try {
@@ -57,6 +95,25 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
     loadExecutions(page + 1, true);
   };
 
+  const toggleRow = async (id: string) => {
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(id);
+    if (details[id] || detailLoading === id) return;
+    setDetailLoading(id);
+    try {
+      const detail = await agentsApi.getExecution(agentId, id);
+      setDetails(prev => ({ ...prev, [id]: detail }));
+      setDetailFailed(prev => ({ ...prev, [id]: false }));
+    } catch {
+      setDetailFailed(prev => ({ ...prev, [id]: true }));
+    } finally {
+      setDetailLoading(null);
+    }
+  };
+
   if (loading && executions.length === 0) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -77,15 +134,14 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
     <div className="space-y-2">
       {executions.map((exec) => {
         const badge = STATUS_BADGE[exec.status] || STATUS_BADGE.queued;
+        const src = sourceBadge(exec.source);
         const isExpanded = expandedId === exec.id;
-        const inputPreview = exec.input_data?.prompt
-          ? exec.input_data.prompt.slice(0, 80)
-          : '';
+        const detail = details[exec.id];
 
         return (
           <div key={exec.id} className="border border-theme rounded-lg bg-theme-surface">
             <button
-              onClick={() => setExpandedId(isExpanded ? null : exec.id)}
+              onClick={() => toggleRow(exec.id)}
               className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-theme-surface-hover transition-colors"
             >
               {isExpanded
@@ -93,35 +149,31 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
                 : <ChevronRight className="w-3.5 h-3.5 text-theme-tertiary flex-shrink-0" />
               }
               <Badge variant={badge.variant} size="xs">{badge.label}</Badge>
-              <span className="text-xs text-theme-secondary truncate flex-1">{inputPreview || 'No input'}</span>
+              <Badge variant={src.variant} size="xs">{src.label}</Badge>
+              <span className={`text-xs truncate flex-1 ${exec.input_summary ? 'text-theme-secondary' : 'text-theme-tertiary italic'}`}>
+                {exec.input_summary || `Input ${NOT_RECORDED}`}
+              </span>
               <span className="text-[10px] text-theme-tertiary whitespace-nowrap">{formatRelativeTimeCompact(exec.created_at)}</span>
-              <span className="text-[10px] text-theme-tertiary whitespace-nowrap">{formatDurationMs(
-                exec.duration_seconds != null ? exec.duration_seconds * 1000 : exec.duration_seconds,
-                { emptyCheck: 'falsy' }
-              )}</span>
+              <span className="text-[10px] text-theme-tertiary whitespace-nowrap">
+                {exec.duration_ms == null ? NOT_RECORDED : formatDurationMs(exec.duration_ms)}
+              </span>
             </button>
 
             {isExpanded && (
               <div className="px-4 pb-4 border-t border-theme">
                 <div className="grid grid-cols-3 gap-4 py-3 text-xs">
-                  {exec.result?.metrics && (
-                    <div>
-                      <span className="text-theme-tertiary">Tokens: </span>
-                      <span className="text-theme-primary">{exec.result.metrics.tokens_used || 0}</span>
-                    </div>
-                  )}
-                  {exec.result?.metrics?.cost_estimate != null && (
-                    <div>
-                      <span className="text-theme-tertiary">Cost: </span>
-                      <span className="text-theme-primary">${exec.result.metrics.cost_estimate.toFixed(4)}</span>
-                    </div>
-                  )}
-                  {exec.completed_at && (
-                    <div>
-                      <span className="text-theme-tertiary">Completed: </span>
-                      <span className="text-theme-primary">{new Date(exec.completed_at).toLocaleString()}</span>
-                    </div>
-                  )}
+                  <Field label="Model" value={exec.model} />
+                  <Field label="Tokens" value={exec.tokens_used != null ? exec.tokens_used.toLocaleString() : null} />
+                  <Field label="Cost" value={exec.cost_usd == null ? null : formatCost(exec.cost_usd)} />
+                  <Field
+                    label="Duration"
+                    value={exec.duration_ms == null ? null : formatDurationMs(exec.duration_ms)}
+                  />
+                  <Field label="Executor" value={exec.executor?.kind || exec.executor?.agent_id} />
+                  <Field
+                    label="Completed"
+                    value={exec.completed_at ? new Date(exec.completed_at).toLocaleString() : null}
+                  />
                 </div>
 
                 {canExecute && (exec.status === 'running' || exec.status === 'queued' || exec.status === 'failed') && (
@@ -165,31 +217,29 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
                   </div>
                 )}
 
-                {exec.input_data && (
-                  <div className="mt-2">
-                    <span className="text-xs font-semibold text-theme-secondary">Input</span>
-                    <pre className="mt-1 p-3 bg-theme-background rounded text-xs text-theme-primary whitespace-pre-wrap break-words max-h-40 overflow-y-auto font-mono">
-                      {exec.input_data.prompt || JSON.stringify(exec.input_data.parameters, null, 2)}
-                    </pre>
+                {exec.error_message && <JsonBlock label="Error" value={exec.error_message} error />}
+
+                {detailLoading === exec.id && (
+                  <div className="flex items-center gap-2 py-2 text-xs text-theme-secondary">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Loading details
                   </div>
                 )}
-
-                {exec.result?.output && (
-                  <div className="mt-2">
-                    <span className="text-xs font-semibold text-theme-secondary">Output</span>
-                    <pre className="mt-1 p-3 bg-theme-background rounded text-xs text-theme-primary whitespace-pre-wrap break-words max-h-40 overflow-y-auto font-mono">
-                      {exec.result.output}
-                    </pre>
-                  </div>
+                {detailFailed[exec.id] && (
+                  <p className="py-2 text-xs text-theme-error-fg">Could not load execution details</p>
                 )}
 
-                {exec.result?.error_message && (
-                  <div className="mt-2">
-                    <span className="text-xs font-semibold text-theme-error-fg">Error</span>
-                    <pre className="mt-1 p-3 bg-theme-status-error/5 rounded text-xs text-theme-error-fg whitespace-pre-wrap break-words max-h-40 overflow-y-auto font-mono">
-                      {exec.result.error_message}
-                    </pre>
-                  </div>
+                {detail && (
+                  <>
+                    {isPresent(detail.input_parameters)
+                      ? <JsonBlock label="Input" value={detail.input_parameters} />
+                      : <Field label="Input" value={null} />}
+                    {isPresent(detail.output_data)
+                      ? <JsonBlock label="Output" value={detail.output_data} />
+                      : <Field label="Output" value={null} />}
+                    {isPresent(detail.execution_context) && (
+                      <JsonBlock label="Context" value={detail.execution_context} />
+                    )}
+                  </>
                 )}
               </div>
             )}
