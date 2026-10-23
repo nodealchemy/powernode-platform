@@ -3370,10 +3370,48 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_120000) do
     t.index ["template_type", "template_id"], name: "index_ai_projects_on_template_type_and_template_id"
   end
 
+  create_table "ai_promotion_grant_requests", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
+    t.uuid "account_id", null: false
+    t.string "action_category", null: false
+    t.uuid "ai_agent_id", null: false
+    t.uuid "approval_request_id"
+    t.uuid "binding_id"
+    t.string "binding_kind"
+    t.string "call_origin"
+    t.datetime "created_at", null: false
+    t.datetime "decided_at"
+    t.uuid "decided_by_id"
+    t.uuid "environment_id", null: false
+    t.boolean "granter_driven_only", default: false, null: false
+    t.integer "lifetime_seconds", null: false
+    t.integer "max_uses"
+    t.uuid "module_ids", default: [], null: false, array: true
+    t.uuid "promotion_grant_id"
+    t.text "reason", null: false
+    t.text "refusal_reason"
+    t.uuid "requested_by_id"
+    t.string "status", default: "pending", null: false
+    t.datetime "updated_at", null: false
+    t.index ["account_id"], name: "index_ai_promotion_grant_requests_on_account_id"
+    t.index ["ai_agent_id", "environment_id", "action_category"], name: "idx_ai_promotion_grant_requests_one_pending", unique: true, where: "((status)::text = 'pending'::text)"
+    t.index ["ai_agent_id"], name: "index_ai_promotion_grant_requests_on_ai_agent_id"
+    t.index ["approval_request_id"], name: "index_ai_promotion_grant_requests_on_approval_request_id"
+    t.index ["decided_by_id"], name: "index_ai_promotion_grant_requests_on_decided_by_id"
+    t.index ["environment_id"], name: "index_ai_promotion_grant_requests_on_environment_id"
+    t.index ["promotion_grant_id"], name: "index_ai_promotion_grant_requests_on_promotion_grant_id"
+    t.index ["requested_by_id"], name: "index_ai_promotion_grant_requests_on_requested_by_id"
+    t.check_constraint "binding_kind IS NULL AND binding_id IS NULL OR (binding_kind::text = ANY (ARRAY['mcp_session'::character varying, 'agent_execution'::character varying]::text[])) AND binding_id IS NOT NULL", name: "chk_ai_promotion_grant_requests_binding_pair"
+    t.check_constraint "lifetime_seconds > 0", name: "chk_ai_promotion_grant_requests_lifetime_positive"
+    t.check_constraint "max_uses IS NULL OR max_uses > 0", name: "chk_ai_promotion_grant_requests_max_uses_positive"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'issued'::character varying, 'refused'::character varying, 'rejected'::character varying, 'expired'::character varying, 'cancelled'::character varying]::text[])", name: "chk_ai_promotion_grant_requests_status"
+  end
+
   create_table "ai_promotion_grants", id: :uuid, default: -> { "uuidv7()" }, force: :cascade do |t|
     t.uuid "account_id", null: false
     t.string "action_category", null: false
     t.uuid "ai_agent_id", null: false
+    t.uuid "binding_id"
+    t.string "binding_kind"
     t.datetime "created_at", null: false
     t.uuid "environment_id", null: false
     t.datetime "expires_at", null: false
@@ -3389,9 +3427,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_120000) do
     t.index ["account_id", "ai_agent_id", "action_category", "expires_at"], name: "idx_ai_promotion_grants_lookup"
     t.index ["account_id"], name: "index_ai_promotion_grants_on_account_id"
     t.index ["ai_agent_id"], name: "index_ai_promotion_grants_on_ai_agent_id"
+    t.index ["binding_kind", "binding_id"], name: "index_ai_promotion_grants_on_binding_kind_and_binding_id"
     t.index ["environment_id"], name: "index_ai_promotion_grants_on_environment_id"
     t.index ["granted_by_id"], name: "index_ai_promotion_grants_on_granted_by_id"
     t.index ["revoked_by_id"], name: "index_ai_promotion_grants_on_revoked_by_id"
+    t.check_constraint "binding_kind IS NULL AND binding_id IS NULL OR (binding_kind::text = ANY (ARRAY['mcp_session'::character varying, 'agent_execution'::character varying]::text[])) AND binding_id IS NOT NULL", name: "chk_ai_promotion_grants_binding_pair"
     t.check_constraint "max_uses IS NULL OR max_uses > 0 AND uses_count <= max_uses", name: "chk_ai_promotion_grants_within_max_uses"
     t.check_constraint "uses_count >= 0", name: "chk_ai_promotion_grants_uses_nonnegative"
   end
@@ -12130,6 +12170,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_120000) do
   add_foreign_key "ai_policy_violations", "users", column: "resolved_by_id"
   add_foreign_key "ai_pressure_fields", "accounts"
   add_foreign_key "ai_projects", "ai_environments", column: "environment_id"
+  add_foreign_key "ai_promotion_grant_requests", "accounts"
+  add_foreign_key "ai_promotion_grant_requests", "ai_agents", on_delete: :cascade
+  add_foreign_key "ai_promotion_grant_requests", "ai_approval_requests", column: "approval_request_id", on_delete: :nullify
+  add_foreign_key "ai_promotion_grant_requests", "ai_environments", column: "environment_id", on_delete: :cascade
+  add_foreign_key "ai_promotion_grant_requests", "ai_promotion_grants", column: "promotion_grant_id", on_delete: :nullify
+  add_foreign_key "ai_promotion_grant_requests", "users", column: "decided_by_id", on_delete: :nullify
+  add_foreign_key "ai_promotion_grant_requests", "users", column: "requested_by_id", on_delete: :nullify
   add_foreign_key "ai_promotion_grants", "accounts"
   add_foreign_key "ai_promotion_grants", "ai_agents", on_delete: :cascade
   add_foreign_key "ai_promotion_grants", "ai_environments", column: "environment_id", on_delete: :cascade
