@@ -9,7 +9,14 @@ require "rails_helper"
 # marker, bounded, and never raises into boot. Emptying a cache is a cold
 # start, not data loss.
 RSpec.describe Powernode::LegacyCachePlaintextClear do
+  # SolidCache::Store runs an expiry batch on a background thread after a write, with probability
+  # 2/expiry_batch_size per write (2% by default). Under transactional fixtures that thread shares the
+  # example's connection, so a batch landing while run_once! is truncating leaves an entry behind and
+  # fails the "empties" example about 1 run in 25. Expiry is not under test: turn it off. (Expiry only
+  # deletes; in production it runs on its own connection and the truncate's lock_timeout bounds the
+  # contention.)
   before do
+    allow_any_instance_of(SolidCache::Store).to receive(:track_writes)
     require Rails.root.join("db/cache_migrate/20260904175500_create_solid_cache_entries.rb").to_s
     ActiveRecord::Migration.suppress_messages { CreateSolidCacheEntries.new.migrate(:up) }
     store = ActiveSupport::Cache.lookup_store(:solid_cache_store)
