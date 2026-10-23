@@ -875,9 +875,21 @@ module Ai
       #   { outcome: :created,    learning: <new row> }
       #   { outcome: :reinforced, learning: <existing near-duplicate that was boosted> }
       #   { outcome: :invalid,    errors: [messages] }  (blank content or validation failure)
+      #   { outcome: :refused,    reason:, details:, errors: [message] }  (the source agent is a global canonical)
       def store_learning_with_outcome(learning_data, team: nil, execution: nil)
         content = learning_data[:content]
         return { outcome: :invalid, errors: [ "content is blank" ] } if content.blank?
+
+        # A learning that names a global canonical as its source agent is refused: the
+        # canonical is a read-only template, the account's shadow is what learns.
+        begin
+          ::Ai::Agents::ShadowWriteGuard.refuse_global!(
+            learning_data[:source_agent_id] || learning_data[:agent_id],
+            writer: "#{self.class.name}#store_learning_with_outcome"
+          )
+        rescue ::Ai::Agents::GlobalRowRefused => e
+          return { outcome: :refused, reason: e.reason, details: e.details, errors: [ e.message ] }
+        end
 
         # Generate embedding for deduplication
         embedding = @embedding_service.generate(content)

@@ -8,6 +8,9 @@ module Ai
 
         # Consolidate short-term memories to long-term for an agent
         def consolidate_short_term(agent:, session_id: nil)
+          # Promotion writes learnings that name the agent; a global canonical is a read-only
+          # template, so only its account shadow's memories are consolidated.
+          ::Ai::Agents::ShadowWriteGuard.refuse_global!(agent, writer: "#{self.class.name}#consolidate_short_term")
           stats = { promoted: 0, skipped_duplicates: 0, errors: 0 }
 
           scope = Ai::AgentShortTermMemory

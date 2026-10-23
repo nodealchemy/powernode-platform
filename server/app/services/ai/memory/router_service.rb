@@ -43,6 +43,10 @@ module Ai
       # @param session_id [String] Session ID (required for working/short-term)
       # @param options [Hash] Additional options (ttl, type, tags)
       def write(key:, value:, tier: "short_term", session_id: nil, **options)
+        # Every tier attributes the write to the agent; a global canonical is a read-only
+        # template, so its account shadow is what writes.
+        ::Ai::Agents::ShadowWriteGuard.refuse_global!(agent, writer: "#{self.class.name}#write")
+
         case tier
         when "working"
           write_working(key, value, session_id, options)
@@ -56,6 +60,8 @@ module Ai
           Rails.logger.warn("[MemoryRouter] Unknown tier: #{tier}, defaulting to short_term")
           write_short_term(key, value, session_id, options)
         end
+      rescue ::Ai::Agents::GlobalRowRefused => e
+        { success: false, refused: true, reason: e.reason, details: e.details, error: e.message }
       rescue StandardError => e
         Rails.logger.error("[MemoryRouter] Write failed: key=#{key} tier=#{tier} error=#{e.message}")
         { success: false, error: e.message }

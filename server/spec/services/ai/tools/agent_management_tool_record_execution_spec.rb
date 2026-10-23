@@ -32,6 +32,14 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
                                description: "CVE intake and remediation.")
   end
 
+  # A global canonical is a read-only template: a run attaches to the account's
+  # SHADOW of it (Ai::Agents::AccountPrincipalResolver), minted on first report.
+  def shadow_of(acct = account) = Ai::Agent.owned_by_account(acct.id).find_by(slug: canonical.slug)
+
+  def runs(acct = account)
+    (shadow = shadow_of(acct)) ? Ai::AgentExecution.for_agent(shadow) : Ai::AgentExecution.none
+  end
+
   def report(**overrides)
     params = {
       action: "record_agent_execution",
@@ -63,9 +71,9 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
 
   describe "minting the row" do
     it "mints ONE completed Ai::AgentExecution on the target agent, executed by the session's mcp_client agent" do
-      expect { report }.to change { Ai::AgentExecution.for_agent(canonical).count }.by(1)
+      expect { report }.to change { runs.count }.by(1)
 
-      execution = Ai::AgentExecution.for_agent(canonical).last
+      execution = runs.last
       expect(execution.status).to eq("completed")
       expect(execution.account_id).to eq(account.id)
       expect(execution.duration_ms).to eq(42_000)
@@ -83,19 +91,19 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       result = report
       expect(result[:success]).to be true
       expect(result[:data]).to include(created: true, executor_kind: "claude_code", status: "completed",
-                                       agent_id: canonical.id, agent_slug: canonical.slug, model: "claude-opus-5")
+                                       agent_id: shadow_of.id, agent_slug: canonical.slug, model: "claude-opus-5")
     end
 
     it "records a failed outcome through the same hooks with the model's required error message" do
       report(outcome: "failed")
-      execution = Ai::AgentExecution.for_agent(canonical).last
+      execution = runs.last
       expect(execution.status).to eq("failed")
       expect(execution.error_message).to be_present
     end
 
     it "redacts the task digest through the core PII path and caps it at 500 chars" do
       report(task_digest: "contact me at someone@example.com " + ("x" * 600))
-      digest = Ai::AgentExecution.for_agent(canonical).last.input_parameters["task_digest"]
+      digest = runs.last.input_parameters["task_digest"]
       expect(digest).not_to include("someone@example.com")
       expect(digest.length).to be <= 500
     end
@@ -107,7 +115,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       expanding = (1..40).map { |i| "host 10.0.#{i / 256}.#{i % 256} failed" }.join(" ")
       report(task_digest: expanding)
 
-      digest = Ai::AgentExecution.for_agent(canonical).last.input_parameters["task_digest"]
+      digest = runs.last.input_parameters["task_digest"]
       expect(digest).to include("[REDACTED:")
       expect(digest.length).to be <= 500
     end
@@ -118,7 +126,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
 
       report
       expect(Ai::AgentExecution.for_agent(clone).count).to eq(1)
-      expect(Ai::AgentExecution.for_agent(canonical).count).to eq(0)
+      expect(Ai::AgentExecution.where(ai_agent_id: canonical.id)).to be_empty
     end
 
     it "refuses an unknown slug, an mcp_client target, a bad outcome and a missing run_key" do
@@ -131,8 +139,8 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
 
   describe "statistics (the acceptance criterion)" do
     it "fires the trust evaluation and lands a trust score row for a GLOBAL canonical" do
-      expect { report }.to change { Ai::AgentTrustScore.where(agent_id: canonical.id).count }.from(0).to(1)
-      expect(Ai::AgentTrustScore.find_by(agent_id: canonical.id).evaluation_count).to eq(1)
+      expect { report }.to change { Ai::AgentTrustScore.where(agent_id: shadow_of&.id).count }.from(0).to(1)
+      expect(Ai::AgentTrustScore.find_by(agent_id: shadow_of.id).evaluation_count).to eq(1)
     end
 
     it "records model performance under the mapped provider and the reported model" do
@@ -151,7 +159,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       create(:ai_provider_credential, account: account, provider: anthropic, is_active: true)
 
       report
-      execution = Ai::AgentExecution.for_agent(canonical).last
+      execution = runs.last
       expect(execution.ai_provider_id).to eq(anthropic.id)
       expect(Ai::AgentModelPerformance.find_by(account_id: account.id, model: "claude-opus-5").ai_provider_id).to eq(anthropic.id)
       expect(execution.ai_provider_id).not_to eq(claude_code_scope.id)
@@ -163,7 +171,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       expect(synthetic).to eq(claude_code_scope)
       expect(synthetic.is_active).to be false
       expect(synthetic.metadata["execution_source"]).to eq("claude_code")
-      expect(Ai::AgentExecution.for_agent(canonical).last.ai_provider_id).to eq(synthetic.id)
+      expect(runs.last.ai_provider_id).to eq(synthetic.id)
       expect(Ai::AgentModelPerformance.find_by(account_id: account.id, model: "claude-opus-5").ai_provider_id).to eq(synthetic.id)
     end
 
@@ -185,7 +193,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       expect(result[:success]).to be false
       expect(result[:error]).to include("ai_claude_code_provider_seed")
       expect(unseeded.ai_providers.where(slug: Ai::ClaudeExport::ExecutionRecorder::SYNTHETIC_PROVIDER_SLUG)).to be_empty
-      expect(Ai::AgentExecution.for_agent(canonical).count).to eq(0)
+      expect(runs.count).to eq(0)
     end
 
     it "the model selector never routes a platform execution to the synthetic provider" do
@@ -193,6 +201,8 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       synthetic = account.ai_providers.find_by(slug: Ai::ClaudeExport::ExecutionRecorder::SYNTHETIC_PROVIDER_SLUG)
       # Even with NO other provider at all — the fallback arm's last resort —
       # the Claude Code-only scope is not a platform routing candidate.
+      # The shadow the report minted runs on the account's provider; move it onto the synthetic scope so that provider can go.
+      shadow_of.update_columns(ai_provider_id: synthetic.id)
       account.ai_providers.where.not(id: synthetic.id).find_each { |p| p.update_columns(is_active: false) }
       Ai::AgentBudget.where(account: account).delete_all
       account.ai_providers.where.not(id: synthetic.id).destroy_all
@@ -214,9 +224,9 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
     it "updates the same row on a retry instead of minting a second one" do
       report(duration_ms: 1000, tokens: { input: 10, output: 5 })
       expect { report(duration_ms: 2000, tokens: { input: 20, output: 5 }) }
-        .not_to change { Ai::AgentExecution.for_agent(canonical).count }
+        .not_to change { runs.count }
 
-      execution = Ai::AgentExecution.for_agent(canonical).last
+      execution = runs.last
       expect(execution.duration_ms).to eq(2000)
       expect(execution.tokens_used).to eq(25)
       expect(Ai::AgentModelPerformance.find_by(account_id: account.id, model: "claude-opus-5").total_runs).to eq(1)
@@ -232,7 +242,9 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       report
       other_tool.execute(params: { action: "record_agent_execution", agent_slug: canonical.slug, model: "claude-opus-5",
                                    outcome: "completed", duration_ms: 1, tokens: { input: 1, output: 1 }, run_key: "sess-1:agent-a1" })
-      expect(Ai::AgentExecution.for_agent(canonical).count).to eq(2)
+      expect(runs.count).to eq(1)
+      expect(runs(other_account).count).to eq(1)
+      expect(Ai::AgentExecution.where(execution_id: runs.pick(:execution_id)).count).to eq(1)
     end
   end
 
@@ -283,7 +295,7 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       )
 
       expect(result[:success]).to be true
-      expect(Ai::AgentExecution.for_agent(canonical).last.user_id).to eq(first_user.id)
+      expect(runs.last.user_id).to eq(first_user.id)
     end
 
     it "refuses by name when the account has no user at all instead of raising RecordInvalid" do
@@ -298,8 +310,10 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
       )
 
       expect(result[:success]).to be false
-      expect(result[:error]).to include("no user to attribute")
-      expect(Ai::AgentExecution.for_agent(canonical).count).to eq(0)
+      # With no user to own a shadow the canonical cannot be shadowed, so the report is refused
+      # before it reaches attribution (the shadow refusal names the same missing user).
+      expect(result[:error]).to include("no_mintable_principal")
+      expect(runs.count).to eq(0)
     end
   end
 
@@ -328,7 +342,9 @@ RSpec.describe Ai::Tools::AgentManagementTool, "record_agent_execution" do
                                           tokens: { input: 1, output: 1 }, run_key: "other:#{i}" })
       end
       report
-      expect(Ai::AgentExecution.for_agent(canonical).count).to eq(3)
+      expect(Ai::AgentExecution.where(ai_agent_id: canonical.id)).to be_empty
+      expect(runs.count).to eq(1)
+      expect(runs(other_account).count).to eq(2)
 
       result = tool.execute(params: { action: "get_agent", slug: canonical.slug })
       expect(result[:agent][:execution_stats]).to include(

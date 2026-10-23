@@ -48,6 +48,7 @@ module Ai
         return nil unless should_reflect?(execution)
 
         agent = execution.ai_agent
+        ::Ai::Agents::ShadowWriteGuard.refuse_global!(agent, writer: "#{self.class.name}#reflect_on_failure")
         error_message = execution.respond_to?(:error_message) ? execution.error_message : "Unknown error"
         error_details = execution.respond_to?(:error_details) ? execution.error_details : {}
         input_params = execution.respond_to?(:input_parameters) ? execution.input_parameters : {}
@@ -97,6 +98,10 @@ module Ai
 
         Rails.logger.info("[Reflexion] Created reflexion learning #{learning.id} for execution #{execution.id}")
         learning
+      rescue ::Ai::Agents::GlobalRowRefused => e
+        # Best-effort like the rescue below, but the refusal and its reason are logged by name.
+        Rails.logger.warn("[Reflexion] Refused (#{e.reason}): #{e.message}")
+        nil
       rescue StandardError => e
         Rails.logger.warn("[Reflexion] Failed to reflect: #{e.message}")
         nil

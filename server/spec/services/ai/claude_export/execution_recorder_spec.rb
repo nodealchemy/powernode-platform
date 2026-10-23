@@ -20,6 +20,8 @@ RSpec.describe Ai::ClaudeExport::ExecutionRecorder do
                                description: "CVE intake and remediation.")
   end
   let(:recorder) { described_class.new(account: account, user: user) }
+  # A canonical is a read-only template: the run attaches to the account's shadow, which needs a provider to run on.
+  let!(:account_provider) { create(:ai_provider, account: account, is_active: true) }
 
   def report(**overrides)
     recorder.record({

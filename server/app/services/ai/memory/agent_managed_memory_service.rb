@@ -15,6 +15,7 @@ module Ai
 
       # Store a key-value pair in agent's private memory pool
       def remember(key:, value:, ttl: nil, importance: 0.5, tags: [])
+        refuse_global_agent!("remember")
         pool = ensure_private_pool!
 
         # Enforce key cap with LRU eviction
@@ -44,6 +45,7 @@ module Ai
 
       # Remove a memory key (hard delete or soft decay)
       def forget(key:, soft: false)
+        refuse_global_agent!("forget")
         pool = find_private_pool
         return { key: key, forgotten: false, reason: "no_pool" } unless pool
 
@@ -69,6 +71,7 @@ module Ai
 
       # On-demand STM consolidation with LLM summary
       def reflect
+        refuse_global_agent!("reflect")
         pool = find_private_pool
         return { reflected: false, reason: "no_pool" } unless pool
 
@@ -128,6 +131,11 @@ module Ai
       end
 
       private
+
+      # A global canonical is a read-only template: its memory is its account shadow's.
+      def refuse_global_agent!(action)
+        ::Ai::Agents::ShadowWriteGuard.refuse_global!(@agent, writer: "#{self.class.name}##{action}")
+      end
 
       def ensure_private_pool!
         pool = find_private_pool

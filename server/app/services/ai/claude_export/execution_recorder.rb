@@ -64,7 +64,22 @@ module Ai
       # provider lookup keys on Ai::Provider#provider_type.
       PROVIDER_TYPE = ProviderScopeSeeder::PROVIDER_TYPE
 
-      class Refusal < StandardError; end
+      # A refusal carries a machine-readable `reason` and `details` beside its
+      # message, so the MCP verb (and a caller) can act on it without parsing prose.
+      class Refusal < StandardError
+        attr_reader :reason, :details
+
+        def initialize(message = nil, reason: nil, details: {})
+          super(message)
+          @reason = reason
+          @details = details
+        end
+      end
+
+      # A canonical (global, account_id NULL) is a read-only template: a run is
+      # never attributed to it. Raised when no account shadow can be minted to
+      # attribute the run to, instead of falling back to the global row.
+      class GlobalRowRefused < Refusal; end
       # A Refusal (the MCP verb reports it as an error rather than raising)
       # for the operator-fixable case: the account has no seeded scope.
       class MissingProviderScope < Refusal; end
@@ -142,9 +157,14 @@ module Ai
         }
       end
 
-      # Override-aware (Ai::Agent.resolve_for): the account's clone of a
-      # canonical wins over the global row, exactly as get_agent resolves the
-      # skeleton's bootstrap call.
+      # The agent the run attaches to is ALWAYS an account-scoped row. A global
+      # canonical is a read-only template (the operator's shadow rule): the run
+      # goes to the account's shadow of it, minted on first use through
+      # Ai::Agents::AccountPrincipalResolver (clone with cloned_from_id,
+      # source_version, source_snapshot). The resolver's `acting` path would hand
+      # back the canonical itself when nothing can be minted; this writer never
+      # takes that fallback, it refuses with a structured reason and writes
+      # nothing.
       def resolve_target(slug)
         raise Refusal, "agent_slug is required" if slug.empty?
 
@@ -155,7 +175,20 @@ module Ai
                          "against the agent that was spawned, never against a session"
         end
 
-        target
+        return target unless target.global?
+
+        shadow = ::Ai::Agents::AccountPrincipalResolver.for(canonical_slug: target.slug, account: account, user: @user)
+        if shadow.nil? || shadow.global?
+          raise GlobalRowRefused.new(
+            "Refused: #{slug} is a global canonical (a read-only template) and no account shadow could be minted " \
+            "for account #{account.id} (reason: no_mintable_principal — the account needs a user to own the " \
+            "shadow and a provider to run it on). Nothing was recorded.",
+            reason: "no_mintable_principal",
+            details: { agent_slug: slug, account_id: account.id, canonical_id: target.id }
+          )
+        end
+
+        shadow
       end
 
       # The Ai::RoutingDecision assemble_task persisted, or nil when the report

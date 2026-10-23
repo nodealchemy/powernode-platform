@@ -19,7 +19,13 @@ RSpec.describe Ai::ClaudeExport::ExecutionRecorder, "with an assembly_id" do
                                                      "selected" => [ { "slug" => "skill-a" }, { "slug" => "skill-b" } ] })
   end
 
-  before { Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(account) }
+  before do
+    Ai::ClaudeExport::ProviderScopeSeeder.ensure_for!(account)
+    create(:ai_provider, :anthropic, account: account, is_active: true)
+  end
+
+  # The run attaches to the account's shadow of the canonical, never the global row.
+  def shadow = Ai::Agent.owned_by_account(account.id).find_by!(slug: "platform-engineer")
 
   def report(**overrides)
     recorder.record({
@@ -40,7 +46,7 @@ RSpec.describe Ai::ClaudeExport::ExecutionRecorder, "with an assembly_id" do
 
     records = Ai::SkillUsageRecord.where(execution_id: result[:id])
     expect(records.map { |r| r.ai_skill.slug }).to match_array(%w[skill-a skill-b])
-    expect(records).to all(have_attributes(account_id: account.id, ai_agent_id: agent.id, outcome: "success",
+    expect(records).to all(have_attributes(account_id: account.id, ai_agent_id: shadow.id, outcome: "success",
                                            execution_type: "Ai::AgentExecution", duration_ms: 1200))
     expect(result[:skills_credited]).to eq(2)
   end
