@@ -111,4 +111,28 @@ RSpec.describe Ai::Agents::ShadowWriteGuard do
       expect(Ai::CompoundLearning.count).to eq(0)
     end
   end
+
+  describe "Ralph iteration learnings (Ai::Ralph::ExecutionService::PrdAndBroadcasting)" do
+    let(:host_class) do
+      Class.new do
+        include Ai::Ralph::ExecutionService::PrdAndBroadcasting
+
+        attr_reader :account, :ralph_loop
+
+        def initialize(account, ralph_loop)
+          @account = account
+          @ralph_loop = ralph_loop
+        end
+      end
+    end
+
+    it "writes no pool entry and no learning when the loop's default agent is a global row" do
+      loop_double = Struct.new(:default_agent).new(global_agent)
+      allow(Rails.logger).to receive(:warn)
+
+      expect { host_class.new(account, loop_double).send(:store_iteration_learnings, "Discovery: a thing worth keeping") }
+        .not_to change { [ Ai::CompoundLearning.count, Ai::MemoryPool.count ] }
+      expect(Rails.logger).to have_received(:warn).with(/\[Ralph\] Learning storage failed: Refused:.*platform-engineer/)
+    end
+  end
 end

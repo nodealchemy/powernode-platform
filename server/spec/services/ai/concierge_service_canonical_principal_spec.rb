@@ -38,4 +38,25 @@ RSpec.describe Ai::ConciergeService, "canonical principals never execute (HIER-P
 
     expect(described_class.new(conversation: conv, user: user).instance_variable_get(:@agent)).to eq(own)
   end
+
+  # Q1: a refusal from a guarded writer is a stated, actionable answer, never the generic error.
+  describe "when a writer refuses a global row" do
+    let(:service) { described_class.new(conversation: conversation, user: user) }
+    let(:refusal) { Ai::Agents::GlobalRowRefused.new("Refused: x", reason: "global_canonical_row") }
+
+    it "answers with the no-shadow wording from the top-level rescue" do
+      allow(service).to receive(:find_credential).and_raise(refusal)
+
+      expect { service.process_message("hi") }.to change { conversation.messages.count }.by(1)
+      expect(conversation.messages.last.content).to eq(Ai::Agents::ShadowWriteGuard::NO_SHADOW_MESSAGE)
+    end
+
+    it "does not let the router's best-effort rescue swallow it into a passthrough" do
+      allow(Ai::ConciergeRouter).to receive(:route).and_raise(refusal)
+
+      service.process_message("hi")
+
+      expect(conversation.messages.last.content).to eq(Ai::Agents::ShadowWriteGuard::NO_SHADOW_MESSAGE)
+    end
+  end
 end

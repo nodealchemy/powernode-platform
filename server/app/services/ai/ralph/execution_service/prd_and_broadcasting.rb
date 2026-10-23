@@ -72,6 +72,10 @@ module Ai
         end
 
         def store_iteration_learnings(output)
+          # Both writes below name the loop's default agent; a global canonical is a read-only
+          # template, so its account shadow is what learns. Refused (and logged by the rescue) otherwise.
+          ::Ai::Agents::ShadowWriteGuard.refuse_global!(ralph_loop.default_agent, writer: "#{self.class.name}#store_iteration_learnings")
+
           pool = ensure_ralph_learning_pool
           return unless pool
 

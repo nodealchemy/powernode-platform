@@ -2,17 +2,6 @@
 
 module Ai
   module Agents
-    # A runtime writer was handed a GLOBAL canonical agent row.
-    class GlobalRowRefused < StandardError
-      attr_reader :reason, :details
-
-      def initialize(message, reason:, details: {})
-        super(message)
-        @reason = reason
-        @details = details
-      end
-    end
-
     # THE refusal every runtime writer that attributes to an agent shares.
     #
     # A global canonical agent (account_id NULL) is a read-only TEMPLATE, updated
@@ -24,6 +13,11 @@ module Ai
     # (which answers with the canonical itself when no clone can be minted).
     module ShadowWriteGuard
       REASON = "global_canonical_row"
+
+      # What a person is told when an agent has no shadow in their account (HTTP 422 at the
+      # doors, the assistant message in a concierge turn).
+      NO_SHADOW_MESSAGE = "This agent has no account shadow in this account; add an active AI provider " \
+                          "(and an account owner) so one can be created."
 
       module_function
 

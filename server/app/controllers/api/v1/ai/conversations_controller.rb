@@ -78,6 +78,8 @@ module Api
           end
         rescue ActiveRecord::RecordNotFound
           render_error("Agent not found", status: :not_found)
+        rescue ::Ai::Agents::GlobalRowRefused => e
+          render_no_account_shadow(e)
         rescue ProviderAvailabilityService::ProviderUnavailableError => e
           render_error(e.message, status: :precondition_failed)
         end
@@ -164,6 +166,8 @@ module Api
           render_error(e.message, status: :not_found)
         rescue ArgumentError => e
           render_error(e.message, status: :unprocessable_content)
+        rescue ::Ai::Agents::GlobalRowRefused => e
+          render_no_account_shadow(e)
         rescue StandardError => e
           Rails.logger.error "[CONVERSATIONS] plan_response error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
           render_internal_error("Failed to process plan response", exception: e)
@@ -315,6 +319,8 @@ module Api
           render_error("Agent or conversation not found", status: :not_found)
         rescue ActiveRecord::RecordInvalid => e
           render_error("Failed to create message: #{e.message}", status: :unprocessable_content)
+        rescue ::Ai::Agents::GlobalRowRefused => e
+          render_no_account_shadow(e)
         rescue StandardError => e
           Rails.logger.error "[CONVERSATIONS] send_message error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
           render_internal_error("Failed to send message", exception: e)
@@ -446,6 +452,8 @@ module Api
           render_success({ conversation: serialize_conversation_detail(conversation) })
         rescue ProviderAvailabilityService::ProviderUnavailableError => e
           render_error(e.message, status: :precondition_failed)
+        rescue ::Ai::Agents::GlobalRowRefused => e
+          render_no_account_shadow(e)
         rescue StandardError => e
           Rails.logger.error("create_provisioning failed: #{e.class}: #{e.message}")
           render_error("Failed to create provisioning conversation", status: :unprocessable_content)
@@ -469,12 +477,20 @@ module Api
           render_success({ confirmed: true })
         rescue ActiveRecord::RecordNotFound
           render_error("Conversation not found", status: :not_found)
+        rescue ::Ai::Agents::GlobalRowRefused => e
+          render_no_account_shadow(e)
         rescue StandardError => e
           Rails.logger.error("[CONVERSATIONS] confirm_action error: #{e.message}\n#{e.backtrace.first(5).join("\n")}")
           render_internal_error("Failed to execute action", exception: e)
         end
 
         private
+
+        # A guarded writer refused a global agent row: the agent has no shadow in this account.
+        def render_no_account_shadow(error)
+          Rails.logger.warn("[CONVERSATIONS] refused (#{error.reason}): #{error.message}")
+          render_error(::Ai::Agents::ShadowWriteGuard::NO_SHADOW_MESSAGE, status: :unprocessable_content)
+        end
 
         def set_agent_for_nested
           @agent = ::Ai::Agent.for_account(current_user.account.id).find(params[:agent_id])
@@ -570,6 +586,8 @@ module Api
           sessions.find_each do |session|
             ActionCable.server.pubsub.broadcast("mcp_session:#{session.session_token}", notification)
           end
+        rescue ::Ai::Agents::GlobalRowRefused => e
+          render_no_account_shadow(e)
         rescue StandardError => e
           Rails.logger.warn("[WORKSPACE] Failed to notify MCP client #{target_agent.id}: #{e.message}")
         end

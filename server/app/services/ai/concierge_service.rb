@@ -136,6 +136,9 @@ module Ai
       else
         process_with_action_grammar(content, credential)
       end
+    rescue Ai::Agents::GlobalRowRefused => e
+      Rails.logger.warn("[ConciergeService] Refused (#{e.reason}): #{e.message}")
+      @conversation.add_assistant_message(Ai::Agents::ShadowWriteGuard::NO_SHADOW_MESSAGE)
     rescue StandardError => e
       Rails.logger.error("[ConciergeService] Error: #{e.message}")
       @conversation.add_assistant_message(
@@ -151,6 +154,8 @@ module Ai
 
       stub_message = Struct.new(:body).new(content.to_s)
       ::Ai::ConciergeRouter.route(conversation: @conversation, user_message: stub_message)
+    rescue Ai::Agents::GlobalRowRefused
+      raise # a refusal is an answer for the turn's top-level rescue, not a router hiccup to ignore
     rescue StandardError => e
       Rails.logger.warn("[ConciergeService] router error: #{e.class}: #{e.message}")
       nil

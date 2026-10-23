@@ -185,6 +185,16 @@ RSpec.describe 'Api::V1::Ai::Conversations', type: :request do
         expect(data['conversation']['title']).to eq('New Test Conversation')
       end
 
+      it 'answers 422 with the no-shadow wording when the agent has no shadow to attach to' do
+        allow(ProviderAvailabilityService).to receive(:validate_agent_provider!)
+          .and_raise(Ai::Agents::GlobalRowRefused.new('Refused: x', reason: 'global_canonical_row'))
+
+        post "/api/v1/ai/agents/#{agent.id}/conversations", params: valid_params, headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['error']).to eq(Ai::Agents::ShadowWriteGuard::NO_SHADOW_MESSAGE)
+      end
+
       it 'sets current user as owner' do
         post "/api/v1/ai/agents/#{agent.id}/conversations", params: valid_params, headers: headers, as: :json
 
@@ -348,6 +358,19 @@ RSpec.describe 'Api::V1::Ai::Conversations', type: :request do
       # Stub container bridge to not route
       bridge = instance_double(Ai::ContainerChatBridgeService, has_active_container?: false)
       allow(Ai::ContainerChatBridgeService).to receive(:new).and_return(bridge)
+    end
+
+    context 'when a writer refuses a global agent row' do
+      it 'answers 422 with the no-shadow wording, not a 500' do
+        allow(Ai::ContainerChatBridgeService).to receive(:new)
+          .and_raise(Ai::Agents::GlobalRowRefused.new('Refused: x', reason: 'global_canonical_row'))
+
+        post "/api/v1/ai/agents/#{agent.id}/conversations/#{conversation.id}/send_message",
+             params: { message: { content: 'Hello AI' } }, headers: headers, as: :json
+
+        expect(response).to have_http_status(:unprocessable_content)
+        expect(json_response['error']).to eq(Ai::Agents::ShadowWriteGuard::NO_SHADOW_MESSAGE)
+      end
     end
 
     context 'with valid message' do

@@ -18,6 +18,20 @@ RSpec.describe Ai::Agents::AccountPrincipalResolver do
                               agent_type: "monitor", is_system: true)
   end
 
+  describe ".acting(agent, account:, user:)" do
+    it "never answers with a global row for an account that has a user and an active provider" do
+      create(:ai_provider, account: account, is_active: true)
+      canonical
+
+      acting = described_class.acting(canonical, account: account, user: user)
+
+      expect(acting).to be_present
+      expect(acting.global?).to be(false)
+      expect(acting.account_id).to eq(account.id)
+      expect(acting.cloned_from_id).to eq(canonical.id)
+    end
+  end
+
   describe ".for(canonical_slug:, account:)" do
     it "mints the account's clone of the canonical on first use, keeping the canonical's identity" do
       canonical
