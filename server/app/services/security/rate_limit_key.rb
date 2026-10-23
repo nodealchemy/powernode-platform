@@ -53,6 +53,9 @@ module Security
     # the identifier is interpolated into a Redis glob.
     def subject_for(identifier)
       id = identifier.to_s
+      # The subject form the violations list reports ("ip:<addr>", "user:<id>"): the admin UI hands it
+      # straight back to clear. Same validation as the bare form.
+      id = id.delete_prefix("ip:").delete_prefix("user:") if id.match?(/\A(ip|user):/)
       if id.match?(NUMERIC_ID) || id.match?(UUID)
         "user:#{id}"
       elsif id.match?(/\Achannel:#{UUID.source[2..-3]}\z/)

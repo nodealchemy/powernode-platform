@@ -148,6 +148,14 @@ RSpec.describe RateLimiting::BaseService do
       expect(Security::RateLimitKey.parse(built)).to eq(category: "chat_send", account_id: account_id, subject: "ip:#{ip}")
     end
 
+    it "accepts the subject form the violations list reports, so the admin UI can clear it" do
+      hit(10, category: :container_execute, key: "ip:#{ip}")
+      identifier = described_class.recent_violations.first[:identifier]
+
+      expect(identifier).to eq("ip:#{ip}")
+      expect(described_class.clear_limits_for(identifier)).to eq(1)
+    end
+
     it "refuses an identifier that is not an IP, a numeric id or a UUID" do
       expect { described_class.clear_limits_for("*") }.to raise_error(ArgumentError)
     end
