@@ -113,10 +113,7 @@ module Security
       private
 
       def build_key(key, category, account_id)
-        parts = [ "rate_limit", category ]
-        parts << "account:#{account_id}" if account_id.present?
-        parts << key
-        parts.join(":")
+        Security::RateLimitKey.build(category: category, key: key, account_id: account_id)
       end
 
       def increment(key, window)
