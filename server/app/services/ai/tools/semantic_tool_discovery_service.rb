@@ -7,6 +7,10 @@ module Ai
       CACHE_PREFIX = "tool_discovery"
       SIMILARITY_THRESHOLD = 0.3
       MAX_RESULTS = 10
+      # Tool embeddings warmed per discovery call (one batch request, not one per tool).
+      WARM_BATCH_LIMIT = 1000
+      # How long a failed/unconfigured embedding provider is left alone.
+      UNAVAILABLE_TTL = 5.minutes
 
       def initialize(account:)
         @account = account
@@ -163,17 +167,20 @@ module Ai
         end
       end
 
+      # One discovery call costs at most ONE embedding request to the worker: the
+      # query plus however many tool embeddings are not cached yet (capped by
+      # WARM_BATCH_LIMIT), sent as a single batch. Tool embeddings are read from
+      # the cache, never generated one by one; a tool still without one is scored
+      # by keyword. Before this, a cold cache cost one worker request per catalog
+      # tool per call (~680), each one costing the server two internal API calls.
       def rank_by_relevance(query, tools)
         return tools if tools.empty?
 
-        query_embedding = get_or_generate_embedding(query, "query:#{Digest::SHA256.hexdigest(query)}")
+        query_embedding, tool_embeddings = embeddings_for(query, tools)
         return keyword_fallback(query, tools) unless query_embedding
 
         scored = tools.filter_map do |tool|
-          tool_embedding = get_or_generate_embedding(
-            tool[:search_text],
-            "#{CACHE_PREFIX}:#{@account&.id}:embedding:#{tool[:id]}"
-          )
+          tool_embedding = tool_embeddings[tool[:id]]
 
           if tool_embedding
             score = cosine_similarity(query_embedding, tool_embedding)
@@ -186,6 +193,62 @@ module Ai
         end
 
         scored.sort_by { |t| -t[:relevance_score] }
+      end
+
+      # @return [Array(Array<Float>|nil, Hash{String=>Array<Float>})]
+      def embeddings_for(query, tools)
+        return [ nil, {} ] if embeddings_unavailable?
+
+        query_key = "query:#{Digest::SHA256.hexdigest(query)}"
+        query_embedding = Rails.cache.read(query_key)
+        tool_embeddings = {}
+        missing = []
+        tools.each do |tool|
+          cached = Rails.cache.read(tool_cache_key(tool))
+          cached ? tool_embeddings[tool[:id]] = cached : missing << tool
+        end
+        missing = missing.first(WARM_BATCH_LIMIT)
+
+        texts = []
+        texts << query unless query_embedding
+        texts += missing.map { |t| t[:search_text] }
+        return [ query_embedding, tool_embeddings ] if texts.empty?
+
+        provider = find_embedding_provider
+        return [ query_embedding, tool_embeddings ] unless provider
+
+        vectors = provider.generate_batch(texts)
+        raise "embedding provider returned no vectors" if vectors.blank?
+
+        unless query_embedding
+          query_embedding = vectors.shift
+          Rails.cache.write(query_key, query_embedding, expires_in: CACHE_TTL) if query_embedding
+        end
+        missing.each_with_index do |tool, idx|
+          next unless vectors[idx]
+
+          tool_embeddings[tool[:id]] = vectors[idx]
+          Rails.cache.write(tool_cache_key(tool), vectors[idx], expires_in: CACHE_TTL)
+        end
+        [ query_embedding, tool_embeddings ]
+      rescue StandardError => e
+        # No provider, or it is down: fall back to keywords and do not ask again
+        # for a while, so a missing provider costs one attempt per window.
+        Rails.logger.warn "[SemanticToolDiscovery] Embedding unavailable, using keyword relevance: #{e.class}: #{e.message}"
+        Rails.cache.write(unavailable_cache_key, true, expires_in: UNAVAILABLE_TTL)
+        [ nil, {} ]
+      end
+
+      def tool_cache_key(tool)
+        "#{CACHE_PREFIX}:#{@account&.id}:embedding:#{tool[:id]}"
+      end
+
+      def unavailable_cache_key
+        "#{CACHE_PREFIX}:#{@account&.id}:embeddings_unavailable"
+      end
+
+      def embeddings_unavailable?
+        Rails.cache.read(unavailable_cache_key).present?
       end
 
       def keyword_fallback(query, tools)
