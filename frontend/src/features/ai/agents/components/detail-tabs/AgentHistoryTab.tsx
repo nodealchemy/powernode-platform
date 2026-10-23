@@ -231,7 +231,7 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
                         size="xs"
                         onClick={async () => {
                           try {
-                            await agentsApi.cancelExecution(agentId, exec.id);
+                            await agentsApi.cancelExecution(agentId, exec.execution_id || exec.id);
                             showNotification('Execution cancelled', 'success');
                             loadExecutions(1);
                           } catch {
@@ -249,7 +249,7 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
                         size="xs"
                         onClick={async () => {
                           try {
-                            await agentsApi.retryExecution(agentId, exec.id);
+                            await agentsApi.retryExecution(agentId, exec.execution_id || exec.id);
                             showNotification('Execution retried', 'success');
                             loadExecutions(1);
                           } catch {

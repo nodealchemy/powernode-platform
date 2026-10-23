@@ -87,4 +87,20 @@ describe('AgentHistoryTab', () => {
     await waitFor(() => expect(screen.getByText(/run-42/)).toBeInTheDocument());
     expect(agentsApi.getExecution).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    ['running', 'Cancel', 'cancelExecution'],
+    ['failed', 'Retry', 'retryExecution'],
+  ])('%s row: %s calls the API with the execution_id', async (status, label, method) => {
+    (agentsApi.getExecutions as jest.Mock).mockResolvedValue({
+      items: [{ ...withData, status }],
+    });
+    (agentsApi as unknown as Record<string, jest.Mock>)[method].mockResolvedValue({});
+    renderTab();
+    fireEvent.click(await screen.findByText('Fix the history tab'));
+    fireEvent.click(await screen.findByRole('button', { name: new RegExp(label) }));
+    await waitFor(() =>
+      expect((agentsApi as unknown as Record<string, jest.Mock>)[method]).toHaveBeenCalledWith('agent-1', 'uuid-e1')
+    );
+  });
 });
