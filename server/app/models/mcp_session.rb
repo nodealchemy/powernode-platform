@@ -212,9 +212,14 @@ class McpSession < ApplicationRecord
 
   private
 
+  # A failure never undoes the session's end: a grant bound to a session that
+  # is not live is already unspendable (Ai::PromotionGrants::Binding), and the
+  # binding sweep revokes it on its next pass.
   def end_bound_promotion_grants
     ::Ai::PromotionGrants::Ledger.revoke_bound!(kind: ::Ai::PromotionGrant::BINDING_MCP_SESSION, ids: [ id ],
                                                 reason: ::Ai::PromotionGrants::Ledger::SESSION_ENDED)
+  rescue StandardError => e
+    Rails.logger.error("[McpSession##{id}] revoking session-bound promotion grants failed: #{e.class}: #{e.message}")
   end
 
   def deactivate_agent_on_end

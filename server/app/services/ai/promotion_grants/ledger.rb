@@ -158,11 +158,6 @@ module Ai
         grant
       end
 
-      # A grant is a person's permission for ONE agent and goes when that agent
-      # does. When an agent merge deletes the duplicate it leaves the grant's
-      # revoke family of audit row (nothing else records that the grant ended),
-      # naming the duplicate, the keeper, the environment and the person who
-      # issued it. Required, like every grant audit: inside the merge's transaction.
       # The target a bound grant names has ended (its MCP session, its run):
       # every still-active grant bound to it is revoked, with `reason`, by no
       # person, each with its own revoked audit row. Returns the count.
@@ -172,7 +167,9 @@ module Ai
 
         revoked = 0
         ::Ai::PromotionGrant.unrevoked.where(binding_kind: kind.to_s, binding_id: ids).find_each do |grant|
-          ::Ai::PromotionGrant.transaction do
+          # A savepoint: called from a session's or run's own update, a failure
+          # here must leave that caller's transaction usable.
+          ::Ai::PromotionGrant.transaction(requires_new: true) do
             grant.lock!
             next if grant.revoked?
 
@@ -187,6 +184,11 @@ module Ai
         revoked
       end
 
+      # A grant is a person's permission for ONE agent and goes when that agent
+      # does. When an agent merge deletes the duplicate it leaves the grant's
+      # revoke family of audit row (nothing else records that the grant ended),
+      # naming the duplicate, the keeper, the environment and the person who
+      # issued it. Required, like every grant audit: inside the merge's transaction.
       def dropped_with_merged_agent!(grant, duplicate:, keeper:)
         details = terms_of(grant).merge(
           "agent_name" => duplicate.name, "merged_into_agent_id" => keeper.id,
