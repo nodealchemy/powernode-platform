@@ -211,10 +211,15 @@ module Ai
       end
     end
 
+    # Canonical/shadow rule, as on the grant: an account row, never a canonical.
     def references_in_account
       return if account_id.blank?
 
-      errors.add(:agent, "must be an agent in this account") if agent && agent.account_id != account_id
+      if agent&.account_id.nil? && agent
+        errors.add(:agent, "must be an account agent, never a global canonical (a read-only template; name the account's own row)")
+      elsif agent && agent.account_id != account_id
+        errors.add(:agent, "must be an agent in this account")
+      end
       errors.add(:environment, "must be an environment in this account") if environment && environment.account_id != account_id
     end
 

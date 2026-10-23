@@ -34,6 +34,11 @@ module Ai
       #   whether it is an already-pending one (deduped)
       def request!(account:, agent:, terms:, user: nil, call_origin: nil, mcp_session: nil, agent_execution: nil)
         raise Refused, "Only an agent may request a promotion grant, for itself" if agent.nil?
+        # Canonical/shadow rule: only an account row runs, so only one asks.
+        if agent.account_id.nil?
+          raise Refused, "A global canonical agent is a read-only template and cannot request a grant; " \
+                         "its account row (the shadow that runs) asks for itself"
+        end
         raise Refused, "The agent is not in this account" unless agent.account_id == account.id
 
         terms = terms.to_h.with_indifferent_access
