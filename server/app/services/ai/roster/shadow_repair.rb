@@ -5,8 +5,8 @@ module Ai
     # Repairs the rows that landed on a GLOBAL roster canonical before runtime
     # writers resolved through the account's shadow (6 Claude Code runs hit the
     # global platform-engineer). For every account holding such rows it mints the
-    # shadows (Ai::Agents::AccountPrincipalResolver.for, creator the account owner
-    # else its oldest user) and re-points Ai::AgentExecution and
+    # shadows (Ai::Agents::AccountPrincipalResolver.for, creator the account owner,
+    # or CREATOR=<email>) and re-points Ai::AgentExecution and
     # Ai::SkillUsageRecord from the global canonical to the account's shadow,
     # writing one Ai::RosterMigrationRun ledger row per move.
     #
@@ -24,7 +24,7 @@ module Ai
 
       # Rake entry point. ENV: APPLY=1, ROLLBACK=<run_id>.
       def self.operator_run(env: ENV, out: $stdout)
-        repair = new(out: out)
+        repair = new(out: out, creator_email: env["CREATOR"])
         if env["ROLLBACK"].present?
           repair.rollback!(env["ROLLBACK"])
         elsif env["APPLY"] == "1"
@@ -34,8 +34,13 @@ module Ai
         end
       end
 
-      def initialize(out: $stdout)
+      # @param creator_email [String, nil] a deliberate choice of shadow creator (CREATOR=<email>);
+      #   it must be a user of each account it is applied to. Without it the creator is the
+      #   account owner, and nobody else: a shadow's tool permissions are scoped to its creator,
+      #   so an arbitrary user is never chosen.
+      def initialize(out: $stdout, creator_email: nil)
         @out = out
+        @creator_email = creator_email.presence
       end
 
       # Prints what APPLY would move; changes nothing.
@@ -116,9 +121,19 @@ module Ai
 
       def repair_account(run_id, account_id, account_rows)
         account = ::Account.find_by(id: account_id)
-        creator = account && (account.owner || account.users.order(:created_at, :id).first)
+        if account && @creator_email
+          creator = account.users.find_by(email: @creator_email.downcase)
+          unless creator
+            say "  skipped account #{account_id}: creator_not_in_account (CREATOR=#{@creator_email} is not a user of it); " \
+                "#{account_rows.size} rows left"
+            return 0
+          end
+        else
+          creator = account&.owner
+        end
         unless account && creator
-          say "  skipped account #{account_id}: no_mintable_principal (no owner or user to own a shadow); #{account_rows.size} rows left"
+          say "  skipped account #{account_id}: no_mintable_principal (the account has no owner to own a shadow; " \
+              "pass CREATOR=<email> to choose one); #{account_rows.size} rows left"
           return 0
         end
 

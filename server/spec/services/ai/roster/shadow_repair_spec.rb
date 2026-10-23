@@ -10,7 +10,7 @@ RSpec.describe Ai::Roster::ShadowRepair do
 
   let(:roster) { roster }
   let(:account) { create(:account) }
-  let!(:owner) { create(:user, account: account) }
+  let!(:owner) { create(:user, :owner, account: account) }
   let!(:provider) { create(:ai_provider, account: account, is_active: true) }
   let(:out) { StringIO.new }
   let!(:globals) do
@@ -83,6 +83,52 @@ RSpec.describe Ai::Roster::ShadowRepair do
 
       expect(execution.reload.ai_agent_id).to eq(globals["platform-engineer"].id)
       expect(out.string).to include("skipped", lonely.id, "no_mintable_principal")
+    end
+  end
+
+  describe "who owns the shadows" do
+    # A shadow's tool permissions are scoped to its creator, so an arbitrary user is never chosen.
+    let(:no_owner_account) { create(:account) }
+
+    before { create(:ai_provider, account: no_owner_account, is_active: true) }
+
+    it "creates the shadows as the account owner" do
+      repair.apply!
+      expect(shadow("platform-engineer").creator).to eq(owner)
+    end
+
+    it "skips an account with users but no owner (no_mintable_principal) and writes nothing" do
+      member = create(:user, :member, account: no_owner_account)
+      execution = create(:ai_agent_execution, account: no_owner_account, agent: globals["platform-engineer"], user: member, provider: provider)
+
+      expect { repair.apply! }.not_to change { Ai::Agent.owned_by_account(no_owner_account.id).count }
+
+      expect(execution.reload.ai_agent_id).to eq(globals["platform-engineer"].id)
+      expect(Ai::RosterMigrationRun.where(account_id: no_owner_account.id)).to be_empty
+      expect(out.string).to include("skipped", no_owner_account.id, "no_mintable_principal")
+    end
+
+    it "uses CREATOR=<email> when given, if that is a user of the account" do
+      chosen = create(:user, :member, account: no_owner_account)
+      execution = create(:ai_agent_execution, account: no_owner_account, agent: globals["platform-engineer"], user: chosen, provider: provider)
+
+      described_class.new(out: out, creator_email: chosen.email).apply!
+
+      moved = Ai::Agent.owned_by_account(no_owner_account.id).find_by!(slug: "platform-engineer")
+      expect(moved.creator).to eq(chosen)
+      expect(execution.reload.ai_agent_id).to eq(moved.id)
+    end
+
+    it "refuses a CREATOR from another account, writing nothing for that account" do
+      stranger = create(:user, account: account)
+      execution = create(:ai_agent_execution, account: no_owner_account, agent: globals["platform-engineer"],
+                                              user: create(:user, :member, account: no_owner_account), provider: provider)
+
+      described_class.new(out: out, creator_email: stranger.email).apply!
+
+      expect(execution.reload.ai_agent_id).to eq(globals["platform-engineer"].id)
+      expect(Ai::Agent.owned_by_account(no_owner_account.id)).to be_empty
+      expect(out.string).to include("skipped", no_owner_account.id, "creator_not_in_account")
     end
   end
 
