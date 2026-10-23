@@ -35,7 +35,7 @@ RSpec.describe 'Agent execution history list', type: :request do
     expect(row).to include('duration_ms', 'error_message')
   end
 
-  it 'summarises a platform row from its input and response' do
+  it 'summarises a platform row from its input and response, with no source when none was recorded' do
     create(:ai_agent_execution, :completed, account: account, agent: agent, user: user,
            input_parameters: { 'input' => 'Summarise the week' },
            output_data: { 'response' => 'R' * 250, 'metadata' => { 'model_used' => 'sonnet-x' } },
@@ -47,7 +47,7 @@ RSpec.describe 'Agent execution history list', type: :request do
     expect(row['input_summary']).to eq('Summarise the week')
     expect(row['output_summary'].length).to eq(200)
     expect(row['model']).to eq('sonnet-x')
-    expect(row['source']).to eq('platform')
+    expect(row['source']).to be_nil
     expect(row['executor']).to be_nil
   end
 
@@ -59,5 +59,31 @@ RSpec.describe 'Agent execution history list', type: :request do
     get "/api/v1/ai/agents/#{agent.id}/executions", headers: headers, as: :json
 
     expect(items.first.slice('input_summary', 'output_summary')).to eq('input_summary' => 'hello', 'output_summary' => 'hi there')
+  end
+
+  describe 'GET detail' do
+    let(:secret_messages) do
+      [ { 'role' => 'user',
+          'content' => "api_key=sk-live-ABCDEF1234567890 mail me at jane.doe@example.com\n" \
+                       "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAsecretbody\n-----END RSA PRIVATE KEY-----" } ]
+    end
+
+    it 'returns no key, PEM or email from input_parameters or output_data' do
+      execution = create(:ai_agent_execution, :completed, account: account, agent: agent, user: user,
+                         input_parameters: { 'messages' => secret_messages, 'message_count' => 1 },
+                         output_data: { 'content' => 'reply to jane.doe@example.com with token=abc123secret', 'model_used' => 'm' })
+
+      get "/api/v1/ai/agents/#{agent.id}/executions/#{execution.execution_id}", headers: headers, as: :json
+
+      expect_success_response
+      body = response.body
+      expect(body).not_to include('sk-live-ABCDEF1234567890')
+      expect(body).not_to include('MIIEowIBAAKCAQEAsecretbody')
+      expect(body).not_to include('jane.doe@example.com')
+      expect(body).not_to include('abc123secret')
+      detail = json_response_data['execution']
+      expect(detail['input_parameters']['message_count']).to eq(1)
+      expect(detail['output_data']['model_used']).to eq('m')
+    end
   end
 end

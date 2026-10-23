@@ -28,6 +28,7 @@ module Ai
           input_parameters: input_parameters,
           started_at: Time.current,
           execution_context: {
+            "source" => "platform",
             context_type: "workflow",
             triggered_at: Time.current.iso8601
           }
@@ -199,6 +200,7 @@ module Ai
           execution_id: SecureRandom.uuid,
           started_at: Time.current,
           execution_context: {
+            "source" => "platform",
             "mcp_execution" => true,
             "tool_id" => mcp_tool_id,
             "connection_id" => execution_options[:connection_id],

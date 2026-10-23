@@ -138,10 +138,10 @@ module Ai
         context["reported_model"]).presence
     end
 
-    # Rows with no recorded source were run by the platform's own executor.
+    # nil when the row never recorded one: older platform rows did not stamp it.
     def execution_source(execution)
       context = execution.execution_context.is_a?(Hash) ? execution.execution_context : {}
-      context["source"].presence || "platform"
+      context["source"].presence
     end
 
     def execution_executor(execution)
@@ -163,13 +163,40 @@ module Ai
     def summarize_execution_text(text)
       return nil if text.blank?
 
-      text.to_s.strip.truncate(EXECUTION_SUMMARY_CHARS)
+      redact_execution_text(text.to_s.strip).truncate(EXECUTION_SUMMARY_CHARS)
+    end
+
+    # The detail door shows stored prompts and responses. Key-based masking
+    # (Ai::SensitiveParams.filter) plus the text filter on every string leaf,
+    # the deferred-operation envelope treatment, then the PII path for what has
+    # no key beside it (an email address).
+    def redact_execution_envelope(envelope)
+      return envelope unless envelope.is_a?(Hash) || envelope.is_a?(Array)
+
+      ::Ai::SensitiveParams.batch do
+        redact_execution_leaves(::Ai::SensitiveParams.filter(envelope))
+      end
+    end
+
+    def redact_execution_leaves(node)
+      case node
+      when ::Hash then node.transform_values { |value| redact_execution_leaves(value) }
+      when ::Array then node.map { |value| redact_execution_leaves(value) }
+      when ::String then redact_execution_text(node)
+      else node
+      end
+    end
+
+    def redact_execution_text(text)
+      filtered = ::Ai::SensitiveParams.filter_text(text, truncate: false)
+      ::Ai::Security::PiiRedactionService.new(account: current_user.account)
+                                         .redact(text: filtered, context: { source_type: "AgentExecutionDetail" }, log: false)[:redacted_text]
     end
 
     def serialize_execution_detail(execution)
       result = serialize_execution(execution).merge(
-        input_parameters: execution.input_parameters,
-        output_data: execution.output_data,
+        input_parameters: redact_execution_envelope(execution.input_parameters),
+        output_data: redact_execution_envelope(execution.output_data),
         execution_context: execution.execution_context,
         provider: execution.provider ? serialize_agent_provider_detail(execution.provider) : nil
       )
