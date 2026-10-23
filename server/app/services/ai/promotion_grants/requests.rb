@@ -30,8 +30,10 @@ module Ai
       # @param agent_execution [Ai::AgentExecution, nil] the run making the call
       # @param terms [Hash] environment (id or slug), action_category,
       #   module_ids, max_uses, expires_in_hours, reason, granter_driven_only, bind
-      # @return [Array(Ai::PromotionGrantRequest, Boolean)] the request and
-      #   whether it is an already-pending one (deduped)
+      # @return [Array(Ai::PromotionGrantRequest, Boolean, String|nil)] the
+      #   request, whether it is an already-pending one (deduped), and, when it
+      #   is and its binding differs from this ask, how this ask would have
+      #   been bound (else nil). The pending request keeps its own binding.
       def request!(account:, agent:, terms:, user: nil, call_origin: nil, mcp_session: nil, agent_execution: nil)
         raise Refused, "Only an agent may request a promotion grant, for itself" if agent.nil?
         # Canonical/shadow rule: only an account row runs, so only one asks.
@@ -68,7 +70,11 @@ module Ai
           agent.lock!
           pending = ::Ai::PromotionGrantRequest.pending.where(ai_agent_id: agent.id)
           existing = pending.find_by(environment_id: environment.id, action_category: category)
-          next [ existing, true ] if existing
+          if existing
+            asked = ::Ai::PromotionGrants::Binding.describe(kind: binding_kind, id: binding_id, agent: agent)
+            same = existing.binding_kind == binding_kind && existing.binding_id.to_s == binding_id.to_s
+            next [ existing, true, same ? nil : asked ]
+          end
 
           if pending.count >= ::Ai::PromotionGrantRequest::MAX_PENDING_PER_AGENT
             raise Refused, "This agent already has #{::Ai::PromotionGrantRequest::MAX_PENDING_PER_AGENT} pending " \
@@ -85,7 +91,7 @@ module Ai
           approval = park!(grant_request, user: user, call_origin: call_origin)
           grant_request.update!(approval_request: approval)
           audit_requested!(grant_request, user: user)
-          [ grant_request, false ]
+          [ grant_request, false, nil ]
         end
       rescue ActiveRecord::RecordInvalid => e
         raise Refused, e.record.errors.full_messages.join(", ")

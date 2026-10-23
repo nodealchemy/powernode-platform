@@ -151,7 +151,7 @@ module Ai
       # own human-only approval card (Ai::PromotionGrants::Requests) and issues
       # nothing; a person's own-session approval of that card does.
       declare_action "request_promotion_grant", mutating: true, family: "agents",
-                                                returns: "the request's id, status and frozen terms, its binding, the approval request a person decides, and deduped: true when an identical request was already pending",
+                                                returns: "the request's id, status and frozen terms, its binding, the approval request a person decides, deduped: true when a request for the same environment and category was already pending, and binding_differs: true when that pending request is bound differently from this ask",
                                                 refuses: "no calling agent, a category that is not grantable, an unknown environment or module, terms past the plane's bounds, bind: \"session\" off your own live MCP session, or 3 requests already pending",
                                                 see_also: { "list_promotion_grants" => "the grants already issued" }
       declare_action "propose_feature", mutating: true, family: "campaigns", returns: "id, title and status of the proposal", see_also: { "create_proposal" => "a proposal of another type" }
@@ -1060,20 +1060,27 @@ module Ai
       # The agent is THIS tool's (never a param), and so is the binding target:
       # the owner-resolved MCP session the call arrived on.
       def request_promotion_grant(params)
-        grant_request, deduped = ::Ai::PromotionGrants::Requests.request!(
+        grant_request, deduped, asked_binding = ::Ai::PromotionGrants::Requests.request!(
           account: account, agent: agent, user: known_driving_user, call_origin: call_origin,
           mcp_session: mcp_session, terms: params.to_h.except("action", :action)
         )
         approval = grant_request.approval_request
+        message = "Parked for a person to approve in their own session; nothing is granted until then."
+        if asked_binding
+          # A pending request is answered, never rebound: say so rather than
+          # let the caller believe its new binding took.
+          message = "A request for this environment and category is already pending and is " \
+                    "#{grant_request.binding_description}; this ask (#{asked_binding}) did not change it. " + message
+        end
         {
-          success: true, deduped: deduped,
+          success: true, deduped: deduped, binding_differs: asked_binding.present?,
           promotion_grant_request: {
             id: grant_request.id, status: grant_request.status, terms: grant_request.terms,
             binding: grant_request.binding_description,
             approval_request_id: approval&.id, approval_status: approval&.status,
             requires_human_session: true, expires_at: approval&.expires_at&.iso8601
           },
-          message: "Parked for a person to approve in their own session; nothing is granted until then."
+          message: message
         }
       rescue ::Ai::PromotionGrants::Requests::Refused => e
         error_result(e.message)

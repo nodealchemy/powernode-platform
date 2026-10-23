@@ -150,6 +150,17 @@ RSpec.describe "Agent-requested promotion grants" do
       expect(Ai::PromotionGrantRequest.count).to eq(0)
     end
 
+    it "says when the pending request it returns is bound differently from the new ask" do
+      first = ask
+      again = ask(bind: "none")
+      expect(again[:deduped]).to be(true)
+      expect(again[:promotion_grant_request][:id]).to eq(first[:promotion_grant_request][:id])
+      expect(again[:binding_differs]).to be(true)
+      expect(again[:message]).to include("bound to session #{session.id}", "unbound")
+
+      expect(ask[:binding_differs]).to be(false)
+    end
+
     it "dedupes a pending request on agent, environment and category" do
       first = ask
       again = ask(reason: "asking twice")
@@ -387,6 +398,32 @@ RSpec.describe "Agent-requested promotion grants" do
 
     it "default to release.promote" do
       expect(grantable.categories).to eq(%w[release.promote])
+    end
+
+    # By name, with the real category strings, so the exclusion list cannot
+    # drift silently. (The extension's own spec pins its constants to these.)
+    {
+      "sdwan.peer_key_rotate" => "SD-WAN peer key rotation",
+      "system.bootstrap_token.reveal" => "operator-key reveal",
+      "system.bootstrap_token.revoke" => "operator-key revoke",
+      "platform.site_setting.protected_write" => "a protected site-setting write",
+      "emergency_halt" => "the kill switch (halt)",
+      "emergency_resume" => "the kill switch (resume)",
+      "ai.kill_switch.halt" => "a kill-switch category"
+    }.each do |category, what|
+      it "exclude #{what} (#{category}), even when the operator lists it" do
+        allow(SiteSetting).to receive(:get).and_call_original
+        allow(SiteSetting).to receive(:get).with(Ai::PromotionGrants::Grantable::SETTING_KEY)
+                                           .and_return([ "release.promote", category ])
+        expect(grantable.hard_excluded?(category)).to be(true)
+        expect(grantable.grantable?(category)).to be(false)
+        expect(grantable.categories).to eq(%w[release.promote])
+      end
+    end
+
+    it "allow release.promote" do
+      expect(grantable.hard_excluded?("release.promote")).to be(false)
+      expect(grantable.grantable?("release.promote")).to be(true)
     end
 
     it "never admit a human-only or destructive declared action's category" do
