@@ -353,6 +353,12 @@ export interface PromotionGrant {
   module_ids: string[];
   granter_driven_only: boolean;
   strict_plane: boolean;
+  /**
+   * What the grant is bound to: the requesting agent's MCP session or run, or
+   * nothing (kind null). A bound grant is spent only by calls carrying that
+   * target while it is live.
+   */
+  binding?: { kind: 'mcp_session' | 'agent_execution' | null; id: string | null; description: string };
   max_uses: number | null;
   uses_count: number;
   uses_remaining: number | null;

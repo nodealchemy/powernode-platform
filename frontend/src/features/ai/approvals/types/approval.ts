@@ -49,6 +49,36 @@ export interface ApprovalChangeCard {
   digest?: string;
 }
 
+/**
+ * An agent's request for a time-boxed promotion grant: the terms it froze and
+ * what the grant would be bound to. Approving it (only possible for a person,
+ * in their own session) issues exactly these terms in the approver's name,
+ * the expiry counted from the approval.
+ */
+export interface ApprovalGrantRequest {
+  id: string;
+  status: 'pending' | 'issued' | 'refused' | 'rejected' | 'expired' | 'cancelled';
+  agent: { id: string; name?: string | null };
+  action_category: string;
+  environment: { id: string; slug: string; name?: string; is_protected: boolean } | null;
+  /** Empty means any module. */
+  module_ids: string[];
+  max_uses: number | null;
+  expires_in_hours: number;
+  reason: string;
+  granter_driven_only: boolean;
+  binding: {
+    kind: 'mcp_session' | 'agent_execution' | null;
+    id: string | null;
+    /** "bound to session …", "bound to run … of agent …", or "unbound". */
+    description: string;
+    /** Whether the bound target is still live now (false for unbound). */
+    live: boolean;
+  };
+  promotion_grant_id: string | null;
+  refusal_reason: string | null;
+}
+
 export interface ApprovalRequest {
   id: string;
   request_id: string;
@@ -85,6 +115,8 @@ export interface ApprovalRequest {
   requires_human_session?: boolean;
   /** What exactly is being approved, for a tool call that offers a card. */
   change_card?: ApprovalChangeCard | null;
+  /** An agent's promotion grant request: its frozen terms and binding. */
+  grant_request?: ApprovalGrantRequest | null;
   // Detail read only (GET /ai/autonomy/approvals/:id). There is no
   // `approval_chain_id` on either read: the chain's id arrives inside
   // `approval_chain`.

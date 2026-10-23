@@ -228,7 +228,12 @@ const GrantRow: React.FC<{ grant: PromotionGrant; canManage: boolean }> = ({ gra
 
   return (
     <tr className="border-t border-theme" data-testid={`grant-${grant.id}`}>
-      <td className="py-2 pr-3 text-theme-primary">{grant.agent?.name ?? '—'}</td>
+      <td className="py-2 pr-3 text-theme-primary">
+        {grant.agent?.name ?? '—'}
+        {grant.binding?.kind && (
+          <div data-grant-binding className="text-xs text-theme-tertiary break-all">{grant.binding.description}</div>
+        )}
+      </td>
       <td className="py-2 pr-3 text-theme-primary">
         {grant.environment?.slug ?? '—'}
         {grant.strict_plane && (

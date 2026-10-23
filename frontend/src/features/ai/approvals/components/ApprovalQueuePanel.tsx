@@ -22,7 +22,12 @@ import {
   writeQueueFilters,
   type QueueFilters,
 } from '../utils/queueFilters';
-import type { ApprovalChangeCard, ApprovalPresentedValue, ApprovalRequest } from '../types/approval';
+import type {
+  ApprovalChangeCard,
+  ApprovalGrantRequest,
+  ApprovalPresentedValue,
+  ApprovalRequest,
+} from '../types/approval';
 
 // The approval queue (C3b part 2). Approvals keep their own surface by the
 // lead's C4 ruling; this panel gains what it never had: the chain, step by
@@ -147,6 +152,48 @@ const ChangeCard: React.FC<{ card: ApprovalChangeCard }> = ({ card }) => (
         <PresentedValueList value={card.presented_current_value} dataAttr="data-presented-current-value" />
       </dd>
     </dl>
+  </div>
+);
+
+/**
+ * An agent's promotion grant request: exactly the terms approving it would
+ * issue in the approver's name, and what the grant would be bound to — said
+ * first, because a bound grant works only through that session or run.
+ */
+const GrantRequestCard: React.FC<{ grant: ApprovalGrantRequest }> = ({ grant }) => (
+  <div data-grant-request-card className="rounded border border-theme bg-theme-surface p-3 space-y-2">
+    <p className="text-xs text-theme-tertiary">The grant you would issue, in your name</p>
+    <p data-grant-binding className="text-sm font-semibold text-theme-primary break-all">
+      {grant.binding.description}
+      {grant.binding.kind && !grant.binding.live && (
+        <span className="ml-2 text-xs font-normal text-theme-warning-fg">(ended: approving issues nothing)</span>
+      )}
+    </p>
+    <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-sm">
+      <dt className="text-theme-tertiary">Agent</dt>
+      <dd className="text-theme-primary font-medium">{grant.agent.name ?? grant.agent.id}</dd>
+      <dt className="text-theme-tertiary">Category</dt>
+      <dd className="text-theme-primary font-medium">{grant.action_category}</dd>
+      <dt className="text-theme-tertiary">Environment</dt>
+      <dd className="text-theme-primary font-medium">{grant.environment?.slug ?? '—'}</dd>
+      <dt className="text-theme-tertiary">Modules</dt>
+      <dd data-grant-modules className="text-theme-primary font-mono break-all">
+        {grant.module_ids.length === 0 ? 'any module' : grant.module_ids.join(', ')}
+      </dd>
+      <dt className="text-theme-tertiary">Max uses</dt>
+      <dd className="text-theme-primary font-medium">{grant.max_uses ?? 'unlimited'}</dd>
+      <dt className="text-theme-tertiary">Lifetime</dt>
+      <dd className="text-theme-primary font-medium">{grant.expires_in_hours} h from your approval</dd>
+      <dt className="text-theme-tertiary">Driven by</dt>
+      <dd className="text-theme-primary font-medium">
+        {grant.granter_driven_only ? 'only you' : 'anyone who drives this agent'}
+      </dd>
+      <dt className="text-theme-tertiary">Reason</dt>
+      <dd className="text-theme-secondary">{grant.reason}</dd>
+    </dl>
+    {grant.refusal_reason && grant.status !== 'pending' && (
+      <p className="text-xs text-theme-warning-fg">{grant.refusal_reason}</p>
+    )}
   </div>
 );
 
@@ -284,6 +331,9 @@ const ApprovalCard: React.FC<{
             {request.requires_human_session && (
               <Badge variant="default" size="sm">Needs a person</Badge>
             )}
+            {request.grant_request && (
+              <Badge variant="warning" size="sm">{request.grant_request.binding.description}</Badge>
+            )}
             {isExpiredAwaitingSweep && (
               <Badge variant="warning" size="sm">Expired — awaiting sweep</Badge>
             )}
@@ -393,6 +443,8 @@ const ApprovalCard: React.FC<{
               </pre>
             </div>
           )}
+
+          {request.grant_request && <GrantRequestCard grant={request.grant_request} />}
 
           {reviewedCard && <ChangeCard card={reviewedCard} />}
 
