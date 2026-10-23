@@ -32,6 +32,8 @@ module Ai
     # reached through discover_tools. A roster shadow is bounded by its role.
     CATALOG_CAP = 30
 
+    COST_CEILING_NOTICE = "Stopped: this execution reached its cost ceiling; the remaining tool calls were not run."
+
     attr_reader :agent, :account
 
     # `driving_user`: the person who actually ran the agent (an execution's
@@ -110,14 +112,43 @@ module Ai
     end
 
     # Convert platform tool definitions to LLM function-calling format
-    def tool_definitions_for_llm
-      @tool_definitions_for_llm ||= cap_catalog(scoped_tool_definitions, nil, catalog_cap)
+    # `user_message` picks the capped set by intent; the worker passes the task's
+    # latest user message, the in-process loop narrows again per turn.
+    def tool_definitions_for_llm(user_message: nil)
+      @tool_definitions_for_llm ||= {}
+      @tool_definitions_for_llm[user_message] ||= cap_catalog(scoped_tool_definitions, user_message, catalog_cap)
     end
 
-    # Whether this agent is a canonical roster row (by slug): it is advertised
-    # its role's verbs and nothing else.
+    # The LLM definitions for tools a run found with discover_tools/describe_tool
+    # and now wants to call. Names may carry the `platform.` listing prefix.
+    # Authorization is unchanged: every dispatch still runs the registrar's gate.
+    def definitions_for_names(names)
+      wanted = Array(names).map { |n| n.to_s.sub(/\Aplatform\./, "") }.uniq
+      return [] if wanted.empty?
+
+      Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: nil)
+        .select { |d| wanted.include?(d[:name].to_s) }
+        .map { |defn| convert_to_llm_tool(defn) }
+    end
+
+    # Whether this agent is a canonical roster row: a seeded GLOBAL system row, or
+    # an account clone of one (cloned_from_id). A slug alone proves nothing; a
+    # user can name an agent "Platform Reviewer".
     def roster_shadow?
-      agent.slug.present? && Ai::Agents::CanonicalRoster.include?(agent.slug)
+      !roster_slug.nil?
+    end
+
+    def roster_slug
+      return @roster_slug if defined?(@roster_slug)
+
+      canonical =
+        if agent.account_id.nil? && agent.is_system
+          agent
+        elsif agent.cloned_from_id.present?
+          Ai::Agent.global.find_by(id: agent.cloned_from_id)
+        end
+      slug = canonical&.slug
+      @roster_slug = slug.present? && Ai::Agents::CanonicalRoster.include?(slug) ? slug : nil
     end
 
     # Tools whose results are surfaced to the chat UI as rich cards.
@@ -393,9 +424,10 @@ module Ai
       tool_calls_log = []
       # Per-turn input cost: what each LLM call carried (IMP-fea579e125d1).
       turns = []
-      execution_cents = 0
+      # The ceiling covers the whole execution, so the running cents live on the
+      # bridge: a reflection or evaluation retry re-enters this loop.
+      @execution_cents ||= 0
       ceiling_cents = ::Ai::AgentBudget.execution_ceiling_cents
-      ceiling_breached = false
       # Surface non-truncated results for tools whitelisted in CARD_TOOLS.
       # Frontend reads these from message.content_metadata.cards.
       chat_cards = []
@@ -429,15 +461,17 @@ module Ai
 
         # Per-execution cost ceiling (IMP-feffafe51c3c): alert once, audited, and
         # park a run that would otherwise take another turn.
-        execution_cents += turn_cost_cents(response, model)
-        if !ceiling_breached && execution_cents > ceiling_cents
-          ceiling_breached = true
-          ::Ai::AgentBudget.record_execution_ceiling_breach!(
-            account: account, agent: agent, cost_cents: execution_cents, ceiling_cents: ceiling_cents,
-            tokens: accumulated_usage
-          )
+        @execution_cents += turn_cost_cents(response, model)
+        if @execution_cents > ceiling_cents
+          unless @ceiling_breached
+            @ceiling_breached = true
+            ::Ai::AgentBudget.record_execution_ceiling_breach!(
+              account: account, agent: agent, cost_cents: @execution_cents, ceiling_cents: ceiling_cents,
+              tokens: accumulated_usage
+            )
+          end
           if response.has_tool_calls?
-            return { content: response.content.presence || "Stopped: this execution reached its cost ceiling; the remaining tool calls were not run.",
+            return { content: [ response.content.presence, COST_CEILING_NOTICE ].compact.join("\n\n"),
                      usage: accumulated_usage, tool_calls_log: tool_calls_log,
                      chat_cards: chat_cards, finish_reason: "cost_ceiling_parked", served_by: last_served_by,
                      refusal_recovery: last_refusal_recovery, refusal: nil, turns: turns }
@@ -489,7 +523,7 @@ module Ai
           # D2 review F2: the kill switch, checked immediately before EVERY tool
           # call. A halt thrown mid-loop stops the next call, and the loop ends
           # without asking the model for anything more.
-          return halted_loop_result(accumulated_usage, tool_calls_log, chat_cards, last_served_by) if kill_switch_halted?
+          return halted_loop_result(accumulated_usage, tool_calls_log, chat_cards, last_served_by, turns) if kill_switch_halted?
 
           tool_name = tool_call[:name] || tool_call["name"]
           tool_call_id = tool_call[:id] || tool_call["id"] || SecureRandom.uuid
@@ -512,6 +546,8 @@ module Ai
           # Surface the DECLARED slice of the payload as a chat card. The card is
           # persisted to ai_messages.content_metadata, so only keys the tool's
           # CardPayloadDeclaration names are copied (IMP-6af3dc79efb3).
+          load_described_tool!(tools, tool_call) if tool_name.to_s == "describe_tool" && full_result.is_a?(Hash) && full_result[:success] != false
+
           card_spec = CARD_TOOLS[tool_name]
           if card_spec && full_result.is_a?(Hash)
             payload = card_payload_from_result(full_result, card_spec)
@@ -803,7 +839,7 @@ module Ai
       # (#dispatch_tool_call), which is where permission denial happens.
       if roster_shadow?
         # Role verbs + the five bootstrap verbs; the seeded family floor is never expanded.
-        wanted = Ai::Agents::CanonicalRoster.fetch(agent.slug).dig(:role, :verbs) + ROSTER_BOOTSTRAP_VERBS
+        wanted = Ai::Agents::CanonicalRoster.fetch(roster_slug).dig(:role, :verbs) + ROSTER_BOOTSTRAP_VERBS
         definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: nil)
         definitions = definitions.select { |d| wanted.include?(d[:name].to_s) }
       elsif (allowed = allowed_tool_names)
@@ -1092,13 +1128,14 @@ module Ai
       Ai::Autonomy::KillSwitchService.halted_now?(account&.id)
     end
 
-    def halted_loop_result(usage, tool_calls_log, chat_cards, served_by)
+    def halted_loop_result(usage, tool_calls_log, chat_cards, served_by, turns = [])
       Rails.logger.warn "[AgentToolBridge] Emergency halt: stopping agent #{agent.id} before its next tool call"
       {
         content: "Stopped: AI activity is suspended for this account (emergency halt). " \
                  "The remaining tool calls were not run.",
         usage: usage, tool_calls_log: tool_calls_log, chat_cards: chat_cards,
-        finish_reason: "emergency_halt", served_by: served_by, refusal_recovery: nil, refusal: nil
+        finish_reason: "emergency_halt", served_by: served_by, refusal_recovery: nil, refusal: nil,
+        turns: turns
       }
     end
 
@@ -1119,6 +1156,17 @@ module Ai
       Rails.logger.error "[AgentToolBridge] Local tool error: #{tool_name} - #{e.message}"
       [ { error: "Tool execution failed", tool: tool_name,
          message: ::Ai::Tools::BaseTool.dispatch_fallback_message(e) }.to_json, nil ]
+    end
+
+    # A tool the model described is advertised on every later turn, so what it
+    # found beyond the cap can be called.
+    def load_described_tool!(tools, tool_call)
+      args = tool_call[:arguments] || tool_call["arguments"] || {}
+      name = args[:name] || args["name"]
+      return if name.blank?
+
+      have = tools.map { |t| (t[:name] || t.dig(:function, :name)).to_s }
+      definitions_for_names([ name ]).each { |d| tools << d unless have.include?(d[:name].to_s) }
     end
 
     def turn_cost_cents(response, model)

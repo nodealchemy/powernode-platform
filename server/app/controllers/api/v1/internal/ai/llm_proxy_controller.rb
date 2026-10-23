@@ -15,7 +15,12 @@ module Api
           # POST /api/v1/internal/ai/llm/tool_definitions
           def tool_definitions
             bridge = ::Ai::AgentToolBridgeService.new(agent: @agent, account: @agent.account)
-            definitions = bridge.tool_definitions_for_llm
+            definitions =
+              if params[:names].present?
+                bridge.definitions_for_names(Array(params[:names]))
+              else
+                bridge.tool_definitions_for_llm(user_message: params[:user_message].presence)
+              end
 
             render_success(tools: definitions, tools_enabled: bridge.tools_enabled?)
           rescue StandardError => e

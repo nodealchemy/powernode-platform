@@ -39,7 +39,7 @@ class WorkerToolDispatchChannel < ApplicationCable::Channel
     transmit({
       request_id: data["request_id"],
       success: true,
-      data: { tools: bridge.tool_definitions_for_llm, tools_enabled: bridge.tools_enabled? }
+      data: { tools: worker_tool_definitions(bridge, data), tools_enabled: bridge.tools_enabled? }
     })
   rescue StandardError => e
     Rails.logger.error "[WorkerToolDispatch] tool_definitions error: #{e.message}"
@@ -70,5 +70,17 @@ class WorkerToolDispatchChannel < ApplicationCable::Channel
   # data: { request_id: }
   def ping(data)
     transmit({ request_id: data["request_id"], success: true, data: { pong: true } })
+  end
+
+  private
+
+  # `names`: tools a run found with describe_tool (served beyond the cap);
+  # otherwise the capped catalog, chosen by the task's latest user message.
+  def worker_tool_definitions(bridge, data)
+    if data["names"].present?
+      bridge.definitions_for_names(Array(data["names"]))
+    else
+      bridge.tool_definitions_for_llm(user_message: data["user_message"].presence)
+    end
   end
 end

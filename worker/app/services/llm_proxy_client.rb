@@ -95,7 +95,7 @@ class LlmProxyClient
     model ||= provider_config["model"]
 
     # Fetch tool definitions from server
-    tools_response = call_server(:tool_definitions, agent_id: agent_id)
+    tools_response = call_server(:tool_definitions, agent_id: agent_id, user_message: latest_user_message(messages))
     tools = tools_response["tools"] || []
     tools_enabled = tools_response["tools_enabled"]
 
@@ -175,6 +175,7 @@ class LlmProxyClient
       response.tool_calls.each do |tool_call|
         begin
           result = call_server(:dispatch_tool, agent_id: agent_id, tool_call: tool_call)
+          load_described_tool(agent_id, tool_call, tools)
           tool_output = result.is_a?(Hash) ? (result["result"] || result).to_json : result.to_s
 
           tool_calls_log << {
@@ -301,6 +302,30 @@ class LlmProxyClient
 
     @llm_clients[cache_key] = client
     client
+  end
+
+  # The text of the newest user message: the server picks the capped tool set by
+  # the intent in it.
+  def latest_user_message(messages)
+    last = Array(messages).reverse.find { |m| (m[:role] || m["role"]).to_s == "user" }
+    content = last && (last[:content] || last["content"])
+    content.is_a?(String) ? content : nil
+  end
+
+  # A tool the model just described is added to the advertised set, so a verb
+  # found beyond the server's cap can be called on the next turn.
+  def load_described_tool(agent_id, tool_call, tools)
+    return unless (tool_call[:name] || tool_call["name"]).to_s == "describe_tool"
+
+    args = tool_call[:arguments] || tool_call["arguments"] || {}
+    name = args[:name] || args["name"]
+    return if name.to_s.empty?
+
+    extra = call_server(:tool_definitions, agent_id: agent_id, names: [ name ])["tools"] || []
+    have = tools.map { |t| (t["name"] || t[:name]).to_s }
+    extra.each { |t| tools << t unless have.include?((t["name"] || t[:name]).to_s) }
+  rescue StandardError => e
+    warn "[LlmProxy] could not load described tool: #{e.message}"
   end
 
   # Actions that benefit from WebSocket transport (high-frequency during tool loops)

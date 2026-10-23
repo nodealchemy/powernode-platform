@@ -42,6 +42,7 @@ class Ai::McpAgentExecutor
           llm_client: llm_client, messages: messages, model: model, **opts
         )
         persist_turn_metrics(result[:turns])
+        stamp_credential_use!
         format_tool_loop_result(result, model)
       else
         opts[:max_tokens] ||= route_max_tokens(model, agentic: false)
@@ -177,6 +178,13 @@ class Ai::McpAgentExecutor
       @logger.warn("[MCP_AGENT_EXECUTOR] turn metrics persistence failed: #{e.class}: #{e.message}")
     end
 
+    # The provider credential this run used records it, once per execution.
+    def stamp_credential_use!
+      @agent.resolved_credential&.update_columns(last_used_at: Time.current)
+    rescue StandardError => e
+      @logger.warn("[MCP_AGENT_EXECUTOR] credential last_used_at stamp failed: #{e.class}: #{e.message}")
+    end
+
     def format_tool_loop_result(result, model)
       {
         "output" => result[:content],
@@ -188,7 +196,8 @@ class Ai::McpAgentExecutor
           "model_used" => model,
           "provider" => @agent.resolved_provider&.provider_type,
           "tool_calls" => result[:tool_calls_log],
-          "tool_call_count" => result[:tool_calls_log].size
+          "tool_call_count" => result[:tool_calls_log].size,
+          "finish_reason" => result[:finish_reason]
         }
       }
     end

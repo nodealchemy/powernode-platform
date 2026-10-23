@@ -23,7 +23,7 @@ module Ai
 
     # Validations
     validates :execution_id, presence: true, uniqueness: true
-    validates :status, inclusion: { in: %w[pending running completed failed cancelled] }
+    validates :status, inclusion: { in: %w[pending running completed failed cancelled parked] }
     validates :input_parameters, presence: true
     validates :duration_ms, numericality: { greater_than_or_equal_to: 0 }, allow_nil: true
     validates :tokens_used, numericality: { greater_than_or_equal_to: 0 }
@@ -38,7 +38,7 @@ module Ai
     scope :completed, -> { where(status: "completed") }
     scope :failed, -> { where(status: "failed") }
     scope :cancelled, -> { where(status: "cancelled") }
-    scope :finished, -> { where(status: %w[completed failed cancelled]) }
+    scope :finished, -> { where(status: %w[completed failed cancelled parked]) }
     scope :successful, -> { where(status: "completed") }
     scope :recent, -> { order(created_at: :desc) }
     scope :for_agent, ->(agent) { where(ai_agent_id: agent.is_a?(Ai::Agent) ? agent.id : agent) }
@@ -85,7 +85,20 @@ module Ai
     end
 
     def finished?
-      %w[completed failed cancelled].include?(status)
+      %w[completed failed cancelled parked].include?(status)
+    end
+
+    # A run stopped at its cost ceiling (Ai::AgentToolBridgeService): it ended,
+    # but it did not finish the task, so it is not "completed".
+    PARKED_FINISH_REASON = "cost_ceiling_parked"
+
+    # @param result [Hash] the McpAgentExecutor response
+    def self.final_status_for(result)
+      return "failed" if result["error"].present?
+
+      inner = result["result"]
+      parked = inner.is_a?(Hash) && inner.dig("metadata", "finish_reason") == PARKED_FINISH_REASON
+      parked ? "parked" : "completed"
     end
 
     def successful?

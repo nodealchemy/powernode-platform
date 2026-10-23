@@ -63,7 +63,7 @@ module Ai
           end
 
           # Update execution as successful (or failed if there was an error)
-          final_status = result["error"] ? "failed" : "completed"
+          final_status = Ai::AgentExecution.final_status_for(result)
           execution.update!(
             status: final_status,
             output_data: output,
@@ -112,8 +112,7 @@ module Ai
         result = executor.execute(input_parameters)
 
         # Determine status based on result
-        has_error = result["error"].present?
-        final_status = has_error ? "failed" : "completed"
+        final_status = Ai::AgentExecution.final_status_for(result)
 
         # Update execution record
         execution.update!(

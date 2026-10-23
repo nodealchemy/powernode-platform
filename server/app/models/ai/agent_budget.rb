@@ -70,11 +70,15 @@ module Ai
     def self.record_execution_ceiling_breach!(account:, agent:, cost_cents:, ceiling_cents:, tokens: {})
       details = { agent_id: agent.id, cost_cents: cost_cents, ceiling_cents: ceiling_cents,
                   prompt_tokens: tokens[:prompt_tokens], completion_tokens: tokens[:completion_tokens] }
-      AuditLog.create!(
-        account_id: account.id, action: "ai.execution.cost_ceiling_exceeded", source: "system",
-        resource_type: "Ai::Agent", resource_id: agent.id, severity: "high", risk_level: "high",
-        new_values: details, metadata: details
-      )
+      begin
+        AuditLog.create!(
+          account_id: account.id, action: "ai.execution.cost_ceiling_exceeded", source: "system",
+          resource_type: "Ai::Agent", resource_id: agent.id, severity: "high", risk_level: "high",
+          new_values: details, metadata: details
+        )
+      rescue StandardError => e
+        Rails.logger.error("[AgentBudget] Execution ceiling audit write failed: #{e.class}: #{e.message}")
+      end
       NotificationService.send_system_alert(
         account: account, type: "execution_cost_ceiling", level: :warning,
         title: "Agent execution parked at its cost ceiling",

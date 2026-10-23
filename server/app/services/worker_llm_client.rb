@@ -300,11 +300,10 @@ class WorkerLlmClient
     Rails.logger.warn("[WorkerLlmClient] Budget tracking failed: #{e.class}: #{e.message}")
   end
 
-  # The provider credential that served the call records its use (IMP-df846f2166d5):
-  # an agent run resolves it on the worker side, so `last_used_at` never moved.
+  # A client built on an explicit credential records its use (IMP-df846f2166d5).
+  # Agent-resolved runs stamp theirs once per execution (McpAgentExecutor).
   def touch_credential_last_used!
-    cred = @credential || (@agent_id && Ai::Agent.find_by(id: @agent_id)&.resolved_credential)
-    cred&.update_columns(last_used_at: Time.current)
+    @credential&.update_columns(last_used_at: Time.current)
   rescue StandardError => e
     Rails.logger.warn("[WorkerLlmClient] credential last_used_at touch failed: #{e.class}: #{e.message}")
   end
