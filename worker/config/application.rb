@@ -78,15 +78,12 @@ unless extension_specs.empty?
   end
 end
 
-# The Sidekiq Redis. POWERNODE_WORKER_REDIS_URL names the role on both sides
-# (the server resolves the same variable in Powernode::Redis.worker_url,
-# IMP-daecbb8a050e); REDIS_URL stays the fallback, so a host that sets no
-# POWERNODE_WORKER_REDIS_URL behaves exactly as before. Mirrored in sidekiq.yml.
-sidekiq_redis_url = ENV['POWERNODE_WORKER_REDIS_URL'].presence || ENV.fetch('REDIS_URL', 'redis://localhost:6379/1')
+# The Sidekiq Redis options (URL precedence and timeouts) live in
+# SidekiqRedisConfig: Sidekiq 8 ignores a `:redis:` block in sidekiq.yml.
+require_relative 'sidekiq_redis_config'
 
 Sidekiq.configure_server do |config|
-  concurrency = ENV.fetch('WORKER_CONCURRENCY', '25').to_i
-  config.redis = { url: sidekiq_redis_url, size: concurrency + 10 }
+  config.redis = SidekiqRedisConfig.server_options
 
   # Dedicated capsule for long-running codebase-intelligence jobs
   # (AiCodebaseIndexJob / AiCodeAnalysisJob → index, prune_stale).
@@ -115,7 +112,7 @@ Sidekiq.configure_server do |config|
 end
 
 Sidekiq.configure_client do |config|
-  config.redis = { url: sidekiq_redis_url, size: 5 }
+  config.redis = SidekiqRedisConfig.client_options
 end
 
 # Configure Sidekiq web interface with custom authentication
