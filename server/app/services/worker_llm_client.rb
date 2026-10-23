@@ -268,11 +268,11 @@ class WorkerLlmClient
   # Debit the agent's budget based on token usage from the response.
   # Uses CostCalculationService for accurate pricing with cached token discounting.
   def track_llm_usage!(response, model)
+    touch_credential_last_used! if response.total_tokens > 0 && response.finish_reason != "error"
+
     return if @skip_budget_tracking
     return unless @agent_id
     return unless response.total_tokens > 0 && response.finish_reason != "error"
-
-    touch_credential_last_used!
 
     cost_cents = Ai::CostCalculationService.calculate_cents(
       model_id: model.to_s,

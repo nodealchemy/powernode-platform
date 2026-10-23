@@ -181,9 +181,60 @@ RSpec.describe Ai::AgentToolBridgeService, "discovery, ceiling carry-over and fa
       expect(seen.last).to include("list_thing_119")
     end
 
+    it "never adds a tool outside the agent's scope, even one the registry holds" do
+      agent.update!(mcp_metadata: { "tool_access" => { "allowed_tools" => %w[list_thing_1] } })
+      scoped = described_class.new(agent: agent, account: account)
+
+      expect(scoped.definitions_for_names(%w[list_thing_119])).to eq([])
+      expect(scoped.definitions_for_names(%w[list_thing_1]).map { |t| t[:name] }).to eq(%w[list_thing_1])
+    end
+
     it "serves the worker the definitions it names, and picks the first set by the user's intent" do
       expect(bridge.definitions_for_names(%w[platform.list_thing_119]).map { |t| t[:name] }).to eq(%w[list_thing_119])
       expect(bridge.definitions_for_names(%w[nope])).to eq([])
+    end
+  end
+
+  describe "describe_tool arguments that arrive as a JSON string" do
+    it "still loads the tool" do
+      names = (1..120).map { |i| "list_thing_#{i}" } + %w[discover_tools describe_tool]
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return(registry_defs(names))
+      allow(bridge).to receive(:dispatch_tool_call_capturing).and_return(["{}", { success: true }])
+      seen = []
+      turns = [Ai::Llm::Response.new(content: nil, finish_reason: "tool_calls", usage: { prompt_tokens: 1 },
+                                     tool_calls: [{ id: "c1", name: "describe_tool",
+                                                    arguments: { name: "list_thing_119" }.to_json }]),
+               text_turn]
+      allow(llm).to receive(:complete_with_tools) { |tools:, **| seen << tools.map { |t| t[:name] }; turns.shift }
+
+      bridge.execute_tool_loop(llm_client: llm, messages: [{ role: "user", content: "go" }], model: "m")
+
+      expect(seen.last).to include("list_thing_119")
+    end
+  end
+
+  describe "reasoning phases after a park" do
+    it "runs no reflection or evaluation once the ceiling was reached, and keeps the parked reason" do
+      allow(Ai::Tools::PlatformApiToolRegistry).to receive(:tool_definitions).and_return(registry_defs(%w[search_knowledge]))
+      allow(bridge).to receive(:dispatch_tool_call_capturing).and_return(["{}", {}])
+      allow(NotificationService).to receive(:send_system_alert)
+      allow(Ai::CostCalculationService).to receive(:calculate_cents).and_return(150)
+      allow(llm).to receive(:complete_with_tools) { call_turn("search_knowledge") }
+      reflection = instance_double(Ai::Reasoning::ReflectionService)
+      allow(Ai::Reasoning::ReflectionService).to receive(:new).and_return(reflection)
+      allow(reflection).to receive(:reflect)
+      evaluator = instance_double(Ai::Reasoning::OutputEvaluatorService)
+      allow(Ai::Reasoning::OutputEvaluatorService).to receive(:new).and_return(evaluator)
+      allow(evaluator).to receive(:evaluate)
+
+      result = bridge.execute_with_reasoning(
+        llm_client: llm, messages: [{ role: "user", content: "go" }], model: "m",
+        reflection_enabled: true, evaluation_config: { "enabled" => true }
+      )
+
+      expect(reflection).not_to have_received(:reflect)
+      expect(evaluator).not_to have_received(:evaluate)
+      expect(result[:finish_reason]).to eq("cost_ceiling_parked")
     end
   end
 
@@ -300,6 +351,16 @@ RSpec.describe Ai::AgentToolBridgeService, "discovery, ceiling carry-over and fa
       expect(metadata["finish_reason"]).to eq("cost_ceiling_parked")
     end
 
+    it "records a parked execution's routing outcome as failed" do
+      execution = create(:ai_agent_execution, :running, account: account, agent: agent, provider: provider)
+      decision = create(:ai_routing_decision, account: account, agent_execution: execution,
+                                              model_tier: "reasoning", outcome: nil)
+
+      execution.update!(status: "parked", completed_at: Time.current, duration_ms: 5)
+
+      expect(decision.reload.outcome).to eq("failed")
+    end
+
     it "is recorded as a parked execution, not a completed one" do
       mcp_result = { "result" => { "output" => "partial", "metadata" => { "finish_reason" => "cost_ceiling_parked" } } }
 
@@ -314,6 +375,18 @@ RSpec.describe Ai::AgentToolBridgeService, "discovery, ceiling carry-over and fa
 end
 
 RSpec.describe WorkerLlmClient, "credential use", type: :service do
+  it "stamps the credential for clients with no agent_id and for skipped budget tracking" do
+    account = create(:account)
+    credential = create(:ai_provider_credential, account: account, last_used_at: 1.month.ago)
+    response = Ai::Llm::Response.new(content: "x", tool_calls: [], finish_reason: "stop",
+                                     usage: { prompt_tokens: 5, completion_tokens: 1, total_tokens: 6 })
+
+    described_class.for_provider(provider: credential.provider, credential: credential)
+                   .send(:track_llm_usage!, response, "m")
+
+    expect(credential.reload.last_used_at).to be_within(1.minute).of(Time.current)
+  end
+
   it "stamps the credential's last_used_at when a call is tracked" do
     account = create(:account)
     credential = create(:ai_provider_credential, account: account, last_used_at: 1.month.ago)

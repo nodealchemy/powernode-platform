@@ -121,14 +121,14 @@ module Ai
 
     # The LLM definitions for tools a run found with discover_tools/describe_tool
     # and now wants to call. Names may carry the `platform.` listing prefix.
-    # Authorization is unchanged: every dispatch still runs the registrar's gate.
+    # Only what the agent's own scope (allowed_tools, roster role, families,
+    # external servers) already holds can be loaded: describing is never a way
+    # around the scope. Dispatch still runs the registrar's gate.
     def definitions_for_names(names)
-      wanted = Array(names).map { |n| n.to_s.sub(/\Aplatform\./, "") }.uniq
+      wanted = Array(names).flat_map { |n| [ n.to_s, n.to_s.sub(/\Aplatform\./, "") ] }.uniq
       return [] if wanted.empty?
 
-      Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: nil)
-        .select { |d| wanted.include?(d[:name].to_s) }
-        .map { |defn| convert_to_llm_tool(defn) }
+      scoped_tool_definitions.select { |d| wanted.include?((d[:name] || d.dig(:function, :name)).to_s) }
     end
 
     # Whether this agent is a canonical roster row: a seeded GLOBAL system row, or
@@ -719,7 +719,8 @@ module Ai
       result = execute_tool_loop(llm_client: llm_client, messages: messages, model: model, **opts)
 
       # Phase 3: Post-execution reflection
-      if reflection_enabled
+      # A run that reached its cost ceiling asks the model for nothing more.
+      if reflection_enabled && !@ceiling_breached
         Rails.logger.info "[AgentToolBridge] Running reflection for agent #{agent.id}"
         reflection_service = Ai::Reasoning::ReflectionService.new(account: account)
         reflection_result = reflection_service.reflect(
@@ -739,13 +740,15 @@ module Ai
 
       # Phase 4: Output evaluation
       eval_config = evaluation_config || agent.mcp_metadata&.dig("evaluation") || {}
-      if eval_config["enabled"]
+      if eval_config["enabled"] && !@ceiling_breached
         Rails.logger.info "[AgentToolBridge] Running output evaluation for agent #{agent.id}"
         evaluator = Ai::Reasoning::OutputEvaluatorService.new(account: account)
         max_revisions = eval_config["max_revisions"] || 2
         revision_count = 0
 
         loop do
+          break if @ceiling_breached
+
           evaluation_result = evaluator.evaluate(
             task: task_text, output: result[:content],
             llm_client: llm_client, model: eval_config["evaluator_model"] || model, **opts
@@ -1162,6 +1165,13 @@ module Ai
     # found beyond the cap can be called.
     def load_described_tool!(tools, tool_call)
       args = tool_call[:arguments] || tool_call["arguments"] || {}
+      args = begin
+        JSON.parse(args)
+      rescue JSON::ParserError
+        {}
+      end if args.is_a?(String)
+      return unless args.is_a?(Hash)
+
       name = args[:name] || args["name"]
       return if name.blank?
 

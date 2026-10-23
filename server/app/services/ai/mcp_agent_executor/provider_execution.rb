@@ -50,6 +50,7 @@ class Ai::McpAgentExecutor
         unless response.success?
           raise ProviderError, "Provider returned no content (finish_reason: #{response.finish_reason})"
         end
+        stamp_credential_use!
         format_simple_result(response, model)
       end
     end

@@ -59,9 +59,9 @@ module Ai
     # platform-execution concept (HIER-P1C boundary rule), and a retried report
     # that revises the cost would otherwise debit the agent's budget here.
     after_update :propagate_cost_to_budget, if: -> { !claude_code_run? && saved_change_to_cost_usd? && cost_usd.present? && cost_usd > 0 }
-    after_update :trigger_trust_evaluation, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
-    after_update :record_model_performance, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
-    after_update :record_routing_decision_outcome, if: -> { saved_change_to_status? && %w[completed failed].include?(status) }
+    after_update :trigger_trust_evaluation, if: -> { saved_change_to_status? && %w[completed failed parked].include?(status) }
+    after_update :record_model_performance, if: -> { saved_change_to_status? && %w[completed failed parked].include?(status) }
+    after_update :record_routing_decision_outcome, if: -> { saved_change_to_status? && %w[completed failed parked].include?(status) }
 
     # Methods
     def pending?

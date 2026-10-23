@@ -324,7 +324,7 @@ export type AiAgentExecutionSource = 'claude_code' | 'platform' | 'scheduler' | 
 export interface AiAgentExecution {
   id: string;
   execution_id?: string;
-  status: 'queued' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  status: 'queued' | 'running' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'parked';
   created_at: string;
   started_at?: string | null;
   completed_at?: string | null;

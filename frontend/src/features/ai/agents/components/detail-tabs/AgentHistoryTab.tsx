@@ -18,6 +18,7 @@ const STATUS_BADGE: Record<ExecutionStatus, { variant: 'success' | 'warning' | '
   completed: { variant: 'success', label: 'Completed' },
   failed: { variant: 'danger', label: 'Failed' },
   cancelled: { variant: 'outline', label: 'Cancelled' },
+  parked: { variant: 'warning', label: 'Parked (cost ceiling)' },
 };
 
 const SOURCE_BADGE: Record<string, { variant: 'success' | 'warning' | 'danger' | 'info' | 'outline'; label: string }> = {

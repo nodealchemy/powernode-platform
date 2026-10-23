@@ -81,9 +81,9 @@ module Ai
       end
       NotificationService.send_system_alert(
         account: account, type: "execution_cost_ceiling", level: :warning,
-        title: "Agent execution parked at its cost ceiling",
+        title: "Agent execution reached its cost ceiling",
         message: "Agent '#{agent.name}' spent about $#{format('%.2f', cost_cents / 100.0)} in one execution " \
-                 "(ceiling $#{format('%.2f', ceiling_cents / 100.0)}); the run was parked.",
+                 "(ceiling $#{format('%.2f', ceiling_cents / 100.0)}) and reached its cost ceiling.",
         details: details
       )
     rescue StandardError => e
