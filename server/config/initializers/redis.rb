@@ -64,6 +64,15 @@ module Powernode
     #                         more lanes without ever overlapping the 15/14 pair of the shared one.
     DEFAULT_TEST_REDIS_DATABASES = TEST_DATABASE + 1
 
+    # Connections kept beyond Puma's max threads: the Rails boot/after_initialize
+    # path, a health sweep and similar non-request callers check out too.
+    POOL_HEADROOM = 4
+    # Seconds a caller waits for a free connection before ConnectionPool::TimeoutError.
+    # Short on purpose: a request thread parked behind an exhausted pool is worse than a fast failure
+    # the callers' existing `rescue StandardError` paths already handle.
+    DEFAULT_POOL_TIMEOUT = 2.0
+    POOL_MUTEX = Mutex.new
+
     class << self
       # The lane this process belongs to.
       #
@@ -150,8 +159,54 @@ module Powernode
         lane_database(TEST_WORKER_DATABASE)
       end
 
+      # Checks a connection out of the process-wide pool for the block and returns it afterwards.
+      # Two threads inside `with` at once hold two different connections; nothing is shared.
+      # (Defined explicitly: ActiveSupport's Object#with would otherwise just yield the module.)
+      def with(&block)
+        pool.with(&block)
+      end
+
+      # A stateless facade whose every command checks a connection out and back in around that one
+      # call (a block-taking command such as multi/pipelined/scan_each keeps its single checkout for
+      # the whole block). For call sites that issue many independent commands through an accessor;
+      # code that needs several commands on one connection (WATCH, a pipeline built across calls)
+      # must use `with`.
+      def pooled
+        @pooled ||= Pooled.new
+      end
+
+      # Deprecated shim: returns the checkout-per-call facade, never a shared connection.
       def client
-        @client ||= new_client
+        pooled
+      end
+
+      # Pool size: Puma's max threads (RAILS_MAX_THREADS, 16 by default as in config/puma.rb) plus
+      # POOL_HEADROOM. POWERNODE_REDIS_POOL_SIZE overrides.
+      def pool_size
+        override = ENV["POWERNODE_REDIS_POOL_SIZE"].to_s.strip
+        return Integer(override, 10) if override.match?(/\A[1-9]\d*\z/)
+
+        threads = ENV["RAILS_MAX_THREADS"].to_s.strip
+        threads = threads.match?(/\A[1-9]\d*\z/) ? Integer(threads, 10) : 16
+        threads + POOL_HEADROOM
+      end
+
+      def pool_timeout
+        Float(ENV.fetch("POWERNODE_REDIS_POOL_TIMEOUT", DEFAULT_POOL_TIMEOUT))
+      rescue ArgumentError, TypeError
+        DEFAULT_POOL_TIMEOUT
+      end
+
+      def pool_available
+        pool.available
+      end
+
+      # Closes every pooled connection and drops the pool; the next `with` builds a fresh one.
+      # Called by reconfigure! and from Puma's on_worker_boot, so a forked worker never inherits
+      # the master's sockets.
+      def reset_pool!
+        old = POOL_MUTEX.synchronize { @pool.tap { @pool = nil } }
+        old&.shutdown { |conn| conn.close rescue nil } # rubocop:disable Style/RescueModifier
       end
 
       def new_client
@@ -198,12 +253,17 @@ module Powernode
       end
 
       def reconfigure!
-        @client&.close rescue nil
-        @client = nil
+        reset_pool!
         @resolved_config = nil
       end
 
       private
+
+      def pool
+        @pool || POOL_MUTEX.synchronize do
+          @pool ||= ConnectionPool.new(size: pool_size, timeout: pool_timeout) { new_client }
+        end
+      end
 
       def derived_worker_url
         isolate_test_database(url.sub(/\/\d+\z/, "/1"), test_worker_database)
@@ -268,7 +328,7 @@ module Powernode
         # Outside RAILS_ENV=test nothing is isolated and #isolate_test_database
         # returns the URL untouched, so the lane is not merely unused there —
         # resolving it would let a stray TEST_REDIS_LANE in a dev or production
-        # process raise out of Powernode::Redis.client at boot.
+        # process raise out of Powernode::Redis.with at boot.
         return base unless Rails.env.test?
 
         lane = test_lane
@@ -339,9 +399,28 @@ module Powernode
   end
 end
 
+module Powernode
+  module Redis
+    # See Powernode::Redis.pooled. Holds no connection: each command is a short checkout.
+    class Pooled
+      # Redis commands that share a name with a private Kernel method: undefine them so they take the
+      # method_missing path (and a spec stubbing one gets a public method, not a private one).
+      %i[eval select exec].each { |name| undef_method(name) if private_method_defined?(name) }
+
+      def method_missing(name, *args, **kwargs, &block)
+        Powernode::Redis.with { |redis| redis.public_send(name, *args, **kwargs, &block) }
+      end
+
+      def respond_to_missing?(name, include_private = false)
+        ::Redis.method_defined?(name) || super
+      end
+    end
+  end
+end
+
 # Set Rails.application.config.redis_client after initialization
 Rails.application.config.after_initialize do
-  Rails.application.config.redis_client = Powernode::Redis.client
+  Rails.application.config.redis_client = Powernode::Redis.pooled
 rescue StandardError => e
   Rails.logger.warn "Powernode::Redis: Could not initialize shared client: #{e.message}"
 end

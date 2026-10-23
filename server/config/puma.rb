@@ -67,6 +67,9 @@ if web_concurrency > 0
   on_worker_boot do
     ActiveRecord::Base.establish_connection if defined?(ActiveRecord)
 
+    # Drop the Redis pool inherited from the master: sockets must not be shared across fork.
+    Powernode::Redis.reset_pool! if defined?(Powernode::Redis)
+
     # Worker recycler: restart this worker after MAX_WORKER_AGE or when RSS exceeds
     # MAX_WORKER_RSS. Puma phased-restart replaces workers one at a time, so there's
     # no downtime. This prevents memory bloat from long-running context assembly.
