@@ -123,25 +123,25 @@ module Compliance
       when 'audit_logs'
         # Audit logs are never deleted, only archived
         if action == 'anonymize'
-          purge(base, 'PATCH audit_logs/anonymize') { api_client.patch("/api/v1/internal/retention/audit_logs/anonymize", params) }
+          purge(base, 'PATCH /api/v1/internal/retention/audit_logs/anonymize') { api_client.patch("/api/v1/internal/retention/audit_logs/anonymize", params) }
         else
-          purge(base, 'POST audit_logs/archive') { api_client.post("/api/v1/internal/retention/audit_logs/archive", params) }
+          purge(base, 'POST /api/v1/internal/retention/audit_logs/archive') { api_client.post("/api/v1/internal/retention/audit_logs/archive", params) }
         end
       when 'user_activity'
         case action
-        when 'anonymize' then purge(base, 'PATCH activity/anonymize') { api_client.patch("/api/v1/internal/retention/activity/anonymize", params) }
-        when 'delete' then purge(base, 'DELETE activity') { api_client.delete("/api/v1/internal/retention/activity", params) }
+        when 'anonymize' then purge(base, 'PATCH /api/v1/internal/retention/activity/anonymize') { api_client.patch("/api/v1/internal/retention/activity/anonymize", params) }
+        when 'delete' then purge(base, 'DELETE /api/v1/internal/retention/activity') { api_client.delete("/api/v1/internal/retention/activity", params) }
         end
       when 'analytics_data'
         case action
-        when 'anonymize' then purge(base, 'PATCH analytics/anonymize') { api_client.patch("/api/v1/internal/retention/analytics/anonymize", params) }
-        when 'delete' then purge(base, 'DELETE analytics') { api_client.delete("/api/v1/internal/retention/analytics", params) }
+        when 'anonymize' then purge(base, 'PATCH /api/v1/internal/retention/analytics/anonymize') { api_client.patch("/api/v1/internal/retention/analytics/anonymize", params) }
+        when 'delete' then purge(base, 'DELETE /api/v1/internal/retention/analytics') { api_client.delete("/api/v1/internal/retention/analytics", params) }
         end
-      when 'session_logs' then purge(base, 'DELETE sessions') { api_client.delete("/api/v1/internal/retention/sessions", params) }
-      when 'email_logs' then purge(base, 'DELETE email_logs') { api_client.delete("/api/v1/internal/retention/email_logs", params) }
-      when 'webhook_logs' then purge(base, 'DELETE webhook_logs') { api_client.delete("/api/v1/internal/retention/webhook_logs", params) }
-      when 'api_request_logs' then purge(base, 'DELETE api_logs') { api_client.delete("/api/v1/internal/retention/api_logs", params) }
-      when 'file_uploads' then purge(base, 'DELETE files') { api_client.delete("/api/v1/internal/retention/files", params) }
+      when 'session_logs' then purge(base, 'DELETE /api/v1/internal/retention/sessions') { api_client.delete("/api/v1/internal/retention/sessions", params) }
+      when 'email_logs' then purge(base, 'DELETE /api/v1/internal/retention/email_logs') { api_client.delete("/api/v1/internal/retention/email_logs", params) }
+      when 'webhook_logs' then purge(base, 'DELETE /api/v1/internal/retention/webhook_logs') { api_client.delete("/api/v1/internal/retention/webhook_logs", params) }
+      when 'api_request_logs' then purge(base, 'DELETE /api/v1/internal/retention/api_logs') { api_client.delete("/api/v1/internal/retention/api_logs", params) }
+      when 'file_uploads' then purge(base, 'DELETE /api/v1/internal/retention/files') { api_client.delete("/api/v1/internal/retention/files", params) }
       end
     end
 
@@ -156,12 +156,9 @@ module Compliance
     # Bookkeeping only: a failure here does not undo the purge, but an
     # unrouted PATCH is still counted so the audit stays truthful.
     def record_enforcement(policy, count)
-      guard_unrouted('PATCH data_retention_policies') do
-        api_client.patch("/api/v1/internal/data_retention_policies/#{policy['id']}", {
-                           last_enforced_at: Time.current.iso8601,
-                           records_processed_count: (policy['records_processed_count'] || 0) + count
-                         })
-      end
+      body = { last_enforced_at: Time.current.iso8601,
+               records_processed_count: (policy['records_processed_count'] || 0) + count }
+      guard_unrouted('PATCH /api/v1/internal/data_retention_policies/:x') { api_client.patch("/api/v1/internal/data_retention_policies/#{policy['id']}", body) }
     rescue StandardError => e
       log_warn "Could not record enforcement for policy #{policy['id']}: #{e.message}"
     end

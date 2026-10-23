@@ -529,7 +529,7 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
         result = job.execute
 
         expect(result[:policy_results].first).to include(
-          action: 'delete', status: 'enforced', call: 'POST audit_logs/archive'
+          action: 'delete', status: 'enforced', call: 'POST /api/v1/internal/retention/audit_logs/archive'
         )
       end
     end
@@ -614,9 +614,9 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
 
         expect(audits.first[:metadata][:policy_results]).to contain_exactly(
           hash_including(data_type: 'session_logs', status: 'unrouted', records_processed: 0,
-                         call: 'DELETE sessions'),
+                         call: 'DELETE /api/v1/internal/retention/sessions'),
           hash_including(data_type: 'audit_logs', status: 'unrouted', records_processed: 0,
-                         call: 'POST audit_logs/archive')
+                         call: 'POST /api/v1/internal/retention/audit_logs/archive')
         )
         expect(api_client).not_to have_received(:patch)
       end
@@ -656,11 +656,30 @@ RSpec.describe Compliance::DataRetentionEnforcementJob, type: :job do
         expect(meta[:outcome]).to eq('enforced')
         expect(meta[:policy_results]).to contain_exactly(
           hash_including(data_type: 'session_logs', status: 'enforced', records_processed: 4,
-                         call: 'DELETE sessions'),
+                         call: 'DELETE /api/v1/internal/retention/sessions'),
           hash_including(data_type: 'audit_logs', status: 'enforced', records_processed: 6,
-                         call: 'POST audit_logs/archive')
+                         call: 'POST /api/v1/internal/retention/audit_logs/archive')
         )
       end
     end
+
+  # Drift pin: every call label names the verb and path of the client call on its own line, in the
+  # census key form, so base[:call] and the unrouted message cannot disagree with what actually ran.
+  describe 'call labels' do
+    let(:source_lines) do
+      File.readlines(File.expand_path('../../../app/jobs/compliance/data_retention_enforcement_job.rb', __dir__), chomp: true)
+    end
+
+    it 'matches each purge/guard_unrouted label to the api_client call on the same line' do
+      labelled = source_lines.select { |l| l.match?(/\b(?:purge\(base|guard_unrouted\()\s*,?\s*'(?:GET|POST|PATCH|PUT|DELETE) \//) }
+      expect(labelled.size).to be >= 12
+
+      labelled.each do |line|
+        verb, path = line.match(%r{'(GET|POST|PATCH|PUT|DELETE) (/api/v1/[^']+)'})&.captures
+        call_path = line[/api_client\.#{verb.to_s.downcase}\("([^"]+)"/, 1].to_s.gsub(/#\{[^}]*\}/, ':x')
+        expect(call_path).to eq(path), "label #{verb} #{path} disagrees with the call on: #{line.strip}"
+      end
+    end
+  end
   end
 end
