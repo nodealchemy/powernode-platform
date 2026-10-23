@@ -137,7 +137,7 @@ RSpec.describe "db/seeds/ai_canonical_agents_seed.rb" do
     it "iterates the registry: an agent registered into it by another owner is not seeded by core" do
       registry = Ai::Agents::CanonicalRoster::Registry.new
       roster.each { |slug, spec, owner| registry.register(slug, spec, owner: owner) }
-      registry.register("ext-agent", roster.fetch("platform-reviewer").merge(name: "Ext Agent"), owner: "extensions/other")
+      registry.register("ext-agent", roster.fetch("platform-reviewer").merge(name: "Ext Agent", absorbs: []), owner: "extensions/other")
       allow(roster).to receive(:registry).and_return(registry)
 
       load_seed!

@@ -119,6 +119,52 @@ RSpec.describe Ai::Agents::CanonicalRoster do
     end
   end
 
+  describe "absorbs (the old canonical slug each roster agent replaces)" do
+    it "declares the operator-approved core map" do
+      expect(described_class.fetch("platform-engineer")[:absorbs]).to match_array(
+        %w[platform-developer platform-architect release-manager documentation-specialist prd-generator
+           strategic-planner research-analyst knowledge-graph-curator]
+      )
+      expect(described_class.fetch("platform-reviewer")[:absorbs]).to match_array(%w[llm-judge system-quality-assurance])
+      expect(described_class.fetch("powernode-concierge")[:absorbs]).to match_array(
+        %w[system-concierge infrastructure-generalist powernode-assistant]
+      )
+    end
+
+    it "looks an old slug up to its absorbing roster agent, nil for anything else" do
+      expect(described_class.absorbing("llm-judge")).to eq("platform-reviewer")
+      expect(described_class.absorbing(:"prd-generator")).to eq("platform-engineer")
+      expect(described_class.absorbing("system-concierge")).to eq("powernode-concierge")
+      expect(described_class.absorbing("platform-engineer")).to be_nil
+      expect(described_class.absorbing("no-such-agent")).to be_nil
+    end
+
+    it "maps every old slug to exactly one roster agent, and no agent absorbs itself" do
+      absorbed = described_class.each.flat_map { |slug, spec, _| spec[:absorbs].map { |old| [ old, slug ] } }
+      expect(absorbed.map(&:first)).to eq(absorbed.map(&:first).uniq)
+      expect(absorbed.select { |old, slug| old == slug }).to be_empty
+      expect(absorbed.map(&:first) & described_class.slugs).to be_empty
+    end
+
+    it "refuses a spec that absorbs itself" do
+      registry = with_registry
+      expect { registry.register("a-one", spec_for("a-one", absorbs: %w[a-one]), owner: "core") }
+        .to raise_error(ArgumentError, /absorb itself/)
+    end
+
+    it "refuses an old slug two roster agents both claim" do
+      registry = with_registry("a-one" => spec_for("a-one", absorbs: %w[old-x]))
+      expect { registry.register("b-two", spec_for("b-two", absorbs: %w[old-x]), owner: "core") }
+        .to raise_error(described_class::DuplicateAbsorption, /old-x/)
+    end
+
+    it "lets the same agent re-register its absorbs (a code reload)" do
+      registry = with_registry("a-one" => spec_for("a-one", absorbs: %w[old-x]))
+      expect { registry.register("a-one", spec_for("a-one", absorbs: %w[old-x]), owner: "core") }.not_to raise_error
+      expect(described_class.absorbing("old-x")).to eq("a-one")
+    end
+  end
+
   describe "the registry" do
     it "registers a spec under a slug and owner and yields it from #each, in registration order" do
       registry = with_registry("a-one" => spec_for("a-one"))

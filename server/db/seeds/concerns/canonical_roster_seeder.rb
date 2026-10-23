@@ -73,6 +73,9 @@ module CoreSeeds
         ),
         "tool_access" => { "tool_families" => TOOL_FLOOR }
       )
+      # Template metadata, owned by the seed: the old canonical slugs this agent absorbs
+      # (Ai::Agents::CanonicalRoster.absorbing); only written when the spec declares any.
+      metadata = metadata.merge("absorbs" => spec[:absorbs]) if spec[:absorbs].present?
       agent.mcp_metadata = metadata unless metadata == agent.mcp_metadata
       agent.save! if agent.new_record? || agent.changed?
       CanonicalAgentOwner.backfill_owner!(agent, creator: admin_user, provider: provider)

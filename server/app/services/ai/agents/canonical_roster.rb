@@ -27,6 +27,8 @@ module Ai
     #   WITHOUT the whole-server grant may call beyond the bootstrap floor —
     #   those its assemblable skills name (loader_verb_coverage_spec keeps the two
     #   in step) — and duty: the skeleton's one duty sentence },
+    #   absorbs (optional): the OLD canonical slugs this agent replaces — each old slug maps
+    #   to exactly one roster agent and no agent absorbs itself (CanonicalRoster.absorbing),
     #   charter (the assembly prompt, at most MAX_CHARTER_LINES lines: identity,
     #   assembly protocol, role duty, escalation rule, report rule — no domain
     #   knowledge; domain knowledge is skills), posture { trust:, chain_approvers: }
@@ -42,6 +44,8 @@ module Ai
       MAX_CHARTER_LINES = 25
 
       class DuplicateSlug < StandardError; end
+      # Two roster agents both claim to absorb the same old slug.
+      class DuplicateAbsorption < StandardError; end
 
       # Ordered slug => [spec, owner]. Public so a spec can build an isolated one.
       class Registry
@@ -56,7 +60,15 @@ module Ai
             raise DuplicateSlug, "#{slug} is already registered by #{existing[:owner]}"
           end
 
-          @entries[slug] = { spec: validate!(slug, spec).freeze, owner: owner.to_s }
+          validated = validate!(slug, spec)
+          validated[:absorbs].each do |old|
+            claimant = absorbing(old)
+            next if claimant.nil? || claimant == slug
+
+            raise DuplicateAbsorption, "#{old} is already absorbed by #{claimant}; #{slug} cannot absorb it too"
+          end
+
+          @entries[slug] = { spec: validated.freeze, owner: owner.to_s }
           self
         end
 
@@ -72,6 +84,13 @@ module Ai
         def owner_of(slug) = @entries.fetch(slug.to_s)[:owner]
         def slugs = @entries.keys
         def include?(slug) = @entries.key?(slug.to_s)
+
+        # The roster agent that absorbs the old canonical `old_slug`, or nil.
+        def absorbing(old_slug)
+          old = old_slug.to_s
+          @entries.each { |slug, entry| return slug if entry[:spec][:absorbs].include?(old) }
+          nil
+        end
 
         private
 
@@ -94,7 +113,11 @@ module Ai
           lines = spec[:charter].to_s.lines.count { |l| l.strip.present? }
           raise ArgumentError, "#{slug}: charter is #{lines} lines (max #{MAX_CHARTER_LINES})" if lines > MAX_CHARTER_LINES
 
-          spec.merge(role: role.merge(verbs: role[:verbs].map(&:to_s).freeze).freeze, posture: (spec[:posture] || {}).freeze, tier: spec[:tier].to_s, domains: spec[:domains].map(&:to_s).freeze)
+          absorbs = Array(spec[:absorbs]).map(&:to_s)
+          raise ArgumentError, "#{slug}: a roster agent cannot absorb itself" if absorbs.include?(slug)
+          raise ArgumentError, "#{slug}: absorbs lists #{(absorbs.tally.select { |_, n| n > 1 }.keys).join(', ')} twice" if absorbs.uniq.size != absorbs.size
+
+          spec.merge(absorbs: absorbs.freeze, role: role.merge(verbs: role[:verbs].map(&:to_s).freeze).freeze, posture: (spec[:posture] || {}).freeze, tier: spec[:tier].to_s, domains: spec[:domains].map(&:to_s).freeze)
         end
       end
 
@@ -114,6 +137,12 @@ module Ai
       # @return [String] "core" or the registering "extensions/<slug>"; raises KeyError for any unregistered slug
       def owner_of(slug) = registry.owner_of(slug)
       def include?(slug) = registry.include?(slug)
+
+      # @return [String, nil] the roster agent that absorbs the old canonical `old_slug`
+      #   (R0 of the 0.3.0 roster activation: every retired canonical slug maps to exactly
+      #   one roster agent), nil when no roster agent absorbs it. A lookup only: nothing
+      #   routes through it yet.
+      def absorbing(old_slug) = registry.absorbing(old_slug)
       def slugs = registry.slugs
 
       # The assembly prompt every canonical agent carries: identity sentence,
@@ -143,6 +172,7 @@ module Ai
       register(
         "powernode-concierge",
         {
+          absorbs: %w[system-concierge infrastructure-generalist powernode-assistant],
           name: "Powernode Concierge",
           agent_type: "assistant",
           tier: "standard",
@@ -175,6 +205,7 @@ module Ai
       register(
         "platform-engineer",
         {
+          absorbs: %w[platform-developer platform-architect release-manager documentation-specialist prd-generator strategic-planner research-analyst knowledge-graph-curator],
           name: "Platform Engineer",
           agent_type: "code_assistant",
           tier: "standard",
@@ -202,6 +233,7 @@ module Ai
       register(
         "platform-reviewer",
         {
+          absorbs: %w[llm-judge system-quality-assurance],
           name: "Platform Reviewer",
           agent_type: "assistant",
           tier: "reasoning",
