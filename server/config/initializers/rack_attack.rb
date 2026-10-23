@@ -579,6 +579,73 @@ class Rack::Attack
       path.start_with?("/api/v1/system/federation_api/")
   end
 
+  # True only for a request carrying a credential the platform can PROVE belongs
+  # to the standalone worker: a JWT signed with the worker secret
+  # (JWT_SECRET_KEY, HS256) whose audience is "worker", issuer ours, unexpired,
+  # typed "worker" and naming a subject; or a client cert PEM that verifies
+  # against OUR CA and names an active Worker. A forwarded subject-CN header
+  # without a PEM is deliberately NOT enough here: the controller trusts it
+  # because the ingress strips client copies, but a throttle bypass should rest
+  # only on something the caller cannot forge. Never raises; any failure is
+  # "not a worker" so the request keeps being counted.
+  def self.verified_worker_request?(request)
+    env = request.env
+    return env["rack_attack.verified_worker"] if env.key?("rack_attack.verified_worker")
+
+    env["rack_attack.verified_worker"] = valid_worker_token?(request) || verified_worker_cert?(request)
+  end
+
+  def self.valid_worker_token?(request)
+    token = request.get_header("HTTP_AUTHORIZATION").to_s.split(" ").last
+    return false if token.blank?
+
+    payload, = JWT.decode(
+      token, Security::JwtKeyStore.worker_auth_secret, true,
+      algorithm: "HS256", verify_iss: true, iss: Rails.application.config.jwt_issuer,
+      verify_aud: true, aud: Security::JwtService::WORKER_AUDIENCE, required_claims: %w[exp sub]
+    )
+    payload["type"] == "worker" && payload["sub"].present?
+  rescue JWT::DecodeError
+    false # the ordinary shape of anonymous/stale/forged traffic: quiet, still counted
+  rescue StandardError => e
+    Rails.logger.error(
+      "[RackAttack] worker token check failed — failing closed (request is NOT exempt and keeps " \
+      "counting toward its throttles): #{e.class}: #{e.message}"
+    )
+    false
+  end
+  private_class_method :valid_worker_token?
+
+  def self.verified_worker_cert?(request)
+    return false if request.get_header("HTTP_X_FORWARDED_TLS_CLIENT_CERT").blank?
+
+    cn = Security::MtlsTrust.verify_request(ActionDispatch::Request.new(request.env), require_pem: true)
+    cn.present? && Worker.active.exists?(node_instance_id: cn)
+  rescue StandardError => e
+    Rails.logger.error(
+      "[RackAttack] worker cert check failed — failing closed (request is NOT exempt and keeps " \
+      "counting toward its throttles): #{e.class}: #{e.message}"
+    )
+    false
+  end
+  private_class_method :verified_worker_cert?
+
+  # Safelist verified worker traffic to the internal API. /api/v1/internal/* is
+  # called only by the standalone worker, and its callers resolve no account, so
+  # without this every one of them counted against api_requests_by_ip under the
+  # worker's single IP: ~88 embedding-config + credential-decrypt calls in five
+  # minutes exhausted the 300/15min budget and every worker->server call (sweeps,
+  # agent runs, dispatch_tool) got 429 for 15 minutes. Both conditions are
+  # required: the path alone is never enough (an anonymous or badly-signed
+  # request to /internal/ still counts), and a valid worker credential outside
+  # /internal/ is not exempted either.
+  safelist("internal_worker_api") do |request|
+    path = canonical_path(request)
+    next false unless path.start_with?("/api/v1/internal/")
+
+    verified_worker_request?(request)
+  end
+
   # Safelist specific API keys (e.g., system workers)
   #
   # IMP-24df1ec74489 — same key_hash -> key_digest column fix and digest
