@@ -59,4 +59,35 @@ RSpec.describe 'release/setup docs describe the git remotes without deployment i
     expect(release).to match(/`gitea` \(the private Gitea upstream; host is deployment knowledge\)/)
     expect(release).to match(/`origin` \(the public GitHub mirror\)/)
   end
+
+  # Three pages describe the layout and must agree with release-process.md's
+  # Remotes table (the one release.sh follows): `gitea` is the private upstream,
+  # `origin` is the public GitHub mirror, and no `github` remote exists.
+  describe 'the three pages that name the remotes agree' do
+    pages = %w[
+      docs/contributing/release-process.md
+      docs/contributing/github-workflow.md
+      docs/getting-started/03-extensions.md
+    ]
+
+    pages.each do |rel|
+      context rel do
+        let(:text) { File.read(File.join(repo_root, rel)).gsub(/\s+/, ' ') }
+
+        it '`gitea` is the private Gitea upstream' do
+          expect(text).to match(/`gitea`[^.|]{0,40}private Gitea upstream/)
+        end
+
+        it '`origin` is the public GitHub mirror' do
+          expect(text).to match(/`origin`[^.|]{0,40}(?:public )?GitHub mirror/)
+        end
+
+        it 'does not call `origin` the Gitea upstream, nor name a `github` remote' do
+          expect(text).not_to match(/Gitea upstream \(`origin`\)/)
+          expect(text).not_to match(/`origin` points at the private Gitea/)
+          expect(text).not_to match(/`github` (?:points at|\(|is the)|\(`github`\)/)
+        end
+      end
+    end
+  end
 end
