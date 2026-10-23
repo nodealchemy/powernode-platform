@@ -7,6 +7,7 @@ import { useNotification } from '@/shared/hooks/useNotification';
 import { usePermissions } from '@/shared/hooks/usePermissions';
 import { formatDurationMs, formatRelativeTimeCompact } from '@/shared/utils/formatters';
 import type { AiAgentExecution } from '@/shared/types/ai';
+import { formatCost } from '../../constants/agentConstants';
 
 type ExecutionStatus = AiAgentExecution['status'];
 
@@ -58,7 +59,6 @@ const stripContent = (value: unknown): { value: unknown; hidden: boolean } => {
   return { value, hidden: false };
 };
 
-const formatCost = (cost?: number | null) => (cost == null ? NOT_RECORDED : `$${Number(cost).toFixed(4)}`);
 
 const formatJson = (value: unknown) => JSON.stringify(value, null, 2);
 
@@ -211,7 +211,7 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
                 <div className="grid grid-cols-3 gap-4 py-3 text-xs">
                   <Field label="Model" value={exec.model} />
                   <Field label="Tokens" value={exec.tokens_used != null ? exec.tokens_used.toLocaleString() : null} />
-                  <Field label="Cost" value={exec.cost_usd == null ? null : formatCost(exec.cost_usd)} />
+                  <Field label="Cost" value={exec.cost_usd == null ? null : formatCost(Number(exec.cost_usd))} />
                   <Field
                     label="Duration"
                     value={exec.duration_ms == null ? null : formatDurationMs(exec.duration_ms)}
