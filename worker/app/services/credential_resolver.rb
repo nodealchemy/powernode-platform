@@ -17,6 +17,12 @@ class CredentialResolver
     @cache = {}
   end
 
+  # @cache holds decrypted credentials; never render it.
+  def inspect
+    "#<#{self.class.name} cached=#{@cache.size}>"
+  end
+  alias to_s inspect
+
   # Resolve a credential by ID, returning decrypted credential data.
   # Results are cached for CACHE_TTL seconds.
   #

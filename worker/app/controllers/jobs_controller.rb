@@ -12,13 +12,51 @@ class JobsController
   STDIO_CAPACITY_EXHAUSTED_MESSAGE = 'MCP stdio capacity exhausted'
   STDIO_CAPACITY_EXHAUSTED_CODE = 'mcp_stdio_capacity_exhausted'
 
+  # How long a built embedding service (provider config + the decrypted
+  # credential its resolver holds) is reused. Matches CredentialResolver::CACHE_TTL.
+  EMBEDDING_SERVICE_TTL = 5 * 60
+
+  EMBEDDING_SERVICES_LOCK = Mutex.new
+  private_constant :EMBEDDING_SERVICES_LOCK
+
   class << self
+    # A controller is built per request, so the embedding services are kept per
+    # PROCESS, keyed by account, with a TTL. Each build costs the server two
+    # internal API calls (embedding_config + credential decrypt), and per-IP
+    # throttling there counts them; per-instance memoization cached nothing.
+    # Entries hold the service only; nothing here logs or serialises it.
+    def cached_embedding_service(account_id)
+      EMBEDDING_SERVICES_LOCK.synchronize do
+        entry = embedding_services[account_id]
+        return entry[:service] if entry && entry[:expires_at] > Time.now
+
+        nil
+      end
+    end
+
+    def store_embedding_service(account_id, service)
+      EMBEDDING_SERVICES_LOCK.synchronize do
+        embedding_services[account_id] = { service: service, expires_at: Time.now + EMBEDDING_SERVICE_TTL }
+      end
+      service
+    end
+
+    def reset_embedding_services!
+      EMBEDDING_SERVICES_LOCK.synchronize { embedding_services.clear }
+    end
+
     # A controller is built per request, so the limiter is process-wide:
     # Mcp::StdioConcurrencyLimiter.instance unless a spec swaps its own in.
     attr_writer :stdio_limiter
 
     def stdio_limiter
       @stdio_limiter || Mcp::StdioConcurrencyLimiter.instance
+    end
+
+    private
+
+    def embedding_services
+      @embedding_services ||= {}
     end
   end
 
@@ -483,8 +521,7 @@ class JobsController
   # Build an embedding service for an account.
   # Resolves the embedding provider config from the server.
   def build_embedding_service(account_id)
-    @embedding_services ||= {}
-    cached = @embedding_services[account_id]
+    cached = self.class.cached_embedding_service(account_id)
     return cached if cached
 
     # Fetch embedding provider config from server
@@ -502,8 +539,7 @@ class JobsController
       ollama_model: config["ollama_model"]
     )
 
-    @embedding_services[account_id] = service
-    service
+    self.class.store_embedding_service(account_id, service)
   end
 
   def enqueue_job(request)

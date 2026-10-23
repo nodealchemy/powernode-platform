@@ -39,6 +39,13 @@ module Ai
       @redis = build_redis
     end
 
+    # The resolver holds the decrypted provider key for the life of this
+    # (process-cached) service, so keep it out of inspect/log output.
+    def inspect
+      "#<#{self.class.name} provider=#{@provider_type} account=#{@account_id}>"
+    end
+    alias to_s inspect
+
     # Generate embedding for text
     # @param text [String] text to embed
     # @param use_cache [Boolean] whether to check/store in Redis cache
