@@ -101,17 +101,31 @@ module Security
       truncated = false
 
       with do |redis|
-        redis.scan_each(match: "#{BLOCK_PREFIX}*") do |key|
-          if rows.size >= limit
+        keys = []
+        redis.scan_each(match: "#{BLOCK_PREFIX}*", count: 1000) do |key|
+          if keys.size >= limit
             truncated = true
             break
           end
-          ip = key.delete_prefix(BLOCK_PREFIX)
+          keys << key
+        end
+
+        # TTL and both counters for every listed IP in one pipelined round trip.
+        ips = keys.map { |key| key.delete_prefix(BLOCK_PREFIX) }
+        replies = redis.pipelined do |pipe|
+          keys.zip(ips) do |key, ip|
+            pipe.ttl(key)
+            pipe.get(OFFENSES_PREFIX + ip)
+            pipe.get(SUSPICIOUS_PREFIX + ip)
+          end
+        end
+        ips.each_with_index do |ip, i|
+          ttl, offenses, suspicious = replies[3 * i, 3]
           rows << {
             ip: ip,
-            ttl_seconds: [ redis.ttl(key), 0 ].max,
-            offense_count: redis.get(OFFENSES_PREFIX + ip).to_i,
-            suspicious_count: redis.get(SUSPICIOUS_PREFIX + ip).to_i
+            ttl_seconds: [ ttl, 0 ].max,
+            offense_count: offenses.to_i,
+            suspicious_count: suspicious.to_i
           }
         end
       end

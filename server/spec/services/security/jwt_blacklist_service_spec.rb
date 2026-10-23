@@ -327,6 +327,8 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
       allow(redis).to receive(:get) { |key| store[key] }
       # redis-rb 5.x `exists?` returns a Boolean, not an integer.
       allow(redis).to receive(:exists?) { |key| store.key?(key) }
+      # cleanup counts a whole slice with one EXISTS, which returns an Integer.
+      allow(redis).to receive(:exists) { |*keys| keys.count { |key| store.key?(key) } }
       allow(redis).to receive(:scan_each) do |match:|
         glob = Regexp.escape(match).gsub('\*', ".*")
         store.keys.select { |k| k.match?(/\A#{glob}\z/) }.each
@@ -427,13 +429,12 @@ RSpec.describe Security::JwtBlacklistService, type: :service do
     end
 
     describe ".cleanup_expired" do
-      # redis-rb 5.x `exists?` returns a Boolean. cleanup counts keys that were
-      # enumerated by scan_each but have since been auto-expired by Redis (i.e.
-      # `exists?` now reports false).
+      # cleanup counts keys that were enumerated by scan_each but have since been
+      # auto-expired by Redis: one EXISTS per slice reports how many are left.
       it "counts keys that Redis auto-expired between the scan and the existence check" do
         described_class.blacklist(jti, future_expiry) # one key enumerated by scan_each
         # Simulate Redis expiring that key right after it was scanned.
-        allow(redis).to receive(:exists?).and_return(false)
+        allow(redis).to receive(:exists).and_return(0)
 
         expect(described_class.cleanup_expired).to eq(1)
       end

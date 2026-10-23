@@ -71,12 +71,16 @@ module RateLimiting
         end
 
         found = false
-        Powernode::CacheRedis.scan_each(match: pattern) do |key|
-          current_count = Rails.cache.read_counter(key).to_i
-          limit = extract_limit_from_key(key)
-          if limit && current_count >= limit
-            found = true
-            break
+        Powernode::CacheRedis.with do |redis|
+          scan_batches(redis, pattern) do |keys|
+            counters_and_ttls(redis, keys).each do |key, (current_count, _ttl)|
+              limit = extract_limit_from_key(key)
+              if limit && current_count >= limit
+                found = true
+                break
+              end
+            end
+            break if found
           end
         end
         found
@@ -95,22 +99,22 @@ module RateLimiting
 
         limits = {}
         Powernode::CacheRedis.with do |redis|
-          redis.scan_each(match: pattern) do |key|
-            parts = key.split(":")
-            next if parts.length < 4
+          scan_batches(redis, pattern) do |keys|
+            counters_and_ttls(redis, keys).each do |key, (current_count, ttl)|
+              parts = key.split(":")
+              next if parts.length < 4
 
-            controller = parts[1]
-            action = parts[2]
-            current_count = Rails.cache.read_counter(key).to_i
-            limit = extract_limit_from_key(key)
-            ttl = redis.ttl(key)
+              controller = parts[1]
+              action = parts[2]
+              limit = extract_limit_from_key(key)
 
-            limits["#{controller}##{action}"] = {
-              current: current_count,
-              limit: limit,
-              remaining: [ limit - current_count, 0 ].max,
-              reset_in: ttl > 0 ? ttl : 0
-            } if limit
+              limits["#{controller}##{action}"] = {
+                current: current_count,
+                limit: limit,
+                remaining: [ limit - current_count, 0 ].max,
+                reset_in: ttl > 0 ? ttl : 0
+              } if limit
+            end
           end
         end
 
@@ -138,12 +142,36 @@ module RateLimiting
 
       private
 
+      SCAN_COUNT = 1000
+      READ_BATCH = 500
+
+      # Cursor-based SCAN (never KEYS), handed to the block in slices so the per-key reads can be
+      # batched. A `break` in the block stops the scan.
+      def scan_batches(redis, pattern, &block)
+        redis.scan_each(match: pattern, count: SCAN_COUNT).each_slice(READ_BATCH, &block)
+      end
+
+      # { key => [counter, ttl] } for the keys in ONE pipelined round trip (was a read_counter plus a
+      # TTL per key). Counters are raw integers, so GET.to_i is exactly what read_counter returned.
+      def counters_and_ttls(redis, keys)
+        replies = redis.pipelined do |pipe|
+          keys.each do |key|
+            pipe.get(key)
+            pipe.ttl(key)
+          end
+        end
+        keys.each_with_index.to_h { |key, i| [ key, [ replies[2 * i].to_i, replies[2 * i + 1].to_i ] ] }
+      end
+
       def count_current_violations
         violations = 0
-        Powernode::CacheRedis.scan_each(match: "rate_limit:*") do |key|
-          current_count = Rails.cache.read_counter(key).to_i
-          limit = extract_limit_from_key(key)
-          violations += 1 if limit && current_count >= limit
+        Powernode::CacheRedis.with do |redis|
+          scan_batches(redis, "rate_limit:*") do |keys|
+            counters_and_ttls(redis, keys).each do |key, (current_count, _ttl)|
+              limit = extract_limit_from_key(key)
+              violations += 1 if limit && current_count >= limit
+            end
+          end
         end
         violations
       rescue StandardError => e

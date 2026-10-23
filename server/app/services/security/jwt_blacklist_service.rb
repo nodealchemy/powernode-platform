@@ -168,9 +168,9 @@ module Security
         cleaned = 0
 
         keys.each_slice(CLEANUP_BATCH_SIZE) do |batch|
-          # redis-rb 5.x `exists?` returns a Boolean, so a key that scan_each
-          # enumerated but that now reports false has been auto-expired by Redis.
-          cleaned += batch.count { |key| !redis.exists?(key) }
+          # One EXISTS for the whole slice: it returns how many of the keys are still there, so a key
+          # that scan_each enumerated but that is no longer counted has been auto-expired by Redis.
+          cleaned += batch.size - redis.exists(*batch)
         end
 
         Rails.logger.info "Redis JWT blacklist cleanup: #{cleaned} expired entries found"
