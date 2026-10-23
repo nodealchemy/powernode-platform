@@ -9,8 +9,12 @@ require 'tmpdir'
 # row of the dev database. These specs spawn rspec as a subprocess pointed ONLY at a database
 # that does not exist, so the guard must abort before any connection (no DELETE can run).
 RSpec.describe 'rails_helper environment guard' do
-  PROBE_DB = 'powernode_guard_probe_nonexistent'
-  SERVER_ROOT = File.expand_path('../..', __dir__)
+  # Scoped to this example group, never top-level constants: a constant
+  # assigned in a describe block lands on Object, where another spec file's
+  # same-named constant (a SERVER_ROOT Pathname) replaced it in whichever
+  # process loaded both.
+  let(:probe_db) { 'powernode_guard_probe_nonexistent' }
+  let(:server_root) { File.expand_path('../..', __dir__) }
 
   def run_probe(env)
     Dir.mktmpdir('env-guard') do |dir|
@@ -24,21 +28,21 @@ RSpec.describe 'rails_helper environment guard' do
       base = { 'RAILS_ENV' => nil, 'RACK_ENV' => nil, 'DATABASE_URL' => nil,
                'DATABASE_NAME' => nil, 'TEST_ENV_NUMBER' => nil }
       out, status = Bundler.with_unbundled_env do
-        Open3.capture2e(base.merge(env), 'bundle', 'exec', 'rspec', probe, chdir: SERVER_ROOT)
+        Open3.capture2e(base.merge(env), 'bundle', 'exec', 'rspec', probe, chdir: server_root)
       end
       [ out, status ]
     end
   end
 
   it 'refuses RAILS_ENV=development before touching any database' do
-    out, status = run_probe('RAILS_ENV' => 'development', 'DATABASE_NAME' => PROBE_DB)
+    out, status = run_probe('RAILS_ENV' => 'development', 'DATABASE_NAME' => probe_db)
     expect(status.exitstatus).not_to eq(0)
     expect(out).to include('rspec refuses RAILS_ENV=development')
     expect(out).not_to match(/DELETE FROM|PG::ConnectionBad|does not exist/)
   end
 
   it 'refuses RACK_ENV=development when RAILS_ENV is unset' do
-    out, status = run_probe('RACK_ENV' => 'development', 'DATABASE_NAME' => PROBE_DB)
+    out, status = run_probe('RACK_ENV' => 'development', 'DATABASE_NAME' => probe_db)
     expect(status.exitstatus).not_to eq(0)
     expect(out).to include('rspec refuses RACK_ENV=development')
     expect(out).not_to match(/DELETE FROM|PG::ConnectionBad|does not exist/)
@@ -46,10 +50,10 @@ RSpec.describe 'rails_helper environment guard' do
 
   it 'refuses a non-test database name even when RAILS_ENV=test' do
     out, status = run_probe('RAILS_ENV' => 'test',
-                            'DATABASE_URL' => "postgres://localhost:5432/#{PROBE_DB}")
+                            'DATABASE_URL' => "postgres://localhost:5432/#{probe_db}")
     expect(status.exitstatus).not_to eq(0)
     expect(out).to include('rspec refuses database')
-    expect(out).to include(PROBE_DB)
+    expect(out).to include(probe_db)
     expect(out).not_to match(/DELETE FROM|PG::ConnectionBad|does not exist/)
   end
 end
