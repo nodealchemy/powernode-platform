@@ -49,6 +49,44 @@ module Ai
     scope :at_threshold, ->(pct) { where("(spent_cents::float / NULLIF(total_budget_cents, 0)) * 100 >= ?", pct) }
 
     # ==========================================
+    # Per-execution ceiling (IMP-feffafe51c3c)
+    # ==========================================
+
+    # A single run's cost ceiling, in cents. A SiteSetting overrides the default.
+    EXECUTION_CEILING_SETTING = "ai_execution_cost_ceiling_cents"
+    DEFAULT_EXECUTION_CEILING_CENTS = 100
+
+    def self.execution_ceiling_cents
+      configured = SiteSetting.get(EXECUTION_CEILING_SETTING).to_i
+      configured.positive? ? configured : DEFAULT_EXECUTION_CEILING_CENTS
+    rescue StandardError
+      DEFAULT_EXECUTION_CEILING_CENTS
+    end
+
+    # One execution passed its ceiling: tell the account's users and leave an
+    # audit row. The caller parks the run. The audit row is the record of truth;
+    # a failed notification must not hide it, and a failed audit must not stop
+    # the park, so neither raises.
+    def self.record_execution_ceiling_breach!(account:, agent:, cost_cents:, ceiling_cents:, tokens: {})
+      details = { agent_id: agent.id, cost_cents: cost_cents, ceiling_cents: ceiling_cents,
+                  prompt_tokens: tokens[:prompt_tokens], completion_tokens: tokens[:completion_tokens] }
+      AuditLog.create!(
+        account_id: account.id, action: "ai.execution.cost_ceiling_exceeded", source: "system",
+        resource_type: "Ai::Agent", resource_id: agent.id, severity: "high", risk_level: "high",
+        new_values: details, metadata: details
+      )
+      NotificationService.send_system_alert(
+        account: account, type: "execution_cost_ceiling", level: :warning,
+        title: "Agent execution parked at its cost ceiling",
+        message: "Agent '#{agent.name}' spent about $#{format('%.2f', cost_cents / 100.0)} in one execution " \
+                 "(ceiling $#{format('%.2f', ceiling_cents / 100.0)}); the run was parked.",
+        details: details
+      )
+    rescue StandardError => e
+      Rails.logger.error("[AgentBudget] Execution ceiling breach handling failed: #{e.class}: #{e.message}")
+    end
+
+    # ==========================================
     # Core budget operations (row-locked, audited)
     # ==========================================
 

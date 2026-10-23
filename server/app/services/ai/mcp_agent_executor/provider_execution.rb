@@ -41,6 +41,7 @@ class Ai::McpAgentExecutor
         result = tool_bridge.execute_tool_loop(
           llm_client: llm_client, messages: messages, model: model, **opts
         )
+        persist_turn_metrics(result[:turns])
         format_tool_loop_result(result, model)
       else
         opts[:max_tokens] ||= route_max_tokens(model, agentic: false)
@@ -157,6 +158,23 @@ class Ai::McpAgentExecutor
                                         version_ids: @agent.served_skill_version_ids)
     rescue StandardError => e
       @logger.warn("[MCP_AGENT_EXECUTOR] served skill version stamp failed: #{e.class}: #{e.message}")
+    end
+
+    # Per-turn prompt_tokens, cached_tokens and tool_definition_count, so a run
+    # that resends a large catalog shows in its own record (IMP-fea579e125d1).
+    # Best-effort and column-only, like persist_context_metrics.
+    def persist_turn_metrics(turns)
+      return if turns.blank? || @execution.nil?
+
+      merged = (@execution.performance_metrics || {}).merge(
+        "turns" => turns,
+        "tool_definition_count" => turns.map { |t| t["tool_definition_count"] }.max,
+        "turn_prompt_tokens" => turns.sum { |t| t["prompt_tokens"] },
+        "turn_cached_tokens" => turns.sum { |t| t["cached_tokens"] }
+      )
+      @execution.update_columns(performance_metrics: merged)
+    rescue StandardError => e
+      @logger.warn("[MCP_AGENT_EXECUTOR] turn metrics persistence failed: #{e.class}: #{e.message}")
     end
 
     def format_tool_loop_result(result, model)

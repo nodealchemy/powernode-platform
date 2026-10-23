@@ -272,6 +272,8 @@ class WorkerLlmClient
     return unless @agent_id
     return unless response.total_tokens > 0 && response.finish_reason != "error"
 
+    touch_credential_last_used!
+
     cost_cents = Ai::CostCalculationService.calculate_cents(
       model_id: model.to_s,
       prompt_tokens: response.prompt_tokens,
@@ -296,6 +298,15 @@ class WorkerLlmClient
     })
   rescue StandardError => e
     Rails.logger.warn("[WorkerLlmClient] Budget tracking failed: #{e.class}: #{e.message}")
+  end
+
+  # The provider credential that served the call records its use (IMP-df846f2166d5):
+  # an agent run resolves it on the worker side, so `last_used_at` never moved.
+  def touch_credential_last_used!
+    cred = @credential || (@agent_id && Ai::Agent.find_by(id: @agent_id)&.resolved_credential)
+    cred&.update_columns(last_used_at: Time.current)
+  rescue StandardError => e
+    Rails.logger.warn("[WorkerLlmClient] credential last_used_at touch failed: #{e.class}: #{e.message}")
   end
 
   def resolve_agent_budget

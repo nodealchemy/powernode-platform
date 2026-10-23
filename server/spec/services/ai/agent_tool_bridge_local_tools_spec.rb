@@ -108,7 +108,7 @@ RSpec.describe Ai::AgentToolBridgeService, "#execute_tool_loop with local tools"
     expect(local_tool_class.calls).to be_empty
   end
 
-  it "advertises local tools and keeps them when the provider cap trims the platform list" do
+  it "advertises local tools and keeps them when the catalog cap trims the platform list" do
     # 150 platform tools that ALL match the detected intent (monitoring: "health",
     # "status"), so the relevance filter must truncate. write_file matches no
     # intent pattern: only the cap reservation keeps it, wherever it would sit.
@@ -116,7 +116,7 @@ RSpec.describe Ai::AgentToolBridgeService, "#execute_tool_loop with local tools"
       { name: "integration_health_#{i}", description: "health probe #{i}",
         parameters: { type: "object", properties: {}, required: [] } }
     end
-    allow(bridge).to receive(:tool_definitions_for_llm).and_return(platform)
+    allow(bridge).to receive(:scoped_tool_definitions).and_return(platform)
     client = llm_client_class.new("openai", [])
 
     bridge.execute_tool_loop(llm_client: client, messages: [ { role: "user", content: "show the integration health status" } ],
@@ -124,7 +124,7 @@ RSpec.describe Ai::AgentToolBridgeService, "#execute_tool_loop with local tools"
 
     sent = names(client.requests.first[:tools])
     expect(sent.first).to eq("write_file")
-    expect(sent.size).to eq(described_class::OPENAI_TOOL_CAP)
+    expect(sent.size).to eq(described_class::CATALOG_CAP)
   end
 
   it "advertises no local tool when none is supplied" do

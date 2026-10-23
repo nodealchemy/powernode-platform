@@ -22,6 +22,16 @@ module Ai
     # e.g. { "data_analyst" => ["data_source", "search", "query", "list", "get"] }
     FAMILY_DEFAULTS_SETTING = "ai_agent_tool_family_defaults"
 
+    # The verbs a roster shadow always has beside its role verbs, and the two that
+    # reach everything else: discover_tools finds a verb by intent, describe_tool
+    # loads its schema (IMP-fea579e125d1).
+    ROSTER_BOOTSTRAP_VERBS = %w[discover_tools describe_tool get_agent assemble_task record_agent_execution].freeze
+    OVERFLOW_PATH_VERBS = %w[discover_tools describe_tool].freeze
+
+    # The most definitions any non-roster agent is sent per turn; the rest are
+    # reached through discover_tools. A roster shadow is bounded by its role.
+    CATALOG_CAP = 30
+
     attr_reader :agent, :account
 
     # `driving_user`: the person who actually ran the agent (an execution's
@@ -101,7 +111,13 @@ module Ai
 
     # Convert platform tool definitions to LLM function-calling format
     def tool_definitions_for_llm
-      @tool_definitions_for_llm ||= build_tool_definitions
+      @tool_definitions_for_llm ||= cap_catalog(scoped_tool_definitions, nil, catalog_cap)
+    end
+
+    # Whether this agent is a canonical roster row (by slug): it is advertised
+    # its role's verbs and nothing else.
+    def roster_shadow?
+      agent.slug.present? && Ai::Agents::CanonicalRoster.include?(agent.slug)
     end
 
     # Tools whose results are surfaced to the chat UI as rich cards.
@@ -375,6 +391,11 @@ module Ai
       accumulated_usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
       turn_scoped = turn_scoped_tail(messages)
       tool_calls_log = []
+      # Per-turn input cost: what each LLM call carried (IMP-fea579e125d1).
+      turns = []
+      execution_cents = 0
+      ceiling_cents = ::Ai::AgentBudget.execution_ceiling_cents
+      ceiling_breached = false
       # Surface non-truncated results for tools whitelisted in CARD_TOOLS.
       # Frontend reads these from message.content_metadata.cards.
       chat_cards = []
@@ -403,6 +424,25 @@ module Ai
         Rails.logger.info "[AgentToolBridge] Response: has_tool_calls=#{response.has_tool_calls?} finish_reason=#{response.finish_reason} content_length=#{response.content&.length} usage=#{response.usage}"
 
         accumulate_usage(accumulated_usage, response.usage)
+        turns << { "prompt_tokens" => response.prompt_tokens.to_i, "cached_tokens" => response.cached_tokens.to_i,
+                   "tool_definition_count" => tools.size }
+
+        # Per-execution cost ceiling (IMP-feffafe51c3c): alert once, audited, and
+        # park a run that would otherwise take another turn.
+        execution_cents += turn_cost_cents(response, model)
+        if !ceiling_breached && execution_cents > ceiling_cents
+          ceiling_breached = true
+          ::Ai::AgentBudget.record_execution_ceiling_breach!(
+            account: account, agent: agent, cost_cents: execution_cents, ceiling_cents: ceiling_cents,
+            tokens: accumulated_usage
+          )
+          if response.has_tool_calls?
+            return { content: response.content.presence || "Stopped: this execution reached its cost ceiling; the remaining tool calls were not run.",
+                     usage: accumulated_usage, tool_calls_log: tool_calls_log,
+                     chat_cards: chat_cards, finish_reason: "cost_ceiling_parked", served_by: last_served_by,
+                     refusal_recovery: last_refusal_recovery, refusal: nil, turns: turns }
+          end
+        end
 
         # Track served-by / recovery across iterations (sticky to the fallback
         # model once a refusal fell back, so later iterations don't re-refuse).
@@ -428,7 +468,8 @@ module Ai
             finish_reason: response.finish_reason,
             served_by: last_served_by,
             refusal_recovery: last_refusal_recovery,
-            refusal: (response.respond_to?(:refusal) ? response.refusal : nil)
+            refusal: (response.respond_to?(:refusal) ? response.refusal : nil),
+            turns: turns
           }
         end
 
@@ -723,6 +764,24 @@ module Ai
       platform_tool_definitions + external_mcp_tool_definitions
     end
 
+    # The agent's catalog before the per-turn cap.
+    def scoped_tool_definitions
+      @scoped_tool_definitions ||= build_tool_definitions
+    end
+
+    def catalog_cap
+      roster_shadow? ? Float::INFINITY : CATALOG_CAP
+    end
+
+    # Narrow `tools` to `max` by intent, always keeping the way to the rest.
+    def cap_catalog(tools, user_message, max)
+      return tools if tools.size <= max
+
+      path, rest = tools.partition { |t| OVERFLOW_PATH_VERBS.include?((t[:name] || t.dig(:function, :name)).to_s) }
+      room = [ max - path.size, 0 ].max
+      path + ::Ai::ToolRelevanceFilter.filter(rest, user_message: user_message, max_tools: room).first(room)
+    end
+
     def platform_tool_definitions
       return [] unless platform_tools_enabled?
 
@@ -742,7 +801,12 @@ module Ai
       # agent always has. This widens no authorization: every dispatch still
       # goes through McpPlatformToolRegistrar.execute_tool as agent.creator
       # (#dispatch_tool_call), which is where permission denial happens.
-      if (allowed = allowed_tool_names)
+      if roster_shadow?
+        # Role verbs + the five bootstrap verbs; the seeded family floor is never expanded.
+        wanted = Ai::Agents::CanonicalRoster.fetch(agent.slug).dig(:role, :verbs) + ROSTER_BOOTSTRAP_VERBS
+        definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: nil)
+        definitions = definitions.select { |d| wanted.include?(d[:name].to_s) }
+      elsif (allowed = allowed_tool_names)
         definitions = Ai::Tools::PlatformApiToolRegistry.tool_definitions(agent: nil)
         definitions = definitions.select do |d|
           allowed.include?(d[:name].to_s) || Ai::Tools::BootstrapVerbs.include?(d[:name])
@@ -1006,16 +1070,16 @@ module Ai
     # of the cap: the filter never sees them, so an intent guess can never drop
     # the actuator the caller attached.
     def advertised_tools(llm_client, messages, local_tools, local_names)
-      tools = tool_definitions_for_llm.reject { |t| local_names.include?((t[:name] || t.dig(:function, :name)).to_s) }
+      tools = scoped_tool_definitions.reject { |t| local_names.include?((t[:name] || t.dig(:function, :name)).to_s) }
 
-      max_tools = [ max_tools_for_provider(llm_client) - local_tools.size, 0 ].max
+      max_tools = [ [ max_tools_for_provider(llm_client), catalog_cap ].min - local_tools.size, 0 ].max
       if tools.size > max_tools
         latest_user_message = messages.reverse.find do |m|
           (m[:role] || m["role"])&.to_s == "user"
         end
         user_content = latest_user_message&.dig(:content) || latest_user_message&.dig("content")
         before_count = tools.size
-        tools = ::Ai::ToolRelevanceFilter.filter(tools, user_message: user_content, max_tools: max_tools)
+        tools = cap_catalog(tools, user_content, max_tools)
         Rails.logger.info "[AgentToolBridge] Tool relevance filter: #{before_count} → #{tools.size} (cap=#{max_tools})"
       end
 
@@ -1055,6 +1119,17 @@ module Ai
       Rails.logger.error "[AgentToolBridge] Local tool error: #{tool_name} - #{e.message}"
       [ { error: "Tool execution failed", tool: tool_name,
          message: ::Ai::Tools::BaseTool.dispatch_fallback_message(e) }.to_json, nil ]
+    end
+
+    def turn_cost_cents(response, model)
+      ::Ai::CostCalculationService.calculate_cents(
+        model_id: model.to_s, prompt_tokens: response.prompt_tokens.to_i,
+        completion_tokens: response.completion_tokens.to_i, cached_tokens: response.cached_tokens.to_i,
+        cache_creation_tokens: response.cache_creation_tokens.to_i
+      ).to_i
+    rescue StandardError => e
+      Rails.logger.warn "[AgentToolBridge] turn cost estimate failed: #{e.class}: #{e.message}"
+      0
     end
 
     def accumulate_usage(accumulated, response_usage)

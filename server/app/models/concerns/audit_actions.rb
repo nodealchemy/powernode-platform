@@ -367,6 +367,12 @@ module AuditActions
     ai.approvals.machine_park_refused ai.approvals.machine_park_deduped ai.approvals.machine_park_rate_limited
   ].freeze
 
+  # One agent execution passed its cost ceiling and was parked
+  # (Ai::AgentBudget.record_execution_ceiling_breach!).
+  AI_EXECUTION_CEILING_ACTIONS = %w[
+    ai.execution.cost_ceiling_exceeded
+  ].freeze
+
   # Time-boxed promotion grants (Ai::PromotionGrants::Ledger): a person issues
   # or revokes one; the autonomy gate spends one use in place of parking; an
   # agent requests one (Ai::PromotionGrants::Requests), and the request is
@@ -737,6 +743,7 @@ module AuditActions
     AI_APPROVAL_DISPATCH_ACTIONS,
     AI_APPROVAL_MACHINE_REQUEST_ACTIONS,
     AI_PROMOTION_GRANT_ACTIONS,
+    AI_EXECUTION_CEILING_ACTIONS,
     AI_PROPOSAL_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
     DEVOPS_ACTIONS,
