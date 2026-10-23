@@ -500,6 +500,33 @@ system extension). No MCP/tool door can create, extend or un-revoke a grant, wha
 impersonation, account-switch or service session is refused too. REST: `POST /api/v1/ai/promotion_grants` with
 `ai_agent_id`, `environment_id`, `module_ids`, `max_uses`, `expires_in_hours`, `reason`.
 
+**Agent-requested grants.** An agent may ASK for a grant for itself with `platform.request_promotion_grant`
+(environment, category, modules, max uses, `expires_in_hours`, reason, `granter_driven_only`, and `bind`). The agent
+is always the calling one; params cannot name another. The terms are frozen into a request
+(`Ai::PromotionGrantRequest`) that parks as an approval card marked human-only: only a person, in their own session,
+can approve it, and a chain's approve-on-timeout never issues it. On that approval the grant is issued **in the
+approver's name** with exactly the requested terms, its expiry counted from the approval. The approver must hold what
+a person issuing the grant directly holds (`ai.promotion_grants.manage` and the verb's own permission), checked at
+approval time. An approval recorded from any other door, an override with no own-session decision, or a bound target
+that has already ended issues nothing and writes `ai.promotion_grant.issue_refused`. An agent may have at most 3
+requests pending; asking again for the same environment and category returns the pending one. Each request writes
+`ai.promotion_grant.requested`; a rejection or expiry writes `ai.promotion_grant.request_closed`.
+
+**Bound grants.** `bind: "session"` binds the grant to the MCP session the request arrived on (resolved by the
+server from the call's own owner-resolved session, never from params); `bind: "none"` leaves it unbound, usable by any
+of the agent's calls as above. A session-bound grant is spent only by a call carrying that session while the session
+is live (active, within its TTL, not idle), and never by the same agent on another session or a call with none. When
+the session ends (expiry, the idle sweep, or a revoke that outlasts the reconnect grace) its grants are revoked with
+reason `session_ended`, each with an `ai.promotion_grant.revoked` row. The card, the grants list and the use row show
+the binding ("bound to session …", or "unbound").
+
+**Grantable categories.** The categories a grant may name are an operator setting,
+`ai_promotion_grant_categories` (a protected site setting, written only through `site_setting_set_protected`),
+defaulting to `["release.promote"]`. Whatever it says, a grant never names a destructive category, the category of any
+human-only or destructive tool action, a key or secret operation, the kill switch, or a site-setting,
+intervention-policy or delegation-policy write. A listed category is still issuable only when an extension's grant
+catalog declares it.
+
 **Revoking.** The Revoke button, or `POST /api/v1/ai/promotion_grants/:id/revoke`, from any REST session holding
 `ai.promotion_grants.manage` (revoking only tightens). It is final. An impersonated revoke records the impersonator. Revocation is not offered over MCP; the kill switch
 is the tool-door emergency lever.
