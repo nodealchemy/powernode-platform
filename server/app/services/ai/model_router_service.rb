@@ -52,7 +52,7 @@ module Ai
       @strategy = strategy
       @custom_weights = custom_weights || DEFAULT_WEIGHTS
       @logger = Rails.logger
-      @redis = Powernode::Redis.client
+      @redis = Powernode::Redis.pooled
 
       raise ArgumentError, "Invalid strategy: #{strategy}" unless STRATEGIES.include?(strategy)
     end

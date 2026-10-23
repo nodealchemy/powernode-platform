@@ -14,7 +14,7 @@ require "rails_helper"
 #     HttpConnectionFactory.validate_url! + HttpConnectionFactory.build(...). We
 #     stub .build to hand back a Faraday connection double and .validate_url! to
 #     a no-op — no socket is ever opened.
-#   - The lease cache uses the REAL shared Redis client (Powernode::Redis.client,
+#   - The lease cache uses the REAL shared Redis client (Powernode::Redis.pooled,
 #     available in test). Each example flushes the "ds_cred_broker:" namespace so
 #     a cached session can never leak between examples.
 RSpec.describe Ai::DataSources::Credentials::AtprotoAppPasswordBroker, type: :service do
@@ -64,7 +64,7 @@ RSpec.describe Ai::DataSources::Credentials::AtprotoAppPasswordBroker, type: :se
   end
 
   def flush_broker_cache!
-    client = Powernode::Redis.client
+    client = Powernode::Redis.pooled
     return unless client
 
     keys = client.keys("#{Ai::DataSources::Credentials::BrokerCache::NAMESPACE}*")

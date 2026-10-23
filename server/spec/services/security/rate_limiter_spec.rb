@@ -10,7 +10,7 @@ require "rails_helper"
 #
 # Against the lane's real Redis: the TTL is the behaviour under test.
 RSpec.describe Security::RateLimiter do
-  let(:redis) { Powernode::Redis.client }
+  let(:redis) { Powernode::Redis.pooled }
   let(:key) { "rspec-#{SecureRandom.hex(6)}" }
   let(:window) { described_class::RATE_LIMITS[:chat_send][:window] }
   let(:limit) { described_class::RATE_LIMITS[:chat_send][:limit] }

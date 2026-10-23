@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# IMP-1cec0fdb8628. Powernode::Redis.client is already the process-wide memo
+# IMP-1cec0fdb8628. Powernode::Redis.pooled is already the process-wide memo
 # (config/initializers/redis.rb). A service that caches it AGAIN in its own
 # `@redis ||=` holds a second copy that nothing else can reach:
 #
@@ -14,17 +14,17 @@ require "rails_helper"
 #     in full-suite order and passed in isolation;
 #   * in production, Powernode::Redis.reconfigure! closes and drops the shared
 #     client, while each private copy keeps the closed one.
-RSpec.describe "Powernode::Redis.client is never memoized a second time" do
+RSpec.describe "Powernode::Redis.pooled is never memoized a second time" do
   let(:app_root) { Rails.root.join("app") }
-  let(:memo_pattern) { /@\w+\s*\|\|=\s*(?:::)?Powernode::Redis\.client\b/ }
+  let(:memo_pattern) { /@\w+\s*\|\|=\s*(?:::)?Powernode::Redis\.(?:client|pooled)\b/ }
 
   it "finds the services that use the shared client, so the scan below cannot pass vacuously" do
-    users = Dir.glob(app_root.join("**", "*.rb")).select { |f| File.read(f).include?("Powernode::Redis.client") }
+    users = Dir.glob(app_root.join("**", "*.rb")).select { |f| File.read(f).include?("Powernode::Redis.pooled") }
 
     expect(users.length).to be >= 8
   end
 
-  it "has no app file caching Powernode::Redis.client in its own instance variable" do
+  it "has no app file caching Powernode::Redis.pooled in its own instance variable" do
     offenders = Dir.glob(app_root.join("**", "*.rb")).flat_map do |file|
       File.readlines(file).each_with_index.filter_map do |line, index|
         "#{Pathname(file).relative_path_from(Rails.root)}:#{index + 1}" if line.match?(memo_pattern)
@@ -41,21 +41,20 @@ RSpec.describe "Powernode::Redis.client is never memoized a second time" do
   describe Ai::Introspection::RateLimiter, order: :defined do
     it "uses a client stubbed for this example" do
       stubbed = instance_double(Redis)
-      allow(Powernode::Redis).to receive(:client).and_return(stubbed)
+      allow(Powernode::Redis).to receive(:pooled).and_return(stubbed)
 
       expect(described_class.send(:redis)).to equal(stubbed)
     end
 
     it "does not keep the previous example's stubbed client" do
-      expect(described_class.send(:redis)).to equal(Powernode::Redis.client)
+      expect(described_class.send(:redis)).to equal(Powernode::Redis.pooled)
     end
 
-    it "follows Powernode::Redis.reconfigure! instead of keeping the closed client" do
-      before_reconfigure = described_class.send(:redis)
+    it "keeps working across Powernode::Redis.reconfigure! (the pool is rebuilt, nothing stale is held)" do
       Powernode::Redis.reconfigure!
 
-      expect(described_class.send(:redis)).not_to equal(before_reconfigure)
-      expect(described_class.send(:redis)).to equal(Powernode::Redis.client)
+      expect(described_class.send(:redis)).to equal(Powernode::Redis.pooled)
+      expect(described_class.send(:redis).ping).to eq("PONG")
     end
   end
 end

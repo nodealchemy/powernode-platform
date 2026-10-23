@@ -180,7 +180,8 @@ RSpec.describe "X.com data source (I4)", type: :service do
     # fires a knowledge-graph re-sync — stub it exactly like template_library_spec
     # so persistence never reaches Redis/embeddings.
     allow_any_instance_of(Ai::DataSourceGraph::BridgeService).to receive(:sync_data_source)
-    allow(Powernode::Redis).to receive(:client).and_return(XComIntegrationFakeRedis.new)
+    allow(Powernode::Redis).to receive(:pooled).and_return(XComIntegrationFakeRedis.new)
+    allow(Powernode::Redis).to receive(:with).and_yield(XComIntegrationFakeRedis.new)
     Ai::CircuitBreakerRegistry.clear! if Ai::CircuitBreakerRegistry.respond_to?(:clear!)
     # Exercise the REAL Redis-backed ResponseCacheService (default OFF in test).
     Flipper.enable(:data_source_response_caching)

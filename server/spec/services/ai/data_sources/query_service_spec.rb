@@ -251,7 +251,8 @@ RSpec.describe Ai::DataSources::QueryService, type: :service do
 
   before do
     # All Redis access (model quota + service agent-quota + cache) hits the fake.
-    allow(Powernode::Redis).to receive(:client).and_return(redis)
+    allow(Powernode::Redis).to receive(:pooled).and_return(redis)
+    allow(Powernode::Redis).to receive(:with).and_yield(redis)
     Ai::CircuitBreakerRegistry.clear! if Ai::CircuitBreakerRegistry.respond_to?(:clear!)
     # Exercise the REAL Redis-backed ResponseCacheService end to end. Its
     # cache_enabled? gate is the `data_source_response_caching` kill flag, which

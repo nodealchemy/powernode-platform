@@ -61,7 +61,8 @@ RSpec.describe Platform::Health::CoreChecks do
     let(:client) { instance_double(Redis) }
 
     it "reads the memoized app client by default, and never opens one of its own" do
-      allow(Powernode::Redis).to receive(:client).and_return(client)
+      allow(Powernode::Redis).to receive(:pooled).and_return(client)
+      allow(Powernode::Redis).to receive(:with).and_yield(client)
       allow(Powernode::Redis).to receive(:new_client)
       allow(client).to receive(:ping).and_return("PONG")
       allow(client).to receive(:info).and_return("used_memory_human" => "12M", "connected_clients" => "7")

@@ -5,7 +5,7 @@ module Ai
     # Redis-backed response cache for external data-source fetches.
     #
     # Mirrors the access/metrics shape of Ai::Learning::PromptCacheService
-    # (Redis DB 0 via Powernode::Redis.client, SHA256 keys, setex TTL,
+    # (Redis DB 0 via Powernode::Redis.pooled, SHA256 keys, setex TTL,
     # hits/misses metrics) and adds two cache-stampede protections:
     #
     #   1. SINGLEFLIGHT — on a miss only one caller recomputes. The recompute
@@ -591,7 +591,7 @@ module Ai
         end
 
         def redis
-          Powernode::Redis.client
+          Powernode::Redis.pooled
         end
       end
     end

@@ -89,7 +89,7 @@ RSpec.describe Ai::DataSources::Credentials::AwsStsWebIdentityBroker, type: :ser
   end
 
   def flush_broker_cache!
-    client = Powernode::Redis.client
+    client = Powernode::Redis.pooled
     return unless client
 
     keys = client.keys("#{Ai::DataSources::Credentials::BrokerCache::NAMESPACE}*")

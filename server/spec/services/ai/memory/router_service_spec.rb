@@ -21,9 +21,10 @@ RSpec.describe Ai::Memory::RouterService, type: :service do
   subject(:service) { described_class.new(account: account, agent: agent) }
 
   before do
-    # The service obtains its Redis client via Powernode::Redis.client (memoized
+    # The service obtains its Redis client via Powernode::Redis.pooled (memoized
     # at boot in config/initializers/redis.rb), so stub that accessor.
-    allow(Powernode::Redis).to receive(:client).and_return(redis_double)
+    allow(Powernode::Redis).to receive(:pooled).and_return(redis_double)
+    allow(Powernode::Redis).to receive(:with).and_yield(redis_double)
   end
 
   describe '#read' do

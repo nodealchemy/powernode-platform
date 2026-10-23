@@ -78,7 +78,8 @@ RSpec.describe Ai::Growth::EngagementIngestionService, type: :service do
 
   before do
     allow_any_instance_of(Ai::DataSourceGraph::BridgeService).to receive(:sync_data_source)
-    allow(Powernode::Redis).to receive(:client).and_return(EngagementIngestionFakeRedis.new)
+    allow(Powernode::Redis).to receive(:pooled).and_return(EngagementIngestionFakeRedis.new)
+    allow(Powernode::Redis).to receive(:with).and_yield(EngagementIngestionFakeRedis.new)
     Ai::CircuitBreakerRegistry.clear! if Ai::CircuitBreakerRegistry.respond_to?(:clear!)
   end
 

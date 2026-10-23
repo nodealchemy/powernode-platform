@@ -36,13 +36,14 @@ RSpec.describe Platform::Status::SweepCursor do
   it "sets a TTL, so a cursor pointing at a deleted account expires instead of needing cleanup" do
     described_class.write("acct-1")
 
-    ttl = ::Powernode::Redis.client.ttl("#{described_class::REDIS_KEY}")
+    ttl = ::Powernode::Redis.pooled.ttl("#{described_class::REDIS_KEY}")
     expect(ttl).to be_between(1, described_class::TTL_SECONDS)
   end
 
   describe "when Redis is unavailable" do
     before do
-      allow(::Powernode::Redis).to receive(:client).and_raise(Redis::CannotConnectError, "down")
+      allow(::Powernode::Redis).to receive(:pooled).and_raise(Redis::CannotConnectError, "down")
+      allow(::Powernode::Redis).to receive(:with).and_raise(Redis::CannotConnectError, "down")
     end
 
     it "reads nil rather than raising — a lost cursor costs one tick from the top" do

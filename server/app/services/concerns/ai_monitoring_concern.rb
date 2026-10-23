@@ -348,7 +348,7 @@ module AiMonitoringConcern
   # =============================================================================
 
   def redis
-    Powernode::Redis.client
+    Powernode::Redis.pooled
   end
 
   def build_metric_key(metric_name, tags = {})

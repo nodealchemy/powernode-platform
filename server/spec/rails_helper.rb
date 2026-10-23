@@ -210,19 +210,20 @@ RSpec.configure do |config|
     # Guarded because Redis is not a hard dependency of every spec run — a unit
     # run on a box with no Redis should not fail at :suite over a cache reset.
     begin
-      redis = Powernode::Redis.client
-      current_db = redis.connection[:db]
-      # Compared against THIS LANE's resolved database, not the constant:
-      # under TEST_ENV_NUMBER each lane owns a different one, and a comparison
-      # against the constant would silently start skipping the flush on every
-      # lane but the first.
-      expected_db = Powernode::Redis.test_database
-      if current_db == expected_db
-        redis.flushdb
-      else
-        warn "[rails_helper] Skipping Redis flush: expected db " \
-             "#{expected_db}, connected to #{current_db.inspect}. " \
-             "Refusing to flush a database the suite does not own."
+      Powernode::Redis.with do |redis|
+        current_db = redis.connection[:db]
+        # Compared against THIS LANE's resolved database, not the constant:
+        # under TEST_ENV_NUMBER each lane owns a different one, and a comparison
+        # against the constant would silently start skipping the flush on every
+        # lane but the first.
+        expected_db = Powernode::Redis.test_database
+        if current_db == expected_db
+          redis.flushdb
+        else
+          warn "[rails_helper] Skipping Redis flush: expected db " \
+               "#{expected_db}, connected to #{current_db.inspect}. " \
+               "Refusing to flush a database the suite does not own."
+        end
       end
     rescue StandardError => e
       warn "[rails_helper] Redis unavailable, skipping flush: #{e.class}: #{e.message}"

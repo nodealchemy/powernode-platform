@@ -29,7 +29,8 @@ RSpec.describe Ai::ProviderLoadBalancerService, type: :service do
   end
 
   before do
-    allow(Powernode::Redis).to receive(:client).and_return(redis_double)
+    allow(Powernode::Redis).to receive(:pooled).and_return(redis_double)
+    allow(Powernode::Redis).to receive(:with).and_yield(redis_double)
     allow(redis_double).to receive(:incr).and_return(1)
     allow(redis_double).to receive(:expire)
     allow(redis_double).to receive(:set)

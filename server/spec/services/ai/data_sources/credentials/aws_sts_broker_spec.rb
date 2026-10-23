@@ -18,7 +18,7 @@ require "rails_helper"
 #     #assume_role(params) yields a response double#credentials (the STS
 #     short-lived material). NO real STS/network/AWS call is ever made.
 #   - BrokerCache is Redis-backed against the REAL shared client
-#     (Powernode::Redis.client, available in test). Each example flushes the
+#     (Powernode::Redis.pooled, available in test). Each example flushes the
 #     "ds_cred_broker:" namespace in a before/after hook so a cached session from
 #     one example can never satisfy the next.
 RSpec.describe Ai::DataSources::Credentials::AwsStsBroker, type: :service do
@@ -75,7 +75,7 @@ RSpec.describe Ai::DataSources::Credentials::AwsStsBroker, type: :service do
   # Scrub the shared brokered-credential namespace so a cached STS session from
   # one example can never leak into the next.
   def flush_broker_cache!
-    client = Powernode::Redis.client
+    client = Powernode::Redis.pooled
     return unless client
 
     keys = client.keys("#{Ai::DataSources::Credentials::BrokerCache::NAMESPACE}*")

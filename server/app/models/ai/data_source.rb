@@ -130,55 +130,49 @@ module Ai
     # Record a completed request for quota tracking. Uses Redis atomic counters.
     def record_request!(bytes: 0)
       prefix = "data_source:#{id}:quota"
-      begin
-        redis = Powernode::Redis.client
-      rescue StandardError
-        return
-      end
-
       now = Time.current
       minute_key = "#{prefix}:min:#{now.strftime('%Y%m%d%H%M')}"
       hour_key = "#{prefix}:hr:#{now.strftime('%Y%m%d%H')}"
       day_key = "#{prefix}:day:#{now.strftime('%Y%m%d')}"
 
-      redis.multi do |tx|
-        tx.incr(minute_key)
-        tx.expire(minute_key, 120)
-        tx.incr(hour_key)
-        tx.expire(hour_key, 7200)
-        tx.incr(day_key)
-        tx.expire(day_key, 172_800)
-      end
+      Powernode::Redis.with do |redis|
+        redis.multi do |tx|
+          tx.incr(minute_key)
+          tx.expire(minute_key, 120)
+          tx.incr(hour_key)
+          tx.expire(hour_key, 7200)
+          tx.incr(day_key)
+          tx.expire(day_key, 172_800)
+        end
 
-      if bytes > 0
-        bw_key = "#{prefix}:bw:#{now.strftime('%Y%m%d')}"
-        redis.incrby(bw_key, bytes)
-        redis.expire(bw_key, 172_800)
+        if bytes > 0
+          bw_key = "#{prefix}:bw:#{now.strftime('%Y%m%d')}"
+          redis.incrby(bw_key, bytes)
+          redis.expire(bw_key, 172_800)
+        end
       end
+    rescue ConnectionPool::TimeoutError
+      nil
     end
 
     # Current quota usage from Redis counters.
     def current_quota_usage
       prefix = "data_source:#{id}:quota"
-      begin
-        redis = Powernode::Redis.client
-      rescue StandardError
-        return { minute: 0, hour: 0, day: 0, bandwidth_today: 0 }
-      end
-
       now = Time.current
       minute_key = "#{prefix}:min:#{now.strftime('%Y%m%d%H%M')}"
       hour_key = "#{prefix}:hr:#{now.strftime('%Y%m%d%H')}"
       day_key = "#{prefix}:day:#{now.strftime('%Y%m%d')}"
       bw_key = "#{prefix}:bw:#{now.strftime('%Y%m%d')}"
 
-      values = redis.mget(minute_key, hour_key, day_key, bw_key)
+      values = Powernode::Redis.with { |redis| redis.mget(minute_key, hour_key, day_key, bw_key) }
       {
         minute: values[0].to_i,
         hour: values[1].to_i,
         day: values[2].to_i,
         bandwidth_today: values[3].to_i
       }
+    rescue ConnectionPool::TimeoutError
+      { minute: 0, hour: 0, day: 0, bandwidth_today: 0 }
     end
 
     # Returns a summary of current usage vs configured limits with utilization percentages.

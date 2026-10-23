@@ -65,9 +65,9 @@ module Platform
         failure("unhealthy", :database, e)
       end
 
-      # Reads the app's memoized client unless handed one, so a check opens no
+      # Reads through the shared pool unless handed a client, so a check opens no
       # connection of its own.
-      def redis(client: ::Powernode::Redis.client)
+      def redis(client: ::Powernode::Redis.pooled)
         started = monotonic_now
         client.ping
         response_time_ms = elapsed_ms(started)

@@ -17,7 +17,7 @@ module Ai
 
       def initialize(account:)
         @account = account
-        @redis = Powernode::Redis.client
+        @redis = Powernode::Redis.pooled
       end
 
       # Establish an encrypted session between two agents via X25519 ECDH.

@@ -6,7 +6,7 @@ RSpec.describe Monitoring::UnifiedService, 'alert identity and lifecycle' do
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account) }
   let(:service) { described_class.new(account: account) }
-  let(:redis) { Powernode::Redis.client }
+  let(:redis) { Powernode::Redis.pooled }
 
   before { allow(AiOrchestrationChannel).to receive(:broadcast_alert) }
   after { redis.del("alerts:#{account.id}") }

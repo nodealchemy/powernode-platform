@@ -9,7 +9,8 @@ RSpec.describe Ai::Mcp::ElicitationService do
   let(:service) { described_class.new(account: account, user: user) }
 
   before do
-    allow(Powernode::Redis).to receive(:client).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:pooled).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:with).and_yield(mock_redis)
     allow(ActionCable.server).to receive(:broadcast)
   end
 

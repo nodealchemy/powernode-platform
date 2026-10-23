@@ -155,7 +155,8 @@ RSpec.describe Platform::Status::Contributors::CoreService do
     before do
       allow(checks).to receive(:all).and_call_original
       redis = instance_double(Redis, ping: "PONG", info: { "connected_clients" => "2" })
-      allow(Powernode::Redis).to receive(:client).and_return(redis)
+      allow(Powernode::Redis).to receive(:pooled).and_return(redis)
+      allow(Powernode::Redis).to receive(:with).and_yield(redis)
       %i[sidekiq disk memory cpu].each { |service| allow(checks).to receive(service).and_return(status: "healthy") }
     end
 

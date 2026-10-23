@@ -61,7 +61,7 @@ module Platform
         private
 
         def redis
-          yield ::Powernode::Redis.client
+          ::Powernode::Redis.with { |client| yield client }
         rescue StandardError => e
           Rails.logger.warn("[Platform::Status] sweep cursor unavailable: #{e.class}: #{e.message}")
           nil

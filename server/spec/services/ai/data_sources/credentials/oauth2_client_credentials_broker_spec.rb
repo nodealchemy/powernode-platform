@@ -16,7 +16,7 @@ require "rails_helper"
 #     connection double whose #run_request returns a response double, and stub
 #     .validate_url! to a no-op (SSRF is covered in the factory's own spec) —
 #     so no socket is ever opened. (Mirrors query_service_spec / robots_service_spec.)
-#   - The lease cache uses the REAL shared Redis client (Powernode::Redis.client,
+#   - The lease cache uses the REAL shared Redis client (Powernode::Redis.pooled,
 #     available in test). Each example flushes the "ds_cred_broker:" namespace in
 #     a before/after hook so a cached token can never leak between examples.
 RSpec.describe Ai::DataSources::Credentials::Oauth2ClientCredentialsBroker, type: :service do
@@ -69,7 +69,7 @@ RSpec.describe Ai::DataSources::Credentials::Oauth2ClientCredentialsBroker, type
   # The brokered-credential cache is shared (real Redis); scrub the namespace so a
   # cached lease from one example can never satisfy the next.
   def flush_broker_cache!
-    client = Powernode::Redis.client
+    client = Powernode::Redis.pooled
     return unless client
 
     keys = client.keys("#{Ai::DataSources::Credentials::BrokerCache::NAMESPACE}*")
@@ -212,12 +212,12 @@ RSpec.describe Ai::DataSources::Credentials::Oauth2ClientCredentialsBroker, type
 
       # Inspect the REAL Redis TTL on the namespaced lease key: it must be clamped
       # to <= MAX_TOKEN_TTL_SECONDS (86_400), NOT the ~10^9 the endpoint claimed.
-      cached_keys = Powernode::Redis.client.keys(
+      cached_keys = Powernode::Redis.pooled.keys(
         "#{Ai::DataSources::Credentials::BrokerCache::NAMESPACE}oauth2:*"
       ).reject { |k| k.include?("lock:") }
       expect(cached_keys).not_to be_empty
 
-      ttl = Powernode::Redis.client.ttl(cached_keys.first)
+      ttl = Powernode::Redis.pooled.ttl(cached_keys.first)
       expect(ttl).to be > 0
       expect(ttl).to be <= described_class::MAX_TOKEN_TTL_SECONDS
       expect(ttl).to be <= 86_400

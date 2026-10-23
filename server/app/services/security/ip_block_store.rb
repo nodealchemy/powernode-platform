@@ -234,9 +234,8 @@ module Security
       with { |redis| redis.get(key) }.to_i
     end
 
-    # A pool rather than Powernode::Redis.client: this runs on every request in
-    # a threaded puma, and the memoized single client serialises them all
-    # through one Monitor.
+    # Its own pool, kept apart from Powernode::Redis's: this runs on every request in
+    # a threaded puma and fails open on a short timeout, so it must not queue behind app traffic.
     def pool
       @pool ||= ConnectionPool.new(size: pool_size, timeout: 1) { ::Powernode::Redis.new_client }
     end

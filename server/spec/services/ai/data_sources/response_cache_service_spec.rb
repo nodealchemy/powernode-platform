@@ -130,7 +130,8 @@ RSpec.describe Ai::DataSources::ResponseCacheService, type: :service do
   let(:endpoint) { create(:ai_data_source_endpoint, data_source: data_source, cache_ttl_seconds: 120) }
 
   before do
-    allow(Powernode::Redis).to receive(:client).and_return(fake_redis)
+    allow(Powernode::Redis).to receive(:pooled).and_return(fake_redis)
+    allow(Powernode::Redis).to receive(:with).and_yield(fake_redis)
     # Isolate the cache under test from the unrelated data-source -> knowledge-graph
     # sync: creating a source fires an after_commit that would otherwise reach Redis
     # via the embedding service and pollute the cache-interaction assertions.

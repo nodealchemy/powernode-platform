@@ -15,7 +15,7 @@ require "rails_helper"
 #     Ai::DataSources::HttpConnectionFactory.build(...).get(robots_url); we stub
 #     .build to hand back a fake connection double so no socket is ever opened;
 #   - the parsed-rules cache uses the REAL shared Redis client
-#     (Powernode::Redis.client, available in test). Each example runs against a
+#     (Powernode::Redis.pooled, available in test). Each example runs against a
 #     fresh, isolated host AND flushes the data_source_robots:* namespace in a
 #     before/after hook so cached rules never leak between examples;
 #   - the DataSource after_commit knowledge-graph sync (which would otherwise
@@ -59,7 +59,7 @@ RSpec.describe Ai::DataSources::RobotsService, type: :service do
   # one example can never satisfy the next. Distinct per-example hosts make this
   # belt-and-suspenders, but the flush guarantees determinism under reruns.
   def flush_robots_cache!
-    client = Powernode::Redis.client
+    client = Powernode::Redis.pooled
     return unless client
 
     keys = client.keys("#{described_class::REDIS_NAMESPACE}:*")

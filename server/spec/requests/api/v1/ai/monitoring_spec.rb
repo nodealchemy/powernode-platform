@@ -195,7 +195,7 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
     let(:manager) { create(:user, account: account, permissions: [ 'ai.monitoring.read', 'ai.aiops.manage' ]) }
     let(:manager_headers) { auth_headers_for(manager) }
     let(:other_account) { create(:account) }
-    let(:redis) { Powernode::Redis.client }
+    let(:redis) { Powernode::Redis.pooled }
 
     let(:seed_score) { 1_780_000_000 }
 
@@ -291,12 +291,12 @@ RSpec.describe 'Api::V1::Ai::Monitoring', type: :request do
 
       it 'returns 409, not 404, when every compare-and-set attempt loses a race' do
         id = seed_alert(account)
-        allow(Powernode::Redis.client).to receive(:eval).and_return(0)
+        allow(Powernode::Redis.pooled).to receive(:eval).and_return(0)
 
         post "/api/v1/ai/monitoring/alerts/#{id}/acknowledge", headers: manager_headers, as: :json
 
         expect(response).to have_http_status(:conflict)
-        expect(Powernode::Redis.client).to have_received(:eval).exactly(3).times
+        expect(Powernode::Redis.pooled).to have_received(:eval).exactly(3).times
       end
 
       it "returns not found for another account's alert and leaves it untouched" do

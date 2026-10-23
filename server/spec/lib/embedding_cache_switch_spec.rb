@@ -8,7 +8,7 @@ RSpec.describe "EmbeddingCacheSwitch" do
   let(:account) { create(:account) }
   let(:provider) { create(:ai_provider, account: account) }
   let(:service) { Ai::Memory::EmbeddingService.new(account: account, provider: provider) }
-  let(:redis) { Powernode::Redis.client }
+  let(:redis) { Powernode::Redis.pooled }
   let(:pattern) { "#{Ai::Memory::EmbeddingService::CACHE_PREFIX}:#{account.id}:*" }
 
   def cached_keys

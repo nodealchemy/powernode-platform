@@ -185,7 +185,8 @@ RSpec.describe "Mastodon data source (W2)", type: :service do
 
   before do
     allow_any_instance_of(Ai::DataSourceGraph::BridgeService).to receive(:sync_data_source)
-    allow(Powernode::Redis).to receive(:client).and_return(MastodonIntegrationFakeRedis.new)
+    allow(Powernode::Redis).to receive(:pooled).and_return(MastodonIntegrationFakeRedis.new)
+    allow(Powernode::Redis).to receive(:with).and_yield(MastodonIntegrationFakeRedis.new)
     Ai::CircuitBreakerRegistry.clear! if Ai::CircuitBreakerRegistry.respond_to?(:clear!)
     Flipper.enable(:data_source_response_caching)
     # Re-point every instance-specific auth_config URL (+ api_base_url) at the

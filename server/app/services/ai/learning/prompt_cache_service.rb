@@ -91,7 +91,7 @@ module Ai
         end
 
         def redis
-          Powernode::Redis.client
+          Powernode::Redis.pooled
         end
       end
     end

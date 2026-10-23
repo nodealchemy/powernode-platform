@@ -53,7 +53,7 @@ module CircuitBreakerCore
     config = config.symbolize_keys
     @storage_backend = config.delete(:storage) || :cache
     if @storage_backend == :redis
-      @redis = Powernode::Redis.client
+      @redis = Powernode::Redis.pooled
     end
 
     @resource_id = resource_id

@@ -16,7 +16,7 @@ module Ai
       end
 
       def redis_client
-        Powernode::Redis.client
+        Powernode::Redis.pooled
       end
 
       # Generate embedding for text

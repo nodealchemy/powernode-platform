@@ -503,8 +503,7 @@ module Ai
           end
 
           begin
-            redis = Powernode::Redis.client
-            redis.ping
+            Powernode::Redis.with(&:ping)
           rescue StandardError
             score -= 30
             issues << "Redis connectivity issue"

@@ -14,7 +14,7 @@ class Ai::ProviderLoadBalancerService
     @capability = capability
     @strategy = strategy
     @logger = Rails.logger
-    @redis = Powernode::Redis.client
+    @redis = Powernode::Redis.pooled
 
     raise ArgumentError, "Invalid strategy: #{strategy}" unless LOAD_BALANCING_STRATEGIES.include?(strategy)
   end

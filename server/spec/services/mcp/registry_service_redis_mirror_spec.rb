@@ -8,10 +8,10 @@ require "rails_helper"
 # teardown, so each account's pair outlived the account (the 2026-08-17 leak
 # class; see config/initializers/redis.rb) and the global hash only grew.
 #
-# These run against the lane's real Redis (Powernode::Redis.client), not a
+# These run against the lane's real Redis (Powernode::Redis.pooled), not a
 # double: the property under test IS the TTL Redis holds.
 RSpec.describe Mcp::RegistryService, "Redis mirror lifetime" do
-  let(:redis) { Powernode::Redis.client }
+  let(:redis) { Powernode::Redis.pooled }
   let(:account) { create(:account) }
   let(:registry_key) { "mcp:registry:#{account.id}" }
   let(:health_key) { "mcp:health:#{account.id}" }

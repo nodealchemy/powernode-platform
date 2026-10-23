@@ -8,7 +8,8 @@ RSpec.describe Ai::Introspection::PlatformIntrospectionService do
   let(:service) { described_class.new(account: account) }
 
   before do
-    allow(Powernode::Redis).to receive(:client).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:pooled).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:with).and_yield(mock_redis)
     # Allow common Redis operations used by embedding/knowledge graph callbacks
     allow(mock_redis).to receive(:get).and_return(nil)
     allow(mock_redis).to receive(:set)

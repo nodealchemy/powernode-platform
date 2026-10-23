@@ -24,7 +24,7 @@ require "uri"
 # runs the REAL inline HMAC against a fixed clock, and we recompute the expected
 # signature in-test to pin it.
 #
-# The cache uses the REAL shared Redis client (Powernode::Redis.client); each
+# The cache uses the REAL shared Redis client (Powernode::Redis.pooled); each
 # example flushes the ds_cred_broker:* namespace. The DataSource after_commit KG
 # sync is stubbed on every factory create.
 RSpec.describe Ai::DataSources::Credentials::PresignedUrlBroker, type: :service do
@@ -47,7 +47,7 @@ RSpec.describe Ai::DataSources::Credentials::PresignedUrlBroker, type: :service 
   let(:presigned) { "https://bucket.s3.amazonaws.com/key?X-Amz-Signature=deadbeef&X-Amz-Expires=900" }
 
   def flush_broker_cache!
-    client = Powernode::Redis.client
+    client = Powernode::Redis.pooled
     return unless client
 
     keys = client.keys("#{Ai::DataSources::Credentials::BrokerCache::NAMESPACE}*")

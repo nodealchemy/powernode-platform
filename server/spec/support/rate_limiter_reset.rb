@@ -52,7 +52,7 @@ RSpec.configure do |config|
     next unless defined?(::Powernode::Redis)
 
     begin
-      redis = ::Powernode::Redis.client
+      redis = ::Powernode::Redis.pooled
       cursor = "0"
       loop do
         cursor, keys = redis.scan(cursor, match: "rate_limit:*", count: 500)

@@ -13,7 +13,7 @@ class Ai::DebuggingService
     @account = account
     @execution_context = execution_context
     @logger = Rails.logger
-    @redis = Powernode::Redis.client
+    @redis = Powernode::Redis.pooled
   end
 
   # Generate comprehensive debugging report for failed execution

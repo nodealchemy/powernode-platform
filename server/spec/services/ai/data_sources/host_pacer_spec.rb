@@ -2,7 +2,7 @@
 
 require "rails_helper"
 
-# Real Redis is used here (Powernode::Redis.client) — HostPacer is a thin
+# Real Redis is used here (Powernode::Redis.pooled) — HostPacer is a thin
 # timestamp check (.ready?) + stamp (.touch) over Redis DB 0, so exercising the
 # genuine SETEX/GET round-trip is the point. Every key we write is namespaced
 # under HostPacer::REDIS_NAMESPACE and torn down in an after hook so examples do
@@ -17,7 +17,7 @@ RSpec.describe Ai::DataSources::HostPacer, type: :service do
 
   # Flush every pacer key we may have created so nothing survives the example.
   after do
-    client = Powernode::Redis.client
+    client = Powernode::Redis.pooled
     keys = client.keys("#{described_class::REDIS_NAMESPACE}:*")
     client.del(*keys) if keys.any?
   rescue StandardError
@@ -128,7 +128,8 @@ RSpec.describe Ai::DataSources::HostPacer, type: :service do
     end
 
     it "fails open (returns true) when Redis raises" do
-      allow(Powernode::Redis).to receive(:client).and_raise(::Redis::BaseConnectionError, "down")
+      allow(Powernode::Redis).to receive(:pooled).and_raise(::Redis::BaseConnectionError, "down")
+      allow(Powernode::Redis).to receive(:with).and_raise(::Redis::BaseConnectionError, "down")
       expect(described_class.ready?(host, min_interval: 3_600)).to be(true)
     end
   end
@@ -137,7 +138,7 @@ RSpec.describe Ai::DataSources::HostPacer, type: :service do
     it "persists a stamp that a subsequent ready? reads back as paced" do
       with_frozen_clock do
         described_class.touch(host)
-        raw = Powernode::Redis.client.get("#{described_class::REDIS_NAMESPACE}:#{host}")
+        raw = Powernode::Redis.pooled.get("#{described_class::REDIS_NAMESPACE}:#{host}")
         expect(raw).to be_present
         expect(Float(raw)).to eq(Time.now.to_f)
       end
@@ -146,7 +147,7 @@ RSpec.describe Ai::DataSources::HostPacer, type: :service do
     it "sets the stamp with the long-lived TTL" do
       with_frozen_clock do
         described_class.touch(host)
-        ttl = Powernode::Redis.client.ttl("#{described_class::REDIS_NAMESPACE}:#{host}")
+        ttl = Powernode::Redis.pooled.ttl("#{described_class::REDIS_NAMESPACE}:#{host}")
         expect(ttl).to be > 0
         expect(ttl).to be <= described_class::STAMP_TTL_SECONDS
       end
@@ -154,12 +155,13 @@ RSpec.describe Ai::DataSources::HostPacer, type: :service do
 
     it "is a no-op for a blank host (writes nothing)" do
       described_class.touch("")
-      keys = Powernode::Redis.client.keys("#{described_class::REDIS_NAMESPACE}:*")
+      keys = Powernode::Redis.pooled.keys("#{described_class::REDIS_NAMESPACE}:*")
       expect(keys).to be_empty
     end
 
     it "swallows Redis errors and returns nil (best-effort)" do
-      allow(Powernode::Redis).to receive(:client).and_raise(::Redis::BaseConnectionError, "down")
+      allow(Powernode::Redis).to receive(:pooled).and_raise(::Redis::BaseConnectionError, "down")
+      allow(Powernode::Redis).to receive(:with).and_raise(::Redis::BaseConnectionError, "down")
       expect { described_class.touch(host) }.not_to raise_error
       expect(described_class.touch(host)).to be_nil
     end
@@ -194,7 +196,8 @@ RSpec.describe Ai::DataSources::HostPacer, type: :service do
     end
 
     it "is 0 (fail-open) when Redis raises" do
-      allow(Powernode::Redis).to receive(:client).and_raise(::Redis::BaseConnectionError, "down")
+      allow(Powernode::Redis).to receive(:pooled).and_raise(::Redis::BaseConnectionError, "down")
+      allow(Powernode::Redis).to receive(:with).and_raise(::Redis::BaseConnectionError, "down")
       expect(described_class.seconds_until_ready(host, min_interval: 60)).to eq(0)
     end
   end

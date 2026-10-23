@@ -119,7 +119,7 @@ module Security
 
       # Get Redis connection
       def redis
-        Powernode::Redis.client
+        Powernode::Redis.pooled
       end
 
       # Calculate TTL in seconds

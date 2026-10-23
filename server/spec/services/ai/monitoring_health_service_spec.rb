@@ -121,7 +121,8 @@ RSpec.describe Ai::MonitoringHealthService, type: :service do
     it "returns unhealthy when Redis is unreachable" do
       client = instance_double(Redis)
       allow(client).to receive(:ping).and_raise(Redis::CannotConnectError.new("Connection refused"))
-      allow(Powernode::Redis).to receive(:client).and_return(client)
+      allow(Powernode::Redis).to receive(:pooled).and_return(client)
+      allow(Powernode::Redis).to receive(:with).and_yield(client)
 
       result = service.check_redis_health
 

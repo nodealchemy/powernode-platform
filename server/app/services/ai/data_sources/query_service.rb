@@ -2033,7 +2033,7 @@ module Ai
       end
 
       def redis_client
-        Powernode::Redis.client
+        Powernode::Redis.pooled
       rescue StandardError
         nil
       end

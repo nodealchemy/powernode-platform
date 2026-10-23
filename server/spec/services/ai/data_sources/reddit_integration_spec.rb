@@ -173,7 +173,8 @@ RSpec.describe "Reddit data source (W1)", type: :service do
 
   before do
     allow_any_instance_of(Ai::DataSourceGraph::BridgeService).to receive(:sync_data_source)
-    allow(Powernode::Redis).to receive(:client).and_return(RedditIntegrationFakeRedis.new)
+    allow(Powernode::Redis).to receive(:pooled).and_return(RedditIntegrationFakeRedis.new)
+    allow(Powernode::Redis).to receive(:with).and_yield(RedditIntegrationFakeRedis.new)
     Ai::CircuitBreakerRegistry.clear! if Ai::CircuitBreakerRegistry.respond_to?(:clear!)
     Flipper.enable(:data_source_response_caching)
     credential # eager-load: data_source + credential exist before each example

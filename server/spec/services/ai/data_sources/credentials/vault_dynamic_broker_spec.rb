@@ -21,7 +21,7 @@ require "rails_helper"
 #     read_secret returns ONLY the data Hash (it strips lease envelope metadata),
 #     so the lease seconds, when present, ride INSIDE that data Hash under
 #     lease_duration / ttl / lease_seconds — which is what the impl digs for.
-#   - the cache uses the REAL shared Redis client (Powernode::Redis.client,
+#   - the cache uses the REAL shared Redis client (Powernode::Redis.pooled,
 #     available in test). Each example flushes the ds_cred_broker:* namespace in a
 #     before/after hook so a cached lease never leaks across examples.
 #   - the DataSource after_commit knowledge-graph sync (which would otherwise
@@ -74,7 +74,7 @@ RSpec.describe Ai::DataSources::Credentials::VaultDynamicBroker, type: :service 
   # Scrub the broker cache namespace (real Redis) so a lease from one example can
   # never satisfy the next.
   def flush_broker_cache!
-    client = Powernode::Redis.client
+    client = Powernode::Redis.pooled
     return unless client
 
     keys = client.keys("#{Ai::DataSources::Credentials::BrokerCache::NAMESPACE}*")
@@ -182,7 +182,7 @@ RSpec.describe Ai::DataSources::Credentials::VaultDynamicBroker, type: :service 
         expect(result.expires_at).to be_within(2.seconds).of(Time.current + 3600.seconds)
 
         # The stored Redis TTL is (lease - skew), trimmed: ~ 3600 - 120 = 3480.
-        client = Powernode::Redis.client
+        client = Powernode::Redis.pooled
         key = client.keys("#{Ai::DataSources::Credentials::BrokerCache::NAMESPACE}*")
           .reject { |k| k.include?("lock:") }
           .first
@@ -199,7 +199,7 @@ RSpec.describe Ai::DataSources::Credentials::VaultDynamicBroker, type: :service 
       freeze_time do
         broker.acquire(data_source: data_source, base_credential: base_credential, config: config)
 
-        client = Powernode::Redis.client
+        client = Powernode::Redis.pooled
         key = client.keys("#{Ai::DataSources::Credentials::BrokerCache::NAMESPACE}*")
           .reject { |k| k.include?("lock:") }
           .first

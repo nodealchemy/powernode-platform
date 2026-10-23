@@ -8,7 +8,7 @@ require "rails_helper"
 # (AssumeRole / the OAuth token_url / the Vault dynamic engine).
 #
 # HERMETIC NOTE: this spec uses the REAL shared Redis client
-# (Powernode::Redis.client, available in test) for the cache itself — exactly as
+# (Powernode::Redis.pooled, available in test) for the cache itself — exactly as
 # robots_service_spec.rb does — because the cache READ path and the singleflight
 # lock are Redis-command behaviours we want to exercise for real, not against a
 # fake. NO network, AWS, Vault, or OAuth endpoint is ever touched: the only thing
@@ -39,7 +39,7 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
   # Scrub every brokered-credential cache + lock key so nothing leaks across
   # examples (real shared Redis). Mirrors robots_service_spec.rb's flush.
   def flush_broker_cache!
-    client = Powernode::Redis.client
+    client = Powernode::Redis.pooled
     return unless client
 
     keys = client.keys("#{described_class::NAMESPACE}*")
@@ -95,7 +95,7 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
       expect(calls).to eq(1)
       expect(result).to eq(material_string_keys)
       # The material was actually written to Redis under the namespaced key.
-      expect(Powernode::Redis.client.get(full_key)).to be_present
+      expect(Powernode::Redis.pooled.get(full_key)).to be_present
     end
 
     it "serves the SECOND call from the cache WITHOUT re-running the block" do
@@ -118,7 +118,7 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
     it "floors a small positive ttl to MIN_TTL when storing (still a real cache write)" do
       described_class.fetch(cache_key) { { material: material, ttl_seconds: 1 } }
 
-      client = Powernode::Redis.client
+      client = Powernode::Redis.pooled
       expect(client.get(full_key)).to be_present
       # ttl_seconds:1 is floored to MIN_TTL (5) for the stored entry.
       expect(client.ttl(full_key)).to be > 1
@@ -139,7 +139,7 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
 
       expect(result).to eq(material_string_keys)
       # Nothing was stored — the broker signalled "do not cache".
-      expect(Powernode::Redis.client.get(full_key)).to be_nil
+      expect(Powernode::Redis.pooled.get(full_key)).to be_nil
     end
 
     it "re-runs the block on the next call (because nothing was cached)" do
@@ -159,7 +159,7 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
     it "treats a negative ttl_seconds as uncacheable too" do
       described_class.fetch(cache_key) { { material: material, ttl_seconds: -10 } }
 
-      expect(Powernode::Redis.client.get(full_key)).to be_nil
+      expect(Powernode::Redis.pooled.get(full_key)).to be_nil
     end
   end
 
@@ -171,14 +171,14 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
       result = described_class.fetch(cache_key) { { material: nil, ttl_seconds: 300 } }
 
       expect(result).to be_nil
-      expect(Powernode::Redis.client.get(full_key)).to be_nil
+      expect(Powernode::Redis.pooled.get(full_key)).to be_nil
     end
 
     it "returns nil when the block result is not a Hash at all" do
       result = described_class.fetch(cache_key) { nil }
 
       expect(result).to be_nil
-      expect(Powernode::Redis.client.get(full_key)).to be_nil
+      expect(Powernode::Redis.pooled.get(full_key)).to be_nil
     end
   end
 
@@ -213,7 +213,7 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
         described_class.fetch(cache_key) { raise "exchange blew up" }
       end.to raise_error(RuntimeError, "exchange blew up")
 
-      expect(Powernode::Redis.client.get(full_key)).to be_nil
+      expect(Powernode::Redis.pooled.get(full_key)).to be_nil
     end
   end
 
@@ -223,9 +223,10 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
   # ==========================================================================
   describe ".fetch fail-open when Redis is unavailable" do
     it "still runs the block once and returns its material when the client raises" do
-      # redis_client rescues to nil when Powernode::Redis.client raises, so .fetch
+      # redis_client rescues to nil when Powernode::Redis.pooled raises, so .fetch
       # falls through to a single compute and returns the material uncached.
-      allow(Powernode::Redis).to receive(:client).and_raise(::Redis::CannotConnectError.new("down"))
+      allow(Powernode::Redis).to receive(:pooled).and_raise(::Redis::CannotConnectError.new("down"))
+      allow(Powernode::Redis).to receive(:with).and_raise(::Redis::CannotConnectError.new("down"))
 
       calls = 0
       result = described_class.fetch(cache_key) do
@@ -238,7 +239,8 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
     end
 
     it "does not retry the block on a Redis outage (single upstream call)" do
-      allow(Powernode::Redis).to receive(:client).and_raise(::Redis::CannotConnectError.new("down"))
+      allow(Powernode::Redis).to receive(:pooled).and_raise(::Redis::CannotConnectError.new("down"))
+      allow(Powernode::Redis).to receive(:with).and_raise(::Redis::CannotConnectError.new("down"))
 
       calls = 0
       block = lambda do
@@ -265,7 +267,7 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
     it "returns the pre-seeded cached value without invoking the block" do
       # Simulate the lock winner having already written the entry: a later caller
       # (the contended path) must collapse onto this cached value, not recompute.
-      Powernode::Redis.client.setex(full_key, 60, JSON.generate(material))
+      Powernode::Redis.pooled.setex(full_key, 60, JSON.generate(material))
 
       calls = 0
       result = described_class.fetch(cache_key) do
@@ -281,7 +283,7 @@ RSpec.describe Ai::DataSources::Credentials::BrokerCache, type: :service do
     it "treats a corrupt cached entry as a miss and recomputes once" do
       # A non-JSON / non-Hash entry is parsed as nil (treated as a miss), so the
       # block runs exactly once and the good material replaces it.
-      Powernode::Redis.client.setex(full_key, 60, "}{ not json")
+      Powernode::Redis.pooled.setex(full_key, 60, "}{ not json")
 
       calls = 0
       result = described_class.fetch(cache_key) do

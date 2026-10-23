@@ -43,7 +43,7 @@ module Mcp
     @name_to_id_index = {}  # Add name-to-ID mapping for tool lookup by name
 
     # Initialize Redis connection for distributed registry if available
-    @redis = Powernode::Redis.client
+    @redis = Powernode::Redis.pooled
 
     load_existing_tools
   end
@@ -207,7 +207,7 @@ module Mcp
   def self.purge_account!(account_id)
     return if account_id.blank?
 
-    Powernode::Redis.client.del(redis_key("registry", account_id), redis_key("health", account_id))
+    Powernode::Redis.with { |redis| redis.del(redis_key("registry", account_id), redis_key("health", account_id)) }
   rescue StandardError => e
     Rails.logger.warn "[MCP_REGISTRY] Failed to purge Redis keys for account #{account_id}: #{e.class}: #{e.message}"
     nil
@@ -744,8 +744,8 @@ module Mcp
   end
 
   # HSET and its EXPIRE in one MULTI, so the field never lands without the TTL
-  # being refreshed alongside it. @redis is Powernode::Redis.client, a plain
-  # Redis client (not Rails.cache.redis, which is a ConnectionPool).
+  # being refreshed alongside it. @redis is Powernode::Redis.pooled, a
+  # checkout-per-call facade over the shared pool (not Rails.cache.redis).
   def write_mirror(kind, field, value)
     key = self.class.redis_key(kind, @account&.id)
     @redis.multi do |tx|

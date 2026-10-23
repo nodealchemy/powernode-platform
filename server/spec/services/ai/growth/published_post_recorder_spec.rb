@@ -64,7 +64,8 @@ RSpec.describe Ai::Growth::PublishedPostRecorder, type: :service do
 
   before do
     allow_any_instance_of(Ai::DataSourceGraph::BridgeService).to receive(:sync_data_source)
-    allow(Powernode::Redis).to receive(:client).and_return(PublishedPostRecorderFakeRedis.new)
+    allow(Powernode::Redis).to receive(:pooled).and_return(PublishedPostRecorderFakeRedis.new)
+    allow(Powernode::Redis).to receive(:with).and_yield(PublishedPostRecorderFakeRedis.new)
     Ai::CircuitBreakerRegistry.clear! if Ai::CircuitBreakerRegistry.respond_to?(:clear!)
     credential # eager-load: data_source + credential exist before each example
     user # eager-load: grant ai.data_sources.manage before the tool call

@@ -115,7 +115,7 @@ RSpec.describe "Redis test-database lane isolation" do
   # absorbs) is what actually forces the handler to run.
   #
   # new_client and new_worker_client are the paths that matter: client_options
-  # is private and is what Powernode::Redis.client — and therefore the
+  # is private and is what Powernode::Redis.pooled — and therefore the
   # rails_helper flush and every service — goes through. Pinning #url alone
   # left a revert of the client_options handler undetected.
   it "refuses through every URL builder, including the ones the client uses" do
@@ -198,6 +198,6 @@ RSpec.describe "Redis test-database lane isolation" do
   end
 
   it "connects the running suite to the database its own lane resolves to" do
-    expect(Powernode::Redis.client.connection[:db]).to eq(Powernode::Redis.test_database)
+    expect(Powernode::Redis.pooled.connection[:db]).to eq(Powernode::Redis.test_database)
   end
 end

@@ -12,7 +12,8 @@ RSpec.describe Ai::Learning::PromptCacheService, type: :service do
   let(:cached_response) { { 'content' => 'Quantum computing uses qubits...', 'model' => 'gpt-4' } }
 
   before do
-    allow(Powernode::Redis).to receive(:client).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:pooled).and_return(mock_redis)
+    allow(Powernode::Redis).to receive(:with).and_yield(mock_redis)
 
     allow(Rails.logger).to receive(:info)
     allow(Rails.logger).to receive(:warn)

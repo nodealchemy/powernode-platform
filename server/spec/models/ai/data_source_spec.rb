@@ -122,7 +122,7 @@ RSpec.describe Ai::DataSource, type: :model do
   # --- Quota counters (Redis round-trip) -----------------------------------
   #
   # REGRESSION (guards the just-fixed `Redis.current` blocker): #record_request!
-  # must actually increment counters on `Powernode::Redis.client`, and
+  # must actually increment counters on `Powernode::Redis.pooled`, and
   # #current_quota_usage must read those same counters back. We use the real
   # shared client so the increment + read-back path is exercised end-to-end
   # (a message-verifying double would not have caught the `Redis.current`
@@ -139,7 +139,7 @@ RSpec.describe Ai::DataSource, type: :model do
     around do |example|
       redis =
         begin
-          Powernode::Redis.client.tap(&:ping)
+          Powernode::Redis.pooled.tap(&:ping)
         rescue StandardError
           nil
         end
@@ -174,7 +174,7 @@ RSpec.describe Ai::DataSource, type: :model do
     it 'writes the counters to the shared Powernode::Redis client keys' do
       data_source.record_request!
 
-      redis = Powernode::Redis.client
+      redis = Powernode::Redis.pooled
       now = Time.current
       prefix = "data_source:#{data_source.id}:quota"
       minute_key = "#{prefix}:min:#{now.strftime('%Y%m%d%H%M')}"
@@ -198,7 +198,7 @@ RSpec.describe Ai::DataSource, type: :model do
     it 'sets a TTL on the counter keys' do
       data_source.record_request!
 
-      redis = Powernode::Redis.client
+      redis = Powernode::Redis.pooled
       now = Time.current
       minute_key = "data_source:#{data_source.id}:quota:min:#{now.strftime('%Y%m%d%H%M')}"
 
