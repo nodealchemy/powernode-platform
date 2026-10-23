@@ -59,8 +59,9 @@ module RateLimiting
           scan_batches(redis, Security::RateLimitKey.pattern_for(subject)) do |keys|
             owned = keys.select { |key| Security::RateLimitKey.parse(key)&.fetch(:subject) == subject }
             if owned.any?
-              redis.del(*owned.map { |key| Security::RateLimitKey.config_key(key) })
-              keys_cleared += redis.del(*owned)
+              # One DEL for the counters and their cfg siblings; only the counters are counted.
+              redis.del(*owned, *owned.map { |key| Security::RateLimitKey.config_key(key) })
+              keys_cleared += owned.size
             end
           end
         end
