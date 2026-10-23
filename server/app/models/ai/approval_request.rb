@@ -170,13 +170,20 @@ module Ai
     # approved, for an approval no person made on that step (a chain's
     # timeout_action), and for one recorded from any other door.
     def confirming_approver
+      confirming_decision&.approver
+    end
+
+    # The decision ROW #confirming_approver reads its person from, so a caller
+    # that must act with that decision's own origin (Ai::PromotionGrantRequest
+    # issues a grant with it) reads the door off the row rather than assuming one.
+    def confirming_decision
       return nil unless approved?
 
       last_step = [ step_statuses.to_a.length - 1, 0 ].max
       decision = decisions.approved.where(step_number: last_step).order(:created_at, :id).last
       return nil unless decision && ::Ai::ApprovalDecision.human_session_origin?(decision.origin)
 
-      decision.approver
+      decision
     end
 
     # Typed approver specs supported:

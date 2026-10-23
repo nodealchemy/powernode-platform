@@ -54,6 +54,11 @@ class McpSession < ApplicationRecord
   # Callbacks
   before_validation :set_defaults, on: :create
   after_update :deactivate_agent_on_end, if: -> { saved_change_to_status? && !active? }
+  # The end of a session ends every promotion grant bound to it. "expired" is
+  # final; a revoke inside the reconnect grace is not (the grants are paused,
+  # since only a live session spends them), so the binding sweep revokes those
+  # once the grace has run out (Ai::PromotionGrants::BindingSweep).
+  after_update :end_bound_promotion_grants, if: -> { saved_change_to_status? && status == "expired" }
 
   def self.idle_timeout
     minutes = SiteSetting.get(IDLE_TIMEOUT_SETTING).to_i
@@ -64,7 +69,15 @@ class McpSession < ApplicationRecord
   # update_all skips deactivate_agent_on_end, which only logs: MCP client
   # agents persist across sessions anyway.
   def self.expire_idle!(scope = all)
-    scope.idle.update_all(status: "expired", updated_at: Time.current)
+    ids = scope.idle.pluck(:id)
+    return 0 if ids.empty?
+
+    count = where(id: ids).idle.update_all(status: "expired", updated_at: Time.current)
+    # update_all runs no callbacks, so the grants these sessions carried are
+    # ended here, each with its audit row.
+    ::Ai::PromotionGrants::Ledger.revoke_bound!(kind: ::Ai::PromotionGrant::BINDING_MCP_SESSION, ids: ids,
+                                                reason: ::Ai::PromotionGrants::Ledger::SESSION_ENDED)
+    count
   end
 
   # Instance methods
@@ -101,6 +114,14 @@ class McpSession < ApplicationRecord
 
   def active?
     status == "active" && !expired?
+  end
+
+  # The instance form of the `live` scope: active, within its TTL, and not
+  # idle past McpSession.idle_timeout (a row with no recorded activity is not
+  # idle). A promotion grant bound to this session is spent only while this
+  # holds (Ai::PromotionGrants::Binding).
+  def live?
+    active? && (last_activity_at.nil? || last_activity_at >= self.class.idle_timeout.ago)
   end
 
   def revoked?
@@ -190,6 +211,11 @@ class McpSession < ApplicationRecord
   end
 
   private
+
+  def end_bound_promotion_grants
+    ::Ai::PromotionGrants::Ledger.revoke_bound!(kind: ::Ai::PromotionGrant::BINDING_MCP_SESSION, ids: [ id ],
+                                                reason: ::Ai::PromotionGrants::Ledger::SESSION_ENDED)
+  end
 
   def deactivate_agent_on_end
     return unless ai_agent_id.present?

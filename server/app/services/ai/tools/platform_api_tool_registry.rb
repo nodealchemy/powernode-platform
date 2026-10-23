@@ -737,6 +737,7 @@ module Ai
         "delete_intervention_policy" => "Ai::Tools::AgentAutonomyTool",
         # Promotion grants: READ-ONLY here (issued only from a person's own session)
         "list_promotion_grants" => "Ai::Tools::AgentAutonomyTool",
+        "request_promotion_grant" => "Ai::Tools::AgentAutonomyTool",
         "list_deferred_operations" => "Ai::Tools::AgentAutonomyTool",
         "get_approval_request" => "Ai::Tools::AgentAutonomyTool",
         "approve_deferred_operation" => "Ai::Tools::AgentAutonomyTool",

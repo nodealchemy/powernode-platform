@@ -294,6 +294,9 @@ class Api::V1::Internal::MaintenanceController < Api::V1::Internal::InternalBase
     stale_sessions.find_each { |s| s.update!(status: "expired"); results[:sessions_expired] += 1 }
     # Also expire sessions idle past McpSession.idle_timeout (still within TTL).
     results[:sessions_idle_expired] = McpSession.expire_idle!
+    # Promotion grants bound to a session that has ended (including one
+    # revoked past its reconnect grace), BEFORE step 2 deletes the rows.
+    results[:bound_promotion_grants_revoked] = ::Ai::PromotionGrants::BindingSweep.sweep_sessions!
 
     # 2. Delete old expired/revoked sessions
     results[:sessions_deleted] = McpSession.cleanup_expired!(older_than: 48.hours)

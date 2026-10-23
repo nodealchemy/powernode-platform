@@ -45,11 +45,14 @@ RSpec.describe "agent_autonomy MCP promotion grants" do
     expect(outcome[:success]).to be(false)
   end
 
+  # An agent may ASK for a grant (request_promotion_grant parks a human-only
+  # card and issues nothing); no verb creates, updates or revokes one.
   it "registers no create, update or revoke verb for grants" do
     actions = Ai::Tools::AgentAutonomyTool.action_definitions.keys
     expect(actions).to include("list_promotion_grants")
-    expect(actions.grep(/promotion_grant/)).to eq([ "list_promotion_grants" ])
-    expect(Ai::Tools::PlatformApiToolRegistry::TOOLS.keys.grep(/promotion_grant/)).to eq([ "list_promotion_grants" ])
+    expect(actions.grep(/promotion_grant/)).to contain_exactly("list_promotion_grants", "request_promotion_grant")
+    expect(Ai::Tools::PlatformApiToolRegistry::TOOLS.keys.grep(/promotion_grant/))
+      .to contain_exactly("list_promotion_grants", "request_promotion_grant")
   end
 
   it "refuses smuggling a create through the list verb" do

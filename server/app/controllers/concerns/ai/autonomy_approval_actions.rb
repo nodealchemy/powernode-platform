@@ -202,7 +202,10 @@ module Ai
         current_step_can_approve: current_user.present? && request.can_approve?(current_user),
         # The exact change a parked tool call asks for, from the redacted
         # request_data (nil when the tool offers none).
-        change_card: ::Ai::Approvals::ChangeCard.for(request, viewer: change_card_viewer)
+        change_card: ::Ai::Approvals::ChangeCard.for(request, viewer: change_card_viewer),
+        # An agent's promotion grant request: the frozen terms and the binding
+        # the person is approving, read off the request row (nil otherwise).
+        grant_request: serialize_grant_request(request)
       )
       return base unless detailed
 
@@ -212,6 +215,35 @@ module Ai
         decisions: request.decisions.order(:created_at).map { |d| serialize_decision(d) },
         deferred_operation: serialize_deferred_operation(request)
       )
+    end
+
+    def serialize_grant_request(request)
+      return nil unless request.source_type == "Ai::PromotionGrantRequest"
+
+      grant_request = ::Ai::PromotionGrantRequest.includes(:agent, :environment)
+                                                 .find_by(id: request.source_id, account_id: request.account_id)
+      return nil unless grant_request
+
+      environment = grant_request.environment
+      {
+        id: grant_request.id, status: grant_request.status,
+        agent: { id: grant_request.ai_agent_id, name: grant_request.agent&.name },
+        action_category: grant_request.action_category,
+        environment: environment && { id: environment.id, slug: environment.slug, name: environment.name,
+                                      is_protected: environment.protected? },
+        module_ids: grant_request.module_ids, max_uses: grant_request.max_uses,
+        expires_in_hours: (grant_request.lifetime_seconds / 3600.0).round(2),
+        reason: grant_request.reason, granter_driven_only: grant_request.granter_driven_only,
+        binding: {
+          kind: grant_request.binding_kind, id: grant_request.binding_id,
+          description: grant_request.binding_description,
+          live: grant_request.binding_kind.present? &&
+            ::Ai::PromotionGrants::Binding.target_live?(kind: grant_request.binding_kind, id: grant_request.binding_id,
+                                                        account_id: grant_request.account_id,
+                                                        agent_id: grant_request.ai_agent_id)
+        },
+        promotion_grant_id: grant_request.promotion_grant_id, refusal_reason: grant_request.refusal_reason
+      }
     end
 
     def serialize_chain(chain)

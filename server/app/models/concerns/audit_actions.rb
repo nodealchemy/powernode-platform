@@ -368,9 +368,12 @@ module AuditActions
   ].freeze
 
   # Time-boxed promotion grants (Ai::PromotionGrants::Ledger): a person issues
-  # or revokes one; the autonomy gate spends one use in place of parking.
+  # or revokes one; the autonomy gate spends one use in place of parking; an
+  # agent requests one (Ai::PromotionGrants::Requests), and the request is
+  # issued, refused or closed.
   AI_PROMOTION_GRANT_ACTIONS = %w[
     ai.promotion_grant.created ai.promotion_grant.revoked ai.promotion_grant.used
+    ai.promotion_grant.issue_refused ai.promotion_grant.requested ai.promotion_grant.request_closed
   ].freeze
 
   # Agent-proposal lifecycle (Ai::AgentProposals::Audit): one row per transition of an

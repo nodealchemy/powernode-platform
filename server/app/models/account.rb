@@ -127,6 +127,7 @@ class Account < ApplicationRecord
   has_many :ai_agent_goals, class_name: "Ai::AgentGoal", dependent: :destroy
   has_many :ai_agent_observations, class_name: "Ai::AgentObservation", dependent: :destroy
   has_many :ai_intervention_policies, class_name: "Ai::InterventionPolicy", dependent: :destroy
+  has_many :ai_promotion_grant_requests, class_name: "Ai::PromotionGrantRequest", dependent: :delete_all
   has_many :ai_promotion_grants, class_name: "Ai::PromotionGrant", dependent: :delete_all
   has_many :ai_agent_proposals, class_name: "Ai::AgentProposal", dependent: :destroy
   has_many :ai_agent_escalations, class_name: "Ai::AgentEscalation", dependent: :destroy

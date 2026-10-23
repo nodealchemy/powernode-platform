@@ -5,8 +5,12 @@ module Ai
     # Every write to a promotion grant, and the audit row each one leaves:
     #
     #   issue!   a person, from their own session, creates one  -> ai.promotion_grant.created
+    #            (any refusal, a tool door's above all)         -> ai.promotion_grant.issue_refused
     #   revoke!  a person ends one early                        -> ai.promotion_grant.revoked
+    #   revoke_bound! the target a grant is bound to ended      -> ai.promotion_grant.revoked
     #   consume! the gate spends one use in place of parking    -> ai.promotion_grant.used
+    #   (Ai::PromotionGrants::Requests: an agent asks for one   -> ai.promotion_grant.requested,
+    #    and a person rejects or lets the request expire        -> ai.promotion_grant.request_closed)
     #
     # consume! is the concurrency-critical one: it locks the candidate row,
     # re-checks it under the lock, increments, links the operation and audits,
@@ -27,25 +31,51 @@ module Ai
       # ids and kinds only. The used row copies the principal through this
       # allowlist, so nothing else a params hash carries can reach the audit log.
       PRINCIPAL_AUDIT_KEYS = %w[kind origin user_id agent_id internal node_instance_id granted_tool_name
-                                session_label detail].freeze
+                                session_label detail mcp_session_id agent_execution_id].freeze
 
       CREATED = "ai.promotion_grant.created"
       REVOKED = "ai.promotion_grant.revoked"
       USED    = "ai.promotion_grant.used"
+      ISSUE_REFUSED  = "ai.promotion_grant.issue_refused"
+      REQUESTED      = "ai.promotion_grant.requested"
+      REQUEST_CLOSED = "ai.promotion_grant.request_closed"
+
+      # Why a bound grant was revoked without a person: its target ended.
+      SESSION_ENDED = "session_ended"
+      EXECUTION_FINISHED = "execution_finished"
+      EXECUTION_STALE = "execution_stale"
 
       module_function
 
       # @param origin [String] the door (Ai::ApprovalDecision ORIGINS); only
       #   REST_SESSION may issue. The row re-checks it.
       # @param attributes [Hash] ai_agent_id, environment_id, action_category,
-      #   module_ids, max_uses, expires_at, reason
-      def issue!(account:, granted_by:, origin:, attributes:, request: nil)
+      #   module_ids, max_uses, expires_at, reason, granter_driven_only, and
+      #   binding_kind / binding_id (both or neither)
+      # @param grant_request [Ai::PromotionGrantRequest, nil] the agent's
+      #   request this issue answers; named on the created and refused rows.
+      #
+      # EVERY refusal leaves an issue_refused audit row before it raises, so an
+      # attempt through a door that may not issue is on record, not just refused.
+      def issue!(account:, granted_by:, origin:, attributes:, request: nil, grant_request: nil)
+        issue_refusing!(account: account, granted_by: granted_by, origin: origin, attributes: attributes,
+                        request: request, grant_request: grant_request)
+      rescue Refused => e
+        audit_refused!(account: account, granted_by: granted_by, origin: origin, attributes: attributes,
+                       message: e.message, request: request, grant_request: grant_request)
+        raise
+      end
+
+      def issue_refusing!(account:, granted_by:, origin:, attributes:, request:, grant_request:)
         unless ::Ai::ApprovalDecision.human_session_origin?(origin)
           raise Refused.new(::Ai::PromotionGrant::ISSUE_REFUSAL, status: :forbidden)
         end
 
         attrs = attributes.to_h.symbolize_keys
         category = attrs[:action_category].presence || ::Ai::PromotionGrant::CATEGORIES.first
+        unless ::Ai::PromotionGrants::Grantable.grantable?(category)
+          raise Refused, "#{category} is not a category a promotion grant may name"
+        end
         verb_permission = Catalog.required_permission(category)
         if verb_permission.nil?
           raise Refused, "No installed extension declares #{category} as grantable, so no grant for it can be issued"
@@ -68,17 +98,47 @@ module Ai
           agent: agent, environment: environment,
           module_ids: Array(attrs[:module_ids]), max_uses: attrs[:max_uses].presence,
           expires_at: attrs[:expires_at], reason: attrs[:reason], issuing_origin: origin,
-          granter_driven_only: ActiveModel::Type::Boolean.new.cast(attrs[:granter_driven_only]) || false
+          granter_driven_only: ActiveModel::Type::Boolean.new.cast(attrs[:granter_driven_only]) || false,
+          binding_kind: attrs[:binding_kind].presence, binding_id: attrs[:binding_id].presence
         )
 
         ::Ai::PromotionGrant.transaction do
           grant.save!
+          details = terms_of(grant).merge("origin" => origin)
+          details["promotion_grant_request_id"] = grant_request.id if grant_request
           audit!(grant, action: CREATED, user: granted_by, source: "web", severity: "high", request: request,
-                        details: terms_of(grant))
+                        details: details)
         end
         grant
       rescue ActiveRecord::RecordInvalid => e
         raise Refused, e.record.errors.full_messages.join(", ")
+      end
+      private_class_method :issue_refusing!
+
+      # The record of an issue that did not happen. On the request it answered
+      # when there is one, else on the person named as granter. Never raises
+      # past a failure to write it: the refusal itself must still reach the caller.
+      def audit_refused!(account:, granted_by:, origin:, attributes:, message:, request: nil, grant_request: nil)
+        return if account.nil?
+
+        attrs = attributes.to_h.stringify_keys
+        resource = grant_request || granted_by
+        details = {
+          "origin" => origin, "refusal" => message, "granted_by_id" => granted_by&.id,
+          "ai_agent_id" => attrs["ai_agent_id"], "environment_id" => attrs["environment_id"],
+          "action_category" => attrs["action_category"], "binding_kind" => attrs["binding_kind"],
+          "binding_id" => attrs["binding_id"], "promotion_grant_request_id" => grant_request&.id
+        }
+        ::AuditLog.create!(
+          account_id: account.id, user: granted_by, action: ISSUE_REFUSED, source: "system",
+          resource_type: resource ? resource.class.name : "Ai::PromotionGrant",
+          resource_id: resource&.id || attrs["ai_agent_id"].to_s.presence || account.id,
+          severity: "high", risk_level: "high", new_values: details, metadata: details,
+          ip_address: request&.remote_ip, user_agent: request&.user_agent&.to_s&.first(1000),
+          request_id: request&.request_id&.to_s&.first(50)
+        )
+      rescue StandardError => e
+        Rails.logger.error("[PromotionGrants::Ledger] issue_refused audit failed: #{e.class}: #{e.message}")
       end
 
       # `impersonator`: the administrator actually acting when the session is an
@@ -103,6 +163,30 @@ module Ai
       # revoke family of audit row (nothing else records that the grant ended),
       # naming the duplicate, the keeper, the environment and the person who
       # issued it. Required, like every grant audit: inside the merge's transaction.
+      # The target a bound grant names has ended (its MCP session, its run):
+      # every still-active grant bound to it is revoked, with `reason`, by no
+      # person, each with its own revoked audit row. Returns the count.
+      def revoke_bound!(kind:, ids:, reason:)
+        ids = Array(ids).map(&:to_s).reject(&:blank?).uniq
+        return 0 if ids.empty?
+
+        revoked = 0
+        ::Ai::PromotionGrant.unrevoked.where(binding_kind: kind.to_s, binding_id: ids).find_each do |grant|
+          ::Ai::PromotionGrant.transaction do
+            grant.lock!
+            next if grant.revoked?
+
+            grant.revoke!(by: nil)
+            audit!(grant, action: REVOKED, user: nil, source: "system", severity: "medium",
+                          details: terms_of(grant).merge("uses_count" => grant.uses_count,
+                                                         "revocation_reason" => reason.to_s,
+                                                         "reason" => reason.to_s, "grant_reason" => grant.reason))
+            revoked += 1
+          end
+        end
+        revoked
+      end
+
       def dropped_with_merged_agent!(grant, duplicate:, keeper:)
         details = terms_of(grant).merge(
           "agent_name" => duplicate.name, "merged_into_agent_id" => keeper.id,
@@ -138,17 +222,23 @@ module Ai
         return nil unless target_environment_id == environment.id.to_s
 
         now = Time.current
+        # A bound grant also needs the call's principal to carry its target,
+        # live now (Ai::PromotionGrants::Binding); an unbound one does not.
+        spendable = lambda do |grant|
+          grant.covers_module?(module_id) && grant.drivable_by?(driver) &&
+            ::Ai::PromotionGrants::Binding.matches?(grant, principal)
+        end
         candidates = ::Ai::PromotionGrant.active(now)
                                          .where(account_id: account.id, ai_agent_id: agent.id,
                                                 action_category: action_category.to_s, environment_id: environment.id)
                                          .order(:expires_at, :id)
-                                         .select { |grant| grant.covers_module?(module_id) && grant.drivable_by?(driver) }
+                                         .select(&spendable)
         return nil if candidates.empty?
 
         ::Ai::PromotionGrant.transaction do
           candidates.find do |grant|
             grant.lock! # SELECT ... FOR UPDATE, then reloads the committed row
-            next unless grant.active?(now) && grant.covers_module?(module_id) && grant.drivable_by?(driver)
+            next unless grant.active?(now) && spendable.call(grant)
 
             grant.update!(uses_count: grant.uses_count + 1)
             deferred_operation.update!(promotion_grant: grant)
@@ -165,8 +255,9 @@ module Ai
                             "granter_driven_only" => grant.granter_driven_only,
                             "deferred_operation_id" => deferred_operation.id,
                             "uses_count" => grant.uses_count, "max_uses" => grant.max_uses,
-                            "granted_by_id" => grant.granted_by_id
-                          })
+                            "granted_by_id" => grant.granted_by_id,
+                            "binding_kind" => grant.binding_kind, "binding_id" => grant.binding_id
+                          }.merge(use_binding_details(grant, principal)))
             true
           end
         end
@@ -178,8 +269,18 @@ module Ai
           "action_category" => grant.action_category, "environment_id" => grant.environment_id,
           "environment_slug" => grant.environment&.slug, "module_ids" => grant.module_ids,
           "max_uses" => grant.max_uses, "expires_at" => grant.expires_at&.iso8601,
-          "reason" => grant.reason, "granted_by_id" => grant.granted_by_id
+          "reason" => grant.reason, "granted_by_id" => grant.granted_by_id,
+          "granter_driven_only" => grant.granter_driven_only,
+          "binding_kind" => grant.binding_kind, "binding_id" => grant.binding_id
         }
+      end
+
+      # What a use row adds for a bound grant: the target it was spent through.
+      # Extended by the run binding (the execution and the task it holds).
+      def use_binding_details(grant, _principal)
+        return {} unless grant.bound?
+
+        { "binding" => ::Ai::PromotionGrants::Binding.describe(kind: grant.binding_kind, id: grant.binding_id) }
       end
 
       # REQUIRED, not best-effort: a grant use that cannot be audited does not

@@ -56,6 +56,8 @@ module Ai
         # Api::V1::Ai::PromotionGrantsController#require_read. READ-ONLY on
         # purpose: no tool door creates, extends or un-revokes a grant — only a
         # person's own REST session issues one (Ai::PromotionGrant).
+        # request_promotion_grant stays at the floor: it is agent voice (an
+        # agent ASKING, for itself), parks a human-only card and issues nothing.
         "list_promotion_grants" => "ai.promotion_grants.read",
 
         # Api::V1::Ai::GoalsController#validate_permissions
@@ -145,6 +147,13 @@ module Ai
       declare_action "list_intervention_policies", mutating: false, limit: 100, returns: "count and policies, highest priority first"
       declare_action "list_promotion_grants", mutating: false, family: "agents", limit: 100,
                                               returns: "count and grants, newest first: agent, environment, modules, uses and max, expiry, status and who granted or revoked it"
+      # An agent ASKS for a grant for itself. Mutating but ungated: it parks its
+      # own human-only approval card (Ai::PromotionGrants::Requests) and issues
+      # nothing; a person's own-session approval of that card does.
+      declare_action "request_promotion_grant", mutating: true, family: "agents",
+                                                returns: "the request's id, status and frozen terms, its binding, the approval request a person decides, and deduped: true when an identical request was already pending",
+                                                refuses: "no calling agent, a category that is not grantable, an unknown environment or module, terms past the plane's bounds, bind: \"session\" off your own live MCP session, or 3 requests already pending",
+                                                see_also: { "list_promotion_grants" => "the grants already issued" }
       declare_action "propose_feature", mutating: true, family: "campaigns", returns: "id, title and status of the proposal", see_also: { "create_proposal" => "a proposal of another type" }
       declare_action "reject_deferred_operation", mutating: true, destructive: true
       declare_action "report_issue", mutating: true, family: "notifications", see_also: { "escalate" => "a problem that blocks your own task" }
@@ -338,6 +347,26 @@ module Ai
               agent_id: { type: "string", required: false, description: "Filter by the agent a grant names" }
             }
           },
+          "request_promotion_grant" => {
+            description: "ASK a person for a time-boxed promotion grant for yourself (the calling agent; you cannot ask for " \
+                         "another agent). The terms you name are frozen into an approval card that only a person can " \
+                         "approve, in their own session; on approval the grant is issued in that person's name with " \
+                         "exactly these terms, its expiry counted from the approval. bind: \"session\" binds the grant " \
+                         "to the MCP session this call arrives on (it works only for calls on that session, and ends " \
+                         "with it); bind: \"none\" leaves it usable by any of your calls. Nothing is granted until a " \
+                         "person approves; at most 3 requests may be pending, and asking again for the same " \
+                         "environment and category returns the pending one.",
+            parameters: {
+              environment: { type: "string", required: true, description: "Environment id or slug the grant is for (e.g. ops)" },
+              action_category: { type: "string", required: false, description: "Grantable category (default release.promote)" },
+              module_ids: { type: "array", required: false, description: "Module ids the grant is limited to (required on a strict plane; empty = any module)" },
+              max_uses: { type: "integer", required: false, description: "Most uses (required, 1-10, on a strict plane)" },
+              expires_in_hours: { type: "number", required: true, description: "Lifetime in hours from approval (at most 24, or 4 on a strict plane)" },
+              reason: { type: "string", required: true, description: "Why the grant is needed (shown on the card)" },
+              granter_driven_only: { type: "boolean", required: false, description: "Spend it only when the approving person drives the call" },
+              bind: { type: "string", required: true, description: "session | none" }
+            }
+          },
           "create_intervention_policy" => {
             description: "Create a new intervention policy that gates autonomous actions for an agent (or all agents in scope).",
             parameters: {
@@ -454,6 +483,7 @@ module Ai
         when "decompose_goal" then decompose_goal(params)
         when "list_intervention_policies" then list_intervention_policies(params)
         when "list_promotion_grants" then list_promotion_grants(params)
+        when "request_promotion_grant" then request_promotion_grant(params)
         when "create_intervention_policy" then create_intervention_policy(params)
         when "update_intervention_policy" then update_intervention_policy(params)
         when "delete_intervention_policy" then delete_intervention_policy(params)
@@ -1025,6 +1055,28 @@ module Ai
               reason: g.reason }
           }
         }
+      end
+
+      # The agent is THIS tool's (never a param), and so is the binding target:
+      # the owner-resolved MCP session the call arrived on.
+      def request_promotion_grant(params)
+        grant_request, deduped = ::Ai::PromotionGrants::Requests.request!(
+          account: account, agent: agent, user: known_driving_user, call_origin: call_origin,
+          mcp_session: mcp_session, terms: params.to_h.except("action", :action)
+        )
+        approval = grant_request.approval_request
+        {
+          success: true, deduped: deduped,
+          promotion_grant_request: {
+            id: grant_request.id, status: grant_request.status, terms: grant_request.terms,
+            binding: grant_request.binding_description,
+            approval_request_id: approval&.id, approval_status: approval&.status,
+            requires_human_session: true, expires_at: approval&.expires_at&.iso8601
+          },
+          message: "Parked for a person to approve in their own session; nothing is granted until then."
+        }
+      rescue ::Ai::PromotionGrants::Requests::Refused => e
+        error_result(e.message)
       end
 
       def create_intervention_policy(params)
