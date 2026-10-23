@@ -373,6 +373,15 @@ module AuditActions
     ai.promotion_grant.created ai.promotion_grant.revoked ai.promotion_grant.used
   ].freeze
 
+  # Agent-proposal lifecycle (Ai::AgentProposals::Audit): one row per transition of an
+  # Ai::AgentProposal. handed_off is what approval started (a dev-improve task, a campaign
+  # proposal, an agent, a GitOps apply) or the explicit acknowledgement-only marker.
+  AI_PROPOSAL_ACTIONS = %w[
+    ai.proposal.approved ai.proposal.rejected ai.proposal.withdrawn
+    ai.proposal.expired ai.proposal.implemented ai.proposal.handed_off
+    ai.proposal.handoff_abandoned
+  ].freeze
+
   # =============================================================================
   # AI AGENT TEAM ACTIONS — renamed from the underscore-namespace form
   # (ai_agent_team.<verb>) to the dot convention (IMP-85fb47438be6, operator
@@ -725,6 +734,7 @@ module AuditActions
     AI_APPROVAL_DISPATCH_ACTIONS,
     AI_APPROVAL_MACHINE_REQUEST_ACTIONS,
     AI_PROMOTION_GRANT_ACTIONS,
+    AI_PROPOSAL_ACTIONS,
     AI_AGENT_TEAM_ACTIONS,
     DEVOPS_ACTIONS,
     SWARM_ACTIONS,

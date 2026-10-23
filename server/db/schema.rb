@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_21_100000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_23_100000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "ltree"
   enable_extension "pg_catalog.plpgsql"
@@ -613,7 +613,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_21_100000) do
     t.uuid "conversation_id"
     t.datetime "created_at", null: false
     t.text "description"
+    t.uuid "handoff_id"
+    t.string "handoff_kind"
     t.jsonb "impact_assessment", default: {}
+    t.datetime "implemented_at"
+    t.string "implemented_ref"
+    t.uuid "origin_mcp_session_id"
     t.string "priority", default: "medium", null: false
     t.string "proposal_type", null: false
     t.jsonb "proposed_changes", default: {}
@@ -2634,6 +2639,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_21_100000) do
     t.text "dismiss_reason"
     t.jsonb "evidence", default: {}
     t.string "fingerprint"
+    t.uuid "origin_mcp_session_id"
     t.string "recommendation_type", null: false
     t.jsonb "recommended_config", default: {}
     t.string "status", default: "pending", null: false
