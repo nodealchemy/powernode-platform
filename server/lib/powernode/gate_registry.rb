@@ -122,6 +122,13 @@ module Powernode
         description: "Remediation front door: parks ONE component occurrence's decision in front of a " \
                      "person through the chain primitives, outside Ai::AutonomyGate, recording the door " \
                      "the call came through so the approval guards hold. Approving actuates nothing."
+      },
+      {
+        mechanism: "Ai::PromotionGrants::Requests", species: :workflow, owner: "core",
+        entry_points: %w[request! park!],
+        description: "An agent's request for a promotion grant: parks ONE human-only card (marked " \
+                     "requires_human_session explicitly) whose own-session approval issues the grant in the " \
+                     "approver's name (Ai::PromotionGrantRequest#on_approval_decision). Any other approval issues nothing."
       }
     ].freeze
 
