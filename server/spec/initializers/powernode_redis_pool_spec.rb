@@ -57,6 +57,17 @@ RSpec.describe "Powernode::Redis.with (connection pool)" do
     expect(Powernode::Redis.pool_size).to eq(10 + Powernode::Redis::POOL_HEADROOM)
   end
 
+  it "drains a block-less scan_each inside its checkout, so the pool is whole afterwards" do
+    key = "pool-spec:scan:1"
+    Powernode::Redis.with { |redis| redis.set(key, "1") }
+    keys = Powernode::Redis.pooled.scan_each(match: "pool-spec:scan:*")
+
+    expect(keys.to_a).to include(key)
+    expect(Powernode::Redis.pool_available).to eq(Powernode::Redis.pool_size)
+  ensure
+    Powernode::Redis.with { |redis| redis.del(key) }
+  end
+
   it "keeps the test-lane database through the pool" do
     expect(Powernode::Redis.with { |redis| redis.connection[:db] }).to eq(Powernode::Redis.test_database)
   end
