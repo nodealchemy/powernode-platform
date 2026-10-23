@@ -28,7 +28,35 @@ const SOURCE_BADGE: Record<string, { variant: 'success' | 'warning' | 'danger' |
 const NOT_RECORDED = 'not recorded';
 
 const sourceBadge = (source?: string | null) =>
-  SOURCE_BADGE[source || 'platform'] || { variant: 'outline' as const, label: source as string };
+  source ? SOURCE_BADGE[source] || { variant: 'outline' as const, label: source } : null;
+
+// Keys that carry prompt or response text. The detail endpoint filters secrets,
+// but stored content stays out of the view until it is recorded under the
+// redaction rules (a later change lifts this).
+const CONTENT_KEYS = new Set(['messages', 'prompt', 'input', 'system_prompt', 'response', 'content']);
+const CONTENT_NOTE = 'content not shown until recorded under the redaction rules';
+
+const stripContent = (value: unknown): { value: unknown; hidden: boolean } => {
+  if (Array.isArray(value)) {
+    const parts = value.map(stripContent);
+    return { value: parts.map(p => p.value), hidden: parts.some(p => p.hidden) };
+  }
+  if (value && typeof value === 'object') {
+    let hidden = false;
+    const out: Record<string, unknown> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, v]) => {
+      if (CONTENT_KEYS.has(key)) {
+        hidden = true;
+        return;
+      }
+      const inner = stripContent(v);
+      hidden = hidden || inner.hidden;
+      out[key] = inner.value;
+    });
+    return { value: out, hidden };
+  }
+  return { value, hidden: false };
+};
 
 const formatCost = (cost?: number | null) => (cost == null ? NOT_RECORDED : `$${Number(cost).toFixed(4)}`);
 
@@ -58,6 +86,22 @@ const JsonBlock: React.FC<{ label: string; value: unknown; error?: boolean }> = 
     </pre>
   </div>
 );
+
+const ExecutionEnvelopes: React.FC<{ detail: AiAgentExecution; exec: AiAgentExecution }> = ({ detail, exec }) => {
+  const input = stripContent(detail.input_parameters);
+  const output = stripContent(detail.output_data);
+  const hidden = input.hidden || output.hidden;
+  return (
+    <>
+      {exec.input_summary && <Field label="Input summary" value={exec.input_summary} />}
+      {exec.output_summary && <Field label="Output summary" value={exec.output_summary} />}
+      {hidden && <p className="mt-2 text-xs text-theme-tertiary italic">{CONTENT_NOTE}</p>}
+      {isPresent(input.value) && <JsonBlock label="Input" value={input.value} />}
+      {isPresent(output.value) && <JsonBlock label="Output" value={output.value} />}
+      {isPresent(detail.execution_context) && <JsonBlock label="Context" value={detail.execution_context} />}
+    </>
+  );
+};
 
 export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => {
   const { showNotification } = useNotification();
@@ -95,7 +139,7 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
     loadExecutions(page + 1, true);
   };
 
-  const toggleRow = async (id: string) => {
+  const toggleRow = async (id: string, execId: string) => {
     if (expandedId === id) {
       setExpandedId(null);
       return;
@@ -104,7 +148,8 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
     if (details[id] || detailLoading === id) return;
     setDetailLoading(id);
     try {
-      const detail = await agentsApi.getExecution(agentId, id);
+      // The detail route resolves the public execution_id, not the row id.
+      const detail = await agentsApi.getExecution(agentId, execId);
       setDetails(prev => ({ ...prev, [id]: detail }));
       setDetailFailed(prev => ({ ...prev, [id]: false }));
     } catch {
@@ -141,7 +186,7 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
         return (
           <div key={exec.id} className="border border-theme rounded-lg bg-theme-surface">
             <button
-              onClick={() => toggleRow(exec.id)}
+              onClick={() => toggleRow(exec.id, exec.execution_id || exec.id)}
               className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-theme-surface-hover transition-colors"
             >
               {isExpanded
@@ -149,7 +194,9 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
                 : <ChevronRight className="w-3.5 h-3.5 text-theme-tertiary flex-shrink-0" />
               }
               <Badge variant={badge.variant} size="xs">{badge.label}</Badge>
-              <Badge variant={src.variant} size="xs">{src.label}</Badge>
+              {src
+                ? <Badge variant={src.variant} size="xs">{src.label}</Badge>
+                : <span className="text-[10px] text-theme-tertiary italic whitespace-nowrap">Source {NOT_RECORDED}</span>}
               <span className={`text-xs truncate flex-1 ${exec.input_summary ? 'text-theme-secondary' : 'text-theme-tertiary italic'}`}>
                 {exec.input_summary || `Input ${NOT_RECORDED}`}
               </span>
@@ -229,17 +276,7 @@ export const AgentHistoryTab: React.FC<AgentHistoryTabProps> = ({ agentId }) => 
                 )}
 
                 {detail && (
-                  <>
-                    {isPresent(detail.input_parameters)
-                      ? <JsonBlock label="Input" value={detail.input_parameters} />
-                      : <Field label="Input" value={null} />}
-                    {isPresent(detail.output_data)
-                      ? <JsonBlock label="Output" value={detail.output_data} />
-                      : <Field label="Output" value={null} />}
-                    {isPresent(detail.execution_context) && (
-                      <JsonBlock label="Context" value={detail.execution_context} />
-                    )}
-                  </>
+                  <ExecutionEnvelopes detail={detail} exec={exec} />
                 )}
               </div>
             )}

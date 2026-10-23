@@ -17,6 +17,7 @@ const base = { status: 'completed', created_at: new Date().toISOString() };
 const withData = {
   ...base,
   id: 'e1',
+  execution_id: 'uuid-e1',
   source: 'claude_code',
   input_summary: 'Fix the history tab',
   model: 'claude-opus-5',
@@ -24,7 +25,7 @@ const withData = {
   cost_usd: 0.5,
   duration_ms: 4000,
 };
-const bare = { ...base, id: 'e2', source: 'platform' };
+const bare = { ...base, id: 'e2', execution_id: 'uuid-e2' };
 
 const renderTab = () =>
   render(<AgentHistoryTab agentId="agent-1" />, {
@@ -37,8 +38,15 @@ describe('AgentHistoryTab', () => {
     (agentsApi.getExecutions as jest.Mock).mockResolvedValue({ items: [withData, bare] });
     (agentsApi.getExecution as jest.Mock).mockResolvedValue({
       ...withData,
-      input_parameters: { task_digest: 'Fix the history tab' },
-      output_data: { model_used: 'claude-opus-5' },
+      input_parameters: {
+        task_digest: 'Fix the history tab',
+        message_count: 2,
+        messages: [{ role: 'user', content: 'SECRET-PROMPT-TEXT' }],
+        prompt: 'SECRET-PROMPT-TEXT',
+        input: 'SECRET-PROMPT-TEXT',
+        system_prompt: 'SECRET-SYSTEM',
+      },
+      output_data: { model_used: 'claude-opus-5', response: 'SECRET-RESPONSE', content: 'SECRET-RESPONSE' },
       execution_context: { source: 'claude_code', run_key: 'run-42' },
     });
   });
@@ -53,7 +61,8 @@ describe('AgentHistoryTab', () => {
   it('says "not recorded" for a row without data', async () => {
     renderTab();
     expect(await screen.findByText('Input not recorded')).toBeInTheDocument();
-    expect(screen.getByText('Platform')).toBeInTheDocument();
+    expect(screen.getByText('Source not recorded')).toBeInTheDocument();
+    expect(screen.queryByText('Platform')).not.toBeInTheDocument();
     expect(screen.queryByText(/No input/)).not.toBeInTheDocument();
   });
 
@@ -63,8 +72,15 @@ describe('AgentHistoryTab', () => {
     fireEvent.click(row);
     expect(await screen.findByText(/run-42/)).toBeInTheDocument();
     expect(agentsApi.getExecution).toHaveBeenCalledTimes(1);
-    expect(agentsApi.getExecution).toHaveBeenCalledWith('agent-1', 'e1');
+    expect(agentsApi.getExecution).toHaveBeenCalledWith('agent-1', 'uuid-e1');
     expect(screen.getByText('claude-opus-5')).toBeInTheDocument();
+    expect(screen.getByText(/message_count/)).toBeInTheDocument();
+    expect(screen.getByText(/content not shown until recorded under the redaction rules/)).toBeInTheDocument();
+    expect(screen.queryByText(/SECRET-/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/"messages"/)).not.toBeInTheDocument();
+    ['prompt', 'input', 'system_prompt', 'response', 'content'].forEach((key) => {
+      expect(screen.queryByText(new RegExp(`"${key}"`))).not.toBeInTheDocument();
+    });
 
     fireEvent.click(row); // collapse
     fireEvent.click(row); // re-expand: cached
