@@ -719,7 +719,11 @@ module Api
                 # The caller's OWNED MCP session (current_mcp_session checks the
                 # principal owns it), so a proposal filed here can be decided in
                 # this same live session. Never taken from the request params.
-                mcp_session_id: current_mcp_session&.id
+                mcp_session_id: current_mcp_session&.id,
+                # The session row itself, only when the header names the
+                # caller's OWN live session (current_mcp_session). A promotion
+                # grant bound to a session matches only calls carrying it.
+                mcp_session: current_mcp_session
               )
             rescue ArgumentError => e
               if e.message.start_with?("Unknown platform tool")

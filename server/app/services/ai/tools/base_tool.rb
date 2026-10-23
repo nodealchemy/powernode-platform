@@ -842,6 +842,15 @@ module Ai
       # a proposal was filed (Ai::AgentProposal#origin_mcp_session_id); never to authorize here.
       attr_writer :mcp_session_id
 
+      # The owner-resolved MCP session this call arrived on (McpSession), set
+      # by McpPlatformToolRegistrar from the streamable controller's
+      # current_mcp_session: the header-named session, and only when it is the
+      # calling principal's own. Its id rides on this call's park principal
+      # (Ai::Approvals::ParkPrincipal), which is what a promotion grant bound
+      # to the session matches at the gate, and request_promotion_grant binds
+      # to it. Never read from params. nil off the MCP door.
+      attr_writer :mcp_session
+
       def execute(params:)
         # FIRST, before every other check (HIER-P2I): a GLOBAL canonical agent
         # is refused as a principal whatever it asked for. Ahead of the deny
@@ -1213,7 +1222,8 @@ module Ai
         ::Ai::Approvals::ParkPrincipal.descriptor(
           user: user, agent: agent, internal: internal?,
           instance_authorized: instance_authorized?, node_instance: node_instance,
-          call_origin: call_origin, action: action, session_label: session_label
+          call_origin: call_origin, action: action, session_label: session_label,
+          mcp_session_id: mcp_session&.id
         )
       end
 
@@ -1244,7 +1254,7 @@ module Ai
         ::Ai::Approvals::ParkPrincipal.shape(
           user: user, agent: agent, internal: internal?,
           instance_authorized: instance_authorized?, node_instance: node_instance,
-          action: action, session_label: session_label
+          action: action, session_label: session_label, mcp_session_id: mcp_session&.id
         )
       end
 
@@ -1780,7 +1790,7 @@ module Ai
 
       private
 
-      attr_reader :account, :agent, :user, :node_instance, :call_origin, :session_label, :mcp_session_id
+      attr_reader :account, :agent, :user, :node_instance, :call_origin, :session_label, :mcp_session_id, :mcp_session
 
       # === LIST PAGINATION — the call side of the contract above ===
 

@@ -47,9 +47,10 @@ module Ai
       # attribution on the parked approval and on its replay. `origin` is nil
       # for an unmarked call.
       def descriptor(user:, agent:, internal:, instance_authorized:, node_instance:,
-                     call_origin: nil, action: nil, session_label: nil)
+                     call_origin: nil, action: nil, session_label: nil, mcp_session_id: nil)
         shape(user: user, agent: agent, internal: internal, instance_authorized: instance_authorized,
-              node_instance: node_instance, action: action, session_label: session_label)
+              node_instance: node_instance, action: action, session_label: session_label,
+              mcp_session_id: mcp_session_id)
           .merge("origin" => call_origin)
       end
 
@@ -61,7 +62,15 @@ module Ai
         descriptor(user: user, agent: agent, internal: false, instance_authorized: false, node_instance: nil)
       end
 
-      def shape(user:, agent:, internal:, instance_authorized:, node_instance:, action: nil, session_label: nil)
+      # `mcp_session_id` is the id of the owner-resolved MCP session the call
+      # arrived on (the tool's own state, set by the registrar from the
+      # streamable controller). It is recorded beside an AGENT's kind only,
+      # and only when present, so every other block keeps its exact shape; a
+      # promotion grant bound to that session reads it at the gate
+      # (Ai::PromotionGrants::Binding). #stamp drops any caller-supplied block.
+      def shape(user:, agent:, internal:, instance_authorized:, node_instance:, action: nil, session_label: nil,
+                mcp_session_id: nil)
+        bound = agent && mcp_session_id.present? ? { "mcp_session_id" => mcp_session_id.to_s } : {}
         if instance_authorized
           if node_instance
             return { "kind" => "instance", "node_instance_id" => node_instance.id,
@@ -71,9 +80,9 @@ module Ai
 
           { "kind" => "unattributed", "detail" => "restricted principal with no node instance" }
         elsif user
-          { "kind" => "user", "user_id" => user.id, "agent_id" => agent&.id, "internal" => internal == true }
+          { "kind" => "user", "user_id" => user.id, "agent_id" => agent&.id, "internal" => internal == true }.merge(bound)
         elsif agent
-          { "kind" => "agent", "agent_id" => agent.id, "internal" => internal == true }
+          { "kind" => "agent", "agent_id" => agent.id, "internal" => internal == true }.merge(bound)
         elsif internal
           { "kind" => "internal" }
         else
