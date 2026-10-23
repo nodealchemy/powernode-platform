@@ -58,7 +58,10 @@ module RateLimiting
         with_counter_redis do |redis|
           scan_batches(redis, Security::RateLimitKey.pattern_for(subject)) do |keys|
             owned = keys.select { |key| Security::RateLimitKey.parse(key)&.fetch(:subject) == subject }
-            keys_cleared += redis.del(*owned) if owned.any?
+            if owned.any?
+              redis.del(*owned.map { |key| Security::RateLimitKey.config_key(key) })
+              keys_cleared += redis.del(*owned)
+            end
           end
         end
         keys_cleared
@@ -72,11 +75,11 @@ module RateLimiting
         found = false
         with_counter_redis do |redis|
           scan_batches(redis, Security::RateLimitKey.pattern_for(subject)) do |keys|
-            counters_and_ttls(redis, keys).each do |key, (current_count, _ttl)|
+            counters_and_ttls(redis, keys).each do |key, (current_count, _ttl, cfg)|
               parsed = Security::RateLimitKey.parse(key)
               next unless parsed && parsed[:subject] == subject
 
-              limit = limit_for_category(parsed[:category])
+              limit = limit_for(parsed, cfg)
               if limit && current_count >= limit
                 found = true
                 break
@@ -97,11 +100,11 @@ module RateLimiting
         limits = {}
         with_counter_redis do |redis|
           scan_batches(redis, Security::RateLimitKey.pattern_for(subject)) do |keys|
-            counters_and_ttls(redis, keys).each do |key, (current_count, ttl)|
+            counters_and_ttls(redis, keys).each do |key, (current_count, ttl, cfg)|
               parsed = Security::RateLimitKey.parse(key)
               next unless parsed && parsed[:subject] == subject
 
-              limit = limit_for_category(parsed[:category])
+              limit = limit_for(parsed, cfg)
               next unless limit
 
               label = parsed[:account_id] ? "#{parsed[:category]}:account:#{parsed[:account_id]}" : parsed[:category]
@@ -123,9 +126,9 @@ module RateLimiting
         found = []
         with_counter_redis do |redis|
           scan_batches(redis, Security::RateLimitKey::ALL) do |keys|
-            counters_and_ttls(redis, keys).each do |key, (current_count, _ttl)|
+            counters_and_ttls(redis, keys).each do |key, (current_count, _ttl, cfg)|
               parsed = Security::RateLimitKey.parse(key)
-              limit = parsed && limit_for_category(parsed[:category])
+              limit = parsed && limit_for(parsed, cfg)
               next unless limit && current_count >= limit
 
               found << {
@@ -172,16 +175,21 @@ module RateLimiting
         redis.scan_each(match: pattern, count: SCAN_COUNT).each_slice(READ_BATCH, &block)
       end
 
-      # { key => [counter, ttl] } for the keys in ONE pipelined round trip (was a read_counter plus a
-      # TTL per key). Counters are raw integers, so GET.to_i is exactly what read_counter returned.
+      # { key => [counter, ttl, configured_limit] } for the keys in ONE pipelined round trip. Counters
+      # are raw integers, so GET.to_i is what read_counter returned. configured_limit is the limit a
+      # custom_limit check! stored beside the counter (nil for a default-limit counter).
       def counters_and_ttls(redis, keys)
         replies = redis.pipelined do |pipe|
           keys.each do |key|
             pipe.get(key)
             pipe.ttl(key)
+            pipe.get(Security::RateLimitKey.config_key(key))
           end
         end
-        keys.each_with_index.to_h { |key, i| [ key, [ replies[2 * i].to_i, replies[2 * i + 1].to_i ] ] }
+        keys.each_with_index.to_h do |key, i|
+          configured = replies[3 * i + 2].to_i
+          [ key, [ replies[3 * i].to_i, replies[3 * i + 1].to_i, (configured if configured.positive?) ] ]
+        end
       end
 
       # Runs the block with a connection to the Redis Security::RateLimiter writes its counters to
@@ -197,9 +205,9 @@ module RateLimiting
         violations = 0
         with_counter_redis do |redis|
           scan_batches(redis, Security::RateLimitKey::ALL) do |keys|
-            counters_and_ttls(redis, keys).each do |key, (current_count, _ttl)|
+            counters_and_ttls(redis, keys).each do |key, (current_count, _ttl, cfg)|
               parsed = Security::RateLimitKey.parse(key)
-              limit = parsed && limit_for_category(parsed[:category])
+              limit = parsed && limit_for(parsed, cfg)
               violations += 1 if limit && current_count >= limit
             end
           end
@@ -230,6 +238,12 @@ module RateLimiting
           enabled: ENV["DISABLE_RATE_LIMITING"] != "true",
           limits: limits
         }
+      end
+
+      # The limit a counter is held to: the one its check! stored beside it (a custom_limit), else its
+      # category's default.
+      def limit_for(parsed, configured)
+        configured || limit_for_category(parsed[:category])
       end
 
       # The limit a counter's category is held to: the writer's own table first (the category is a

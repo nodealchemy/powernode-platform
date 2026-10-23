@@ -82,6 +82,58 @@ RSpec.describe RateLimiting::BaseService do
     end
   end
 
+  describe "a counter written with a custom_limit" do
+    let(:channel) { "channel:019f0000-0000-7000-8000-00000000c0de" }
+
+    def custom(limit, times, account_id: nil)
+      times.times do
+        Security::RateLimiter.check!(key: channel, category: :chat_webhook, account_id: account_id,
+                                     custom_limit: { limit: limit, window: 60 })
+      rescue Security::RateLimiter::RateLimitExceeded
+        nil
+      end
+    end
+
+    it "reads as limited at its own limit, not the category's 100" do
+      custom(5, 5)
+
+      expect(described_class.rate_limited?(channel)).to be(true)
+      expect(described_class.get_limit_info(channel)["chat_webhook"]).to include(current: 5, limit: 5, remaining: 0)
+    end
+
+    it "does not read as limited under a limit above its count" do
+      custom(100, 50)
+
+      expect(described_class.rate_limited?(channel)).to be(false)
+      expect(described_class.get_limit_info(channel)["chat_webhook"]).to include(current: 50, limit: 100, remaining: 50)
+    end
+
+    it "is reported by recent_violations with the effective limit" do
+      custom(5, 7)
+
+      expect(described_class.recent_violations).to contain_exactly(
+        include(endpoint: "chat_webhook", identifier: channel, count: 7, limit: 5)
+      )
+    end
+
+    it "keeps the sibling out of the counts, and clear_limits_for deletes it with its counter" do
+      custom(5, 5)
+      cfg = Security::RateLimitKey.config_key(Security::RateLimitKey.build(category: :chat_webhook, key: channel))
+
+      expect(redis.get(cfg)).to eq("5")
+      expect(redis.ttl(cfg)).to be_between(1, 60)
+      expect(described_class.send(:count_active_limits)).to eq(1)
+      expect(described_class.clear_limits_for(channel)).to eq(1)
+      expect(redis.exists?(cfg)).to be(false)
+    end
+
+    it "writes no sibling on the default path" do
+      Security::RateLimiter.check!(key: channel, category: :chat_webhook)
+
+      expect(redis.scan_each(match: "rate_limit_cfg:*").to_a).to be_empty
+    end
+  end
+
   describe "the key shape" do
     it "is built by one builder that the writer uses" do
       Security::RateLimiter.check!(key: "ip:#{ip}", category: :chat_send, account_id: account_id)

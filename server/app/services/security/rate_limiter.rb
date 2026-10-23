@@ -55,13 +55,25 @@ module Security
       return count
     LUA
 
+    # The same, plus the effective limit stored beside the counter (KEYS[2], ARGV[2]) for the status
+    # readers, which cannot know a custom_limit otherwise. It expires with the counter, so it never
+    # outlives the window. Used only when check! is given a custom_limit: the default path pays nothing.
+    CUSTOM_LIMIT_INCREMENT_SCRIPT = <<~LUA
+      local count = redis.call("INCR", KEYS[1])
+      if redis.call("TTL", KEYS[1]) == -1 then
+        redis.call("EXPIRE", KEYS[1], ARGV[1])
+      end
+      redis.call("SETEX", KEYS[2], math.max(redis.call("TTL", KEYS[1]), 1), ARGV[2])
+      return count
+    LUA
+
     class << self
       # Check and increment rate limit
       def check!(key:, category: :api_default, account_id: nil, custom_limit: nil)
         config = custom_limit || RATE_LIMITS[category] || RATE_LIMITS[:api_default]
         full_key = build_key(key, category, account_id)
 
-        count = increment(full_key, config[:window])
+        count = increment(full_key, config[:window], custom_limit ? config[:limit] : nil)
 
         if count > config[:limit]
           ttl = redis.ttl(full_key)
@@ -98,7 +110,7 @@ module Security
       # Reset rate limit for a key
       def reset!(key:, category: :api_default, account_id: nil)
         full_key = build_key(key, category, account_id)
-        redis.del(full_key)
+        redis.del(full_key, Security::RateLimitKey.config_key(full_key))
       end
 
       # Check if currently rate limited
@@ -116,8 +128,13 @@ module Security
         Security::RateLimitKey.build(category: category, key: key, account_id: account_id)
       end
 
-      def increment(key, window)
-        redis.eval(INCREMENT_SCRIPT, keys: [ key ], argv: [ window.to_i ])
+      def increment(key, window, custom_limit = nil)
+        if custom_limit
+          redis.eval(CUSTOM_LIMIT_INCREMENT_SCRIPT, keys: [ key, Security::RateLimitKey.config_key(key) ],
+                                                    argv: [ window.to_i, custom_limit.to_i ])
+        else
+          redis.eval(INCREMENT_SCRIPT, keys: [ key ], argv: [ window.to_i ])
+        end
       end
 
       def redis

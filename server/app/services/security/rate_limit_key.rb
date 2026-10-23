@@ -14,6 +14,9 @@ module Security
   module RateLimitKey
     PREFIX = "rate_limit"
     ALL = "#{PREFIX}:*".freeze
+    # Prefix of the sibling that carries a custom_limit's effective limit. Not "rate_limit:", so no
+    # counter scan or parse ever sees it.
+    CONFIG_PREFIX = "rate_limit_cfg"
 
     NUMERIC_ID = /\A\d+\z/
     UUID = /\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/
@@ -25,6 +28,11 @@ module Security
       parts << "account:#{account_id}" if account_id.present?
       parts << key
       parts.join(":")
+    end
+
+    # The key beside a counter that holds the limit its check! ran with (custom_limit only).
+    def config_key(counter_key)
+      "#{CONFIG_PREFIX}:#{counter_key}"
     end
 
     # { category:, account_id:, subject: } or nil when the key is not in the writer's shape.
@@ -47,6 +55,8 @@ module Security
       id = identifier.to_s
       if id.match?(NUMERIC_ID) || id.match?(UUID)
         "user:#{id}"
+      elsif id.match?(/\Achannel:#{UUID.source[2..-3]}\z/)
+        id # a chat channel's counter (the webhooks controller's per-channel limit)
       elsif id.match?(/\A[\h:.]+\z/) && ip?(id)
         "ip:#{id}"
       end
