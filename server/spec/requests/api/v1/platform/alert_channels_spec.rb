@@ -153,6 +153,9 @@ RSpec.describe "Api::V1::Platform::AlertChannels", type: :request do
 
   describe "the credential store is selected but unreachable" do
     before do
+      # Mint the token while the store still answers: minting reads the HMAC secret through
+      # Security::JwtKeyStore, which uses the same secret store this block makes unreachable.
+      headers
       AdminSetting.set(Security::SecretStore::SETTING_KEY, "vault")
       allow(Security::SecretStore::VaultBackend).to receive(:reachable?).and_return(false)
     end
@@ -169,6 +172,7 @@ RSpec.describe "Api::V1::Platform::AlertChannels", type: :request do
                   headers: headers, as: :json
 
       expect(response).to have_http_status(:service_unavailable)
+      expect(JSON.parse(response.body).to_s).to include("secret_store_unavailable")
       expect(Monitoring::AlertChannels.email).to be_nil
     end
   end
