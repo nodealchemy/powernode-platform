@@ -35,6 +35,8 @@ interface RateLimitStats {
   enabled: boolean;
   current_violations: number;
   active_limits: number;
+  // The counters' store cannot be read: the numbers above are unknown, not zero.
+  unsupported?: boolean;
   configuration: RateLimitConfig;
   recent_violations: Array<{
     endpoint: string;
@@ -87,6 +89,7 @@ export const RateLimitingSettings: React.FC = () => {
         enabled: statusResponse.effective_status === 'enabled',
         current_violations: statsResponse.current_violations || 0,
         active_limits: statsResponse.active_limits || 0,
+        unsupported: statsResponse.supported === false,
         configuration: statsResponse.configuration || config,
         recent_violations: violationsResponse.violations || []
       };
@@ -338,7 +341,7 @@ export const RateLimitingSettings: React.FC = () => {
                 <Activity className="w-5 h-5 text-theme-info-fg" />
                 <div>
                   <p className="text-sm text-theme-secondary">Active Limits</p>
-                  <p className="text-xl font-semibold text-theme-primary">{stats.active_limits}</p>
+                  <p className="text-xl font-semibold text-theme-primary">{stats.unsupported ? 'Unsupported store' : stats.active_limits}</p>
                 </div>
               </div>
             </div>
@@ -348,7 +351,7 @@ export const RateLimitingSettings: React.FC = () => {
                 <div>
                   <p className="text-sm text-theme-secondary">Current Violations</p>
                   <p className={`text-xl font-semibold ${stats.current_violations > 0 ? 'text-theme-danger-fg' : 'text-theme-success-fg'}`}>
-                    {stats.current_violations}
+                    {stats.unsupported ? 'Unsupported store' : stats.current_violations}
                   </p>
                 </div>
               </div>
