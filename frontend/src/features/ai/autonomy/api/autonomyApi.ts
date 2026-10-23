@@ -386,7 +386,9 @@ export function useBatchReviewProposals() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (params: { proposal_ids: string[]; action: 'approve' | 'reject'; comments?: string }) => {
-      const response = await apiClient.post('/ai/proposals/batch_review', params);
+      // Sent as `decision`: Rails reserves `action` for the routed action name.
+      const { action, ...rest } = params;
+      const response = await apiClient.post('/ai/proposals/batch_review', { ...rest, decision: action });
       return response.data?.data as BatchReviewResult;
     },
     onSuccess: () => {

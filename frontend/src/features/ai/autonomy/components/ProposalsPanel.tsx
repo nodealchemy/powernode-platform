@@ -11,6 +11,9 @@ import {
   useWithdrawProposal, useBatchReviewProposals,
 } from '../api/autonomyApi';
 import type { AgentProposal, ProposalStatus } from '../types/autonomy';
+import {
+  PROPOSAL_STATUS_OPTIONS, proposalStatusLabel, proposalOutcomeNote, proposalHandoffLabel,
+} from '../utils/proposalStatus';
 
 function getStatusBadge(status: ProposalStatus) {
   switch (status) {
@@ -19,6 +22,7 @@ function getStatusBadge(status: ProposalStatus) {
     case 'pending_review': return { class: 'text-theme-warning-fg bg-theme-warning-fg/10', icon: Clock };
     case 'implemented': return { class: 'text-theme-info-fg bg-theme-info-fg/10', icon: CheckCircle };
     case 'withdrawn': return { class: 'text-theme-tertiary bg-theme-surface', icon: XCircle };
+    case 'expired': return { class: 'text-theme-warning-fg bg-theme-warning-fg/10', icon: Clock };
     default: return { class: 'text-theme-secondary bg-theme-surface', icon: Clock };
   }
 }
@@ -72,12 +76,20 @@ const ProposalCard: React.FC<{
               <h4 className="font-medium text-theme-primary truncate">{proposal.title}</h4>
               <span className={`px-2 py-0.5 text-xs rounded flex items-center gap-1 shrink-0 ${badge.class}`}>
                 <BadgeIcon className="h-3 w-3" />
-                {proposal.status.replace('_', ' ')}
+                {proposalStatusLabel(proposal.status)}
               </span>
               <span className={`text-xs shrink-0 ${getPriorityColor(proposal.priority)}`}>{proposal.priority}</span>
             </div>
             <div className="flex items-center gap-3 text-xs text-theme-tertiary mt-0.5">
               <span>{proposal.proposal_type}</span>
+              {proposalHandoffLabel(proposal.handoff) && (
+                <span
+                  data-testid="proposal-handoff"
+                  className={proposal.handoff?.acknowledged_only ? 'text-theme-warning-fg' : 'text-theme-success-fg'}
+                >
+                  {proposalHandoffLabel(proposal.handoff)}
+                </span>
+              )}
               {proposal.agent?.name && (
                 <span className="flex items-center gap-1">
                   by <EntityLink type="agent" id={proposal.agent.id} label={proposal.agent.name} className="text-xs" />
@@ -121,6 +133,26 @@ const ProposalCard: React.FC<{
             </div>
           )}
 
+          {proposal.agent_spec && (
+            <div className="text-xs bg-theme-background border border-theme rounded p-3 space-y-1" data-testid="agent-spec">
+              <p className="text-theme-secondary"><span className="font-medium">Model tier: </span>{proposal.agent_spec.tier}</p>
+              <p className="text-theme-secondary">
+                <span className="font-medium">Tool families: </span>
+                {proposal.agent_spec.tool_families.length > 0 ? proposal.agent_spec.tool_families.join(', ') : 'none'}
+              </p>
+              <p className="text-theme-secondary">
+                <span className="font-medium">Tools: </span>
+                {proposal.agent_spec.tools.length > 0 ? proposal.agent_spec.tools.join(', ') : 'none'}
+              </p>
+              {proposal.agent_spec.unknown.length > 0 && (
+                <p className="text-theme-error-fg">
+                  <span className="font-medium">Unrecognised (approval will be refused): </span>
+                  {proposal.agent_spec.unknown.join(', ')}
+                </p>
+              )}
+            </div>
+          )}
+
           {/* Proposed changes */}
           {Object.keys(proposal.proposed_changes).length > 0 && (
             <div>
@@ -140,6 +172,12 @@ const ProposalCard: React.FC<{
               </span>
             )}
             {proposal.reviewed_at && <span>Reviewed: {new Date(proposal.reviewed_at).toLocaleString()}</span>}
+            {proposal.implemented_at && (
+              <span>
+                Implemented: {new Date(proposal.implemented_at).toLocaleString()}
+                {proposal.implemented_ref ? ` (${proposal.implemented_ref})` : ''}
+              </span>
+            )}
             <span>Created {new Date(proposal.created_at).toLocaleString()}</span>
           </div>
 
@@ -172,7 +210,7 @@ const ProposalCard: React.FC<{
 
           {!isPending && (
             <p className="text-xs text-theme-tertiary italic">
-              {proposal.status === 'withdrawn' ? 'This proposal was withdrawn.' : `This proposal has been ${proposal.status}.`}
+              {proposalOutcomeNote(proposal.status)}
             </p>
           )}
         </div>
@@ -230,8 +268,18 @@ export const ProposalsPanel: React.FC = () => {
   const handleBatchAction = async (action: 'approve' | 'reject') => {
     if (selectedIds.size === 0) return;
     try {
-      await batchReviewMutation.mutateAsync({ proposal_ids: Array.from(selectedIds), action });
-      addNotification({ type: 'success', message: `${selectedIds.size} proposal(s) ${action === 'approve' ? 'approved' : 'rejected'}` });
+      const outcome = await batchReviewMutation.mutateAsync({ proposal_ids: Array.from(selectedIds), action });
+      const results = outcome?.results ?? [];
+      const refused = results.filter((r) => r.error);
+      const done = results.length - refused.length;
+      if (refused.length > 0) {
+        addNotification({
+          type: 'warning',
+          message: `${done} ${action === 'approve' ? 'approved' : 'rejected'}; ${refused.length} refused: ${refused[0].error}`,
+        });
+      } else {
+        addNotification({ type: 'success', message: `${done} proposal(s) ${action === 'approve' ? 'approved' : 'rejected'}` });
+      }
       setSelectedIds(new Set());
     } catch {
       addNotification({ type: 'error', message: `Failed to batch ${action} proposals` });
@@ -253,11 +301,9 @@ export const ProposalsPanel: React.FC = () => {
           className="px-3 py-1.5 text-sm rounded-md border border-theme bg-theme-surface text-theme-primary"
         >
           <option value="">All statuses</option>
-          <option value="pending_review">Pending Review</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="implemented">Implemented</option>
-          <option value="withdrawn">Withdrawn</option>
+          {PROPOSAL_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
         </select>
         {pendingCount > 0 && (
           <span className="px-2 py-1 text-xs rounded bg-theme-warning-fg/10 text-theme-warning-fg">

@@ -206,7 +206,17 @@ export interface AgentGoal {
 
 // ===== Proposals =====
 
-export type ProposalStatus = 'pending_review' | 'approved' | 'rejected' | 'implemented' | 'withdrawn';
+// 'expired' = the review deadline lapsed with nobody deciding; 'withdrawn' = the filing agent retracted it.
+export type ProposalStatus = 'pending_review' | 'approved' | 'rejected' | 'implemented' | 'withdrawn' | 'expired';
+export type ProposalHandoffKind = 'dev_task' | 'campaign_proposal' | 'agent' | 'gitops' | 'acknowledged';
+
+export interface ProposalHandoff {
+  kind: ProposalHandoffKind;
+  id?: string | null;
+  label: string;
+  /** true when approval started nothing: it only acknowledged the proposal. */
+  acknowledged_only: boolean;
+}
 export type ProposalType = 'feature' | 'knowledge_update' | 'code_change' | 'architecture' | 'process_improvement' | 'configuration';
 
 export interface AgentProposal {
@@ -224,6 +234,11 @@ export interface AgentProposal {
   proposed_changes: Record<string, unknown>;
   review_deadline?: string;
   reviewed_at?: string;
+  implemented_at?: string | null;
+  implemented_ref?: string | null;
+  handoff?: ProposalHandoff | null;
+  /** agent_create only: what approving would create, so the card shows tier and families. */
+  agent_spec?: { slug?: string; tier: string; tool_families: string[]; tools: string[]; unknown: string[] } | null;
   overdue?: boolean;
   created_at: string;
   updated_at: string;
@@ -306,7 +321,7 @@ export interface PolicyResolutionResult {
 // ===== Batch Review =====
 
 export interface BatchReviewResult {
-  results: Array<{ proposal_id: string; status: string; success: boolean; error?: string }>;
+  results: Array<{ id: string; status: string; error?: string; code?: number; handoff_kind?: string; acknowledged_only?: boolean }>;
 }
 
 // ===== Observations =====
