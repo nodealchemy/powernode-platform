@@ -715,7 +715,11 @@ module Api
                 # An opaque digest of the Mcp-Session-Id, recorded on a parked
                 # request so an operator can tell sessions apart. Informational
                 # only: nothing reads it to authorize.
-                session_label: mcp_session_label
+                session_label: mcp_session_label,
+                # The caller's OWNED MCP session (current_mcp_session checks the
+                # principal owns it), so a proposal filed here can be decided in
+                # this same live session. Never taken from the request params.
+                mcp_session_id: current_mcp_session&.id
               )
             rescue ArgumentError => e
               if e.message.start_with?("Unknown platform tool")

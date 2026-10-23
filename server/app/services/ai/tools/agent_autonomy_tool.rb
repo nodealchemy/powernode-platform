@@ -652,7 +652,8 @@ module Ai
             description: params["description"],
             rationale: params["rationale"],
             priority: params["priority"] || "medium",
-            impact_assessment: params["impact_assessment"] || {}
+            impact_assessment: params["impact_assessment"] || {},
+            origin_mcp_session_id: mcp_session_id
           }
         )
 
@@ -736,6 +737,7 @@ module Ai
           agent: agent,
           params: params.slice("proposal_type", "title", "description", "rationale", "priority", "proposed_changes")
             .transform_keys(&:to_sym)
+            .merge(origin_mcp_session_id: mcp_session_id)
         )
 
         if proposal.persisted?

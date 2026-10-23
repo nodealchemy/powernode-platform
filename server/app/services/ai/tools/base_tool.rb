@@ -837,6 +837,11 @@ module Ai
       # ONLY: nothing reads it to authorize, and it is never a credential.
       attr_writer :session_label
 
+      # The id of the owner-resolved McpSession the call arrived on, set by the MCP
+      # controller through the registrar (never from params). Read only to record where
+      # a proposal was filed (Ai::AgentProposal#origin_mcp_session_id); never to authorize here.
+      attr_writer :mcp_session_id
+
       def execute(params:)
         # FIRST, before every other check (HIER-P2I): a GLOBAL canonical agent
         # is refused as a principal whatever it asked for. Ahead of the deny
@@ -1775,7 +1780,7 @@ module Ai
 
       private
 
-      attr_reader :account, :agent, :user, :node_instance, :call_origin, :session_label
+      attr_reader :account, :agent, :user, :node_instance, :call_origin, :session_label, :mcp_session_id
 
       # === LIST PAGINATION — the call side of the contract above ===
 

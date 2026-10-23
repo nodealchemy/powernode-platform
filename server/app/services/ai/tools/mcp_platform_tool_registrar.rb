@@ -251,7 +251,7 @@ module Ai
         # Optional so specs need not name one; spec/lint/registrar_origin_spec.rb
         # holds every production call site to it.
         def execute_tool(tool_id, params:, account:, user: nil, agent_id: nil, mcp_agent: nil, instance_authorized: false,
-                         node_instance: nil, origin: nil, session_label: nil, driving_user: nil)
+                         node_instance: nil, origin: nil, session_label: nil, driving_user: nil, mcp_session_id: nil)
           tool_name = tool_id.delete_prefix("#{TOOL_ID_PREFIX}.")
           tool_class = find_tool_class(tool_name)
           raise ArgumentError, "Unknown platform tool: #{tool_name}" unless tool_class
@@ -324,7 +324,8 @@ module Ai
           build_and_execute(tool_class, execution_params, account: account, user: user, mcp_agent: mcp_agent,
                                                           instance_authorized: instance_authorized,
                                                           node_instance: node_instance, origin: origin,
-                                                          session_label: session_label, driving_user: driving_user)
+                                                          session_label: session_label, driving_user: driving_user,
+                                                          mcp_session_id: mcp_session_id)
         end
 
         # THE GUARDED RUNNER a local tool shares with a registry call (D2 review
@@ -376,7 +377,7 @@ module Ai
         end
 
         def build_and_execute(tool_class, execution_params, account:, user:, mcp_agent:, instance_authorized:,
-                              node_instance:, origin: nil, session_label: nil, driving_user: nil)
+                              node_instance:, origin: nil, session_label: nil, driving_user: nil, mcp_session_id: nil)
           tool_instance = tool_class.new(account: account, user: user, agent: mcp_agent)
           # The door the call came through (MCP identity plan R3). Set from the
           # caller's `origin:`, never inferred from mcp_agent: an OAuth MCP call
@@ -403,6 +404,9 @@ module Ai
           # The real triggering user behind a stand-in `user` (the agent
           # bridge). Read only by the autonomy gate for promotion grants.
           tool_instance.driving_user = driving_user if driving_user
+          # The owner-resolved MCP session the call arrived on (resolved by the MCP
+          # controller, never a param); recorded on proposals the tool files.
+          tool_instance.mcp_session_id = mcp_session_id if mcp_session_id
           tool_instance.execute(params: execution_params)
         end
 

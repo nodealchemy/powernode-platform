@@ -1422,7 +1422,8 @@ module Ai
             description: "Agent requested to #{verb} a data source but lacks " \
                          "#{MUTATION_PERMISSIONS[action]}. Review and apply if appropriate.",
             priority: "medium",
-            proposed_changes: proposed_changes
+            proposed_changes: proposed_changes,
+            origin_mcp_session_id: mcp_session_id
           }
         )
 
