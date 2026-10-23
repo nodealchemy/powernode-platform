@@ -28,10 +28,20 @@ module Ai
   class PromotionGrant < ApplicationRecord
     self.table_name = "ai_promotion_grants"
 
-    # The categories a grant may name. Each needs an extension catalog
-    # (Ai::PromotionGrants::Catalog) to say which permission a granter must
-    # hold; with none, nothing can be issued.
-    CATEGORIES = %w[release.promote].freeze
+    # The DEFAULT of the categories a grant may name. The live list is the
+    # operator's (Ai::PromotionGrants::Grantable: a protected site setting,
+    # less hard exclusions no setting lifts). Each category also needs an
+    # extension catalog (Ai::PromotionGrants::Catalog) to say which permission
+    # a granter must hold; with none, nothing can be issued.
+    CATEGORIES = ::Ai::PromotionGrants::Grantable::DEFAULT_CATEGORIES
+    # What a grant may be BOUND to (both columns or neither): the requesting
+    # agent's MCP session, or the Platform Developer run (Ai::AgentExecution)
+    # that asked. A bound grant is spent only by a call carrying that target
+    # while it is live (Ai::PromotionGrants::Binding); an unbound one by any
+    # call of its agent, as before.
+    BINDING_MCP_SESSION = "mcp_session"
+    BINDING_AGENT_EXECUTION = "agent_execution"
+    BINDING_KINDS = [ BINDING_MCP_SESSION, BINDING_AGENT_EXECUTION ].freeze
     MAX_LIFETIME = 24.hours
     # A STRICT plane — supervised, or tier 3 and up (prod by default) — takes a
     # grant only when it is bounded on every axis: a use cap, named modules and
@@ -43,7 +53,7 @@ module Ai
     UUID_FORMAT = /\A[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\z/i
     # Everything a grant says. Fixed at issue: a grant is re-issued, never edited.
     TERMS = %w[account_id granted_by_id ai_agent_id environment_id action_category module_ids
-               max_uses expires_at reason granter_driven_only].freeze
+               max_uses expires_at reason granter_driven_only binding_kind binding_id].freeze
     ISSUE_REFUSAL = "A promotion grant is issued only by a person in their own session, never through a tool, " \
                     "an impersonation, an account-switch or a service session"
 
@@ -63,7 +73,9 @@ module Ai
 
     before_validation :normalize_module_ids, if: -> { new_record? || will_save_change_to_module_ids? }
 
-    validates :action_category, presence: true, inclusion: { in: CATEGORIES }
+    validates :action_category, presence: true
+    validate :category_grantable, on: :create
+    validate :binding_pair
     validates :reason, presence: true, length: { maximum: REASON_MAX_LENGTH }
     validates :expires_at, presence: true
     validates :uses_count, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
@@ -82,6 +94,7 @@ module Ai
     scope :unexpired, ->(now = Time.current) { where(arel_table[:expires_at].gt(now)) }
     scope :with_uses_left, -> { where("max_uses IS NULL OR uses_count < max_uses") }
     scope :active, ->(now = Time.current) { unrevoked.unexpired(now).with_uses_left }
+    scope :bound_to, ->(kind, id) { where(binding_kind: kind.to_s, binding_id: id.to_s) }
 
     # True for the planes Ai::PromotionGrant::STRICT_* bound: the environment's
     # own flags, never its slug.
@@ -107,6 +120,10 @@ module Ai
 
     def revoked?
       revoked_at.present?
+    end
+
+    def bound?
+      binding_kind.present?
     end
 
     def expired?(now = Time.current)
@@ -163,6 +180,25 @@ module Ai
       raw = Array(assigned.is_a?(Array) ? assigned : module_ids).map { |id| id.to_s.strip.downcase }.reject(&:empty?).uniq
       @malformed_module_ids = raw.reject { |id| id.match?(UUID_FORMAT) }
       self.module_ids = raw - @malformed_module_ids
+    end
+
+    # Read live (Ai::PromotionGrants::Grantable), on create only: narrowing
+    # the operator's list never invalidates a grant already issued (revoke it).
+    def category_grantable
+      return if action_category.blank?
+      return if ::Ai::PromotionGrants::Grantable.grantable?(action_category)
+
+      errors.add(:action_category, "#{action_category} is not a category a promotion grant may name")
+    end
+
+    def binding_pair
+      if binding_kind.blank? && binding_id.blank?
+        nil
+      elsif !BINDING_KINDS.include?(binding_kind.to_s)
+        errors.add(:binding_kind, "must be one of #{BINDING_KINDS.join(', ')}")
+      elsif binding_id.blank?
+        errors.add(:binding_id, "is required with a binding kind")
+      end
     end
 
     def issued_from_own_session

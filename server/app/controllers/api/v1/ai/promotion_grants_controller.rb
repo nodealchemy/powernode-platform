@@ -43,7 +43,8 @@ module Api
 
         # GET /api/v1/ai/promotion_grants/options — what the create form offers.
         def options
-          category = ::Ai::PromotionGrant::CATEGORIES.first
+          categories = ::Ai::PromotionGrants::Grantable.categories
+          category = categories.first || ::Ai::PromotionGrant::CATEGORIES.first
           # `strict` and the two limits are what the server enforces on that
           # plane (Ai::PromotionGrant.strict_environment?); the form shows them.
           environments = ::Ai::Environment.ladder_for(account).map do |e|
@@ -53,7 +54,7 @@ module Api
               max_uses_limit: strict ? ::Ai::PromotionGrant::STRICT_MAX_USES : nil }
           end
           render_success(
-            categories: ::Ai::PromotionGrant::CATEGORIES,
+            categories: categories,
             environments: environments,
             modules: ::Ai::PromotionGrants::Catalog.subjects(account: account, action_category: category),
             expiry_presets_hours: EXPIRY_PRESETS_HOURS,
@@ -138,6 +139,9 @@ module Api
             module_ids: grant.module_ids,
             granter_driven_only: grant.granter_driven_only,
             strict_plane: grant.strict_plane?,
+            binding: { kind: grant.binding_kind, id: grant.binding_id,
+                       description: ::Ai::PromotionGrants::Binding.describe(kind: grant.binding_kind,
+                                                                            id: grant.binding_id, agent: grant.agent) },
             max_uses: grant.max_uses,
             uses_count: grant.uses_count,
             uses_remaining: grant.uses_remaining,

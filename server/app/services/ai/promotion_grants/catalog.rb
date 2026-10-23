@@ -5,7 +5,7 @@ module Ai
     # What core asks the extension that owns a grantable verb (core purity:
     # core never names the verb's permission or its subjects). The extension
     # registers a provider under PROVIDER_KEY (Powernode::ExtensionRegistry)
-    # answering, for a category in Ai::PromotionGrant::CATEGORIES:
+    # answering, for a category Ai::PromotionGrants::Grantable admits:
     #
     #   required_permission(category)              -> String | nil
     #     the permission the gated verb itself requires. A granter must hold it.
@@ -26,13 +26,13 @@ module Ai
       end
 
       def required_permission(category)
-        return nil unless ::Ai::PromotionGrant::CATEGORIES.include?(category.to_s)
+        return nil unless ::Ai::PromotionGrants::Grantable.grantable?(category)
 
         provider&.required_permission(category.to_s).presence
       end
 
       def subjects(account:, action_category:)
-        return [] unless ::Ai::PromotionGrant::CATEGORIES.include?(action_category.to_s)
+        return [] unless ::Ai::PromotionGrants::Grantable.grantable?(action_category)
 
         Array(provider&.subjects(account: account, action_category: action_category.to_s))
       end

@@ -185,7 +185,8 @@ module Ai
     # An Ai::PromotionGrant standing in for a person's approval, or nil (the
     # operation then parks exactly as it would have). A grant never applies to
     #   * a call with no agent, or no subject from the verb's gate context;
-    #   * a category off Ai::PromotionGrant::CATEGORIES, or no resolved plane;
+    #   * a category the operator has not made grantable, or one no setting
+    #     can (Ai::PromotionGrants::Grantable), or no resolved plane;
     #   * a human-only call (requires_human_session), whatever else holds;
     #   * an account under the kill switch (emergency halt), read fresh;
     #   * a request that would need a person's own session for any reason
@@ -204,7 +205,7 @@ module Ai
     def consume_promotion_grant(deferred, action_category:, agent:, requires_human_session:, grant_subject:,
                                 driving_user: nil, call_origin: nil)
       return nil if agent.nil? || grant_subject.blank? || requires_human_session
-      return nil unless ::Ai::PromotionGrant::CATEGORIES.include?(action_category.to_s)
+      return nil unless ::Ai::PromotionGrants::Grantable.grantable?(action_category)
       return nil if deferred.environment.nil?
       return nil if ::Ai::Autonomy::KillSwitchService.halted_now?(@account.id)
 
