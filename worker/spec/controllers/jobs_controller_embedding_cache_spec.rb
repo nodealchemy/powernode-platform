@@ -124,4 +124,74 @@ RSpec.describe JobsController, 'embedding service cache' do
     expect(service.to_s).not_to include(secret_key)
     expect(last_response.body).not_to include(secret_key)
   end
+
+  # A config that names no credential (the account has no embedding provider yet)
+  # or an error body must not be pinned for five minutes: the next request should
+  # see the provider the moment it is configured.
+  describe 'what is cached' do
+    it 'does not cache an openai config with no credential' do
+      api_client.on_get = lambda do |path|
+        fetches[path.split('?').first] += 1
+        { 'data' => { 'provider_type' => 'openai', 'credential_id' => nil } }
+      end
+
+      2.times { embed }
+
+      expect(config_calls).to eq(2)
+    end
+
+    it 'does not cache an error body such as a 429' do
+      api_client.on_get = lambda do |path|
+        fetches[path.split('?').first] += 1
+        { 'success' => false, 'error' => 'Rate limit exceeded' }
+      end
+
+      2.times { embed }
+
+      expect(config_calls).to eq(2)
+    end
+
+    it 'caches an ollama config, which needs no credential' do
+      api_client.on_get = lambda do |path|
+        fetches[path.split('?').first] += 1
+        { 'data' => { 'provider_type' => 'ollama', 'ollama_url' => 'http://ollama.test', 'ollama_model' => 'nomic-embed-text' } }
+      end
+
+      3.times { embed }
+
+      expect(config_calls).to eq(1)
+    end
+  end
+
+  describe 'the cache map' do
+    def entries = described_class.send(:embedding_services)
+
+    it 'evicts an entry found expired' do
+      embed(account_id: 'acct-1')
+      travel 6.minutes do
+        expect(described_class.cached_embedding_service('acct-1')).to be_nil
+        expect(entries).not_to have_key('acct-1')
+      end
+    end
+
+    it 'sweeps other expired entries when a new one is stored' do
+      embed(account_id: 'acct-1')
+      embed(account_id: 'acct-2')
+      travel 6.minutes do
+        embed(account_id: 'acct-3')
+        expect(entries.keys).to eq([ 'acct-3' ])
+      end
+    end
+
+    it 'can drop one account on demand' do
+      embed(account_id: 'acct-1')
+      embed(account_id: 'acct-2')
+
+      described_class.invalidate_embedding_service('acct-1')
+      embed(account_id: 'acct-1')
+      embed(account_id: 'acct-2')
+
+      expect(config_calls).to eq(3)
+    end
+  end
 end

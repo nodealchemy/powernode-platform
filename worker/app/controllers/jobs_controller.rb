@@ -28,17 +28,26 @@ class JobsController
     def cached_embedding_service(account_id)
       EMBEDDING_SERVICES_LOCK.synchronize do
         entry = embedding_services[account_id]
-        return entry[:service] if entry && entry[:expires_at] > Time.now
+        return nil unless entry
+        return entry[:service] if entry[:expires_at] > Time.now
 
+        embedding_services.delete(account_id) # found expired: evict
         nil
       end
     end
 
     def store_embedding_service(account_id, service)
       EMBEDDING_SERVICES_LOCK.synchronize do
-        embedding_services[account_id] = { service: service, expires_at: Time.now + EMBEDDING_SERVICE_TTL }
+        now = Time.now
+        embedding_services.delete_if { |_id, entry| entry[:expires_at] <= now } # sweep
+        embedding_services[account_id] = { service: service, expires_at: now + EMBEDDING_SERVICE_TTL }
       end
       service
+    end
+
+    # Drop one account's service (e.g. its embedding provider or credential changed).
+    def invalidate_embedding_service(account_id)
+      EMBEDDING_SERVICES_LOCK.synchronize { embedding_services.delete(account_id) }
     end
 
     def reset_embedding_services!
@@ -538,6 +547,12 @@ class JobsController
       ollama_url: config["ollama_url"],
       ollama_model: config["ollama_model"]
     )
+
+    # Pin only a config that can actually embed: it names a credential, or it is
+    # an Ollama config (which needs none). An error body (a 429, say) or an
+    # account with no embedding provider yet falls through to defaults here, and
+    # must be re-read on the next request rather than held for five minutes.
+    return service unless config.is_a?(Hash) && (config["credential_id"].present? || config["provider_type"].to_s == "ollama")
 
     self.class.store_embedding_service(account_id, service)
   end
