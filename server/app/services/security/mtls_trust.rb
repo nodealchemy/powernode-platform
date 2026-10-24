@@ -2,6 +2,7 @@
 
 require "cgi"
 require "openssl"
+require "ipaddr"
 
 module Security
   # The platform's own internal-CA trust root for verifying mTLS client certs
@@ -27,6 +28,10 @@ module Security
     # every request carrying a PEM used to make one.
     OWN_CA_MEMO_TTL = 60
 
+    # Comma-separated IPs/CIDRs of proxies (beyond loopback) allowed to forward
+    # client-cert headers, e.g. an ingress on another host or container network.
+    TRUSTED_PROXIES_ENV = "POWERNODE_TRUSTED_PROXIES"
+
     class << self
       def own_ca_provider=(provider)
         @own_ca_provider = provider
@@ -51,6 +56,22 @@ module Security
       rescue StandardError => e
         ::Rails.logger.warn("[MtlsTrust] own_ca provider failed: #{e.class}: #{e.message}")
         nil
+      end
+
+      # True when the TCP peer of this request is one we trust to have set the
+      # forwarded client-cert headers: loopback (the local ingress) or a proxy
+      # named in POWERNODE_TRUSTED_PROXIES. Uses REMOTE_ADDR, the socket peer,
+      # NOT request.remote_ip, which follows X-Forwarded-For and so is whatever the
+      # client says. A PEM is a public certificate and a subject CN is just a
+      # header; both mean something only when the ingress put them there.
+      def trusted_peer?(request)
+        peer = request.env["REMOTE_ADDR"].to_s
+        return false if peer.empty?
+
+        addr = ::IPAddr.new(peer).native
+        addr.loopback? || trusted_proxy_ranges.any? { |range| range.include?(addr) }
+      rescue ::IPAddr::Error, ::ArgumentError
+        false
       end
 
       def reset!
@@ -85,6 +106,9 @@ module Security
       #     X-Forwarded-Tls-Client-Cert-Info naming a known worker CN cannot
       #     reach a reveal path even if it survives the ingress.
       def verify_request(request, require_pem: false)
+        # Forwarded client-cert headers are only believed from the ingress.
+        return nil unless trusted_peer?(request)
+
         pem = forwarded_pem(request)
         if pem.present?
           # Parse the leaf BEFORE touching the CA: an unparseable PEM can never
@@ -155,6 +179,14 @@ module Security
       end
 
       private
+
+      def trusted_proxy_ranges
+        ::ENV[TRUSTED_PROXIES_ENV].to_s.split(",").filter_map do |entry|
+          ::IPAddr.new(entry.strip)
+        rescue ::IPAddr::Error, ::ArgumentError
+          nil
+        end
+      end
 
       def parseable_certificate?(pem)
         ::OpenSSL::X509::Certificate.new(pem)

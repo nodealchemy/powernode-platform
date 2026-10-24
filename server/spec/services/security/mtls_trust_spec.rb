@@ -38,8 +38,8 @@ RSpec.describe Security::MtlsTrust do
     described_class.own_ca_provider = original
   end
 
-  def req(headers)
-    instance_double(ActionDispatch::Request, headers: headers)
+  def req(headers = {}, peer: "127.0.0.1", **header_kwargs)
+    instance_double(ActionDispatch::Request, headers: headers.merge(header_kwargs), env: { "REMOTE_ADDR" => peer })
   end
 
   describe ".own_ca_pem (injectable provider)" do
@@ -94,6 +94,57 @@ RSpec.describe Security::MtlsTrust do
       expect(described_class.verify_request(r)).to be_nil
       available = true
       expect(described_class.verify_request(r)).to eq("node-instance-9")
+    end
+  end
+
+  # Forwarded client-cert headers mean something only when the ingress set them.
+  # The socket peer (REMOTE_ADDR, never X-Forwarded-For) must be loopback or a
+  # configured proxy; anything else could have written the headers itself.
+  describe ".trusted_peer?" do
+    def peer?(addr)
+      described_class.trusted_peer?(req({}, peer: addr))
+    end
+
+    around do |example|
+      saved = ENV[described_class::TRUSTED_PROXIES_ENV]
+      ENV.delete(described_class::TRUSTED_PROXIES_ENV)
+      example.run
+    ensure
+      saved.nil? ? ENV.delete(described_class::TRUSTED_PROXIES_ENV) : ENV[described_class::TRUSTED_PROXIES_ENV] = saved
+    end
+
+    it "trusts loopback in all its spellings" do
+      expect([ "127.0.0.1", "::1", "::ffff:127.0.0.1", "127.8.9.1" ].map { |a| peer?(a) }).to all(be(true))
+    end
+
+    it "does not trust any other address, a missing one, or garbage" do
+      expect([ "203.0.113.5", "10.0.0.7", "", "not-an-ip" ].map { |a| peer?(a) }).to all(be(false))
+    end
+
+    it "trusts a proxy named in POWERNODE_TRUSTED_PROXIES, by address or CIDR" do
+      ENV[described_class::TRUSTED_PROXIES_ENV] = "10.0.0.7, 172.20.0.0/16, junk"
+
+      expect(peer?("10.0.0.7")).to be(true)
+      expect(peer?("172.20.4.4")).to be(true)
+      expect(peer?("10.0.0.8")).to be(false)
+    end
+
+    it "ignores X-Forwarded-For: the peer is the socket" do
+      forged = instance_double(ActionDispatch::Request, headers: { "X-Forwarded-For" => "127.0.0.1" },
+                                                         env: { "REMOTE_ADDR" => "203.0.113.5" }, remote_ip: "127.0.0.1")
+
+      expect(described_class.trusted_peer?(forged)).to be(false)
+    end
+
+    it "refuses to verify any forwarded cert material from an untrusted peer" do
+      leaf = sign_leaf("node-instance-9", our[0], our[1])
+      info = { described_class::SUBJECT_HEADER => CGI.escape(%(Subject="CN=node-instance-9")) }
+      pem = { described_class::PEM_HEADER => CGI.escape(leaf.to_pem) }
+
+      expect(described_class.verify_request(req(info, peer: "203.0.113.5"))).to be_nil
+      expect(described_class.verify_request(req(pem, peer: "203.0.113.5"))).to be_nil
+      expect(described_class.verify_request(req(pem))).to eq("node-instance-9")
+      expect(described_class.verify_request(req(info))).to eq("node-instance-9")
     end
   end
 

@@ -59,7 +59,7 @@ RSpec.describe "Dev mTLS header contract (worker emitter -> server parser)", typ
   # regression; ActionDispatch::Http::Headers is case-insensitive and aliases
   # X-Foo <-> HTTP_X_FOO the way production does.
   def request_with(header)
-    ActionDispatch::TestRequest.create("HTTP_X_FORWARDED_TLS_CLIENT_CERT_INFO" => header)
+    ActionDispatch::TestRequest.create("HTTP_X_FORWARDED_TLS_CLIENT_CERT_INFO" => header, "REMOTE_ADDR" => "127.0.0.1")
   end
 
   describe "the header name" do

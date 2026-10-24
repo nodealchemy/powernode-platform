@@ -279,8 +279,15 @@ class Rack::Attack
   def self.resolve_internal_worker_identity(request)
     return nil unless canonical_path(request).start_with?("/api/v1/internal/")
 
+    # verify_request itself refuses forwarded cert material unless the socket
+    # peer is loopback or a configured proxy (MtlsTrust.trusted_peer?).
     cn = Security::MtlsTrust.verify_request(ActionDispatch::Request.new(request.env))
     return nil if cn.blank?
+    # Shape first: nothing that is not a UUID reaches the database.
+    return nil unless cn.match?(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/)
+    # The development sentinel is a constant published in worker/ source, so
+    # outside development anyone can send it.
+    return nil if !Rails.env.development? && cn.casecmp?(Workers::EnsureSystemWorker::DEV_SENTINEL_NODE_ID)
 
     active = Rails.cache.fetch("rack_attack:internal_worker:#{cn}", expires_in: 1.minute) do
       Worker.active.exists?(node_instance_id: cn)

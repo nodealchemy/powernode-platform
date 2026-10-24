@@ -49,14 +49,14 @@ RSpec.describe "Rack::Attack internal worker traffic" do
     { "HTTP_X_FORWARDED_TLS_CLIENT_CERT_INFO" => CGI.escape(%(Subject="CN=#{name}")) }
   end
 
-  def status_for(request_path, headers: {})
-    env = Rack::MockRequest.env_for(request_path, "REMOTE_ADDR" => ip)
+  def status_for(request_path, headers: {}, peer: ip)
+    env = Rack::MockRequest.env_for(request_path, "REMOTE_ADDR" => peer)
     headers.each { |k, v| env[k] = v }
     middleware.call(env).first
   end
 
-  def statuses(count, request_path = path, headers: {})
-    Array.new(count) { status_for(request_path, headers: headers) }
+  def statuses(count, request_path = path, headers: {}, peer: ip)
+    Array.new(count) { status_for(request_path, headers: headers, peer: peer) }
   end
 
   it "counts anonymous internal requests per IP (the control: the throttle is live)" do
@@ -105,6 +105,29 @@ RSpec.describe "Rack::Attack internal worker traffic" do
       worker.update_columns(status: "suspended")
 
       expect(statuses(ip_limit + 3, headers: info_header(cn)).last).to eq(429)
+    end
+
+    # The headers mean something only from the ingress. A peer that is neither
+    # loopback nor a configured proxy reached Puma some other way and could have
+    # written them itself.
+    it "still counts an active worker's CN arriving from an untrusted peer" do
+      expect(statuses(ip_limit + 3, headers: info_header(cn), peer: "203.0.113.9").last).to eq(429)
+    end
+
+    # The dev sentinel is a published constant in worker/ source: anyone can send it.
+    it "ignores the development sentinel CN outside development, even if a Worker is bound to it" do
+      sentinel = Workers::EnsureSystemWorker::DEV_SENTINEL_NODE_ID
+      worker.update_columns(node_instance_id: sentinel)
+
+      expect(statuses(ip_limit + 3, headers: info_header(sentinel)).last).to eq(429)
+    end
+
+    it "rejects a CN that is not UUID-shaped before it reaches the database" do
+      allow(Worker).to receive(:active).and_call_original
+
+      expect(statuses(ip_limit + 3, headers: info_header("x' OR '1'='1")).last).to eq(429)
+      expect(statuses(1, headers: info_header("../../etc/passwd"))).to eq([ 429 ])
+      expect(Worker).not_to have_received(:active)
     end
 
     it "still counts a PEM that does not verify" do

@@ -7,6 +7,8 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
 
   let(:account) { create(:account) }
   let(:user) { create(:user, account: account, status: "active") }
+  # Forwarded client-cert headers are only believed from the local ingress.
+  let(:ingress_peer) { { "REMOTE_ADDR" => "127.0.0.1" } }
 
   describe "happy path with a fresh access token" do
     it "connects and identifies the user" do
@@ -149,7 +151,7 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
       worker = create(:worker, :system_worker, status: "active")
       mtls_header = { "X-Forwarded-Tls-Client-Cert-Info" => CGI.escape(%(Subject="CN=#{worker.node_instance_id}")) }
 
-      connect "/cable", headers: mtls_header
+      connect "/cable", headers: mtls_header, env: ingress_peer
 
       expect(connection.current_worker).to eq(worker)
     end
@@ -196,14 +198,14 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
     end
 
     it "identifies an active worker by mTLS subject CN" do
-      connect "/cable", headers: mtls_header
+      connect "/cable", headers: mtls_header, env: ingress_peer
       expect(connection.current_worker).to eq(worker)
       expect(connection.current_user).to be_nil
     end
 
     it "ignores any token query param when an mTLS header is also present" do
       tokens = Security::JwtService.generate_user_tokens(user)
-      connect "/cable?token=#{tokens[:access_token]}", headers: mtls_header
+      connect "/cable?token=#{tokens[:access_token]}", headers: mtls_header, env: ingress_peer
       expect(connection.current_worker).to eq(worker)
       expect(connection.current_user).to be_nil
     end
