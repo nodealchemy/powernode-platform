@@ -214,6 +214,16 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 ai.data_source.* (require_approval; each tool's
   #                                 own permission and canonical guards run before
   #                                 the park and again at replay)
+  #   emergency_resume              c13-2 batch C-C   ai.kill_switch.resume
+  #                                 (human_only: parks for a person's own session,
+  #                                 whoever calls)
+  #   agent_container_terminate, prune_stale (registry alias code_prune_stale),
+  #   prune_stale_git_runners
+  #                                 c13-2 batch C-C   ai.container.terminate /
+  #                                 ai.code_memory.prune / ai.git_runner.prune
+  #                                 (require_approval)
+  #   emergency_halt is DELIBERATELY not here: it must never park (see
+  #   ThinLoader::UNGATED_BY_DECISION).
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -275,6 +285,10 @@ RSpec.describe "MCP action declaration completeness" do
     delete_ralph_loop
     data_source_delete
     data_source_unsubscribe
+    emergency_resume
+    agent_container_terminate
+    prune_stale
+    prune_stale_git_runners
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

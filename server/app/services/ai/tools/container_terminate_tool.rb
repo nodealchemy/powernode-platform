@@ -11,7 +11,11 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "agent_container_terminate", mutating: true, destructive: true
+      declare_action "agent_container_terminate", mutating: true, destructive: true,
+                                                  action_category: "ai.container.terminate",
+                                                  executor_class: "Ai::Executors::DeferredToolCall",
+                                                  gate_context: :deferred_tool_call_context,
+                                                  on_proceed: :deferred_tool_call_result
 
       def self.definition
         {
@@ -30,6 +34,17 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, and this tool
+      # has no per-action check of its own (only the class floor the registrar
+      # applies). Enforced here so a caller without it parks nothing, and again at
+      # replay (c13-2 batch C-C).
+      def authorization_error(_params)
+        return nil if internal? || instance_authorized?
+        return nil if user.respond_to?(:has_permission?) && user.has_permission?(REQUIRED_PERMISSION) == true
+
+        error_result("permission denied: #{REQUIRED_PERMISSION} required")
+      end
 
       def call(params)
         instance = account.devops_container_instances.find_by!(execution_id: params[:execution_id])

@@ -67,11 +67,10 @@ module Ai
       # registry, so a newly registered ungated destroy-shaped verb fails CI
       # until it is listed here (or gated server-side and dropped).
       DENIED_DESTRUCTIVE_ACTIONS = %w[
-        agent_container_terminate approve_deferred_operation code_prune_stale delete_gitea_action_secret
-        delete_gitea_user_token delete_gitea_workflow_run docker_delete_config docker_delete_container
-        docker_delete_image docker_delete_network docker_delete_secret docker_delete_service
-        docker_delete_stack docker_delete_volume emergency_halt emergency_resume
-        kubernetes_decommission_cluster prune_stale_git_runners reject_deferred_operation
+        approve_deferred_operation delete_gitea_action_secret delete_gitea_user_token
+        delete_gitea_workflow_run docker_delete_config docker_delete_container docker_delete_image
+        docker_delete_network docker_delete_secret docker_delete_service docker_delete_stack
+        docker_delete_volume emergency_halt kubernetes_decommission_cluster reject_deferred_operation
         system_acme_revoke_certificate system_delete_architecture system_delete_cve
         system_delete_instance_pool system_delete_module system_delete_node
         system_delete_package_repository system_delete_provider system_delete_service
@@ -81,6 +80,20 @@ module Ai
         system_rotate_vault_transit_pepper system_stop_instance system_terminate_ci_worker
         system_upgrade_boot_image
       ].freeze
+
+      # Destroy-shaped verbs a DECISION keeps outside the gate, and therefore on
+      # DENIED_DESTRUCTIVE_ACTIONS for good (agents stay denied them by name). No
+      # declaration may arm them; thin_loader_spec pins that each entry is on the
+      # denied list and really cannot park.
+      #   * emergency_halt is the kill switch: it must act at once for a human
+      #     session and never park behind an approval.
+      #   * approve_deferred_operation / reject_deferred_operation: MCP is a
+      #     deliberately supported approval door (MCP identity plan D1). A second
+      #     user, never the requester, decides over MCP and the decision records its
+      #     origin; the tool's own guards refuse a caller with no user and any request
+      #     that needs a person's own session. Parking them would make every MCP
+      #     decision a second approval.
+      UNGATED_BY_DECISION = %w[emergency_halt approve_deferred_operation reject_deferred_operation].freeze
 
       # Sensitive but not destroy-shaped: code execution, credential and
       # token minting, cluster credentials, autonomy and trust levers, plan

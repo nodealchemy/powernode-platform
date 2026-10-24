@@ -35,7 +35,11 @@ module Ai
                                          returns: "id, name, status, busy, scope, labels, last_seen_at and total_jobs_run per runner, newest first, " \
                                                   "plus account-wide total, online, offline and busy counts",
                                          see_also: { "prune_stale_git_runners" => "deleting stale fleet-builder runner rows" }
-      declare_action "prune_stale_git_runners", mutating: true, destructive: true
+      declare_action "prune_stale_git_runners", mutating: true, destructive: true,
+                                                action_category: "ai.git_runner.prune",
+                                                executor_class: "Ai::Executors::DeferredToolCall",
+                                                gate_context: :deferred_tool_call_context,
+                                                on_proceed: :deferred_tool_call_result
 
       def self.definition
         {
@@ -77,6 +81,16 @@ module Ai
             parameters: base[:parameters].slice(:apply, :reason)
           }
         }
+      end
+
+      # prune_stale_git_runners is gated, so it returns from BaseTool#execute before
+      # #call. Whoever may park a prune must be able to apply it: git.runners.manage
+      # (or an explicit internal caller), checked before the park and again at
+      # replay. A reader's dry run is no longer a way to park cards (c13-2 batch C-C).
+      def authorization_error(_params)
+        return nil if @internal || @user&.has_permission?("git.runners.manage")
+
+        error_result("prune apply requires git.runners.manage")
       end
 
       def call(params)

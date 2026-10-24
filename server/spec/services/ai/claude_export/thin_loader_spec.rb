@@ -146,6 +146,20 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     expect(gated).to be_empty
   end
 
+  # emergency_halt is the one destroy-shaped verb a decision keeps OUTSIDE the
+  # gate: it must act at once for a human session, so it never parks, and agents
+  # stay denied it by name. Its exemption is a named constant, not an omission.
+  it "records the deliberate exemption: UNGATED_BY_DECISION verbs are denied to agents and really cannot park" do
+    exempt = described_class::UNGATED_BY_DECISION
+    expect(exempt).to match_array(%w[emergency_halt approve_deferred_operation reject_deferred_operation])
+    expect(exempt - described_class::DENIED_DESTRUCTIVE_ACTIONS).to be_empty
+
+    registry_rows.select { |row| exempt.include?(row[:name]) }.each do |row|
+      expect(row[:tool].may_park?(row[:declaration])).to be(false), row[:name]
+    end
+    expect(registry_rows.map { |row| row[:name] } & exempt).to eq(exempt)
+  end
+
   it "names only registered verbs in DENIED_ACTIONS (a typo would deny nothing)" do
     registered = Ai::Tools::PlatformApiToolRegistry.all_tools.keys.map(&:to_s)
 

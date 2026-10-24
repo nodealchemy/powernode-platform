@@ -49,6 +49,10 @@ module Ai
                                           "the caller lacks ai.knowledge_graph.manage"
                                         ]
       declare_action "prune_stale", mutating: true, destructive: true,
+                                    action_category: "ai.code_memory.prune",
+                                    executor_class: "Ai::Executors::DeferredToolCall",
+                                    gate_context: :deferred_tool_call_context,
+                                    on_proceed: :deferred_tool_call_result,
                                     returns: "status enqueued, dry_run, the shared-memory result_key and the read_shared_memory call that retrieves it",
                                     refuses: [
                                       "the repository is not in this account or has no local_path directory on this server",
@@ -151,6 +155,16 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. Runs the
+      # same check before the park and again at replay (c13-2 batch C-C).
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s

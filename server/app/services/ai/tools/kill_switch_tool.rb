@@ -11,8 +11,17 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
+      # emergency_halt is DELIBERATELY ungated (Ai::ClaudeExport::ThinLoader::UNGATED_BY_DECISION):
+      # the kill switch must act at once for a human session, so it never parks. Agents
+      # stay denied it by name (ThinLoader::DENIED_DESTRUCTIVE_ACTIONS); resuming is the
+      # slow, human-only direction.
       declare_action "emergency_halt", mutating: true, destructive: true
-      declare_action "emergency_resume", mutating: true, destructive: true
+      declare_action "emergency_resume", mutating: true, destructive: true,
+                                         human_only: true,
+                                         action_category: "ai.kill_switch.resume",
+                                         executor_class: "Ai::Executors::DeferredToolCall",
+                                         gate_context: :deferred_tool_call_context,
+                                         on_proceed: :deferred_tool_call_result
       declare_action "kill_switch_status", mutating: false,
                                            returns: "halted, since, a snapshot preview while halted, and the latest halt event"
 
@@ -64,6 +73,18 @@ module Ai
       end
 
       protected
+
+      # emergency_resume is human_only and so returns from BaseTool#execute before
+      # #call. The person who confirms it must hold the tool's own permission, so a
+      # holder of ai.autonomy.approve alone cannot lift the suspension: checked
+      # before the park and again at replay (c13-2 batch C-C). A caller with no
+      # user (an agent) is refused, since resuming runs as a person.
+      def authorization_error(_params)
+        return nil if internal?
+        return nil if user.respond_to?(:has_permission?) && user.has_permission?(REQUIRED_PERMISSION) == true
+
+        error_result("permission denied: #{REQUIRED_PERMISSION} required")
+      end
 
       def call(params)
         case params[:action]

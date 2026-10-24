@@ -36,11 +36,14 @@ RSpec.describe Ai::Tools::GitRunnerInventoryTool do
     end
   end
 
+  # Gate-routed since c13-2 batch C-C: #execute parks prune_stale_git_runners, so the body runs
+  # through #call (parking is pinned in destructive_verbs_park_batch_c_spec.rb). The refusal
+  # examples below still go through #execute: authorization_error refuses before the park.
   describe "prune_stale_git_runners" do
     it "dry-runs by default: states the count and a sample, deletes nothing" do
       4.times { |i| fleet_runner("s#{i}") }
 
-      result = tool.execute(params: { action: "prune_stale_git_runners" })
+      result = tool.send(:call, { action: "prune_stale_git_runners" })
 
       expect(result[:success]).to be(true)
       expect(result.dig(:data, :dry_run)).to be(true)
@@ -52,7 +55,7 @@ RSpec.describe Ai::Tools::GitRunnerInventoryTool do
     it "applies only with apply: true and the manage permission" do
       fleet_runner("doomed")
 
-      result = tool.execute(params: { action: "prune_stale_git_runners", apply: true })
+      result = tool.send(:call, { action: "prune_stale_git_runners", apply: true })
 
       expect(result[:success]).to be(true)
       expect(result.dig(:data, :dry_run)).to be(false)
@@ -82,7 +85,7 @@ RSpec.describe Ai::Tools::GitRunnerInventoryTool do
     it "allows apply for an explicit internal caller" do
       fleet_runner("doomed")
 
-      result = tool(user: nil, internal: true).execute(params: { action: "prune_stale_git_runners", apply: true })
+      result = tool(user: nil, internal: true).send(:call, { action: "prune_stale_git_runners", apply: true })
 
       expect(result[:success]).to be(true)
       expect(Devops::GitRunner.count).to eq(0)
