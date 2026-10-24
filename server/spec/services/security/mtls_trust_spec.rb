@@ -48,6 +48,55 @@ RSpec.describe Security::MtlsTrust do
     end
   end
 
+  # A flood of garbage PEMs must not reach the CA provider (a Vault read in
+  # production): the leaf is parsed first, and the CA is memoized for ~60s.
+  describe "CA lookups under a PEM flood" do
+    let(:calls) { [] }
+
+    before do
+      described_class.own_ca_provider = -> { calls << :ca; our[1].to_pem }
+    end
+
+    it "never loads the CA for a PEM that does not parse" do
+      r = req(described_class::PEM_HEADER => CGI.escape("-----BEGIN CERTIFICATE-----\nnot a cert\n-----END CERTIFICATE-----\n"))
+
+      20.times { expect(described_class.verify_request(r)).to be_nil }
+      r2 = req(described_class::PEM_HEADER => "bm90LWEtY2VydA==")
+      expect(described_class.verify_request(r2)).to be_nil
+      expect(calls).to be_empty
+    end
+
+    it "loads the CA once across many valid verifications" do
+      leaf = sign_leaf("node-instance-9", our[0], our[1])
+      r = req(described_class::PEM_HEADER => CGI.escape(leaf.to_pem))
+
+      5.times { expect(described_class.verify_request(r)).to eq("node-instance-9") }
+      expect(calls.size).to eq(1)
+    end
+
+    it "reloads the CA after about a minute" do
+      leaf = sign_leaf("node-instance-9", our[0], our[1])
+      r = req(described_class::PEM_HEADER => CGI.escape(leaf.to_pem))
+
+      described_class.verify_request(r)
+      travel(30.seconds) { described_class.verify_request(r) }
+      expect(calls.size).to eq(1)
+      travel(90.seconds) { described_class.verify_request(r) }
+      expect(calls.size).to eq(2)
+    end
+
+    it "does not memoize a missing CA, so a CA that appears is picked up at once" do
+      available = false
+      described_class.own_ca_provider = -> { available ? our[1].to_pem : nil }
+      leaf = sign_leaf("node-instance-9", our[0], our[1])
+      r = req(described_class::PEM_HEADER => CGI.escape(leaf.to_pem))
+
+      expect(described_class.verify_request(r)).to be_nil
+      available = true
+      expect(described_class.verify_request(r)).to eq("node-instance-9")
+    end
+  end
+
   describe ".verify_request" do
     it "returns the CN for a cert signed by our CA (full PEM header)" do
       leaf = sign_leaf("node-instance-9", our[0], our[1])

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "cgi"
+require "openssl"
 
 module Security
   # The platform's own internal-CA trust root for verifying mTLS client certs
@@ -22,17 +23,31 @@ module Security
     PEM_HEADER     = "X-Forwarded-Tls-Client-Cert"
     OWN_CA_PEM_ENV = "POWERNODE_INTERNAL_CA_PEM" # path to our-CA-only PEM (fallback)
 
+    # How long a loaded CA bundle is reused. The provider may be a Vault read, and
+    # every request carrying a PEM used to make one.
+    OWN_CA_MEMO_TTL = 60
+
     class << self
-      attr_writer :own_ca_provider
+      def own_ca_provider=(provider)
+        @own_ca_provider = provider
+        @own_ca_memo = nil
+      end
 
       def own_ca_provider
         @own_ca_provider ||= -> { default_own_ca_pem }
       end
 
       # Our CA bundle (PEM). nil when neither the extension provider nor the
-      # on-disk fallback is available — callers fail closed on nil.
+      # on-disk fallback is available — callers fail closed on nil. A bundle is
+      # memoized for OWN_CA_MEMO_TTL; a nil answer never is, so a CA that
+      # appears is trusted at once.
       def own_ca_pem
-        own_ca_provider.call
+        memo = @own_ca_memo
+        return memo[:pem] if memo && memo[:expires_at] > ::Time.now.to_f
+
+        pem = own_ca_provider.call
+        @own_ca_memo = pem.present? ? { pem: pem, expires_at: ::Time.now.to_f + OWN_CA_MEMO_TTL } : nil
+        pem
       rescue StandardError => e
         ::Rails.logger.warn("[MtlsTrust] own_ca provider failed: #{e.class}: #{e.message}")
         nil
@@ -40,6 +55,7 @@ module Security
 
       def reset!
         @own_ca_provider = nil
+        @own_ca_memo = nil
       end
 
       # True when the request carries ANY mTLS client-cert material. Lets the
@@ -71,6 +87,11 @@ module Security
       def verify_request(request, require_pem: false)
         pem = forwarded_pem(request)
         if pem.present?
+          # Parse the leaf BEFORE touching the CA: an unparseable PEM can never
+          # verify, and loading the CA (a Vault read) for it would let a flood of
+          # garbage PEMs hammer the secret store.
+          return nil unless parseable_certificate?(pem)
+
           result = MtlsClientVerifier.verify(cert_pem: pem, anchors: [ own_ca_pem ])
           return result.verified? ? result.subject_cn : nil
         end
@@ -134,6 +155,13 @@ module Security
       end
 
       private
+
+      def parseable_certificate?(pem)
+        ::OpenSSL::X509::Certificate.new(pem)
+        true
+      rescue ::OpenSSL::X509::CertificateError, ::ArgumentError
+        false
+      end
 
       def forwarded_pem(request)
         raw = request.headers[PEM_HEADER].presence
