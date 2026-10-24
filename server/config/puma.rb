@@ -50,7 +50,22 @@ end
 force_shutdown_after 5
 
 # Specifies the `port` that Puma will listen on to receive requests; default is 3000.
-port ENV.fetch("PORT", 3000)
+#
+# In production Puma listens on LOOPBACK only. Every worker/agent identity the
+# app trusts arrives as forwarded client-cert headers that the ingress (Traefik)
+# strips from the client and then sets from the TLS handshake; a Puma reachable
+# on another interface would let anything skip that ingress and forge them.
+# PUMA_BIND_ADDRESS overrides it (the container image sets 0.0.0.0, and the
+# peer must then be listed in POWERNODE_TRUSTED_PROXIES).
+production = (ENV["RAILS_ENV"] || ENV["RACK_ENV"]) == "production"
+bind_address = ENV["PUMA_BIND_ADDRESS"].to_s.strip
+bind_address = "127.0.0.1" if bind_address.empty? && production
+
+if bind_address.empty?
+  port ENV.fetch("PORT", 3000)
+else
+  bind "tcp://#{bind_address}:#{ENV.fetch('PORT', 3000)}"
+end
 
 # Dev restarts are handled by SIGUSR2 via Claude Code hooks (see
 # .claude/hooks/service-restart-apply.sh) or manually via scripts/reload-backend.sh.

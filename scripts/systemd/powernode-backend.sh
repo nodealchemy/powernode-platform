@@ -34,8 +34,14 @@ fi
 
 # Defaults
 PORT="${PORT:-3000}"
-HOST="${HOST:-0.0.0.0}"
 RAILS_ENV="${RAILS_ENV:-development}"
+# Production listens on loopback only (the ingress is the sole way in; it strips
+# and sets the forwarded client-cert headers the app trusts). HOST overrides it.
+if [[ "${RAILS_ENV}" == "production" ]]; then
+    HOST="${HOST:-127.0.0.1}"
+else
+    HOST="${HOST:-0.0.0.0}"
+fi
 
 export PORT HOST RAILS_ENV
 

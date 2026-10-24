@@ -74,7 +74,8 @@ USER rails
 
 # Configure runtime
 ENV MALLOC_CONF="dirty_decay_ms:1000,narenas:2,background_thread:true" \
-    LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
+    LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2 \
+    PUMA_BIND_ADDRESS=0.0.0.0
 
 EXPOSE 3000
 
