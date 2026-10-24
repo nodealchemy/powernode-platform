@@ -64,7 +64,8 @@ bind_address = "127.0.0.1" if bind_address.empty? && production
 if bind_address.empty?
   port ENV.fetch("PORT", 3000)
 else
-  bind "tcp://#{bind_address}:#{ENV.fetch('PORT', 3000)}"
+  host = bind_address.include?(":") && !bind_address.start_with?("[") ? "[#{bind_address}]" : bind_address
+  bind "tcp://#{host}:#{ENV.fetch('PORT', 3000)}"
 end
 
 # Dev restarts are handled by SIGUSR2 via Claude Code hooks (see
