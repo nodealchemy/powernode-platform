@@ -226,6 +226,12 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 c13-2 batch C-D   docker.<kind>.delete
   #                                 (require_approval; the tool's permission ladder runs
   #                                 before the park and again at replay)
+  #   delete_gitea_action_secret, delete_gitea_user_token
+  #                                 c13-2 batch C-E   gitea.action_secret.delete /
+  #                                 gitea.user_token.delete (human_only)
+  #   delete_gitea_workflow_run, kubernetes_decommission_cluster
+  #                                 c13-2 batch C-E   gitea.workflow_run.delete /
+  #                                 kubernetes.cluster.decommission (require_approval)
   #   emergency_halt is DELIBERATELY not here: it must never park (see
   #   ThinLoader::UNGATED_BY_DECISION).
   #
@@ -301,6 +307,10 @@ RSpec.describe "MCP action declaration completeness" do
     docker_delete_volume
     docker_delete_service
     docker_delete_stack
+    delete_gitea_action_secret
+    delete_gitea_user_token
+    delete_gitea_workflow_run
+    kubernetes_decommission_cluster
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

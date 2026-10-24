@@ -67,10 +67,9 @@ module Ai
       # registry, so a newly registered ungated destroy-shaped verb fails CI
       # until it is listed here (or gated server-side and dropped).
       DENIED_DESTRUCTIVE_ACTIONS = %w[
-        approve_deferred_operation delete_gitea_action_secret delete_gitea_user_token
-        delete_gitea_workflow_run emergency_halt kubernetes_decommission_cluster
-        reject_deferred_operation system_acme_revoke_certificate system_delete_architecture
-        system_delete_cve system_delete_instance_pool system_delete_module system_delete_node
+        approve_deferred_operation emergency_halt reject_deferred_operation
+        system_acme_revoke_certificate system_delete_architecture system_delete_cve
+        system_delete_instance_pool system_delete_module system_delete_node
         system_delete_package_repository system_delete_provider system_delete_service
         system_delete_template system_delete_volume system_destroy_instance system_drain_instance
         system_drain_instance_pool system_instance_hold system_instance_release_hold

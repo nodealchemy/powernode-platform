@@ -175,10 +175,12 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
     end
   end
 
+  # Gate-routed since c13-2 batch C-E: #execute parks it, so the body runs via #call
+  # (parking is pinned in destructive_verbs_park_batch_e_spec.rb).
   describe "delete_gitea_action_secret" do
     it "delegates to client and returns success message" do
       allow(client).to receive(:delete_action_secret).with("o", "r", "A").and_return({ success: true })
-      result = tool.execute(params: { action: "delete_gitea_action_secret", owner: "o", repo: "r", secret_name: "A" })
+      result = tool.send(:call, { action: "delete_gitea_action_secret", owner: "o", repo: "r", secret_name: "A" })
       expect(result[:success]).to be true
       expect(result[:message]).to eq("Secret deleted")
     end
@@ -335,17 +337,19 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
     end
   end
 
+  # Gate-routed since c13-2 batch C-E: #execute parks it, so the body runs via #call
+  # (parking is pinned in destructive_verbs_park_batch_e_spec.rb).
   describe "delete_gitea_workflow_run" do
     it "delegates to client.delete_workflow_run and says it is not a cancel" do
       expect(client).to receive(:delete_workflow_run).with("o", "r", "42").and_return({ success: true })
-      result = tool.execute(params: { action: "delete_gitea_workflow_run", owner: "o", repo: "r", run_id: "42" })
+      result = tool.send(:call, { action: "delete_gitea_workflow_run", owner: "o", repo: "r", run_id: "42" })
 
       expect(result[:success]).to be true
       expect(result[:message]).to match(/does not stop a running job/i)
     end
 
     it "requires a run_id" do
-      result = tool.execute(params: { action: "delete_gitea_workflow_run", owner: "o", repo: "r" })
+      result = tool.send(:call, { action: "delete_gitea_workflow_run", owner: "o", repo: "r" })
       expect(result[:success]).to be false
       expect(result[:error]).to match(/run_id required/)
     end
@@ -560,16 +564,18 @@ RSpec.describe Ai::Tools::GiteaActionsTool do
     end
   end
 
+  # Gate-routed since c13-2 batch C-E: #execute parks it, so the body runs via #call
+  # (parking is pinned in destructive_verbs_park_batch_e_spec.rb).
   describe "delete_gitea_user_token" do
     it "delegates to client.delete_user_token" do
       expect(client).to receive(:delete_user_token).with("dev").and_return({ success: true })
-      result = tool.execute(params: { action: "delete_gitea_user_token", name_or_id: "dev" })
+      result = tool.send(:call, { action: "delete_gitea_user_token", name_or_id: "dev" })
       expect(result[:success]).to be true
       expect(result[:message]).to eq("User token deleted")
     end
 
     it "rejects blank name_or_id" do
-      result = tool.execute(params: { action: "delete_gitea_user_token" })
+      result = tool.send(:call, { action: "delete_gitea_user_token" })
       expect(result[:success]).to be false
       expect(result[:error]).to eq("name_or_id required")
     end

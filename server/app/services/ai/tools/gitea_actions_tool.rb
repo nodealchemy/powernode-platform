@@ -70,11 +70,25 @@ module Ai
       declare_action "cancel_gitea_workflow_run", mutating: true
       declare_action "create_gitea_user_token", mutating: true
       declare_action "delete_gitea_action_secret", mutating: true, destructive: true,
+                                                   human_only: true,
+                                                   action_category: "gitea.action_secret.delete",
+                                                   executor_class: "Ai::Executors::DeferredToolCall",
+                                                   gate_context: :deferred_tool_call_context,
+                                                   on_proceed: :deferred_tool_call_result,
                                                    returns: "owner, repo and the deleted secret_name",
                                                    refuses: [ "the account has no active Gitea credential", "owner or repo is blank",
                                                              "Gitea rejects the delete" ]
-      declare_action "delete_gitea_user_token", mutating: true, destructive: true
-      declare_action "delete_gitea_workflow_run", mutating: true, destructive: true
+      declare_action "delete_gitea_user_token", mutating: true, destructive: true,
+                                                human_only: true,
+                                                action_category: "gitea.user_token.delete",
+                                                executor_class: "Ai::Executors::DeferredToolCall",
+                                                gate_context: :deferred_tool_call_context,
+                                                on_proceed: :deferred_tool_call_result
+      declare_action "delete_gitea_workflow_run", mutating: true, destructive: true,
+                                                  action_category: "gitea.workflow_run.delete",
+                                                  executor_class: "Ai::Executors::DeferredToolCall",
+                                                  gate_context: :deferred_tool_call_context,
+                                                  on_proceed: :deferred_tool_call_result
       declare_action "dispatch_gitea_workflow", mutating: true,
                                                 returns: "owner, repo, workflow_file and ref; no run id, so find the run with list_gitea_workflow_runs",
                                                 refuses: [ "the account has no active Gitea credential", "owner, repo, workflow_file or ref is blank",
@@ -296,6 +310,19 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, and this tool
+      # has no per-action check of its own (only the class floor the registrar
+      # applies). Enforced here so a caller without it parks nothing, and again at
+      # replay (c13-2 batch C-E). For a human_only verb the replay runs as the
+      # confirming person, so this is also what makes THEM hold the permission; a
+      # caller with no user (an agent) is refused.
+      def authorization_error(_params)
+        return nil if internal? || instance_authorized?
+        return nil if user.respond_to?(:has_permission?) && user.has_permission?(REQUIRED_PERMISSION) == true
+
+        error_result("permission denied: #{REQUIRED_PERMISSION} required")
+      end
 
       def call(params)
         credential = find_gitea_credential

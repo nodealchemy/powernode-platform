@@ -42,7 +42,11 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "kubernetes_decommission_cluster", mutating: true, destructive: true
+      declare_action "kubernetes_decommission_cluster", mutating: true, destructive: true,
+                                                        action_category: "kubernetes.cluster.decommission",
+                                                        executor_class: "Ai::Executors::DeferredToolCall",
+                                                        gate_context: :deferred_tool_call_context,
+                                                        on_proceed: :deferred_tool_call_result
       # audit: true — this verb releases the cluster-admin kubeconfig, i.e. root
       # on every workload in the cluster. BaseTool writes a fail-closed
       # AuditLog row BEFORE the action runs; if it cannot be written the
@@ -84,6 +88,19 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, and this tool
+      # has no per-action check of its own (only the class floor the registrar
+      # applies). Enforced here so a caller without it parks nothing, and again at
+      # replay (c13-2 batch C-E). For a human_only verb the replay runs as the
+      # confirming person, so this is also what makes THEM hold the permission; a
+      # caller with no user (an agent) is refused.
+      def authorization_error(_params)
+        return nil if internal? || instance_authorized?
+        return nil if user.respond_to?(:has_permission?) && user.has_permission?(REQUIRED_PERMISSION) == true
+
+        error_result("permission denied: #{REQUIRED_PERMISSION} required")
+      end
 
       def call(params)
         case params[:action]
