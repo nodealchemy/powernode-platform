@@ -48,8 +48,18 @@ module Ai
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "docker_create_network", mutating: true, see_also: { "docker_list_networks" => "checking for an existing network first" }
       declare_action "docker_create_volume", mutating: true, see_also: { "docker_list_volumes" => "checking for an existing volume first" }
-      declare_action "docker_delete_network", mutating: true, destructive: true, see_also: { "docker_list_networks" => "finding the id" }
-      declare_action "docker_delete_volume", mutating: true, destructive: true, see_also: { "docker_list_volumes" => "finding the name" }
+      declare_action "docker_delete_network", mutating: true, destructive: true,
+                                              action_category: "docker.network.delete",
+                                              executor_class: "Ai::Executors::DeferredToolCall",
+                                              gate_context: :deferred_tool_call_context,
+                                              on_proceed: :deferred_tool_call_result,
+                                              see_also: { "docker_list_networks" => "finding the id" }
+      declare_action "docker_delete_volume", mutating: true, destructive: true,
+                                             action_category: "docker.volume.delete",
+                                             executor_class: "Ai::Executors::DeferredToolCall",
+                                             gate_context: :deferred_tool_call_context,
+                                             on_proceed: :deferred_tool_call_result,
+                                             see_also: { "docker_list_volumes" => "finding the name" }
       declare_action "docker_list_networks", mutating: false, returns: "networks live from the swarm with count"
       declare_action "docker_list_volumes", mutating: false, returns: "volumes live from the swarm with count"
 
@@ -123,6 +133,20 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first (c13-2 batch C-D), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve. It runs again at replay;
+      # the account-scoped host/cluster lookup lives in the action body and so
+      # also runs again at replay.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s

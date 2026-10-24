@@ -222,6 +222,10 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 c13-2 batch C-C   ai.container.terminate /
   #                                 ai.code_memory.prune / ai.git_runner.prune
   #                                 (require_approval)
+  #   docker_delete_config/_secret/_container/_image/_network/_volume/_service/_stack
+  #                                 c13-2 batch C-D   docker.<kind>.delete
+  #                                 (require_approval; the tool's permission ladder runs
+  #                                 before the park and again at replay)
   #   emergency_halt is DELIBERATELY not here: it must never park (see
   #   ThinLoader::UNGATED_BY_DECISION).
   #
@@ -289,6 +293,14 @@ RSpec.describe "MCP action declaration completeness" do
     agent_container_terminate
     prune_stale
     prune_stale_git_runners
+    docker_delete_config
+    docker_delete_secret
+    docker_delete_container
+    docker_delete_image
+    docker_delete_network
+    docker_delete_volume
+    docker_delete_service
+    docker_delete_stack
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

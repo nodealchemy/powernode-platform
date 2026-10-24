@@ -40,7 +40,12 @@ module Ai
       # this tool advertises. NON-ENFORCING: `mutating:` alone leaves
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
-      declare_action "docker_delete_image", mutating: true, destructive: true, returns: "the removed image tags"
+      declare_action "docker_delete_image", mutating: true, destructive: true,
+                                            action_category: "docker.image.delete",
+                                            executor_class: "Ai::Executors::DeferredToolCall",
+                                            gate_context: :deferred_tool_call_context,
+                                            on_proceed: :deferred_tool_call_result,
+                                            returns: "the removed image tags"
       declare_action "docker_list_images", mutating: false, returns: "images ordered by repo tag, read from the platform's synced records, not a live daemon query", see_also: { "docker_sync_host" => "refreshing them from the daemon first" }
       declare_action "docker_pull_image", mutating: true, returns: "the pulled image:tag"
       declare_action "docker_tag_image", mutating: true, returns: "the image and the new repo:tag"
@@ -100,6 +105,20 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first (c13-2 batch C-D), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve. It runs again at replay;
+      # the account-scoped host/cluster lookup lives in the action body and so
+      # also runs again at replay.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s

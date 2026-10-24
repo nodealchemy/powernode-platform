@@ -54,8 +54,18 @@ module Ai
       declare_action "docker_cluster_health", mutating: false, returns: "the health monitor report: node status, service health and alerts"
       declare_action "docker_create_config", mutating: true, see_also: { "docker_create_secret" => "sensitive values" }
       declare_action "docker_create_secret", mutating: true, see_also: { "docker_create_config" => "non-secret configuration" }
-      declare_action "docker_delete_config", mutating: true, destructive: true, see_also: { "docker_list_configs" => "finding the id" }
-      declare_action "docker_delete_secret", mutating: true, destructive: true, see_also: { "docker_list_secrets" => "finding the id" }
+      declare_action "docker_delete_config", mutating: true, destructive: true,
+                                             action_category: "docker.config.delete",
+                                             executor_class: "Ai::Executors::DeferredToolCall",
+                                             gate_context: :deferred_tool_call_context,
+                                             on_proceed: :deferred_tool_call_result,
+                                             see_also: { "docker_list_configs" => "finding the id" }
+      declare_action "docker_delete_secret", mutating: true, destructive: true,
+                                             action_category: "docker.secret.delete",
+                                             executor_class: "Ai::Executors::DeferredToolCall",
+                                             gate_context: :deferred_tool_call_context,
+                                             on_proceed: :deferred_tool_call_result,
+                                             see_also: { "docker_list_secrets" => "finding the id" }
       declare_action "docker_get_cluster", mutating: false, returns: "cluster details and a node summary (total, managers, workers, ready)"
       declare_action "docker_list_clusters", mutating: false, returns: "a summary per cluster with count, read from the platform's synced records, not a live daemon query"
       declare_action "docker_list_configs", mutating: false, returns: "configs live from the swarm with count"
@@ -183,6 +193,20 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first (c13-2 batch C-D), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve. It runs again at replay;
+      # the account-scoped host/cluster lookup lives in the action body and so
+      # also runs again at replay.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s

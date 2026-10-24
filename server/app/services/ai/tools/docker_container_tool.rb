@@ -49,7 +49,12 @@ module Ai
       declare_action "docker_container_logs", mutating: false, limit: 500, returns: "log_entries from the daemon (the last 100 lines unless tail is set) and count"
       declare_action "docker_container_stats", mutating: false, returns: "one live stats sample from the daemon"
       declare_action "docker_create_container", mutating: true, returns: "the new container id"
-      declare_action "docker_delete_container", mutating: true, destructive: true, returns: "the container name", refuses: "the container is running and force is not set"
+      declare_action "docker_delete_container", mutating: true, destructive: true,
+                                                action_category: "docker.container.delete",
+                                                executor_class: "Ai::Executors::DeferredToolCall",
+                                                gate_context: :deferred_tool_call_context,
+                                                on_proceed: :deferred_tool_call_result,
+                                                returns: "the container name", refuses: "the container is running and force is not set"
       declare_action "docker_get_container", mutating: false, returns: "container: the full synced record (command, mounts, networks, restart_count, timestamps)"
       declare_action "docker_list_containers", mutating: false, returns: "host and containers (short id, name, image, state, ports, labels, last_seen_at) with count, read from the platform's synced records, not a live daemon query", see_also: { "docker_sync_host" => "refreshing them from the daemon first" }
       declare_action "docker_restart_container", mutating: true, returns: "the container name and its state"
@@ -165,6 +170,20 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first (c13-2 batch C-D), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve. It runs again at replay;
+      # the account-scoped host/cluster lookup lives in the action body and so
+      # also runs again at replay.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s
