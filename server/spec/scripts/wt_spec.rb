@@ -4,6 +4,7 @@ require "spec_helper"
 require "open3"
 require "tmpdir"
 require "json"
+require "timeout"
 require "fileutils"
 
 # IMP-6d060f65ccae — scripts/wt.sh. Runs the REAL script and the REAL scripts/prepare-worktree.sh
@@ -436,6 +437,50 @@ RSpec.describe "scripts/wt.sh" do
       File.write(File.join(b["path"], "server/.env.test.local"), "TEST_ENV_NUMBER=_imp_f2\nTEST_REDIS_LANE=1\n")
       out, _err, _code = wt("audit", "--json")
       expect(JSON.parse(out)["duplicate_lanes"]).to eq([ "1" ])
+    end
+
+    it "reports only orphaned par-kill fixtures whose cwd is inside a worktree (IMP-c314caa0e9da)" do
+      a = create("imp-f4")
+      clean = create("imp-f5")
+      cwd = File.join(a["path"], "server")
+      fx = File.join(@dir, "par-kill-wtspec")
+      FileUtils.mkdir_p(fx)
+      # The real fixture shape (parallel_rspec_spec): a TERM-ignoring loop recording its pid in <par-kill dir>/child.pid.
+      loop_cmd = "trap '' TERM; echo $$ > #{fx}/child.pid; while :; do sleep 1; done"
+      pids = []
+      wait_for = lambda do |file|
+        Timeout.timeout(10) { sleep 0.1 until File.exist?(file) && !File.zero?(file) }
+        File.read(file).to_i
+      end
+      begin
+        # orphan: its launching shell exits at once, so it is reparented away from any spec run
+        Process.wait(Process.spawn("bash", "-c", "bash -c \"$1\" >/dev/null 2>&1 &", "_", loop_cmd, chdir: cwd))
+        orphan = wait_for.call(File.join(fx, "child.pid"))
+        pids << orphan
+        # a non-fixture process that merely mentions par-kill (an editor, grep -e par-kill ...)
+        decoy = Process.spawn("bash", "-c", "exec -a 'grep -e par-kill' sleep 60", chdir: cwd)
+        pids << decoy
+        # an in-flight fixture: still a child of this live spec run
+        FileUtils.rm_f(File.join(fx, "child.pid"))
+        inflight = Process.spawn("bash", "-c", loop_cmd, chdir: cwd)
+        pids << inflight
+        wait_for.call(File.join(fx, "child.pid"))
+        Timeout.timeout(10) { sleep 0.1 until File.binread("/proc/#{decoy}/cmdline").start_with?("grep -e par-kill") }
+
+        out, err, code = wt("audit", "--json")
+        expect(code).to eq(0), err
+        rows = JSON.parse(out)["worktrees"].to_h { |r| [ r["path"], r ] }
+        expect(rows[a["path"]]["par_kill_orphans"]).to eq([ orphan ])
+        expect(rows[clean["path"]]["par_kill_orphans"]).to eq([])
+        text, = wt("audit")
+        expect(text).to match(/WARNING: orphaned par-kill fixture process\(es\) #{orphan} have their cwd inside #{Regexp.escape(a["path"])}/)
+        out, = wt("audit", "--json", "--no-liveness")
+        expect(JSON.parse(out)["worktrees"].map { |r| r["par_kill_orphans"] }.uniq).to eq([ nil ])
+      ensure
+        pids.each { |p| Process.kill("KILL", p) rescue nil } # rubocop:disable Style/RescueModifier
+        Process.wait(inflight) if inflight
+        Process.wait(decoy) if decoy
+      end
     end
 
     it "prints a readable table by default" do

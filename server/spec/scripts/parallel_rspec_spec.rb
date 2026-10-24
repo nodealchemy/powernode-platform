@@ -485,19 +485,95 @@ RSpec.describe "parallel RSpec wrapper (scripts/parallel-rspec.sh)" do
       end
     end
 
-    it "KILLs a group that ignores TERM once PARALLEL_KILL_AFTER seconds have passed" do
+    # IMP-c314caa0e9da — the TERM-ignoring fixture loops outlive an example that is interrupted (a Timeout, a
+    # failed expectation, Ctrl-C) and run forever, pinning worktree cwds. Guarantee: a pid is signalled only if
+    # the example recorded it AND /proc/<pid>/cmdline still names this example's own unique par-kill* tmpdir
+    # (so a dead, reaped and reused pid is skipped); a group is signalled only if that pid leads it and it is
+    # not this process's group. Nothing is signalled when the tmpdir is not a par-kill* directory in Dir.tmpdir.
+    def par_kill_alive?(pid)
+      File.read("/proc/#{pid}/stat")[/\)\s+(\S)[^)]*\z/, 1] != "Z"
+    rescue Errno::ENOENT, Errno::ESRCH
+      false
+    end
+
+    def par_kill_names_dir?(pid, dir)
+      File.binread("/proc/#{pid}/cmdline").tr("\0", " ").include?(dir)
+    rescue Errno::ENOENT, Errno::ESRCH, Errno::EACCES
+      false
+    end
+
+    # Pids of live processes whose command line names this fixture's own unique tmpdir.
+    def par_kill_survivors(dir)
+      Dir.glob("/proc/[0-9]*/cmdline").filter_map do |f|
+        pid = f[%r{/proc/(\d+)/}, 1].to_i
+        pid if pid != Process.pid && par_kill_alive?(pid) && par_kill_names_dir?(pid, dir)
+      end
+    end
+
+    def reap_par_kill(dir, pids)
+      real = begin
+        File.realpath(dir)
+      rescue Errno::ENOENT
+        nil
+      end
+      return unless real && File.basename(real).start_with?("par-kill") && File.dirname(real) == File.realpath(Dir.tmpdir)
+
+      recorded = File.join(dir, "child.pid")
+      pids << File.read(recorded).to_i if File.exist?(recorded) && !File.zero?(recorded)
+      pids.uniq.select { |pid| pid > 1 && pid != Process.pid && par_kill_names_dir?(pid, dir) }.each do |pid|
+        pgid = begin
+          Process.getpgid(pid)
+        rescue Errno::ESRCH
+          nil
+        end
+        targets = [ pid ]
+        targets.unshift(-pid) if pgid == pid && pgid != Process.getpgrp
+        targets.each do |target|
+          Process.kill("KILL", target)
+        rescue Errno::ESRCH, Errno::EPERM
+          nil
+        end
+      end
+      pids.each do |pid|
+        Process.wait(pid, Process::WNOHANG)
+      rescue Errno::ECHILD
+        nil
+      end
+    end
+
+    # Runs the block with a fresh par-kill* tmpdir and a list the block records its pids in; whatever the block
+    # does (raise included), the recorded pids and their groups are SIGKILLed and the tmpdir removed afterwards.
+    def with_par_kill_fixture
       Dir.mktmpdir("par-kill") do |d|
-        script = File.join(d, "w.sh")
-        File.write(script, <<~SH)
-          #!/usr/bin/env bash
-          source "#{lib}"
-          trap test_pg_on_signal INT TERM HUP QUIT
-          test_pg_run_group bash -c "trap '' TERM; echo \$\$ > #{d}/child.pid; while :; do sleep 1; done"
-          echo "rc=$?" > #{d}/rc
-        SH
-        pid = Process.spawn({ "PARALLEL_KILL_AFTER" => "2" }, "bash", script, out: File::NULL, err: File::NULL)
-        Timeout.timeout(10) { sleep 0.1 until File.exist?(File.join(d, "child.pid")) && !File.zero?(File.join(d, "child.pid")) }
-        child = File.read(File.join(d, "child.pid")).to_i
+        pids = []
+        begin
+          yield d, pids
+        ensure
+          reap_par_kill(d, pids)
+        end
+      end
+    end
+
+    def spawn_par_kill_wrapper(lib, dir, pids, env = {})
+      script = File.join(dir, "w.sh")
+      File.write(script, <<~SH)
+        #!/usr/bin/env bash
+        source "#{lib}"
+        trap test_pg_on_signal INT TERM HUP QUIT
+        test_pg_run_group bash -c "trap '' TERM; echo \\$\\$ > #{dir}/child.pid; while :; do sleep 1; done"
+        echo "rc=$?" > #{dir}/rc
+      SH
+      pid = Process.spawn(env, "bash", script, out: File::NULL, err: File::NULL, pgroup: true)
+      pids << pid
+      Timeout.timeout(10) { sleep 0.1 until File.exist?(File.join(dir, "child.pid")) && !File.zero?(File.join(dir, "child.pid")) }
+      pids << File.read(File.join(dir, "child.pid")).to_i
+      pid
+    end
+
+    it "KILLs a group that ignores TERM once PARALLEL_KILL_AFTER seconds have passed" do
+      with_par_kill_fixture do |d, pids|
+        pid = spawn_par_kill_wrapper(lib, d, pids, { "PARALLEL_KILL_AFTER" => "2" })
+        child = pids.last
         started = Time.now
         Process.kill("HUP", pid)
         Timeout.timeout(15) { Process.wait(pid) }
@@ -505,6 +581,30 @@ RSpec.describe "parallel RSpec wrapper (scripts/parallel-rspec.sh)" do
         expect(File.read(File.join(d, "rc")).strip).to eq("rc=143")
         expect { Process.kill(0, child) }.to raise_error(Errno::ESRCH)
       end
+    end
+
+    it "leaves no par-kill process behind when an example is interrupted mid-run" do
+      interrupted = Class.new(StandardError)
+      dir = recorded = nil
+      begin
+        with_par_kill_fixture do |d, pids|
+          dir = d
+          recorded = pids
+          spawn_par_kill_wrapper(lib, d, pids)
+          raise interrupted, "interrupted while the fixture loop is running"
+        end
+      rescue interrupted
+        nil
+      end
+      survivors = par_kill_survivors(dir)
+      deadline = Time.now + 2 # SIGKILL is asynchronous
+      survivors = par_kill_survivors(dir) while survivors.any? && Time.now < deadline && sleep(0.05)
+      # Safety net for this example only (it signals just the pids it recorded); the expectation below is what counts.
+      recorded.uniq.select { |p| p > 1 && p != Process.pid && par_kill_names_dir?(p, dir) }.each do |p|
+        [ (-p unless Process.getpgid(p) != p || p == Process.getpgrp), p ].compact.each { |t| Process.kill("KILL", t) rescue nil } # rubocop:disable Style/RescueModifier
+      end
+      expect(survivors).to be_empty, "par-kill processes survived the interrupted example: #{survivors.inspect}"
+      expect(File.exist?(dir)).to be(false)
     end
 
     it "does not launch the phase when a signal landed before it started" do

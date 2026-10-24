@@ -59,7 +59,10 @@
 # audit            per worktree: branch, lane, ledger state, liveness (processes whose cwd is inside it), and
 #                  the ahead-count of core and each extension against origin/develop. A separate clone or a
 #                  private extension repository is shown as "separate clone: run remove --dry-run to verify"
-#                  (judging it needs a copy into the main repository, which audit never makes).
+#                  (judging it needs a copy into the main repository, which audit never makes). It also reports
+#                  orphaned par-kill fixtures (par_kill_orphans in --json, null under --no-liveness): leftover
+#                  parallel_rspec_spec loops, reparented away from any live spec run, whose cwd is inside the
+#                  worktree; they ignore TERM and make `remove` refuse.
 #
 # LANE LEDGER  <main checkout>/scripts/local/worktree-lanes (gitignored; override with WT_LANE_LEDGER).
 #   One line per held lane: lane<TAB>worktree path<TAB>key<TAB>epoch. Every read-modify-write runs under
@@ -364,6 +367,25 @@ busy_pids() {
   done
 }
 
+# The subset of busy_pids that look like a leftover parallel_rspec_spec fixture: the command line names a
+# par-kill* tmpdir's w.sh or child.pid, AND the parent is neither a live spec run (ruby/rspec) nor another
+# par-kill fixture process, i.e. it was reparented (to init or a subreaper such as systemd) and nothing will
+# reap it. A fixture whose spec is still running is not listed.
+par_kill_pids() {
+  local pid ppid
+  for pid in $(busy_pids "$1"); do
+    tr '\0' ' ' <"/proc/$pid/cmdline" 2>/dev/null | command grep -qE 'par-kill[^/ ]*/(w\.sh|child\.pid)' || continue
+    ppid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+    [ -n "$ppid" ] || continue
+    if [ "$ppid" != 1 ]; then
+      case "$(ps -o comm= -p "$ppid" 2>/dev/null)" in ruby*|rspec*) continue ;; esac
+      ! command grep -qa 'par-kill' "/proc/$ppid/cmdline" 2>/dev/null || continue
+    fi
+    printf '%s\n' "$pid"
+  done
+  return 0
+}
+
 # ---- create ----------------------------------------------------------------------------------------
 cmd_create() {
   local key="${1:-}"; shift || true
@@ -632,15 +654,16 @@ cmd_audit() {
       *) LC_DIE_CODE=2 lc_die "unknown option: $1" ;;
     esac
   done
-  local rows="[]" wt branch lane inledger live ahead exts ext n
+  local rows="[]" wt branch lane inledger live ahead exts ext n orphans
   local -a lanes_seen=()
   for wt in $(live_worktrees); do
     fetch_base "$wt"
     branch="$(git -C "$wt" symbolic-ref --quiet --short HEAD || echo "(detached)")"
     lane="$(env_file_lane "$wt")"
     inledger="no"; [ -f "$LEDGER" ] && awk -F'\t' -v p="$wt" '$2 == p {f=1} END{exit !f}' "$LEDGER" && inledger="yes"
-    live="unchecked"
+    live="unchecked"; orphans="null"
     if [ "$liveness" -eq 1 ]; then
+      orphans="$(par_kill_pids "$wt" | jq -Rsc 'split("\n") | map(select(. != "") | tonumber)')"
       local nbusy; nbusy="$(busy_pids "$wt" | wc -l | tr -d ' ')"
       if [ "$nbusy" -eq 0 ]; then live="idle"; else live="busy($nbusy)"; fi
     fi
@@ -654,8 +677,8 @@ cmd_audit() {
       exts="$(jq -c --arg k "${ext#"$wt"/}" --arg v "$n" '. + {($k): $v}' <<<"$exts")"
     done < <(judged_dirs "$wt")
     rows="$(jq -c --arg path "$wt" --arg branch "$branch" --arg lane "${lane:-}" --arg inl "$inledger" --arg live "$live" \
-      --arg ahead "$ahead" --argjson exts "$exts" \
-      '. + [{path:$path, branch:$branch, lane:(if $lane == "" then null else ($lane|tonumber) end), in_ledger:$inl, liveness:$live, core_ahead:$ahead, ext_ahead:$exts}]' <<<"$rows")"
+      --arg ahead "$ahead" --argjson exts "$exts" --argjson orph "$orphans" \
+      '. + [{path:$path, branch:$branch, lane:(if $lane == "" then null else ($lane|tonumber) end), in_ledger:$inl, liveness:$live, core_ahead:$ahead, ext_ahead:$exts, par_kill_orphans:$orph}]' <<<"$rows")"
     [ -z "$lane" ] || lanes_seen+=("$lane")
   done
   local dups; dups="$(printf '%s\n' "${lanes_seen[@]:-}" | sort | uniq -d | tr '\n' ' ')"
@@ -666,6 +689,7 @@ cmd_audit() {
       printf 'PATH\tBRANCH\tLANE\tLEDGER\tLIVENESS\tAHEAD\n'
       jq -r '.[] | [.path, .branch, (.lane // "-"), .in_ledger, .liveness, ("core " + .core_ahead + (if (.ext_ahead|length) > 0 then " | " + ([.ext_ahead|to_entries[]|"\(.key|split("/")|last) \(.value)"]|join(", ")) else "" end))] | @tsv' <<<"$rows"
     } | column -t -c 2000 -s "$(printf '\t')"
+    jq -r '.[] | select((.par_kill_orphans // [] | length) > 0) | "WARNING: orphaned par-kill fixture process(es) " + (.par_kill_orphans|map(tostring)|join(" ")) + " have their cwd inside " + .path + " (leftover parallel_rspec_spec fixtures with no live spec run; they ignore TERM, kill them by pid)"' <<<"$rows"
     [ -z "${dups// /}" ] || printf 'WARNING: redis lane(s) %sheld by more than one worktree (their suites flush each other)\n' "$dups"
     printf 'AHEAD counts commits not on origin/%s at patch level; "?" = that ref is unknown there. A worktree ahead of %s is one `remove` will refuse.\n' "$BASE_BRANCH" "$BASE_BRANCH"
   fi
