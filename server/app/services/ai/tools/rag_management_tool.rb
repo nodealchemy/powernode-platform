@@ -23,6 +23,10 @@ module Ai
                                               refuses: [ "name is blank, or the record fails validation",
                                                          "no active provider in the account lists a text_embedding model in its catalog" ]
       declare_action "delete_document", mutating: true, destructive: true,
+                                        action_category: "ai.document.delete",
+                                        executor_class: "Ai::Executors::DeferredToolCall",
+                                        gate_context: :deferred_tool_call_context,
+                                        on_proceed: :deferred_tool_call_result,
                                         returns: "a confirmation message",
                                         refuses: [ "knowledge_base_id or document_id is blank",
                                                    "the document is not in that knowledge base, or the knowledge base is not owned by this account" ]

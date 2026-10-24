@@ -44,9 +44,17 @@ module Ai
                                            returns: "the new pool's pool_id, id and name",
                                            refuses: [ "pool_id or name is missing", "the pool fails validation" ]
       declare_action "delete_memory_pool", mutating: true, destructive: true,
+                                           action_category: "ai.memory_pool.delete",
+                                           executor_class: "Ai::Executors::DeferredToolCall",
+                                           gate_context: :deferred_tool_call_context,
+                                           on_proceed: :deferred_tool_call_result,
                                            returns: "deleted: true with the pool_id and name",
                                            refuses: [ "pool_id is missing or is 'default'", "no pool in this account matches the slug or UUID" ]
       declare_action "delete_shared_memory", mutating: true, destructive: true,
+                                             action_category: "ai.memory.shared_delete",
+                                             executor_class: "Ai::Executors::DeferredToolCall",
+                                             gate_context: :deferred_tool_call_context,
+                                             on_proceed: :deferred_tool_call_result,
                                              returns: "the key and deleted: true",
                                              refuses: [ "the named pool does not exist in this account", "the key is absent",
                                                         "the calling agent may not access the pool, or is neither its owner nor acting on a public shared pool" ]
@@ -172,6 +180,18 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first (c13-2 batch C-A), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s

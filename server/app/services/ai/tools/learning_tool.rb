@@ -77,9 +77,17 @@ module Ai
       # IMP-3c9a6dc8f0a9 — dry_run: true is the caller's default too; see
       # Ai::Tools::SharedKnowledgeTool's identical note on its bulk actions.
       declare_action "retire_by_predicate", mutating: true, destructive: true,
+                                            action_category: "ai.learning.retire_bulk",
+                                            executor_class: "Ai::Executors::DeferredToolCall",
+                                            gate_context: :deferred_tool_call_context,
+                                            on_proceed: :deferred_tool_call_result,
                                             returns: BULK_RETURNS, refuses: BULK_REFUSES,
                                             see_also: { "hard_delete_retired" => "permanently removing learnings already retired" }
       declare_action "hard_delete_retired", mutating: true, destructive: true,
+                                            action_category: "ai.learning.hard_delete_bulk",
+                                            executor_class: "Ai::Executors::DeferredToolCall",
+                                            gate_context: :deferred_tool_call_context,
+                                            on_proceed: :deferred_tool_call_result,
                                             returns: BULK_RETURNS, refuses: BULK_REFUSES,
                                             see_also: { "retire_by_predicate" => "retiring learnings first" }
 
@@ -186,6 +194,18 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first (c13-2 batch C-A), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s

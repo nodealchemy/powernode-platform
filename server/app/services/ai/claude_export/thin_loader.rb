@@ -67,19 +67,18 @@ module Ai
       # registry, so a newly registered ungated destroy-shaped verb fails CI
       # until it is listed here (or gated server-side and dropped).
       DENIED_DESTRUCTIVE_ACTIONS = %w[
-        agent_container_terminate approve_deferred_operation archive_by_predicate code_prune_stale
-        data_source_delete data_source_unsubscribe delete_agent delete_document delete_gitea_action_secret
-        delete_gitea_user_token delete_gitea_workflow_run delete_knowledge delete_memory_pool
-        delete_ralph_loop delete_shared_memory delete_skill delete_team detach_skill_from_agent
+        agent_container_terminate approve_deferred_operation code_prune_stale data_source_delete
+        data_source_unsubscribe delete_agent delete_gitea_action_secret delete_gitea_user_token
+        delete_gitea_workflow_run delete_ralph_loop delete_skill delete_team detach_skill_from_agent
         docker_delete_config docker_delete_container docker_delete_image docker_delete_network
-        docker_delete_secret docker_delete_service docker_delete_stack docker_delete_volume emergency_halt
-        emergency_resume hard_delete_archived hard_delete_retired kubernetes_decommission_cluster
-        prune_stale_git_runners reject_deferred_operation remove_team_member retire_by_predicate
-        system_acme_revoke_certificate system_delete_architecture system_delete_cve
-        system_delete_instance_pool system_delete_module system_delete_node system_delete_package_repository
-        system_delete_provider system_delete_service system_delete_template system_delete_volume
-        system_destroy_instance system_drain_instance system_drain_instance_pool system_instance_hold
-        system_instance_release_hold system_reap_agent_fleet system_reboot_instance system_recycle_pool
+        docker_delete_secret docker_delete_service docker_delete_stack docker_delete_volume
+        emergency_halt emergency_resume kubernetes_decommission_cluster prune_stale_git_runners
+        reject_deferred_operation remove_team_member system_acme_revoke_certificate
+        system_delete_architecture system_delete_cve system_delete_instance_pool system_delete_module
+        system_delete_node system_delete_package_repository system_delete_provider system_delete_service
+        system_delete_template system_delete_volume system_destroy_instance system_drain_instance
+        system_drain_instance_pool system_instance_hold system_instance_release_hold
+        system_reap_agent_fleet system_reboot_instance system_recycle_pool
         system_rotate_vault_transit_pepper system_stop_instance system_terminate_ci_worker
         system_upgrade_boot_image
       ].freeze

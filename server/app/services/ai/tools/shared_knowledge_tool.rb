@@ -47,6 +47,10 @@ module Ai
                                                   "or a near-duplicate entry already exists (its id is returned)",
                                          see_also: { "create_learning" => "a lesson learned from a task outcome" }
       declare_action "delete_knowledge", mutating: true, destructive: true,
+                                         action_category: "ai.knowledge.delete",
+                                         executor_class: "Ai::Executors::DeferredToolCall",
+                                         gate_context: :deferred_tool_call_context,
+                                         on_proceed: :deferred_tool_call_result,
                                          returns: "entry_id and method (archived or hard_delete)",
                                          refuses: "the entry is not found",
                                          see_also: { "archive_by_predicate" => "archiving many entries at once" }
@@ -58,9 +62,17 @@ module Ai
       # anything, so `destructive: true` describes the SHAPE this action can
       # take, not every invocation of it.
       declare_action "archive_by_predicate", mutating: true, destructive: true,
+                                             action_category: "ai.knowledge.archive_bulk",
+                                             executor_class: "Ai::Executors::DeferredToolCall",
+                                             gate_context: :deferred_tool_call_context,
+                                             on_proceed: :deferred_tool_call_result,
                                              returns: BULK_RETURNS, refuses: BULK_REFUSES,
                                              see_also: { "hard_delete_archived" => "permanently removing entries already archived" }
       declare_action "hard_delete_archived", mutating: true, destructive: true,
+                                             action_category: "ai.knowledge.hard_delete_bulk",
+                                             executor_class: "Ai::Executors::DeferredToolCall",
+                                             gate_context: :deferred_tool_call_context,
+                                             on_proceed: :deferred_tool_call_result,
                                              returns: BULK_RETURNS, refuses: BULK_REFUSES,
                                              see_also: { "archive_by_predicate" => "archiving entries first" }
       declare_action "search_knowledge", mutating: false, limit: 50,
@@ -192,6 +204,18 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first (c13-2 batch C-A), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s

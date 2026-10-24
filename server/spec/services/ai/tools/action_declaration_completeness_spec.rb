@@ -198,6 +198,14 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 following, blast radius, approval categories —
   #                                 is a person's decision; an instance principal
   #                                 holding the grant skips the per-user check)
+  #   delete_knowledge, archive_by_predicate, hard_delete_archived,
+  #   retire_by_predicate, hard_delete_retired, delete_memory_pool,
+  #   delete_shared_memory, delete_document
+  #                                 c13-2 batch C-A   ai.knowledge.* / ai.learning.* /
+  #                                 ai.memory_pool.delete / ai.memory.shared_delete /
+  #                                 ai.document.delete (require_approval; a bulk verb
+  #                                 parks even as a dry run, which is a read of the
+  #                                 same call)
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -243,6 +251,14 @@ RSpec.describe "MCP action declaration completeness" do
     site_setting_set_protected
     dev_requeue_task
     environment_update
+    delete_knowledge
+    archive_by_predicate
+    hard_delete_archived
+    retire_by_predicate
+    hard_delete_retired
+    delete_memory_pool
+    delete_shared_memory
+    delete_document
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

@@ -112,17 +112,38 @@ RSpec.describe Ai::ClaudeExport::ThinLoader do
     end
   end
 
-  it "denies every registered destroy-shaped verb that no AutonomyGate declaration can park" do
-    ungated = Ai::Tools::PlatformApiToolRegistry.all_tools.filter_map do |name, klass|
+  # Resolved through ToolDeclarationCoverage, the shared resolver that mirrors
+  # BaseTool#execute's alias hop: a lookup by the raw registry key finds the
+  # wrong (or no) declaration for an aliased entry (prune_stale vs code_prune_stale).
+  def registry_rows
+    Ai::Tools::PlatformApiToolRegistry.all_tools.filter_map do |name, klass|
       tool = klass.is_a?(String) ? klass.safe_constantize : klass
       next unless tool.respond_to?(:declared_action)
 
-      declaration = tool.declared_action(name)
-      shaped = Mcp::Principal.destructive_tool?(name.to_s) || declaration&.dig(:destructive)
-      name.to_s if shaped && !tool.may_park?(declaration)
+      action = ToolDeclarationCoverage.resolved_action_name(name, tool)
+      { name: name.to_s, tool: tool, declaration: tool.declared_action(action) }
+    end
+  end
+
+  it "denies every registered destroy-shaped verb that no AutonomyGate declaration can park" do
+    ungated = registry_rows.filter_map do |row|
+      shaped = Mcp::Principal.destructive_tool?(row[:name]) || row[:declaration]&.dig(:destructive)
+      row[:name] if shaped && !row[:tool].may_park?(row[:declaration])
     end
 
     expect(ungated - described_class::DENIED_DESTRUCTIVE_ACTIONS).to be_empty
+  end
+
+  # The other direction: a verb a declaration can now park is dropped from the
+  # denied list in the same change, so the list only ever holds what is still
+  # ungated (emergency_halt is the deliberate exemption, see below).
+  it "lists in DENIED_DESTRUCTIVE_ACTIONS only verbs that are still ungated" do
+    gated = registry_rows.filter_map do |row|
+      row[:name] if described_class::DENIED_DESTRUCTIVE_ACTIONS.include?(row[:name]) &&
+                    row[:tool].may_park?(row[:declaration])
+    end
+
+    expect(gated).to be_empty
   end
 
   it "names only registered verbs in DENIED_ACTIONS (a typo would deny nothing)" do
