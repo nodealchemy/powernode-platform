@@ -109,7 +109,9 @@ RSpec.describe Ai::Tools::SemanticToolDiscoveryService do
 
       before do
         allow(service).to receive(:find_embedding_provider).and_return(provider)
+        allow(provider).to receive(:model_id).and_return("openai:text-embedding-3-small")
         allow(provider).to receive(:generate).and_return(Array.new(1536, 0.1))
+        allow(provider).to receive(:generate_batch) { |texts| texts.map { Array.new(1536, 0.1) } }
       end
 
       it "caches embeddings for each tool" do

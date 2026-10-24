@@ -17,6 +17,17 @@ RSpec.describe Ai::Memory::EmbeddingService, type: :service do
   # #generate
   # ===========================================================================
 
+  describe "#model_id" do
+    it "names the provider type and the model that makes the vectors" do
+      allow(provider).to receive(:provider_type).and_return("openai")
+      expect(service.model_id).to eq("openai:text-embedding-3-small")
+
+      allow(provider).to receive(:provider_type).and_return("ollama")
+      allow(provider).to receive(:configuration).and_return({ "embedding_model" => "mxbai-embed-large" })
+      expect(service.model_id).to eq("ollama:mxbai-embed-large")
+    end
+  end
+
   describe "#generate_or_nil" do
     it "returns nil instead of raising when the worker embedding service is down" do
       allow(service).to receive(:generate)

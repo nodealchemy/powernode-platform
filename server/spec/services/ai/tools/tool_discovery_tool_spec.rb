@@ -84,6 +84,7 @@ RSpec.describe Ai::Tools::ToolDiscoveryTool do
 
   it "ranks by embedding similarity when embeddings are available" do
     provider = instance_double(Ai::Memory::EmbeddingService)
+    allow(provider).to receive(:model_id).and_return("openai:text-embedding-3-small")
     allow(provider).to receive(:generate_batch) do |texts|
       texts.map { |text| text.to_s.include?("halt") ? [ 1.0, 0.0 ] : [ 0.0, 1.0 ] }
     end

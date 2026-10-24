@@ -35,8 +35,7 @@ module Ai
         tools.each_with_index do |tool, idx|
           next unless embeddings[idx]
 
-          cache_key = "#{CACHE_PREFIX}:#{@account.id}:embedding:#{tool[:id]}"
-          Rails.cache.write(cache_key, embeddings[idx], expires_in: CACHE_TTL)
+          Rails.cache.write(tool_cache_key(tool), embeddings[idx], expires_in: CACHE_TTL)
         end
 
         Rails.logger.info "[SemanticToolDiscovery] Indexed #{tools.size} tools for account #{@account.id}"
@@ -199,13 +198,19 @@ module Ai
       def embeddings_for(query, tools)
         return [ nil, {} ] if embeddings_unavailable?
 
-        query_key = "query:#{Digest::SHA256.hexdigest(query)}"
-        query_embedding = Rails.cache.read(query_key)
+        provider = find_embedding_provider
+        return [ nil, {} ] unless provider
+
+        model = provider.model_id
+        query_key = query_cache_key(model, query)
+        keys = tools.to_h { |tool| [ tool_cache_key(tool, model), tool ] }
+        cached = Rails.cache.read_multi(query_key, *keys.keys)
+
+        query_embedding = cached[query_key]
         tool_embeddings = {}
         missing = []
-        tools.each do |tool|
-          cached = Rails.cache.read(tool_cache_key(tool))
-          cached ? tool_embeddings[tool[:id]] = cached : missing << tool
+        keys.each do |key, tool|
+          cached[key] ? tool_embeddings[tool[:id]] = cached[key] : missing << tool
         end
         missing = missing.first(WARM_BATCH_LIMIT)
 
@@ -213,9 +218,6 @@ module Ai
         texts << query unless query_embedding
         texts += missing.map { |t| t[:search_text] }
         return [ query_embedding, tool_embeddings ] if texts.empty?
-
-        provider = find_embedding_provider
-        return [ query_embedding, tool_embeddings ] unless provider
 
         vectors = provider.generate_batch(texts)
         raise "embedding provider returned no vectors" if vectors.blank?
@@ -228,7 +230,7 @@ module Ai
           next unless vectors[idx]
 
           tool_embeddings[tool[:id]] = vectors[idx]
-          Rails.cache.write(tool_cache_key(tool), vectors[idx], expires_in: CACHE_TTL)
+          Rails.cache.write(tool_cache_key(tool, model), vectors[idx], expires_in: CACHE_TTL)
         end
         [ query_embedding, tool_embeddings ]
       rescue StandardError => e
@@ -239,8 +241,16 @@ module Ai
         [ nil, {} ]
       end
 
-      def tool_cache_key(tool)
-        "#{CACHE_PREFIX}:#{@account&.id}:embedding:#{tool[:id]}"
+      # Per account AND per model: a vector is only valid for the model that made it.
+      def query_cache_key(model, query)
+        "#{CACHE_PREFIX}:#{@account&.id}:query:#{model}:#{Digest::SHA256.hexdigest(query)}"
+      end
+
+      # Keyed on the model and a digest of the exact text embedded, so a changed
+      # description or a switched embedding model never serves a stale vector.
+      def tool_cache_key(tool, model = find_embedding_provider&.model_id)
+        digest = Digest::SHA256.hexdigest(tool[:search_text].to_s)[0, 16]
+        "#{CACHE_PREFIX}:#{@account&.id}:embedding:#{model}:#{tool[:id]}:#{digest}"
       end
 
       def unavailable_cache_key
@@ -276,17 +286,15 @@ module Ai
         parts.join(" ")
       end
 
-      def get_or_generate_embedding(text, cache_key)
-        cached = Rails.cache.read(cache_key)
-        return cached if cached
-
-        embedding = generate_single_embedding(text)
-        Rails.cache.write(cache_key, embedding, expires_in: CACHE_TTL) if embedding
-        embedding
-      end
-
+      # One batch request for the whole corpus rather than one per text.
       def generate_embeddings(texts)
-        texts.map { |text| generate_single_embedding(text) }
+        provider = find_embedding_provider
+        return texts.map { nil } unless provider
+
+        provider.generate_batch(texts)
+      rescue StandardError => e
+        Rails.logger.warn "[SemanticToolDiscovery] Batch embedding failed: #{e.message}"
+        texts.map { nil }
       end
 
       def generate_single_embedding(text)

@@ -19,6 +19,21 @@ module Ai
         Powernode::Redis.pooled
       end
 
+      # Identifies the model that produces this service's vectors, so a cached
+      # vector is only reused under the model that made it. Mirrors what the
+      # worker's Ai::EmbeddingService calls: OpenAI embeds with
+      # text-embedding-3-small, Ollama with the provider's configured model.
+      def model_id
+        type = @provider&.provider_type.to_s.presence || "openai"
+        configured = @provider&.configuration&.dig("embedding_model").presence
+        model = if type == "ollama"
+                  configured || "nomic-embed-text"
+                else
+                  "text-embedding-3-small"
+                end
+        "#{type}:#{model}"
+      end
+
       # Generate embedding for text
       def generate(text, use_cache: true)
         return nil if text.blank?
