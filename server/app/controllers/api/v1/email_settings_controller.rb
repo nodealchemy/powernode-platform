@@ -144,7 +144,7 @@ class Api::V1::EmailSettingsController < ApplicationController
   # client controls unless the reverse proxy strips it. Core attaches
   # Core::IngressConfigWriter::STRIP_FORWARDED_CLIENT_CERT_MW to the backend
   # routers it writes itself, but on a composed hub the per-account routers come
-  # from the system extension's ACME writer, which carries no strip AND outranks
+  # from the system extension's ACME writer, which now applies the same strip but outranks
   # the host-login routers on Traefik's rule-length priority. The strip is
   # therefore NOT a property core can prove. Composed with a worker CN that may
   # be a published constant (Workers::EnsureSystemWorker::DEV_SENTINEL_NODE_ID,

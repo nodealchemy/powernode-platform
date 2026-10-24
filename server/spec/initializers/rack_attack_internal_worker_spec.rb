@@ -94,6 +94,13 @@ RSpec.describe "Rack::Attack internal worker traffic" do
 
       expect(statuses(3, headers: info_header(other.node_instance_id)).uniq).to eq([ 200 ])
     end
+
+    it "gives a worker one ceiling however its CN is cased" do
+      statuses(worker_ceiling, headers: headers)
+
+      upcased = info_header(worker.node_instance_id.upcase)
+      expect(statuses(3, headers: upcased).last).to eq(429)
+    end
   end
 
   context "when the caller does not prove an active worker" do

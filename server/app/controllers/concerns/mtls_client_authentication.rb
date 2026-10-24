@@ -53,7 +53,13 @@ module MtlsClientAuthentication
       return
     end
 
-    @current_worker = Worker.find_by(node_instance_id: verified_cn)
+    # Shape first: a non-UUID CN never reaches the nullable node_instance_id column.
+    unless verified_cn.match?(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/)
+      render_error("Worker not found for mTLS subject", status: :unauthorized)
+      return
+    end
+
+    @current_worker = Worker.find_by(node_instance_id: verified_cn.downcase)
     unless @current_worker
       render_error("Worker not found for mTLS subject", status: :unauthorized)
       return

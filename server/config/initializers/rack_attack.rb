@@ -252,7 +252,7 @@ class Rack::Attack
   # forwarded-cert headers, and sets X-Forwarded-Tls-Client-Cert-Info (subject CN
   # = the Worker's node_instance_id) and, when pem-forwarding is on,
   # X-Forwarded-Tls-Client-Cert (the leaf). Puma therefore sees Traefik's loopback
-  # address (`::1`) as the client IP for every worker, which is exactly why one
+  # address (127.0.0.1) as the client IP for every worker, which is exactly why one
   # IP-keyed counter swallowed the whole fleet's traffic. In development there is
   # no Traefik and the worker synthesises the Info header itself (DevMtlsHeader).
   # There is no other rack-visible signal on either path.
@@ -285,6 +285,8 @@ class Rack::Attack
     return nil if cn.blank?
     # Shape first: nothing that is not a UUID reaches the database.
     return nil unless cn.match?(/\A\h{8}-\h{4}-\h{4}-\h{4}-\h{12}\z/)
+    # One worker, one bucket: the uuid column ignores case, the cache key must too.
+    cn = cn.downcase
     # The development sentinel is a constant published in worker/ source, so
     # outside development anyone can send it.
     return nil if !Rails.env.development? && cn.casecmp?(Workers::EnsureSystemWorker::DEV_SENTINEL_NODE_ID)

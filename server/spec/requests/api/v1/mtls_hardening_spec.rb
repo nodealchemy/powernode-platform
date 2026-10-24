@@ -85,4 +85,14 @@ RSpec.describe "Core mTLS auth hardening", type: :request do
          }, as: :json
     expect(response).not_to have_http_status(:unauthorized)
   end
+
+  it "refuses a CN that is not UUID-shaped before it reaches the worker lookup" do
+    expect(Worker).not_to receive(:find_by)
+    post path, params: params,
+         headers: {
+           "X-Forwarded-Tls-Client-Cert-Info" => CGI.escape(%(Subject="CN=not-a-uuid")),
+           "Content-Type" => "application/json"
+         }, as: :json
+    expect(response).to have_http_status(:unauthorized)
+  end
 end

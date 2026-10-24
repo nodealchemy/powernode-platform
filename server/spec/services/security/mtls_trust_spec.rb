@@ -148,6 +148,18 @@ RSpec.describe Security::MtlsTrust do
     end
   end
 
+  describe ".forwarded_subject_cn" do
+    let(:info) { { "X-Forwarded-Tls-Client-Cert-Info" => "Subject%3D%22CN%3Dfed%3Apeer-1%22" } }
+
+    it "reads the CN when the socket peer is the ingress" do
+      expect(described_class.forwarded_subject_cn(req(info, peer: "127.0.0.1"))).to eq("fed:peer-1")
+    end
+
+    it "ignores the header from a peer that reached Puma directly (federation included)" do
+      expect(described_class.forwarded_subject_cn(req(info, peer: "203.0.113.5"))).to be_nil
+    end
+  end
+
   describe ".verify_request" do
     it "returns the CN for a cert signed by our CA (full PEM header)" do
       leaf = sign_leaf("node-instance-9", our[0], our[1])

@@ -170,6 +170,10 @@ module Security
       # by verify_request's no-PEM path AND by FederationApi::BaseController to
       # resolve the calling peer before its per-peer signature check.
       def forwarded_subject_cn(request)
+        # Only the ingress may assert a client cert; a peer that reached Puma
+        # any other way gets no forwarded identity at all (federation included).
+        return nil unless trusted_peer?(request)
+
         info = request.headers[SUBJECT_HEADER].presence
         return nil unless info
 
