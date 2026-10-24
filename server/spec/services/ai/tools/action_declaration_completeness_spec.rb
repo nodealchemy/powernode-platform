@@ -206,6 +206,14 @@ RSpec.describe "MCP action declaration completeness" do
   #                                 ai.document.delete (require_approval; a bulk verb
   #                                 parks even as a dry run, which is a read of the
   #                                 same call)
+  #   delete_agent, delete_team, remove_team_member, delete_skill,
+  #   detach_skill_from_agent, delete_ralph_loop, data_source_delete,
+  #   data_source_unsubscribe
+  #                                 c13-2 batch C-B   ai.agent.delete / ai.team.* /
+  #                                 ai.skill.* / ai.ralph_loop.delete /
+  #                                 ai.data_source.* (require_approval; each tool's
+  #                                 own permission and canonical guards run before
+  #                                 the park and again at replay)
   #
   # The two pool verbs are the MCP twins of the REST routes IMP-24daa05e7a22
   # gated: while they were declared `mutating:` only, an agent could raise the
@@ -259,6 +267,14 @@ RSpec.describe "MCP action declaration completeness" do
     delete_memory_pool
     delete_shared_memory
     delete_document
+    delete_agent
+    delete_team
+    remove_team_member
+    delete_skill
+    detach_skill_from_agent
+    delete_ralph_loop
+    data_source_delete
+    data_source_unsubscribe
   ].freeze
 
   it "arms the gate on exactly the actions that are meant to be gate-routed" do

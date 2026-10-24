@@ -559,8 +559,10 @@ RSpec.describe Ai::Tools::DataSourceTool do
       expect(data_source.reload.name).to eq("Open-Meteo v2")
     end
 
+    # Gate-routed since c13-2 batch C-B: #execute parks it, so the body runs via #call
+    # (parking is pinned in destructive_verbs_park_batch_b_spec.rb).
     it "deletes a data source" do
-      result = tool.execute(params: { action: "data_source_delete", data_source_id: "open-meteo" })
+      result = tool.send(:call, { action: "data_source_delete", data_source_id: "open-meteo" })
 
       expect(result[:success]).to be true
       expect(result[:data][:message]).to match(/deleted/i)
@@ -1392,6 +1394,8 @@ RSpec.describe Ai::Tools::DataSourceTool do
   # data_source_unsubscribe — remove a subscription (Phase 3, stream-gated)
   # ------------------------------------------------------------------------
 
+  # Gate-routed since c13-2 batch C-B: #execute parks it, so the body runs via #call
+  # (parking is pinned in destructive_verbs_park_batch_b_spec.rb).
   describe "#execute data_source_unsubscribe" do
     let!(:subscription) do
       data_source.subscriptions.create!(endpoint: endpoint, poll_frequency: "hourly", status: "active")
@@ -1400,7 +1404,7 @@ RSpec.describe Ai::Tools::DataSourceTool do
     it "removes a subscription by subscription_id (account-scoped)" do
       result = nil
       expect do
-        result = tool.execute(params: {
+        result = tool.send(:call, {
           action: "data_source_unsubscribe", subscription_id: subscription.id
         })
       end.to change { Ai::DataSourceSubscription.count }.by(-1)
@@ -1413,7 +1417,7 @@ RSpec.describe Ai::Tools::DataSourceTool do
     it "removes every subscription matching a (data_source, endpoint) pair" do
       result = nil
       expect do
-        result = tool.execute(params: {
+        result = tool.send(:call, {
           action: "data_source_unsubscribe", data_source_id: "open-meteo", endpoint_id: "forecast"
         })
       end.to change { Ai::DataSourceSubscription.count }.by(-1)
@@ -1425,14 +1429,14 @@ RSpec.describe Ai::Tools::DataSourceTool do
     end
 
     it "errors when neither subscription_id nor a (source, endpoint) pair is given" do
-      result = tool.execute(params: { action: "data_source_unsubscribe" })
+      result = tool.send(:call, { action: "data_source_unsubscribe" })
 
       expect(result[:success]).to be false
       expect(result[:error]).to match(/subscription_id.*data_source_id.*endpoint_id/i)
     end
 
     it "surfaces a not-found error for an unknown subscription_id" do
-      result = tool.execute(params: {
+      result = tool.send(:call, {
         action: "data_source_unsubscribe", subscription_id: SecureRandom.uuid
       })
 
@@ -1446,7 +1450,7 @@ RSpec.describe Ai::Tools::DataSourceTool do
       other_ep = create(:ai_data_source_endpoint, data_source: other_source, slug: "ep")
       foreign = other_source.subscriptions.create!(endpoint: other_ep, poll_frequency: "hourly", status: "active")
 
-      result = tool.execute(params: {
+      result = tool.send(:call, {
         action: "data_source_unsubscribe", subscription_id: foreign.id
       })
 

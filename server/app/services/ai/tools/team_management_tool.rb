@@ -17,14 +17,22 @@ module Ai
       declare_action "create_team", mutating: true,
                      returns: "team_id and name of the new team, created with status active",
                      refuses: "the team fails validation"
-      declare_action "delete_team", mutating: true, destructive: true
+      declare_action "delete_team", mutating: true, destructive: true,
+                                    action_category: "ai.team.delete",
+                                    executor_class: "Ai::Executors::DeferredToolCall",
+                                    gate_context: :deferred_tool_call_context,
+                                    on_proceed: :deferred_tool_call_result
       declare_action "execute_team", mutating: true, returns: "execution_id to follow the run, team_id and status execution_dispatched; the result arrives on the execution, not here", refuses: "the team is not found or the worker cannot be reached (the execution is then cancelled)"
       declare_action "get_team", mutating: false,
                      returns: "id, name, team_type, status, coordination_strategy, canonical, template_id, source_key, " \
                               "team_config, review_config and members (agent_name, role, is_lead each)",
                      refuses: "no team in this account matches the UUID, or the name case-insensitively"
       declare_action "list_teams", mutating: false, limit: 50, returns: "id, name, type, coordination strategy, member count, canonical flag and template id per team, in no particular order"
-      declare_action "remove_team_member", mutating: true, destructive: true
+      declare_action "remove_team_member", mutating: true, destructive: true,
+                                           action_category: "ai.team.member_remove",
+                                           executor_class: "Ai::Executors::DeferredToolCall",
+                                           gate_context: :deferred_tool_call_context,
+                                           on_proceed: :deferred_tool_call_result
       declare_action "update_team", mutating: true,
                      returns: "team_id, name and status; only the fields given non-blank change, and team_config and review_config are merged",
                      refuses: [ "no team matches team_id", "the update fails validation" ]
@@ -123,6 +131,19 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call. The canonical
+      # team guard lives in the action bodies, so without this seam a canonical
+      # team's delete or member removal would park an approval that can only be
+      # refused. Runs before the park and again at replay (c13-2 batch C-B).
+      def authorization_error(params)
+        return nil unless %w[delete_team remove_team_member].include?(routed_action_name(params))
+
+        team = resolve_team(params[:team_id])
+        team.canonical? ? canonical_refusal(team) : nil
+      rescue ActiveRecord::RecordNotFound
+        { success: false, error: "Team not found" }
+      end
 
       def call(params)
         case params[:action]

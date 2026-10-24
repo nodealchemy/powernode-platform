@@ -130,7 +130,11 @@ module Ai
                        "a free-form agent gets no model from the call or from the account's active provider",
                        "the agent fails validation"
                      ]
-      declare_action "delete_agent", mutating: true, destructive: true
+      declare_action "delete_agent", mutating: true, destructive: true,
+                                     action_category: "ai.agent.delete",
+                                     executor_class: "Ai::Executors::DeferredToolCall",
+                                     gate_context: :deferred_tool_call_context,
+                                     on_proceed: :deferred_tool_call_result
       declare_action "execute_agent", mutating: true,
                      returns: "agent_id, execution_id and status execution_dispatched; the run itself happens on the worker",
                      refuses: [
@@ -318,6 +322,18 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first (c13-2 batch C-B), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve. It runs again at replay.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s

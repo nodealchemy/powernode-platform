@@ -47,6 +47,10 @@ module Ai
       # BaseTool#gated_action? false, so #execute still routes to #call and
       # behaviour is unchanged. Gate wiring (categories/executors) is APO-1e.
       declare_action "delete_ralph_loop", mutating: true, destructive: true,
+                     action_category: "ai.ralph_loop.delete",
+                     executor_class: "Ai::Executors::DeferredToolCall",
+                     gate_context: :deferred_tool_call_context,
+                     on_proceed: :deferred_tool_call_result,
                      returns: "deleted: the removed loop's name",
                      refuses: "no loop in this account matches loop_id by id or name"
       declare_action "get_ralph_loop", mutating: false, returns: "the loop with its 5 most recent iterations"
@@ -157,6 +161,19 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # permission and account checks at the top of #call would be skipped. This
+      # seam runs the same checks first (c13-2 batch C-B), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve. It runs again at replay.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return error_result("permission denied: #{required_perm_for(action)} required") unless action_permitted?(action)
+        return { success: false, error: "Account context required" } unless account
+
+        nil
+      end
 
       def call(params)
         action = params[:action].to_s

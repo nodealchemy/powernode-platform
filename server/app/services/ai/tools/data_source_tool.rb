@@ -138,6 +138,10 @@ module Ai
                                              "data_source_import" => "recreating a source from an exported manifest"
                                            }
       declare_action "data_source_delete", mutating: true, destructive: true,
+                                           action_category: "ai.data_source.delete",
+                                           executor_class: "Ai::Executors::DeferredToolCall",
+                                           gate_context: :deferred_tool_call_context,
+                                           on_proceed: :deferred_tool_call_result,
                                            returns: "a confirmation message, #{PROPOSAL_RETURN}",
                                            refuses: "#{NOT_FOUND}, or it cannot be destroyed"
       declare_action "data_source_describe", mutating: false,
@@ -222,7 +226,11 @@ module Ai
                                                             "latest_diff",
                                                    refuses: ENDPOINT_NOT_FOUND
       declare_action "data_source_subscribe", mutating: true
-      declare_action "data_source_unsubscribe", mutating: true, destructive: true
+      declare_action "data_source_unsubscribe", mutating: true, destructive: true,
+                                                action_category: "ai.data_source.unsubscribe",
+                                                executor_class: "Ai::Executors::DeferredToolCall",
+                                                gate_context: :deferred_tool_call_context,
+                                                on_proceed: :deferred_tool_call_result
       declare_action "data_source_update", mutating: true,
                                            returns: "the updated source's details, #{PROPOSAL_RETURN}",
                                            refuses: "#{NOT_FOUND}, or the update fails validation"
@@ -584,6 +592,21 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action checks at the top of #call (including the proposal fallback
+      # for a caller lacking the mutation grant) would be skipped. This seam
+      # runs them first (c13-2 batch C-B): a caller without the grant gets
+      # exactly what #call gives them, never a parked approval. It runs again
+      # at replay.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        if STREAM_ACTIONS.include?(action)
+          permission?(STREAM_PERMISSION) ? nil : permission_denied(STREAM_PERMISSION)
+        elsif MUTATION_PERMISSIONS.key?(action)
+          mutation_permitted?(action) ? nil : propose_mutation(action, params)
+        end
+      end
 
       def call(params)
         action = params[:action].to_s

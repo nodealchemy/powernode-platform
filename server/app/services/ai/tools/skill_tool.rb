@@ -46,8 +46,21 @@ module Ai
       declare_action "attach_skill_to_agent", mutating: true, returns: "attached: true, the skill and agent ids, priority and is_active", see_also: { "detach_skill_from_agent" => "removing the binding" }
       declare_action "clone_skill", mutating: true, returns: "skill, cloned_from_id and source_key", see_also: { "update_skill" => "editing a skill the account already owns" }
       declare_action "create_skill", mutating: true, returns: "skill, the full record", refuses: "name is missing or the skill fails validation", see_also: { "clone_skill" => "starting from an existing skill" }
-      declare_action "delete_skill", mutating: true, destructive: true, refuses: "the skill is a system skill", see_also: { "toggle_skill" => "disabling it instead" }
-      declare_action "detach_skill_from_agent", mutating: true, destructive: true, returns: "detached: true with the skill and agent ids", refuses: "the skill is not attached to that agent", see_also: { "attach_skill_to_agent" => "re-binding with is_active: false instead" }
+      declare_action "delete_skill", mutating: true, destructive: true,
+                                     action_category: "ai.skill.delete",
+                                     executor_class: "Ai::Executors::DeferredToolCall",
+                                     gate_context: :deferred_tool_call_context,
+                                     on_proceed: :deferred_tool_call_result,
+                                     refuses: "the skill is a system skill",
+                                     see_also: { "toggle_skill" => "disabling it instead" }
+      declare_action "detach_skill_from_agent", mutating: true, destructive: true,
+                                                action_category: "ai.skill.detach",
+                                                executor_class: "Ai::Executors::DeferredToolCall",
+                                                gate_context: :deferred_tool_call_context,
+                                                on_proceed: :deferred_tool_call_result,
+                                                returns: "detached: true with the skill and agent ids",
+                                                refuses: "the skill is not attached to that agent",
+                                                see_also: { "attach_skill_to_agent" => "re-binding with is_active: false instead" }
       declare_action "discover_skills", mutating: false, returns: "the skills reached by skill-graph traversal from task_context, within token_budget (default 2000)", see_also: { "get_skill_context" => "the rendered context block for an input" }
       declare_action "get_skill", mutating: false, returns: "skill, the full record including its system prompt and commands"
       declare_action "get_skill_context", mutating: false, returns: "the enriched context for input_text within token_budget (default 2000)", see_also: { "discover_skills" => "just the list of relevant skills" }
@@ -196,6 +209,18 @@ module Ai
       end
 
       protected
+
+      # A gated action returns from BaseTool#execute before #call, so the
+      # per-action permission check at the top of #call would be skipped. This
+      # seam runs the same check first (c13-2 batch C-B), so a caller without
+      # the action's permission is refused outright instead of parking a
+      # request nobody should be asked to approve. It runs again at replay.
+      def authorization_error(params)
+        action = routed_action_name(params)
+        return nil if action_permitted?(action)
+
+        error_result("permission denied: #{required_perm_for(action)} required")
+      end
 
       def call(params)
         action = params[:action].to_s
