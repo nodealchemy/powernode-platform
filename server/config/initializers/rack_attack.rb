@@ -242,6 +242,69 @@ class Rack::Attack
     request.path.to_s.squeeze("/").sub(%r{/+\z}, "").sub(%r{\.[^/.?]+\z}, "").sub(%r{/+\z}, "")
   end
 
+  # The active Worker a request to the internal API identifies as, or nil.
+  #
+  # HOW A WORKER IS SEEN AT RACK LEVEL. The standalone worker authenticates to
+  # /api/v1/internal/* with an mTLS client cert; the worker holds no bearer token
+  # for the server (its JWTs flow server->worker, aud "worker", and are never sent
+  # back). Production reaches Puma through Traefik's `<slug>-internal-api` router,
+  # which terminates the handshake, strips any client-supplied copy of the
+  # forwarded-cert headers, and sets X-Forwarded-Tls-Client-Cert-Info (subject CN
+  # = the Worker's node_instance_id) and, when pem-forwarding is on,
+  # X-Forwarded-Tls-Client-Cert (the leaf). Puma therefore sees Traefik's loopback
+  # address (`::1`) as the client IP for every worker, which is exactly why one
+  # IP-keyed counter swallowed the whole fleet's traffic. In development there is
+  # no Traefik and the worker synthesises the Info header itself (DevMtlsHeader).
+  # There is no other rack-visible signal on either path.
+  #
+  # A PEM is a PUBLIC certificate: presenting one proves nothing about the key.
+  # What proves possession is the TLS handshake Traefik performed; this process
+  # can only re-check that the forwarded leaf chains to OUR CA (MtlsTrust does,
+  # when a PEM is present) and that its CN is an active Worker, and otherwise
+  # trusts the ingress to have stripped client copies, exactly as
+  # InternalBaseController does. Because that is trust, not proof, a recognised
+  # worker is not unlimited: it moves from the shared per-IP counter to its own
+  # high-ceiling counter (internal_worker_by_identity), so a forged CN can at most
+  # spend that one worker's budget.
+  #
+  # Never raises; any failure is "not a worker" so the request keeps counting
+  # against the IP throttle. Memoized per request; the Worker lookup is cached.
+  def self.internal_worker_identity(request)
+    env = request.env
+    return env["rack_attack.internal_worker"] if env.key?("rack_attack.internal_worker")
+
+    env["rack_attack.internal_worker"] = resolve_internal_worker_identity(request)
+  end
+
+  def self.resolve_internal_worker_identity(request)
+    return nil unless canonical_path(request).start_with?("/api/v1/internal/")
+
+    cn = Security::MtlsTrust.verify_request(ActionDispatch::Request.new(request.env))
+    return nil if cn.blank?
+
+    active = Rails.cache.fetch("rack_attack:internal_worker:#{cn}", expires_in: 1.minute) do
+      Worker.active.exists?(node_instance_id: cn)
+    end
+    active ? cn : nil
+  rescue StandardError => e
+    Rails.logger.error(
+      "[RackAttack] internal worker identity check failed — failing closed (request keeps counting " \
+      "toward the per-IP limit): #{e.class}: #{e.message}"
+    )
+    nil
+  end
+  private_class_method :resolve_internal_worker_identity
+
+  # Discriminator for api_requests_by_ip: the IP, except for a request that is
+  # not attributable to an account AND is a recognised worker's internal call.
+  def self.api_ip_throttle_key(request)
+    return nil unless request.path.start_with?("/api/")
+    return nil if extract_account_from_request(request)
+    return nil if internal_worker_identity(request)
+
+    client_ip(request)
+  end
+
   # IMP-99e8e4701150 review M1. Matches the two 2FA "re-authentication" writes
   # — disabling 2FA and regenerating backup codes — which both accept a
   # TOTP/backup code from an ALREADY-authenticated session. `auth_2fa_by_ip`
@@ -307,6 +370,18 @@ class Rack::Attack
       user = extract_user_from_request(request)
       "user:#{user.id}" if user
     end
+  end
+
+  # Recognised worker traffic to /api/v1/internal/*, counted per worker identity
+  # instead of per IP (see .internal_worker_identity). The ceiling is high on
+  # purpose: it exists to bound a forged or runaway identity, not to pace the
+  # fleet. Registered OUTSIDE the `unless Rails.env.test?` guard so it is
+  # directly testable; disabled (999_999) whenever rate limiting is.
+  throttle("internal_worker_by_identity",
+           limit: proc { rate_limiting_enabled? ? get_rate_limit("internal_worker_requests_per_15_minutes", 20_000) : 999_999 },
+           period: 15.minutes) do |request|
+    identity = internal_worker_identity(request)
+    "internal_worker:#{identity}" if identity
   end
 
   unless Rails.env.test?
@@ -487,9 +562,7 @@ class Rack::Attack
     # -----------------------------------------------------------------------
 
     throttle("api_requests_by_ip", limit: proc { rate_limiting_enabled? ? get_rate_limit("api_requests_per_minute", Rails.env.development? ? 1000 : 300) : 999_999 }, period: 15.minutes) do |request|
-      if request.path.start_with?("/api/") && !extract_account_from_request(request)
-        client_ip(request)
-      end
+      api_ip_throttle_key(request)
     end
 
     # -----------------------------------------------------------------------
@@ -577,73 +650,6 @@ class Rack::Attack
     path.start_with?("/api/v1/system/node_api/") ||
       path.start_with?("/api/v1/system/worker_api/") ||
       path.start_with?("/api/v1/system/federation_api/")
-  end
-
-  # True only for a request carrying a credential the platform can PROVE belongs
-  # to the standalone worker: a JWT signed with the worker secret
-  # (JWT_SECRET_KEY, HS256) whose audience is "worker", issuer ours, unexpired,
-  # typed "worker" and naming a subject; or a client cert PEM that verifies
-  # against OUR CA and names an active Worker. A forwarded subject-CN header
-  # without a PEM is deliberately NOT enough here: the controller trusts it
-  # because the ingress strips client copies, but a throttle bypass should rest
-  # only on something the caller cannot forge. Never raises; any failure is
-  # "not a worker" so the request keeps being counted.
-  def self.verified_worker_request?(request)
-    env = request.env
-    return env["rack_attack.verified_worker"] if env.key?("rack_attack.verified_worker")
-
-    env["rack_attack.verified_worker"] = valid_worker_token?(request) || verified_worker_cert?(request)
-  end
-
-  def self.valid_worker_token?(request)
-    token = request.get_header("HTTP_AUTHORIZATION").to_s.split(" ").last
-    return false if token.blank?
-
-    payload, = JWT.decode(
-      token, Security::JwtKeyStore.worker_auth_secret, true,
-      algorithm: "HS256", verify_iss: true, iss: Rails.application.config.jwt_issuer,
-      verify_aud: true, aud: Security::JwtService::WORKER_AUDIENCE, required_claims: %w[exp sub]
-    )
-    payload["type"] == "worker" && payload["sub"].present?
-  rescue JWT::DecodeError
-    false # the ordinary shape of anonymous/stale/forged traffic: quiet, still counted
-  rescue StandardError => e
-    Rails.logger.error(
-      "[RackAttack] worker token check failed — failing closed (request is NOT exempt and keeps " \
-      "counting toward its throttles): #{e.class}: #{e.message}"
-    )
-    false
-  end
-  private_class_method :valid_worker_token?
-
-  def self.verified_worker_cert?(request)
-    return false if request.get_header("HTTP_X_FORWARDED_TLS_CLIENT_CERT").blank?
-
-    cn = Security::MtlsTrust.verify_request(ActionDispatch::Request.new(request.env), require_pem: true)
-    cn.present? && Worker.active.exists?(node_instance_id: cn)
-  rescue StandardError => e
-    Rails.logger.error(
-      "[RackAttack] worker cert check failed — failing closed (request is NOT exempt and keeps " \
-      "counting toward its throttles): #{e.class}: #{e.message}"
-    )
-    false
-  end
-  private_class_method :verified_worker_cert?
-
-  # Safelist verified worker traffic to the internal API. /api/v1/internal/* is
-  # called only by the standalone worker, and its callers resolve no account, so
-  # without this every one of them counted against api_requests_by_ip under the
-  # worker's single IP: ~88 embedding-config + credential-decrypt calls in five
-  # minutes exhausted the 300/15min budget and every worker->server call (sweeps,
-  # agent runs, dispatch_tool) got 429 for 15 minutes. Both conditions are
-  # required: the path alone is never enough (an anonymous or badly-signed
-  # request to /internal/ still counts), and a valid worker credential outside
-  # /internal/ is not exempted either.
-  safelist("internal_worker_api") do |request|
-    path = canonical_path(request)
-    next false unless path.start_with?("/api/v1/internal/")
-
-    verified_worker_request?(request)
   end
 
   # Safelist specific API keys (e.g., system workers)
